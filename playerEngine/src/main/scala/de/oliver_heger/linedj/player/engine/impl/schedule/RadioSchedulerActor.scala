@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.impl.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
@@ -76,11 +76,11 @@ object RadioSchedulerActor {
     * Creates a ''Props'' object for the creation of a new
     * ''RadioSchedulerActor'' instance.
     *
-    * @param sourceActor the actor for reading radio sources
+    * @param eventActor the actor for generating player events
     * @return properties for creating a new actor instance
     */
-  def apply(sourceActor: ActorRef): Props =
-    Props(classOf[RadioSchedulerActorImpl], sourceActor)
+  def apply(eventActor: ActorRef): Props =
+    Props(classOf[RadioSchedulerActorImpl], eventActor)
 
   /**
     * Calculates an initial delay for a scheduler invocation based on the given
@@ -106,16 +106,23 @@ object RadioSchedulerActor {
   * this source should not be played. This actor is responsible for enforcing
   * such rules.
   *
-  * Switches to sources triggered by the user are routed through this actor.
-  * That way the current source can be tracked, and its list of exclusions can
-  * be evaluated. The system scheduler is used to intercept when a forbidden
-  * time slot is reached. The actor then tries to determine a replacement
-  * source that can be played in the meantime.
+  * This actor needs to be notified about switches to sources triggered by the
+  * user. This is done by sending it a ''RadioSource'' message. The actor can
+  * then track the current source and evaluate its list of exclusions. it uses
+  * the system scheduler to intercept when a forbidden timeslot is reached. The
+  * actor then tries to determine a replacement source that can be played in
+  * the meantime. It sends a [[RadioSourceReplacementStartEvent]] event with
+  * this replacement source. (The receiver of this event - usually the
+  * controller of the audio player application - is responsible to react on
+  * this event and actually switch to the replacement source.) After switching
+  * to the replacement source, this actor determines the time when the original
+  * radio source can be played again. It then sends a corresponding
+  * [[RadioSourceReplacementEndEvent]].
   *
-  * @param sourceActor       the actor for reading the current radio source
+  * @param eventActor        the actor for generating player events
   * @param selectionStrategy the replacement source selection strategy
   */
-class RadioSchedulerActor(sourceActor: ActorRef,
+class RadioSchedulerActor(eventActor: ActorRef,
                           val selectionStrategy: ReplacementSourceSelectionStrategy) extends
   Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport =>
@@ -177,10 +184,8 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     case src: RadioSource =>
       stateChanged()
       currentSource = Some(src)
-      playedSource = null  // force a restart of the source
-      if (!triggerSourceEval(src)) {
-        playSource(src)
-      }
+      playedSource = src
+      triggerSourceEval(src)
 
     case CheckSchedule(state) if validState(state) =>
       checkCurrentSource(Set.empty)
@@ -206,12 +211,11 @@ class RadioSchedulerActor(sourceActor: ActorRef,
     case resp: EvaluateIntervalsActor.EvaluateReplacementSourcesResponse if validState(resp
       .request.currentSourceResponse.request.stateCount) =>
       val untilDate = fetchUntilDate(resp)
-      val (src, date) = selectionStrategy.findReplacementSource(resp.results, untilDate,
-        rankingFunc) match {
+      val (src, date) = selectionStrategy.findReplacementSource(resp.results, untilDate, rankingFunc) match {
         case Some(repSel) => (repSel.source, repSel.untilDate)
         case None => (resp.request.currentSourceResponse.request.source, untilDate)
       }
-      playSource(src)
+      sendReplacementEvent(src)
       scheduleCheckAt(resp.request.currentSourceResponse, date)
 
     case CloseRequest =>
@@ -251,22 +255,19 @@ class RadioSchedulerActor(sourceActor: ActorRef,
   private def validState(state: Int): Boolean = state == stateCounter
 
   /**
-    * Sends a request to evaluate the specified source if necessary. Result is
-    * '''true''' if such a request was sent. If the source has no associated
-    * interval queries, no request is sent, and result is '''false'''.
+    * Sends a request to evaluate the specified source if necessary. If the
+    * source has no associated interval queries, no request is sent.
     *
     * @param src        the source in question
     * @param exclusions sources to be excluded
-    * @return a flag whether a request was sent
     */
   private def triggerSourceEval(src: RadioSource,
-                                exclusions: Set[RadioSource] = Set.empty): Boolean = {
+                                exclusions: Set[RadioSource] = Set.empty): Unit = {
     val queries = radioSourceQueries.getOrElse(src, List.empty)
     if (queries.nonEmpty) {
       evaluateIntervalsActor ! EvaluateIntervalsActor.EvaluateSource(src, LocalDateTime.now(),
         queries, stateCounter, exclusions)
-      true
-    } else false
+    }
   }
 
   /**
@@ -278,20 +279,26 @@ class RadioSchedulerActor(sourceActor: ActorRef,
   private def handleBeforeCheckResult(resp: EvaluateIntervalsActor.EvaluateSourceResponse,
                                       result: Before): Unit = {
     scheduleCheckAt(resp, result.start.value)
-    playSource(resp.request.source)
+    sendReplacementEvent(resp.request.source)
   }
 
   /**
-    * Ensures that the specified source is played. A message is sent to the
-    * source actor only if currently a different source is played.
+    * Sends a radio source replacement event related to the source specified.
+    * This is either a replacement start or end event; depending whether the
+    * source passed in is the current source or not. If there is not change in
+    * the source that is currently played, no event is sent.
     *
     * @param source the new source to be played
     */
-  private def playSource(source: RadioSource): Unit = {
-    if (playedSource != source) {
-      log.info("Switch to source {}.", source.uri)
-      sourceActor ! source
-      playedSource = source
+  private def sendReplacementEvent(source: RadioSource): Unit = {
+    currentSource foreach { cs =>
+      if (playedSource != source) {
+        log.info("Switch to source {}.", source.uri)
+        val event = if (source == cs) RadioSourceReplacementEndEvent(cs)
+        else RadioSourceReplacementStartEvent(cs, source)
+        eventActor ! event
+        playedSource = source
+      }
     }
   }
 

@@ -24,7 +24,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.{PlayerEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
@@ -124,24 +124,23 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new RadioSchedulerActorTestHelper().sendSourceData()
 
     helper receive src
-    val request = helper.expectNoRadioSource().expectSourceEvaluationForNow()
+    val request = helper.expectNoReplacementEvent().expectSourceEvaluationForNow()
     request.source should be(src)
     request.queries should be(RadioSourceQueries(src))
   }
 
-  it should "directly set a resource without interval queries" in {
+  it should "directly set a source without interval queries" in {
     val src = radioSource(42)
     val helper = new RadioSchedulerActorTestHelper().sendSourceData()
 
     helper receive src
-    helper.expectRadioSource(src).expectNoSourceEvaluation()
+    helper.expectNoSourceEvaluation()
   }
 
   it should "trigger a new evaluation if the radio source data changes" in {
     val src = radioSource(1)
     val helper = new RadioSchedulerActorTestHelper
     helper receive src
-    helper expectRadioSource src
 
     helper.sendSourceData()
     val request = helper.expectSourceEvaluationForNow()
@@ -229,8 +228,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val resp = helper.handleSourceEvaluation(source, Before(new LazyDate(LocalDateTime.now()
       plusMinutes 1)))
 
-    helper.expectRadioSource(source).expectSchedule(RadioSchedulerActor.CheckSchedule(resp
-      .request.stateCount), 1.minute)
+    helper.expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 1.minute)
   }
 
   it should "set a schedule no longer than a day in the future" in {
@@ -246,7 +244,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val source = radioSource(1)
     val resp = helper.handleSourceEvaluation(source, After(identity[LocalDateTime]))
 
-    helper.expectRadioSource(source).expectSchedule(RadioSchedulerActor.CheckSchedule(resp
+    helper.expectSchedule(RadioSchedulerActor.CheckSchedule(resp
       .request.stateCount), 1.day)
   }
 
@@ -266,22 +264,21 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val source = radioSource(1)
     val resp = helper.handleSourceEvaluation(source, Before(new LazyDate(LocalDateTime.now()
       plusMinutes 1)))
-    helper.expectRadioSource(source)
 
     helper receive resp
-    helper.expectNoRadioSource()
+    helper.expectNoReplacementEvent()
   }
 
-  it should "set the playback source if no evaluation is needed" in {
+  it should "not send a replacement event if evaluation yields no forbidden timeslot" in {
     val helper = new RadioSchedulerActorTestHelper
     val source = radioSource(2)
     helper receive source
-    val request = helper.sendSourceData().expectRadioSource(source).expectSourceEvaluation()
+    val request = helper.sendSourceData().expectSourceEvaluation()
     val resp = EvaluateIntervalsActor.EvaluateSourceResponse(After(identity[LocalDateTime]),
       request)
 
     helper receive resp
-    helper.expectNoRadioSource()
+    helper.expectNoReplacementEvent()
   }
 
   it should "directly set the current source when receiving a RadioSource message" in {
@@ -353,22 +350,30 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.expectReplacementEvaluation(resp)
   }
 
-  it should "set a replacement source" in {
+  it should "send events about a replacement source" in {
     val helper = new RadioSchedulerActorTestHelper
     val until = LocalDateTime.now() plusMinutes 5
     val untilRepl = until plusMinutes -2
-    val resp = helper.handleSourceEvaluation(radioSource(2), Inside(new LazyDate(until)))
+    val orgSrc = radioSource(2)
     val replSrc = radioSource(3)
+    val resp = helper.handleSourceEvaluation(orgSrc, Inside(new LazyDate(until)))
     when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
       RadioSource.NoRanking))
       .thenReturn(Some(ReplacementSourceSelection(replSrc, untilRepl)))
 
+    helper.expectReplacementEvaluation(resp)
     helper receive replacementResponse(resp)
     helper.expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 3.minutes)
-    helper.expectRadioSource(replSrc)
+    helper.expectReplacementEvent(RadioSourceReplacementStartEvent(orgSrc, replSrc))
+
+    helper receive RadioSchedulerActor.CheckSchedule(resp.request.stateCount)
+    val request = helper.expectSourceEvaluation()
+    val response = EvaluateIntervalsActor.EvaluateSourceResponse(After(identity[LocalDateTime]), request)
+    helper receive response
+    helper.expectReplacementEvent(RadioSourceReplacementEndEvent(orgSrc))
   }
 
-  it should "switch back to the current source if no replacement can be found" in {
+  it should "not send a replacement event if no replacement can be found" in {
     val helper = new RadioSchedulerActorTestHelper
     val until = LocalDateTime.now() plusMinutes 5
     val source = radioSource(2)
@@ -377,33 +382,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       RadioSource.NoRanking)).thenReturn(None)
 
     helper receive replacementResponse(resp)
-    helper.expectRadioSource(source)
+    helper.expectNoReplacementEvent()
       .expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 5.minutes)
-  }
-
-  it should "not send a message for a replacement source if there is no change" in {
-    val helper = new RadioSchedulerActorTestHelper
-    val until = LocalDateTime.now() plusMinutes 5
-    val source = radioSource(2)
-    helper receive source
-    helper.expectRadioSource(source)
-    val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)), sendSource =
-      false)
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
-      RadioSource.NoRanking)).thenReturn(None)
-
-    helper receive replacementResponse(resp)
-    helper.expectNoRadioSource()
-      .expectSchedule(RadioSchedulerActor.CheckSchedule(resp.request.stateCount), 5.minutes)
-  }
-
-  it should "start playback for a received source even if it is the current one" in {
-    val helper = new RadioSchedulerActorTestHelper
-    val source = radioSource(3)
-    helper receive source
-
-    helper.expectRadioSource(source).receive(source)
-    helper.expectRadioSource(source)
   }
 
   it should "pass the ranking function to the selection strategy" in {
@@ -428,7 +408,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
     helper receive replacementResponse(resp)
     verifyNoMoreInteractions(helper.selectionStrategy)
-    helper.expectNoRadioSource().expectNoSchedule()
+    helper.expectNoReplacementEvent().expectNoSchedule()
   }
 
   it should "cancel a pending schedule on receiving a close request" in {
@@ -450,15 +430,15 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.actor ! CloseRequest
     expectMsg(CloseAck(helper.actor))
     helper receive EvaluateIntervalsActor.EvaluateSourceResponse(BeforeForEver, eval)
-    helper.expectNoRadioSource()
+    helper.expectNoReplacementEvent()
   }
 
   /**
     * A test helper class managing the dependencies of a test instance.
     */
   private class RadioSchedulerActorTestHelper {
-    /** Test probe for the source actor. */
-    val sourceActorProbe: TestProbe = TestProbe()
+    /** Test probe for the event actor. */
+    val eventActorProbe: TestProbe = TestProbe()
 
     /** Test probe for the evaluate actor. */
     val evaluateActorProbe: TestProbe = TestProbe()
@@ -532,8 +512,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param r          an optional ranking function
       * @return the response message
       */
-    def handleSourceEvaluation(source: RadioSource, result: IntervalQueryResult, sendSource:
-    Boolean = true, r: RadioSource.Ranking = RadioSource.NoRanking):
+    def handleSourceEvaluation(source: RadioSource, result: IntervalQueryResult, sendSource: Boolean = true,
+                               r: RadioSource.Ranking = RadioSource.NoRanking):
     EvaluateIntervalsActor.EvaluateSourceResponse = {
       sendSourceData(r)
       if (sendSource) {
@@ -543,19 +523,6 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       val response = EvaluateIntervalsActor.EvaluateSourceResponse(result, request)
       receive(response)
       response
-    }
-
-    /**
-      * Checks that the passed in date is approximately the current date. The
-      * actor needs to base query evaluations on the current date.
-      *
-      * @param dt the date to be checked
-      * @return the same date
-      */
-    private def checkCurrentDate(dt: LocalDateTime): LocalDateTime = {
-      val diff = Duration.between(LocalDateTime.now(), dt)
-      diff.toMillis.toInt should be < 2000
-      dt
     }
 
     /**
@@ -600,23 +567,32 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       expectNoMsg(evaluateActorProbe)
 
     /**
-      * Expects that the specified radio source is passed to the source actor.
+      * Expects that the specified player event is fired.
       *
-      * @param src the radio source
+      * @param event the expected ''PlayerEvent''
       * @return this helper
       */
-    def expectRadioSource(src: RadioSource): RadioSchedulerActorTestHelper = {
-      sourceActorProbe.expectMsg(src)
+    def expectReplacementEvent(event: PlayerEvent): RadioSchedulerActorTestHelper = {
+      val eventMsg = eventActorProbe.expectMsgType[PlayerEvent]
+      checkCurrentDate(eventMsg.time)
+      val eventWithTime = event match {
+        case e: RadioSourceReplacementStartEvent =>
+          e.copy(time = eventMsg.time)
+        case e: RadioSourceReplacementEndEvent =>
+          e.copy(time = eventMsg.time)
+        case e => fail("Unexpected event: " + e)
+      }
+      eventMsg should be(eventWithTime)
       this
     }
 
     /**
-      * Checks that no radio source message was sent to the source actor.
+      * Checks that no event regarding a replacement source is fired.
       *
       * @return this helper
       */
-    def expectNoRadioSource(): RadioSchedulerActorTestHelper =
-      expectNoMsg(sourceActorProbe)
+    def expectNoReplacementEvent(): RadioSchedulerActorTestHelper =
+      expectNoMsg(eventActorProbe)
 
     /**
       * Helper method for testing that a test probe was not sent a message.
@@ -628,6 +604,19 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       probe.ref ! NoMessage
       probe.expectMsg(NoMessage)
       this
+    }
+
+    /**
+      * Checks that the passed in date is approximately the current date. The
+      * actor needs to base query evaluations on the current date.
+      *
+      * @param dt the date to be checked
+      * @return the same date
+      */
+    private def checkCurrentDate(dt: LocalDateTime): LocalDateTime = {
+      val diff = Duration.between(LocalDateTime.now(), dt)
+      diff.toMillis.toInt should be < 2000
+      dt
     }
 
     /**
@@ -646,7 +635,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return ''Props'' for a test actor instance
       */
     private def createProps(): Props =
-      Props(new RadioSchedulerActor(sourceActorProbe.ref, selectionStrategy)
+      Props(new RadioSchedulerActor(eventActorProbe.ref, selectionStrategy)
         with RecordingSchedulerSupport with ChildActorFactory {
         override val queue: BlockingQueue[SchedulerInvocation] = scheduleQueue
 
