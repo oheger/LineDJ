@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.impl.DelayActor.Propagate
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -64,12 +65,48 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper.targetProbe.expectMsg(Message)
   }
 
+  it should "forward multiple messages directly if there is no delay" in {
+    val otherTarget = TestProbe()
+    val otherMessage = 42
+    val helper = new DelayActorTestHelper
+    val propagate = new Propagate(List((Message, helper.targetProbe.ref), (otherMessage, otherTarget.ref)), 0.seconds)
+
+    helper.send(propagate)
+      .expectNoSchedule()
+    helper.targetProbe.expectMsg(Message)
+    otherTarget.expectMsg(otherMessage)
+  }
+
   it should "create a scheduled invocation if there is a delay" in {
     val helper = new DelayActorTestHelper
     val delay = 10.seconds
 
     val invocation = helper.propagate(delay).checkNoMessageForTarget().expectSchedule(delay)
     invocation.cancellable.isCancelled shouldBe false
+  }
+
+  it should "create a scheduled invocation for multiple messages if there is a delay" in {
+    val otherTarget = TestProbe()
+    val otherMessage = 42
+    val helper = new DelayActorTestHelper
+    val delay = 2.minutes
+    val propagate = new Propagate(List((Message, helper.targetProbe.ref), (otherMessage, otherTarget.ref)), delay)
+
+    helper.send(propagate)
+      .checkNoMessageForTarget()
+      .expectMultiSchedule(delay, propagate.sendData)
+  }
+
+  it should "send multiple messages in order" in {
+    val otherMessage = 84
+    val helper = new DelayActorTestHelper
+    val propagate = new Propagate(List((Message, helper.targetProbe.ref), (otherMessage, helper.targetProbe.ref)),
+      0.seconds)
+
+    helper.send(propagate)
+      .expectNoSchedule()
+    helper.targetProbe.expectMsg(Message)
+    helper.targetProbe.expectMsg(otherMessage)
   }
 
   it should "cancel a pending schedule if another message is received" in {
@@ -187,7 +224,7 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
   private class DelayActorTestHelper {
     /** The queue for recording scheduled invocations. */
     private val schedulerQueue =
-    new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
+      new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
     /** A probe that can serve as target. */
     val targetProbe: TestProbe = TestProbe()
@@ -231,6 +268,27 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     }
 
     /**
+      * Expects a scheduled invocation for multiple messages.
+      *
+      * @param delay the delay
+      * @param data  the data to be sent with a delay
+      * @return the scheduled invocation
+      */
+    def expectMultiSchedule(delay: FiniteDuration, data: Iterable[(Any, ActorRef)]):
+    RecordingSchedulerSupport.SchedulerInvocation = {
+      val invocation = RecordingSchedulerSupport expectInvocation schedulerQueue
+      invocation.receiver should be(actor)
+      invocation.interval should be(null)
+      invocation.initialDelay should be(delay)
+      invocation.message match {
+        case d: DelayActor.DelayedInvocation =>
+          d.propagate.sendData should be(data)
+        case m => fail("Unexpected scheduled message: " + m)
+      }
+      invocation
+    }
+
+    /**
       * Expects a scheduled invocation with the specified parameters.
       *
       * @param target the target actor
@@ -239,19 +297,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the scheduled invocation
       */
     def expectSchedule(delay: FiniteDuration, target: ActorRef = targetProbe.ref,
-                       msg: Any = Message): RecordingSchedulerSupport.SchedulerInvocation = {
-      val invocation = RecordingSchedulerSupport expectInvocation schedulerQueue
-      invocation.receiver should be(actor)
-      invocation.interval should be(null)
-      invocation.initialDelay should be(delay)
-      invocation.message match {
-        case d: DelayActor.DelayedInvocation =>
-          d.propagate.msg should be(msg)
-          d.propagate.target should be(target)
-        case m => fail("Unexpected scheduled message: " + m)
-      }
-      invocation
-    }
+                       msg: Any = Message): RecordingSchedulerSupport.SchedulerInvocation =
+      expectMultiSchedule(delay, List((msg, target)))
 
     /**
       * Checks that the target actor did not receive a message.
@@ -272,9 +319,9 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the ''Props'' for a test instance
       */
     private def createProps(): Props =
-    Props(new DelayActor with RecordingSchedulerSupport {
-      override val queue: BlockingQueue[RecordingSchedulerSupport.SchedulerInvocation] = schedulerQueue
-    })
+      Props(new DelayActor with RecordingSchedulerSupport {
+        override val queue: BlockingQueue[RecordingSchedulerSupport.SchedulerInvocation] = schedulerQueue
+      })
   }
 
 }

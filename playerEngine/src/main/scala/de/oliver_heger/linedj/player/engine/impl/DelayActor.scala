@@ -26,15 +26,37 @@ object DelayActor {
   /** A delay value that means ''no delay''. */
   val NoDelay: FiniteDuration = 0.seconds
 
+  case object Propagate {
+    /**
+      * Returns a new instance of ''Propagate'' that contains only a single
+      * message to be forwarded to a target actor after a delay.
+      *
+      * @param msg    the message to be forwarded
+      * @param target the target actor
+      * @param delay  the delay
+      * @return the new ''Propagate'' instance
+      */
+    def apply(msg: Any, target: ActorRef, delay: FiniteDuration): Propagate =
+      new Propagate(List((msg, target)), delay)
+  }
+
   /**
-    * A message processed by [[DelayActor]] that causes the specified message
-    * to be sent to the target after the given delay.
+    * A message processed by [[DelayActor]] that causes the specified
+    * message(s) to be sent to the target(s) after the given delay.
     *
-    * @param msg    the message
-    * @param target the target actor
-    * @param delay  the delay
+    * @param sendData contains the messages and their target actors
+    * @param delay    the delay
     */
-  case class Propagate(msg: Any, target: ActorRef, delay: FiniteDuration)
+  case class Propagate(sendData: Iterable[(Any, ActorRef)], delay: FiniteDuration) {
+    /**
+      * Returns the actor reference considered the target of this propagation.
+      * This is, by coincidence, the first target in the list of messages. Note
+      * that empty lists are not handled.
+      *
+      * @return the target actor of this propagation
+      */
+    def target: ActorRef = sendData.head._2
+  }
 
   /**
     * A data class used internally to store information about pending delayed
@@ -76,7 +98,7 @@ object DelayActor {
   * delay to a target actor. This is useful for instance on startup time: When
   * the player starts, it may be the case that not all required MP3 context
   * factory objects have already been registered; therefore, it makes sense to
-  * give them some time to start up. Also, for error handling it may a
+  * give them some time to start up. Also, for error handling it may be a
   * strategy to wait some time before retrying an operation (e.g. switch to a
   * specific radio source which may be temporarily not available).
   *
@@ -92,6 +114,11 @@ object DelayActor {
   * Delayed messages for a specific target actor are removed when another
   * message for this target actor comes in. So only a single message can be
   * pending for one actor.
+  *
+  * Sometimes, multiple messages have to be sent together after a delay. This
+  * is achieved by specifying multiple pairs of message and target actor in a
+  * single message to be processed by this actor. In this case, the first
+  * target actor is considered the relevant one.
   */
 class DelayActor extends Actor with ActorLogging {
   this: SchedulerSupport =>
@@ -123,7 +150,7 @@ class DelayActor extends Actor with ActorLogging {
       }
 
     case CloseRequest =>
-      pendingSchedules foreach(e => e._2.cancellable.cancel())
+      pendingSchedules foreach (e => e._2.cancellable.cancel())
       pendingSchedules.clear()
       sender ! CloseAck(self)
   }
@@ -144,11 +171,13 @@ class DelayActor extends Actor with ActorLogging {
   }
 
   /**
-    * Handles propagation. The target actor is sent the specified message.
+    * Handles propagation. Sends the messages to their target actors.
     *
     * @param propagate the ''Propagate'' object
     */
   private def propagate(propagate: Propagate): Unit = {
-    propagate.target ! propagate.msg
+    propagate.sendData foreach { t =>
+      t._2 ! t._1
+    }
   }
 }
