@@ -300,7 +300,7 @@ object ErrorHandlingStrategy {
     */
   private def switchSourceAction(source: RadioSource, delay: FiniteDuration): PlayerAction =
   p => {
-    p.switchToSource(source, delay)
+    p.makeToCurrentSource(source)
     p.startPlayback(delay)
   }
 

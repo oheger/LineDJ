@@ -298,7 +298,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     ctrl windowOpened event()
     helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
-    verify(helper.player, never()).switchToSource(argEq(radioSource(2)), any[FiniteDuration])
+    verify(helper.player, never()).makeToCurrentSource(argEq(radioSource(2)))
   }
 
   it should "reset the sources update flag after the update" in {
@@ -746,7 +746,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       */
     def verifySwitchSource(src: RadioSource, delay: FiniteDuration = 5.seconds):
     RadioControllerTestHelper = {
-      verify(player).switchToSource(src, delay)
+      verify(player).makeToCurrentSource(src)
       this
     }
 

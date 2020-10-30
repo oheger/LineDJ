@@ -232,7 +232,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     if (!sourcesUpdating) {
       val source = comboSources.getData.asInstanceOf[RadioSource]
       if (source != null) {
-        player.switchToSource(source)
+        player.makeToCurrentSource(source)
 
         val nextSource = radioSources find(t => t._2 == source)
         nextSource foreach storeCurrentSource
@@ -364,7 +364,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   private def recoverFromError(): Unit = {
     log.info("Trying to recover from error.")
     if (errorState.isAlternativeSourcePlaying(currentSource)) {
-      player switchToSource currentSource
+      player makeToCurrentSource currentSource
       log.info("Switched to radio source {}.", currentSource)
     }
     resetErrorState()
@@ -407,7 +407,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
                                       delay: FiniteDuration): Unit = {
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
-      player.switchToSource(s._2, delay)
+      player.makeToCurrentSource(s._2)
       player.startPlayback()
       comboSources setData s._2
       storeCurrentSource(s)

@@ -21,14 +21,19 @@ import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.impl._
-import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import org.mockito.Matchers.any
+import org.mockito.Mockito
+import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -42,7 +47,7 @@ object RadioPlayerSpec {
   * Test class for ''RadioPlayer''.
   */
 class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import RadioPlayerSpec._
 
@@ -56,36 +61,8 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val source = RadioSource("Radio Download")
     val helper = new RadioPlayerTestHelper
 
-    helper.player switchToSource source
-    helper.expectDelayed(source, helper.probeSchedulerActor, PlayerControl.NoDelay)
-  }
-
-  it should "support switching the radio source with a delay" in {
-    val source = RadioSource("Radio Download")
-    val helper = new RadioPlayerTestHelper
-    val Delay = 5.minutes
-
-    helper.player.switchToSource(source, Delay)
-    helper.expectDelayed(source, helper.probeSchedulerActor, Delay)
-  }
-
-  it should "clear the buffer when playback starts and there is no delay" in {
-    val helper = new RadioPlayerTestHelper
-
-    helper.player.startPlayback()
-    helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
-      PlayerControl.NoDelay)
-    helper.probeSourceActor.expectMsg(RadioDataSourceActor.ClearSourceBuffer)
-  }
-
-  it should "not clear the buffer for a delayed start of playback" in {
-    val helper = new RadioPlayerTestHelper
-    val Delay = 1.second
-
-    helper.player.startPlayback(Delay)
-    helper.expectDelayed(PlaybackActor.StartPlayback, helper.probePlaybackActor,
-      Delay)
-    helper.probeSourceActor.expectNoMessage(150.millis)
+    helper.player makeToCurrentSource source
+    helper.probeSchedulerActor.expectMsg(source)
   }
 
   it should "provide access to its current config" in {
@@ -102,8 +79,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     intercept[AskTimeoutException] {
       Await.result(helper.player.close(), 1.second)
     }
-    helper.probeSourceActor.expectMsg(CloseRequest)
-    helper.probePlaybackActor.expectMsg(CloseRequest)
+    helper.probeFacadeActor.expectMsg(CloseRequest)
     helper.probeSchedulerActor.expectMsg(CloseRequest)
     helper.probeDelayActor.expectMsg(CloseRequest)
   }
@@ -145,16 +121,100 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       .probeSchedulerActor, PlayerControl.NoDelay)
   }
 
+  it should "support starting playback of a specific radio source" in {
+    val source = RadioSource("nice music")
+    val helper = new RadioPlayerTestHelper
+    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val expMsg = DelayActor.Propagate(List((expSrcMsg, helper.probeFacadeActor.ref),
+      (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
+
+    helper.player.playSource(source, makeCurrent = false, resetEngine = false)
+    helper.expectDelayed(expMsg)
+  }
+
+  it should "support starting playback and making a source the current one" in {
+    val source = RadioSource("new current source")
+    val helper = new RadioPlayerTestHelper
+    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val expMsg = DelayActor.Propagate(List((source, helper.probeSchedulerActor.ref),
+      (expSrcMsg, helper.probeFacadeActor.ref), (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
+
+    helper.player.playSource(source, makeCurrent = true, resetEngine = false)
+    helper.expectDelayed(expMsg)
+  }
+
+  it should "support starting playback and resetting the engine" in {
+    val source = RadioSource("source with reset")
+    val helper = new RadioPlayerTestHelper
+    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val expMsg = DelayActor.Propagate(List((PlayerFacadeActor.ResetEngine, helper.probeFacadeActor.ref),
+      (expSrcMsg, helper.probeFacadeActor.ref), (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
+
+    helper.player.playSource(source, makeCurrent = false)
+    helper.expectDelayed(expMsg)
+  }
+
+  it should "support starting playback, resetting the engine, and making a source the current one" in {
+    val source = RadioSource("new current source with reset")
+    val helper = new RadioPlayerTestHelper
+    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val expMsg = DelayActor.Propagate(List((PlayerFacadeActor.ResetEngine, helper.probeFacadeActor.ref),
+      (source, helper.probeSchedulerActor.ref), (expSrcMsg, helper.probeFacadeActor.ref),
+      (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
+
+    helper.player.playSource(source, makeCurrent = true)
+    helper.expectDelayed(expMsg)
+  }
+
+  it should "support starting playback with a delay" in {
+    val delay = 22.seconds
+    val source = RadioSource("delayed source")
+    val helper = new RadioPlayerTestHelper
+    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val expMsg = DelayActor.Propagate(List((expSrcMsg, helper.probeFacadeActor.ref),
+      (expStartMsg, helper.probeFacadeActor.ref)), delay)
+
+    helper.player.playSource(source, makeCurrent = false, resetEngine = false, delay = delay)
+    helper.expectDelayed(expMsg)
+  }
+
+  it should "support resetting the player engine" in {
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.reset()
+    helper.probeFacadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
+  }
+
+  it should "support adding a playback context factory" in {
+    val factory = mock[PlaybackContextFactory]
+    val msg = PlaybackActor.AddPlaybackContextFactory(factory)
+    val helper = new RadioPlayerTestHelper
+
+    helper.player addPlaybackContextFactory factory
+    helper.probeFacadeActor.expectMsg(msg)
+  }
+
+  it should "support removing a playback context factory" in {
+    val factory = mock[PlaybackContextFactory]
+    val msg = PlaybackActor.RemovePlaybackContextFactory(factory)
+    val helper = new RadioPlayerTestHelper
+
+    helper.player removePlaybackContextFactory factory
+    helper.probeFacadeActor.expectMsg(msg)
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
     */
   private class RadioPlayerTestHelper {
-    /** Test probe for the playback actor. */
-    val probePlaybackActor: TestProbe = TestProbe()
-
-    /** Test probe for the radio data source actor. */
-    val probeSourceActor: TestProbe = TestProbe()
+    /** Test probe for the facade actor. */
+    val probeFacadeActor: TestProbe = TestProbe()
 
     /** Test probe for the line writer actor. */
     val probeLineWriterActor: TestProbe = TestProbe()
@@ -182,7 +242,17 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @param delay  the delay
       */
     def expectDelayed(msg: Any, target: TestProbe, delay: FiniteDuration): Unit = {
-      probeDelayActor.expectMsg(DelayActor.Propagate(msg, target.ref, delay))
+      expectDelayed(DelayActor.Propagate(msg, target.ref, delay))
+    }
+
+    /**
+      * Expects that a specific ''Propagate'' message is passed to the delay
+      * actor.
+      *
+      * @param prop the expected ''Propagate'' message
+      */
+    def expectDelayed(prop: DelayActor.Propagate): Unit = {
+      probeDelayActor.expectMsg(prop)
     }
 
     /**
@@ -201,35 +271,55 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.args should have size 0
           probeLineWriterActor.ref
 
-        case "radioDataSourceActor" =>
-          classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
-          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-          props.args should be(List(config, probeEventActor.ref))
-          probeSourceActor.ref
-
         case "radioSchedulerActor" =>
           classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
           classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
           classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
           props.args should have length 1
-          props.args.head should be(probeSourceActor.ref)
+          props.args.head should be(probeEventActor.ref)
           probeSchedulerActor.ref
+
+        case "radioDelayActor" =>
+          props should be(DelayActor())
+          probeDelayActor.ref
 
         case "radioEventManagerActor" =>
           props.actorClass() should be(classOf[EventManagerActor])
           props.args should have size 0
           probeEventActor.ref
 
-        case "radioDelayActor" =>
-          props should be(DelayActor())
-          probeDelayActor.ref
-
-        case "radioPlaybackActor" =>
-          classOf[PlaybackActor] isAssignableFrom props.actorClass() shouldBe true
-          props.args should contain theSameElementsAs List(config, probeSourceActor.ref,
-            probeLineWriterActor.ref, probeEventActor.ref)
-          probePlaybackActor.ref
+        case "radioPlayerFacadeActor" =>
+          classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
+          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+          props.args should have size 4
+          props.args.take(3) should contain theSameElementsInOrderAs List(config, probeEventActor.ref,
+            probeLineWriterActor.ref)
+          val creator = props.args(3).asInstanceOf[SourceActorCreator]
+          checkSourceActorCreator(creator)
+          probeFacadeActor.ref
       }
+    }
+
+    /**
+      * Checks whether a correct function to create the radio source actor has
+      * been provided.
+      *
+      * @param creator the creator function
+      */
+    private def checkSourceActorCreator(creator: SourceActorCreator): Unit = {
+      val probeSourceActor = TestProbe()
+      val factory = mock[ChildActorFactory]
+      Mockito.when(factory.createChildActor(any())).thenAnswer((invocation: InvocationOnMock) => {
+        val props = invocation.getArgumentAt(0, classOf[Props])
+        classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
+        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+        props.args should be(List(config, probeEventActor.ref))
+        probeSourceActor.ref
+      })
+
+      val actors = creator(factory, config)
+      actors should have size 1
+      actors(PlayerFacadeActor.KeySourceActor) should be(probeSourceActor.ref)
     }
 
     /**

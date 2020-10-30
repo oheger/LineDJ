@@ -166,7 +166,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, ErrorHandlingStrategy.NoError,
       errorEvent(1), CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(CurrentSource, RetryInterval.millis)
+    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
   }
 
   it should "increase the retry interval using the configured factor" in {
@@ -176,7 +176,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, next, errorEvent(1), CurrentSource)
     val nextRetry = math.round(RetryInterval * RetryIncrement).millis
-    verify(checkPlayerAction(action)).switchToSource(CurrentSource, nextRetry)
+    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
   }
 
   it should "correctly calculate the maximum retry time" in {
@@ -187,7 +187,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, next) = strategy.handleError(StrategyConfig, state,
       errorEvent(1), CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(CurrentSource, maxRetryTime.millis)
+    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
     next.retryMillis should be > maxRetryTime
   }
 
@@ -198,7 +198,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     val (action, next) = strategy.handleError(StrategyConfig, state, errorEvent(1),
       CurrentSource)
     val player = checkPlayerAction(action)
-    verify(player).switchToSource(radioSource(2), RetryInterval.millis)
+    verify(player).makeToCurrentSource(radioSource(2))
     verify(player).startPlayback(RetryInterval.millis)
     next.retryMillis should be(0)
   }
@@ -224,7 +224,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, next, errorEvent(2),
       CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(radioSource(2), RetryInterval.millis)
+    verify(checkPlayerAction(action)).makeToCurrentSource(radioSource(2))
   }
 
   it should "blacklist the next source correctly" in {
@@ -236,7 +236,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     val (action, _) = strategy.handleError(StrategyConfig,
       next.copy(retryMillis = ExceededRetryTime), errorEvent(2), CurrentSource)
     val player = checkPlayerAction(action)
-    verify(player).switchToSource(radioSource(3), RetryInterval.millis)
+    verify(player).makeToCurrentSource(radioSource(3))
     verify(player).startPlayback(RetryInterval.millis)
   }
 
@@ -249,8 +249,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, next) = strategy.handleError(StrategyConfig, state, errEvent,
       CurrentSource)
-    verify(checkPlayerAction(action)).switchToSource(CurrentSource,
-      StrategyConfig.maxRetryInterval.millis)
+    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
     next.activeSource.get should be(CurrentSource)
   }
 
@@ -293,7 +292,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     // Fetches the replacement source from the action
     def replacementSource(action: ErrorHandlingStrategy.PlayerAction): RadioSource = {
       val captor = ArgumentCaptor.forClass(classOf[RadioSource])
-      verify(checkPlayerAction(action)).switchToSource(captor.capture(), any[FiniteDuration])
+      verify(checkPlayerAction(action)).makeToCurrentSource(captor.capture())
       captor.getValue
     }
 

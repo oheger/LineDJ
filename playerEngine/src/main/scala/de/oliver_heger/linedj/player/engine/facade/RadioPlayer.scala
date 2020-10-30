@@ -19,9 +19,11 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, PlaybackActor, RadioDataSourceActor}
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.impl._
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
 import scala.concurrent.duration.FiniteDuration
@@ -36,18 +38,30 @@ object RadioPlayer {
     */
   def apply(config: PlayerConfig): RadioPlayer = {
     val eventActor = config.actorCreator(Props[EventManagerActor], "radioEventManagerActor")
-    val sourceActor = config.actorCreator(RadioDataSourceActor(config, eventActor),
-      "radioDataSourceActor")
+    val sourceCreator = radioPlayerSourceCreator(eventActor)
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
-    val playbackActor = config.actorCreator(PlaybackActor(config, sourceActor, lineWriterActor,
-      eventActor), "radioPlaybackActor")
-    val schedulerActor = config.actorCreator(RadioSchedulerActor(sourceActor),
+    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator),
+      "radioPlayerFacadeActor")
+    val schedulerActor = config.actorCreator(RadioSchedulerActor(eventActor),
       "radioSchedulerActor")
     val delayActor = config.actorCreator(DelayActor(), "radioDelayActor")
 
-    new RadioPlayer(config, playbackActor, sourceActor, schedulerActor, eventActor,
-      delayActor)
+    new RadioPlayer(config, facadeActor, schedulerActor, eventActor, delayActor)
   }
+
+  /**
+    * Returns the function to create the source actor for the radio player. As
+    * the ''RadioDataSourceActor'' depends on the event actor, this reference
+    * has to be passed in.
+    *
+    * @param eventActor the event actor
+    * @return the function to create the source actor for the radio player
+    */
+  private def radioPlayerSourceCreator(eventActor: ActorRef): SourceActorCreator =
+    (factory, config) => {
+      val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor))
+      Map(PlayerFacadeActor.KeySourceActor -> srcActor)
+    }
 }
 
 /**
@@ -62,28 +76,28 @@ object RadioPlayer {
   * threads is safe.
   *
   * @param config            the configuration for this player
-  * @param playbackActor     reference to the playback actor
-  * @param sourceActor       reference to the radio source actor
+  * @param facadeActor       reference to the facade actor
   * @param schedulerActor    reference to the scheduler actor
   * @param eventManagerActor reference to the event manager actor
   * @param delayActor        reference to the delay actor
   */
 class RadioPlayer private(val config: PlayerConfig,
-                          playbackActor: ActorRef,
-                          sourceActor: ActorRef, schedulerActor: ActorRef,
+                          facadeActor: ActorRef,
+                          schedulerActor: ActorRef,
                           override protected val eventManagerActor: ActorRef,
                           delayActor: ActorRef)
   extends PlayerControl {
   /**
-    * Switches to the specified radio source. Playback of the current radio
-    * stream - if any - is stopped. Then the new stream is opened and played.
-    * It is possible to specify a delay when this should happen.
+    * Marks a source as the new current source. This does not change the
+    * current playback if any. It just means that the source specified is now
+    * monitored for forbidden intervals, and corresponding events are
+    * generated. To actually play this source, it has to be passed to the
+    * ''playSource()'' function.
     *
     * @param source identifies the radio stream to be played
-    * @param delay an optional delay for this operation
     */
-  def switchToSource(source: RadioSource, delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokeDelayed(source, schedulerActor, delay)
+  def makeToCurrentSource(source: RadioSource): Unit = {
+    schedulerActor ! source
   }
 
   /**
@@ -93,7 +107,7 @@ class RadioPlayer private(val config: PlayerConfig,
     * source until the exclusion interval for the current source is over.
     *
     * @param exclusions a map with information about exclusion intervals
-    * @param rankingF the ranking function for the sources
+    * @param rankingF   the ranking function for the sources
     */
   def initSourceExclusions(exclusions: Map[RadioSource, Seq[IntervalQuery]],
                            rankingF: RadioSource.Ranking): Unit = {
@@ -117,26 +131,44 @@ class RadioPlayer private(val config: PlayerConfig,
   }
 
   /**
-    * @inheritdoc This implementation also sends a clear buffer message to the
-    *             source actor to make sure that no outdated audio data is
-    *             played. Note: This happens only if no delay is specified!
-    *             Normally, for this player playback should not be started with
-    *             a delay. Rather, the ''switchToSource()'' method should be
-    *             invoked with a delay; this causes the start of audio
-    *             streaming at the desired time.
+    * The central function to start playback of a radio source. The source can
+    * be either the current source or a replacement source. When switching the
+    * current source, the ''makeCurrent'' flag should be '''true'''. Before
+    * switching to another radio source, the player engine should typically be
+    * reset to make sure that all audio buffers in use are cleared. Optionally,
+    * playback can start after a delay.
+    *
+    * @param source      the source to be played
+    * @param makeCurrent flag whether this should become the current source
+    * @param resetEngine flag whether to reset the audio engine
+    * @param delay       the delay
     */
-  override def startPlayback(delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    if (delay <= PlayerControl.NoDelay) {
-      sourceActor ! RadioDataSourceActor.ClearSourceBuffer
-    }
-    super.startPlayback(delay)
+  def playSource(source: RadioSource, makeCurrent: Boolean, resetEngine: Boolean = true,
+                 delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
+    val playMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
+    val srcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
+    val startMsg = List((srcMsg, facadeActor), (playMsg, facadeActor))
+    val curMsg = if (makeCurrent) (source, schedulerActor) :: startMsg else startMsg
+    val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, facadeActor) :: curMsg else curMsg
+    delayActor ! DelayActor.Propagate(resetMsg, delay)
+  }
+
+  /**
+    * Resets the player engine and forces the recreation of the actors
+    * necessary for audio playback. Such a reset may be necessary before a
+    * disruptive change of the audio playback, e.g. to switch to a different
+    * position in the playlist. This operation makes sure that all audio
+    * buffers are properly closed, and new audio data can be played.
+    */
+  def reset(): Unit = {
+    facadeActor ! PlayerFacadeActor.ResetEngine
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(playbackActor, sourceActor, schedulerActor, delayActor))
+    closeActors(List(facadeActor, schedulerActor, delayActor))
 
   override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
-    invokeDelayed(msg, playbackActor, delay)
+    invokeFacadeActor(msg, PlayerFacadeActor.TargetPlaybackActor, delay)
   }
 
   /**
@@ -150,4 +182,34 @@ class RadioPlayer private(val config: PlayerConfig,
   private def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
     delayActor ! DelayActor.Propagate(msg, target, delay)
   }
+
+  /**
+    * Helper method to send a message to the facade actor.
+    *
+    * @param msg    the message to be sent
+    * @param target the receiver of the message
+    * @param delay  a delay
+    */
+  private def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
+                                delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
+    facadeActor ! convertMessage(msg, target, delay)
+  }
+
+  /**
+    * Converts an incoming message to a message to be sent to the facade actor.
+    * Normal messages have to be wrapped in a ''Dispatch'' message. Some
+    * messages, however, require a special treatment.
+    *
+    * @param msg    the message to be sent
+    * @param target the receiver of the message
+    * @param delay  a delay
+    * @return the message to the facade actor
+    */
+  private def convertMessage(msg: Any, target: PlayerFacadeActor.TargetActor,
+                             delay: FiniteDuration) =
+    msg match {
+      case addFactory: AddPlaybackContextFactory => addFactory
+      case remFactory: RemovePlaybackContextFactory => remFactory
+      case m => PlayerFacadeActor.Dispatch(m, target, delay)
+    }
 }
