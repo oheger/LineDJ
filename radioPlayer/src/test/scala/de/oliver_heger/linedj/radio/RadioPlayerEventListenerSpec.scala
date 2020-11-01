@@ -67,6 +67,23 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     verify(helper.controller).playbackContextCreationFailed()
   }
 
+  it should "delegate replacement source start events" in {
+    val replacementSource = RadioSource("ReplacementSource")
+    val startEvent = RadioSourceReplacementStartEvent(RadioSource("current"), replacementSource)
+    val helper = new RadioPlayerEventListenerTestHelper
+
+    helper sendEvent startEvent
+    verify(helper.controller).replacementSourceStarts(replacementSource)
+  }
+
+  it should "delegate replacement source end events" in {
+    val endEvent = RadioSourceReplacementEndEvent(RadioSource("theCurrentSource"))
+    val helper = new RadioPlayerEventListenerTestHelper
+
+    helper sendEvent endEvent
+    verify(helper.controller).replacementSourceEnds()
+  }
+
   it should "ignore other events" in {
     val helper = new RadioPlayerEventListenerTestHelper
 
