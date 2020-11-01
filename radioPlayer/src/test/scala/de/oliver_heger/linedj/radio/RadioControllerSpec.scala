@@ -70,6 +70,20 @@ object RadioControllerSpec {
   private val MinFailedSources = 3
 
   /**
+    * A data class storing information about radio sources passed to the mock
+    * player's ''playSource()'' function.
+    *
+    * @param source      the radio source that was played
+    * @param makeCurrent the make current flag
+    * @param reset       the reset flag
+    * @param delay       the delay
+    */
+  private case class RadioSourcePlayback(source: RadioSource,
+                                         makeCurrent: Boolean,
+                                         reset: Boolean,
+                                         delay: FiniteDuration)
+
+  /**
     * Generates the name for the source with the given index.
     *
     * @param idx the index
@@ -191,7 +205,10 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
-    helper.verifySourcesAddedToCombo().verifyNoMoreInteractionWithCombo()
+    verify(helper.player).initSourceExclusions(any(), any())
+    helper.verifySourcesAddedToCombo()
+      .verifyNoMoreInteractionWithCombo()
+      .verifyNoMorePlayerInteraction()
   }
 
   it should "disable playback actions if there are no sources" in {
@@ -214,7 +231,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     helper.createInitializedController(createSourceConfiguration(1))
 
-    helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
+    helper.verifyInitialStartPlayback(radioSource(1))
   }
 
   it should "start playback with the stored source from the configuration" in {
@@ -224,7 +241,8 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     helper.createInitializedController(srcConfig, config)
 
-    helper.verifySelectedSource(2).verifySwitchSource(radioSource(2)).verifyStartPlayback()
+    helper.verifySelectedSource(2)
+      .verifyInitialStartPlayback(radioSource(2))
   }
 
   it should "start playback with a configured delay" in {
@@ -234,7 +252,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     config.addProperty("radio.initialDelay", Delay.toMillis)
     helper.createInitializedController(createSourceConfiguration(1), config)
 
-    helper.verifySwitchSource(radioSource(1), Delay).verifyStartPlayback()
+    helper.verifyInitialStartPlayback(radioSource(1), delay = Delay)
   }
 
   it should "store the current source in the configuration after startup" in {
@@ -253,17 +271,28 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     helper.createInitializedController(srcConfig, config)
 
-    helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
+    helper.verifyInitialStartPlayback(radioSource(1))
   }
 
-  it should "react on changes in the radio sources selection" in {
+  it should "react on changes in the radio sources selection while playback is not active" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
     val src = radioSource(2)
     doReturn(src).when(helper.comboHandler).getData
 
     ctrl elementChanged mock[FormChangeEvent]
-    helper.verifySwitchSource(radioSource(2), null)
+    helper.verifySwitchSource(radioSource(2))
+      .verifyNoMorePlayerInteraction()
+  }
+
+  it should "react on changes in the radio sources selection while playback is active" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+    val src = radioSource(2)
+    doReturn(src).when(helper.comboHandler).getData
+
+    ctrl elementChanged mock[FormChangeEvent]
+    verify(helper.player).playSource(src, makeCurrent = true)
   }
 
   it should "update the current source in the config after a change in the combo selection" in {
@@ -284,7 +313,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     doReturn(null).when(helper.comboHandler).getData
 
     ctrl elementChanged mock[FormChangeEvent]
-    verifyZeroInteractions(helper.player)
+    helper.verifyNoMorePlayerInteraction()
   }
 
   it should "ignore change events while populating the sources combo box" in {
@@ -297,19 +326,19 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     doReturn(radioSource(3)).when(helper.comboHandler).getData
 
     ctrl windowOpened event()
-    helper.verifySwitchSource(radioSource(1)).verifyStartPlayback()
-    verify(helper.player, never()).makeToCurrentSource(argEq(radioSource(2)))
+    helper.verifyInitialStartPlayback(radioSource(1))
+    verify(helper.player, never()).playSource(argEq(radioSource(2)), anyBoolean(), anyBoolean(), any())
   }
 
   it should "reset the sources update flag after the update" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(4))
-    helper verifySwitchSource radioSource(1)
+    helper.verifyInitialStartPlayback(radioSource(1))
     val selectedSource = radioSource(2)
 
     doReturn(selectedSource).when(helper.comboHandler).getData
     ctrl.elementChanged(null)
-    helper.verifySwitchSource(selectedSource, null)
+    verify(helper.player).playSource(selectedSource, makeCurrent = true)
   }
 
   it should "send exclusion data to the radio player" in {
@@ -401,22 +430,38 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     checkIgnoredEvent(_.windowIconified(_))
   }
 
-  it should "allow starting playback" in {
-    val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(createSourceConfiguration(0))
-
-    ctrl.startPlayback()
-    helper.verifyStartPlayback().verifyAction(StartPlaybackAction, enabled = false)
-      .verifyAction(StopPlaybackAction, enabled = true)
-  }
-
   it should "allow stopping playback" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
 
     ctrl.stopPlayback()
-    helper.verifyStopPlayback().verifyAction(StartPlaybackAction, enabled = true)
+    helper.verifyStopPlayback()
+      .verifyAction(StartPlaybackAction, enabled = true)
       .verifyAction(StopPlaybackAction, enabled = false)
+  }
+
+  it should "allow restarting playback" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+    ctrl.stopPlayback()
+
+    ctrl.startPlayback()
+    verify(helper.player).playSource(radioSource(1), makeCurrent = false)
+    helper.verifyAction(StartPlaybackAction, enabled = false, count = 2)
+      .verifyAction(StopPlaybackAction, enabled = true, count = 2)
+  }
+
+  it should "set the playback active flag when restarting playback" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+    ctrl.stopPlayback()
+    ctrl.startPlayback()
+    val src = radioSource(2)
+    doReturn(src).when(helper.comboHandler).getData
+
+    ctrl elementChanged mock[FormChangeEvent]
+    val playback = helper.singlePlaybackFor(src)
+    playback.makeCurrent shouldBe true
   }
 
   it should "pass a correct configuration to the error handling strategy" in {
@@ -511,7 +556,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources, radioSource(7)), 1)
 
     ctrl playbackTimeProgress RecoveryTime
-    helper.verifySwitchSource(radioSource(1), null)
+    verify(helper.player).playSource(radioSource(1), makeCurrent = false)
     verify(helper.errorIndicator).setVisible(false)
     val (answer, _) = helper.expectErrorStrategyCall()
     ctrl radioSourcePlaybackStarted radioSource(2)
@@ -528,7 +573,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     ctrl playbackTimeProgress RecoveryTime
     verify(helper.errorIndicator).setVisible(false)
-    verifyNoMoreInteractions(helper.player)
+    helper.verifyNoMorePlayerInteraction()
   }
 
   it should "not recover from error if not in error state" in {
@@ -596,12 +641,74 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     counter.get() should be(1)
   }
 
+  it should "record a replacement source and start playback of it later" in {
+    val repSrc = radioSource(2)
+    val msg = new Message(null, "txt_status_replacement", sourceName(2))
+    val helper = new RadioControllerTestHelper
+    helper.expectMessageResource(msg)
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4))
+    ctrl.stopPlayback()
+
+    ctrl replacementSourceStarts repSrc
+    helper.playbacksFor(repSrc) should have size 0
+    ctrl.startPlayback()
+    val playback = helper.singlePlaybackFor(repSrc)
+    playback.makeCurrent shouldBe false
+    verify(helper.statusHandler).setText(StatusText)
+  }
+
+  it should "directly switch to a replacement source if playback is enabled" in {
+    val repSrc = radioSource(3)
+    val msg = new Message(null, "txt_status_replacement", sourceName(3))
+    val helper = new RadioControllerTestHelper
+    helper.expectMessageResource(msg)
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4))
+
+    ctrl replacementSourceStarts repSrc
+    helper.singlePlaybackFor(repSrc).makeCurrent shouldBe false
+    verify(helper.statusHandler, never()).setText(anyString())
+  }
+
+  it should "handle an end of the replacement source if playback is not active" in {
+    val repSrc = radioSource(2)
+    val helper = new RadioControllerTestHelper
+    helper.expectResource("txt_status_playback")
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4))
+    ctrl.stopPlayback()
+
+    ctrl replacementSourceStarts repSrc
+    ctrl.replacementSourceEnds()
+    ctrl.startPlayback()
+    helper.playbacksFor(repSrc) should have size 0
+    val pb = helper.playbacksFor(radioSource(1))
+    pb should have size 2
+    pb.head.makeCurrent shouldBe false
+    verify(helper.statusHandler).setText(StatusText)
+  }
+
+  it should "handle an end of the replacement source if playback is active" in {
+    val repSrc = radioSource(3)
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4))
+
+    ctrl replacementSourceStarts repSrc
+    ctrl.replacementSourceEnds()
+    helper.singlePlaybackFor(repSrc).makeCurrent shouldBe false
+    val pb = helper.playbacksFor(radioSource(1))
+    pb should have size 2
+    pb.head.makeCurrent shouldBe false
+    verifyZeroInteractions(helper.statusHandler)
+  }
+
   /**
     * A helper class managing the dependencies of the test object.
     */
   private class RadioControllerTestHelper {
+    /** Stores the sources that have been played. */
+    var playedSources = List.empty[RadioSourcePlayback]
+
     /** Mock for the radio player. */
-    val player: RadioPlayer = mock[RadioPlayer]
+    val player: RadioPlayer = createRadioPlayerMock()
 
     /** Mock for the application context. */
     val applicationContext: ApplicationContext = mock[ApplicationContext]
@@ -730,10 +837,11 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       *
       * @param name    the name of the action
       * @param enabled the expected state
+      * @param count   the number of expected invocations
       * @return this test helper
       */
-    def verifyAction(name: String, enabled: Boolean): RadioControllerTestHelper = {
-      verify(actions(name)).setEnabled(enabled)
+    def verifyAction(name: String, enabled: Boolean, count: Int = 1): RadioControllerTestHelper = {
+      verify(actions(name), times(count)).setEnabled(enabled)
       this
     }
 
@@ -744,19 +852,25 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @param src the source
       * @return this test helper
       */
-    def verifySwitchSource(src: RadioSource, delay: FiniteDuration = 5.seconds):
-    RadioControllerTestHelper = {
+    def verifySwitchSource(src: RadioSource): RadioControllerTestHelper = {
       verify(player).makeToCurrentSource(src)
       this
     }
 
     /**
-      * Verifies that playback was started.
+      * Verifies that playback has been started initially after the startup of
+      * the controller.
       *
+      * @param src   the source to be played
+      * @param delay the expected delay
       * @return this test helper
       */
-    def verifyStartPlayback(): RadioControllerTestHelper = {
-      verify(player).startPlayback()
+    def verifyInitialStartPlayback(src: RadioSource,
+                                   delay: FiniteDuration = RadioController.DefaultInitialDelay.millis):
+    RadioControllerTestHelper = {
+      val playback = playbacksFor(src)
+        .find(src => src.makeCurrent && !src.reset && src.delay == delay)
+      playback.isDefined shouldBe true
       this
     }
 
@@ -767,6 +881,16 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       */
     def verifyStopPlayback(): RadioControllerTestHelper = {
       verify(player).stopPlayback()
+      this
+    }
+
+    /**
+      * Verifies that there were no further interactions with the radio player.
+      *
+      * @return this test helper
+      */
+    def verifyNoMorePlayerInteraction(): RadioControllerTestHelper = {
+      verifyNoMoreInteractions(player)
       this
     }
 
@@ -801,7 +925,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * answer is set that records the invocation. Also, a player action is
       * created that records its invocation.
       *
-      * @param nextState            the next state to be returned
+      * @param nextState the next state to be returned
       * @return the mock answer for the strategy and a counter for action calls
       */
     def expectErrorStrategyCall(nextState: ErrorHandlingStrategy.State =
@@ -847,6 +971,28 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     }
 
     /**
+      * Returns information about playbacks of the source specified.
+      *
+      * @param source the source in question
+      * @return a list with playback operations for this source
+      */
+    def playbacksFor(source: RadioSource): List[RadioSourcePlayback] =
+      playedSources.filter(_.source == source)
+
+    /**
+      * Verifies that there was a single playback of the given source and
+      * returns information about it.
+      *
+      * @param source the source in question
+      * @return the information about the playback of this source
+      */
+    def singlePlaybackFor(source: RadioSource): RadioSourcePlayback = {
+      val playbacks = playbacksFor(source)
+      playbacks should have size 1
+      playbacks.head
+    }
+
+    /**
       * Creates a mock for the combo box handler.
       *
       * @return the mock combo box handler
@@ -880,6 +1026,28 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         when(store.getAction(e._1)).thenReturn(e._2)
       }
       store
+    }
+
+    /**
+      * Creates the mock radio player and configures it to store information
+      * about radio sources that have been played. Obviously, Mockito has
+      * problems with Scala's default parameters; it cannot correctly resolve
+      * radio sources in its ''verify()'' methods. Therefore, the sources are
+      * stored and evaluated manually.
+      *
+      * @return the mock radio player
+      */
+    private def createRadioPlayerMock(): RadioPlayer = {
+      val player = mock[RadioPlayer]
+      when(player.playSource(any(), anyBoolean(), anyBoolean(), any()))
+        .thenAnswer((invocation: InvocationOnMock) => {
+          val playback = RadioSourcePlayback(invocation.getArgumentAt(0, classOf[RadioSource]),
+            invocation.getArgumentAt(1, classOf[Boolean]),
+            invocation.getArgumentAt(2, classOf[Boolean]),
+            invocation.getArgumentAt(3, classOf[FiniteDuration]))
+          playedSources = playback :: playedSources
+        })
+      player
     }
   }
 

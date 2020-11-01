@@ -41,7 +41,7 @@ object RadioController {
     * time to wait can be specified in the configuration. If this is not done,
     * this default value is used.
     */
-  val DefaultInitialDelay = 5000
+  final val DefaultInitialDelay = 5000
 
   /** Common prefix for all configuration keys. */
   private val ConfigKeyPrefix = "radio."
@@ -96,16 +96,16 @@ object RadioController {
   * combo box cause the corresponding radio source to be played. It also
   * reacts on actions for starting and stopping playback.
   *
-  * @param player       the radio player to be managed
-  * @param config       the current configuration (containing radio sources)
-  * @param applicationContext the application context
-  * @param actionStore  the object for accessing actions
-  * @param comboSources the combo box with the radio sources
-  * @param statusText handler for the status line
-  * @param playbackTime handler for the field with the playback time
-  * @param errorIndicator handler to the field that displays error state
+  * @param player                the radio player to be managed
+  * @param config                the current configuration (containing radio sources)
+  * @param applicationContext    the application context
+  * @param actionStore           the object for accessing actions
+  * @param comboSources          the combo box with the radio sources
+  * @param statusText            handler for the status line
+  * @param playbackTime          handler for the field with the playback time
+  * @param errorIndicator        handler to the field that displays error state
   * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
-  * @param configFactory the factory for creating a radio source configuration
+  * @param configFactory         the factory for creating a radio source configuration
   */
 class RadioController(val player: RadioPlayer, val config: Configuration,
                       applicationContext: ApplicationContext, actionStore: ActionStore,
@@ -143,6 +143,12 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     */
   private var playbackSource: RadioSource = _
 
+  /**
+    * Stores a replacement source for the current source. This field is defined
+    * while the current source is in a forbidden timeslot.
+    */
+  private var replacementSource: Option[RadioSource] = None
+
   /** Stores the current error state. */
   private var errorState = ErrorHandlingStrategy.NoError
 
@@ -163,6 +169,9 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * mode change events from the combo box have to be ignored.
     */
   private var sourcesUpdating = false
+
+  /** A flag whether a radio source is currently played. */
+  private var playbackActive = false
 
   /**
     * Returns the time (in seconds) when a recovery from an error should be
@@ -232,9 +241,13 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     if (!sourcesUpdating) {
       val source = comboSources.getData.asInstanceOf[RadioSource]
       if (source != null) {
-        player.makeToCurrentSource(source)
+        if (playbackActive)
+          player.playSource(source, makeCurrent = true)
+        else {
+          player.makeToCurrentSource(source)
+        }
 
-        val nextSource = radioSources find(t => t._2 == source)
+        val nextSource = radioSources find (t => t._2 == source)
         nextSource foreach storeCurrentSource
         resetErrorState()
       }
@@ -246,8 +259,9 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * the start playback action.
     */
   def startPlayback(): Unit = {
-    player.startPlayback()
+    player.playSource(replacementSource getOrElse currentSource, makeCurrent = false)
     enablePlaybackActions(isPlaying = true)
+    playbackActive = true
   }
 
   /**
@@ -257,6 +271,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   def stopPlayback(): Unit = {
     player.stopPlayback()
     enablePlaybackActions(isPlaying = false)
+    playbackActive = false
   }
 
   /**
@@ -281,7 +296,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     */
   def playbackTimeProgress(time: Long): Unit = {
     playbackTime setText DurationTransformer.formatDuration(time * 1000)
-    if(shouldRecover(time)) {
+    if (shouldRecover(time)) {
       recoverFromError()
     }
   }
@@ -321,6 +336,45 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   }
 
   /**
+    * Notifies this controller that the current source now enters a forbidden
+    * timeslot, in which a replacement source has to be played. If playback is
+    * enabled, the replacement source has to be played now; otherwise, it is
+    * just recorded if playback starts later.
+    *
+    * @param replacement the replacement source
+    */
+  def replacementSourceStarts(replacement: RadioSource): Unit = {
+    replacementSource = Some(replacement)
+    updatePlayback(replacement)
+  }
+
+  /**
+    * Notifies this controller that a forbidden timeslot for the current source
+    * is over. So it can be played again, if playback is active. The
+    * replacement source can be removed.
+    */
+  def replacementSourceEnds(): Unit = {
+    replacementSource = None
+    updatePlayback(currentSource)
+  }
+
+  /**
+    * Updates the playback status and the UI when there is a change in the
+    * source that is played related to replacement sources. If playback is
+    * active, the new source needs to be played immediately; otherwise, only
+    * the status line has to be updated.
+    *
+    * @param source the source which is currently played
+    */
+  private def updatePlayback(source: RadioSource): Unit = {
+    if (playbackActive) {
+      startPlayback()
+    } else {
+      statusText setText generateStatusText(source)
+    }
+  }
+
+  /**
     * Updates the combo box with the radio sources from the configuration.
     *
     * @return the list of currently available radio sources
@@ -353,9 +407,9 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * @return a flag whether recovery should be done now
     */
   private def shouldRecover(time: Long): Boolean =
-  ErrorHandlingStrategy.NoError != errorState &&
-    time >= errorRecoveryTime &&
-    errorState.numberOfBlacklistedSources >= minFailedSourcesForRecovery
+    ErrorHandlingStrategy.NoError != errorState &&
+      time >= errorRecoveryTime &&
+      errorState.numberOfBlacklistedSources >= minFailedSourcesForRecovery
 
   /**
     * Recovers from error state. The error state is reset; if necessary, the
@@ -364,7 +418,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   private def recoverFromError(): Unit = {
     log.info("Trying to recover from error.")
     if (errorState.isAlternativeSourcePlaying(currentSource)) {
-      player makeToCurrentSource currentSource
+      player.playSource(currentSource, makeCurrent = false)
       log.info("Switched to radio source {}.", currentSource)
     }
     resetErrorState()
@@ -396,21 +450,21 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   }
 
   /**
-    * Starts playback of a radio source if sources are available. The source to
-    * be played is obtained from the configuration; it this fails, playback
-    * starts with the first available source.
+    * Starts initial radio playback if sources are available. The source to be
+    * played is obtained from the configuration; it this fails, playback starts
+    * with the first available source.
     *
     * @param sources the list of available sources
-    * @param delay a delay for switching to the radio source
+    * @param delay   a delay for switching to the radio source
     */
   private def startPlaybackIfPossible(sources: Seq[(String, RadioSource)],
                                       delay: FiniteDuration): Unit = {
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
-      player.makeToCurrentSource(s._2)
-      player.startPlayback()
+      player.playSource(s._2, makeCurrent = true, resetEngine = false, delay = delay)
       comboSources setData s._2
       storeCurrentSource(s)
+      playbackActive = true
     }
   }
 
