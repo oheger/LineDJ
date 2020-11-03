@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
-import org.mockito.Matchers.any
+import org.mockito.Matchers.{any, anyBoolean}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -166,7 +166,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, ErrorHandlingStrategy.NoError,
       errorEvent(1), CurrentSource)
-    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
+    verify(checkPlayerAction(action)).playSource(CurrentSource, makeCurrent = true)
   }
 
   it should "increase the retry interval using the configured factor" in {
@@ -176,7 +176,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, next, errorEvent(1), CurrentSource)
     val nextRetry = math.round(RetryInterval * RetryIncrement).millis
-    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
+    verify(checkPlayerAction(action)).playSource(CurrentSource, makeCurrent = true, delay = nextRetry)
   }
 
   it should "correctly calculate the maximum retry time" in {
@@ -187,7 +187,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, next) = strategy.handleError(StrategyConfig, state,
       errorEvent(1), CurrentSource)
-    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
+    verify(checkPlayerAction(action)).playSource(CurrentSource, makeCurrent = true, delay = maxRetryTime.millis)
     next.retryMillis should be > maxRetryTime
   }
 
@@ -198,12 +198,11 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     val (action, next) = strategy.handleError(StrategyConfig, state, errorEvent(1),
       CurrentSource)
     val player = checkPlayerAction(action)
-    verify(player).makeToCurrentSource(radioSource(2))
-    verify(player).startPlayback(RetryInterval.millis)
+    verify(player).playSource(radioSource(2), makeCurrent = true, delay = RetryInterval.millis)
     next.retryMillis should be(0)
   }
 
-  it should "add a blacklisted source to the exclusions for replacement sources" in {
+  it should "add a dysfunctional source to the exclusions for replacement sources" in {
     val strategy = new ErrorHandlingStrategy
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime)
     val (_, next) = strategy.handleError(StrategyConfig, state, errorEvent(1),
@@ -224,10 +223,11 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, _) = strategy.handleError(StrategyConfig, next, errorEvent(2),
       CurrentSource)
-    verify(checkPlayerAction(action)).makeToCurrentSource(radioSource(2))
+    verify(checkPlayerAction(action))
+      .playSource(radioSource(2), makeCurrent = true, delay = RetryInterval.millis)
   }
 
-  it should "blacklist the next source correctly" in {
+  it should "mark the next source as dysfunctional correctly" in {
     val strategy = new ErrorHandlingStrategy
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime)
     val (_, next) = strategy.handleError(StrategyConfig, state, errorEvent(1),
@@ -236,8 +236,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     val (action, _) = strategy.handleError(StrategyConfig,
       next.copy(retryMillis = ExceededRetryTime), errorEvent(2), CurrentSource)
     val player = checkPlayerAction(action)
-    verify(player).makeToCurrentSource(radioSource(3))
-    verify(player).startPlayback(RetryInterval.millis)
+    verify(player).playSource(radioSource(3), makeCurrent = true, delay = RetryInterval.millis)
   }
 
   it should "handle the case that all sources are blacklisted" in {
@@ -249,7 +248,8 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
 
     val (action, next) = strategy.handleError(StrategyConfig, state, errEvent,
       CurrentSource)
-    verify(checkPlayerAction(action)).makeToCurrentSource(CurrentSource)
+    verify(checkPlayerAction(action)).playSource(CurrentSource, makeCurrent = true,
+      delay = StrategyConfig.maxRetryInterval.millis)
     next.activeSource.get should be(CurrentSource)
   }
 
@@ -292,7 +292,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     // Fetches the replacement source from the action
     def replacementSource(action: ErrorHandlingStrategy.PlayerAction): RadioSource = {
       val captor = ArgumentCaptor.forClass(classOf[RadioSource])
-      verify(checkPlayerAction(action)).makeToCurrentSource(captor.capture())
+      verify(checkPlayerAction(action)).playSource(captor.capture(), anyBoolean(), anyBoolean(), any())
       captor.getValue
     }
 
@@ -305,11 +305,11 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     sources should be(expected.toSet)
   }
 
-  "An ErrorHandlingStrategyState" should "return the number of blacklisted sources" in {
+  "An ErrorHandlingStrategyState" should "return the number of dysfunctional sources" in {
     ErrorHandlingStrategy.NoError.numberOfBlacklistedSources should be(0)
 
-    val blacklist = Set(radioSource(2), radioSource(4), radioSource(8))
-    val errState = ErrorHandlingStrategy.NoError.copy(blacklist = blacklist)
+    val errList = Set(radioSource(2), radioSource(4), radioSource(8))
+    val errState = ErrorHandlingStrategy.NoError.copy(blacklist = errList)
     errState.numberOfBlacklistedSources should be(3)
   }
 

@@ -596,7 +596,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.verifyNoRecovery()
   }
 
-  it should "not recover if the number of blacklisted sources is too small" in {
+  it should "not recover if the number of dysfunctional sources is too small" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(2),
       createRecoveryConfiguration())
@@ -616,16 +616,13 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle an event about a failed playback context creation" in {
-    val srcConfig = createSourceConfiguration(8)
     val helper = new RadioControllerTestHelper
-    val (answer, _) = helper.expectErrorStrategyCall()
-    val errorSource = radioSource(1)
-    val ctrl = helper.createInitializedController(srcConfig)
-    ctrl radioSourcePlaybackStarted errorSource
+    val (_, counter) = helper.expectErrorStrategyCall()
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2),
+      playbackSrcIdx = 1)
 
     ctrl.playbackContextCreationFailed()
-    answer.errorSource should be(errorSource)
-    verify(helper.player).startPlayback(delay = 100.millis)
+    counter.get() should be(1)
   }
 
   it should "not handle a failed playback context creation after a playback error" in {

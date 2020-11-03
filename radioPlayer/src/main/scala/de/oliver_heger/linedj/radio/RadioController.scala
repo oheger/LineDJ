@@ -67,13 +67,6 @@ object RadioController {
   /** Default minimum number of blacklisted sources before recovery. */
   private val DefaultMinFailuresForRecovery = 1
 
-  /**
-    * A delay for restarting the audio player after a playback context
-    * creation failure. Here a delay is needed to prevent the audio buffer
-    * from being cleared.
-    */
-  private val DelayAfterContextCreationFailure = 100.millis
-
   /** The name of the start playback action. */
   private val ActionStartPlayback = "startPlaybackAction"
 
@@ -259,7 +252,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * the start playback action.
     */
   def startPlayback(): Unit = {
-    player.playSource(replacementSource getOrElse currentSource, makeCurrent = false)
+    player.playSource(sourceToBePlayed, makeCurrent = false)
     enablePlaybackActions(isPlaying = true)
     playbackActive = true
   }
@@ -323,14 +316,13 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   /**
     * Notifies this controller that there was an error when creating the
     * playback context for the current source. This has to be handled in the
-    * same way as a playback error, except that the player has to be started
-    * again. Note that both errors may occur for the same source; only one
-    * should be handled. This method must be invoked in the event thread.
+    * same way as a playback error. Note that both errors may occur for the
+    * same source; only one should be handled. This method must be invoked in
+    * the event thread.
     */
   def playbackContextCreationFailed(): Unit = {
     log.warn("Playback context creation failed!")
     if (playbackSource != null) {
-      player.startPlayback(delay = DelayAfterContextCreationFailure)
       playbackError(RadioSourceErrorEvent(playbackSource))
     }
   }
@@ -357,6 +349,14 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     replacementSource = None
     updatePlayback(currentSource)
   }
+
+  /**
+    * Determines the radio source to be played. This is either a replacement
+    * source or the current source.
+    * @return the radio source to be played
+    */
+  private def sourceToBePlayed: RadioSource =
+    replacementSource getOrElse currentSource
 
   /**
     * Updates the playback status and the UI when there is a change in the

@@ -34,31 +34,31 @@ object ErrorHandlingStrategy {
     * A special state indicating that no error occurred. This should be used
     * as initial state.
     */
-  val NoError = State(replacementBlacklist = Set.empty, retryMillis = 0,
+  final val NoError: State = State(replacementBlacklist = Set.empty, retryMillis = 0,
     blacklist = Set.empty, activeSource = None)
 
   /**
     * The default value for the ''retryInterval'' configuration property (in
     * milliseconds).
     */
-  val DefaultRetryInterval = 1000
+  final val DefaultRetryInterval = 1000
 
   /** Minimum value for the retry interval (in milliseconds). */
-  val MinimumRetryInterval = 10
+  final val MinimumRetryInterval = 10
 
   /**
     * The default value for the ''retryIncrement'' configuration property. This
     * value causes a pretty fast increment of retry intervals.
     */
-  val DefaultRetryIncrement = 2.0
+  final val DefaultRetryIncrement = 2.0
 
   /** Minimum retry increment factor. */
-  val MinimumRetryIncrement = 1.1
+  final val MinimumRetryIncrement = 1.1
 
   /**
     * The default value for the ''maxRetries'' configuration property.
     */
-  val DefaultMaxRetries = 5
+  final val DefaultMaxRetries = 5
 
   /**
     * The common prefix for all configuration keys.
@@ -190,10 +190,10 @@ object ErrorHandlingStrategy {
       playerConfig.getDouble(KeyIncrement, DefaultRetryIncrement))
     val maxRetryCount = playerConfig.getInt(KeyMaxRetries, DefaultMaxRetries)
     new Config {
-      override val retryInterval = interval
-      override val retryIncrementFactor = increment
-      override val maxRetries = maxRetryCount
-      override val sourcesConfig = sourceConfig
+      override val retryInterval: FiniteDuration = interval
+      override val retryIncrementFactor: Double = increment
+      override val maxRetries: Int = maxRetryCount
+      override val sourcesConfig: RadioSourceConfig = sourceConfig
     }
   }
 
@@ -300,8 +300,7 @@ object ErrorHandlingStrategy {
     */
   private def switchSourceAction(source: RadioSource, delay: FiniteDuration): PlayerAction =
   p => {
-    p.makeToCurrentSource(source)
-    p.startPlayback(delay)
+    p.playSource(source, makeCurrent = true, delay = delay)
   }
 
 }
