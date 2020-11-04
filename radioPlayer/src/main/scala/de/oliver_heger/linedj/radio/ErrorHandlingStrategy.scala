@@ -34,8 +34,8 @@ object ErrorHandlingStrategy {
     * A special state indicating that no error occurred. This should be used
     * as initial state.
     */
-  final val NoError: State = State(replacementBlacklist = Set.empty, retryMillis = 0,
-    blacklist = Set.empty, activeSource = None)
+  final val NoError: State = State(replacementErrorList = Set.empty, retryMillis = 0,
+    errorList = Set.empty, activeSource = None)
 
   /**
     * The default value for the ''retryInterval'' configuration property (in
@@ -142,29 +142,30 @@ object ErrorHandlingStrategy {
     * learn more about the current error state. This is stated explicitly in
     * the documentation.
     *
-    * @param blacklist            a set with blacklisted sources
-    * @param replacementBlacklist set of blacklisted replacement sources
+    * @param errorList            a set with sources marked as dysfunctional
+    * @param replacementErrorList set of failed replacement sources
     * @param retryMillis          the next retry interval in millis
     * @param activeSource         the source currently playing; this is not
     *                             necessarily the current source of the controller
     */
-  case class State(blacklist: Set[RadioSource], replacementBlacklist: Set[RadioSource],
+  case class State(errorList: Set[RadioSource], replacementErrorList: Set[RadioSource],
                    retryMillis: Long, activeSource: Option[RadioSource]) {
     /**
-      * Returns the number of sources which are currently blacklisted. This may
-      * be an indicator whether there is a problem with the network connection
-      * (if many sources are blacklisted) or if only specific sources have
-      * problems.
+      * Returns the number of sources which are currently marked as
+      * dysfunctional. This may be an indicator whether there is a problem with
+      * the network connection (if many sources are affected) or if only
+      * specific sources have problems.
       *
-      * @return the number of blacklisted sources
+      * @return the number of dysfunctional sources
       */
-    def numberOfBlacklistedSources: Int = blacklist.size
+    def numberOfErrorSources: Int = errorList.size
 
     /**
       * Checks whether an alternative source to the specified one is currently
-      * playing. This is the case if the current source has been blacklisted,
-      * and therefore, another source was selected. This method can be used by
-      * the controller to find out whether radio playback is in error mode.
+      * playing. This is the case if the current source has been marked as
+      * dysfunctional, and therefore, another source was selected. This method
+      * can be used by the controller to find out whether radio playback is in
+      * error mode.
       *
       * @param current the current source (as expected by the controller)
       * @return '''true''' if currently an alternative source is played;
@@ -211,11 +212,11 @@ object ErrorHandlingStrategy {
     val currentSource = previous.activeSource getOrElse ctrlSource
     val retry = math.max(previous.retryMillis, config.retryInterval.toMillis)
     if (retry > config.maxRetryInterval) {
-      val nextBlacklist = previous.blacklist + currentSource
-      selectReplacementSource(config, nextBlacklist, error) match {
+      val nextErrorList = previous.errorList + currentSource
+      selectReplacementSource(config, nextErrorList, error) match {
         case Some(src) =>
           val action = switchSourceAction(src, config.retryInterval)
-          (action, previous.copy(retryMillis = 0, blacklist = nextBlacklist,
+          (action, previous.copy(retryMillis = 0, errorList = nextErrorList,
             activeSource = Some(src)))
 
         case None =>
@@ -239,15 +240,15 @@ object ErrorHandlingStrategy {
     */
   private def handleErrorReplacement(config: Config, previous: State, error: RadioSourceErrorEvent):
   (PlayerAction, State) = {
-    val failedSources = previous.replacementBlacklist + error.source
-    val action: PlayerAction = p => p.checkCurrentSource(failedSources ++ previous.blacklist,
+    val failedSources = previous.replacementErrorList + error.source
+    val action: PlayerAction = p => p.checkCurrentSource(failedSources ++ previous.errorList,
       config.retryInterval)
-    (action, previous.copy(replacementBlacklist = failedSources))
+    (action, previous.copy(replacementErrorList = failedSources))
   }
 
   /**
     * Selects a replacement source from the sources configuration using the
-    * specified blacklist. This method should produce some variety: It does
+    * specified error list. This method should produce some variety: It does
     * not simply return the next highest ranked source from the list of sources
     * because (as the sources are sorted alphabetically) this would yield a
     * deterministic sequence. Rather, all sources with the next highest
@@ -256,20 +257,20 @@ object ErrorHandlingStrategy {
     * choose from, result is ''None''.
     *
     * @param config    the configuration settings for the strategy
-    * @param blacklist the set of sources to be excluded
+    * @param errorList the set of sources to be excluded
     * @param error     the current error event
     * @return an option with the selected source
     */
-  private def selectReplacementSource(config: Config, blacklist: Set[RadioSource],
+  private def selectReplacementSource(config: Config, errorList: Set[RadioSource],
                                       error: RadioSourceErrorEvent): Option[RadioSource] = {
-    def blacklisted(e: (String, RadioSource)): Boolean =
-      blacklist contains e._2
+    def dysfunctional(e: (String, RadioSource)): Boolean =
+      errorList contains e._2
 
-    val nextCandidates = config.sourcesConfig.sources dropWhile blacklisted
+    val nextCandidates = config.sourcesConfig.sources dropWhile dysfunctional
     val nextSource = nextCandidates.headOption map { e =>
       val ranking = config.sourcesConfig.ranking(e._2)
       val rankedCandidates = nextCandidates.takeWhile(t =>
-        config.sourcesConfig.ranking(t._2) == ranking) filterNot blacklisted
+        config.sourcesConfig.ranking(t._2) == ranking) filterNot dysfunctional
       val idx = (error.time.getNano / 1000) % (rankedCandidates.size + 1)
       (e :: rankedCandidates.toList).drop(idx).head._2
     }
@@ -329,15 +330,16 @@ object ErrorHandlingStrategy {
   * restart the affected source multiple times with increasing pauses (the
   * number of retries, the minimum pause, and a factor to increase intervals
   * can be configured). If this fails, the player is instructed to switch to
-  * another source, and the failing source is blacklisted. If the new source
-  * causes again an error, the same steps are taken. In worst case (if there is
-  * a general problem), all sources are eventually blacklisted. Then - after a
-  * pause -, the blacklist is cleared, and attempts start again.
+  * another source, and the failing source is marked as dysfunctional. If the
+  * new source causes again an error, the same steps are taken. In worst case
+  * (if there is a general problem), all sources are eventually marked as
+  * dysfunctional. Then - after a pause -, the list of failed sources is
+  * cleared, and attempts start again.
   *
   * It also has to be distinguished whether the current source or a replacement
   * source causes an error. In the case of a replacement source, the player is
   * instructed to try again with another replacement source (the error causing
-  * source is again blacklisted).
+  * source is again marked).
   *
   * This implementation is purely functional. It is a class to simplify
   * dependency injection into the radio controller.

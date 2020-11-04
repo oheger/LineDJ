@@ -64,7 +64,7 @@ object RadioController {
   /** Default time interval for error recovery (in seconds). */
   private val DefaultRecoveryTime = 600L
 
-  /** Default minimum number of blacklisted sources before recovery. */
+  /** Default minimum number of dysfunctional sources before recovery. */
   private val DefaultMinFailuresForRecovery = 1
 
   /** The name of the start playback action. */
@@ -152,8 +152,8 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   private var errorRecoveryTimeField = DefaultRecoveryTime
 
   /**
-    * The minimum number of sources that must be blacklisted before a recovery
-    * from an error is attempted.
+    * The minimum number of sources that must be marked as dysfunctional before
+    * a recovery from an error is attempted.
     */
   private var minFailedSourcesForRecoveryField = DefaultMinFailuresForRecovery
 
@@ -175,17 +175,17 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   def errorRecoveryTime: Long = errorRecoveryTimeField
 
   /**
-    * Returns the minimum number of sources that must be blacklisted before a
-    * recovery from an error is attempted. Switching back to the original
-    * source makes only sense if there was a general network problem which is
-    * now fixed. Then we expect that multiple sources have been blacklisted.
-    * If there are only a few sources blacklisted, this may indicate a (more
-    * permanent) problem with these sources, e.g. an incorrect URL. In this
-    * case, switching back to such a source is likely to fail again; and we
-    * should not interrupt playback every time the recovery interval is
-    * reached.
+    * Returns the minimum number of sources that must be marked as
+    * dysfunctional before a recovery from an error is attempted. Switching
+    * back to the original source makes only sense if there was a general
+    * network problem which is now fixed. Then we expect that multiple sources
+    * have been marked as dysfunctional. If there are only a few sources
+    * affected, this may indicate a (more permanent) problem with these
+    * sources, e.g. an incorrect URL. In this case, switching back to such a
+    * source is likely to fail again; and we should not interrupt playback
+    * every time the recovery interval is reached.
     *
-    * @return number of blacklisted sources before recovery
+    * @return number of dysfunctional sources before recovery
     */
   def minFailedSourcesForRecovery: Int = minFailedSourcesForRecoveryField
 
@@ -409,7 +409,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   private def shouldRecover(time: Long): Boolean =
     ErrorHandlingStrategy.NoError != errorState &&
       time >= errorRecoveryTime &&
-      errorState.numberOfBlacklistedSources >= minFailedSourcesForRecovery
+      errorState.numberOfErrorSources >= minFailedSourcesForRecovery
 
   /**
     * Recovers from error state. The error state is reset; if necessary, the

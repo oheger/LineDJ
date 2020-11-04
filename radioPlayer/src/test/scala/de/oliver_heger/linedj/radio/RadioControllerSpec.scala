@@ -113,17 +113,17 @@ object RadioControllerSpec {
   }
 
   /**
-    * Creates an error state with the given number of blacklisted sources and
+    * Creates an error state with the given number of dysfunctional sources and
     * the given active source.
     *
-    * @param srcCount  the number of blacklisted sources
+    * @param srcCount  the number of dysfunctional sources
     * @param activeSrc the active radio source
     * @return the state
     */
-  private def createBlacklistState(srcCount: Int, activeSrc: RadioSource): ErrorHandlingStrategy
+  private def createStateWithErrorSources(srcCount: Int, activeSrc: RadioSource): ErrorHandlingStrategy
   .State = {
-    val blackList = (1 to srcCount).map(i => radioSource(i)).toSet
-    ErrorHandlingStrategy.NoError.copy(blacklist = blackList, activeSource = Option(activeSrc))
+    val errorList = (1 to srcCount).map(i => radioSource(i)).toSet
+    ErrorHandlingStrategy.NoError.copy(errorList = errorList, activeSource = Option(activeSrc))
   }
 }
 
@@ -553,7 +553,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(8),
       createRecoveryConfiguration(), playbackSrcIdx = 7)
-    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources, radioSource(7)), 1)
+    helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources, radioSource(7)), 1)
 
     ctrl playbackTimeProgress RecoveryTime
     verify(helper.player).playSource(radioSource(1), makeCurrent = false)
@@ -568,7 +568,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(4),
       createRecoveryConfiguration(), playbackSrcIdx = 1)
-    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources + 1,
+    helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources + 1,
       radioSource(1)), 1)
 
     ctrl playbackTimeProgress RecoveryTime
@@ -589,7 +589,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(2),
       createRecoveryConfiguration())
-    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources,
+    helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources,
       radioSource(1)), 1)
 
     ctrl playbackTimeProgress RecoveryTime - 1
@@ -600,7 +600,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(2),
       createRecoveryConfiguration())
-    helper.injectErrorState(ctrl, createBlacklistState(MinFailedSources - 1,
+    helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources - 1,
       radioSource(1)), 1)
 
     ctrl playbackTimeProgress RecoveryTime

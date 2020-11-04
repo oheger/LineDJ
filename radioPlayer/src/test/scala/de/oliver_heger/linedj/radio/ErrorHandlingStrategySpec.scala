@@ -45,7 +45,8 @@ object ErrorHandlingStrategySpec {
 
   /**
     * Constant for a retry interval that is larger than the maximum retry
-    * time. This value should cause the current source to be blacklisted.
+    * time. This value should cause the current source to be marked as
+    * dysfunctional.
     */
   private val ExceededRetryTime = math.round(math.pow(RetryIncrement,
     MaxRetry + 1) * RetryInterval)
@@ -239,10 +240,10 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
     verify(player).playSource(radioSource(3), makeCurrent = true, delay = RetryInterval.millis)
   }
 
-  it should "handle the case that all sources are blacklisted" in {
+  it should "handle the case that all sources are dysfunctional" in {
     val errEvent = errorEvent(SourceCount)
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime,
-      blacklist = StrategyConfig.sourcesConfig.sources.map(_._2).toSet,
+      errorList = StrategyConfig.sourcesConfig.sources.map(_._2).toSet,
       activeSource = Some(errEvent.source))
     val strategy = new ErrorHandlingStrategy
 
@@ -306,11 +307,11 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
   }
 
   "An ErrorHandlingStrategyState" should "return the number of dysfunctional sources" in {
-    ErrorHandlingStrategy.NoError.numberOfBlacklistedSources should be(0)
+    ErrorHandlingStrategy.NoError.numberOfErrorSources should be(0)
 
     val errList = Set(radioSource(2), radioSource(4), radioSource(8))
-    val errState = ErrorHandlingStrategy.NoError.copy(blacklist = errList)
-    errState.numberOfBlacklistedSources should be(3)
+    val errState = ErrorHandlingStrategy.NoError.copy(errorList = errList)
+    errState.numberOfErrorSources should be(3)
   }
 
   it should "check for an alternative source if there is none" in {

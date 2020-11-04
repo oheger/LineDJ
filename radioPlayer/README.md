@@ -202,14 +202,15 @@ repeating errors the interval grows.
 The _maxRetries_ setting defines the number of attempts to restart playback of
 a radio source. When this number is exceeded the player application assumes
 that there is a permanent problem with this radio source and puts it on a
-blacklist. Then it automatically switches to the source with the highest
-ranking that is not yet black-listed.
+list of dysfunctional sources. Then it automatically switches to the source 
+with the highest ranking that is not yet on this list.
 
 With these settings the player can handle a failing radio source well by simply
 switching to another source. If there is a problem with the network, one source
-after the other is tried, until the blacklist contains all radio sources. In
-this state the player switches back to the original source and tries to restart
-playback again and again using the maximum waiting interval.
+after the other is tried, until the list of dysfunctional sources contains all
+radio sources. In this state the player switches back to the original source 
+and tries to restart playback again and again using the maximum waiting
+interval.
 
 The settings in the _recovery_ section apply after playback is successful for a
 while after an error has occurred. The player then assumes that a temporary
@@ -218,18 +219,18 @@ certainly makes sense after a temporary network outage: Then the player may
 have switched to a replacement source, but the user's preferred source is
 likely to be available again, too. It is less useful in case of a single
 source failing permanently because playback will be interrupted every time a
-recover operation is attempted.
+recovery operation is attempted.
 
 To deal with these different scenarios, the recovery behavior can be defined
 with multiple settings:
 
 * _time_ is the interval in seconds when a recovery should be attempted.
 * _minFailedSources_ sets a further restriction: A recovery is only attempted
-  if the blacklist contains at least this number of sources. The background is
-  that in case of a temporary network outage typically multiple sources are
-  affected, while a permanent problem of a specific source only causes this
-  source to be black-listed; in the latter case, a recovery does not make
-  sense.
+  if the list of dysfunctional sources contains at least this number of
+  elements. The background is that in case of a temporary network outage
+  typically multiple sources are affected, while a permanent problem of a
+  specific source only causes this source to be marked as dysfunctional; in the
+  latter case, a recovery does not make sense.
   
 With these settings a certain flexibility in error handling can be achieved.
 
