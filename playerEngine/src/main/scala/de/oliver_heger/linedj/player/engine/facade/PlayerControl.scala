@@ -23,8 +23,9 @@ import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,22 +72,26 @@ object PlayerControl {
   * functionality for concrete audio player implementations.
   *
   * This trait assumes that a concrete player makes use of a
-  * ''PlaybackActor''. It already implements some common methods for typical
-  * interactions with this actor. There are also some other helper functions
-  * that can be used by player implementations. For instance, there is
-  * support for the registration of event listeners and for delayed invocations
-  * of operations.
+  * ''PlayerFacadeActor''. It already implements some common methods for
+  * typical interactions with this actor and the ''PlaybackActor'' managed by
+  * it. There are also some other helper functions that can be used by player
+  * implementations. For instance, there is support for the registration of
+  * event listeners and for delayed invocations of operations.
   *
-  * A class extending this trait has to provide access to a number of actors
+  * A class extending this trait has to provide access to a couple of actors
   * that are referenced by methods of this trait. That way, functionality
   * using these actors can already be implemented while the concrete logic of
   * creating the required actors is left to concrete implementations.
   */
 trait PlayerControl {
+
   import PlayerControl._
 
   /** The actor for generating events. */
   protected val eventManagerActor: ActorRef
+
+  /** The facade actor for the player engine. */
+  protected val playerFacadeActor: ActorRef
 
   /** A counter for generating unique sink registration IDs. */
   private val regIdCounter = new AtomicInteger
@@ -99,7 +104,7 @@ trait PlayerControl {
     * @param factory the ''PlaybackContextFactory'' to be added
     */
   def addPlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    invokePlaybackActor(PlaybackActor.AddPlaybackContextFactory(factory), NoDelay)
+    playerFacadeActor ! PlaybackActor.AddPlaybackContextFactory(factory)
   }
 
   /**
@@ -109,7 +114,7 @@ trait PlayerControl {
     * @param factory the ''PlaybackContextFactory'' to be removed
     */
   def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    invokePlaybackActor(PlaybackActor.RemovePlaybackContextFactory(factory), NoDelay)
+    playerFacadeActor ! PlaybackActor.RemovePlaybackContextFactory(factory)
   }
 
   /**
@@ -167,6 +172,15 @@ trait PlayerControl {
   }
 
   /**
+    * Resets the player engine. This stops playback and clears the current
+    * playlist and all audio buffers. This method should be invoked before
+    * switching playback to a different source.
+    */
+  def reset(): Unit = {
+    playerFacadeActor ! PlayerFacadeActor.ResetEngine
+  }
+
+  /**
     * Closes this player. This is an asynchronous process. It typically
     * requires several actors used by this player to be closed; a safe shutdown
     * is possible only after these actors have confirmed this request. The
@@ -192,14 +206,31 @@ trait PlayerControl {
     * @param msg   the message to be sent to the playback actor
     * @param delay a delay for this request
     */
-  protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit
+  protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
+    invokeFacadeActor(msg, TargetPlaybackActor, delay)
+  }
+
+  /**
+    * Helper method to send a message to the facade actor, converting the data
+    * passed in to a ''Dispatch'' message interpreted by this actor.
+    *
+    * @param msg    the message to be sent
+    * @param target the receiver of the message
+    * @param delay  a delay
+    */
+  protected def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
+                                  delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
+    playerFacadeActor ! PlayerFacadeActor.Dispatch(msg, target, delay)
+  }
 
   /**
     * Closes the provided actors by sending them a ''CloseRequest'' message and
     * returns a ''Future'' to find out when this request has been answered by
-    * all. This method can be ued in concrete implementations to achieve a
+    * all. This method can be used in concrete implementations to achieve a
     * robust close handling. Typically, implementations of ''close()'' will
     * call this method to close all child actors which require close handling.
+    * Note that the actors managed by this instance are automatically added to
+    * the list of actors to be closed.
     *
     * @param actors  a sequence of actors to be closed
     * @param ec      the execution context for the future
@@ -209,7 +240,8 @@ trait PlayerControl {
   protected def closeActors(actors: Seq[ActorRef])
                            (implicit ec: ExecutionContext, timeout: Timeout):
   Future[Seq[CloseAck]] = {
-    val futureRequests = actors.map(_ ? CloseRequest)
+    val actorsToClose = playerFacadeActor :: actors.toList
+    val futureRequests = actorsToClose.map(_ ? CloseRequest)
     Future.sequence(futureRequests).mapTo[Seq[CloseAck]]
   }
 }

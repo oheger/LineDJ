@@ -19,14 +19,12 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{SourceActorCreator, TargetPlaybackActor, TargetSourceReader}
+import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.{SourceActorCreator, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object AudioPlayer {
@@ -90,10 +88,10 @@ object AudioPlayer {
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
   *
-  * @param facadeActor       the player facade actor
+  * @param playerFacadeActor the player facade actor
   * @param eventManagerActor the actor for managing event listeners
   */
-class AudioPlayer private(facadeActor: ActorRef,
+class AudioPlayer private(protected override val playerFacadeActor: ActorRef,
                           protected override val eventManagerActor: ActorRef)
   extends PlayerControl {
 
@@ -134,53 +132,6 @@ class AudioPlayer private(facadeActor: ActorRef,
     invokeFacadeActor(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
   }
 
-  /**
-    * Resets the player engine. This stops playback and clears the current
-    * playlist. Afterwards, new audio files to be played can be added again
-    * to the playlist.
-    */
-  def reset(): Unit = {
-    facadeActor ! PlayerFacadeActor.ResetEngine
-  }
-
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(facadeActor))
-
-  /**
-    * @inheritdoc This implementation propagates the message via the facade
-    *             actor.
-    */
-  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
-    invokeFacadeActor(msg, TargetPlaybackActor, delay)
-  }
-
-  /**
-    * Helper method to send a message to the facade actor.
-    *
-    * @param msg    the message to be sent
-    * @param target the receiver of the message
-    * @param delay  a delay
-    */
-  private def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
-                                delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    facadeActor ! convertMessage(msg, target, delay)
-  }
-
-  /**
-    * Converts an incoming message to a message to be sent to the facade actor.
-    * Normal messages have to be wrapped in a ''Dispatch'' message. Some
-    * messages, however, require a special treatment.
-    *
-    * @param msg    the message to be sent
-    * @param target the receiver of the message
-    * @param delay  a delay
-    * @return the message to the facade actor
-    */
-  private def convertMessage(msg: Any, target: PlayerFacadeActor.TargetActor,
-                             delay: FiniteDuration) =
-    msg match {
-      case addFactory: AddPlaybackContextFactory => addFactory
-      case remFactory: RemovePlaybackContextFactory => remFactory
-      case m => PlayerFacadeActor.Dispatch(m, target, delay)
-    }
+    closeActors(Nil)
 }

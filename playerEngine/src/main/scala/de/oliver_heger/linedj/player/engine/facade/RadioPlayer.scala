@@ -19,10 +19,9 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.SourceActorCreator
-import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.impl._
+import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 
@@ -76,13 +75,13 @@ object RadioPlayer {
   * threads is safe.
   *
   * @param config            the configuration for this player
-  * @param facadeActor       reference to the facade actor
+  * @param playerFacadeActor reference to the facade actor
   * @param schedulerActor    reference to the scheduler actor
   * @param eventManagerActor reference to the event manager actor
   * @param delayActor        reference to the delay actor
   */
 class RadioPlayer private(val config: PlayerConfig,
-                          facadeActor: ActorRef,
+                          override val playerFacadeActor: ActorRef,
                           schedulerActor: ActorRef,
                           override protected val eventManagerActor: ActorRef,
                           delayActor: ActorRef)
@@ -147,29 +146,14 @@ class RadioPlayer private(val config: PlayerConfig,
                  delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
     val playMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
     val srcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val startMsg = List((srcMsg, facadeActor), (playMsg, facadeActor))
+    val startMsg = List((srcMsg, playerFacadeActor), (playMsg, playerFacadeActor))
     val curMsg = if (makeCurrent) (source, schedulerActor) :: startMsg else startMsg
-    val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, facadeActor) :: curMsg else curMsg
+    val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, playerFacadeActor) :: curMsg else curMsg
     delayActor ! DelayActor.Propagate(resetMsg, delay)
   }
 
-  /**
-    * Resets the player engine and forces the recreation of the actors
-    * necessary for audio playback. Such a reset may be necessary before a
-    * disruptive change of the audio playback, e.g. to switch to a different
-    * position in the playlist. This operation makes sure that all audio
-    * buffers are properly closed, and new audio data can be played.
-    */
-  def reset(): Unit = {
-    facadeActor ! PlayerFacadeActor.ResetEngine
-  }
-
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(facadeActor, schedulerActor, delayActor))
-
-  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
-    invokeFacadeActor(msg, PlayerFacadeActor.TargetPlaybackActor, delay)
-  }
+    closeActors(List(schedulerActor, delayActor))
 
   /**
     * Invokes an actor with a delay. This method sends a corresponding message
@@ -182,34 +166,4 @@ class RadioPlayer private(val config: PlayerConfig,
   private def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
     delayActor ! DelayActor.Propagate(msg, target, delay)
   }
-
-  /**
-    * Helper method to send a message to the facade actor.
-    *
-    * @param msg    the message to be sent
-    * @param target the receiver of the message
-    * @param delay  a delay
-    */
-  private def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
-                                delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    facadeActor ! convertMessage(msg, target, delay)
-  }
-
-  /**
-    * Converts an incoming message to a message to be sent to the facade actor.
-    * Normal messages have to be wrapped in a ''Dispatch'' message. Some
-    * messages, however, require a special treatment.
-    *
-    * @param msg    the message to be sent
-    * @param target the receiver of the message
-    * @param delay  a delay
-    * @return the message to the facade actor
-    */
-  private def convertMessage(msg: Any, target: PlayerFacadeActor.TargetActor,
-                             delay: FiniteDuration) =
-    msg match {
-      case addFactory: AddPlaybackContextFactory => addFactory
-      case remFactory: RemovePlaybackContextFactory => remFactory
-      case m => PlayerFacadeActor.Dispatch(m, target, delay)
-    }
 }

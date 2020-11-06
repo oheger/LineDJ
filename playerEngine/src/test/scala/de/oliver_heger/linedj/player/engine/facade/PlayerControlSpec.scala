@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
@@ -25,7 +25,7 @@ import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor}
+import de.oliver_heger.linedj.player.engine.impl.{EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -53,7 +53,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player addPlaybackContextFactory factory
-    helper.expectPlaybackInvocation(PlaybackActor.AddPlaybackContextFactory(factory))
+    helper.probePlayerFacadeActor.expectMsg(PlaybackActor.AddPlaybackContextFactory(factory))
   }
 
   it should "allow removing a playback context factory" in {
@@ -62,7 +62,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player removePlaybackContextFactory factory
-    helper.expectPlaybackInvocation(PlaybackActor.RemovePlaybackContextFactory(factory))
+    helper.probePlayerFacadeActor.expectMsg(PlaybackActor.RemovePlaybackContextFactory(factory))
   }
 
   it should "allow starting playback" in {
@@ -138,6 +138,14 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.probeEventManagerActor.expectMsg(EventManagerActor.RemoveSink(SinkID))
   }
 
+  it should "allow resetting the engine" in {
+    val helper = new PlayerControlTestHelper
+    val player = helper.createPlayerControl()
+
+    player.reset()
+    helper.probePlayerFacadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
+  }
+
   /**
     * Creates a list of test actors that just react on a close request by
     * sending the corresponding ACK.
@@ -164,9 +172,14 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     implicit val timeout: Timeout = Timeout(1.second)
     val handle = player.closeActors(probes)
+    helper.probePlayerFacadeActor.expectMsg(CloseRequest)
+    helper.probePlayerFacadeActor.reply(CloseAck(helper.probePlayerFacadeActor.ref))
     val result = Await.result(handle, 1.second)
     counter.get() should be(probes.size)
-    result map (_.actor) should contain theSameElementsAs probes
+    val closedActors = result map (_.actor)
+    closedActors should contain allElementsOf probes
+    closedActors should contain(helper.probePlayerFacadeActor.ref)
+    closedActors should have size probes.size + 1
   }
 
   it should "do correct timeout handling in its closeActors() method" in {
@@ -193,8 +206,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     /** The test event manager actor. */
     val probeEventManagerActor: TestProbe = TestProbe()
 
-    /** Records playback invocations. */
-    private val queuePlaybackInvocations = new LinkedBlockingQueue[PlaybackInvocation]
+    /** Test probe for the player facade actor. */
+    val probePlayerFacadeActor: TestProbe = TestProbe()
 
     /**
       * Creates a test instance of ''PlayerControl''.
@@ -202,7 +215,23 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return the test instance
       */
     def createPlayerControl(): PlayerControlImpl =
-      new PlayerControlImpl(probeEventManagerActor.ref, queuePlaybackInvocations)
+      new PlayerControlImpl(probeEventManagerActor.ref, probePlayerFacadeActor.ref)
+
+    /**
+      * Expects an invocation of the player facade actor with the parameters
+      * specified.
+      *
+      * @param msg    the actual message
+      * @param target the target referencing the receiver
+      * @param delay  the delay
+      * @return this test helper
+      */
+    def expectFacadeActorInvocation(msg: Any, target: PlayerFacadeActor.TargetActor,
+                                    delay: FiniteDuration = PlayerControl.NoDelay): PlayerControlTestHelper = {
+      val expMsg = PlayerFacadeActor.Dispatch(msg, target, delay)
+      probePlayerFacadeActor.expectMsg(expMsg)
+      this
+    }
 
     /**
       * Expects an invocation of the playback actor.
@@ -212,31 +241,20 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return this test helper
       */
     def expectPlaybackInvocation(msg: Any, delay: FiniteDuration = PlayerControl.NoDelay):
-    PlayerControlTestHelper = {
-      val invocation = queuePlaybackInvocations.poll(3, TimeUnit.SECONDS)
-      invocation should be(PlaybackInvocation(msg, delay))
-      this
-    }
+    PlayerControlTestHelper =
+      expectFacadeActorInvocation(msg, PlayerFacadeActor.TargetPlaybackActor, delay)
   }
 
 }
 
 /**
-  * A class representing an invocation of the playback actor.
-  *
-  * @param msg   the message to be sent to the actor
-  * @param delay the delay value
-  */
-private case class PlaybackInvocation(msg: Any, delay: FiniteDuration)
-
-/**
   * A test implementation of the trait which wraps the specified actor.
   *
   * @param eventManagerActor the event manager actor
-  * @param invocationQueue   queue for recording playback invocations
+  * @param playerFacadeActor the player facade actor
   */
 private class PlayerControlImpl(override val eventManagerActor: ActorRef,
-                                invocationQueue: LinkedBlockingQueue[PlaybackInvocation])
+                                override val playerFacadeActor: ActorRef)
   extends PlayerControl {
   override def closeActors(actors: Seq[ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
@@ -244,12 +262,5 @@ private class PlayerControlImpl(override val eventManagerActor: ActorRef,
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala
   .Seq[CloseAck]] = {
     throw new UnsupportedOperationException("Unexpected invocation!")
-  }
-
-  /**
-    * @inheritdoc Records this invocation in the playback queue.
-    */
-  override protected def invokePlaybackActor(msg: Any, delay: FiniteDuration): Unit = {
-    invocationQueue offer PlaybackInvocation(msg, delay)
   }
 }

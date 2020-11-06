@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.SourceActorCr
 import de.oliver_heger.linedj.player.engine.impl._
 import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, RadioSource}
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Matchers.any
 import org.mockito.Mockito
@@ -181,31 +181,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     helper.player.playSource(source, makeCurrent = false, resetEngine = false, delay = delay)
     helper.expectDelayed(expMsg)
-  }
-
-  it should "support resetting the player engine" in {
-    val helper = new RadioPlayerTestHelper
-
-    helper.player.reset()
-    helper.probeFacadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
-  }
-
-  it should "support adding a playback context factory" in {
-    val factory = mock[PlaybackContextFactory]
-    val msg = PlaybackActor.AddPlaybackContextFactory(factory)
-    val helper = new RadioPlayerTestHelper
-
-    helper.player addPlaybackContextFactory factory
-    helper.probeFacadeActor.expectMsg(msg)
-  }
-
-  it should "support removing a playback context factory" in {
-    val factory = mock[PlaybackContextFactory]
-    val msg = PlaybackActor.RemovePlaybackContextFactory(factory)
-    val helper = new RadioPlayerTestHelper
-
-    helper.player removePlaybackContextFactory factory
-    helper.probeFacadeActor.expectMsg(msg)
   }
 
   /**
