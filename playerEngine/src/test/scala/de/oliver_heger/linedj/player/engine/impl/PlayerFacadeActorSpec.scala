@@ -223,6 +223,15 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
   }
 
+  it should "dispatch a Propagate message to the delay actor" in {
+    val helper = new PlayerFacadeTestHelper
+    val creations = helper.expectActorCreations(TotalChildrenCount)
+    val msg = delayedMsg(testMsg(), TestProbe(), 3.minutes)
+
+    helper post msg
+    findProbeFor[DelayActor](creations).expectMsg(msg)
+  }
+
   it should "trigger a close operation on an engine reset" in {
     val helper = new PlayerFacadeTestHelper
 

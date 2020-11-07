@@ -134,6 +134,16 @@ object PlayerFacadeActor {
   * set of new actors is created. Messages that arrive in this time frame are
   * queued and processed when the actors are up again.
   *
+  * As some use cases of audio players require the execution of actions after a
+  * delay, this actor manages a [[DelayActor]]. It exposes the functionality of
+  * this actor by accepting [[DelayActor.Propagate]] messages and passing them
+  * to this actor. So this functionality is available to clients as well
+  * without having to bother with managing their own delay actor instance.
+  *
+  * Note that this actor does not take ownership of the actors passed to it. So
+  * clients are responsible of stopping them. (This is normally handled
+  * automatically by the actor creation factory used by a client component.)
+  *
   * @param config          the configuration for the player engine
   * @param eventActor      the event manager actor
   * @param lineWriterActor the line writer actor
@@ -181,6 +191,9 @@ class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterAc
 
     case d: Dispatch if !isCloseRequestInProgress =>
       dispatchMessage(d)
+
+    case p: DelayActor.Propagate =>
+      delayActor ! p
 
     case addMsg: AddPlaybackContextFactory =>
       playbackActor ! addMsg
