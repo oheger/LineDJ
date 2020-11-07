@@ -43,9 +43,8 @@ object RadioPlayer {
       "radioPlayerFacadeActor")
     val schedulerActor = config.actorCreator(RadioSchedulerActor(eventActor),
       "radioSchedulerActor")
-    val delayActor = config.actorCreator(DelayActor(), "radioDelayActor")
 
-    new RadioPlayer(config, facadeActor, schedulerActor, eventActor, delayActor)
+    new RadioPlayer(config, facadeActor, schedulerActor, eventActor)
   }
 
   /**
@@ -78,13 +77,11 @@ object RadioPlayer {
   * @param playerFacadeActor reference to the facade actor
   * @param schedulerActor    reference to the scheduler actor
   * @param eventManagerActor reference to the event manager actor
-  * @param delayActor        reference to the delay actor
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override val playerFacadeActor: ActorRef,
                           schedulerActor: ActorRef,
-                          override protected val eventManagerActor: ActorRef,
-                          delayActor: ActorRef)
+                          override protected val eventManagerActor: ActorRef)
   extends PlayerControl {
   /**
     * Marks a source as the new current source. This does not change the
@@ -149,21 +146,21 @@ class RadioPlayer private(val config: PlayerConfig,
     val startMsg = List((srcMsg, playerFacadeActor), (playMsg, playerFacadeActor))
     val curMsg = if (makeCurrent) (source, schedulerActor) :: startMsg else startMsg
     val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, playerFacadeActor) :: curMsg else curMsg
-    delayActor ! DelayActor.Propagate(resetMsg, delay)
+    playerFacadeActor ! DelayActor.Propagate(resetMsg, delay)
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(schedulerActor, delayActor))
+    closeActors(List(schedulerActor))
 
   /**
     * Invokes an actor with a delay. This method sends a corresponding message
-    * to the ''DelayActor''.
+    * to the ''PlayerFacadeActor''.
     *
     * @param msg    the message
     * @param target the target actor
     * @param delay  the delay
     */
   private def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
-    delayActor ! DelayActor.Propagate(msg, target, delay)
+    playerFacadeActor ! DelayActor.Propagate(msg, target, delay)
   }
 }

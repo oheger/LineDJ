@@ -81,7 +81,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
     helper.probeFacadeActor.expectMsg(CloseRequest)
     helper.probeSchedulerActor.expectMsg(CloseRequest)
-    helper.probeDelayActor.expectMsg(CloseRequest)
   }
 
   it should "support exclusions for radio sources" in {
@@ -200,9 +199,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** Test probe for the event manager actor. */
     val probeEventActor: TestProbe = TestProbe()
 
-    /** Test probe for the delay actor. */
-    val probeDelayActor: TestProbe = TestProbe()
-
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()
 
@@ -221,13 +217,13 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
 
     /**
-      * Expects that a specific ''Propagate'' message is passed to the delay
+      * Expects that a specific ''Propagate'' message is passed to the facade
       * actor.
       *
       * @param prop the expected ''Propagate'' message
       */
     def expectDelayed(prop: DelayActor.Propagate): Unit = {
-      probeDelayActor.expectMsg(prop)
+      probeFacadeActor.expectMsg(prop)
     }
 
     /**
@@ -253,10 +249,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           props.args should have length 1
           props.args.head should be(probeEventActor.ref)
           probeSchedulerActor.ref
-
-        case "radioDelayActor" =>
-          props should be(DelayActor())
-          probeDelayActor.ref
 
         case "radioEventManagerActor" =>
           props.actorClass() should be(classOf[EventManagerActor])
