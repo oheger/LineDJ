@@ -200,20 +200,6 @@ class StreamBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     stream.expectRead().requestSize should be(Count)
   }
 
-  it should "allow clearing the buffer" in {
-    val stream = new MonitoringStream
-    val actor = createTestActor(stream)
-    stream.expectReadsUntil(BufferSize)
-
-    actor ! StreamBufferActor.ClearBuffer
-    stream.expectRead().requestSize should be(ChunkSize)
-    val Count = 16
-    actor ! PlaybackActor.GetAudioData(Count)
-    val data = expectMsgType[BufferDataResult]
-    data.data.length should be(Count)
-    data.data.toArray take Count should be(refData(BufferSize + Count) drop BufferSize)
-  }
-
   it should "handle a close request by closing the stream" in {
     val stream = new MonitoringStream
     val actor = createTestActor(stream)

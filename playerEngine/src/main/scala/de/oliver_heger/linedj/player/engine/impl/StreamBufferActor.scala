@@ -23,18 +23,9 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
-import de.oliver_heger.linedj.player.engine.impl.StreamBufferActor.{ClearBuffer, FillBuffer, InitStream}
+import de.oliver_heger.linedj.player.engine.impl.StreamBufferActor.{FillBuffer, InitStream}
 
 object StreamBufferActor {
-
-  /**
-    * A message interpreted by [[StreamBufferActor]] that causes the internal
-    * buffer to be cleared. This is necessary for instance after playback had
-    * paused for a while: The data in the buffer is older while newly read
-    * data may be already from a different song, so that there is a hard switch
-    * in playback.
-    */
-  case object ClearBuffer
 
   /**
     * An internal message that triggers the initialization of the stream to be
@@ -98,10 +89,6 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
       if (fillChunk() && remainingCapacity > 0) {
         triggerFillBuffer()
       }
-
-    case ClearBuffer =>
-      buffer.clear()
-      triggerFillBuffer()
 
     case PlaybackActor.GetAudioData(length) =>
       val buf = new Array[Byte](math.min(length, buffer.available()))

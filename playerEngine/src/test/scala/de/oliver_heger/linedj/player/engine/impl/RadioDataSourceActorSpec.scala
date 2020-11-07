@@ -486,24 +486,6 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     msg.at should be > lastAckTime
   }
 
-  it should "handle a ClearBuffer message" in {
-    val helper = new RadioDataSourceActorTestHelper
-    val actor = helper.createTestActor()
-    val src = audioSource(1)
-    actor ! RadioSource(src.uri)
-    val childCreation = helper.expectChildCreationAndAudioSource(actor, src)
-
-    actor ! RadioDataSourceActor.ClearSourceBuffer
-    childCreation.probe.expectMsg(StreamBufferActor.ClearBuffer)
-  }
-
-  it should "ignore a ClearBuffer message if there is no current source reader" in {
-    val helper = new RadioDataSourceActorTestHelper
-    val actor = helper.createTestActor()
-
-    actor receive RadioDataSourceActor.ClearSourceBuffer
-  }
-
   it should "create correct Props" in {
     val eventMan = TestProbe()
     val props = RadioDataSourceActor(Config, eventMan.ref)

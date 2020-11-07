@@ -25,16 +25,6 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
 
-  /**
-    * A message processed by [[RadioDataSourceActor]] telling it to clear
-    * buffered audio data from the current radio source.
-    *
-    * This is useful for instance when playback has paused and is not going to
-    * continue. Then old audio data needs to be removed from the buffer. If
-    * there is currently no buffer with audio data, this message has no effect.
-    */
-  case object ClearSourceBuffer
-
   private class RadioDataSourceActorImpl(config: PlayerConfig, eventManager: ActorRef)
     extends RadioDataSourceActor(config, eventManager) with ChildActorFactory
 
@@ -195,9 +185,6 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
       currentAudioSource = Some(updatedSrc)
       pendingAudioSourceRequest = servePending(pendingAudioSourceRequest)(handleSourceRequest(_,
         updatedSrc))
-
-    case ClearSourceBuffer =>
-      currentSourceReader foreach (_ ! StreamBufferActor.ClearBuffer)
 
     case PlaybackActor.GetAudioSource =>
       if (pendingAudioSourceRequest.isDefined) {

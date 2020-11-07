@@ -150,9 +150,6 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
         pendingDataRequest foreach sendDataRequest
       }
 
-    case StreamBufferActor.ClearBuffer =>
-      bufferActor foreach (_ ! StreamBufferActor.ClearBuffer)
-
     case CloseRequest =>
       val bufferRef = bufferActor match {
         case Some(ref) =>

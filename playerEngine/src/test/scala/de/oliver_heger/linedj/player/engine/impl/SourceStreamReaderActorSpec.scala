@@ -290,21 +290,6 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     probe.expectMsgType[Terminated]
   }
 
-  it should "handle a ClearBuffer message" in {
-    val helper = new SourceStreamReaderActorTestHelper
-    val actor = helper.createTestActor(AudioStreamRef)
-
-    actor ! StreamBufferActor.ClearBuffer
-    helper.probeBufferActor.expectMsg(StreamBufferActor.ClearBuffer)
-  }
-
-  it should "ignore a ClearBuffer message if there is no buffer actor" in {
-    val helper = new SourceStreamReaderActorTestHelper
-    val actor = helper.createTestActor(PlaylistStreamRef)
-
-    actor receive StreamBufferActor.ClearBuffer
-  }
-
   /**
     * A test helper class managing dependencies of a test actor.
     */
