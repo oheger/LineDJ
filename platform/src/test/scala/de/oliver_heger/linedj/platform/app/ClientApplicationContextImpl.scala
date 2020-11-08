@@ -28,12 +28,14 @@ import org.scalatestplus.mockito.MockitoSugar
   * mock objects.
   *
   * @param configuration the configuration for the application
+  * @param optMessageBus an optional message bus object
   */
-class ClientApplicationContextImpl(configuration: Configuration = new PropertiesConfiguration())
+class ClientApplicationContextImpl(configuration: Configuration = new PropertiesConfiguration(),
+                                   optMessageBus: Option[MessageBus] = None)
   extends ClientApplicationContext with MockitoSugar {
   override val actorSystem: ActorSystem = mock[ActorSystem]
 
-  override val messageBus: MessageBus = mock[MessageBus]
+  override val messageBus: MessageBus = optMessageBus getOrElse mock[MessageBus]
 
   override val windowManager: WindowManager = new WindowManagerImpl
 

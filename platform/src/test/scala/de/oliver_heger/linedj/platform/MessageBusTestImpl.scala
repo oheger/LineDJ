@@ -196,6 +196,13 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
   }
 
   /**
+    * Clears all the messages that might have been recorded.
+    */
+  def clearMessages(): Unit = {
+    messageQueue.clear()
+  }
+
+  /**
     * Checks whether the given message should be forwarded directly on the bus.
     * This depends on some flags.
     *
