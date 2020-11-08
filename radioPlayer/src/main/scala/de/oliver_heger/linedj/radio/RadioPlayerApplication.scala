@@ -16,10 +16,12 @@
 
 package de.oliver_heger.linedj.radio
 
+import akka.actor.Actor.Receive
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ShutdownHandler}
+import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -46,7 +48,7 @@ import scala.concurrent.duration._
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with Identifiable {
   def this() = this(new RadioPlayerFactory)
 
   /** The radio player managed by this application. */
@@ -57,6 +59,9 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * radio player was created.
     */
   private var pendingPlaybackContextFactories = List.empty[PlaybackContextFactory]
+
+  /** The ID of the message bus registration. */
+  private var busRegistrationId = 0
 
   /**
     * Adds a ''PlaybackContextFactory'' service to this application. This
@@ -114,10 +119,20 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   }
 
   /**
+    * @inheritdoc This implementation performs some registrations.
+    */
+  override def activate(compContext: ComponentContext): Unit = {
+    super.activate(compContext)
+
+    busRegistrationId = clientApplicationContext.messageBus.registerListener(receive)
+    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID))
+  }
+
+  /**
     * @inheritdoc This implementation closes the player.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
-    closePlayer()
+    clientApplicationContext.messageBus.removeListener(busRegistrationId)
     super.deactivate(componentContext)
   }
 
@@ -127,6 +142,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   private[radio] def closePlayer(): Unit = {
     val optPlayer = this.synchronized(player)
     optPlayer.foreach { p =>
+      p.stopPlayback()
       val f = p.close()(clientApplicationContext.actorSystem.dispatcher, Timeout(3.seconds))
       try {
         log.info("Waiting for player to close.")
@@ -136,6 +152,8 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
           log.warn("Error when closing player!", e)
       }
     }
+
+    clientApplicationContext.messageBus.publish(ShutdownHandler.ShutdownDone(componentID))
   }
 
   /**
@@ -165,5 +183,15 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     Sink.foreach[PlayerEvent] { e =>
       messageBus.publish(RadioPlayerEvent(e, player))
     }
+  }
+
+  /**
+    * A function to process messages on the system message bus.
+    *
+    * @return the message processing function
+    */
+  private def receive: Receive = {
+    case ShutdownHandler.Shutdown(_) =>
+      closePlayer()
   }
 }

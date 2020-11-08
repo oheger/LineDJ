@@ -17,20 +17,21 @@
 package de.oliver_heger.linedj.radio
 
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
 
 import akka.NotUsed
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.ActorSystem
 import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
+import org.apache.commons.configuration.Configuration
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => eqArg, _}
 import org.mockito.Mockito._
@@ -49,8 +50,7 @@ import scala.util.Random
   * Test class for ''RadioPlayerApplication''.
   */
 class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
-  with ApplicationTestSupport {
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
   def this() = this(ActorSystem("RadioPlayerApplicationSpec"))
 
   override protected def afterAll(): Unit = {
@@ -69,7 +69,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new RadioPlayerApplicationTestHelper
     val app = helper.activateRadioApp()
 
-    queryBean[RadioPlayer](app, "radioApp_player") should be(helper.player)
+    helper.queryBean[RadioPlayer](app, "radioApp_player") should be(helper.player)
   }
 
   it should "add playback context factories arrived after creation to the player" in {
@@ -147,13 +147,18 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val promise = Promise.successful(Seq.empty[CloseAck])
     helper.shutDownTest(promise)
+    verify(helper.player).stopPlayback()
     verify(helper.player).close()(any(classOf[ExecutionContextExecutor]), eqArg(Timeout(3.seconds)))
+    helper.expectShutdownDone()
   }
 
   it should "not crash on shutdown if there is no radio player" in {
     val helper = new RadioPlayerApplicationTestHelper
+    val clCtx = new ClientApplicationContextImpl(optMessageBus = Some(helper.messageBus))
+    helper.app.initClientContext(clCtx)
 
     helper.app.closePlayer()
+    helper.expectShutdownDone()
   }
 
   it should "wait until the player terminates" in {
@@ -174,6 +179,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val shutdownComplete = System.nanoTime()
     thread.join(2000)
     shutdownComplete should be > timestamp.get()
+    helper.expectShutdownDone()
   }
 
   it should "ignore exceptions when closing the player" in {
@@ -188,7 +194,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new RadioPlayerApplicationTestHelper
     val app = helper.activateRadioApp()
 
-    val ctrl = queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
+    val ctrl = helper.queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
     ctrl.player should be(helper.player)
     ctrl.config should be(app.getUserConfiguration)
   }
@@ -198,37 +204,39 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.activateRadioApp()
 
     val captor = ArgumentCaptor.forClass(classOf[Sink[Any, NotUsed]])
-    verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_,_]])
+    verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_, _]])
 
-    val eventQueue = new LinkedBlockingQueue[RadioPlayerEvent]
-    when(helper.app.clientApplicationContext.messageBus.publish(any(classOf[RadioPlayerEvent])))
-      .thenAnswer((invocation: InvocationOnMock) => {
-        eventQueue offer invocation.getArguments.head.asInstanceOf[RadioPlayerEvent]
-        null
-      })
     val playerEvent = AudioSourceStartedEvent(AudioSource.infinite("testRadioSource"))
     val source = Source.single[Any](playerEvent)
     val sink = captor.getValue
     source.runWith(sink)
-    val publishedEvent = eventQueue.poll(3, TimeUnit.SECONDS)
-    publishedEvent should not be null
+    val publishedEvent = helper.messageBus.expectMessageType[RadioPlayerEvent]
     publishedEvent.event should be(playerEvent)
     publishedEvent.player should be(helper.player)
   }
 
-  it should "register message bus listeners" in {
+  it should "register itself as shutdown observer" in {
     val helper = new RadioPlayerApplicationTestHelper
-    val app = helper.activateRadioApp()
+    helper.activateRadioApp(clearMessageBus = false)
 
-    val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
-    verify(uiBus).registerListener(any(classOf[Actor.Receive]))
+    helper.messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
+      .observerID should be(helper.app.componentID)
+  }
+
+  it should "remove the message bus registration on deactivation" in {
+    val helper = new RadioPlayerApplicationTestHelper
+    helper.activateRadioApp()
+
+    helper.app.deactivate(mock[ComponentContext])
+    helper.messageBus.publishDirectly(ShutdownHandler.Shutdown(helper.app.clientApplicationContext))
+    verify(helper.player, never()).close()(any(), any())
   }
 
   /**
     * A test helper class managing dependencies of a test instance and
     * providing some useful functionality.
     */
-  private class RadioPlayerApplicationTestHelper {
+  private class RadioPlayerApplicationTestHelper extends ApplicationTestSupport {
     /** A mock for the radio player. */
     val player: RadioPlayer = createPlayerMock()
 
@@ -239,6 +247,9 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val app: RadioPlayerApplication with ApplicationSyncStartup = new RadioPlayerApplication(playerFactory)
       with ApplicationSyncStartup with AppWithTestPlatform
 
+    /** The test message bus. */
+    val messageBus = new MessageBusTestImpl
+
     /**
       * Stores the ''PlaybackContextFactory'' objects that were passed to the
       * player mock.
@@ -246,11 +257,24 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     private val playbackContextFactories = new ConcurrentHashMap[PlaybackContextFactory, Boolean]
 
     /**
+      * @inheritdoc Injects the test message bus in the application context.
+      */
+    override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
+      new ClientApplicationContextImpl(config, optMessageBus = Some(messageBus))
+
+    /**
       * Starts up the test application.
       *
+      * @param clearMessageBus flag whether the message bus should be reset
       * @return the test application
       */
-    def activateRadioApp(): RadioPlayerApplication = activateApp(app)
+    def activateRadioApp(clearMessageBus: Boolean = true): RadioPlayerApplication = {
+      val activatedApp = activateApp(app)
+      if (clearMessageBus) {
+        messageBus.clearMessages()
+      }
+      activatedApp
+    }
 
     /**
       * Creates the given number of ''PlaybackContextFactory'' mocks and adds
@@ -285,7 +309,16 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       val ec = mock[ExecutionContextExecutor]
       when(app.clientApplicationContext.actorSystem.dispatcher).thenReturn(ec)
       when(player.close()(ec, Timeout(3.seconds))).thenReturn(p.future)
-      app.deactivate(mock[ComponentContext])
+      messageBus.publishDirectly(ShutdownHandler.Shutdown(app.clientApplicationContext))
+    }
+
+    /**
+      * Expects that a message about a completed shutdown has been published on
+      * the message bus.
+      */
+    def expectShutdownDone(): Unit = {
+      val doneMsg = messageBus.expectMessageType[ShutdownHandler.ShutdownDone]
+      doneMsg.observerID should be(app.componentID)
     }
 
     /**
