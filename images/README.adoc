@@ -1,0 +1,234 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+= Building OSGi images
+
+The several applications running on the LineDJ platform require an
+https://www.osgi.org/[OSGi] container for their execution. The application
+binaries and all their dependencies as well must be available as OSGi bundles.
+This complicates the setup of these applications; an OSGi framework needs to be
+setup, all required OSGi bundles need to be obtained, and they have to be
+installed correctly into the OSGi framework.
+
+NOTE: The applications have been tested successfully with
+https://felix.apache.org/[Apache Felix] as OSGi framework; but other OSGi
+implementations should work, too.
+
+toc::[]
+
+== The OSGi image plugin
+
+To simplify the application setup, the project contains a plugin for the
+https://www.scala-sbt.org/[SBT build tool] that is able to create a folder
+structure containing an OSGi framework with all application bundles. We refer
+to such a folder structure as an _OSGi image_; typically, such an image can be
+started directly.
+
+The plugin is implemented by the
+link:../project/OsgiImagePlugin.scala[OsgiImagePlugin] class in the _project_
+folder. It offers a task named _osgiImage_ which does the following:
+
+* It generates a folder structure in the project's _target_ folder for the OSGi
+  image based on one or multiple template directories provided.
+* It iterates over the dependencies of the current project and determines all
+  of them which are OSGi bundles.
+* All the bundles detected in the last step are then copied into a configurable
+  sub folder of the image target directory.
+
+The intended usage scenario is that the template directories contain the files
+required by an OSGi framework installation and all other files required by the
+application. The plugin copies these directories verbatim into the target
+folder. The OSGi bundles to be started by the framework typically need to be
+placed into a specific sub folder within the image. The plugin takes care of
+this, so, after its execution, a correct OSGi framework configuration should be
+available that is executable.
+
+=== Configuration
+
+The most important configuration option of the plugin is the path where the
+template directories are located. This is provided as a Java system property
+named _osgi.image.rootPath_. Background is that the property should be passed
+to SBT on startup via the `-D` command line option; so it is available to all
+sub projects and does not have to be hard-coded in the build script. For
+instance, you could start SBT as follows:
+
+ sbt -mem 4096 -Dosgi.image.rootPath=/data/dev/osgi-templates
+
+You can then pass one or more paths to image templates to the plugin; the
+plugin copies the files in these paths into the target directory (keeping their
+folder structure). Other configuration options include the relative path in the
+image where to place the application's OSGi bundles and the name of the
+subfolder for the image in the project's _target_ folder. These properties are
+optional and use meaningful default values. Refer to the ScalaDoc of the
+link:../project/OsgiImagePlugin.scala[OsgiImagePlugin] class for a
+documentation of the options available.
+
+=== Usage in projects
+
+The main link:../build.sbt[Build file] contains a number of projects that
+produce OSGi images; they correspond to the main LineDJ applications.
+Convention is that these projects have the suffix _OsgiImage_ in their name,
+e.g. _playerOsgiImage_.
+
+The projects are regular sub modules of the LineDJ main project, defining their
+specific settings like a name, their specific library dependencies, and other
+projects they depend on. Some settings, however, make them special:
+
+* They enable the _OsgiImagePlugin_.
+* They define a couple of settings required by the OSGi image plugin, namely
+  ** The paths of the OSGi image templates to use when creating the target
+    image. This is done via the _sourceImagePaths_ setting. The idea here is
+    that image templates can form a hierarchy. There is a base image containing
+    the fundamental files of the framework and bundles required by all LineDJ
+    OSGi applications. Then there can be further templates containing bundles
+    for specific dependencies. For instance, some bundles are needed by all
+    applications that play audio, while other applications do not use them. The
+    different templates can be mixed into a specific target application image
+    to provide the exact dependencies needed.
+  ** The _excludedModules_ setting allows filtering out some OSGi bundles in
+    the dependency tree of the project, which the plugin should not copy into
+    the target image. This applies mainly to the OSGi libraries themselves,
+    which are provided by the OSGi framework implicitly. Another use case would
+    be OSGi bundles in the dependencies with incorrect metadata; such bundles
+    would need to be replaced by patched ones.
+  ** Other settings of the plugin remain on their defaults, which are
+    appropriate for using Apache Felix as OSGi framework.
+
+=== Example using Apache Felix
+
+To give a better impression how OSGi image templates look like, we provide an
+example based on https://felix.apache.org/[Apache Felix].
+
+When you download a Felix distribution from the
+https://felix.apache.org/downloads.cgi[download page] and unzip the archive you
+get a folder structure like the following one:
+
+[source]
+----
+LICENSE
+NOTICE
+bin
+ |--felix.jar
+bundle
+ |--jansi-xxx.jar
+ |--jline-xxx.jar
+ |-- ...
+conf
+ |--config.properties
+doc
+ |-- ...
+----
+
+An application based on Apache Felix basically uses this structure. You
+typically tweak some entries in the _config.properties_ file and place all your
+application bundles in the _bundle_ directory, which already contains some
+basic bundles used by the framework and its shell. The whole application can
+then be started from the root of this folder structure with this command:
+
+ java -jar bin/felix.jar
+
+So, this folder structure is already a starting point for the OSGi base image
+template. Just add the OSGi bundles needed by all applications (and that cannot
+be obtained via the applications' dependencies) to the _bundle_ folder - and
+you are done.
+
+NOTE: For Apache Felix as OSGi framework, you need to manually download the
+bundle implementing support for SCR (Declarative Services). This bundle is
+available from the https://felix.apache.org/downloads.cgi[download page] as
+well.
+
+With the base image in place, you can create another image for applications
+that require additional dependencies for audio playback. The folder structure
+of this image just contains the additional files to be copied. So it has only
+a _bundle_ folder with the special bundles providing audio codecs.
+
+When passing the _sourceImagePaths_ setting to the OSGi image plugin the plugin
+copies the contents of the template image paths in the order as specified in
+the sequence. So you typically pass the base image path first, followed by more
+specific images. The specific ones extend (or even override) the content of
+the base image(s).
+
+== Missing OSGi bundles
+
+The LineDJ OSGi applications have a number of dependencies that must be present
+in the OSGi container during runtime. Unfortunately, not all of these
+dependencies are available as OSGi bundles. The following table gives an
+overview over the dependencies used by the applications and their state
+regarding their OSGi compatibility. Note that this table does not list the
+single bundles separately, but groups them by the projects they come from.
+
+.Dependencies of LineDJ OSGi applications
+[cols="1,1,2",options="header"]
+|====
+| Group | Source | Remarks
+| Akka | https://akka.io[Akka.io] |
+The applications make use of different Akka projects, such as Akka Actors, Akka
+streaming, and (partly) Akka remoting. Most of the Akka artifacts are valid
+OSGi bundles; so the OSGi image plugin can obtain them from the build directly.
+There are, however, some helper libraries, which do not provide OSGi metadata.
+Note that the OSGi compatibility of these artifacts can change even in micro
+releases.
+| Akka Http | https://akka.io[Akka.io] |
+Some applications use this library for communication with other services. The
+Akka Http artifacts are no OSGi bundles, unfortunately.
+| Apache Commons | https://commons.apache.org |
+The Apache Commons project provides small reusable libraries. The newer ones
+are all valid OSGi bundles. Some of the libraries referenced, however, are
+older and thus do not contain OSGi metadata. This is especially the case for
+Commons Jelly and its transitive dependencies.
+| JGUIraffe | https://github.com/oheger/jguiraffe[JGUIraffe on Github] |
+The LineDJ applications use this library as UI framework. The artifacts are
+valid OSGi bundles. However, some applications require a snapshot version,
+which is not available in a public Maven repository. So the jars for these
+versions need to be built manually and installed in a local Maven repository.
+| Audio Codecs | https://github.com/pdudits/soundlibs[Soundlibs] |
+For support of the MP3 audio format, the LineDJ audio platform depends on this
+library. There are three jars which must be present in the OSGi container at
+runtime, which are all valid OSGi bundles.
+| Apache SpiFly | https://aries.apache.org/modules/spi-fly.html[Apache Aries]
+| This library is needed to integrate the service loader based approach of the
+Java sound system with OSGi. There is one project,
+_mp3-playback-context-factory_ which has to be processed with SpiFly, so that
+it has access to the audio formats supported by the platform. Refer to the
+https://github.com/oheger/sbt-spifly[SpiFly SBT plugin] for information how
+this is done.
+| Scala dependencies | https://search.maven.org/[Maven central]
+| As LineDJ applications are written in Scala, they require the Scala library
+in the correct version. In addition, they reference some Scala modules, e.g.
+for XML parsing or parser combinators. All of these libraries are valid OSGi
+bundles.
+| Scalaz | https://github.com/scalaz/scalaz[Scalaz on Github]
+| A library for functional programming in Scala required by most LineDJ
+applications. Unfortunately, newer versions of this library no longer contain
+OSGi metadata.
+|====
+
+To build the OSGi images for the LineDJ applications and actually run them, you
+need to deal with the dependencies that are not available as OSGi bundles. You
+have to convert the original jar artifacts to valid OSGi bundles and place them
+into the OSGi image templates as described in <<Example using Apache Felix>>.
+There are different ways how a plain Java library can be converted to an OSGi
+bundle. One approach we found working well makes use of the
+https://felix.apache.org/documentation/subprojects/apache-felix-maven-bundle-plugin-bnd.html[Apache
+Felix Maven plugin]. Here you create an https://maven.apache.org/[Apache Maven]
+project that incorporates the plugin. This can be a multi-module project for
+processing multiple artifacts. Each module creates an OSGi bundle based on a
+source artifact. Refer to the plugin documentation for details.
+
+== Java dependencies
+
+The LineDJ applications run on a Java environment using version 11 or higher.
+(Actually, Java 8 should work as well, but this has not been tested.) As UI
+technology, the applications use https://openjfx.io/[JavaFX].
+
+In Java 11, JavaFX is no longer part of the core environment. This complicates
+the installation of the LineDJ applications; especially, the OSGi framework
+must be able to resolve the JavaFX packages and provide them to the
+application.
+
+One way to achieve this - which has worked quite well for us - is to create a
+https://openjfx.io/openjfx-docs/#modular[custom JDK+JavaFX image] as described
+in the JavaFX documentation. Here Java's
+https://docs.oracle.com/javase/9/tools/jlink.htm[JLink] tool is used to create
+a custom JDK image that contains the JavaFX modules; so when running the OSGi
+images with this JDK the required package imports are directly available.
