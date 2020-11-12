@@ -1,8 +1,13 @@
-# LineDJ Radio Player
+:toc:
+:toc-placement!:
+:toclevels: 3
+= LineDJ Radio Player
 
 This module implements a player for internet radio streams.
 
-## Functionality
+toc::[]
+
+== Functionality
 
 The radio player application comes with a minimum UI that has two buttons for
 starting and stopping playback, and a combo box for selecting the radio source
@@ -20,83 +25,35 @@ player switches automatically to a different radio source for which no
 exclusion applies currently. That way the player can be configured to skip
 commercials blocks by temporarily playing another station.
 
-## Installation
+== Installation
 
-The radio player application is an OSGi bundle. It depends on the following
-bundles which must be present in the OSGi container:
+The radio player application is an https://www.osgi.org/[OSGi] application. It
+requires an OSGi framework for its execution and has to be setup accordingly.
+The main link:../build.sbt[Build file] has a subproject named _radioOsgiImage_
+that generates an executable OSGi image for this application. Note that you may
+have to tweak the build to adapt the image to the OSGi framework of your
+choice. Information how this is done and about OSGi images in general is
+available in the link:../images/README.adoc[README] of the _images_ folder.
 
-* akka-actor_2.11-2.4.8.jar (akka)
-* akka-osgi_2.11-2.4.8.jar (akka)
-* akka-protobuf_2.11-2.4.8.jar (akka)
-* akka-remote_2.11-2.4.8.jar (akka)
-* akka-stream_2.11-2.4.8.jar (akka)
-* commons-beanutils-1.9.2.jar
-* commons-cli-osgi-1.0.jar
-* commons-codec-1.9.jar
-* commons-collections-3.2.2.jar
-* commons-configuration-1.10.jar
-* commons-jelly-osgi-1.0.jar
-* commons-jexl-osgi-1.0.jar
-* commons-jxpath-1.3.jar
-* commons-lang-2.6.jar
-* commons-logging-1.2.jar
-* config-1.3.0.jar  (akka)
-* disabled-mediaifc_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* dom4j-osgi-1.5.2.jar
-* jguiraffe-1.3.1.jar
-* jguiraffe-java-fx-1.3.1.jar
-* jlayer-1.0.1-2.jar (soundlibs)
-* linedj-actorsystem_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* linedj-client_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* linedj-shared_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* mp3-playback-context-factory_2.11-1.0-SNAPSHOT_spifly.jar (lineDJ)
-* mp3spi-1.9.5-2.jar (soundlibs)
-* netty-3.10.3.Final.jar (akka)
-* org.apache.aries.spifly.static.bundle-1.0.8.jar
-* org.apache.aries.util-1.1.1.jar
-* player-engine_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* protobuf-java-2.5.0.jar (akka)
-* radio-player_2.11-1.0-SNAPSHOT.jar (lineDJ)
-* reactive-streams-1.0.0.M3.jar (akka)
-* scala-java8-compat_2.11-0.7.0.jar
-* scala-library-2.11.8.jar
-* scala-parser-combinators_2.11-1.0.1.jar
-* servlet-api-osgi-2.3.jar
-* slf4j-api-1.7.10.jar
-* slf4j-simple-1.7.10.jar
-* ssl-config-akka_2.11-0.2.1.jar (akka)
-* ssl-config-core_2.11-0.2.1.jar (akka)
-* tritonus-share-0.3.7-3.jar (soundlibs)
-* uncommons-maths-osgi-1.2.2a.jar (akka)
+Provided that you have a working build configuration, start
+https://www.scala-sbt.org/[sbt] passing it the path to your OSGi image
+templates, e.g.
 
-_Notes_:
+ sbt -mem 4096 -Dosgi.image.rootPath=/data/dev/osgi-templates
 
-* Bundles labeled with _akka_ are part of or dependencies of
-  [Akka](http://akka.io). They are downloaded during the build and can be
-  found in the local Ivy repository.
-  
-* Bundles with the prefix _commons_ are part of the [Apache
-  Commons](http://commons.apache.org) project and can be downloaded from there.
-  
-* The _jguiraffe_ bundles are from the library used to build the player's UI:
-  [JGUIraffe](http://jguiraffe.sourceforge.net/)
-  
-* Bundles marked with _soundlibs_ are part of the
-  [Soundlibs](https://github.com/pdudits/soundlibs) project.
-  
-* The _aries_ bundles can be obtained from the [Apache Aries
-  SpiFly](http://aries.apache.org/modules/spi-fly.html) project.
-  
-* As LineDJ is written in Scala, the Scala libraries are required. These
-  bundles should be downloaded during the build into the local Ivy repository.
-  
-* Bundles marked with _lineDJ_ are built as part of this project.
+Then execute the following commands:
 
-* The bundles with the suffix _-osgi_ are the problematic ones; theese are
-  libraries that do not exist as OSGi bundles (at least in the referenced
-  versions). So they have to be created manually.
-  
-## Configuration
+[source]
+----
+$ project radioOsgiImage
+$ clean
+$ osgiImage
+----
+
+This compiles the necessary projects and generates the executable OSGi image
+in the folder link:../images/radio/target/image/[].
+
+== Configuration
 
 The radio player application is configured by a single XML-based configuration
 file with the name `.lineDJ-radioplayer.xml` located in the current user's home
@@ -104,10 +61,10 @@ directory. When started for the first time the file is created automatically.
 (The player is then inactive because it does not yet have any sources to play.)
 The file has to be edited in order to define radio sources or other settings
 for the application. An example file showing all configuration options
-available can be found in the [test resources](src/test/resources). The options
-can be divided into the following sections:
+available can be found link:../src/test/resources[here]. The options can be
+divided into the following sections:
 
-### Radio sources
+=== Radio sources
 
 This section defines the known radio sources. It starts with the `sources`
 element under the `radio` element. Each radio source is configured in a sub
@@ -129,7 +86,8 @@ interval. For instance, a radio station may send commercials every half hour
 between 6 a.m. and 8 p.m., but not on Sundays. The corresponding configuration
 would look as follows:
 
-```xml
+[source,xml]
+----
       <exclusions>
         <exclusion>
           <days>
@@ -156,7 +114,7 @@ would look as follows:
           <minutes from="57" to="60"/>
         </exclusion>
       </exclusions>
-```
+----
 
 Here two exclusion intervals are defined, one for the time before the full
 hour and one for the half hour. All the parts of an interval definition are
@@ -169,16 +127,17 @@ a bunch of possible scenarios.
 For a single radio source an arbitrary number of exclusion intervals can be
 specified.
 
-### Error handling
+=== Error handling
 
-When processing audio streams via the internet a number of errors can occur, e.
-g. the network may be unavailable, a specific radio station may have a
+When processing audio streams via the internet a number of errors can occur,
+e.g. the network may be unavailable, a specific radio station may have a
 temporary problem, or the URL of a station may be wrong (in which case the
 problem is permanent). In the configuration section _error_ the behavior of the
 player application in such cases can be configured. Below is an example
 fragment:
 
-```xml
+[source,xml]
+----
   <error>
     <retryInterval>1000</retryInterval>
     <retryIncrement>2</retryIncrement>
@@ -188,7 +147,7 @@ fragment:
       <minFailedSources>2</minFailedSources>
     </recovery>
   </error>
-```
+----
 
 In principle, when an error of a radio source is encountered, the application
 waits for a while and then tries to restart playback of this source again. If
@@ -234,14 +193,22 @@ with multiple settings:
   
 With these settings a certain flexibility in error handling can be achieved.
 
-### Other configuration
+=== Other configuration
 
 In addition to the settings discussed so far, there is a number of other
 options that do not fall into a specific category. They are listed in the
 table below:
 
-| Setting | Description |
-| ------- | ----------- |
-| current | Stores the name of the current radio source. This is set by the player application, so that it can play the same radio source when restarted. |
-| initialDelay | A delay (in milliseconds) to wait after startup before starting playback of the first source. The reason for this property is that the player engine relies on some audio codecs being installed in the system. As those are started dynamically during startup of the OSGi container, it may take some time until they are available. This setting has to be adapted to the current machine; on fast computers, there should not be a big delay. |
- 
+.Additional configuration options
+[cols="1,3",options="header"]
+|====
+| Setting | Description
+| current | Stores the name of the current radio source. This is set by the
+player application, so that it can play the same radio source when restarted.
+| initialDelay | A delay (in milliseconds) to wait after startup before
+starting playback of the first source. The reason for this property is that the
+player engine relies on some audio codecs being installed in the system. As
+those are started dynamically during startup of the OSGi container, it may
+take some time until they are available. This setting has to be adapted to the
+current machine; on fast computers, there should not be a big delay.
+|====
