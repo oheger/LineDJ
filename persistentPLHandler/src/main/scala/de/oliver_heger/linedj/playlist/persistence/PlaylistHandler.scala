@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.actor.Actor.Receive
 import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
@@ -31,7 +33,7 @@ import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import org.osgi.service.component.ComponentContext
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
 object PlaylistHandler {
@@ -80,6 +82,9 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
+  /** A flag to record whether shutdown handling was done. */
+  private val shutdownDone = new AtomicBoolean
+
   /**
     * Holds a reference to the actor for persisting changes on the playlist.
     * This is an option because the actor is created only if the configuration
@@ -108,8 +113,10 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
   private var currentState = PersistentPlaylistStateUpdateServiceImpl.InitialState
 
   /**
-    * @inheritdoc This implementation triggers the load of the persistent
-    *             playlist. When this is done, further actions are executed.
+    * @inheritdoc This implementation performs some initialization on the OSGi
+    *             management thread. It obtains the configuration for this
+    *             object and passes it via the message bus to the UI thread;
+    *             from there, further actions are executed.
     */
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
@@ -119,19 +126,32 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
       case Failure(ex) =>
         log.error("Could not read configuration! Playlist handler is not active.", ex)
       case Success(config) =>
-        handleActivation(config)
+        busRegistrationID = bus registerListener receive
+        bus publish ShutdownHandler.RegisterShutdownObserver(componentID)
+        bus publish config
     }
   }
 
   /**
-    * @inheritdoc This implementation does cleanup. Note that shutdown logic is
-    *             implemented as reaction on a ''Shutdown'' message.
+    * @inheritdoc This implementation does cleanup. Note that the default
+    *             shutdown logic is implemented as reaction on a ''Shutdown''
+    *             message. However, if this message has not been received
+    *             (because this component has been stopped manually), it still
+    *             has to be ensured that the managed data is saved properly.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
-    bus removeListener busRegistrationID
-    bus publish AudioPlayerStateChangeUnregistration(componentID)
-    removeAvailableMediaRegistration()
-    stateWriterActor foreach clientApplicationContext.actorSystem.stop
+    log.info("Deactivating PlaylistHandler.")
+    if (busRegistrationID != 0) {
+      bus removeListener busRegistrationID
+      bus publish AudioPlayerStateChangeUnregistration(componentID)
+      removeAvailableMediaRegistration()
+      bus publish ShutdownHandler.RemoveShutdownObserver(componentID)
+
+      if (!shutdownDone.get()) {
+        handleShutdownOnDeactivation()
+      }
+    }
+
     super.deactivate(componentContext)
   }
 
@@ -139,6 +159,9 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * The function for handling messages published on the message bus.
     */
   override def receive: Receive = {
+    case config: PlaylistHandlerConfig =>
+      handleActivation(config)
+
     case LoadedPlaylist(setPlaylist) =>
       sendMsgToStateWriter(setPlaylist)
       updateState(updateService.handlePlaylistLoaded(setPlaylist, handlePlaylistStateChange))
@@ -152,6 +175,18 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
   }
 
   /**
+    * Stops the state writer actor. This has to be done in any case if this
+    * actor has been created before; no matter whether there is a regular
+    * shutdown or a hard deactivation. ''Note'': The method is exposed for
+    * testability.
+    *
+    * @param act the actor to be stopped
+    */
+  private[persistence] def stopStateWriterActor(act: ActorRef): Unit = {
+    clientApplicationContext.actorSystem.stop(act)
+  }
+
+  /**
     * Performs initialization during activation of this component.
     *
     * @param config the configuration
@@ -162,7 +197,6 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
       config.autoSaveInterval)
     stateWriterActor = Some(clientApplicationContext.actorFactory.createActor(
       PlaylistStateWriterActor(writeConfig), WriterActorName))
-    busRegistrationID = bus registerListener receive
     updateState(updateService.handleActivation(componentID, handleAvailableMedia))
     triggerLoadOfPersistentPlaylist(config)
   }
@@ -216,6 +250,25 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     messages foreach bus.publish
   }
 
+  private def handleShutdownOnDeactivation(): Unit = {
+    // The actor has been created and used in the UI thread. As we are now
+    // on the OSGi management thread, we have to synchronize to access it
+    // safely.
+    val optStateWriter = this.synchronized(stateWriterActor)
+    optStateWriter foreach { actor =>
+      log.info("No shutdown message received. Saving state in deactivate().")
+      val futClose = triggerStateWriterActorClose(actor)
+      try {
+        Await.ready(futClose, handlerConfig.shutdownTimeout)
+      } catch {
+        case e: TimeoutException =>
+          log.warn(s"Could not close state writer actor within the timeout of ${handlerConfig.shutdownTimeout}.",
+            e)
+      }
+      stopStateWriterActor(actor)
+    }
+  }
+
   /**
     * Sends the specified message to the state writer actor.
     *
@@ -226,26 +279,46 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
   }
 
   /**
+    * Returns the implicit execution context for dealing with futures.
+    *
+    * @return the implicit execution context
+    */
+  private implicit def executionContext: ExecutionContext = clientApplicationContext.actorSystem.dispatcher
+
+  /**
+    * Sends a ''CloseRequest'' message to the state writer actor to trigger the
+    * saving of the current playlist state before this component gets
+    * deactivated.
+    *
+    * @param act the state writer actor
+    * @return the ''Future'' for the ACK response.
+    */
+  private def triggerStateWriterActorClose(act: ActorRef): Future[Any] = {
+    log.info("Triggering close of state writer actor.")
+    implicit val timeout: Timeout = Timeout(handlerConfig.shutdownTimeout)
+    act ? CloseRequest
+  }
+
+  /**
     * Sends a close request to the state writer actor and handles its response.
     * This makes sure that recent updates on the playlist state are written to
     * disk. A shutdown confirmation is sent when this is done.
     *
     * @param act the state writer actor
     */
-  private def shutdownStateWriterActor(act: ActorRef): Unit = {
-    implicit val ec: ExecutionContext = clientApplicationContext.actorSystem.dispatcher
-    implicit val timeout: Timeout = Timeout(handlerConfig.shutdownTimeout)
-    val futAck = act ? CloseRequest
-    futAck onComplete { t =>
+  private def shutdownStateWriterActor(act: ActorRef): Unit =
+    triggerStateWriterActorClose(act) onComplete { t =>
       t match {
         case Failure(e) =>
           log.warn("Waiting for CloseAck of state writer actor failed!", e)
         case _ =>
-          log.debug("State writer actor closed.")
+          log.info("State writer actor closed.")
       }
+      shutdownDone set true
+      stopStateWriterActor(act)
       bus publish ShutdownHandler.ShutdownDone(componentID)
+      log.info("Shutdown completed.")
     }
-  }
 
   /**
     * Removes the registration for the available media state. This is done
