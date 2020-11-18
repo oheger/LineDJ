@@ -34,22 +34,35 @@ import scala.concurrent.ExecutionContext
 
 object ClientManagementApplication {
   /** The prefix for beans read from the bean definition file. */
-  val BeanPrefix = "LineDJ_"
+  final val BeanPrefix = "LineDJ_"
 
   /** The name of the bean representing the message bus. */
-  val BeanMessageBus: String = BeanPrefix + "messageBus"
+  final val BeanMessageBus: String = BeanPrefix + "messageBus"
 
   /** The name of the bean representing the consumer ID factory. */
-  val BeanConsumerIDFactory: String = BeanPrefix + "consumerIDFactory"
+  final val BeanConsumerIDFactory: String = BeanPrefix + "consumerIDFactory"
 
   /** Configuration property for the meta data cache size. */
-  val PropMetaDataCacheSize = "media.cacheSize"
+  final val PropMetaDataCacheSize = "media.cacheSize"
+
+  /**
+    * Configuration property determining the timeout for the shutdown of the
+    * whole platform. When the platform goes down all currently active
+    * components are given the chance to execute their specific shutdown logic,
+    * e.g. to store some current data. This property defines the maximum time
+    * span (in milliseconds) to wait until all components have finished their
+    * shutdown. Afterwards, the platform is forced to stop.
+    */
+  final val PropShutdownTimeout = "platform.shutdownTimeout"
 
   /**
     * The default size for the meta data cache. This is the number of entries
     * the cache can hold.
     */
-  val DefaultMetaDataCacheSize = 2500
+  final val DefaultMetaDataCacheSize = 2500
+
+  /** The default timeout for shutting down the platform. */
+  final val DefaultShutdownTimeoutMillis = 5000
 
   /**
     * A message published by [[ClientManagementApplication]] on the UI message
@@ -65,6 +78,7 @@ object ClientManagementApplication {
   /**
     * Creates an exit handler for shutting down this application in an OSGi
     * context.
+    *
     * @param compContext the ''ComponentContext''
     * @param actorSystem the actor system
     * @return the exit handler
@@ -129,7 +143,8 @@ object ClientManagementApplication {
   * interface have been retrieved.
   */
 class ClientManagementApplication extends Application with
-ClientApplicationContext with ApplicationSyncStartup {
+  ClientApplicationContext with ApplicationSyncStartup {
+
   import ClientManagementApplication._
 
   /**
@@ -202,6 +217,7 @@ ClientApplicationContext with ApplicationSyncStartup {
 
   /**
     * Initializes the central actor system. This method is called by the SCR.
+    *
     * @param system the actor system
     */
   def initActorSystem(system: ActorSystem): Unit = {
@@ -226,6 +242,7 @@ ClientApplicationContext with ApplicationSyncStartup {
     * method is called by the SCR. Note: It is probably not best practice to
     * start up the application in the main OSGi thread; however, it must be
     * fully initialized before other components can start.
+    *
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
@@ -277,15 +294,16 @@ ClientApplicationContext with ApplicationSyncStartup {
     */
   private[app] def createMediaIfcExtensions(appCtx: ApplicationContext, facade: MediaFacade):
   Iterable[MessageBusListener] =
-  List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
-    new AvailableMediaExtension(facade),
-    new MetaDataCache(facade,
-      appCtx.getConfiguration.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize)))
+    List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
+      new AvailableMediaExtension(facade),
+      new MetaDataCache(facade,
+        appCtx.getConfiguration.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize)))
 
   /**
     * Extracts the shared window manager from the application context. This
     * window manager is then made available via the client application context,
     * so that it can be used by all active application.
+    *
     * @param appCtx the application context
     * @return he window manager
     */
