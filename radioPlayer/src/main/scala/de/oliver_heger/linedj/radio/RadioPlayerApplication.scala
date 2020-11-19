@@ -125,7 +125,8 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     super.activate(compContext)
 
     busRegistrationId = clientApplicationContext.messageBus.registerListener(receive)
-    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID))
+    //TODO adapt to changes in shutdown management
+    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID, null))
   }
 
   /**
@@ -153,7 +154,8 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
       }
     }
 
-    clientApplicationContext.messageBus.publish(ShutdownHandler.ShutdownDone(componentID))
+    //TODO adapt to changes in shutdown management
+    //clientApplicationContext.messageBus.publish(ShutdownHandler.ShutdownDone(componentID))
   }
 
   /**

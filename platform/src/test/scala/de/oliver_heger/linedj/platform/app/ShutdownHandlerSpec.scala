@@ -16,60 +16,67 @@
 
 package de.oliver_heger.linedj.platform.app
 
+import akka.actor.{ActorSystem, Props}
+import akka.testkit.{TestActorRef, TestKit, TestProbe}
+import de.oliver_heger.linedj.platform.app.ShutdownHandler.{ShutdownCompletionNotifier, ShutdownObserver}
 import de.oliver_heger.linedj.platform.bus.ComponentID
+import de.oliver_heger.linedj.platform.comm.ActorFactory
+import org.apache.commons.configuration.PropertiesConfiguration
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''ShutdownHandler''.
   */
-class ShutdownHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ShutdownHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  def this() = this(ActorSystem("ShutdownHandlerSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+    super.afterAll()
+  }
+
   "A ShutdownHandler" should "shutdown the platform directly if there is no observer" in {
     val helper = new HandlerTestHelper
 
     helper.triggerShutdown()
       .expectShutdown()
+      .expectNoActorCreation()
   }
 
   it should "not shutdown the platform for an invalid Shutdown message" in {
     val helper = new HandlerTestHelper
 
     helper.triggerShutdown(ctx = mock[ClientApplicationContext])
+      .expectNoActorCreation()
       .expectNoShutdown()
   }
 
-  it should "wait for confirmations of observers before shutting down" in {
+  it should "create a correct shutdown management actor to manage the shutdown operation" in {
     val helper = new HandlerTestHelper
     val obs1 = helper.registerObserver()
     val obs2 = helper.registerObserver()
 
     helper.triggerShutdown()
       .expectNoShutdown()
-      .confirmShutdown(obs2)
-      .confirmShutdown(obs1)
-      .expectShutdown()
+      .verifyShutdownActor(Set(obs1.componentID, obs2.componentID))
   }
 
-  it should "handler messages to remove observers" in {
+  it should "handle messages to remove observers" in {
     val helper = new HandlerTestHelper
     val obs1 = helper.registerObserver()
     val obs2 = helper.registerObserver()
 
     helper.removeObserver(obs2)
       .triggerShutdown()
-      .confirmShutdown(obs1)
-      .expectShutdown()
-  }
-
-  it should "ignore shutdown confirmations if no shutdown is in progress" in {
-    val helper = new HandlerTestHelper
-    val obs = helper.registerObserver()
-
-    helper.confirmShutdown(obs)
-      .triggerShutdown()
-      .expectNoShutdown()
+      .verifyShutdownActor(Set(obs1.componentID))
+    obs2.verifyNoShutdownTriggered()
   }
 
   it should "ignore multiple shutdown triggers" in {
@@ -80,21 +87,83 @@ class ShutdownHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       .expectShutdown()
   }
 
-  it should "handle a remove observer operation while shutdown is in progress" in {
+  it should "ignore multiple shutdown triggers when observers are registered" in {
     val helper = new HandlerTestHelper
-    val obs = helper.registerObserver()
+    val observer = helper.registerObserver()
 
     helper.triggerShutdown()
-      .removeObserver(obs)
-      .expectShutdown()
+      .triggerShutdown()
+      .verifyShutdownActor(Set(observer.componentID))
+  }
+
+  it should "provide a correct notifier to confirm a complete shutdown" in {
+    val helper = new HandlerTestHelper
+    val obs1 = helper.registerObserver()
+    val obs2 = helper.registerObserver()
+
+    helper.triggerShutdown()
+    obs1.handleShutdownTrigger()
+    obs2.handleShutdownTrigger()
+    helper.expectShutdownConfirmationToActor(obs1)
+      .expectShutdownConfirmationToActor(obs2)
+  }
+
+  it should "handle a remove observer operation while shutdown is in progress" in {
+    val helper = new HandlerTestHelper
+    helper.registerObserver()
+    val obs2 = helper.registerObserver()
+
+    helper.triggerShutdown()
+      .removeObserver(obs2)
+      .expectShutdownConfirmationToActor(obs2)
+  }
+
+  /**
+    * A data class storing information about a shutdown observer used by a test
+    * case.
+    *
+    * @param componentID the component ID of the observer
+    * @param observer    the mock observer
+    */
+  private case class ShutdownObserverData(componentID: ComponentID,
+                                          observer: ShutdownObserver) {
+    /**
+      * Verifies that this observer was invoked to trigger its shutdown.
+      *
+      * @return the notifier passed to this observer
+      */
+    def verifyShutdownTriggered(): ShutdownCompletionNotifier = {
+      val captor = ArgumentCaptor.forClass(classOf[ShutdownCompletionNotifier])
+      verify(observer).triggerShutdown(captor.capture())
+      captor.getValue
+    }
+
+    /**
+      * Verifies that the wrapped observer has not been asked to shutdown.
+      */
+    def verifyNoShutdownTriggered(): Unit = {
+      verify(observer, never()).triggerShutdown(any())
+    }
+
+    /**
+      * Simulates a shutdown operation. Verifies that shutdown was triggered
+      * and invokes the shutdown notifier.
+      */
+    def handleShutdownTrigger(): Unit = {
+      val notifier = verifyShutdownTriggered()
+      notifier.shutdownComplete()
+    }
   }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     */
   private class HandlerTestHelper {
+    /** Test probe for the shutdown management actor. */
+    private val probeShutdownActor = TestProbe()
+
     /** Mock for the management application. */
-    private val application = mock[ClientManagementApplication]
+    private val application = createMockApplication()
 
     /** The handler to be tested. */
     private val handler = new ShutdownHandler(application)
@@ -131,37 +200,74 @@ class ShutdownHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     }
 
     /**
-      * Registers a shutdown observer at the test handler and returns its
-      * component ID.
+      * Registers a shutdown observer at the test handler and returns a data
+      * object for it.
       *
-      * @return the component ID of the new observer
+      * @return a data object for the new observer
       */
-    def registerObserver(): ComponentID = {
+    def registerObserver(): ShutdownObserverData = {
       val id = ComponentID()
-      send(ShutdownHandler.RegisterShutdownObserver(id))
-      id
+      val observer = mock[ShutdownObserver]
+      send(ShutdownHandler.RegisterShutdownObserver(id, observer))
+      ShutdownObserverData(id, observer)
     }
 
     /**
-      * Sends a shutdown confirmation message for the specified observer to the
-      * test handler.
+      * Removes the specified observer from the test handler.
       *
-      * @param observerID the observer ID
+      * @param observer the observer
       * @return this test helper
       */
-    def confirmShutdown(observerID: ComponentID): HandlerTestHelper = {
-      send(ShutdownHandler.ShutdownDone(observerID))
+    def removeObserver(observer: ShutdownObserverData): HandlerTestHelper = {
+      send(ShutdownHandler.RemoveShutdownObserver(observer.componentID))
       this
     }
 
     /**
-      * Removes the observer with the specified ID from the test handler.
+      * Checks that no actor has been created by the handler under test.
       *
-      * @param observerID the observer ID
       * @return this test helper
       */
-    def removeObserver(observerID: ComponentID): HandlerTestHelper = {
-      send(ShutdownHandler.RemoveShutdownObserver(observerID))
+    def expectNoActorCreation(): HandlerTestHelper = {
+      verifyZeroInteractions(application.actorFactory)
+      this
+    }
+
+    /**
+      * Returns the ''Props'' used by the handler under test to create the
+      * shutdown management actor.
+      *
+      * @return the ''Props'' to create the shutdown management actor
+      */
+    def shutdownActorProps: Props = {
+      val captor = ArgumentCaptor.forClass(classOf[Props])
+      verify(application.actorFactory).createActor(captor.capture(), argEq(ShutdownHandler.ShutdownActorName))
+      captor.getValue
+    }
+
+    /**
+      * Verifies that a correct shutdown management actor has been created.
+      *
+      * @param expComponents the expected pending observer IDs
+      * @return this test helper
+      */
+    def verifyShutdownActor(expComponents: Set[ComponentID]): HandlerTestHelper = {
+      val props = shutdownActorProps
+      val shutdownActor = TestActorRef[ShutdownManagementActor](props)
+      shutdownActor.underlyingActor.managementApp should be(application)
+      shutdownActor.underlyingActor.pendingComponents should be(expComponents)
+      this
+    }
+
+    /**
+      * Checks that a message confirming the shutdown of the given observer was
+      * sent to the shutdown actor.
+      *
+      * @param observer the observer in question
+      * @return this test helper
+      */
+    def expectShutdownConfirmationToActor(observer: ShutdownObserverData): HandlerTestHelper = {
+      probeShutdownActor.expectMsg(ShutdownManagementActor.ShutdownConfirmation(observer.componentID))
       this
     }
 
@@ -174,6 +280,33 @@ class ShutdownHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     private def send(msg: Any): HandlerTestHelper = {
       handler receive msg
       this
+    }
+
+    /**
+      * Creates an initialized mock for the client management application. The
+      * application is prepared to create the shutdown management actor.
+      *
+      * @return the mock application
+      */
+    private def createMockApplication(): ClientManagementApplication = {
+      val app = mock[ClientManagementApplication]
+      val factory = createActorFactory()
+      when(app.actorFactory).thenReturn(factory)
+      when(app.managementConfiguration).thenReturn(new PropertiesConfiguration)
+      app
+    }
+
+    /**
+      * Creates a mock for the actor factory. The factory returns a test probe
+      * for the shutdown management actor.
+      *
+      * @return the actor factory mock
+      */
+    private def createActorFactory(): ActorFactory = {
+      val factory = mock[ActorFactory]
+      when(factory.createActor(any(), argEq(ShutdownHandler.ShutdownActorName)))
+        .thenReturn(probeShutdownActor.ref)
+      factory
     }
   }
 

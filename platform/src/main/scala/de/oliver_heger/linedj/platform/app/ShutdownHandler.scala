@@ -17,13 +17,15 @@
 package de.oliver_heger.linedj.platform.app
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.app.ShutdownHandler.{RegisterShutdownObserver,
-  RemoveShutdownObserver, Shutdown, ShutdownDone}
+import akka.actor.ActorRef
+import de.oliver_heger.linedj.platform.app.ShutdownHandler._
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import org.slf4j.LoggerFactory
 
 object ShutdownHandler {
+  /** The name used for the shutdown management actor. */
+  final val ShutdownActorName = "shutdownManagementActor"
 
   /**
     * A message processed by [[ShutdownHandler]] that causes the
@@ -47,8 +49,10 @@ object ShutdownHandler {
     * platform.
     *
     * @param observerID the ID of the observer
+    * @param observer the observer to register
     */
-  case class RegisterShutdownObserver(observerID: ComponentID)
+  case class RegisterShutdownObserver(observerID: ComponentID,
+                                      observer: ShutdownObserver)
 
   /**
     * A message processed by [[ShutdownHandler]] that removes the registration
@@ -60,15 +64,46 @@ object ShutdownHandler {
   case class RemoveShutdownObserver(observerID: ComponentID)
 
   /**
-    * A message processed by [[ShutdownHandler]] telling it that the specified
-    * shutdown observer has completed its shutdown handling. When such messages
-    * have arrived for all registered components the system can actually go
-    * down.
+    * A trait defining a mechanism to send a notification when a shutdown
+    * operation is complete.
     *
-    * @param observerID the ID of the observer
+    * An object implementing this trait is passed to a [[ShutdownObserver]]
+    * when a shutdown is to be triggered. The observer can now initiate its
+    * (potentially asynchronous) shutdown operation. When this is done it must
+    * call the notification method to indicate that it has finished its
+    * shutdown action. After all observers have sent this notification, the
+    * platform can actually shut down.
     */
-  case class ShutdownDone(observerID: ComponentID)
+  trait ShutdownCompletionNotifier {
+    /**
+      * Notifies the shutdown handler that the shutdown logic of the current
+      * observer has been completed. Note that this method can be called from
+      * an arbitrary thread.
+      */
+    def shutdownComplete(): Unit
+  }
 
+  /**
+    * A trait defining the interface of a component that takes part in the
+    * extended shutdown mechanism implemented by [[ShutdownHandler]].
+    *
+    * When the shutdown of the platform is requested the [[ShutdownHandler]]
+    * invokes the single method of this trait in the event dispatch thread. An
+    * implementation can then execute its specific shutdown logic. When this is
+    * done, the ''ShutdownCompletionNotifier'' provided must be invoked.
+    */
+  trait ShutdownObserver {
+    /**
+      * Notifies this observer that the platform is going to be shutdown. This
+      * method is called in the event dispatch thread. An implementation can
+      * now perform arbitrary shutdown logic, synchronously or asynchronously
+      * as it pleases. Afterwards the ''ShutdownCompletionNotifier'' passed to
+      * this method must be invoked.
+      * @param completionNotifier the notifier to indicate that shutdown is
+      *                           complete for this observer
+      */
+    def triggerShutdown(completionNotifier: ShutdownCompletionNotifier): Unit
+  }
 }
 
 /**
@@ -87,11 +122,12 @@ object ShutdownHandler {
   * execute steps during a shutdown operation can register at this component by
   * publishing a ''RegisterShutdownObserver'' message on the system message
   * bus. If there is at least one observer registered, a shutdown operation
-  * will not be executed immediately, but the handler waits for confirmations
-  * from all registered shutdown observers. So an observer must handle a
-  * ''Shutdown'' message and eventually answer it with a ''ShutdownDone''
-  * message. Only after all observers have sent such a ''ShutdownDone''
-  * message, the platform is actually shut down.
+  * will not be executed immediately, but the handler invokes the
+  * ''triggerShutdown()'' method of all observers and waits for their
+  * confirmations to arrive. So an observer must implement this method to
+  * execute the shutdown logic it requires and eventually invoke the
+  * [[ShutdownCompletionNotifier]] provided. Only after all observers have sent
+  * such a notification, the platform is actually shut down.
   *
   * @param app the management application
   */
@@ -99,8 +135,11 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
   /** The logger. */
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** Stores the IDs of shutdown observers registered at this component. */
-  private var observers = Set.empty[ComponentID]
+  /** Stores the shutdown observers registered at this component. */
+  private var observers = Map.empty[ComponentID, ShutdownObserver]
+
+  /** Stores the reference to the shutdown management actor if needed. */
+  private var optShutdownActor: Option[ActorRef] = None
 
   /** A flag whether a shutdown operation is ongoing. */
   private var shutdownInProgress = false
@@ -120,20 +159,15 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
       }
       else log.warn("Ignoring invalid Shutdown command: " + ctx)
 
-    case RegisterShutdownObserver(id) =>
+    case RegisterShutdownObserver(id, observer) =>
       log.info("Added shutdown observer " + id)
-      observers += id
+      observers += id -> observer
 
     case RemoveShutdownObserver(id) =>
       observers -= id
       log.info("Removed shutdown observer " + id)
-      if (shutdownInProgress) shutdownIfPossible()
-
-    case ShutdownDone(id) =>
-      log.info("Received shutdown confirmation from " + id)
       if (shutdownInProgress) {
-        observers -= id
-        shutdownIfPossible()
+        optShutdownActor foreach { _ ! ShutdownManagementActor.ShutdownConfirmation(id) }
       }
   }
 
@@ -146,14 +180,20 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
     shutdownInProgress = true
     if (observers.isEmpty) {
       shutdownPlatform()
+    } else {
+      log.info("Creating ShutdownManagementActor to monitor these shutdown observers: {}.", observers.keySet)
+      val props = ShutdownManagementActor.props(app, observers.keySet)
+      val shutdownActor = app.actorFactory.createActor(props, ShutdownActorName)
+    observers foreach { entry =>
+      val notifier = new ShutdownCompletionNotifier {
+        override def shutdownComplete(): Unit = {
+          shutdownActor ! ShutdownManagementActor.ShutdownConfirmation(entry._1)
+        }
+      }
+      entry._2.triggerShutdown(notifier)
     }
-  }
-
-  /**
-    * Shuts down the platform if all observers have sent their confirmation.
-    */
-  private def shutdownIfPossible(): Unit = {
-    if (observers.isEmpty) shutdownPlatform()
+      optShutdownActor = Some(shutdownActor)
+    }
   }
 
   /**

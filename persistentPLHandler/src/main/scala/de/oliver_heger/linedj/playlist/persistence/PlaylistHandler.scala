@@ -127,7 +127,8 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
         log.error("Could not read configuration! Playlist handler is not active.", ex)
       case Success(config) =>
         busRegistrationID = bus registerListener receive
-        bus publish ShutdownHandler.RegisterShutdownObserver(componentID)
+        //TODO adapt to changes in shutdown management
+        bus publish ShutdownHandler.RegisterShutdownObserver(componentID, null)
         bus publish config
     }
   }
@@ -316,7 +317,8 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
       }
       shutdownDone set true
       stopStateWriterActor(act)
-      bus publish ShutdownHandler.ShutdownDone(componentID)
+      //TODO adapt to changes in shutdown management
+      //bus publish ShutdownHandler.ShutdownDone(componentID)
       log.info("Shutdown completed.")
     }
 
