@@ -157,7 +157,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val clCtx = new ClientApplicationContextImpl(optMessageBus = Some(helper.messageBus))
     helper.app.initClientContext(clCtx)
 
-    helper.app.closePlayer()
+    helper.closePlayer()
     helper.expectShutdownDone()
   }
 
@@ -219,8 +219,9 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new RadioPlayerApplicationTestHelper
     helper.activateRadioApp(clearMessageBus = false)
 
-    helper.messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
-      .observerID should be(helper.app.componentID)
+    val regMsg = helper.messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
+    regMsg.observerID should be(helper.app.componentID)
+    regMsg.observer should be(helper.app)
   }
 
   it should "remove the message bus registration on deactivation" in {
@@ -255,6 +256,9 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * player mock.
       */
     private val playbackContextFactories = new ConcurrentHashMap[PlaybackContextFactory, Boolean]
+
+    /** Mock for the shutdown completion notifier. */
+    private val completionNotifier = mock[ShutdownHandler.ShutdownCompletionNotifier]
 
     /**
       * @inheritdoc Injects the test message bus in the application context.
@@ -309,7 +313,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       val ec = mock[ExecutionContextExecutor]
       when(app.clientApplicationContext.actorSystem.dispatcher).thenReturn(ec)
       when(player.close()(ec, Timeout(3.seconds))).thenReturn(p.future)
-      messageBus.publishDirectly(ShutdownHandler.Shutdown(app.clientApplicationContext))
+      app.triggerShutdown(completionNotifier)
     }
 
     /**
@@ -317,9 +321,14 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * the message bus.
       */
     def expectShutdownDone(): Unit = {
-      //TODO adapt to changes in shutdown management
-//      val doneMsg = messageBus.expectMessageType[ShutdownHandler.ShutdownDone]
-//      doneMsg.observerID should be(app.componentID)
+      verify(completionNotifier, timeout(1000)).shutdownComplete()
+    }
+
+    /**
+      * Invokes the function to close the player on the test application.
+      */
+    def closePlayer(): Unit = {
+      app.closePlayer(completionNotifier)
     }
 
     /**

@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.Actor.Receive
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
+import de.oliver_heger.linedj.platform.app.ShutdownHandler.ShutdownCompletionNotifier
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ShutdownHandler}
 import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
@@ -48,7 +48,8 @@ import scala.concurrent.duration._
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with Identifiable {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with Identifiable
+  with ShutdownHandler.ShutdownObserver {
   def this() = this(new RadioPlayerFactory)
 
   /** The radio player managed by this application. */
@@ -59,9 +60,6 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * radio player was created.
     */
   private var pendingPlaybackContextFactories = List.empty[PlaybackContextFactory]
-
-  /** The ID of the message bus registration. */
-  private var busRegistrationId = 0
 
   /**
     * Adds a ''PlaybackContextFactory'' service to this application. This
@@ -124,23 +122,29 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
 
-    busRegistrationId = clientApplicationContext.messageBus.registerListener(receive)
-    //TODO adapt to changes in shutdown management
-    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID, null))
+    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID, this))
   }
 
   /**
     * @inheritdoc This implementation closes the player.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
-    clientApplicationContext.messageBus.removeListener(busRegistrationId)
     super.deactivate(componentContext)
   }
 
   /**
-    * Closes the radio player and waits for its termination.
+    * @inheritdoc Triggers the shutdown of the radio player application.
     */
-  private[radio] def closePlayer(): Unit = {
+  override def triggerShutdown(completionNotifier: ShutdownHandler.ShutdownCompletionNotifier): Unit = {
+    closePlayer(completionNotifier)
+  }
+
+  /**
+    * Closes the radio player and waits for its termination.
+    *
+    * @param completionNotifier the notifier for a completed shutdown
+    */
+  private[radio] def closePlayer(completionNotifier: ShutdownCompletionNotifier): Unit = {
     val optPlayer = this.synchronized(player)
     optPlayer.foreach { p =>
       p.stopPlayback()
@@ -154,8 +158,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
       }
     }
 
-    //TODO adapt to changes in shutdown management
-    //clientApplicationContext.messageBus.publish(ShutdownHandler.ShutdownDone(componentID))
+    completionNotifier.shutdownComplete()
   }
 
   /**
@@ -185,15 +188,5 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     Sink.foreach[PlayerEvent] { e =>
       messageBus.publish(RadioPlayerEvent(e, player))
     }
-  }
-
-  /**
-    * A function to process messages on the system message bus.
-    *
-    * @return the message processing function
-    */
-  private def receive: Receive = {
-    case ShutdownHandler.Shutdown(_) =>
-      closePlayer()
   }
 }
