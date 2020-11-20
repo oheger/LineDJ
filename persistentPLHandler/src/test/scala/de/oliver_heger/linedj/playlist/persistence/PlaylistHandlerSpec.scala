@@ -220,7 +220,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
 
     helper.activate()
-      .sendShutdown()
+      .triggerShutdown()
       .expectStateWriterMsg(CloseRequest)
   }
 
@@ -229,12 +229,10 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
 
-    val confirm = helper.activate()
+    helper.activate()
       .disableCloseAckForStateWriter()
-      .sendShutdown()
-    //TODO adapt to changes in shutdown management
-//      .expectMessageOnBus[ShutdownHandler.ShutdownDone]
-//    confirm.observerID should be(helper.handlerComponentID)
+      .triggerShutdown()
+      .expectShutdownCompletionNotification()
   }
 
   it should "wait for the close Ack of the state writer actor on deactivation" in {
@@ -244,15 +242,15 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.activate()
       .disableCloseAckForStateWriter()
-      .sendShutdown()
-      .expectNoMessageOnBus(Timeout.minus(100.millis))
+      .triggerShutdown()
+      .expectShutdownCompletionNotification(0)
   }
 
   it should "stop the state writer actor when handling the shutdown notification" in {
     val helper = new HandlerTestHelper
 
     helper.activate()
-      .sendShutdown()
+      .triggerShutdown()
       .expectStateWriterActorStopped()
   }
 
@@ -260,7 +258,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new HandlerTestHelper
 
     helper.activate()
-      .sendShutdown()
+      .triggerShutdown()
       .deactivate()
     helper.numberOfStateWriterStops should be(1)
   }
@@ -320,6 +318,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     /** Stores the names of actors that have been created. */
     private var createdActors = Set.empty[String]
 
+    /** Mock for the completion notifier. */
+    private val completionNotifier = mock[ShutdownHandler.ShutdownCompletionNotifier]
+
     /** Records the number of times the state writer actor was stopped. */
     private var stateWriterStops = 0
 
@@ -352,6 +353,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       if (expInitMessages) {
         val regMsg = messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
         regMsg.observerID should be(handler.componentID)
+        regMsg.observer should be(handler)
         messageBus.processNextMessage[PlaylistHandlerConfig]()
       } else messageBus.expectNoMessage()
       this
@@ -472,12 +474,24 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
 
     /**
-      * Sends a ''Shutdown'' message to the test handler.
+      * Invokes the test handler to trigger a shutdown operation.
       *
       * @return this test helper
       */
-    def sendShutdown(): HandlerTestHelper = {
-      publishOnBus(ShutdownHandler.Shutdown(clientCtx))
+    def triggerShutdown(): HandlerTestHelper = {
+      handler.triggerShutdown(completionNotifier)
+      this
+    }
+
+    /**
+      * Verifies that the mock for the completion notifier has been invoked
+      * the given number of times.
+      *
+      * @param expTimes the expected number of invocations
+      * @return this test helper
+      */
+    def expectShutdownCompletionNotification(expTimes: Int = 1): HandlerTestHelper = {
+      verify(completionNotifier, timeout(1000).times(expTimes)).shutdownComplete()
       this
     }
 

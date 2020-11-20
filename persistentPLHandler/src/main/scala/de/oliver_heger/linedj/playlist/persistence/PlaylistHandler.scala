@@ -23,6 +23,7 @@ import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
+import de.oliver_heger.linedj.platform.app.ShutdownHandler.{ShutdownCompletionNotifier, ShutdownObserver}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, ShutdownHandler}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeUnregistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -68,7 +69,7 @@ object PlaylistHandler {
   * @param updateService the update service used by this instance
   */
 class PlaylistHandler private[persistence](val updateService: PersistentPlaylistStateUpdateService)
-  extends ClientContextSupport with MessageBusListener with Identifiable {
+  extends ClientContextSupport with MessageBusListener with Identifiable with ShutdownObserver {
 
   /**
     * Creates a new instance of ''PlaylistHandler'' with default dependencies.
@@ -127,8 +128,7 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
         log.error("Could not read configuration! Playlist handler is not active.", ex)
       case Success(config) =>
         busRegistrationID = bus registerListener receive
-        //TODO adapt to changes in shutdown management
-        bus publish ShutdownHandler.RegisterShutdownObserver(componentID, null)
+        bus publish ShutdownHandler.RegisterShutdownObserver(componentID, this)
         bus publish config
     }
   }
@@ -169,10 +169,15 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
+  }
 
-    case ShutdownHandler.Shutdown(_) =>
-      log.info("Received Shutdown message.")
-      stateWriterActor foreach shutdownStateWriterActor
+  /**
+    * @inheritdoc This implementation triggers a graceful shutdown of this
+    *             component.
+    */
+  override def triggerShutdown(completionNotifier: ShutdownHandler.ShutdownCompletionNotifier): Unit = {
+    log.info("triggerShutdown() invoked.")
+    stateWriterActor foreach (shutdownStateWriterActor(_, completionNotifier))
   }
 
   /**
@@ -305,9 +310,10 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * This makes sure that recent updates on the playlist state are written to
     * disk. A shutdown confirmation is sent when this is done.
     *
-    * @param act the state writer actor
+    * @param act                the state writer actor
+    * @param completionNotifier the shutdown completion notifier
     */
-  private def shutdownStateWriterActor(act: ActorRef): Unit =
+  private def shutdownStateWriterActor(act: ActorRef, completionNotifier: ShutdownCompletionNotifier): Unit =
     triggerStateWriterActorClose(act) onComplete { t =>
       t match {
         case Failure(e) =>
@@ -317,8 +323,7 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
       }
       shutdownDone set true
       stopStateWriterActor(act)
-      //TODO adapt to changes in shutdown management
-      //bus publish ShutdownHandler.ShutdownDone(componentID)
+      completionNotifier.shutdownComplete()
       log.info("Shutdown completed.")
     }
 
