@@ -1,24 +1,25 @@
-# LineDJ Platform
+= LineDJ Platform
 
 A project offering basic functionality for applications running on the LineDJ
 platform.
 
-## Functionality
+== Functionality
 
 The main purpose of this project is to implement basic services and
 infrastructure that can be used by applications. By providing a base class for
 applications, it also kind of defines a programming model for such
 applications. Applications are based on the
-[JGUIraffe](http://jguiraffe.sourceforge.net/) library; this library allows the
+https://github.com/oheger/jguiraffe[JGUIraffe] library; this library allows the
 creation of UI applications using concepts like XML-based UI definitions,
 action and command objects, and dependency injection.
 
 The classes and interfaces contained in the _Platform_ project can roughly be
 divided into two parts:
+
 * Providing basic functionality for the platform.
 * Defining a framework for client applications running on the platform.
 
-## Platform services
+== Platform services
 
 The platform offers a number of fundamental services available to all client
 applications. The services are managed and started by the
@@ -32,7 +33,7 @@ applications depending on this service can start.
 Via the client application context the following central services are
 available:
 
-### Actor system
+=== Actor system
 
 The platform manages an actor system which can be used by client applications
 to run non-blocking background tasks. Actually, all actions not directly
@@ -44,7 +45,7 @@ instance to request media files from the archive. In order to create new actors
 and deploy them on the actor system, the `ClientApplicationContext` offers an
 _actor factory_.
 
-### Message bus
+=== Message bus
 
 The message bus is a generic means for UI applications running on the platform
 to communicate with each other. It offers a simple publish-subscribe model. One
@@ -63,7 +64,7 @@ when they start up. The listeners are then notified about certain events or
 when specific data becomes available. They can then react accordingly, e.g.
 update the UI.
 
-### Media facade
+=== Media facade
 
 This object allows communication with the media archive. The interface is
 rather low-level: The functionality provided by the archive is implemented by a
@@ -73,15 +74,15 @@ bus.) As this may not always be the most convenient form of interaction, there
 are some extension mechanisms in place managing dedicated data. Those are
 described later on.
 
-### Central configuration
+=== Central configuration
 
 The client application context offers a way to query or store central
 configuration. In addition, each client application can have its own specific
 configuration. Access to configuration data is provided by the
-[Apache Commons Configuration](http://commons.apache.org/proper/commons-configuration/)
+http://commons.apache.org/proper/commons-configuration/[Apache Commons Configuration]
 library.
 
-### Application management
+=== Application management
 
 On a LineDJ platform an arbitrary number of collaborating applications can run.
 A component named _application manager_ is responsible for keeping track on
@@ -98,13 +99,49 @@ To handle different use cases, there are multiple implementations of the
 application manager service available. When creating a deployment a suitable
 implementation can be chosen. The following implementations are available:
 
-* [OneForAllShutdownAppManager](../appShutdownOneForAll)
-* [WindowHidingApplicationManager](../appWindowHiding)
+* link:../appShutdownOneForAll[OneForAllShutdownAppManager]
+* link:../appWindowHiding[WindowHidingApplicationManager]
 
-## Client applications
+=== Shutdown management
+
+While <<Application management>> involves the shutdown of applications, every
+OSGi component running on the platform may need to do special actions when the
+system is going down; for instance, some data may have to be persisted, so that
+it is available on the next execution. Such shutdown actions are not trivial to
+handle correctly in a dynamic environment; there are multiple problems:
+
+* The components a specific component depends on and which it requires for
+  executing its shutdown actions may already been shutting down.
+* Disabling of an OSGi component via the default `deactivate()` method is
+  triggered from the OSGi management thread. This makes it complicated to
+  access data managed by other threads (especially the UI thread) and do
+  asynchronous stuff.
+
+To support a graceful shutdown and simplify the logic involved, the platform
+therefore offers an extended shutdown management implemented (mostly) by the
+link:./src/main/scala/de/oliver_heger/linedj/platform/app/ShutdownHandler.scala[ShutdownHandler]
+class. Here is a short summary how it works:
+
+* Components wanting to take part in the shutdown management, have to register
+  themselves as _shutdown observers_ at the shutdown handler. For this purpose,
+  they need to send a message of type `RegisterShutdownObserver` on the system
+  message bus. The message contains the component's unique ID and a reference
+  to a `ShutdownObserver` implementation.
+* The `ShutdownObserver` trait defines a single method `triggerShutdown()`.
+  When the platform is going down, the shutdown handler invokes this method for
+  each registered component on the UI thread. During the invocation, it passes
+  an object of type `ShutdownCompletionNotifier`.
+* The components invoked can now execute their specific shutdown logic,
+  synchronously or asynchronously as fits best for them. When they are done
+  they must call back the `ShutdownCompletionNotifier` they have been passed.
+* The shutdown handler monitors the components involved and waits until all
+  their completion notifications have arrived (or a configurable timeout
+  occurs). Then the shutdown actually takes place.
+
+== Client applications
 
 LineDJ compatible applications extend the
-[ClientApplication](src/main/scala/de/oliver_heger/linedj/platform/app/ClientApplication.scala)
+link:src/main/scala/de/oliver_heger/linedj/platform/app/ClientApplication.scala[ClientApplication]
 base class, which in turn is a _JGUIraffe_ application class. Client application
 classes themselves are typically very simple because the whole functionality for
 correctly startup the application and register required OSGi services is
@@ -114,29 +151,29 @@ script.
 The client application base class offers the following functionality available
 for all client applications:
 
-### Life-cycle management
+=== Life-cycle management
 
 The class makes sure that an application is properly started and connected to
 the services of the LineDJ platform. Also, proper shutdown handling is
 implemented, for instance by taking care that the application's configuration
 is automatically saved or that an application can veto against its shutdown.
-This is achieved by interacting with the _application manager_ installed on
-the platform.
+This is achieved by interacting with the
+<<Application management,application manager>> installed on the platform.
 
 The application object itself is registered as an OSGi service. This is a
 prerequisite for it to take part in the life-cycle management of the whole
 platform.
 
-### Providing access to central beans
+=== Providing access to central beans
 
 Each client application has access to the central `ClientApplicationContext`
 object; it is stored as a property in the application base class. During
 startup, the service objects described in the previous section are also added
-the application's bean context (the central configuration for dependency
+to the application's bean context (the central configuration for dependency
 injection), so that they are available for UI scripts and can be passed to
 controller or event listener classes.
 
-### Configuration management
+=== Configuration management
 
 Each client application can have its own configuration in which it can store
 persistent data. The base name of the configuration must be provided as a
@@ -144,10 +181,10 @@ constructor argument to the super class; this class then ensures that a
 corresponding configuration file is created in the user's home directory.
 Further information about naming conventions and how they can be adapted using
 system properties can be found at the
-[ApplicationStartup](src/main/scala/de/oliver_heger/linedj/platform/app/ApplicationStartup.scala)
+link:src/main/scala/de/oliver_heger/linedj/platform/app/ApplicationStartup.scala[ApplicationStartup]
 trait.
 
-## Media Interface Extensions
+== Media Interface Extensions
 
 Direct interactions with the media archive can be inconvenient due to the
 low-level nature of the interface. In addition, it can be problematic if
@@ -178,21 +215,22 @@ started, the data under its control is considered stale, and a new request is
 sent (if still consumers are registered).
 
 In the following the extensions available are shortly described. The source
-code for extensions can be found in the [mediaifc.ext
-package](src/main/scala/de/oliver_heger/linedj/platform/mediaifc/ext)
+code for extensions can be found in the
+link:src/main/scala/de/oliver_heger/linedj/platform/mediaifc/ext[mediaifc.ext
+package].
 
-### Media Archive Available extension
+=== Media Archive Available extension
  
- As the media archive can run on a remote machine, the connection can drop at
- any time. This extension permanently monitors the current state of the archive
- availability. Registered consumers receive an _archive available_ or _archive
- unavailable_ notification as soon as a change in state is detected.
+As the media archive can run on a remote machine, the connection can drop at
+any time. This extension permanently monitors the current state of the archive
+availability. Registered consumers receive an _archive available_ or _archive
+unavailable_ notification as soon as a change in state is detected.
  
- This is useful for applications that interact with the media archive. When the
- archive is currently not available this can be reflected in the UI of the
- application; for instance, menu items could be disabled.
+This is useful for applications that interact with the media archive. When the
+archive is currently not available this can be reflected in the UI of the
+application; for instance, menu items could be disabled.
  
-### Media Archive State Listener extension
+=== Media Archive State Listener extension
  
 With this extension update notifications about the state of the media archive
 can be received. The state of the archive contains statistics information
@@ -201,13 +239,13 @@ songs, the total playback duration, etc.).
  
 It is also possible that a scan for media is triggered. Then the archive
 re-inspects the folder structure with media files and updates itself. This may
-leed to changes in the list of media available.
+lead to changes in the list of media available.
  
 Applications that rely on this information - for instance a media browser
 application - can use this extension to keep track on changes in the amount of
 data managed by the archive.
  
-### Available Media extension
+=== Available Media extension
  
 _Available media_ is a data structure listing IDs and some meta data about all
 media currently managed by the media archive. This is probably of interest for
@@ -218,7 +256,7 @@ published to registered consumers. So this extension could be an alternative
 to the _Media Archive State Listener_ extension for applications only
 interested in media information.
  
-### Meta Data Cache extension
+=== Meta Data Cache extension
  
 It is a frequent use case to display information about media and the songs
 they contain. From the media archive the content of a medium can be queried
@@ -239,11 +277,21 @@ The cache can be configured with a maximum number of entries. When this limit
 is reached media that have not been accessed recently are removed from the
 cache (the cache has LRU semantics).
  
-## Configuration
+== Configuration
  
 The following table lists the configuration options supported by the
 _Platform_ module:
- 
-| Setting | Description |
-| ------- | ----------- |
-| media.cacheSize | The number of entries that can be stored in the _Meta Data Cache_ extension. When this limit is reached older media are removed from the cache. |
+
+.Configuration settings of the Platform module
+[cols="1,2",options="header"]
+|====
+| Setting | Description
+| media.cacheSize | The number of entries that can be stored in the _Meta Data
+Cache_ extension. When this limit is reached older media are removed from the
+cache.
+| platform.shutdownTimeout | Defines a timeout (in milliseconds) for the
+shutdown handler to wait for the shutdown completed notifications of registered
+shutdown observers. (Refer to <<Shutdown management>>.) After this time is
+over, the shutdown takes place, no matter whether there are still outstanding
+notifications.
+|====
