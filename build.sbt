@@ -123,7 +123,7 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive)
+  audioPlayerUI, protocolWebDav, protocolOneDrive, crypt)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -241,7 +241,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
       "de.oliver_heger.linedj.archivehttp.crypt, de.oliver_heger.linedj.archivehttp.spi",
       "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, crypt)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
@@ -277,6 +277,20 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
   ) dependsOn(shared % "compile->compile;test->test", archiveHttp % "compile->compile;test->test")
+
+/**
+  * A project providing functionality related to cryptography.
+  */
+lazy val crypt = (project in file("mediaArchive/crypt"))
+  .enablePlugins(SbtOsgi)
+  .settings(defaultSettings: _*)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-crypt",
+    libraryDependencies ++= logDependencies,
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.crypt"),
+    OsgiKeys.privatePackage := Seq()
+  ) dependsOn(shared % "compile->compile;test->test")
 
 /**
   * Project for the client platform. This project contains code shared by
@@ -374,7 +388,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
-  ) dependsOn(platform % "compile->compile;test->test", archiveHttp)
+  ) dependsOn(platform % "compile->compile;test->test", archiveHttp, crypt)
 
 /**
   * A project which implements an admin UI for the media archive.
