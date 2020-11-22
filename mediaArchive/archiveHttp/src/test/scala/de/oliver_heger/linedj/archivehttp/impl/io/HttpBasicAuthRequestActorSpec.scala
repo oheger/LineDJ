@@ -22,8 +22,8 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, MediaRanges, StatusC
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

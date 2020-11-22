@@ -21,7 +21,7 @@ import java.nio.file.{Files, Path}
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpecLike

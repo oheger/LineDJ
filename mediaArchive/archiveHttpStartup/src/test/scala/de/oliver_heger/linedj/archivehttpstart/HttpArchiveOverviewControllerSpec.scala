@@ -21,8 +21,8 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
+import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.crypt
+package de.oliver_heger.linedj.crypt
 
 object Secret {
   /**

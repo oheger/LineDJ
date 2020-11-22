@@ -23,7 +23,7 @@
          xmlns:a="actionBuilder" xmlns:w="windowBuilder">
   <!-- The key generator -->
   <di:bean name="keyGenerator"
-           beanClassName="de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator"/>
+           beanClassName="de.oliver_heger.linedj.crypt.AESKeyGenerator"/>
 
   <!-- Unlock controller -->
   <di:bean name="unlockController"

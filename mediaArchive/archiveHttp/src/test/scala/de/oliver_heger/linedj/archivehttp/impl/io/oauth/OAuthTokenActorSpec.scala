@@ -20,10 +20,10 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.DepthHeader
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
+import de.oliver_heger.linedj.crypt.Secret
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

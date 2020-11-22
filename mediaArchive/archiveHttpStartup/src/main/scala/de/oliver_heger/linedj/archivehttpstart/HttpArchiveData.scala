@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.nio.file.Path
 
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.crypt.Secret
 
 /**
   * A trait representing a realm that can be assigned to an archive.

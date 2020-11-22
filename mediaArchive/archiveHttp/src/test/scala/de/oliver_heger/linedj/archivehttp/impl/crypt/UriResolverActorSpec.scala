@@ -23,12 +23,12 @@ import akka.http.scaladsl.model._
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
-import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
 import de.oliver_heger.linedj.archivehttp.spi.{HttpArchiveProtocol, UriResolverController}
 import de.oliver_heger.linedj.archivehttp.spi.UriResolverController.ParseFolderResult
+import de.oliver_heger.linedj.crypt.AESKeyGenerator
 import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

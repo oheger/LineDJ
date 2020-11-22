@@ -23,8 +23,8 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{FormData, HttpMethods, HttpRequest}
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.crypt.Secret
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

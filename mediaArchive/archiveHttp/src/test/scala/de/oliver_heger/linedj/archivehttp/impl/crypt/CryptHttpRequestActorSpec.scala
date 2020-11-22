@@ -26,11 +26,11 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl.ExpectRequest
-import de.oliver_heger.linedj.archivehttp.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.{ResponseData, SendRequest, XRequestPropsHeader}
 import de.oliver_heger.linedj.archivehttp.impl.crypt.UriResolverActor.{ResolveUri, ResolvedUri}
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException
+import de.oliver_heger.linedj.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

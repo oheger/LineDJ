@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.crypt.{KeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}

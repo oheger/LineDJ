@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import java.nio.file.Paths
 
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
+import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

@@ -27,8 +27,8 @@ import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
+import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

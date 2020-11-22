@@ -20,11 +20,11 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.util.Timeout
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthTokenActor.{DoRefresh, PendingRequestData, RefreshFailure, TokensRefreshed}
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpExtensionActor}
+import de.oliver_heger.linedj.crypt.Secret
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._

@@ -25,8 +25,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.crypt.Secret
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.Configuration
