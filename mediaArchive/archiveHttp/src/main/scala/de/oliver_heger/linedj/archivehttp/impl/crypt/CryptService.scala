@@ -20,10 +20,9 @@ import java.nio.charset.StandardCharsets
 import java.security.{Key, SecureRandom}
 import java.util.Base64
 
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.stream.scaladsl.Source
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.util.ByteString
+import de.oliver_heger.linedj.crypt.CryptStage
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 
@@ -70,7 +69,7 @@ object CryptService {
     */
   def decryptSource[Mat](key: Key, source: Source[ByteString, Mat])(implicit secureRandom: SecureRandom):
   Source[ByteString, Mat] =
-    source.via(new CryptStage(key, secureRandom))
+    source.via(CryptStage.decryptStage(key, secureRandom))
 
   /**
     * Creates a new ''Cipher'' object for a decrypt operation as performed by
@@ -94,93 +93,4 @@ object CryptService {
     val iv = new IvParameterSpec(cryptBytes, 0, IvLength)
     cipher.init(Cipher.DECRYPT_MODE, key, iv, secRandom)
   }
-
-  /**
-    * An internally used graph stage that decrypts the data passed through it.
-    *
-    * @param key    the key to be used for decryption
-    * @param random the secure random object
-    */
-  private class CryptStage(key: Key, random: SecureRandom) extends GraphStage[FlowShape[ByteString, ByteString]] {
-    /**
-      * Definition of a processing function. The function expects a block of data
-      * and a cipher and produces a block of data to be passed downstream.
-      */
-    type CryptFunc = (ByteString, Cipher) => ByteString
-
-    val in: Inlet[ByteString] = Inlet[ByteString]("CryptStage.in")
-    val out: Outlet[ByteString] = Outlet[ByteString]("CryptStage.out")
-
-    override val shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
-
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-      new GraphStageLogic(shape) {
-        /** The cipher object managed by this class. */
-        private lazy val cryptCipher = createCipher()
-
-        /** The current processing function. */
-        private var processingFunc: CryptFunc = initProcessing
-
-        /**
-          * A flag whether data has been received by this stage. This is used to
-          * determine whether a final block of data has to be handled when
-          * upstream ends.
-          */
-        private var dataProcessed = false
-
-        setHandler(in, new InHandler {
-          override def onPush(): Unit = {
-            val data = grab(in)
-            val processedData = processingFunc(data, cryptCipher)
-            push(out, processedData)
-          }
-
-          override def onUpstreamFinish(): Unit = {
-            if (dataProcessed) {
-              val finalBytes = cryptCipher.doFinal()
-              if (finalBytes.nonEmpty) {
-                push(out, ByteString(finalBytes))
-              }
-            }
-            super.onUpstreamFinish()
-          }
-        })
-
-        setHandler(out, new OutHandler {
-          override def onPull(): Unit = {
-            pull(in)
-          }
-        })
-
-        /**
-          * Handles initialization of data processing. This is the ''CryptFunc''
-          * that is called for the first block of data received. It initializes
-          * the managed cipher object, pushes the first data block downstream,
-          * and sets the actual processing function.
-          *
-          * @param data   the first chunk of data
-          * @param cipher the cipher object
-          * @return the data to be pushed downstream
-          */
-        private def initProcessing(data: ByteString, cipher: Cipher): ByteString = {
-          dataProcessed = true
-          processingFunc = cryptFunc
-          val dataBytes = data.toArray
-          initCipher(key, random, cipher, dataBytes)
-          ByteString(cipher.update(dataBytes, IvLength, dataBytes.length - IvLength))
-        }
-      }
-
-    /**
-      * Returns the function executing decryption logic. This function is
-      * called when initialization is done to process further data chunks.
-      *
-      * @return the function for processing data chunks
-      */
-    private def cryptFunc: CryptFunc = (chunk, cipher) => {
-      val encData = cipher.update(chunk.toArray)
-      ByteString(encData)
-    }
-  }
-
 }

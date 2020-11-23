@@ -156,6 +156,6 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
     val tokenFile = storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixTokenFile)
     writeFileContent(tokenFile, "foo")
 
-    expectFailedFuture[IllegalArgumentException](OAuthStorageServiceImpl.loadTokens(storageConfig))
+    expectFailedFuture[IllegalStateException](OAuthStorageServiceImpl.loadTokens(storageConfig))
   }
 }

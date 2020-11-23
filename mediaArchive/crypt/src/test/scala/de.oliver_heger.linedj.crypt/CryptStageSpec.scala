@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.crypt
 
+import java.security.{Key, SecureRandom}
+
 import akka.actor.ActorSystem
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Sink, Source}
@@ -29,7 +31,7 @@ import org.scalatest.matchers.should.Matchers
 
 object CryptStageSpec {
   /** A default key used for encryption / decryption. */
-  private val Key = "0123456789ABCDEF"
+  private val CryptKey = "0123456789ABCDEF"
 
   /** Group size for splitting text input for encryption. */
   private val GroupSize = 64
@@ -52,6 +54,17 @@ object CryptStageSpec {
     */
   private def combine(data: List[ByteString]): String =
     data.foldLeft(ByteString.empty)((buf, s) => buf ++ s).utf8String
+
+  /**
+    * Generates a key for encryption or decryption using a key generator.
+    *
+    * @param key the key as a plain string
+    * @return the resulting 'Key' object
+    */
+  private def generateKey(key: String): Key = {
+    val keyGenerator = new AESKeyGenerator
+    keyGenerator.generateKey(key)
+  }
 }
 
 /**
@@ -93,8 +106,8 @@ class CryptStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
     * @param key     the key to encrypt
     * @return the resulting encrypted chunks
     */
-  private def encrypt(message: String, key: String = Key): List[ByteString] =
-    runCryptStream(splitPlainText(message), CryptStage.encryptStage(CryptStage.keyFromString(key)))
+  private def encrypt(message: String, key: String = CryptKey): List[ByteString] =
+    runCryptStream(splitPlainText(message), CryptStage.encryptStage(generateKey(key), new SecureRandom))
 
   /**
     * Runs a stream that decrypts the given data chunks and returns the result
@@ -104,8 +117,8 @@ class CryptStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
     * @param key        the key to decrypt
     * @return the resulting decrypted text
     */
-  private def decrypt(cipherText: List[ByteString], key: String = Key): String =
-    combine(runCryptStream(cipherText, CryptStage.decryptStage(CryptStage.keyFromString(key))))
+  private def decrypt(cipherText: List[ByteString], key: String = CryptKey): String =
+    combine(runCryptStream(cipherText, CryptStage.decryptStage(generateKey(key), new SecureRandom)))
 
   /**
     * Checks an encryption followed by a decryption. This should result in the
@@ -114,7 +127,7 @@ class CryptStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
     * @param message the message to be processed
     * @param key     the key to be used
     */
-  private def checkRoundTrip(message: String, key: String = Key): Unit = {
+  private def checkRoundTrip(message: String, key: String = CryptKey): Unit = {
     val encrypted = encrypt(message, key)
     val processed = decrypt(encrypted, key)
     processed should be(message)
@@ -125,7 +138,7 @@ class CryptStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
   }
 
   it should "handle an empty source to encrypt" in {
-    val stage = CryptStage.encryptStage(CryptStage.keyFromString(Key))
+    val stage = CryptStage.encryptStage(generateKey(CryptKey), new SecureRandom)
 
     runCryptStream(Nil, stage) should have size 0
   }

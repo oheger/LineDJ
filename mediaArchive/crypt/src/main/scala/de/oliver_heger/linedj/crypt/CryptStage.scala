@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.crypt
 
-import java.nio.charset.StandardCharsets
 import java.security.{Key, SecureRandom}
 import java.util.concurrent.atomic.AtomicLong
 
@@ -25,66 +24,45 @@ import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.util.ByteString
 import de.oliver_heger.linedj.crypt.CryptStage.IvLength
 import javax.crypto.Cipher
-import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
-
-import scala.annotation.tailrec
+import javax.crypto.spec.IvParameterSpec
 
 object CryptStage {
   /** The length of the initialization vector. */
-  val IvLength = 16
+  final val IvLength = 16
 
   /** The length of keys required by the encryption algorithm. */
-  val KeyLength = 16
+  final val KeyLength = 16
 
   /** The name of the cipher used for encrypt / decrypt operations. */
-  val CipherName = "AES/CTR/NoPadding"
+  final val CipherName = "AES/CTR/NoPadding"
 
   /** The name of the encryption algorithm. */
-  val AlgorithmName = "AES"
+  final val AlgorithmName = "AES"
 
   /** A counter for keeping track on the number of processed bytes. */
   private val processedBytesCount = new AtomicLong
 
   /**
-    * Generates a key from the given byte array. This method expects that the
-    * passed in array has at least the length required by a valid key
-    * (additional bytes are ignored).
-    *
-    * @param keyData the array with the data of the key
-    * @return the resulting key
-    */
-  def keyFromArray(keyData: Array[Byte]): Key =
-    new SecretKeySpec(keyData, 0, KeyLength, AlgorithmName)
-
-  /**
-    * Generates a key from the given string. If necessary, the string is
-    * padded or truncated to come to the correct key length in bytes.
-    *
-    * @param strKey the string-based key
-    * @return the resulting key
-    */
-  def keyFromString(strKey: String): Key =
-    keyFromArray(generateKeyArray(strKey))
-
-  /**
     * Convenience method to generate a ''CryptStage'' that can be used to
     * encrypt data with the given key.
     *
-    * @param key the key for encryption
+    * @param key    the key for encryption
+    * @param random the source of randomness
     * @return the stage to encrypt data
     */
-  def encryptStage(key: Key): CryptStage =
-    new CryptStage(EncryptOpHandler, key)
+  def encryptStage(key: Key, random: SecureRandom): CryptStage =
+    new CryptStage(EncryptOpHandler, key, random)
 
   /**
     * Convenience method to generate a ''CryptStage'' that can be used to
     * decrypt data with the given key.
     *
-    * @param key the key for decryption
+    * @param key    the key for decryption
+    * @param random the source of randomness
     * @return the state to decrypt data
     */
-  def decryptStage(key: Key): CryptStage =
-    new CryptStage(DecryptOpHandler, key)
+  def decryptStage(key: Key, random: SecureRandom): CryptStage =
+    new CryptStage(DecryptOpHandler, key, random)
 
   /**
     * Returns the number of bytes that have been encrypted or decrypted in
@@ -102,38 +80,6 @@ object CryptStage {
   def resetProcessedBytes(): Unit = {
     processedBytesCount set 0
   }
-
-  /**
-    * Transforms the given string key to a byte array which can be used for the
-    * creation of a secret key spec. This function takes care that the
-    * resulting array has the correct length.
-    *
-    * @param strKey the string-based key
-    * @return an array with key data as base for a secret key spec
-    */
-  private def generateKeyArray(strKey: String): Array[Byte] = {
-    val keyData = strKey.getBytes(StandardCharsets.UTF_8)
-    if (keyData.length < KeyLength) {
-      val paddedData = new Array[Byte](KeyLength)
-      padKeyData(keyData, paddedData, 0)
-    } else keyData
-  }
-
-  /**
-    * Generates key data of the correct length. This is done by repeating the
-    * original key data until the desired target length is reached.
-    *
-    * @param orgData the original (too short) key data
-    * @param target  the target array
-    * @param idx     the current index
-    * @return the array with key data of the desired length
-    */
-  @tailrec private def padKeyData(orgData: Array[Byte], target: Array[Byte], idx: Int): Array[Byte] =
-    if (idx == target.length) target
-    else {
-      target(idx) = orgData(idx % orgData.length)
-      padKeyData(orgData, target, idx + 1)
-    }
 
   /**
     * Updates the counter for the bytes processed.
@@ -159,8 +105,10 @@ object CryptStage {
   *
   * @param cryptOpHandler the operation handler
   * @param key            the key to be used for the operation
+  * @param random         the source for randomness
   */
-class CryptStage(val cryptOpHandler: CryptOpHandler, key: Key) extends GraphStage[FlowShape[ByteString, ByteString]] {
+class CryptStage(val cryptOpHandler: CryptOpHandler, key: Key, random: SecureRandom)
+  extends GraphStage[FlowShape[ByteString, ByteString]] {
 
   import CryptStage._
 
@@ -177,9 +125,6 @@ class CryptStage(val cryptOpHandler: CryptOpHandler, key: Key) extends GraphStag
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) {
-      /** Source for randomness. */
-      private lazy val random = new SecureRandom
-
       /** The cipher object managed by this class. */
       private lazy val cryptCipher = Cipher.getInstance(CipherName)
 
