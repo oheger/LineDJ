@@ -94,4 +94,7 @@ class AESKeyGenerator extends KeyGenerator {
     */
   override def generateKey(password: String): Key =
     generateKeySpec(generateKeyArray(password))
+
+  override protected def createKeyFromEncodedForm(keyData: Array[Byte]): Key =
+    generateKeySpec(keyData)
 }

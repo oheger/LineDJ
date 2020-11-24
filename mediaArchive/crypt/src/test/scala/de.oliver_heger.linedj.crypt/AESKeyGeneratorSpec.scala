@@ -51,4 +51,24 @@ class AESKeyGeneratorSpec extends AnyFlatSpec with Matchers {
     val bytes = AESKeyGenerator.generateKeyArray("foo", Length)
     bytes should have length Length
   }
+
+  it should "support encoding and decoding of keys" in {
+    val generator = new AESKeyGenerator
+    val key = generator.generateKey("MySecretKey;-)")
+
+    val encodedKey = generator.encodeKey(key)
+    val decodedKey = generator.decodeKey(encodedKey)
+    decodedKey should be(key)
+  }
+
+  it should "Base64-encode encoded keys" in {
+    val generator = new AESKeyGenerator
+    val key = generator.generateKey("*Another$ecre!_ey")
+
+    val encodedKey = new String(generator.encodeKey(key), StandardCharsets.UTF_8)
+    encodedKey.forall { c =>
+      (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+        c == '+' || c == '/' || c == '='
+    } shouldBe true
+  }
 }
