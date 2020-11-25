@@ -22,6 +22,12 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
 
 /**
+  * A common base trait for messages indicating a change of the state of an
+  * HTTP archive.
+  */
+sealed trait ArchiveStateChangedMessage
+
+/**
   * A message indicating the change of the login state for a realm.
   *
   * Messages of this type are sent by the [[HttpArchiveLoginDlgController]] when
@@ -32,7 +38,7 @@ import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveStat
   * @param realm       the realm affected by this change
   * @param credentials the credentials for login into the HTTP archive
   */
-case class LoginStateChanged(realm: String, credentials: Option[UserCredentials])
+case class LoginStateChanged(realm: String, credentials: Option[UserCredentials]) extends ArchiveStateChangedMessage
 
 /**
   * A message indicating the change of the lock state of an archive.
@@ -43,7 +49,7 @@ case class LoginStateChanged(realm: String, credentials: Option[UserCredentials]
   * @param archive the name of the archive affected
   * @param optKey  an option with the key to unlock the archive
   */
-case class LockStateChanged(archive: String, optKey: Option[Key])
+case class LockStateChanged(archive: String, optKey: Option[Key]) extends ArchiveStateChangedMessage
 
 /**
   * An object defining the possible states of an HTTP archive.
