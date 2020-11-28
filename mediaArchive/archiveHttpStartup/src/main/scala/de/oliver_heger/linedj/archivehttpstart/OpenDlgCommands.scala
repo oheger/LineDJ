@@ -23,10 +23,23 @@ import net.sf.jguiraffe.locators.Locator
 
 object OpenDlgCommand {
   /** The name of the Jelly property with the current realm. */
-  val PropertyRealm = "realm"
+  final val PropertyRealm = "realm"
 
   /** The name of the Jelly property with the name of the current archive. */
-  val PropertyArchiveName = "archiveName"
+  final val PropertyArchiveName = "archiveName"
+
+  /**
+    * The name of the Jelly property containing the mode for dealing with the
+    * super password. This mode determines whether the file with credentials is
+    * read or written.
+    */
+  final val PropertySuperPasswordMode = "superPasswordMode"
+
+  /** Constant indicating that the super password file is to be read. */
+  final val SuperPasswordModeRead = "readSuperPasswordFile"
+
+  /** Constant indicating that the super password file is to be written. */
+  final val SuperPasswordModeWrite = "writeSuperPasswordFile"
 }
 
 /**
@@ -77,3 +90,16 @@ class OpenLoginDlgCommand(locator: Locator, refCurrentRealm: AtomicReference[Arc
   */
 class OpenUnlockDlgCommand(locator: Locator, refCurrentArchive: AtomicReference[String])
   extends OpenDlgCommand(locator, refCurrentArchive, OpenDlgCommand.PropertyArchiveName)
+
+/**
+  * A command for opening the dialog to enter the super password.
+  *
+  * This command is invoked by the commands to read or write the file with
+  * information about credentials available. Which action to trigger is
+  * determined by the ''mode'' parameter.
+  *
+  * @param locator the locator of the Jelly script to be executed
+  * @param mode    the mode (read or write the credentials file)
+  */
+class OpenSuperPasswordDlgCommand(locator: Locator, mode: String)
+  extends OpenDlgCommand(locator, new AtomicReference(mode), OpenDlgCommand.PropertySuperPasswordMode)
