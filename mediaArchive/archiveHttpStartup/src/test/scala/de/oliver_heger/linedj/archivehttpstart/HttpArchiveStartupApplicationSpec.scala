@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import java.nio.file.Paths
 import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -27,7 +28,7 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
-import de.oliver_heger.linedj.crypt.Secret
+import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
@@ -36,7 +37,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailab
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.mockito.Matchers.{any, anyBoolean, anyInt, argThat, eq => argEq}
+import org.mockito.Matchers.{any, anyBoolean, anyInt, anyString, argThat, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.OngoingStubbing
@@ -562,7 +563,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(EncArchiveIndex)
-      .expectArchiveStateNotification(stateNotification(4, HttpArchiveStateLocked))
+      .expectArchiveStateNotification(stateNotification(EncArchiveIndex, HttpArchiveStateLocked))
   }
 
   it should "start up an encrypted archive if all information is available" in {
@@ -684,6 +685,36 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(Index)
       .expectArchiveStateNotification(stateNotification(Index, expState))
+  }
+
+  it should "invoke the super password service to write the password file" in {
+    val key = mock[Key]
+    val superPasswordService = mock[SuperPasswordStorageService]
+    val keyGen = mock[KeyGenerator]
+    val targetPath = Paths get "somePath"
+    val SuperPassword = "theTopSecretVerySpecialSuperHyperPassword"
+    val writeFuture = Future.successful(Paths get "writePath")
+    when(superPasswordService.writeSuperPasswordFile(argEq(targetPath), argEq(keyGen), argEq(SuperPassword),
+      any(), any())(argEq(system))).thenReturn(writeFuture)
+    val helper = new StartupTestHelper(skipUI = true)
+    prepareMultiRealmLogin(helper)
+    enterArchiveAvailableState(helper)
+    helper.sendLockStateChangeNotification(EncArchiveIndex, Some(key))
+
+    helper.app.saveArchiveCredentials(superPasswordService, targetPath, keyGen, SuperPassword) should be(writeFuture)
+    val captRealms = ArgumentCaptor.forClass(classOf[Map[String, UserCredentials]])
+    val captLocks = ArgumentCaptor.forClass(classOf[Map[String, Key]])
+    verify(superPasswordService).writeSuperPasswordFile(any(), any(), anyString(), captRealms.capture(),
+      captLocks.capture())(any())
+    val realms = captRealms.getValue
+    realms.keySet should contain only StartupConfigTestHelper.realmName(1)
+    val realmCredentials = realms.values.head
+    val expCredentials = credentials(1)
+    realmCredentials.userName should be(expCredentials.userName)
+    realmCredentials.password.secret should be(expCredentials.password.secret)
+    val archives = captLocks.getValue
+    archives should have size 1
+    archives(StartupConfigTestHelper.archiveName(EncArchiveIndex)) should be(key)
   }
 
   /**
