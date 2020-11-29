@@ -43,6 +43,12 @@ object HttpArchiveDlgControllerSpec {
 
   /** Constant for the name of a test archive. */
   private val Archive = "MyTestArchive"
+
+  /** Constant for the label for reading the super password file. */
+  private val LabelSuperPasswordRead = "read the super password file"
+
+  /** Constant for the label for writing the super password file. */
+  private val LabelSuperPasswordWrite = "save data to the file"
 }
 
 /**
@@ -120,6 +126,49 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       .verifyWindowClosed()
     helper.messageBus.expectMessageType[LockStateChanged] should be(LockStateChanged(Archive,
       Some(helper.key)))
+  }
+
+  "An HttpArchiveSuperPasswordDlgController" should "initialize the label in read mode" in {
+    val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
+
+    helper.openWindow()
+      .verifyPromptTextInitialized(LabelSuperPasswordRead)
+  }
+
+  it should "initialize the label in write mode" in {
+    val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeWrite)
+
+    helper.openWindow()
+      .verifyPromptTextInitialized(LabelSuperPasswordWrite)
+  }
+
+  it should "handle a click on the cancel button" in {
+    val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
+
+    helper.openWindow()
+      .cancelClicked()
+      .verifyWindowClosed()
+    helper.messageBus.expectNoMessage(10.millis)
+  }
+
+  it should "handle a click on the OK button in read mode" in {
+    val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
+
+    helper.openWindow()
+      .preparePassword()
+      .okClicked()
+      .verifyWindowClosed()
+    helper.messageBus.expectMessageType[SuperPasswordEnteredForRead].password should be(Password)
+  }
+
+  it should "handle a click on the OK button in write mode" in {
+    val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeWrite)
+
+    helper.openWindow()
+      .preparePassword()
+      .okClicked()
+      .verifyWindowClosed()
+    helper.messageBus.expectMessageType[SuperPasswordEnteredForWrite].password should be(Password)
   }
 
   /**
@@ -338,6 +387,33 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
       new HttpArchiveUnlockDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, Archive, keyGen)
+  }
+
+  /**
+    * A concrete test helper class for
+    * ''HttpArchiveSuperPasswordDlgController''.
+    *
+    * @param mode the super password mode
+    */
+  private class SuperPasswordControllerTestHelper(mode: String) extends DlgControllerTestHelper {
+    /** Mock for the password input field. */
+    private val txtPassword = mock[ComponentHandler[String]]
+
+    /**
+      * Prepares the mock text field for the password to return the test
+      * password .
+      *
+      * @return this test helper
+      */
+    def preparePassword(): SuperPasswordControllerTestHelper = {
+      when(txtPassword.getData).thenReturn(Password)
+      this
+    }
+
+    override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
+                                            txtPrompt: StaticTextHandler): HttpArchiveDlgController =
+      new HttpArchiveSuperPasswordDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, mode,
+        LabelSuperPasswordRead, LabelSuperPasswordWrite)
   }
 
 }

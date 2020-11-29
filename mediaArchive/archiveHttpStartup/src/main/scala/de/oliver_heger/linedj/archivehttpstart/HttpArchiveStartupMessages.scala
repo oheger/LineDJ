@@ -64,9 +64,9 @@ object HttpArchiveStates {
     * successfully and already contributes to the central union archive). If
     * not, from the state name, a reason can be obtained.
     *
-    * @param name     a unique name of this state
-    * @param isActive a flag whether the archive is currently active
-    *                 @param isStarted flag whether the archive has been started
+    * @param name      a unique name of this state
+    * @param isActive  a flag whether the archive is currently active
+    * @param isStarted flag whether the archive has been started
     */
   sealed abstract class HttpArchiveState(val name: String, val isActive: Boolean, val isStarted: Boolean)
 
@@ -151,3 +151,19 @@ case class HttpArchiveStateChanged(archiveName: String, state: HttpArchiveState)
   * recent state.
   */
 case object HttpArchiveStateRequest
+
+/**
+  * A message published on the message bus when the super password was entered
+  * for reading the file with the credentials.
+  *
+  * @param password the password entered by the user
+  */
+private case class SuperPasswordEnteredForRead(password: String)
+
+/**
+  * A message published on the message bus when the super password was entered
+  * for writing the file with the credentials.
+  *
+  * @param password the password entered by the user
+  */
+private case class SuperPasswordEnteredForWrite(password: String)

@@ -211,3 +211,51 @@ class HttpArchiveUnlockDlgController(bus: UIBus,
     LockStateChanged(archiveName, Some(key))
   }
 }
+
+/**
+  * A controller class allowing to enter the "super password".
+  *
+  * The super password is used to encrypt a file containing credentials for the
+  * archives managed by the HTTP archive startup application. By entering the
+  * password, all archives whose credentials are stored in this file can be
+  * opened and unlocked.
+  *
+  * The password can be entered for reading or writing the file. Based on this
+  * mode, the controller class behaves slightly differently, e.g. different
+  * messages are generated when the user confirms the dialog.
+  *
+  * @param bus               the UI message bus
+  * @param txtPassword       the handler for the password field
+  * @param btnOk             the component handler for the OK button
+  * @param btnCancel         the component handler for the cancel button
+  * @param txtPrompt         the component handler for the prompt text
+  * @param superPasswordMode the mode (read or write the file)
+  * @param labelRead         a label to use in read mode
+  * @param labelWrite        a label to use in write mode
+  */
+class HttpArchiveSuperPasswordDlgController(bus: UIBus,
+                                            txtPassword: ComponentHandler[String],
+                                            btnOk: ComponentHandler[_],
+                                            btnCancel: ComponentHandler[_],
+                                            txtPrompt: StaticTextHandler,
+                                            superPasswordMode: String,
+                                            labelRead: String,
+                                            labelWrite: String)
+  extends HttpArchiveDlgController(bus, btnOk, btnCancel, txtPrompt,
+    if (superPasswordMode == OpenDlgCommand.SuperPasswordModeRead) labelRead
+    else labelWrite) {
+  /**
+    * @inheritdoc This implementation generates one of the
+    *             ''SuperPasswordEntered'' messages, depending on the current
+    *             super password mode.
+    */
+  override protected def generateOkMessage(): Any = {
+    val password = txtPassword.getData
+    superPasswordMode match {
+      case OpenDlgCommand.SuperPasswordModeWrite =>
+        SuperPasswordEnteredForWrite(password)
+      case _ =>
+        SuperPasswordEnteredForRead(txtPassword.getData)
+    }
+  }
+}
