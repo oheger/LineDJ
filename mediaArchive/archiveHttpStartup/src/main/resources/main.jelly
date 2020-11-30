@@ -50,9 +50,22 @@
     <f:icon resource="logoutAll.png"/>
   </a:action>
 
+  <a:action name="actionEnterSuperPassword" textres="act_enter_super_password_text"
+            tooltipres="act_enter_super_password_tip" mnemonicres="act_enter_super_password_mnemo"
+            taskBean="enterSuperPasswordTask">
+    <f:icon resource="super_password.png"/>
+  </a:action>
+
+  <a:action name="actionWriteSuperPasswordFile" textres="act_write_super_password_text"
+            tooltipres="act_write_super_password_tip" mnemonicres="act_write_super_password_mnemo"
+            taskBean="writeSuperPasswordFileTask">
+  </a:action>
+
   <!-- The main menu -->
   <a:menubar name="mainMenu">
     <a:menu textres="menu_file_text" mnemonicres="menu_file_mnemo">
+      <a:menuitem actionName="actionWriteSuperPasswordFile"/>
+      <a:separator/>
       <a:menuitem actionName="exitAction" acceleratorDef="ALT X"/>
     </a:menu>
     <a:menu textres="menu_realms_text" mnemonicres="menu_realms_mnemo">
@@ -61,6 +74,8 @@
       <a:separator/>
       <a:menuitem actionName="actionLogout"/>
       <a:menuitem actionName="actionLogoutAll"/>
+      <a:separator/>
+      <a:menuitem actionName="actionEnterSuperPassword"/>
     </a:menu>
   </a:menubar>
 
@@ -135,6 +150,8 @@
       <f:borderconstr name="NORTH"/>
       <a:toolbutton actionName="actionLogin"/>
       <a:toolbutton actionName="actionUnlock"/>
+      <a:separator/>
+      <a:toolbutton actionName="actionEnterSuperPassword"/>
       <a:separator/>
       <a:toolbutton actionName="actionLogout"/>
       <a:toolbutton actionName="actionLogoutAll"/>
@@ -234,5 +251,34 @@
       <di:param refName="overviewController"/>
     </di:constructor>
   </di:bean>
-</j:jelly>
 
+  <!-- Command and task for entering the super password for reading -->
+  <di:bean name="openSuperPasswordDialogReadCommand"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenSuperPasswordDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:super_password.jelly"/>
+      <di:param value="readSuperPasswordFile"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="enterSuperPasswordTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openSuperPasswordDialogReadCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:actionEnterSuperPassword"/>
+  </di:bean>
+
+  <!-- Command and task for writing the super password file -->
+  <di:bean name="openSuperPasswordDialogWriteCommand"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenSuperPasswordDlgCommand">
+    <di:constructor>
+      <di:param value="classpath:super_password.jelly"/>
+      <di:param value="writeSuperPasswordFile"/>
+    </di:constructor>
+  </di:bean>
+
+  <di:bean name="writeSuperPasswordFileTask"
+           beanClassName="net.sf.jguiraffe.gui.app.CommandActionTask">
+    <di:setProperty property="commandBeanName" value="openSuperPasswordDialogWriteCommand"/>
+    <di:setProperty property="beforeEnabler" value="action:actionWriteSuperPasswordFile"/>
+  </di:bean>
+</j:jelly>
