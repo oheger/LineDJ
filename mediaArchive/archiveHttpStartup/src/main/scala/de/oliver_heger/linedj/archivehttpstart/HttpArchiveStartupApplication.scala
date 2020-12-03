@@ -45,7 +45,7 @@ import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupApplication {
   /** Property for the initialization timeout of the local archive. */
-  val PropArchiveInitTimeout = "media.initTimeout"
+  final val PropArchiveInitTimeout = "media.initTimeout"
 
   /**
     * Property for the state request timeout for an HTTP archive. After an
@@ -53,7 +53,14 @@ object HttpArchiveStartupApplication {
     * state. This request may time out and is then repeated. With this
     * property a timeout (in seconds) is specified.
     */
-  val PropArchiveStateRequestTimeout = "media.stateRequestTimeout"
+  final val PropArchiveStateRequestTimeout = "media.stateRequestTimeout"
+
+  /**
+    * Property defining the path where to store the super password file (the
+    * encrypted file holding credentials of archives). If the property is
+    * undefined, a default location in the user's home directory is used.
+    */
+  final val PropSuperPasswordFilePath = "media.superPasswordFile"
 
   /**
     * The name of the bean with the configuration manager for the managed HTTP
