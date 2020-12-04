@@ -50,10 +50,10 @@ class MessageBusRegistration(val listeners: java.util.Collection[MessageBusListe
     * @param bus the ''MessageBus''
     */
   def setMessageBus(bus: MessageBus): Unit = {
-    import collection.JavaConversions._
+    import collection.JavaConverters._
 
     messageBus = bus
-    registrationIDs = listeners map { l =>
+    registrationIDs = listeners.asScala map { l =>
       bus registerListener l.receive
     }
   }
