@@ -21,10 +21,6 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
          xmlns:a="actionBuilder" xmlns:w="windowBuilder">
-  <!-- The key generator -->
-  <di:bean name="keyGenerator"
-           beanClassName="de.oliver_heger.linedj.crypt.AESKeyGenerator"/>
-
   <!-- Unlock controller -->
   <di:bean name="unlockController"
     beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveUnlockDlgController">

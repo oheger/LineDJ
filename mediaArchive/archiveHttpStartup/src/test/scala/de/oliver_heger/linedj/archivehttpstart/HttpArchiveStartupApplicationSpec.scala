@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttpstart
 import java.nio.file.Paths
 import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.{TestKit, TestProbe}
@@ -28,9 +27,10 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
-import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.{AESKeyGenerator, KeyGenerator, Secret}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
+import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
@@ -145,7 +145,7 @@ object HttpArchiveStartupApplicationSpec {
   * Test class for ''HttpArchiveStartupApplication''.
   */
 class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with ApplicationTestSupport {
 
   import HttpArchiveStartupApplicationSpec._
 
@@ -715,6 +715,20 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val archives = captLocks.getValue
     archives should have size 1
     archives(StartupConfigTestHelper.archiveName(EncArchiveIndex)) should be(key)
+  }
+
+  it should "register a SuperPasswordController at the message bus" in {
+    val helper = new StartupTestHelper
+    helper.startupApplication()
+    val beanContext = helper.app.getMainWindowBeanContext
+
+    val superPasswordCtrl = queryBean[SuperPasswordController](beanContext, "superPasswordController")
+    superPasswordCtrl.application should be(helper.app)
+    superPasswordCtrl.superPasswordService should be(SuperPasswordStorageServiceImpl)
+    superPasswordCtrl.keyGenerator shouldBe a[AESKeyGenerator]
+
+    val registrations = queryBean[MessageBusRegistration](beanContext, "LineDJ_messageBusRegistration")
+    registrations.listeners should contain (superPasswordCtrl)
   }
 
   /**

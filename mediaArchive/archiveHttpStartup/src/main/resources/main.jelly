@@ -117,6 +117,7 @@
       <di:param>
         <di:list>
           <di:element refName="overviewController"/>
+          <di:element refName="superPasswordController"/>
         </di:list>
       </di:param>
     </di:constructor>
@@ -138,6 +139,16 @@
       <di:param refName="statusHelper"/>
       <di:param refName="refCurrentRealm"/>
       <di:param refName="refCurrentArchive"/>
+    </di:constructor>
+  </di:bean>
+
+  <!-- Controller for dealing with the super password file -->
+  <di:bean name="superPasswordController"
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.SuperPasswordController">
+    <di:constructor>
+      <di:param refName="jguiraffe.application"/>
+      <di:param refName="superPasswordService"/>
+      <di:param refName="keyGenerator"/>
     </di:constructor>
   </di:bean>
 

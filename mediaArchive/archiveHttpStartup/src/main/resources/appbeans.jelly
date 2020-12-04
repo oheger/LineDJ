@@ -17,20 +17,15 @@
 
 -->
 <!--
-  The configuration file of the LineDJ playlist generator application.
+  Global bean definitions for the LineDJ HTTP Archive Startup application.
 -->
-<config>
-  <framework>
-    <builder>
-      <mainScript>main.jelly</mainScript>
-      <beandefinitions>
-        <beandefinition>appbeans.jelly</beandefinition>
-      </beandefinitions>
-    </builder>
-    <appctx>
-      <defaultResourceGroup>httpArchiveStartup-resources</defaultResourceGroup>
-    </appctx>
+<j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
+    <!-- The key generator. -->
+    <di:bean name="keyGenerator"
+             beanClassName="de.oliver_heger.linedj.crypt.AESKeyGenerator"/>
 
-    <storeuserconfig>true</storeuserconfig>
-  </framework>
-</config>
+    <!-- The service for accessing the super password file. -->
+    <di:const targetClassName="de.oliver_heger.linedj.archivehttpstart.SuperPasswordStorageServiceImpl$"
+              field="MODULE$" var="superPasswordServiceVar"/>
+    <di:contextBean var="superPasswordServiceVar" name="superPasswordService"/>
+</j:jelly>
