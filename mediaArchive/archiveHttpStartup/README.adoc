@@ -1,7 +1,13 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+
 = HTTP Media Archive Startup project
 
 With this module a number of HTTP archives (hosted by external servers) can be
 integrated with the central union media archive.
+
+toc::[]
 
 == Description
 
@@ -98,8 +104,8 @@ Concrete implementations of these traits are found in separate OSGi modules; in
 order to enable support for a specific protocol, the corresponding bundle needs
 to be installed in the OSGi container.
 
-Each protocol bundle defines a unique name. In the xref:_configuration[] of
-an archive, the name of the desired protocol is specified. Only archives that
+Each protocol bundle defines a unique name. In the <<Configuration,configuration>>
+of an archive, the name of the desired protocol is specified. Only archives that
 reference a protocol for which a bundle is available can actually be accessed.
 The sections below describe the protocol implementations that are currently
 available:
@@ -192,6 +198,7 @@ example configuration with all supported options:
   <downloadTempDir>c:\data\download\temp</downloadTempDir>
   <initTimeout>10</initTimeout>
   <stateRequestTimeout>60</stateRequestTimeout>
+  <superPasswordFile>/data/music/archive.credentials</superPasswordFile>
 </media>
 </configuration>
 ----
@@ -322,14 +329,14 @@ archive, such as its URL or its name. The following properties are supported:
 | Setting | Description | Optional
 | archiveUri | The URI of the HTTP archive. The concrete structure of the URI
 depends on the protocol used for the archive; details can be found in the
-xref:_protocols[] section. | No
+<<Protocols>> section. | No
 | archiveName | A human-readable name for this archive. The name is displayed
 in the UI of the HTTP archive startup application. | No
 | protocol | References the protocol (its short name) to be used for this
 archive. This determines the way the server is accessed.
 | Yes, defaults to _webdav_
 | realm | The name of the realm the archive belongs to. Refer to the
-xref:_realms[] section for further information. Archives assigned to the same
+<<Realms>> section for further information. Archives assigned to the same
 realm share their login credentials. | No
 | processorCount | The number of processor actors to be used when reading the
 content of the archive during startup. This is roughly equivalent to the number
@@ -513,6 +520,23 @@ processed. This property defines the number of URIs that can be cached.
 | Yes, defaults to 1024
 |==============================
 
+=== Super password file
+
+In order to gain access to the music stored in the HTTP archives referenced,
+the user typically has to enter a number of different credentials (to log into
+the realms and to unlock encrypted archives). To make the handling of
+credentials more convenient - but not necessarily less secure -, the startup
+application supports storing all the credentials currently entered in a file,
+which is encrypted by the so-called _super password_. There is a corresponding
+action for loading this file. The user then only has to enter this super
+password, and all the archives whose credentials have been saved are opened
+automatically.
+
+The location of this file with archive credentials can be configured using the
+`superPasswordFile` property in the `media` section; specify the desired path
+name here. If this property is missing, the path defaults to a file named
+`archive.credentials` in the current user's home directory.
+
 === Proxy configuration
 
 When working with HTTP archives it may be necessary to configure a proxy
@@ -521,8 +545,8 @@ standard Java system properties that define a proxy (_http.proxyHost_ and
 _http.proxyPort_) are evaluated. If both are defined, connections to the HTTP
 archive are routed via this proxy server.
 
-For more information about these properties refer to [Java Networking and
-Proxies](https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html).
-Note however, that the current implementation does not evaluate the properties 
-for an HTTPS proxy; the proxy server defined by the properties for plain HTTP
-is used for both HTTP and HTTPS connections.
+For more information about these properties refer to
+https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html[Java
+Networking and Proxies]. Note however, that the current implementation does not
+evaluate the properties for an HTTPS proxy; the proxy server defined by the
+properties for plain HTTP is used for both HTTP and HTTPS connections.
