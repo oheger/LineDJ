@@ -689,6 +689,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
   it should "invoke the super password service to write the password file" in {
     val key = mock[Key]
+    val optKey = Some(key)
     val superPasswordService = mock[SuperPasswordStorageService]
     val keyGen = mock[KeyGenerator]
     val targetPath = Paths get "somePath"
@@ -697,9 +698,16 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     when(superPasswordService.writeSuperPasswordFile(argEq(targetPath), argEq(keyGen), argEq(SuperPassword),
       any(), any())(argEq(system))).thenReturn(writeFuture)
     val helper = new StartupTestHelper(skipUI = true)
-    prepareMultiRealmLogin(helper)
-    enterArchiveAvailableState(helper)
-    helper.sendLockStateChangeNotification(EncArchiveIndex, Some(key))
+    helper.startupApplication()
+      .initArchiveStartupResult(createActorsMap(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex, optKey = optKey)
+      .prepareMediaFacadeActorsRequest()
+      .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
+      .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
+      .sendLoginForRealm(EncArchiveIndex)
+      .expectArchiveStateNotification(stateNotification(4, HttpArchiveStateLocked))
+      .sendLockStateChangeNotification(EncArchiveIndex, optKey)
+      .expectArchiveCreation()
 
     helper.app.saveArchiveCredentials(superPasswordService, targetPath, keyGen, SuperPassword) should be(writeFuture)
     val captRealms = ArgumentCaptor.forClass(classOf[Map[String, UserCredentials]])
@@ -707,9 +715,9 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     verify(superPasswordService).writeSuperPasswordFile(any(), any(), anyString(), captRealms.capture(),
       captLocks.capture())(any())
     val realms = captRealms.getValue
-    realms.keySet should contain only StartupConfigTestHelper.realmName(1)
+    realms.keySet should contain only StartupConfigTestHelper.realmName(EncArchiveIndex)
     val realmCredentials = realms.values.head
-    val expCredentials = credentials(1)
+    val expCredentials = credentials(EncArchiveIndex)
     realmCredentials.userName should be(expCredentials.userName)
     realmCredentials.password.secret should be(expCredentials.password.secret)
     val archives = captLocks.getValue
@@ -728,7 +736,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     superPasswordCtrl.keyGenerator shouldBe a[AESKeyGenerator]
 
     val registrations = queryBean[MessageBusRegistration](beanContext, "LineDJ_messageBusRegistration")
-    registrations.listeners should contain (superPasswordCtrl)
+    registrations.listeners should contain(superPasswordCtrl)
   }
 
   /**

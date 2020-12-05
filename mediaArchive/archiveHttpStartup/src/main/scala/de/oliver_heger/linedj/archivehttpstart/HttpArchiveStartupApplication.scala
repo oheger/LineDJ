@@ -521,15 +521,15 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * @param triedResult the result of the startup operation
     */
   private def handleArchiveStartupResult(name: String, index: Int, triedResult: Try[Map[String, ActorRef]]): Unit = {
+    val orgState = archiveStates(name)
     val nextData = triedResult match {
       case Success(actors) =>
         actors foreach (e => registerActor(e._1, e._2))
-        ArchiveStateData(actors = actors,
-          state = HttpArchiveStateChanged(name, HttpArchiveStateInitializing),
-          archiveIndex = index, optKey = None)
+        orgState.copy(actors = actors, archiveIndex = index,
+          state = HttpArchiveStateChanged(name, HttpArchiveStateInitializing))
       case Failure(exception) =>
         val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
-        archiveStates(name).deactivate(HttpArchiveStateChanged(name, state))
+        orgState.deactivate(HttpArchiveStateChanged(name, state))
     }
     publish(nextData.state)
     archiveStates += name -> nextData
