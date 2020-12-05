@@ -42,6 +42,13 @@ object SuperPasswordController {
   final val ResErrIO = "err_super_password_io"
 
   /**
+    * Resource ID for a message reporting an exception caused by a non-readable
+    * super password file. This typically indicates that the file is corrupt,
+    * or the password is incorrect.
+    */
+  final val ResErrFormat = "err_super_password_format"
+
+  /**
     * The default name of the super password file. This is used if no path is
     * provided in the configuration.
     */
@@ -91,6 +98,8 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
   override def receive: Receive = {
     case SuperPasswordEnteredForWrite(password) =>
       writeSuperPasswordFile(password)
+    case SuperPasswordEnteredForRead(password) =>
+      readSuperPasswordFile(password)
   }
 
   /**
@@ -106,9 +115,39 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
           val message = new Message(null, ResSuperPasswordFileWritten, path.toString)
           messageBox(message, MessageOutput.MESSAGE_INFO)
         case Failure(exception) =>
-          val message = new Message(null, ResErrIO, exception)
-          messageBox(message, MessageOutput.MESSAGE_ERROR)
+          showErrorMessage(ResErrIO, exception)
       }
+  }
+
+  /**
+    * Handles a request to read the super password file and open all the
+    * archives whose credentials are listed.
+    *
+    * @param superPassword the super password
+    */
+  private def readSuperPasswordFile(superPassword: String): Unit = {
+    val path = superPasswordPath(application)
+    superPasswordService.readSuperPasswordFile(path, keyGenerator,
+      superPassword)(application.clientApplicationContext.actorSystem) onCompleteUIThread {
+      case Success(stateMessages) =>
+        stateMessages foreach application.clientApplicationContext.messageBus.publish
+      case Failure(exception: IllegalStateException) =>
+        showErrorMessage(ResErrFormat, exception)
+      case Failure(exception) =>
+        showErrorMessage(ResErrIO, exception)
+    }
+  }
+
+  /**
+    * Displays an error message with a specific resource ID for the given
+    * exception.
+    *
+    * @param resID     the resource ID
+    * @param exception the exception
+    */
+  private def showErrorMessage(resID: String, exception: Throwable): Unit = {
+    val message = new Message(null, resID, exception)
+    messageBox(message, MessageOutput.MESSAGE_ERROR)
   }
 
   /**

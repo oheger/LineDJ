@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archivehttpstart
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import de.oliver_heger.linedj.crypt.KeyGenerator
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -34,6 +35,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.IOException
 import java.nio.file.{Path, Paths}
+import java.security.Key
 import scala.concurrent.Future
 
 object SuperPasswordControllerSpec {
@@ -90,6 +92,44 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .expectErrorMessage(SuperPasswordController.ResErrIO, exception)
   }
 
+  it should "read the super password file and open the archives referenced" in {
+    val path = Paths.get("stored/credentials.txt")
+    val archiveKey = mock[Key]
+    val states = List(LoginStateChanged("someRealm", Some(UserCredentials("user", Secret("secret")))),
+      LockStateChanged("testArchive", Some(archiveKey)))
+    val helper = new ControllerTestHelper
+
+    helper.initSuperPasswordPathProperty(path)
+      .expectLoadCredentials(path, Future.successful(states))
+      .postOnMessageBus(SuperPasswordEnteredForRead(SuperPassword))
+      .processUIFuture()
+      .expectStateMessagesOnBus(states)
+  }
+
+  it should "handle an IOException when reading the super password file" in {
+    val path = Paths.get("non/existing/credentials.file")
+    val exception = new IOException("File not found: " + path)
+    val helper = new ControllerTestHelper
+
+    helper.initSuperPasswordPathProperty(path)
+      .expectLoadCredentials(path, Future.failed(exception))
+      .postOnMessageBus(SuperPasswordEnteredForRead(SuperPassword))
+      .processUIFuture()
+      .expectErrorMessage(SuperPasswordController.ResErrIO, exception)
+  }
+
+  it should "handle an IllegalStateException when reading the super password file" in {
+    val path = Paths.get("invalid/credentials.file")
+    val exception = new IllegalStateException("Invalid file: " + path)
+    val helper = new ControllerTestHelper
+
+    helper.initSuperPasswordPathProperty(path)
+      .expectLoadCredentials(path, Future.failed(exception))
+      .postOnMessageBus(SuperPasswordEnteredForRead(SuperPassword))
+      .processUIFuture()
+      .expectErrorMessage(SuperPasswordController.ResErrFormat, exception)
+  }
+
   /**
     * A test helper class manages an instance to be tested and its
     * dependencies.
@@ -123,6 +163,22 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     def expectSaveCredentials(expPath: Path, result: Future[Path]): ControllerTestHelper = {
       when(application.saveArchiveCredentials(storageService, expPath, keyGenerator, SuperPassword))
+        .thenReturn(result)
+      this
+    }
+
+    /**
+      * Prepares the mock for the super password service to expect an
+      * invocation to read the credentials file from the given path. The result
+      * of the operation can be specified.
+      *
+      * @param expPath the expected path
+      * @param result  the result to return
+      * @return this test helper
+      */
+    def expectLoadCredentials(expPath: Path, result: Future[Iterable[ArchiveStateChangedMessage]]):
+    ControllerTestHelper = {
+      when(storageService.readSuperPasswordFile(expPath, keyGenerator, SuperPassword)(system))
         .thenReturn(result)
       this
     }
@@ -208,6 +264,20 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     def expectErrorMessage(resID: String, exception: Throwable): ControllerTestHelper = {
       val expMessage = new Message(null, resID, exception)
       expectMessage(expMessage, MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
+    }
+
+    /**
+      * Verifies that the given state change messages have been published on
+      * the message bus.
+      *
+      * @param states the expected state messages
+      * @return this test helper
+      */
+    def expectStateMessagesOnBus(states: Iterable[ArchiveStateChangedMessage]): ControllerTestHelper = {
+      states foreach { state =>
+        messageBus.expectMessageType[ArchiveStateChangedMessage] should be(state)
+      }
+      this
     }
 
     /**
