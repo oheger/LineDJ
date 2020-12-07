@@ -18,13 +18,15 @@ package de.oliver_heger.linedj.platform.ui
 
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
 
+import scala.annotation.tailrec
+
 /**
- * Companion object for ''DurationTransformer''.
- *
- * This object defines a method for formatting a duration. This can be directly
- * used by client code without the need to create an instance. The transformer
- * implementation is useful when used within the UI declaration.
- */
+  * Companion object for ''DurationTransformer''.
+  *
+  * This object defines methods for formatting a duration. These can be directly
+  * used by client code without the need to create an instance. The transformer
+  * implementation is useful when used within the UI declaration.
+  */
 object DurationTransformer {
   /** The representation of an undefined duration. */
   private val UndefinedRepresentation = "?"
@@ -38,14 +40,21 @@ object DurationTransformer {
   /** Constant for the seconds per minute. */
   private val SECS_PER_MINUTE = 60
 
+  /** Constant for the seconds of a day. */
+  private val SECS_PER_DAY = 24 * SECS_PER_HOUR
+
   /** Constant for the duration buffer size. */
   private val DURATION_BUF_SIZE = 16
 
+  /** A list with the durations corresponding to the supported time fields. */
+  private val DURATION_FIELDS = List(SECS_PER_DAY, SECS_PER_HOUR, SECS_PER_MINUTE, 1)
+
   /**
-   * Returns a string representation for the specified duration.
-   * @param duration the duration as long (in milliseconds)
-   * @return the formatted duration as string
-   */
+    * Returns a string representation for the specified duration.
+    *
+    * @param duration the duration as long (in milliseconds)
+    * @return the formatted duration as string
+    */
   def formatDuration(duration: Long): String = {
     val buf = new StringBuilder(DURATION_BUF_SIZE)
     val secs = math.round(duration / MILLIS)
@@ -65,16 +74,54 @@ object DurationTransformer {
     buf.append(remainingSecs)
     buf.toString()
   }
+
+  /**
+    * Returns a string representation for the specified duration that can cover
+    * multiple days. This function produces a different string representation
+    * than ''formatDuration()'', which is more suitable for very long
+    * durations. The resulting string contains fields for days, hours, minutes,
+    * and seconds, each labeled with the corresponding strings. Fields with the
+    * value 0 are omitted.
+    *
+    * @param duration   the duration as long (in milliseconds)
+    * @param txtDays    the label for the days field
+    * @param txtHours   the label for the hours field
+    * @param txtMinutes the label for the minutes field
+    * @param txtSeconds the label for the seconds field
+    * @return the formatted duration as string
+    */
+  def formatLongDuration(duration: Long, txtDays: String, txtHours: String, txtMinutes: String, txtSeconds: String):
+  String = {
+    @tailrec
+    def generateDurationField(buf: StringBuilder, currentDuration: Long, fields: List[Int], units: List[String]):
+    String =
+      fields match {
+        case h :: t =>
+          val value = currentDuration / h
+          if (value > 0) {
+            if (buf.nonEmpty) {
+              buf.append(' ')
+            }
+            buf.append(value).append(units.head)
+          }
+          generateDurationField(buf, currentDuration % h, t, units.tail)
+        case _ =>
+          buf.toString()
+      }
+
+    val units = List(txtDays, txtHours, txtMinutes, txtSeconds)
+    generateDurationField(new StringBuilder(DURATION_BUF_SIZE), duration / MILLIS.toLong, DURATION_FIELDS, units)
+  }
 }
 
 /**
- * A special transformer implementation which formats duration values.
- *
- * This transformer is used to display the duration of songs in the UI. The
- * duration is stored internally as long value representing the number of
- * milliseconds a song lasts. This transformer produces a human-readable
- * representation in the form HH:mm:ss.
- */
+  * A special transformer implementation which formats duration values.
+  *
+  * This transformer is used to display the duration of songs in the UI. The
+  * duration is stored internally as long value representing the number of
+  * milliseconds a song lasts. This transformer produces a human-readable
+  * representation in the form HH:mm:ss.
+  */
 class DurationTransformer extends Transformer {
 
   import DurationTransformer._
