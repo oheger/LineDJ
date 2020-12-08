@@ -37,6 +37,18 @@ import scala.beans.BeanProperty
 import scala.util.{Failure, Success}
 
 object ArchiveAdminController {
+  /** Resource ID for the name of the ''days'' unit. */
+  final val ResUnitDays = "unit_days"
+
+  /** Resource ID for the name of the ''hours'' unit. */
+  final val ResUnitHours = "unit_hours"
+
+  /** Resource ID for the name of the ''minutes'' unit. */
+  final val ResUnitMinutes = "unit_minutes"
+
+  /** Resource ID for the name of the ''seconds'' unit. */
+  final val ResUnitSeconds = "unit_seconds"
+
   /** Factor for converting bytes to mega bytes. */
   private val MegaBytes = 1024.0 * 1024
 
@@ -257,10 +269,13 @@ class ArchiveAdminController(application: ArchiveAdminApp,
         componentBuilderData.getTransformerContext).asInstanceOf[String]
     }
 
+    val appCtx = application.getApplicationContext
     formatText(mediaCount, formBean.mediaCount)
     formatText(songCount, formBean.songCount)
     formatText(size / MegaBytes, formBean.fileSize)
-    formatText(DurationTransformer.formatDuration(duration), formBean.playbackDuration)
+    formatText(DurationTransformer.formatLongDuration(duration, appCtx.getResourceText(ResUnitDays),
+      appCtx.getResourceText(ResUnitHours), appCtx.getResourceText(ResUnitMinutes),
+      appCtx.getResourceText(ResUnitSeconds)), formBean.playbackDuration)
   }
 
   /**

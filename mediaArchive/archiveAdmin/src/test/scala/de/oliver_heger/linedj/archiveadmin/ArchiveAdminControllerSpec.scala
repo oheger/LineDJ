@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archiveadmin
 
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
@@ -29,6 +28,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import net.sf.jguiraffe.di.BeanContext
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextData}
@@ -52,7 +52,7 @@ object ArchiveAdminControllerSpec {
 
   /** A test archive state. */
   private val ArchiveState = MetaDataState(mediaCount = 28,
-    songCount = 1088, size = 20161020213108L, duration = ((3 * 60 * 60 + 25 * 60) + 14) * 1000L,
+    songCount = 1088, size = 20161020213108L, duration = ((7 * 24 * 60 * 60 + 3 * 60 * 60 + 25 * 60) + 14) * 1000L,
     scanInProgress = false, updateInProgress = false, archiveCompIDs = ArchiveNames.toSet)
 
   /** A test state object with data from the media archive. */
@@ -69,6 +69,21 @@ object ArchiveAdminControllerSpec {
 
   /** Text constant for no scan in progress. */
   private val TextNoScanInProgress = "Idle..."
+
+  /** The unit for days */
+  private val UnitDays = "Days"
+
+  /** The unit for hours. */
+  private val UnitHours = "Hours"
+
+  /** The unit for minutes. */
+  private val UnitMinutes = "Minutes"
+
+  /** The unit for seconds. */
+  private val UnitSeconds = "Seconds"
+
+  /** Constant for the expected formatted duration. */
+  private val ExpDuration = s"7$UnitDays 3$UnitHours 25$UnitMinutes 14$UnitSeconds"
 
   /** Icon constant for an archive not available. */
   private val IconArchiveUnavailable = new Object
@@ -97,6 +112,18 @@ object ArchiveAdminControllerSpec {
   private def stateWithInProgressFlag(inProgress: Boolean): MetaDataStateUpdated =
     if (CurrentState.state.scanInProgress == inProgress) CurrentState
     else MetaDataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
+
+  /**
+    * Generates a (long) duration string based on the default duration, but
+    * with the given number of seconds.
+    *
+    * @param seconds the seconds
+    * @return the resulting duration string
+    */
+  private def durationWithSeconds(seconds: Int): String = {
+    val posSeconds = ExpDuration.lastIndexOf(' ')
+    ExpDuration.substring(0, posSeconds + 1) + seconds + UnitSeconds
+  }
 }
 
 /**
@@ -165,7 +192,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ArchiveAdminControllerTestHelper
 
     checkTransformedText(helper.sendMetaDataStateEvent(CurrentState)
-      .verifyFormUpdate().playbackDuration, "3:25:14")
+      .verifyFormUpdate().playbackDuration, ExpDuration)
   }
 
   it should "set the archive state if the archive becomes unavailable" in {
@@ -335,7 +362,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(data.mediaCount, stats.mediaCount)
     checkTransformedText(data.songCount, stats.songCount)
     checkTransformedText(data.fileSize, stats.size / 1024.0 / 1024.0)
-    checkTransformedText(data.playbackDuration, "3:25:17")
+    checkTransformedText(data.playbackDuration, durationWithSeconds(17))
   }
 
   it should "handle a null selection of the archives combo box" in {
@@ -360,7 +387,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(data.mediaCount, stats.mediaCount)
     checkTransformedText(data.songCount, stats.songCount)
     checkTransformedText(data.fileSize, stats.size / 1024.0 / 1024.0)
-    checkTransformedText(data.playbackDuration, "3:25:19")
+    checkTransformedText(data.playbackDuration, durationWithSeconds(19))
   }
 
   it should "handle an error when requesting archive statistics" in {
@@ -408,7 +435,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(data.mediaCount, CurrentState.state.mediaCount)
     checkTransformedText(data.songCount, CurrentState.state.songCount)
     checkTransformedText(data.fileSize, CurrentState.state.size / 1024.0 / 1024.0)
-    checkTransformedText(data.playbackDuration, "3:25:14")
+    checkTransformedText(data.playbackDuration, ExpDuration)
   }
 
   it should "handle the selection of the union archive if there is only a single archive" in {
@@ -441,7 +468,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(data.mediaCount, stats2.mediaCount)
     checkTransformedText(data.songCount, stats2.songCount)
     checkTransformedText(data.fileSize, stats2.size / 1024.0 / 1024.0)
-    checkTransformedText(data.playbackDuration, "3:25:23")
+    checkTransformedText(data.playbackDuration, durationWithSeconds(23))
   }
 
   it should "update the reference of the selected archive" in {
@@ -741,6 +768,12 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       val facadeActors = MediaFacadeActors(metaDataManager = probeMetaDataActor.ref, mediaManager = null)
       val app = mock[ArchiveAdminApp]
       when(app.mediaFacadeActors).thenReturn(facadeActors)
+      val appCtx = mock[ApplicationContext]
+      when(appCtx.getResourceText(ArchiveAdminController.ResUnitDays)).thenReturn(UnitDays)
+      when(appCtx.getResourceText(ArchiveAdminController.ResUnitHours)).thenReturn(UnitHours)
+      when(appCtx.getResourceText(ArchiveAdminController.ResUnitMinutes)).thenReturn(UnitMinutes)
+      when(appCtx.getResourceText(ArchiveAdminController.ResUnitSeconds)).thenReturn(UnitSeconds)
+      when(app.getApplicationContext).thenReturn(appCtx)
       app
     }
 
