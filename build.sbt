@@ -20,11 +20,11 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.6.10"
-lazy val AkkaHttpVersion = "10.2.1"
+lazy val AkkaVersion = "2.6.13"
+lazy val AkkaHttpVersion = "10.2.4"
 lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.12.12"
-lazy val VersionScalaz = "7.3.2"
+lazy val VersionScala = "2.12.13"
+lazy val VersionScalaz = "7.3.3"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4-SNAPSHOT"
 lazy val VersionScalaTest = "3.2.0"
@@ -33,7 +33,7 @@ lazy val VersionScalaTestMockito = "1.0.0-M2"
 lazy val VersionJunit = "4.13"  // needed by mockito
 lazy val VersionJetty = "9.4.2.v20170220"
 lazy val VersionJackson = "2.11.0"
-lazy val VersionAeron = "1.30.0"
+lazy val VersionAeron = "1.32.0"
 lazy val VersionSslConfig = "0.4.2"
 
 scalacOptions ++= Seq("-deprecation", "-feature")
