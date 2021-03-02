@@ -16,11 +16,7 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.io.IOException
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
+import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.{ArchiveContentTableConfig, MediaArchiveConfig}
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
@@ -39,6 +35,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -273,10 +272,10 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     * @param actor the actor to be stopped
     */
   private def stopActor(actor: ActorRef): Unit = {
-    system stop actor
+    actor ! PoisonPill
     val probe = TestProbe()
     probe watch actor
-    probe.expectMsgType[Terminated]
+    probe.expectTerminated(actor)
   }
 
   it should "pass unknown media to the writer actor" in {
