@@ -319,9 +319,6 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     /** A mock for the message bus. */
     val messageBus: MessageBus = createMessageBus()
 
-    /** The test relay actor. */
-    val relayActor: ActorRef = system.actorOf(createProps())
-
     /** A map that stores references for the paths to remote actors. */
     private val pathActorMapping = Map(
       LookupPrefix + "mediaManager" ->(probeMediaManagerLookup.ref, probeMediaManager.ref),
@@ -335,6 +332,9 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
 
     /** Temporary map for creating child actors. */
     private var lookupPaths = pathActorMapping
+
+    /** The test relay actor. */
+    val relayActor: ActorRef = system.actorOf(createProps())
 
     /**
      * Waits until all expected child actors have been created and returns a
