@@ -35,6 +35,7 @@ lazy val VersionJetty = "9.4.2.v20170220"
 lazy val VersionJackson = "2.11.0"
 lazy val VersionAeron = "1.32.0"
 lazy val VersionSslConfig = "0.4.2"
+lazy val VersionCloudFiles = "0.1-SNAPSHOT"
 
 scalacOptions ++= Seq("-deprecation", "-feature")
 
@@ -385,6 +386,8 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     name := "linedj-archiveHttpStartup",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= jguiraffeDependencies,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
