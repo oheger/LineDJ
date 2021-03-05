@@ -148,7 +148,6 @@
     <di:constructor>
       <di:param refName="jguiraffe.application"/>
       <di:param refName="superPasswordService"/>
-      <di:param refName="keyGenerator"/>
     </di:constructor>
   </di:bean>
 

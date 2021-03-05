@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttpstart
 
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.resources.Message
@@ -81,11 +80,9 @@ object SuperPasswordController {
   *
   * @param application          the application instance
   * @param superPasswordService the service for handling the password file
-  * @param keyGenerator         the key generator
   */
 class SuperPasswordController(val application: HttpArchiveStartupApplication,
-                              val superPasswordService: SuperPasswordStorageService,
-                              val keyGenerator: KeyGenerator) extends MessageBusListener {
+                              val superPasswordService: SuperPasswordStorageService) extends MessageBusListener {
 
   import SuperPasswordController._
   import application.toUIFuture
@@ -109,7 +106,7 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     */
   private def writeSuperPasswordFile(superPassword: String): Unit = {
     val path = superPasswordPath(application)
-    application.saveArchiveCredentials(superPasswordService, path, keyGenerator, superPassword)
+    application.saveArchiveCredentials(superPasswordService, path, superPassword)
       .onCompleteUIThread {
         case Success(path) =>
           val message = new Message(null, ResSuperPasswordFileWritten, path.toString)

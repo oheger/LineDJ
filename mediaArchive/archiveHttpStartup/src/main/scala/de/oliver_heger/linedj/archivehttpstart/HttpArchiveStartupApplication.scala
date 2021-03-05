@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
-import java.nio.file.Path
-import java.security.Key
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.Actor.Receive
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
@@ -28,7 +24,6 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
-import de.oliver_heger.linedj.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -39,6 +34,9 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
+import java.nio.file.Path
+import java.security.Key
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -293,13 +291,11 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     *
     * @param storageService the ''SuperPasswordStorageService''
     * @param target         the path to the target file
-    * @param keyGenerator   the key generator
     * @param superPassword  the super password
     * @return a future with the result of the write operation
     */
   private[archivehttpstart] def saveArchiveCredentials(storageService: SuperPasswordStorageService, target: Path,
-                                                       keyGenerator: KeyGenerator, superPassword: String):
-  Future[Path] = {
+                                                       superPassword: String): Future[Path] = {
     val lockData = archiveStates.filter(_._2.optKey.isDefined)
       .map { e => (e._1, e._2.optKey.get) }
     storageService.writeSuperPasswordFile(target, superPassword, realms, lockData)

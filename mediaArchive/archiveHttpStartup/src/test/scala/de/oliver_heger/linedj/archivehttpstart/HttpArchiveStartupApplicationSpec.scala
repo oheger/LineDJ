@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
-import java.nio.file.Paths
-import java.security.Key
-import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.{TestKit, TestProbe}
@@ -27,7 +24,7 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
-import de.oliver_heger.linedj.crypt.{AESKeyGenerator, KeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
@@ -48,6 +45,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
+import java.security.Key
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -691,7 +691,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val key = mock[Key]
     val optKey = Some(key)
     val superPasswordService = mock[SuperPasswordStorageService]
-    val keyGen = mock[KeyGenerator]
     val targetPath = Paths get "somePath"
     val SuperPassword = "theTopSecretVerySpecialSuperHyperPassword"
     val writeFuture = Future.successful(Paths get "writePath")
@@ -709,7 +708,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .sendLockStateChangeNotification(EncArchiveIndex, optKey)
       .expectArchiveCreation()
 
-    helper.app.saveArchiveCredentials(superPasswordService, targetPath, keyGen, SuperPassword) should be(writeFuture)
+    helper.app.saveArchiveCredentials(superPasswordService, targetPath, SuperPassword) should be(writeFuture)
     val captRealms = ArgumentCaptor.forClass(classOf[Map[String, UserCredentials]])
     val captLocks = ArgumentCaptor.forClass(classOf[Map[String, Key]])
     verify(superPasswordService).writeSuperPasswordFile(any(), anyString(), captRealms.capture(),
@@ -733,7 +732,6 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val superPasswordCtrl = queryBean[SuperPasswordController](beanContext, "superPasswordController")
     superPasswordCtrl.application should be(helper.app)
     superPasswordCtrl.superPasswordService should be(SuperPasswordStorageServiceImpl)
-    superPasswordCtrl.keyGenerator shouldBe a[AESKeyGenerator]
 
     val registrations = queryBean[MessageBusRegistration](beanContext, "LineDJ_messageBusRegistration")
     registrations.listeners should contain(superPasswordCtrl)

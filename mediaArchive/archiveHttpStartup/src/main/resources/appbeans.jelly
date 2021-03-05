@@ -20,10 +20,6 @@
   Global bean definitions for the LineDJ HTTP Archive Startup application.
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
-    <!-- The key generator. -->
-    <di:bean name="keyGenerator"
-             beanClassName="de.oliver_heger.linedj.crypt.AESKeyGenerator"/>
-
     <!-- The service for accessing the super password file. -->
     <di:const targetClassName="de.oliver_heger.linedj.archivehttpstart.SuperPasswordStorageServiceImpl$"
               field="MODULE$" var="superPasswordServiceVar"/>

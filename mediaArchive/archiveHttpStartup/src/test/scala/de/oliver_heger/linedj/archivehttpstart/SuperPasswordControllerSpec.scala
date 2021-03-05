@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -147,9 +147,6 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     /** Mock for the storage service. */
     private val storageService = mock[SuperPasswordStorageService]
 
-    /** Mock for the key generator. */
-    private val keyGenerator = mock[KeyGenerator]
-
     /** The controller to be tested. */
     private val controller = createController()
 
@@ -162,7 +159,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def expectSaveCredentials(expPath: Path, result: Future[Path]): ControllerTestHelper = {
-      when(application.saveArchiveCredentials(storageService, expPath, keyGenerator, SuperPassword))
+      when(application.saveArchiveCredentials(storageService, expPath, SuperPassword))
         .thenReturn(result)
       this
     }
@@ -302,7 +299,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return the test controller
       */
     private def createController(): SuperPasswordController =
-      new SuperPasswordController(application, storageService, keyGenerator)
+      new SuperPasswordController(application, storageService)
   }
 
 }
