@@ -16,20 +16,21 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.{Concat, FileIO, Flow, Framing, Keep, Sink, Source}
+import akka.stream.{IOOperationIncompleteException, IOResult}
+import akka.util.ByteString
+import com.github.cloudfiles.crypt.alg.aes.Aes
+import com.github.cloudfiles.crypt.service.CryptService
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.crypt.Secret
+
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.security.{Key, SecureRandom}
 import java.util.Base64
-
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.{IOOperationIncompleteException, IOResult}
-import akka.stream.scaladsl.{Concat, FileIO, Flow, Framing, Keep, Sink, Source}
-import akka.util.ByteString
-import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.{CryptStage, KeyGenerator, Secret}
-
+import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -43,6 +44,9 @@ import scala.concurrent.{ExecutionContext, Future}
   * A read operation yields a collection of messages that need to be published
   * on the system message bus in order to log into the archives and unlock
   * them.
+  *
+  * The file is always encrypted using the AES algorithm and the password
+  * provided to the functions.
   */
 trait SuperPasswordStorageService {
   /**
@@ -51,15 +55,14 @@ trait SuperPasswordStorageService {
     *
     * @param target        the path to the file to be written (an existing file
     *                      will be overwritten)
-    * @param keyGenerator  the generator for keys
     * @param superPassword the password to encrypt the data
     * @param realms        a list of tuples with realm names and their credentials
     * @param lockData      a list of tuples with archive names and their passwords
     * @param system        the actor system
     * @return a future with the path to the file that has been written
     */
-  def writeSuperPasswordFile(target: Path, keyGenerator: KeyGenerator, superPassword: String,
-                             realms: Iterable[(String, UserCredentials)], lockData: Iterable[(String, Key)])
+  def writeSuperPasswordFile(target: Path, superPassword: String, realms: Iterable[(String, UserCredentials)],
+                             lockData: Iterable[(String, Key)])
                             (implicit system: ActorSystem): Future[Path]
 
   /**
@@ -69,12 +72,11 @@ trait SuperPasswordStorageService {
     * the archives involved.
     *
     * @param target        the path to the file to be read
-    * @param keyGenerator  the generator for keys
     * @param superPassword the password to decrypt the data
     * @param system        the actor system
     * @return a future with the information that was read
     */
-  def readSuperPasswordFile(target: Path, keyGenerator: KeyGenerator, superPassword: String)
+  def readSuperPasswordFile(target: Path, superPassword: String)
                            (implicit system: ActorSystem): Future[Iterable[ArchiveStateChangedMessage]]
 }
 
@@ -91,21 +93,22 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
   /** The separator between two entries in the password file. */
   private val EntrySeparator = "\n"
 
-  override def writeSuperPasswordFile(target: Path, keyGenerator: KeyGenerator, superPassword: String,
+  /** The source of randomness. */
+  private implicit val random: SecureRandom = new SecureRandom
+
+  override def writeSuperPasswordFile(target: Path, superPassword: String,
                                       realms: Iterable[(String, UserCredentials)],
                                       lockData: Iterable[(String, Key)])
                                      (implicit system: ActorSystem): Future[Path] = {
     val loginEntries = realms map realmDataToString
     val unlockEntries = lockData map { lock =>
-      lockDataToString(keyGenerator, lock)
+      lockDataToString(lock)
     }
     val source = Source.combine(Source(loginEntries.toList), Source(unlockEntries.toList))(Concat(_))
-    val sink = encryptSink(target, keyGenerator, superPassword)
+      .map(ByteString(_))
 
     implicit val ec: ExecutionContext = system.dispatcher
-    source
-      .map(ByteString(_))
-      .runWith(sink)
+    runEncryptStream(source, target, superPassword)
       .map(_ => target)
       .recoverWith {
         case e: IOOperationIncompleteException =>
@@ -113,9 +116,9 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
       }(system.dispatcher)
   }
 
-  override def readSuperPasswordFile(target: Path, keyGenerator: KeyGenerator, superPassword: String)
+  override def readSuperPasswordFile(target: Path, superPassword: String)
                                     (implicit system: ActorSystem): Future[Iterable[ArchiveStateChangedMessage]] = {
-    val source = decryptSource(target, keyGenerator, superPassword)
+    val source = decryptSource(target, superPassword)
     val sink = Sink.fold[List[ArchiveStateChangedMessage],
       ArchiveStateChangedMessage](List.empty[ArchiveStateChangedMessage]) { (lst, msg) => msg :: lst }
     source.map { line =>
@@ -124,45 +127,48 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
         case LoginEntry =>
           createLoginStateChanged(fields)
         case UnlockEntry =>
-          createLockStateChanged(keyGenerator, fields)
+          createLockStateChanged(fields)
         case e => throw new IllegalStateException("Unsupported entry: " + e)
       }
     }.runWith(sink)
   }
 
   /**
-    * Generates a sink that expects ''ByteString'' objects and writes them in
-    * encrypted form to a file. (This is package local for better testability.)
+    * Runs a stream that processes the provided data source and writes its
+    * content in encrypted form to a file. (This is package local for better
+    * testability.)
     *
+    * @param data          the source with the data to be encrypted
     * @param target        path to the file to be written
-    * @param keyGenerator  the key generator
     * @param superPassword the password to encrypt the file
-    * @return the ''Sink'' for writing encrypted strings to the file
+    * @return a ''Future'' with the result of stream processing
     */
-  private[archivehttpstart] def encryptSink(target: Path, keyGenerator: KeyGenerator, superPassword: String):
-  Sink[ByteString, Future[IOResult]] =
-    Flow[ByteString].via(CryptStage.encryptStage(keyGenerator.generateKey(superPassword), new SecureRandom))
-      .map { bs =>
-        ByteString(Base64.getEncoder.encodeToString(bs.toArray) + EntrySeparator)
-      }.toMat(FileIO.toPath(target))(Keep.right)
+  private[archivehttpstart] def runEncryptStream(data: Source[ByteString, Any], target: Path, superPassword: String)
+                                                (implicit system: ActorSystem): Future[IOResult] = {
+    val cryptSource = CryptService.encryptSource(Aes, Aes.keyFromString(superPassword), data)
+    val sink = Flow[ByteString].map { bs =>
+      ByteString(Base64.getEncoder.encodeToString(bs.toArray) + EntrySeparator)
+    }.toMat(FileIO.toPath(target))(Keep.right)
+    cryptSource.runWith(sink)
+  }
+
 
   /**
     * Generates a source for reading the lines of the encrypted password file.
     * The source emits the decrypted lines.
     *
     * @param target        path to the file to read
-    * @param keyGenerator  the key generator
     * @param superPassword the password to decrypt the file
     * @return the ''Source'' to read and decrypt the file
     */
-  private[archivehttpstart] def decryptSource(target: Path, keyGenerator: KeyGenerator, superPassword: String):
-  Source[ByteString, NotUsed] =
-    FileIO.fromPath(target)
-      .via(Framing.delimiter(ByteString(EntrySeparator), 1024))
-      .map { line =>
-        ByteString(decodeBase64(line.toArray))
-      }
-      .viaMat(CryptStage.decryptStage(keyGenerator.generateKey(superPassword), new SecureRandom))(Keep.right)
+  private[archivehttpstart] def decryptSource(target: Path, superPassword: String):
+  Source[ByteString, Any] =
+    CryptService.decryptSource(Aes, Aes.keyFromString(superPassword),
+      FileIO.fromPath(target)
+        .via(Framing.delimiter(ByteString(EntrySeparator), 1024))
+        .map { line =>
+          ByteString(decodeBase64(line.toArray))
+        })
 
   /**
     * Converts the given data for a realm to a string to be written into the
@@ -182,13 +188,12 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * Converts the given data for unlocking an archive to a string to be
     * written to the password file.
     *
-    * @param keyGenerator the key generator
-    * @param lock         the tuple with information about unlocking an archive
+    * @param lock the tuple with information about unlocking an archive
     * @return
     */
-  private def lockDataToString(keyGenerator: KeyGenerator, lock: (String, Key)): String = {
+  private def lockDataToString(lock: (String, Key)): String = {
     val archiveEnc = encodeBase64(lock._1)
-    val keyEnc = new String(keyGenerator.encodeKey(lock._2), StandardCharsets.UTF_8)
+    val keyEnc = encodeKey(lock._2)
     s"$UnlockEntry,$archiveEnc,$keyEnc"
   }
 
@@ -209,14 +214,13 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
   /**
     * Create a ''LockStateChanged'' message from the values provided.
     *
-    * @param keyGenerator the key generator
-    * @param fields       the array with the data
+    * @param fields the array with the data
     * @return the resulting ''LockStateChanged''
     */
-  private def createLockStateChanged(keyGenerator: KeyGenerator, fields: Array[String]): LockStateChanged = {
+  private def createLockStateChanged(fields: Array[String]): LockStateChanged = {
     checkFieldCount(fields, 3)
     val archiveDec = decodeBase64Str(fields(1))
-    LockStateChanged(archiveDec, Some(keyGenerator.decodeKey(fields(2).getBytes(StandardCharsets.UTF_8))))
+    LockStateChanged(archiveDec, Some(decodeKey(fields(2))))
   }
 
   /**
@@ -230,6 +234,26 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     if (array.length != expCount) {
       throw new IllegalStateException(s"Expected $expCount fields in line, but got ${array.length}.")
     }
+  }
+
+  /**
+    * Returns a Base64-encoded form of the given key.
+    *
+    * @param key the key to encode
+    * @return the encoded form of this key
+    */
+  private def encodeKey(key: Key): String =
+    Base64.getEncoder.encodeToString(key.getEncoded)
+
+  /**
+    * Constructs a key from the passed in Base64-encoded data.
+    *
+    * @param encKeyData the encoded data of the key
+    * @return the resulting key
+    */
+  private def decodeKey(encKeyData: String): Key = {
+    val decodedData = Base64.getDecoder.decode(encKeyData)
+    new SecretKeySpec(decodedData, Aes.AlgorithmName)
   }
 
   /**

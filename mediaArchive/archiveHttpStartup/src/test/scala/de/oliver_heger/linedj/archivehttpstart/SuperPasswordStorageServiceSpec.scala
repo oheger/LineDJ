@@ -16,23 +16,23 @@
 
 package de.oliver_heger.linedj.archivehttpstart
 
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.Source
+import akka.testkit.TestKit
+import akka.util.ByteString
+import com.github.cloudfiles.crypt.alg.aes.Aes
+import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.crypt.Secret
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
 import java.security.Key
 import java.util.Base64
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Source
-import akka.testkit.TestKit
-import akka.util.ByteString
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.{AESKeyGenerator, Secret}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
-
 import scala.concurrent.Future
 
 object SuperPasswordStorageServiceSpec {
@@ -53,9 +53,6 @@ object SuperPasswordStorageServiceSpec {
 
   /** Prefix for passwords used for encryption. */
   private val PrefixCryptPassword = "crypt_"
-
-  /** The object to generate keys. */
-  private val keyGenerator = new AESKeyGenerator
 
   /**
     * Generates string-based test data with a prefix and an index.
@@ -82,7 +79,7 @@ object SuperPasswordStorageServiceSpec {
     * @return the test key with this index
     */
   private def generateKey(index: Int): Key =
-    keyGenerator.generateKey(generate(PrefixCryptPassword, index))
+    Aes.keyFromString(generate(PrefixCryptPassword, index))
 
   /**
     * Generates a sequence of test data with a given length using the generator
@@ -201,8 +198,7 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
   private def writeFile(realms: Iterable[(String, UserCredentials)], lockData: Iterable[(String, Key)],
                         optPath: Option[Path] = None): Future[Path] = {
     val path = optPath.getOrElse(createFileReference())
-    SuperPasswordStorageServiceImpl.writeSuperPasswordFile(path, keyGenerator, SuperPassword,
-      realms, lockData)
+    SuperPasswordStorageServiceImpl.writeSuperPasswordFile(path, SuperPassword, realms, lockData)
   }
 
   /**
@@ -215,8 +211,7 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     */
   private def writeFileWithContent(data: Source[ByteString, Any]): Path = {
     val path = createFileReference()
-    futureResult(data.runWith(SuperPasswordStorageServiceImpl.encryptSink(path, keyGenerator,
-      SuperPassword)).map(_ => path))
+    futureResult(SuperPasswordStorageServiceImpl.runEncryptStream(data, path, SuperPassword).map(_ => path))
   }
 
   /**
@@ -226,7 +221,7 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     * @return the future with the messages that have been loaded
     */
   private def readFile(target: Path): Future[Iterable[ArchiveStateChangedMessage]] =
-    SuperPasswordStorageServiceImpl.readSuperPasswordFile(target, keyGenerator, SuperPassword)
+    SuperPasswordStorageServiceImpl.readSuperPasswordFile(target, SuperPassword)
 
   "SuperPasswordStorageServiceImpl" should "support a round-trip with the super password file" in {
     val futMessages = for {

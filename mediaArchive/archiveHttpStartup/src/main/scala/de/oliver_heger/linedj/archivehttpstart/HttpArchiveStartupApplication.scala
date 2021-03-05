@@ -302,7 +302,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   Future[Path] = {
     val lockData = archiveStates.filter(_._2.optKey.isDefined)
       .map { e => (e._1, e._2.optKey.get) }
-    storageService.writeSuperPasswordFile(target, keyGenerator, superPassword, realms, lockData)
+    storageService.writeSuperPasswordFile(target, superPassword, realms, lockData)
   }
 
   /**

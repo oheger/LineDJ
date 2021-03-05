@@ -178,7 +178,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     def expectLoadCredentials(expPath: Path, result: Future[Iterable[ArchiveStateChangedMessage]]):
     ControllerTestHelper = {
-      when(storageService.readSuperPasswordFile(expPath, keyGenerator, SuperPassword)(system))
+      when(storageService.readSuperPasswordFile(expPath, SuperPassword)(system))
         .thenReturn(result)
       this
     }

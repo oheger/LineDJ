@@ -695,7 +695,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val targetPath = Paths get "somePath"
     val SuperPassword = "theTopSecretVerySpecialSuperHyperPassword"
     val writeFuture = Future.successful(Paths get "writePath")
-    when(superPasswordService.writeSuperPasswordFile(argEq(targetPath), argEq(keyGen), argEq(SuperPassword),
+    when(superPasswordService.writeSuperPasswordFile(argEq(targetPath), argEq(SuperPassword),
       any(), any())(argEq(system))).thenReturn(writeFuture)
     val helper = new StartupTestHelper(skipUI = true)
     helper.startupApplication()
@@ -712,7 +712,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     helper.app.saveArchiveCredentials(superPasswordService, targetPath, keyGen, SuperPassword) should be(writeFuture)
     val captRealms = ArgumentCaptor.forClass(classOf[Map[String, UserCredentials]])
     val captLocks = ArgumentCaptor.forClass(classOf[Map[String, Key]])
-    verify(superPasswordService).writeSuperPasswordFile(any(), any(), anyString(), captRealms.capture(),
+    verify(superPasswordService).writeSuperPasswordFile(any(), anyString(), captRealms.capture(),
       captLocks.capture())(any())
     val realms = captRealms.getValue
     realms.keySet should contain only StartupConfigTestHelper.realmName(EncArchiveIndex)

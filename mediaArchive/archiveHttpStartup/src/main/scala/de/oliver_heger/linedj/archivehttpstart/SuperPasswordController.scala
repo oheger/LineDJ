@@ -127,7 +127,7 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     */
   private def readSuperPasswordFile(superPassword: String): Unit = {
     val path = superPasswordPath(application)
-    superPasswordService.readSuperPasswordFile(path, keyGenerator,
+    superPasswordService.readSuperPasswordFile(path,
       superPassword)(application.clientApplicationContext.actorSystem) onCompleteUIThread {
       case Success(stateMessages) =>
         stateMessages foreach application.clientApplicationContext.messageBus.publish
