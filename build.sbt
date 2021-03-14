@@ -234,12 +234,15 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
     libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
     libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % Test,
     libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % Test,
     libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
-      "de.oliver_heger.linedj.archivehttp.crypt, de.oliver_heger.linedj.archivehttp.spi",
+      "de.oliver_heger.linedj.archivehttp.io, de.oliver_heger.linedj.archivehttp.spi",
       "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract, crypt)
