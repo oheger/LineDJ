@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.app.support
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
+import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
@@ -25,6 +26,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 object ActorManagementSpec {
   /** Prefix for an actor name. */
@@ -162,6 +165,29 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.component.unregisterAndStopActor(name2) shouldBe true
     helper.checkActorsStopped(actor2)
     helper.component.managedActorNames should contain only name1
+  }
+
+  it should "support registering only an object to stop actors" in {
+    val stopFlag = new AtomicBoolean
+    val stopper = new ActorManagement.ActorStopper {
+      override def stop(): Unit = stopFlag.set(true)
+    }
+    val helper = new ActorManagementTestHelper
+
+    helper.component.registerActor("actorWithStopper", stopper)
+    helper.deactivateComponent()
+    stopFlag.get() shouldBe true
+  }
+
+  it should "throw an exception when querying a registered actor for which no reference is available" in {
+    val ActorName = "actorWithoutRef"
+    val stopper = mock[ActorStopper]
+    val helper = new ActorManagementTestHelper
+
+    helper.component.registerActor(ActorName, stopper)
+    intercept[NoSuchElementException] {
+      helper.component getActor ActorName
+    }
   }
 
   /**
