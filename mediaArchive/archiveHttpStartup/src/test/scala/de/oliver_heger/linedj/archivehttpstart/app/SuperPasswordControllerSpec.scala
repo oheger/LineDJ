@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit

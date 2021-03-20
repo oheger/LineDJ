@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.StatusCodes
@@ -23,7 +23,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._

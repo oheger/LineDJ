@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.io.IOException
-import java.nio.file.{Files, Paths}
-import java.security.Key
-import java.time.Instant
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.Uri
@@ -44,6 +39,10 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
+import java.nio.file.{Files, Paths}
+import java.security.Key
+import java.time.Instant
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 

@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.util.concurrent.atomic.AtomicReference
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
@@ -24,6 +22,8 @@ import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.atomic.AtomicReference
 
 /**
   * Test class for the commands that open dialogs related to archives.

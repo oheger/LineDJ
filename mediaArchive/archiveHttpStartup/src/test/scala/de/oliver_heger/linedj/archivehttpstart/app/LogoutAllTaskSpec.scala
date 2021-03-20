@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
+package de.oliver_heger.linedj.archivehttpstart.app
+
+import org.mockito.Mockito._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 /**
-  * A task implementation for the logout action.
-  *
-  * This implementation just delegates to the
-  * [[HttpArchiveOverviewController]]. The controller is then responsible to
-  * logout the currently selected realm.
-  *
-  * @param controller the controller
+  * Test class for ''LogoutAllTask''.
   */
-class LogoutTask(controller: HttpArchiveOverviewController) extends Runnable {
-  override def run(): Unit = {
-    controller.logoutCurrentRealm()
+class LogoutAllTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+  "A LogoutAllTask" should "delegate to the controller" in {
+    val controller = mock[HttpArchiveOverviewController]
+    val task = new LogoutAllTask(controller)
+
+    task.run()
+    verify(controller).logoutAllRealms()
   }
 }

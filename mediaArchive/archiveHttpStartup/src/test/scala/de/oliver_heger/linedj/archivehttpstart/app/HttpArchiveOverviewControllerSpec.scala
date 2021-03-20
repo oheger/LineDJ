@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.security.Key
-import java.util
-import java.util.concurrent.atomic.AtomicReference
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateAvailable, HttpArchiveStateInitializing, HttpArchiveStateNotLoggedIn}
 import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
@@ -35,6 +31,10 @@ import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.security.Key
+import java.util
+import java.util.concurrent.atomic.AtomicReference
 
 object HttpArchiveOverviewControllerSpec {
   /** The number of archives defined in the configuration. */

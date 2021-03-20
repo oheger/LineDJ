@@ -21,7 +21,7 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
     <!-- The service for accessing the super password file. -->
-    <di:const targetClassName="de.oliver_heger.linedj.archivehttpstart.SuperPasswordStorageServiceImpl$"
+    <di:const targetClassName="de.oliver_heger.linedj.archivehttpstart.app.SuperPasswordStorageServiceImpl$"
               field="MODULE$" var="superPasswordServiceVar"/>
     <di:contextBean var="superPasswordServiceVar" name="superPasswordService"/>
 </j:jelly>

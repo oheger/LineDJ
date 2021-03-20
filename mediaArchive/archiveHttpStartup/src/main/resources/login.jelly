@@ -24,7 +24,7 @@
 
   <!-- Login controller -->
   <di:bean name="loginController"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveLoginDlgController">
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveLoginDlgController">
     <di:constructor>
       <di:param refName="LineDJ_MessageBus"/>
       <di:param refName="comp:txtUser"/>

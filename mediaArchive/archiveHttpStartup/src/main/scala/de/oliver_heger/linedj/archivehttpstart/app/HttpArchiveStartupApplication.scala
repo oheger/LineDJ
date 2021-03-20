@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.Actor.Receive
 import akka.actor.{ActorRef, ActorSystem}
@@ -23,7 +23,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.app
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable

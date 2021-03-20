@@ -22,7 +22,7 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.HttpArchiveStartupApplication" immediate="true">
-  <implementation class="de.oliver_heger.linedj.archivehttpstart.HttpArchiveStartupApplication" />
+  <implementation class="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStartupApplication" />
 
   <service>
     <provide interface="de.oliver_heger.linedj.platform.app.ClientApplication"/>

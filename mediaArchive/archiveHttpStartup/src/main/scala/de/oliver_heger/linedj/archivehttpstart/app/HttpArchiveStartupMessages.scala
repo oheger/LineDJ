@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.security.Key
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates.HttpArchiveState
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.HttpArchiveState
+
+import java.security.Key
 
 /**
   * A common base trait for messages indicating a change of the state of an

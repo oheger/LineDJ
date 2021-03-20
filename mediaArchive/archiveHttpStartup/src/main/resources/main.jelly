@@ -88,7 +88,7 @@
 
   <!-- Status line helper -->
   <di:bean name="statusHelper"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.ArchiveStatusHelper">
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.app.ArchiveStatusHelper">
     <di:constructor>
       <di:param refName="jguiraffe.applicationContext"/>
       <di:param refName="comp:txtStatusLine"/>
@@ -129,7 +129,7 @@
 
   <!-- Overview controller -->
   <di:bean name="overviewController"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveOverviewController">
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveOverviewController">
     <di:constructor>
       <di:param refName="LineDJ_MessageBus"/>
       <di:param refName="httpArchiveConfigManager"/>
@@ -144,7 +144,7 @@
 
   <!-- Controller for dealing with the super password file -->
   <di:bean name="superPasswordController"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.SuperPasswordController">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.SuperPasswordController">
     <di:constructor>
       <di:param refName="jguiraffe.application"/>
       <di:param refName="superPasswordService"/>
@@ -219,7 +219,7 @@
 
   <!-- Command and task for the realm login dialog -->
   <di:bean name="openLoginDialogCommand"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenLoginDlgCommand">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.OpenLoginDlgCommand">
     <di:constructor>
       <di:param value="classpath:login.jelly"/>
       <di:param refName="refCurrentRealm"/>
@@ -234,7 +234,7 @@
 
   <!-- Command and task for the archive unlock dialog -->
   <di:bean name="openUnlockDialogCommand"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenUnlockDlgCommand">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.OpenUnlockDlgCommand">
     <di:constructor>
       <di:param value="classpath:unlock.jelly"/>
       <di:param refName="refCurrentArchive"/>
@@ -249,14 +249,14 @@
 
   <!-- Logout tasks -->
   <di:bean name="logoutTask"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.LogoutTask">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.LogoutTask">
     <di:constructor>
       <di:param refName="overviewController"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="logoutAllTask"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.LogoutAllTask">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.LogoutAllTask">
     <di:constructor>
       <di:param refName="overviewController"/>
     </di:constructor>
@@ -264,7 +264,7 @@
 
   <!-- Command and task for entering the super password for reading -->
   <di:bean name="openSuperPasswordDialogReadCommand"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenSuperPasswordDlgCommand">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.OpenSuperPasswordDlgCommand">
     <di:constructor>
       <di:param value="classpath:super_password.jelly"/>
       <di:param value="readSuperPasswordFile"/>
@@ -279,7 +279,7 @@
 
   <!-- Command and task for writing the super password file -->
   <di:bean name="openSuperPasswordDialogWriteCommand"
-           beanClassName="de.oliver_heger.linedj.archivehttpstart.OpenSuperPasswordDlgCommand">
+           beanClassName="de.oliver_heger.linedj.archivehttpstart.app.OpenSuperPasswordDlgCommand">
     <di:constructor>
       <di:param value="classpath:super_password.jelly"/>
       <di:param value="writeSuperPasswordFile"/>

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.nio.file.Paths
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.Paths
 
 /**
   * Test class for the different implementations of archive realms.

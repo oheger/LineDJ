@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.nio.file.Path
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
 import de.oliver_heger.linedj.crypt.Secret
+
+import java.nio.file.Path
 
 /**
   * A trait representing a realm that can be assigned to an archive.

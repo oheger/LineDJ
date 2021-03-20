@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.nio.file.Paths
-import java.security.Key
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
@@ -32,6 +29,8 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.Configuration
 
+import java.nio.file.Paths
+import java.security.Key
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpArchiveStarter {

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.nio.file.Paths
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.Paths
 
 /**
   * Test class for ''HttpArchiveConfigManager''.

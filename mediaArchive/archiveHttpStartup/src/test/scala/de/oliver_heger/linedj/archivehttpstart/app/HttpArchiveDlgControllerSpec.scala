@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.security.Key
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -29,6 +27,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.security.Key
 import scala.concurrent.duration._
 
 object HttpArchiveDlgControllerSpec {

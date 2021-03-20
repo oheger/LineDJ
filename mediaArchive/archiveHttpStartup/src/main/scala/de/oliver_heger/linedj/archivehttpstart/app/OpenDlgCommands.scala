@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.util.concurrent.atomic.AtomicReference
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
+
+import java.util.concurrent.atomic.AtomicReference
 
 object OpenDlgCommand {
   /** The name of the Jelly property with the current realm. */

@@ -391,7 +391,8 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.*"),
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", archiveHttp, crypt)

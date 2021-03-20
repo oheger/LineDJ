@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
-
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.Configuration
 import org.apache.commons.logging.LogFactory
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.util.{Failure, Success, Try}

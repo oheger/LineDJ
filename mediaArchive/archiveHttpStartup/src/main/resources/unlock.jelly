@@ -23,7 +23,7 @@
          xmlns:a="actionBuilder" xmlns:w="windowBuilder">
   <!-- Unlock controller -->
   <di:bean name="unlockController"
-    beanClassName="de.oliver_heger.linedj.archivehttpstart.HttpArchiveUnlockDlgController">
+    beanClassName="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveUnlockDlgController">
     <di:constructor>
       <di:param refName="LineDJ_MessageBus"/>
       <di:param refName="comp:txtPassword"/>

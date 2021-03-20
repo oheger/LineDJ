@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttpstart
+package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.http.scaladsl.model.StatusCodes
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateServerError}
-import de.oliver_heger.linedj.archivehttpstart.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.resources.Message
