@@ -20,7 +20,6 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.github.cloudfiles.core.FileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,21 +33,20 @@ import scala.concurrent.{ExecutionContext, Future}
   * The URIs passed to the ''downloadMediaFile()'' function are interpreted as
   * relative paths to the files (based on the file system's root). These paths
   * are resolved, and the resulting files are downloaded.
-  * @param fileSystem the ''FileSystem'' to access the HTTP archive
-  * @param httpSender the actor for sending HTTP requests
-  *                   @param rootPath the root path of the file system
-  * @param system the actor system
+  *
+  * @param archiveFileSystem the ''FileSystem'' to access the HTTP archive
+  * @param httpSender        the actor for sending HTTP requests
+  * @param system            the actor system
   * @tparam ID the type of IDs in the ''FileSystem''
   */
-class FileSystemMediaDownloader[ID](val fileSystem: FileSystem[ID, _, _, _],
-                                    val httpSender: ActorRef[HttpRequestSender.HttpCommand],
-                                    val rootPath: String)
+class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem[ID, _, _],
+                                    val httpSender: ActorRef[HttpRequestSender.HttpCommand])
                                    (implicit system: ActorSystem[_]) extends MediaDownloader {
   override def downloadMediaFile(uri: Uri): Future[Source[ByteString, Any]] = {
     implicit val ec: ExecutionContext = system.executionContext
     val op = for {
-      id <- fileSystem.resolvePath(fileSystemPath(uri))
-      entity <- fileSystem.downloadFile(id)
+      id <- archiveFileSystem.fileSystem.resolvePath(fileSystemPath(uri))
+      entity <- archiveFileSystem.fileSystem.downloadFile(id)
     } yield entity.dataBytes
 
     op.run(httpSender)
@@ -57,12 +55,13 @@ class FileSystemMediaDownloader[ID](val fileSystem: FileSystem[ID, _, _, _],
   /**
     * Extracts the path to resolve from the given URI. If the URI's path starts
     * with the configured root path, this prefix is stripped.
+    *
     * @param uri the URI to resolve
     * @return the path to pass to the file system
     */
   private def fileSystemPath(uri: Uri): String = {
     val uriPath = uri.path.toString()
-    if(uriPath.startsWith(rootPath)) uriPath.substring(rootPath.length)
+    if (uriPath.startsWith(archiveFileSystem.rootPath)) uriPath.substring(archiveFileSystem.rootPath.length)
     else uriPath
   }
 }

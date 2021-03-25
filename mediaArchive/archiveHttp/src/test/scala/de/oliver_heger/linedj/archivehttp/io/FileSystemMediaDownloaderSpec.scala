@@ -20,6 +20,7 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
@@ -39,6 +40,7 @@ object FileSystemMediaDownloaderSpec {
 
   /**
     * Generates a source that reflects the content of the file to download.
+    *
     * @return the test source
     */
   private def fileSource(): Source[ByteString, Any] =
@@ -90,14 +92,15 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     private val httpSender = testKit.spawn(HttpRequestSender("http://www.example.org"))
 
     /** Mock for the underlying file system. */
-    private val mockFileSystem = mock[FileSystem[String, Model.File[String], Model.Folder[String],
-    Model.FolderContent[String, Model.File[String], Model.Folder[String]]]]
+    private val mockFileSystem = mock[ExtensibleFileSystem[String, Model.File[String], Model.Folder[String],
+      Model.FolderContent[String, Model.File[String], Model.Folder[String]]]]
 
     /** The downloader to be tested. */
-    private val downloader = new FileSystemMediaDownloader(mockFileSystem, httpSender, RootPath)
+    private val downloader = createDownloader()
 
     /**
       * Invokes the given function to initialize the mock file system.
+      *
       * @param init the init function
       * @return this test helper
       */
@@ -108,6 +111,7 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
 
     /**
       * Returns a stub operation that yields the value provided.
+      *
       * @param result the result value for the operation
       * @tparam A the type of the result
       * @return the stub operation yielding this result
@@ -120,7 +124,8 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     /**
       * Invokes the test downloader instance with the given URI and checks
       * whether the expected result is returned.
-      * @param uri the URI to request
+      *
+      * @param uri       the URI to request
       * @param expResult the expected result
       * @return this test helper
       */
@@ -128,5 +133,16 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
       futureResult(downloader.downloadMediaFile(uri)) should be(expResult)
       this
     }
+
+    /**
+      * Creates the downloader object for the current test case.
+      *
+      * @return the test downloader
+      */
+    private def createDownloader(): FileSystemMediaDownloader[String] = {
+      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, RootPath, "content.json")
+      new FileSystemMediaDownloader(httpArchiveFileSystem, httpSender)
+    }
   }
+
 }
