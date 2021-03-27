@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.{KeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}

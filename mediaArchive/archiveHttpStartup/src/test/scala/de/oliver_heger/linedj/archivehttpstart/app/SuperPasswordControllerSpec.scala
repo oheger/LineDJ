@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.app.ApplicationContext

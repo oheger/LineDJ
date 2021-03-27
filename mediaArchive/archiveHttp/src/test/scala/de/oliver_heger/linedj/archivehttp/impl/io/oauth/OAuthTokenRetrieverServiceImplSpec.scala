@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 
 import java.io.IOException
-
 import akka.Done
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model.Uri.Query
@@ -26,9 +25,9 @@ import akka.http.scaladsl.model.{ContentTypes, HttpMethods, HttpRequest, HttpRes
 import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
 import akka.util.ByteString
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
-import de.oliver_heger.linedj.crypt.Secret
 
 import java.nio.file.Path
 

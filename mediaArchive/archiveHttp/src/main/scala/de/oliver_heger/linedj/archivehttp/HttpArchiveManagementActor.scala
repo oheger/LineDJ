@@ -18,12 +18,12 @@ package de.oliver_heger.linedj.archivehttp
 
 import java.nio.charset.StandardCharsets
 import java.security.Key
-
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Status}
 import akka.http.scaladsl.model.HttpResponse
 import akka.routing.SmallestMailboxPool
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
@@ -32,7 +32,6 @@ import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementAc
 import de.oliver_heger.linedj.archivehttp.impl.io._
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams

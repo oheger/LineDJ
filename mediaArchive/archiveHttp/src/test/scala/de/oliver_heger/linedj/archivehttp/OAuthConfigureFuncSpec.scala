@@ -17,13 +17,12 @@
 package de.oliver_heger.linedj.archivehttp
 
 import java.nio.file.{Files, Path}
-
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
-import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentCaptor

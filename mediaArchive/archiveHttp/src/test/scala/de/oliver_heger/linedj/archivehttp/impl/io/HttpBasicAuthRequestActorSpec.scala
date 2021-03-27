@@ -20,10 +20,10 @@ import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, MediaRanges, StatusCodes}
 import akka.testkit.{ImplicitSender, TestKit}
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.crypt.Secret
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

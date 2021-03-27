@@ -18,15 +18,14 @@ package de.oliver_heger.linedj.archivehttp.config
 
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
-import de.oliver_heger.linedj.crypt.Secret
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.Configuration

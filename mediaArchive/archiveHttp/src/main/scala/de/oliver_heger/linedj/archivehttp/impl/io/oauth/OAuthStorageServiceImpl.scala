@@ -17,14 +17,14 @@
 package de.oliver_heger.linedj.archivehttp.impl.io.oauth
 
 import java.security.SecureRandom
-
 import akka.actor.ActorSystem
 import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.archivehttp.impl.crypt.CryptService
-import de.oliver_heger.linedj.crypt.{AESKeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.AESKeyGenerator
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.xml.{Elem, XML}

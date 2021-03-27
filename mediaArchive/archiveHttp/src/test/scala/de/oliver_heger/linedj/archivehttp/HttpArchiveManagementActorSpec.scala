@@ -20,13 +20,13 @@ import java.io.IOException
 import java.nio.file.Paths
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
@@ -37,7 +37,7 @@ import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementAc
 import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpMultiHostRequestActor}
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.crypt.{AESKeyGenerator, Secret}
+import de.oliver_heger.linedj.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
