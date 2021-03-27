@@ -391,6 +391,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
