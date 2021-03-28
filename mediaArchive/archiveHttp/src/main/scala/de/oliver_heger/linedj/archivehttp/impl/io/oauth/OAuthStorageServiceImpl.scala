@@ -22,6 +22,7 @@ import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.archivehttp.impl.crypt.CryptService
 import de.oliver_heger.linedj.crypt.AESKeyGenerator

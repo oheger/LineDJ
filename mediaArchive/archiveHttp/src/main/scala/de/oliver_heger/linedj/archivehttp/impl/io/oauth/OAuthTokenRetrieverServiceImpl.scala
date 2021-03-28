@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.{FormData, HttpMethods, HttpRequest}
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 
 import scala.concurrent.duration._

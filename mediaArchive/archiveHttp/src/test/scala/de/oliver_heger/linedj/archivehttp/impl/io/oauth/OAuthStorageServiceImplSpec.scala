@@ -20,6 +20,7 @@ import java.nio.file.{Files, Path}
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}

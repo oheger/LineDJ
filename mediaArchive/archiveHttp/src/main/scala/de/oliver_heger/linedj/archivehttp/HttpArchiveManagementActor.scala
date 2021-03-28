@@ -24,6 +24,7 @@ import akka.routing.SmallestMailboxPool
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._

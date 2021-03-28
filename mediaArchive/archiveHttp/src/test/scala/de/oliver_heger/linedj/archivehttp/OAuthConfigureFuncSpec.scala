@@ -20,6 +20,7 @@ import java.nio.file.{Files, Path}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
 import de.oliver_heger.linedj.archivehttp.impl.io.HttpRequestActor
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth._

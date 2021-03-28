@@ -19,12 +19,10 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.core.http.auth.BasicAuthConfig
-import com.github.cloudfiles.core.http.auth.{OAuthConfig => CloudOAuthConfig}
-import com.github.cloudfiles.core.http.auth.{OAuthTokenData => CloudTokenData}
+import com.github.cloudfiles.core.http.auth.{BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageService, OAuthTokenData}
+import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageService}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -81,8 +79,7 @@ class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val tokenData = OAuthTokenData("someAccessToken", "someRefreshToken")
     val storageConfig = realm.createIdpConfig(Password)
     val expConfig = CloudOAuthConfig(tokenEndpoint = oauthConfig.tokenEndpoint, redirectUri = oauthConfig.redirectUri,
-      clientID = oauthConfig.clientID, clientSecret = Password,
-      initTokenData = CloudTokenData(tokenData.accessToken, tokenData.refreshToken))
+      clientID = oauthConfig.clientID, clientSecret = Password, initTokenData = tokenData)
     implicit val ec: ExecutionContext = system.dispatcher
     when(service.loadConfig(storageConfig)).thenReturn(Future.successful(oauthConfig))
     when(service.loadClientSecret(storageConfig)).thenReturn(Future.successful(Password))

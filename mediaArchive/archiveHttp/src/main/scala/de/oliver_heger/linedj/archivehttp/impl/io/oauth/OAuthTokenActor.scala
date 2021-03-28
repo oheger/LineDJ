@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests.SendRequest
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthTokenActor.{DoRefresh, PendingRequestData, RefreshFailure, TokensRefreshed}

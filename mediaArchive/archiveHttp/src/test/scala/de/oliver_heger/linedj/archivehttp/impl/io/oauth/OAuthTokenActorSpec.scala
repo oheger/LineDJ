@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl.crypt.DepthHeader
 import de.oliver_heger.linedj.archivehttp.impl.io.FailedRequestException

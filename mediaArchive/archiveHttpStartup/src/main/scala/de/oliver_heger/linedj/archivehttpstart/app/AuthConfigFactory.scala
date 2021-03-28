@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.ActorSystem
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthConfig => CloudOAuthConfig, OAuthTokenData => CloudTokenData}
+import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageService, OAuthTokenData}
+import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageService}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,8 +60,7 @@ class AuthConfigFactory(val oauthStorageService:
           secret <- oauthStorageService.loadClientSecret(storageConfig)
           tokens <- oauthStorageService.loadTokens(storageConfig)
         } yield CloudOAuthConfig(tokenEndpoint = config.tokenEndpoint, redirectUri = config.redirectUri,
-          clientID = config.clientID, clientSecret = secret,
-          initTokenData = CloudTokenData(tokens.accessToken, tokens.refreshToken))
+          clientID = config.clientID, clientSecret = secret, initTokenData = tokens)
     }
   }
 }
