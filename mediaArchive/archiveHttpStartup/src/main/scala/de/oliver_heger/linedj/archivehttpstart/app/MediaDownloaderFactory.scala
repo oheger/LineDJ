@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.ActorSystem
 import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.http.auth.AuthConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 
@@ -40,13 +41,14 @@ trait MediaDownloaderFactory {
     *
     * @param protocolSpec  the spec for the protocol to use
     * @param startupConfig the configuration for the archive affected
+    * @param authConfig    the config for the auth mechanism
     * @param optCryptKey   optional key for encryption
     * @param actorBaseName a base name for naming actors
     * @return a ''Try'' with the ''MediaDownloader'' for this archive
     */
   def createDownloader[ID, FILE <: Model.File[ID],
     FOLDER <: Model.Folder[ID]](protocolSpec: HttpArchiveProtocolSpec[ID, FILE, FOLDER],
-                                startupConfig: HttpArchiveStartupConfig,
+                                startupConfig: HttpArchiveStartupConfig, authConfig: AuthConfig,
                                 actorBaseName: String, optCryptKey: Option[Key])
                                (implicit system: ActorSystem): Try[MediaDownloader]
 }

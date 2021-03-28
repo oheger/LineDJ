@@ -20,6 +20,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem, typed}
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
+import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
@@ -43,13 +44,13 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
   extends MediaDownloaderFactory {
   override def createDownloader[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
   (protocolSpec: HttpArchiveProtocolSpec[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig,
-   actorBaseName: String, optCryptKey: Option[Key])
+   authConfig: AuthConfig, actorBaseName: String, optCryptKey: Option[Key])
   (implicit system: ActorSystem): Try[MediaDownloader] = {
     protocolSpec.createFileSystemFromConfig(startupConfig.archiveURI.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, _))
 
-      val senderConfig = createSenderConfig(startupConfig, actorBaseName)
+      val senderConfig = createSenderConfig(startupConfig, authConfig, actorBaseName)
       val spawner: Spawner = system
       val sender = if (protocolSpec.requiresMultiHostSupport)
         requestSenderFactory.createMultiHostRequestSender(spawner, senderConfig)
@@ -89,12 +90,13 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     * sender factory based on the archive configuration.
     *
     * @param startupConfig the startup configuration of the archive
+    * @param authConfig    the config for the auth mechanism
     * @param actorBaseName the base name for the sender actor
     * @return the configuration for the HTTP sender actor
     */
-  private def createSenderConfig(startupConfig: HttpArchiveStartupConfig, actorBaseName: String):
-  HttpRequestSenderConfig =
+  private def createSenderConfig(startupConfig: HttpArchiveStartupConfig, authConfig: AuthConfig,
+                                 actorBaseName: String): HttpRequestSenderConfig =
     HttpRequestSenderConfig(actorName = Some(actorBaseName),
-      queueSize = startupConfig.requestQueueSize,
+      queueSize = startupConfig.requestQueueSize, authConfig = authConfig,
       retryAfterConfig = if (startupConfig.needsRetrySupport) Some(RetryAfterConfig()) else None)
 }

@@ -23,11 +23,11 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
-import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
-import com.github.cloudfiles.core.http.auth.{AuthConfig, NoAuthConfig}
+import com.github.cloudfiles.core.http.auth.BasicAuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory}
+import com.github.cloudfiles.core.http.{HttpRequestSender, Secret}
 import com.github.cloudfiles.core.{FileSystem, Model}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
@@ -76,18 +76,19 @@ object FileSystemMediaDownloaderFactorySpec {
     archiveURI = ArchiveUri, archiveName = ArchiveName, requestQueueSize = 16, needsCookieManagement = false,
     needsRetrySupport = false)
 
+  /** The auth config used by the tests. */
+  private val TestAuthConfig = BasicAuthConfig("scott", Secret("tiger"))
+
   /**
     * Convenience function to create a configuration for a request sender that
     * already sets the predefined values.
     *
-    * @param authConfig       the auth configuration
     * @param retryAfterConfig the retry configuration
     * @return the ''HttpRequestSenderConfig''
     */
-  private def createSenderConfig(authConfig: AuthConfig = NoAuthConfig,
-                                 retryAfterConfig: Option[RetryAfterConfig] = None): HttpRequestSenderConfig =
+  private def createSenderConfig(retryAfterConfig: Option[RetryAfterConfig] = None): HttpRequestSenderConfig =
     HttpRequestSenderConfig(actorName = Some(ActorName), queueSize = ArchiveStartupConfig.requestQueueSize,
-      authConfig = authConfig, retryAfterConfig = retryAfterConfig)
+      authConfig = TestAuthConfig, retryAfterConfig = retryAfterConfig)
 
   /** The type of files in the test file system. */
   type FileType = Model.File[String]
@@ -273,7 +274,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       */
     def createDownloader(startupConfig: HttpArchiveStartupConfig = ArchiveStartupConfig, optKey: Option[Key] = None):
     Try[MediaDownloader] =
-      downloaderFactory.createDownloader(protocolSpec, startupConfig, ActorName, optKey)
+      downloaderFactory.createDownloader(protocolSpec, startupConfig, TestAuthConfig, ActorName, optKey)
 
     /**
       * Invokes the test downloader factory with the given parameters and
