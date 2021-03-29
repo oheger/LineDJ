@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.Configuration
 import org.apache.commons.logging.LogFactory
 
@@ -149,7 +148,7 @@ private object HttpArchiveConfigManager {
                                 realms: Map[String, Try[ArchiveRealm]],
                                 currentKey: String, names: Set[String]):
   Option[HttpArchiveData] =
-    for {config <- HttpArchiveConfig(c, currentKey, downloadConfig, null, null).toOption
+    for {config <- HttpArchiveStartupConfig(c, currentKey, downloadConfig).toOption
          realmName <- Option(c.getString(currentKey + KeyRealm))
          realm <- realmForArchive(realms, realmName, config)
          } yield HttpArchiveData(config, realm, generateShortName(config, names),
@@ -164,7 +163,7 @@ private object HttpArchiveConfigManager {
     * @param names  a set with the names already in use
     * @return the short name for this archive
     */
-  private def generateShortName(config: HttpArchiveConfig, names: Set[String]): String = {
+  private def generateShortName(config: HttpArchiveStartupConfig, names: Set[String]): String = {
     val prefix = URLEncoder.encode(extractShortName(config),
       StandardCharsets.UTF_8.name())
 
@@ -184,7 +183,7 @@ private object HttpArchiveConfigManager {
     * @param config the archive configuration
     * @return the short name derived from the archive name
     */
-  private def extractShortName(config: HttpArchiveConfig): String =
+  private def extractShortName(config: HttpArchiveStartupConfig): String =
     if (config.archiveName.length <= LengthShortName) config.archiveName
     else config.archiveName.substring(0, LengthShortName)
 
@@ -200,7 +199,7 @@ private object HttpArchiveConfigManager {
     * @return an ''Option'' with the realm to be used
     */
   private def realmForArchive(realms: Map[String, Try[ArchiveRealm]], realmName: String,
-                              archiveConfig: HttpArchiveConfig): Option[ArchiveRealm] =
+                              archiveConfig: HttpArchiveStartupConfig): Option[ArchiveRealm] =
     realms.getOrElse(realmName, Success(BasicAuthRealm(realmName))) match {
       case Success(realm) =>
         Some(realm)

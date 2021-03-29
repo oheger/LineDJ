@@ -328,7 +328,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val propsMonitor = actorCreationProps(actorName(
         HttpArchiveStarter.DownloadMonitoringActorName))
       classOf[SchedulerSupport].isAssignableFrom(propsMonitor.actorClass()) shouldBe true
-      propsMonitor.args.head should be(archiveData.config.downloadConfig)
+      propsMonitor.args.head should be(archiveData.config.archiveConfig.downloadConfig)
 
       val propsRemove = actorCreationProps(actorName(HttpArchiveStarter.RemoveFileActorName))
       propsRemove should be(RemoveTempFilesActor(ClientApplication.BlockingDispatcherName))
@@ -417,7 +417,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the expected archive configuration
       */
     private def expectedArchiveConfig(): HttpArchiveConfig =
-      archiveData.config.copy(protocol = protocol, authFunc = authConfigureFunc, archiveURI = ArchiveUri)
+      archiveData.config.archiveConfig.copy(protocol = protocol, authFunc = authConfigureFunc, archiveURI = ArchiveUri)
 
     /**
       * Creates an object with test actors for the union archive.

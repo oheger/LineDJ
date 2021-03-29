@@ -134,7 +134,8 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
       archiveUri <- Future.fromTry(protocol.generateArchiveUri(archiveData.config.archiveURI.toString()))
       authFunc <- fetchAuthFunc(archiveData.realm, credentials)
     } yield {
-      val archiveConfig = archiveData.config.copy(archiveURI = archiveUri, protocol = protocol, authFunc = authFunc)
+      val archiveConfig = archiveData.config.archiveConfig.copy(archiveURI = archiveUri, protocol = protocol,
+        authFunc = authFunc)
       createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
         optKey, archiveData.shortName, index, clearTemp)
     }

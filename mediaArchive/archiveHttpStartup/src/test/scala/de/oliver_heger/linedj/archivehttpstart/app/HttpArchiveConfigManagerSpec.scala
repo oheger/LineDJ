@@ -161,7 +161,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     val data = manager.archives(StartupConfigTestHelper.archiveName(1))
-    data.config.downloadConfig
+    data.config.archiveConfig.downloadConfig
       .downloadChunkSize should be(StartupConfigTestHelper.DownloadChunkSize)
   }
 

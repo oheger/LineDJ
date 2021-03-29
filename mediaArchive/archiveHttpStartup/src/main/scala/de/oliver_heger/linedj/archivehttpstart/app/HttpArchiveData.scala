@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig}
+import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 
 import java.nio.file.Path
 
@@ -110,7 +110,7 @@ case class OAuthRealm(override val name: String,
   * @param protocol  the HTTP protocol for this archive
   * @param encrypted flag whether this archive is encrypted
   */
-private case class HttpArchiveData(config: HttpArchiveConfig,
+private case class HttpArchiveData(config: HttpArchiveStartupConfig,
                                    realm: ArchiveRealm,
                                    shortName: String,
                                    protocol: String,
