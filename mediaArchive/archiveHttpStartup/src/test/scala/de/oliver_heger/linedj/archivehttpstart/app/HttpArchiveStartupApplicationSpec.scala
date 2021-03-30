@@ -956,7 +956,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initFailedArchiveStartupResult(exception: Throwable): StartupTestHelper = {
-      when(archiveStarter.startup(any(), any(), any(), any(), any(), any(), any(), anyInt(),
+      when(archiveStarter.startup(any(), any(), any(), any(classOf[HttpArchiveProtocol]), any(), any(), any(), anyInt(),
         anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
       this
     }
@@ -1003,7 +1003,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val captorClear = ArgumentCaptor.forClass(classOf[Boolean])
       verify(archiveStarter, times(2))
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
-          probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig), any(),
+          probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig), any(classOf[HttpArchiveProtocol]),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
           captorClear.capture())(any(), any())
       (captorIdx.getAllValues.asScala, captorClear.getAllValues.asScala)

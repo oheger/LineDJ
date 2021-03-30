@@ -18,11 +18,12 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
+import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveManagementActor, HttpAuthFactory}
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -35,23 +36,43 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object HttpArchiveStarter {
   /** The name of the HTTP archive management actor. */
-  val ManagementActorName = "httpArchiveManagementActor"
+  final val ManagementActorName = "httpArchiveManagementActor"
 
   /** The name of the download monitoring actor. */
-  val DownloadMonitoringActorName = "downloadMonitoringActor"
+  final val DownloadMonitoringActorName = "downloadMonitoringActor"
 
   /** The name of the remove file actor. */
-  val RemoveFileActorName = "removeFileActor"
+  final val RemoveFileActorName = "removeFileActor"
+
+  /** The name of the actor responsible for sending HTTP requests. */
+  final val HttpRequestActorName = "http"
 
   /**
     * Configuration property for the directory for temporary files created
     * during a download operation. If the property is not specified, the
     * OS temp directory is used.
     */
-  val PropTempDirectory = "media.downloadTempDir"
+  final val PropTempDirectory = "media.downloadTempDir"
 
   /** System property for the OS temp directory. */
   private val SysPropTempDir = "java.io.tmpdir"
+
+  /**
+    * A data class storing the resources that have been created in order to
+    * start an HTTP archive.
+    *
+    * An object of this class is returned by [[HttpArchiveStarter]] when an
+    * archive could be started successfully. This is needed to gracefully
+    * shutdown the archive when it is no longer needed.
+    *
+    * @param actors        a map with the (classic) actors used by the archive
+    *                      (keyed by the actor names)
+    * @param downloader    the ''MediaDownloader'' used by the archive
+    * @param httpActorName the name of the HTTP request actor
+    */
+  case class ArchiveResources(actors: Map[String, ActorRef],
+                              downloader: MediaDownloader,
+                              httpActorName: String)
 
   /**
     * Generates the name of an actor for an HTTP archive based on the short
@@ -95,16 +116,15 @@ object HttpArchiveStarter {
   * corresponding actors are stopped and new ones are created. As stopping
   * actors is an asynchronous operation, it can happen that the creation of new
   * actors fail because names are already in use. The numeric index integrated
-  * into generated actor names prevents this.
+  * into generated actor names prevents this. The object to download media
+  * files is returned as well as it needs to be properly shutdown when the
+  * archive is no longer needed.
   *
-  * @param authFactory the factory for creating the auth configuration
+  * @param downloaderFactory the object to create the media downloader
+  * @param authConfigFactory the factory for the auth configuration
   */
-class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
-  /**
-    * Creates a new instance of ''HttpArchiveStarter'' with a default
-    * ''HttpAuthFactory''.
-    */
-  def this() = this(HttpArchiveManagementActor)
+class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
+                         val authConfigFactory: AuthConfigFactory) {
 
   import HttpArchiveStarter._
 
@@ -125,20 +145,45 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
     * @param system             the actor system to materialize streams
     * @return a map of the actors created; keys are the names of
     *         the actor instances
+    *         TODO Remove when HttpArchiveStartupApplication has been reworked.
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
               actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
              (implicit ec: ExecutionContext, system: ActorSystem): Future[Map[String, ActorRef]] =
-    for {
-      archiveUri <- Future.fromTry(protocol.generateArchiveUri(archiveData.config.archiveURI.toString()))
-      authFunc <- fetchAuthFunc(archiveData.realm, credentials)
-    } yield {
-      val archiveConfig = archiveData.config.archiveConfig.copy(archiveURI = archiveUri, protocol = protocol,
-        authFunc = authFunc)
-      createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
-        optKey, archiveData.shortName, index, clearTemp)
-    }
+    Future.successful(Map.empty)
+
+  /**
+    * Starts up the HTTP archive with the specified settings and returns a
+    * ''Future'' with the resources created for this archive.
+    *
+    * @param unionArchiveActors an object with the actors for the union archive
+    * @param archiveData        data for the archive to be started
+    * @param config             the configuration
+    * @param protocolSpec       the spec for the protocol for this archive
+    * @param credentials        the user credentials for the current realm
+    * @param optKey             option for the decryption key of an encrypted archive
+    * @param actorFactory       the actor factory
+    * @param index              an index for unique actor name generation
+    * @param clearTemp          flag whether the temp directory should be cleared
+    * @param ec                 the execution context
+    * @param system             the actor system to materialize streams
+    * @return a ''Future'' with the resources created for this archive
+    */
+  def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
+              config: Configuration, protocolSpec: GenericHttpArchiveProtocolSpec, credentials: UserCredentials,
+              optKey: Option[Key], actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
+             (implicit ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] = for {
+    authConf <- authConfigFactory.createAuthConfig(archiveData.realm, credentials)
+    httpActorName = archiveActorName(archiveData.shortName, HttpRequestActorName, index)
+    downloader <- Future.fromTry(downloaderFactory.createDownloader(protocolSpec, archiveData.config,
+      authConf, httpActorName, optKey))
+  } yield {
+    val archiveConfig = archiveData.config.archiveConfig.copy(downloader = downloader)
+    val actors = createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
+      optKey, archiveData.shortName, index, clearTemp)
+    ArchiveResources(actors, downloader, httpActorName)
+  }
 
   /**
     * Creates the actors for the HTTP archive and ensures that anything is
@@ -181,23 +226,4 @@ class HttpArchiveStarter(val authFactory: HttpAuthFactory) {
       monitorName -> monitoringActor,
       removeName -> removeActor)
   }
-
-  /**
-    * Obtains the correct function to configure the authentication mechanism
-    * based on the realm associated with the current archive.
-    *
-    * @param realm       the realm
-    * @param credentials the credentials of the realm
-    * @param ec          the execution context
-    * @param system      the actor system to materialize streams
-    * @return a ''Future'' with the function to configure authentication
-    */
-  private def fetchAuthFunc(realm: ArchiveRealm, credentials: UserCredentials)
-                           (implicit ec: ExecutionContext, system: ActorSystem): Future[AuthConfigureFunc] =
-    realm match {
-      case _: BasicAuthRealm =>
-        authFactory.basicAuthConfigureFunc(credentials)
-      case oauthRealm: OAuthRealm =>
-        authFactory.oauthConfigureFunc(oauthRealm.createIdpConfig(credentials.password))
-    }
 }

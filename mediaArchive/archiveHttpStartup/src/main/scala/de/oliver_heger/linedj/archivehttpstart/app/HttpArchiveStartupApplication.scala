@@ -184,8 +184,9 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     * settings.
     *
     * @return the new instance
+    * TODO Remove this constructor and provide objects via dependency injection.
     */
-  def this() = this(new HttpArchiveStarter)
+  def this() = this(new HttpArchiveStarter(null, null))
 
   import HttpArchiveStartupApplication._
 
