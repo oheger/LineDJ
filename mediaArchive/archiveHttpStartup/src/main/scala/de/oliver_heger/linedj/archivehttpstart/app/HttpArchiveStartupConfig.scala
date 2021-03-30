@@ -279,7 +279,8 @@ object HttpArchiveStartupConfig {
       cryptUriCacheSize = 0,
       needsCookieManagement = false,
       protocol = null,
-      authFunc = null)
+      authFunc = null,
+      downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
       archiveURI = c.getString(Path + PropArchiveUri),
       archiveName = extractArchiveName(c, Path),

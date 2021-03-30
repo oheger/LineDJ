@@ -62,7 +62,7 @@ object MetaDataResponseProcessingActorSpec {
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = MappingConfig,
     contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 512,
-    needsCookieManagement = false, protocol = null, authFunc = null)
+    needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
 
   /** The sequence number used for requests. */
   private val SeqNo = 42

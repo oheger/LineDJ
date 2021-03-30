@@ -132,7 +132,7 @@ object RequestActorTestImpl {
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = null, requestQueueSize = 100, cryptUriCacheSize = 1000,
-      needsCookieManagement = false, protocol = protocol, authFunc = null)
+      needsCookieManagement = false, protocol = protocol, authFunc = null, downloader = null)
 
   /**
     * Transforms the given mapping with only successful requests to an enhanced

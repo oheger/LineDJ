@@ -25,6 +25,7 @@ import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -343,7 +344,8 @@ object HttpArchiveConfig {
       c.getInt(Path + PropCryptUriCacheSize, DefaultCryptUriCacheSize),
       c.getBoolean(Path + PropNeedsCookieManagement, false),
       protocol,
-      authFunc)
+      authFunc,
+      null)
   }
 
   /**
@@ -447,6 +449,7 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   *                              the request actor
   * @param protocol              the HTTP-based protocol for the archive
   * @param authFunc              the func to setup authentication
+  * @param downloader            the object to download media files
   */
 case class HttpArchiveConfig(archiveURI: Uri,
                              archiveName: String,
@@ -465,7 +468,8 @@ case class HttpArchiveConfig(archiveURI: Uri,
                              cryptUriCacheSize: Int,
                              needsCookieManagement: Boolean,
                              protocol: HttpArchiveProtocol,
-                             authFunc: AuthConfigureFunc) {
+                             authFunc: AuthConfigureFunc,
+                             downloader: MediaDownloader) {
   /**
     * The base URI of the represented archive. All relative paths to media
     * files need to be resolved against this URI.

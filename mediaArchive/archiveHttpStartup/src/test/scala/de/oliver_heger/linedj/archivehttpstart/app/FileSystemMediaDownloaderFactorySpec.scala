@@ -66,7 +66,7 @@ object FileSystemMediaDownloaderFactorySpec {
     propagationBufSize = 4, maxContentSize = 8192, downloadBufferSize = 4096, downloadMaxInactivity = 10.seconds,
     downloadReadChunkSize = 4096, timeoutReadSize = 17, requestQueueSize = 24, cryptUriCacheSize = 0,
     archiveURI = "", archiveName = "", downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
-    needsCookieManagement = false, protocol = null, authFunc = null)
+    needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
 
   /**
     * A test archive startup configuration with basic properties. Some test

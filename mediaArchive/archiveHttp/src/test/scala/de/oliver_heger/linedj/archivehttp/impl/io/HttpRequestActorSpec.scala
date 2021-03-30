@@ -64,7 +64,7 @@ object HttpRequestActorSpec {
     processorTimeout = Timeout(1.minute), propagationBufSize = 128, maxContentSize = 10000,
     downloadBufferSize = 65536, downloadMaxInactivity = 30.seconds, downloadReadChunkSize = 100,
     timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
-    cryptUriCacheSize = 1024, needsCookieManagement = false, protocol = null, authFunc = null)
+    cryptUriCacheSize = 1024, needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
 
   /** A list with default headers of the test request. */
   private val DefaultHeaders = List(ETag("some_tag"))
