@@ -52,6 +52,16 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
     op.run(httpSender)
   }
 
+  override def contentFileName: String = archiveFileSystem.contentFile
+
+  /**
+    * @inheritdoc This implementation stops the HTTP sender actor used by this
+    *             downloader.
+    */
+  override def shutdown(): Unit = {
+    httpSender ! HttpRequestSender.Stop
+  }
+
   /**
     * Extracts the path to resolve from the given URI. If the URI's path starts
     * with the configured root path, this prefix is stripped.
