@@ -21,7 +21,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
+import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
@@ -32,6 +34,9 @@ import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import net.sf.jguiraffe.di.BeanContext
+import net.sf.jguiraffe.di.impl.DefaultBeanStore
+import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.Matchers.{any, anyBoolean, anyInt, anyString, argThat, eq => argEq}
@@ -163,9 +168,16 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "create a default archive starter" in {
-    val app = new HttpArchiveStartupApplication
+    val helper = new StartupTestHelper(mockStarter = false)
 
-    app.archiveStarter shouldBe a[HttpArchiveStarter]
+    val starter = helper.startupApplication()
+      .queryBean[HttpArchiveStarter](helper.app, HttpArchiveStartupApplication.BeanArchiveStarter)
+    starter.downloaderFactory match {
+      case f: FileSystemMediaDownloaderFactory =>
+        f.requestSenderFactory should be(HttpRequestSenderFactoryImpl)
+      case f => fail("Unexpected downloader factory: " + f)
+    }
+    starter.authConfigFactory.oauthStorageService should be(OAuthStorageServiceImpl)
   }
 
   it should "register itself as message bus listener as early as possible" in {
@@ -738,14 +750,27 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   /**
-    * A test implementation of the startup application.
+    * A test implementation of the startup application. This class allows
+    * overriding beans from the application context with mock beans.
     *
-    * @param starter the object for starting the archive
-    * @param skipUI  flag whether UI creation is to be skipped
+    * @param skipUI    flag whether UI creation is to be skipped
+    * @param mockBeans a map with beans to mock in the context
     */
-  private class HttpArchiveStartupApplicationTestImpl(starter: HttpArchiveStarter,
-                                                      skipUI: Boolean)
-    extends HttpArchiveStartupApplication(starter) with ApplicationSyncStartup with AppWithTestPlatform {
+  private class HttpArchiveStartupApplicationTestImpl(skipUI: Boolean, mockBeans: Map[String, AnyRef])
+    extends HttpArchiveStartupApplication with ApplicationSyncStartup with AppWithTestPlatform {
+
+    override def initBeans(config: Configuration): BeanContext = {
+      val beanContext = super.initBeans(config)
+      val store = beanContext.getDefaultBeanStore
+      val overrideStore = new DefaultBeanStore("override", store)
+      mockBeans foreach { e =>
+        overrideStore.addBeanProvider(e._1, ConstantBeanProvider.getInstance(e._2))
+      }
+
+      beanContext.setDefaultBeanStore(overrideStore)
+      beanContext
+    }
+
     override def initGUI(appCtx: ApplicationContext): Unit = {
       if (!skipUI) super.initGUI(appCtx)
     }
@@ -754,9 +779,11 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   /**
     * A test helper class managing a test instance and allowing access to it.
     *
-    * @param skipUI flag whether UI creation is to be skipped
+    * @param skipUI      flag whether UI creation is to be skipped
+    * @param mockStarter flag whether the application starter is to be mocked
     */
-  private class StartupTestHelper(skipUI: Boolean = false) extends ApplicationTestSupport {
+  private class StartupTestHelper(skipUI: Boolean = false, mockStarter: Boolean = true)
+    extends ApplicationTestSupport {
     /** A test message bus. */
     val messageBus = new MessageBusTestImpl(initUIFutureProcessing = true)
 
@@ -794,7 +821,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     private val webDavProtocol = createProtocolMock(HttpArchiveConfigManager.DefaultProtocolName)
 
     /** The application to be tested. */
-    val app = new HttpArchiveStartupApplicationTestImpl(archiveStarter, skipUI)
+    val app: HttpArchiveStartupApplicationTestImpl = createStartupApp()
 
     /**
       * Returns the configuration of the simulated application.
@@ -1025,6 +1052,18 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     private def nextArchiveStateNotification(): HttpArchiveStateChanged =
       messageBus.expectMessageType[HttpArchiveStateChanged]
+
+    /**
+      * Creates the application to be tested.
+      *
+      * @return the test application
+      */
+    private def createStartupApp(): HttpArchiveStartupApplicationTestImpl = {
+      val mockBeans: Map[String, AnyRef] = if (mockStarter)
+        Map(HttpArchiveStartupApplication.BeanArchiveStarter -> archiveStarter)
+      else Map.empty
+      new HttpArchiveStartupApplicationTestImpl(skipUI, mockBeans)
+    }
 
     /**
       * Creates a client application context for the test application.

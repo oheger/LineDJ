@@ -23,7 +23,6 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
-import de.oliver_heger.linedj.archivehttpstart.app
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
@@ -66,7 +65,10 @@ object HttpArchiveStartupApplication {
     * archives. This bean is created on application startup and stored in the
     * central bean context.
     */
-  val BeanConfigManager = "httpArchiveConfigManager"
+  final val BeanConfigManager = "httpArchiveConfigManager"
+
+  /** The name of the bean to startup an HTTP archive. */
+  final val BeanArchiveStarter = "httpArchiveStarter"
 
   /** The default initialization timeout (in seconds). */
   private val DefaultInitTimeout = 10
@@ -171,22 +173,10 @@ object HttpArchiveStartupApplication {
   *
   * The availability of the union archive is monitored; HTTP archives can
   * only be started if it is present.
-  *
-  * @param archiveStarter the object to start the HTTP archive
   */
-class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
-  extends ClientApplication("httpArchiveStartup")
-    with ApplicationAsyncStartup with Identifiable with ActorClientSupport
-    with ActorManagement {
-
-  /**
-    * Creates a new instance of ''HttpArchiveStartupApplication'' with default
-    * settings.
-    *
-    * @return the new instance
-    * TODO Remove this constructor and provide objects via dependency injection.
-    */
-  def this() = this(new HttpArchiveStarter(null, null))
+class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartup")
+  with ApplicationAsyncStartup with Identifiable with ActorClientSupport
+  with ActorManagement {
 
   import HttpArchiveStartupApplication._
 
@@ -494,6 +484,7 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
     */
   private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit = {
     if (isMediaArchiveAvailable) {
+      val archiveStarter = archiveStarterBean
       archivesToBeStarted foreach { e =>
         archiveIndexCounter += 1
         val currentArchiveIndex = archiveIndexCounter
@@ -643,6 +634,14 @@ class HttpArchiveStartupApplication(val archiveStarter: HttpArchiveStarter)
   private def publish(msg: Any): Unit = {
     messageBus publish msg
   }
+
+  /**
+    * Obtains the ''HttpArchiveStarter'' from the bean context.
+    *
+    * @return the ''HttpArchiveStarter''
+    */
+  private def archiveStarterBean: HttpArchiveStarter =
+    getApplicationContext.getBeanContext.getBean(classOf[HttpArchiveStarter])
 
   /**
     * Returns the actor system in implicit scope. This is needed by the object

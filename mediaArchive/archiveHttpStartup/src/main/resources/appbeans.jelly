@@ -24,4 +24,39 @@
     <di:const targetClassName="de.oliver_heger.linedj.archivehttpstart.app.SuperPasswordStorageServiceImpl$"
               field="MODULE$" var="superPasswordServiceVar"/>
     <di:contextBean var="superPasswordServiceVar" name="superPasswordService"/>
+
+    <!-- The service for accessing OAuth configuration data. -->
+    <di:const targetClassName="de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthStorageServiceImpl$"
+              field="MODULE$" var="oauthStorageServiceVar"/>
+    <di:contextBean var="oauthStorageServiceVar" name="oauthStorageService"/>
+
+    <!-- The factory for creating an HTTP sender actor. -->
+    <di:const targetClassName="com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl$"
+              field="MODULE$" var="requestSenderFactoryVar"/>
+    <di:contextBean var="requestSenderFactoryVar" name="requestSenderFactory"/>
+
+    <!-- The factory for creating a MediaFileDownloader. -->
+    <di:bean name="mediaDownloaderFactory"
+             beanClassName="de.oliver_heger.linedj.archivehttpstart.app.FileSystemMediaDownloaderFactory">
+        <di:constructor>
+            <di:param refName="requestSenderFactory"/>
+        </di:constructor>
+    </di:bean>
+
+    <!-- The factory for creating an Auth configuration. -->
+    <di:bean name="authConfigFactory"
+             beanClassName="de.oliver_heger.linedj.archivehttpstart.app.AuthConfigFactory">
+        <di:constructor>
+            <di:param refName="oauthStorageService"/>
+        </di:constructor>
+    </di:bean>
+
+    <!-- The helper object for starting up HTTP archives. -->
+    <di:bean name="httpArchiveStarter"
+             beanClassName="de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStarter">
+        <di:constructor>
+            <di:param refName="mediaDownloaderFactory"/>
+            <di:param refName="authConfigFactory"/>
+        </di:constructor>
+    </di:bean>
 </j:jelly>
