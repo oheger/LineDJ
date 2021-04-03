@@ -21,7 +21,6 @@ import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
@@ -127,31 +126,6 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
                          val authConfigFactory: AuthConfigFactory) {
 
   import HttpArchiveStarter._
-
-  /**
-    * Starts up the HTTP archive with the specified settings and returns a
-    * ''Future'' with the actors that have been created.
-    *
-    * @param unionArchiveActors an object with the actors for the union archive
-    * @param archiveData        data for the archive to be started
-    * @param config             the configuration
-    * @param protocol           the HTTP protocol for the archive
-    * @param credentials        the user credentials for the current realm
-    * @param optKey             option for the decryption key of an encrypted archive
-    * @param actorFactory       the actor factory
-    * @param index              an index for unique actor name generation
-    * @param clearTemp          flag whether the temp directory should be cleared
-    * @param ec                 the execution context
-    * @param system             the actor system to materialize streams
-    * @return a map of the actors created; keys are the names of
-    *         the actor instances
-    *         TODO Remove when HttpArchiveStartupApplication has been reworked.
-    */
-  def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, protocol: HttpArchiveProtocol, credentials: UserCredentials, optKey: Option[Key],
-              actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
-             (implicit ec: ExecutionContext, system: ActorSystem): Future[Map[String, ActorRef]] =
-    Future.successful(Map.empty)
 
   /**
     * Starts up the HTTP archive with the specified settings and returns a
