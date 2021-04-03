@@ -32,7 +32,7 @@
              name="clientContext" bind="initClientContext"/>
   <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
              name="applicationManager" bind="initApplicationManager"/>
-  <reference interface="de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol"
-             name="protocols" bind="addProtocol" unbind="removeProtocol"
+  <reference interface="de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec"
+             name="protocolSpecs" bind="addProtocolSpec" unbind="removeProtocolSpec"
              policy="dynamic" cardinality="0..n"/>
 </component>

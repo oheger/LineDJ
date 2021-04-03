@@ -24,9 +24,10 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthStorageServiceImpl
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
@@ -74,6 +75,9 @@ object HttpArchiveStartupApplicationSpec {
 
   /** The name of a special protocol used by an archive. */
   private val SpecialProtocol = "nonStandardHttpArchiveProtocol"
+
+  /** The name of the actor for sending HTTP requests. */
+  private val HttpActorName = "theHttpSenderActor"
 
   /**
     * Generates an actor name for a test archive.
@@ -127,14 +131,18 @@ object HttpArchiveStartupApplicationSpec {
   }
 
   /**
-    * Returns a map with actor names derived from the given index.
+    * Updates the names of the actors in the given resources to actor names
+    * derived from the given index.
     *
-    * @param actors the map with actors
-    * @param index  the archive index
-    * @return the map with adapted keys
+    * @param resources the archive resources
+    * @param index     the archive index
+    * @return the resources with adapted actor keys
     */
-  private def adaptActorNames(actors: Map[String, ActorRef], index: Int): Map[String, ActorRef] =
-    actors.map(e => (e._1.replace(ArcIndex + "_", index + "_"), e._2))
+  private def adaptActorNames(resources: HttpArchiveStarter.ArchiveResources, index: Int):
+  HttpArchiveStarter.ArchiveResources = {
+    val modifiedActors = resources.actors.map(e => (e._1.replace(ArcIndex + "_", index + "_"), e._2))
+    resources.copy(actors = modifiedActors)
+  }
 
   /**
     * Returns a custom matcher for ''UserCredentials''.
@@ -255,6 +263,17 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       actorName(idx, HttpArchiveStarter.ManagementActorName) -> manager.getOrElse(TestProbe().ref))
 
   /**
+    * Creates an ''ArchiveResources'' object as simulated result for the
+    * archive starter object.
+    *
+    * @param idx     the index of the archive
+    * @param manager an optional ref to the archive manager actor
+    * @return the ''ArchiveResources'' based on these parameters
+    */
+  private def createArchiveResources(idx: Int, manager: Option[ActorRef] = None): HttpArchiveStarter.ArchiveResources =
+    HttpArchiveStarter.ArchiveResources(createActorsMap(idx, manager), mock[MediaDownloader], HttpActorName + idx)
+
+  /**
     * Helper method which sends all data and messages required to create the
     * actors for the archives belonging to the test realm. It is expected
     * that the archive starter has already been prepared.
@@ -290,27 +309,27 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     *
     * @param helper  the test helper
     * @param manager a way to inject a special management actor
-    * @return a map with all test actors
+    * @return a list with the resources returned by the mock archive starter
     */
   private def prepareMultiRealmLogin(helper: StartupTestHelper,
                                      manager: Option[ActorRef] = None):
-  Map[String, ActorRef] = {
-    val archiveActors1 = createActorsMap(1, manager)
-    val archiveActors2 = createActorsMap(3)
-    helper.initArchiveStartupResult(archiveActors1, 1, 1)
-      .initArchiveStartupResult(archiveActors2, 3, 1)
-    archiveActors1 ++ archiveActors2
+  List[HttpArchiveStarter.ArchiveResources] = {
+    val resources1 = createArchiveResources(1, manager)
+    val resources2 = createArchiveResources(3)
+    helper.initArchiveStartupResult(resources1, 1, 1)
+      .initArchiveStartupResult(resources2, 3, 1)
+    List(resources1, resources2)
   }
 
   /**
-    * Creates a mock for a protocol. The mock is configured to return the name
-    * of the protocol.
+    * Creates a mock for a protocol spec. The mock is configured to return the
+    * name of the protocol.
     *
     * @param name the protocol name
-    * @return the mock for the protocol
+    * @return the mock for the protocol spec
     */
-  private def createProtocolMock(name: String): HttpArchiveProtocol = {
-    val protocol = mock[HttpArchiveProtocol]
+  private def createProtocolSpecMock(name: String): GenericHttpArchiveProtocolSpec = {
+    val protocol = mock[GenericHttpArchiveProtocolSpec]
     when(protocol.name).thenReturn(name)
     protocol
   }
@@ -336,7 +355,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   it should "take an initialization timeout from the configuration into account" in {
     val InitTimeout = 28
     val helper = new StartupTestHelper
-    helper.initArchiveStartupResult(createActorsMap(2), 2, 2)
+    helper.initArchiveStartupResult(createArchiveResources(2), 2, 2)
     helper.configuration.setProperty(HttpArchiveStartupApplication.PropArchiveInitTimeout,
       InitTimeout)
 
@@ -365,7 +384,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
 
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(2), 2, 2)
+      .initArchiveStartupResult(createArchiveResources(2), 2, 2)
       .prepareMediaFacadeActorsRequest()
       .sendLoginForRealm(2)
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
@@ -379,7 +398,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
 
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(2), 2, 2)
+      .initArchiveStartupResult(createArchiveResources(2), 2, 2)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -436,14 +455,27 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     expectTerminated(actor)
   }
 
+  /**
+    * Checks whether all resources created for archives are released when the
+    * archives are no longer active.
+    *
+    * @param archiveResources the list with resources to check
+    */
+  private def checkResourcesCleaned(archiveResources: List[HttpArchiveStarter.ArchiveResources]): Unit = {
+    archiveResources flatMap (_.actors.values) foreach expectTermination
+    archiveResources foreach { resources =>
+      verify(resources.downloader).shutdown()
+    }
+  }
+
   it should "stop the archive actors if the user logs out" in {
     val helper = new StartupTestHelper
-    val archiveActors = prepareMultiRealmLogin(helper)
+    val archiveResources = prepareMultiRealmLogin(helper)
     enterArchiveAvailableState(helper)
 
     helper.sendOnMessageBus(LoginStateChanged(StartupConfigTestHelper.realmName(1), None))
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 3)
-    archiveActors.values foreach expectTermination
+    checkResourcesCleaned(archiveResources)
   }
 
   it should "not send a message if the archive state does not change" in {
@@ -456,11 +488,11 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 
   it should "stop the archive actors on shutdown" in {
     val helper = new StartupTestHelper
-    val archiveActors = prepareMultiRealmLogin(helper)
+    val archiveResources = prepareMultiRealmLogin(helper)
     enterArchiveAvailableState(helper)
 
     helper.deactivateApplication()
-    archiveActors.values foreach expectTermination
+    checkResourcesCleaned(archiveResources)
   }
 
   it should "ignore a duplicate availability message" in {
@@ -583,7 +615,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex, optKey = optKey)
+      .initArchiveStartupResult(createArchiveResources(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex,
+        optKey = optKey)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -600,7 +633,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex, optKey = optKey)
+      .initArchiveStartupResult(createArchiveResources(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex,
+        optKey = optKey)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -612,12 +646,12 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "stop the actors of an archive when it gets locked" in {
-    val actors = createActorsMap(EncArchiveIndex)
+    val resources = createArchiveResources(EncArchiveIndex)
     val optKey = Some(mock[Key])
     val helper = new StartupTestHelper(skipUI = true)
 
     helper.startupApplication()
-      .initArchiveStartupResult(actors, EncArchiveIndex, EncArchiveIndex, optKey = optKey)
+      .initArchiveStartupResult(resources, EncArchiveIndex, EncArchiveIndex, optKey = optKey)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -629,16 +663,16 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveCreation()
       .sendLockStateChangeNotification(EncArchiveIndex, None)
       .expectArchiveStateNotifications(HttpArchiveStateLocked, EncArchiveIndex)
-    actors.values foreach expectTermination
+    checkResourcesCleaned(List(resources))
   }
 
   it should "start an archive using another protocol when this protocol becomes available" in {
-    val protocol = createProtocolMock(SpecialProtocol)
+    val protocol = createProtocolSpecMock(SpecialProtocol)
     val helper = new StartupTestHelper
 
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(ProtocolArchiveIndex), ProtocolArchiveIndex, ProtocolArchiveIndex,
-        optProtocol = Some(protocol))
+      .initArchiveStartupResult(createArchiveResources(ProtocolArchiveIndex), ProtocolArchiveIndex,
+        ProtocolArchiveIndex, optProtocol = Some(protocol))
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -651,34 +685,34 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "stop the actors of an archive when its protocol goes away" in {
-    val protocol = createProtocolMock(SpecialProtocol)
-    val actors = createActorsMap(ProtocolArchiveIndex)
+    val spec = createProtocolSpecMock(SpecialProtocol)
+    val resources = createArchiveResources(ProtocolArchiveIndex)
     val helper = new StartupTestHelper
 
     helper.startupApplication()
-      .initArchiveStartupResult(actors, ProtocolArchiveIndex, ProtocolArchiveIndex, optProtocol = Some(protocol))
+      .initArchiveStartupResult(resources, ProtocolArchiveIndex, ProtocolArchiveIndex, optProtocol = Some(spec))
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
       .sendLoginForRealm(ProtocolArchiveIndex)
-      .addProtocol(protocol)
+      .addProtocol(spec)
       .expectArchiveStateNotifications(HttpArchiveStateInitializing, ProtocolArchiveIndex)
       .expectArchiveCreation()
-      .removeProtocol(protocol)
+      .removeProtocol(spec)
       .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
-    actors.values foreach expectTermination
+    checkResourcesCleaned(List(resources))
   }
 
   it should "handle a protocol added event before being fully started up" in {
-    val protocol = createProtocolMock(SpecialProtocol)
+    val protocol = createProtocolSpecMock(SpecialProtocol)
     val context = mock[ClientApplicationContext]
     val bus = new MessageBusTestImpl
     when(context.messageBus).thenReturn(bus)
     val app = new HttpArchiveStartupApplication
     app.initClientContext(context)
 
-    app.addProtocol(protocol)
+    app.addProtocolSpec(protocol)
     bus.processNextMessage[AnyRef]()
   }
 
@@ -710,7 +744,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       any(), any())(argEq(system))).thenReturn(writeFuture)
     val helper = new StartupTestHelper(skipUI = true)
     helper.startupApplication()
-      .initArchiveStartupResult(createActorsMap(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex, optKey = optKey)
+      .initArchiveStartupResult(createArchiveResources(EncArchiveIndex), EncArchiveIndex, EncArchiveIndex,
+        optKey = optKey)
       .prepareMediaFacadeActorsRequest()
       .sendAvailability(MediaFacade.MediaArchiveAvailable)
       .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 2, 3, 4)
@@ -818,7 +853,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     private val clientApplicationContext = createTestClientApplicationContext()
 
     /** The mock for the default WebDav protocol. */
-    private val webDavProtocol = createProtocolMock(HttpArchiveConfigManager.DefaultProtocolName)
+    private val webDavProtocol = createProtocolSpecMock(HttpArchiveConfigManager.DefaultProtocolName)
 
     /** The application to be tested. */
     val app: HttpArchiveStartupApplicationTestImpl = createStartupApp()
@@ -926,51 +961,51 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       sendOnMessageBus(LockStateChanged(StartupConfigTestHelper.archiveName(archiveIdx), optKey))
 
     /**
-      * Adds the given protocol to the test application and makes sure that the
-      * corresponding message is processed on the message bus.
+      * Adds the given protocol spec to the test application and makes sure
+      * that the corresponding message is processed on the message bus.
       *
-      * @param protocol the protocol
+      * @param spec the protocol spec
       * @return this test helper
       */
-    def addProtocol(protocol: HttpArchiveProtocol): StartupTestHelper = {
-      app addProtocol protocol
+    def addProtocol(spec: GenericHttpArchiveProtocolSpec): StartupTestHelper = {
+      app addProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
     }
 
     /**
-      * Sends a notification to the test application that the given protocol is
-      * no longer available and makes sure that the corresponding message is
-      * processed on the message bus.
+      * Sends a notification to the test application that the given protocol
+      * spec is no longer available and makes sure that the corresponding
+      * message is processed on the message bus.
       *
-      * @param protocol the protocol
+      * @param spec the protocol spec
       * @return this test helper
       */
-    def removeProtocol(protocol: HttpArchiveProtocol): StartupTestHelper = {
-      app removeProtocol protocol
+    def removeProtocol(spec: GenericHttpArchiveProtocolSpec): StartupTestHelper = {
+      app removeProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
     }
 
     /**
       * Prepares the mock startup object for a startup operation and defines
-      * the map of actors to be returned. With this method successful and
-      * failed archive creations can be prepared.
+      * the resources object to be returned. With this method successful
+      * archive creations can be prepared.
       *
-      * @param actors      the map of actors to be returned by the mock
+      * @param resources   the resources object to be returned by the mock
       * @param archiveIdx  the index of the test archive
       * @param realmIdx    the index of the test realm
       * @param optProtocol an option for the expected HTTP protocol
       * @param optKey      the optional decryption key
       * @return this test helper
       */
-    def initArchiveStartupResult(actors: Map[String, ActorRef], archiveIdx: Int,
-                                 realmIdx: Int, optProtocol: Option[HttpArchiveProtocol] = None,
+    def initArchiveStartupResult(resources: HttpArchiveStarter.ArchiveResources, archiveIdx: Int,
+                                 realmIdx: Int, optProtocol: Option[GenericHttpArchiveProtocolSpec] = None,
                                  optKey: Option[Key] = None): StartupTestHelper = {
       expectStarterInvocation(archiveIdx, optProtocol getOrElse webDavProtocol, realmIdx, optKey)
         .thenAnswer((invocation: InvocationOnMock) => {
           archiveStartupCount.incrementAndGet()
-          Future.successful(adaptActorNames(actors, invocation.getArguments()(7).asInstanceOf[Int]))
+          Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
         })
       this
     }
@@ -983,8 +1018,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initFailedArchiveStartupResult(exception: Throwable): StartupTestHelper = {
-      when(archiveStarter.startup(any(), any(), any(), any(classOf[HttpArchiveProtocol]), any(), any(), any(), anyInt(),
-        anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
+      when(archiveStarter.startup(any(), any(), any(), any(classOf[GenericHttpArchiveProtocolSpec]), any(), any(),
+        any(), anyInt(), anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
       this
     }
 
@@ -1030,7 +1065,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       val captorClear = ArgumentCaptor.forClass(classOf[Boolean])
       verify(archiveStarter, times(2))
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
-          probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig), any(classOf[HttpArchiveProtocol]),
+          probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
+          any(classOf[GenericHttpArchiveProtocolSpec]),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
           captorClear.capture())(any(), any())
       (captorIdx.getAllValues.asScala, captorClear.getAllValues.asScala)
@@ -1086,19 +1122,20 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * used to prepare the mock to answer a startup request.
       *
       * @param archiveIdx the index of the test archive
-      * @param protocol   the HTTP protocol for the archive
+      * @param spec       the HTTP protocol spec for the archive
       * @param realmIdx   the index of the test realm
       * @param optKey     the optional decryption key
       * @return the stubbing object to define the behavior of the startup
       *         method
       */
-    private def expectStarterInvocation(archiveIdx: Int, protocol: HttpArchiveProtocol, realmIdx: Int,
-                                        optKey: Option[Key]): OngoingStubbing[Future[Map[String, ActorRef]]] = {
+    private def expectStarterInvocation(archiveIdx: Int, spec: GenericHttpArchiveProtocolSpec, realmIdx: Int,
+                                        optKey: Option[Key]):
+    OngoingStubbing[Future[HttpArchiveStarter.ArchiveResources]] = {
       val archiveData = archiveConfigManager.archives(
         StartupConfigTestHelper.archiveName(archiveIdx))
       val creds = credentials(realmIdx)
       when(archiveStarter.startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig), argEq(protocol),
+        probeUnionMetaManager.ref)), argEq(archiveData), argEq(archiveConfig), argEq(spec),
         credentialsEq(creds), argEq(optKey), argEq(actorFactory), anyInt(), anyBoolean())(any(), any()))
     }
   }

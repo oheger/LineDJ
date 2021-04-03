@@ -21,9 +21,9 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -81,12 +81,13 @@ object HttpArchiveStartupApplication {
     * single managed HTTP archive.
     *
     * @param state        the current state of this archive
-    * @param actors       a map with the actors created for this archive
+    * @param resources    an ''Option'' with the resources created for this
+    *                     archive
     * @param archiveIndex the index used for the archive when it was started
     * @param optKey       an optional key to decrypt this archive
     */
   private case class ArchiveStateData(state: HttpArchiveStateChanged,
-                                      actors: Map[String, ActorRef],
+                                      resources: Option[HttpArchiveStarter.ArchiveResources],
                                       archiveIndex: Int,
                                       optKey: Option[Key]) {
     /**
@@ -94,7 +95,7 @@ object HttpArchiveStartupApplication {
       *
       * @return a flag whether this archive is started
       */
-    def isStarted: Boolean = actors.nonEmpty
+    def isStarted: Boolean = resources.nonEmpty
 
     /**
       * Tries to resolve the current management actor for the represented
@@ -106,7 +107,7 @@ object HttpArchiveStartupApplication {
     def managerActor(shortName: String): Option[ActorRef] = {
       val mgrName = HttpArchiveStarter.archiveActorName(shortName,
         HttpArchiveStarter.ManagementActorName, archiveIndex)
-      actors get mgrName
+      resources flatMap (_.actors get mgrName)
     }
 
     /**
@@ -117,30 +118,30 @@ object HttpArchiveStartupApplication {
       * @return the state of an deactivated archive
       */
     def deactivate(newState: HttpArchiveStateChanged): ArchiveStateData =
-      copy(state = newState, actors = Map.empty, archiveIndex = 0)
+      copy(state = newState, resources = None, archiveIndex = 0)
   }
 
   /**
     * A message class used internally to report the availability of a new
-    * protocol service.
+    * protocol spec service.
     *
     * When the declarative services runtime invokes the bind method for
-    * protocol services, a message of this type is published on the event bus
-    * to update the state of protocols in a thread-safe manner.
+    * protocol spec services, a message of this type is published on the event
+    * bus to update the state of protocols in a thread-safe manner.
     *
-    * @param protocol the protocol affected
+    * @param spec the protocol spec affected
     */
-  private case class ProtocolAdded(protocol: HttpArchiveProtocol)
+  private case class ProtocolSpecAdded(spec: GenericHttpArchiveProtocolSpec)
 
   /**
-    * A message classed used internally to report that a protocol service has
-    * been removed.
+    * A message classed used internally to report that a protocol spec service
+    * has been removed.
     *
-    * This is the counter part to the [[ProtocolAdded]] message.
+    * This is the counter part to the [[ProtocolSpecAdded]] message.
     *
-    * @param protocol the protocol affected
+    * @param spec the protocol affected
     */
-  private case class ProtocolRemoved(protocol: HttpArchiveProtocol)
+  private case class ProtocolSpecRemoved(spec: GenericHttpArchiveProtocolSpec)
 
   /**
     * Maps an archive state returned by the management actor of an archive to
@@ -205,10 +206,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
   private var archiveStates = Map.empty[String, ArchiveStateData]
 
   /**
-    * A map storing the HTTP protocols currently available using the protocol
-    * name as key.
+    * A map storing the HTTP protocol specs currently available using the
+    * protocol name as key.
     */
-  private var protocols = Map.empty[String, HttpArchiveProtocol]
+  private var protocols = Map.empty[String, GenericHttpArchiveProtocolSpec]
 
   /** The object managing configuration data about HTTP archives. */
   private var configManager: HttpArchiveConfigManager = _
@@ -234,22 +235,22 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
   }
 
   /**
-    * Notifies this object that a protocol service is available. This method is
-    * called by the declarative services runtime.
+    * Notifies this object that a protocol spec service is available. This
+    * method is called by the declarative services runtime.
     *
-    * @param protocol the protocol service
+    * @param protocolSpec the protocol service
     */
-  def addProtocol(protocol: HttpArchiveProtocol): Unit = {
-    publish(ProtocolAdded(protocol))
+  def addProtocolSpec(protocolSpec: GenericHttpArchiveProtocolSpec): Unit = {
+    publish(ProtocolSpecAdded(protocolSpec))
   }
 
   /**
-    * Notifies this object that a protocol service is no longer available. All
-    * archives that use this protocol must be stopped. This method is called by
-    * the declarative services runtime.
+    * Notifies this object that a protocol spec service is no longer available.
+    * All archives that use this protocol must be stopped. This method is
+    * called by the declarative services runtime.
     */
-  def removeProtocol(protocol: HttpArchiveProtocol): Unit = {
-    publish(ProtocolRemoved(protocol))
+  def removeProtocolSpec(protocolSpec: GenericHttpArchiveProtocolSpec): Unit = {
+    publish(ProtocolSpecRemoved(protocolSpec))
   }
 
   /**
@@ -303,7 +304,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     configManager.archives.keySet.foldLeft(
       Map.empty[String, ArchiveStateData]) { (m, n) =>
       val state = HttpArchiveStateChanged(n, HttpArchiveStateNoUnionArchive)
-      m + (n -> ArchiveStateData(state, Map.empty, 0, None))
+      m + (n -> ArchiveStateData(state, None, 0, None))
     }
 
   /**
@@ -324,7 +325,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     case HttpArchiveStateRequest =>
       publishArchiveStates()
 
-    case ProtocolAdded(protocol) =>
+    case ProtocolSpecAdded(protocol) =>
       protocols += (protocol.name -> protocol)
       // the notification may come in before the application is fully initialized
       if (configManager != null) {
@@ -332,7 +333,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
         triggerArchiveStartIfPossible()
       }
 
-    case ProtocolRemoved(protocol) =>
+    case ProtocolSpecRemoved(protocol) =>
       protocols -= protocol.name
       updateArchiveStates()
 
@@ -366,7 +367,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @param archiveData the data of the archive affected
     */
   private def stopArchiveActors(archiveData: ArchiveStateData): Unit = {
-    archiveData.actors.keys foreach unregisterAndStopActor
+    archiveData.resources foreach { res =>
+      res.actors.keys foreach unregisterAndStopActor
+      unregisterAndStopActor(res.httpActorName)
+    }
   }
 
   /**
@@ -501,20 +505,23 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
 
   /**
     * Evaluates the result of starting up an archive. In case of success,
-    * actors for the archive have been created and are now available as a map;
-    * the data of the archive is updated accordingly, and its state is set to
-    * initializing. Otherwise, the archive switches to an error state.
+    * actors for the archive have been created and are now available in the
+    * result object; the data of the archive is updated accordingly, and its
+    * state is set to initializing. Otherwise, the archive switches to an error
+    * state.
     *
     * @param name        the name of the archive affected
     * @param index       the index to be added to the actor names
     * @param triedResult the result of the startup operation
     */
-  private def handleArchiveStartupResult(name: String, index: Int, triedResult: Try[Map[String, ActorRef]]): Unit = {
+  private def handleArchiveStartupResult(name: String, index: Int,
+                                         triedResult: Try[HttpArchiveStarter.ArchiveResources]): Unit = {
     val orgState = archiveStates(name)
     val nextData = triedResult match {
-      case Success(actors) =>
-        actors foreach (e => registerActor(e._1, e._2))
-        orgState.copy(actors = actors, archiveIndex = index,
+      case Success(resources) =>
+        resources.actors foreach (e => registerActor(e._1, e._2))
+        registerActor(resources.httpActorName, () => resources.downloader.shutdown())
+        orgState.copy(resources = Some(resources), archiveIndex = index,
           state = HttpArchiveStateChanged(name, HttpArchiveStateInitializing))
       case Failure(exception) =>
         val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
