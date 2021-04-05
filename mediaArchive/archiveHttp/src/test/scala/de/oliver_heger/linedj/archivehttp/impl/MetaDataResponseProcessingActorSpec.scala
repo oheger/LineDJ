@@ -127,13 +127,13 @@ object MetaDataResponseProcessingActorSpec {
     data.map(jsonMetaData).mkString("[", ",\n", "]")
 
   /**
-    * Creates a successful HTTP response with the given entity string.
+    * Creates a ''Source'' with the data of the given entity string.
     *
-    * @param body the body of the response as string
-    * @return the response
+    * @param data the data to be emitted by the source
+    * @return the source producing this data
     */
-  private def createResponse(body: String): HttpResponse =
-    HttpResponse(entity = body)
+  private def createDataSource(data: String): Source[ByteString, Any] =
+    Source.single(ByteString(data))
 }
 
 /**
@@ -153,10 +153,10 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
   "A MetaDataResponseProcessingActor" should "handle a successful response" in {
     val metaDataResults = createProcessingResults(8, mapped = false)
     val mappedResults = createProcessingResults(8, mapped = true)
-    val response = createResponse(generateJson(metaDataResults))
+    val source = createDataSource(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, null, response, DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
     result.metaData should contain theSameElementsAs mappedResults
@@ -180,19 +180,19 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     }
     val metaDataResults = createProcessingResults(8, mapped = false)
     val mappedResults = createProcessingResults(MaxIndex, mapped = true)
-    val response = createResponse(generateJson(metaDataResults))
+    val source = createDataSource(generateJson(metaDataResults))
     val actor = system.actorOf(Props(classOf[MetaDataResponseProcessingActor], mapper))
 
-    actor ! ProcessResponse(TestMediumID, null, response, DefaultArchiveConfig, SeqNo)
+    actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.metaData should contain theSameElementsAs mappedResults
   }
 
   it should "apply a size restriction when processing a response" in {
-    val response = createResponse(generateJson(createProcessingResults(32, mapped = false)))
+    val source = createDataSource(generateJson(createProcessingResults(32, mapped = false)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
 
-    actor ! ProcessResponse(TestMediumID, null, response,
+    actor ! ProcessResponse(TestMediumID, null, source,
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
     expectMsgType[Status.Failure]
   }
@@ -204,12 +204,11 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val source = Source[ByteString](jsonStrings.toList).delay(1.second,
       DelayOverflowStrategy.backpressure)
     val actor = system.actorOf(Props(new MetaDataResponseProcessingActor {
-      override def createResponseDataSource(mid: MediumID, response: HttpResponse,
-                                            config: HttpArchiveConfig):
+      override def createResponseDataSource(src: Source[ByteString, Any], config: HttpArchiveConfig):
       Source[ByteString, Any] = source
     }))
 
-    actor ! ProcessResponse(TestMediumID, null, createResponse(responseData),
+    actor ! ProcessResponse(TestMediumID, null, createDataSource(responseData),
       DefaultArchiveConfig, SeqNo)
     actor ! CancelStreams
     expectMsgType[MetaDataResponseProcessingResult]
@@ -226,7 +225,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
     actor ! ProcessResponse(TestMediumID, null,
-      createResponse(generateJson(createProcessingResults(2, mapped = false))),
+      createDataSource(generateJson(createProcessingResults(2, mapped = false))),
       DefaultArchiveConfig, SeqNo)
     expectMsg(Result)
 

@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.Status
-import akka.http.scaladsl.model.HttpResponse
 import akka.stream.KillSwitch
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -32,19 +31,20 @@ import scala.concurrent.Future
   * settings files received from an HTTP archive.
   *
   * A lot of functionality related to response handling is independent on the
-  * concrete file type that has been requested. For instance, failed responses
-  * have to be handled, support for cancellation has to be implemented,
-  * processing results have to be sent to the calling actor, etc. This base
-  * class implements this common functionality. Concrete subclasses mainly have
-  * to deal with setting up a stream to process the content of the response
-  * entity and to produce the results to be sent back to the caller.
+  * concrete file type that has been requested. For instance, the data source
+  * with the content of the response has to be prepared, support for
+  * cancellation has to be implemented, processing results have to be sent to
+  * the calling actor, etc. This base* class implements this common
+  * functionality. Concrete subclasses mainly have to deal with setting up a
+  * stream to process the content of the meta data file that has been
+  * downloaded and to produce the results to be sent back to the caller.
   */
 abstract class AbstractResponseProcessingActor
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
 
   override def customReceive: Receive = {
-    case ProcessResponse(mid, desc, triedResponse, config, seqNo) =>
-      handleHttpResponse(mid, desc, triedResponse, config, seqNo)
+    case ProcessResponse(mid, desc, data, config, seqNo) =>
+      handleHttpResponse(mid, desc, data, config, seqNo)
   }
 
   /**
@@ -67,34 +67,34 @@ abstract class AbstractResponseProcessingActor
                               config: HttpArchiveConfig, seqNo: Int): (Future[Any], KillSwitch)
 
   /**
-    * Creates the source for the stream of the response's data bytes.
+    * Creates the source for the stream of the data to be processed. The source
+    * provided by the [[ProcessResponse]] message is wrapped to enforce a size
+    * restriction.
     *
-    * @param mid      the medium ID
-    * @param response the response
-    * @param config   the configuration of the HTTP archive
+    * @param source the original source
+    * @param config the configuration of the HTTP archive
     * @return the source of the stream for the response's data bytes
     */
-  private[impl] def createResponseDataSource(mid: MediumID, response: HttpResponse,
-                                             config: HttpArchiveConfig):
+  private[impl] def createResponseDataSource(source: Source[ByteString, Any], config: HttpArchiveConfig):
   Source[ByteString, Any] =
-    response.entity.dataBytes
-      .via(new StreamSizeRestrictionStage(config.maxContentSize * 1024))
+    source.via(new StreamSizeRestrictionStage(config.maxContentSize * 1024))
 
   /**
-    * Handles an HTTP response for a meta data file. The response is assumed to
+    * Handles an HTTP response with the content of a meta data file. The
+    * response is assumed to
     * be successful. (This is guaranteed by the processing stream.) Its entity
     * is parsed and converted.
     *
-    * @param mid      the medium ID
-    * @param response the HTTP response
-    * @param config   the HTTP archive configuration
-    * @param seqNo    the current sequence number
+    * @param mid          the medium ID
+    * @param responseData the source with the metadata to process
+    * @param config       the HTTP archive configuration
+    * @param seqNo        the current sequence number
     */
   private def handleHttpResponse(mid: MediumID, desc: HttpMediumDesc,
-                                 response: HttpResponse, config: HttpArchiveConfig,
+                                 responseData: Source[ByteString, Any], config: HttpArchiveConfig,
                                  seqNo: Int): Unit = {
     val (futureStream, killSwitch) = processSource(
-      createResponseDataSource(mid, response, config), mid, desc, config, seqNo)
+      createResponseDataSource(responseData, config), mid, desc, config, seqNo)
     processStreamResult(futureStream, killSwitch) { f =>
       Status.Failure(f.exception)
     }

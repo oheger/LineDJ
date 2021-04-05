@@ -18,11 +18,11 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.NotUsed
 import akka.actor.{ActorLogging, ActorRef}
-import akka.http.scaladsl.model.{HttpResponse, Uri}
+import akka.http.scaladsl.model.Uri
 import akka.pattern.ask
 import akka.stream._
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Zip}
-import akka.util.Timeout
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
+import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
@@ -73,7 +73,7 @@ object HttpArchiveContentProcessorActor {
     * @return a flag whether this result is valid
     */
   private def isValidResult(result: MediumProcessingResult): Boolean =
-    result.mediumInfo.name.length > 0 && result.metaData.nonEmpty
+    result.mediumInfo.name.nonEmpty && result.metaData.nonEmpty
 }
 
 /**
@@ -164,7 +164,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * on a medium description and a mapping function. The mapping function
     * produces a concrete request from the ''HttpMediumDesc'', which can fail
     * because URI mapping is involved. Such failed requests are filtered out.
-    * The resulting URI is absolute and can be requested directly.
+    * The resulting URI is relative and can be requested via the media
+    * downloader.
     *
     * @param req the request to process the archive
     * @param f   the request mapping function
@@ -177,7 +178,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     Flow[HttpMediumDesc].map(f(req, _))
       .filter(_.isDefined)
       .map(_.get)
-      .map(t => (req.archiveConfig.resolvePath(t._1), t._2))
+      .map(t => (Uri(t._1), t._2))
 
   /**
     * Creates a flow stage that invokes a processing actor to obtain a partial
@@ -200,9 +201,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
                             (implicit tag: ClassTag[T])
   : Flow[(Uri, RequestData), T, NotUsed] =
     Flow[(Uri, RequestData)].mapAsync(parallelism) { t =>
-      implicit val timeout: Timeout = req.archiveConfig.processorTimeout
-      (for {resp <- req.archiveConfig.protocol.downloadMediaFile(req.requestActor, t._1)
-            procResp <- processHttpResponse(req, (resp.response, t._2)).mapTo[T]
+      (for {data <- req.archiveConfig.downloader.downloadMediaFile(t._1)
+            procResp <- processHttpResponse(req, (data, t._2)).mapTo[T]
             } yield procResp) fallbackTo Future {
         val mid = createMediumID(req, t._2.mediumDesc)
         fUndef(mid)
@@ -258,11 +258,11 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * to be send to the correct processing actor.
     *
     * @param req the request to process the archive
-    * @param t   the tuple with data received from the HTTP flow
+    * @param t   the tuple with data received from the download
     * @return a future for the message expected from the processor actor
     */
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
-                                  t: (HttpResponse, RequestData)): Future[Any] = {
+                                  t: (Source[ByteString, Any], RequestData)): Future[Any] = {
     val mediumID = createMediumID(req, t._2.mediumDesc)
     val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)

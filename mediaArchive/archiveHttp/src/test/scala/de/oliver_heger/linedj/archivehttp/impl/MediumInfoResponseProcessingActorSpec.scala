@@ -199,8 +199,8 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
       eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
     val actor = createActor(parser)
-    val response = HttpResponse(entity = MediumInfoContent)
-    val msg = ProcessResponse(TestMediumID, TestDesc, response, DefaultArchiveConfig, SeqNo)
+    val source = Source.single(ByteString(MediumInfoContent))
+    val msg = ProcessResponse(TestMediumID, TestDesc, source, DefaultArchiveConfig, SeqNo)
 
     actor ! msg
     expectMsg(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))

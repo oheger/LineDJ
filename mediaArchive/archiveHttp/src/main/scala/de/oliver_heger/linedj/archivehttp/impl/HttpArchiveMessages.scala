@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.HttpArchiveState
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
@@ -51,27 +52,28 @@ case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
   * possible to map a response to the original request and identify the
   * correct processor actor.
   *
-  * @param mediumDesc the ''HttpMediumDesc'' that triggered this request
+  * @param mediumDesc     the ''HttpMediumDesc'' that triggered this request
   * @param processorActor the responsible processor actor
   */
-  case class RequestData(mediumDesc: HttpMediumDesc, processorActor: ActorRef)
+case class RequestData(mediumDesc: HttpMediumDesc, processorActor: ActorRef)
 
 /**
-  * A message class that tells a processor actor to process the response from
-  * the HTTP archive.
+  * A message class that tells a processor actor to process the download
+  * response from the HTTP archive.
   *
-  * The response contains the data of a file that has been downloaded from the
-  * archive (either a settings file or a meta data file). The receiving actor
-  * now has to process the response and produce a corresponding result object.
+  * The message contains the entity with the data of a file that has been
+  * downloaded from the archive (either a settings file or a meta data file).
+  * The receiving actor now has to process the response and produce a
+  * corresponding result object.
   *
   * @param mediumID      the ID of the medium affected
   * @param mediumDesc    the object with data about the current medium
-  * @param response      the response received from the archive
+  * @param data          the data source received from the archive
   * @param archiveConfig the config for the HTTP archive
   * @param seqNo         the sequence number of the current scan operation
   */
 case class ProcessResponse(mediumID: MediumID, mediumDesc: HttpMediumDesc,
-                           response: HttpResponse, archiveConfig: HttpArchiveConfig,
+                           data: Source[ByteString, Any], archiveConfig: HttpArchiveConfig,
                            seqNo: Int)
 
 /**
