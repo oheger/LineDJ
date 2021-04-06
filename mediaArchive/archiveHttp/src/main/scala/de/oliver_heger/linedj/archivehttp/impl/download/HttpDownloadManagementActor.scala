@@ -204,7 +204,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     downloadIndex += 1
     log.debug("Starting download operation {} after receiving successful response.",
       downloadIndex)
-    val fileDownloadActor = createChildActor(HttpFileDownloadActor(response,
+    val fileDownloadActor = createChildActor(HttpFileDownloadActor(response.entity.dataBytes,
       Uri(request.request.fileID.uri), downloadTransformationFunc(request.request)))
     val timeoutActor = createChildActor(TimeoutAwareHttpDownloadActor(config, monitoringActor,
       fileDownloadActor, pathGenerator, removeActor, downloadIndex))

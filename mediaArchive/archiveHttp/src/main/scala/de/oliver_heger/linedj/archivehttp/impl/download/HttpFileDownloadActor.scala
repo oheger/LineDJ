@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.{Path, Paths}
-
 import akka.actor.Props
-import akka.http.scaladsl.model.{HttpResponse, Uri}
+import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
+
+import java.nio.file.{Path, Paths}
 
 object HttpFileDownloadActor {
   /**
@@ -37,13 +37,13 @@ object HttpFileDownloadActor {
     * Returns a ''Props'' object for creating a new instance of
     * ''HttpFileDownloadActor''.
     *
-    * @param response      the response to be processed (must be successful)
+    * @param dataSource      the source with the data to be processed
     * @param uri           the URI of the file requested
     * @param transformFunc the transformation function
     * @return ''Props'' to create a new actor
     */
-  def apply(response: HttpResponse, uri: Uri, transformFunc: DownloadTransformFunc): Props =
-    Props(classOf[HttpFileDownloadActor], response, extractPathFromUri(uri), transformFunc)
+  def apply(dataSource: Source[ByteString, Any], uri: Uri, transformFunc: DownloadTransformFunc): Props =
+    Props(classOf[HttpFileDownloadActor], dataSource, extractPathFromUri(uri), transformFunc)
 
   /**
     * Returns a ''Path'' based on the provided URI. This is needed for the
@@ -62,15 +62,17 @@ object HttpFileDownloadActor {
   * This actor class is used to read data files served by an HTTP server and
   * make them available to download clients via the protocol of a file download
   * actor. The major part of the functionality is already provided by the base
-  * class. This implementation is mainly concerned with creating the correct
+  * class. This implementation is mainly concerned with providing the correct
   * source for the stream to be processed.
+  * @param dataSource      the source with the data to be processed
+  * @param path           the path of the local file
+  * @param trans the transformation function
   */
-class HttpFileDownloadActor(response: HttpResponse, path: Path, trans: DownloadTransformFunc)
+class HttpFileDownloadActor(dataSource: Source[ByteString, Any], path: Path, trans: DownloadTransformFunc)
   extends MediaFileDownloadActor(path, HttpFileDownloadActor.DummyChunkSize, trans) {
   /**
-    * @inheritdoc This implementation returns the source of the HTTP response's
-    *             entity.
+    * @inheritdoc This implementation just returns the source passed to the
+    *             constructor.
     */
-  override protected def createUntransformedSource(): Source[ByteString, Any] =
-    response.entity.dataBytes
+  override protected def createUntransformedSource(): Source[ByteString, Any] = dataSource
 }

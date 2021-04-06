@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, Uri}
+import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
@@ -49,28 +49,11 @@ object HttpFileDownloadActorSpec {
     Uri(s"$TestUriPrefix$ext")
 
   /**
-    * Calculates the length of the test data string.
-    *
-    * @return the length of the test data
-    */
-  private def dataLength: Int =
-    Data.foldLeft(0)((len, bs) => len + bs.length)
-
-  /**
     * Returns a source with test data.
     *
     * @return the test data source
     */
   private def testDataSource: Source[ByteString, NotUsed] = Source(Data)
-
-  /**
-    * Creates a response for test data.
-    *
-    * @return the response
-    */
-  private def createTestDataResponse(): HttpResponse =
-    HttpResponse(entity = HttpEntity.Default(ContentTypes.`text/plain(UTF-8)`,
-      dataLength, testDataSource))
 
   /**
     * Returns a transformation function to be used in tests. The function
@@ -98,8 +81,7 @@ class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   "A HttpFileDownloadActor" should "provide data from a response" in {
-    val actor = system.actorOf(HttpFileDownloadActor(createTestDataResponse(),
-      downloadUriFor("txt"), testTransform))
+    val actor = system.actorOf(HttpFileDownloadActor(testDataSource, downloadUriFor("txt"), testTransform))
 
     Data foreach { chunk =>
       actor ! DownloadData(8192)
@@ -111,8 +93,8 @@ class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   it should "pass a correct path object to the super class" in {
-    val actor = system.actorOf(HttpFileDownloadActor(createTestDataResponse(),
-      downloadUriFor(TransformedExtension), testTransform))
+    val actor = system.actorOf(HttpFileDownloadActor(testDataSource, downloadUriFor(TransformedExtension),
+      testTransform))
 
     actor ! DownloadData(8192)
     val result = expectMsgType[DownloadDataResult]
