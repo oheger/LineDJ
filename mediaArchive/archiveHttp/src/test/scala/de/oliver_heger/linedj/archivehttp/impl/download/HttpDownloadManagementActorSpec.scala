@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
@@ -26,13 +25,11 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Matchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -44,20 +41,14 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 
 object HttpDownloadManagementActorSpec {
-  /** The base URI of the test archive. */
-  private val BaseUri = "https://my.cool.music.archive.io/cool"
-
-  /** The URI of the test archive (pointing to the content file). */
-  private val ArchiveUri = BaseUri + "/music.json"
-
   /** The URI of a test file to be downloaded. */
   private val DownloadUri = "medium/song.mp3"
 
-  /** The expected resolved URI for downloading a test song. */
-  private val ResolvedDownloadUri = Uri(BaseUri + "/" + DownloadUri)
-
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
+
+  /** A source simulating the data of a download file. */
+  private val DownloadDataSource = Source.single(ByteString("The file content to download."))
 
   /**
     * A data class storing information about child actors created by the test
@@ -86,15 +77,14 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   "A HttpDownloadManagementActor" should "create correct Props" in {
     val config = mock[HttpArchiveConfig]
     val pathGen = mock[TempPathGenerator]
-    val requestActor = TestProbe()
     val monitoringActor = TestProbe()
     val removeActor = TestProbe()
 
-    val props = HttpDownloadManagementActor(config, pathGen, requestActor.ref, monitoringActor.ref,
+    val props = HttpDownloadManagementActor(config, pathGen, monitoringActor.ref,
       removeActor.ref)
     classOf[HttpDownloadManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(config, pathGen, requestActor.ref, monitoringActor.ref, removeActor.ref))
+    props.args should be(List(config, pathGen, monitoringActor.ref, removeActor.ref))
   }
 
   it should "execute a download request successfully" in {
@@ -171,7 +161,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val helper = new DownloadManagementTestHelper
 
     helper.executeFailedRequest(request)
-    //TODO Failure handling needs to be reworked. - .expectErrorResponse(request)
+      .expectErrorResponse(request)
   }
 
   it should "send a failure response for an invalid URI" in {
@@ -180,15 +170,15 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest(request)
-    //TODO Failure handling needs to be reworked. - .expectErrorResponse(request)
+      .expectErrorResponse(request)
   }
 
   /**
     * A test helper class managing a test actor and its dependencies.
     */
   private class DownloadManagementTestHelper {
-    /** Mock for the HTTP protocol. */
-    private val protocol = mock[HttpArchiveProtocol]
+    /** Mock for the downloader. */
+    private val downloader = mock[MediaDownloader]
 
     /** The configuration for the HTTP archive. */
     private val config = createConfig()
@@ -202,9 +192,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     /** Test probe for the remove files actor. */
     private val probeRemoveActor = TestProbe()
 
-    /** The mock request actor. */
-    private val requestActor = TestProbe().ref
-
     /** A queue for storing information about child actors. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildCreationData]
 
@@ -212,30 +199,21 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val downloadManager = createTestActor()
 
     /**
-      * An option with the response of a file request from the HTTP archive.
-      * This is used to simulate the request processing. If no response is
-      * specified, the request will fail.
-      */
-    private var optArchiveResponse: Option[HttpResponse] = None
-
-    /**
       * Sends a request to download a file to the test actor and initializes
-      * the response to be returned from the archive.
+      * the data to be returned from the downloader.
       *
       * @param request the request for the file to be downloaded
+      * @param optData optional data to be returned; ''None'' causes a failure
       * @return this test helper
       */
-    def executeRequest(request: MediumFileRequest): DownloadManagementTestHelper = {
-      val source = Source.single(ByteString("This is a test source"))
-      val entity = mock[ResponseEntity]
-      when(entity.dataBytes).thenReturn(source)
-      val response = HttpResponse(entity = entity)
-      when(protocol.downloadMediaFile(argEq(requestActor), argEq(ResolvedDownloadUri))
-      (any(), any(), argEq(config.processorTimeout)))
-        .thenReturn(if (response != null)
-          Future.successful(HttpRequests.ResponseData(response, null))
-        else Future.failed(new IOException("Error from HTTP archive!")))
-      optArchiveResponse = Option(response)
+    def executeRequest(request: MediumFileRequest,
+                       optData: Option[Source[ByteString, Any]] = Some(DownloadDataSource)):
+    DownloadManagementTestHelper = {
+      val futResult =
+        optData.fold(Future.failed[Source[ByteString, Any]](new IOException("Error from HTTP archive!"))) { src =>
+          Future.successful(src)
+        }
+      when(downloader.downloadMediaFile(DownloadUri)).thenReturn(futResult)
       downloadManager ! request
       this
     }
@@ -248,7 +226,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return this test helper
       */
     def executeFailedRequest(request: MediumFileRequest): DownloadManagementTestHelper =
-      executeRequest(request)
+      executeRequest(request, optData = None)
 
     /**
       * Check that correct child actors for a download operation have been
@@ -261,7 +239,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     def expectDownloadActorCreation(): (ChildCreationData, ChildCreationData) = {
       val fileDownloadCreation = nextChildActorCreation()
       fileDownloadCreation.props.actorClass() should be(classOf[HttpFileDownloadActor])
-      fileDownloadCreation.props.args.head should be(optArchiveResponse.get.entity.dataBytes)
+      fileDownloadCreation.props.args.head should be(DownloadDataSource)
 
       val timeoutActorCreation = nextChildActorCreation()
       classOf[TimeoutAwareHttpDownloadActor].isAssignableFrom(
@@ -332,7 +310,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the configuration
       */
     private def createConfig(): HttpArchiveConfig =
-      RequestActorTestImpl.createTestArchiveConfig(protocol).copy(archiveURI = ArchiveUri)
+      RequestActorTestImpl.createTestArchiveConfig().copy(downloader = downloader)
 
     /**
       * Creates a new test actor instance.
@@ -340,8 +318,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the test actor
       */
     private def createTestActor(): ActorRef =
-      system.actorOf(Props(new HttpDownloadManagementActor(config, pathGenerator, requestActor,
-        probeMonitoringActor.ref, probeRemoveActor.ref) with ChildActorFactory {
+      system.actorOf(Props(new HttpDownloadManagementActor(config, pathGenerator, probeMonitoringActor.ref,
+        probeRemoveActor.ref) with ChildActorFactory {
 
         /**
           * @inheritdoc This implementation stores information about the child

@@ -245,7 +245,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       .props(Props[MetaDataResponseProcessingActor]))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
-      removeActor = removeActor, requestActor = requestActor))
+      removeActor = removeActor))
     propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
       unionMetaDataManager, config.archiveURI.toString()))
     updateArchiveState(HttpArchiveStateDisconnected)

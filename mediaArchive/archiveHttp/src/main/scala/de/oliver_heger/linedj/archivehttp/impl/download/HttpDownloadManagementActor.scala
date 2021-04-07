@@ -17,15 +17,15 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpResponse, Uri}
-import akka.util.Timeout
+import akka.http.scaladsl.model.Uri
+import akka.stream.scaladsl.Source
+import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
-import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse, UriHelper}
+import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.Future
@@ -48,34 +48,32 @@ object HttpDownloadManagementActor {
     *
     * @param config          the configuration for the HTTP archive
     * @param pathGenerator   the object for generating temp paths
-    * @param requestActor    the actor for sending HTTP requests
     * @param monitoringActor the download monitoring actor
     * @param removeActor     the actor to remove temporary files
     * @return ''Props'' to create a new actor instance
     */
-  def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator, requestActor: ActorRef,
+  def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
             monitoringActor: ActorRef, removeActor: ActorRef): Props =
-    Props(classOf[HttpDownloadManagementActorImpl], config, pathGenerator, requestActor, monitoringActor,
+    Props(classOf[HttpDownloadManagementActorImpl], config, pathGenerator, monitoringActor,
       removeActor)
 
   private class HttpDownloadManagementActorImpl(config: HttpArchiveConfig,
                                                 pathGenerator: TempPathGenerator,
-                                                requestActor: ActorRef,
                                                 monitoringActor: ActorRef,
                                                 removeActor: ActorRef)
-    extends HttpDownloadManagementActor(config, pathGenerator, requestActor, monitoringActor, removeActor)
+    extends HttpDownloadManagementActor(config, pathGenerator, monitoringActor, removeActor)
       with ChildActorFactory
 
   /**
     * A message class this actor sends to itself when a response for a download
-    * request is returned from the HTTP archive. Then all information is
+    * request is returned from the downloader. Then all information is
     * available to send an answer to the client actor.
     *
-    * @param request  the original download request
-    * @param response the HTTP response from the archive
+    * @param request the original download request
+    * @param data    the source with the data to be downloaded
     */
   private case class ProcessDownloadRequest(request: DownloadOperationRequest,
-                                            response: HttpResponse)
+                                            data: Source[ByteString, Any])
 
   /**
     * The transformation function to remove meta data from a file to be
@@ -117,12 +115,11 @@ object HttpDownloadManagementActor {
   *
   * @param config          the configuration for the HTTP archive
   * @param pathGenerator   an object to generate temporary paths
-  * @param requestActor    the actor for sending HTTP requests
   * @param monitoringActor the actor to monitor download operations
   * @param removeActor     the actor to remove temporary files
   */
 class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
-                                  requestActor: ActorRef, monitoringActor: ActorRef, removeActor: ActorRef)
+                                  monitoringActor: ActorRef, removeActor: ActorRef)
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
@@ -148,8 +145,8 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     case req: MediumFileRequest =>
       triggerFileDownload(req)
 
-    case ProcessDownloadRequest(request, response) =>
-      processSuccessResponse(request, response)
+    case ProcessDownloadRequest(request, data) =>
+      processSuccessResponse(request, data)
   }
 
   /**
@@ -162,11 +159,10 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     log.info("Sending request for file {}.", req.fileID.uri)
     val downloadOp = DownloadOperationRequest(req, sender())
 
-    (for {fileUri <- resolveDownloadUri(req)
-          response <- sendDownloadRequest(fileUri)
-          } yield response) onComplete {
-      case Success(t) =>
-        self ! ProcessDownloadRequest(request = downloadOp, response = t.response)
+    val futUri = Future.fromTry(Try(Uri(req.fileID.uri)))
+    futUri flatMap config.downloader.downloadMediaFile onComplete {
+      case Success(data) =>
+        self ! ProcessDownloadRequest(request = downloadOp, data)
       case Failure(exception) =>
         log.error(exception, "Download request for {} failed!", req.fileID.uri)
         downloadOp.client ! MediumFileResponse(req, None, -1)
@@ -174,37 +170,18 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
   }
 
   /**
-    * Generates the URI for the media file referenced by the given request.
-    *
-    * @param req the ''MediumFileRequest''
-    * @return a ''Future'' with the resolved URI to the file to be downloaded
-    */
-  private def resolveDownloadUri(req: MediumFileRequest): Future[Uri] =
-    Future.fromTry(Try(config.resolvePath(UriHelper.withLeadingSeparator(req.fileID.uri))))
-
-  /**
-    * Invokes the HTTP protocol to send the request for downloading the file
-    * specified and returns a ''Future'' with the result.
-    *
-    * @param fileUri the URI of the media file to be downloaded
-    * @return a ''Future'' with the response of the download request
-    */
-  private def sendDownloadRequest(fileUri: Uri): Future[HttpRequests.ResponseData] =
-    config.protocol.downloadMediaFile(requestActor, fileUri)
-
-  /**
     * Processes a successful response for a request to download a file.
     * Download actors are created and sent to the client actor.
     *
-    * @param request  the download request to be handled
-    * @param response the response from the archive
+    * @param request the download request to be handled
+    * @param data    the source with the data to be downloaded
     */
-  private def processSuccessResponse(request: DownloadOperationRequest, response: HttpResponse):
+  private def processSuccessResponse(request: DownloadOperationRequest, data: Source[ByteString, Any]):
   Unit = {
     downloadIndex += 1
     log.debug("Starting download operation {} after receiving successful response.",
       downloadIndex)
-    val fileDownloadActor = createChildActor(HttpFileDownloadActor(response.entity.dataBytes,
+    val fileDownloadActor = createChildActor(HttpFileDownloadActor(data,
       Uri(request.request.fileID.uri), downloadTransformationFunc(request.request)))
     val timeoutActor = createChildActor(TimeoutAwareHttpDownloadActor(config, monitoringActor,
       fileDownloadActor, pathGenerator, removeActor, downloadIndex))

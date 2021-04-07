@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import java.io.IOException
-import java.nio.file.Paths
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
@@ -52,6 +48,10 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
+import java.nio.file.Paths
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.reflect.ClassTag
@@ -96,7 +96,7 @@ object HttpArchiveManagementActorSpec {
 
   /** Class for the download management actor. */
   private val ClsDownloadManagementActor =
-    HttpDownloadManagementActor(null, null, null, null, null).actorClass()
+    HttpDownloadManagementActor(null, null, null, null).actorClass()
 
   /** Class for the actor that resolves encrypted URIs. */
   private val ClsUriResolverActor = classOf[UriResolverActor]
@@ -844,8 +844,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               probeMetaDataProcessor.ref
 
             case ClsDownloadManagementActor =>
-              p.args should be(List(config, pathGenerator, requestActor, probeMonitoringActor.ref,
-                probeRemoveActor.ref))
+              p.args should be(List(config, pathGenerator, probeMonitoringActor.ref, probeRemoveActor.ref))
               downloadManagementActor
 
             case ClsContentPropagationActor =>
