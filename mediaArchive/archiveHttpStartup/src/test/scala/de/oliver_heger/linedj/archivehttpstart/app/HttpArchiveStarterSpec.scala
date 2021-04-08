@@ -305,13 +305,12 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
       classOf[ChildActorFactory].isAssignableFrom(propsManager.actorClass()) shouldBe true
-      propsManager.args should have size 8
+      propsManager.args should have size 7
       propsManager.args(1) should be(expConfig)
       propsManager.args(3) should be(unionArchiveActors.mediaManager)
       propsManager.args(4) should be(unionArchiveActors.metaDataManager)
       propsManager.args(5) should be(probeMonitoringActor.ref)
       propsManager.args(6) should be(probeRemoveActor.ref)
-      propsManager.args(7) should be(cryptKeyParam)
 
       val propsMonitor = actorCreationProps(actorName(
         HttpArchiveStarter.DownloadMonitoringActorName))

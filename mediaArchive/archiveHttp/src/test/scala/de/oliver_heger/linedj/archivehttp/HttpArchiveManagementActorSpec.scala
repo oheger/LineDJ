@@ -21,19 +21,15 @@ import akka.http.scaladsl.model._
 import akka.pattern.{AskTimeoutException, ask}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.Timeout
-import com.github.cloudfiles.core.http.Secret
+import akka.util.{ByteString, Timeout}
+import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.http.HttpRequests
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io.{FailedRequestException, HttpBasicAuthRequestActor, HttpCookieManagementActor, HttpMultiHostRequestActor}
-import de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media._
@@ -51,10 +47,8 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.IOException
 import java.nio.file.Paths
 import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.reflect.ClassTag
 
 object HttpArchiveManagementActorSpec {
   /** An auth function that does not special configuration. */
@@ -79,9 +73,6 @@ object HttpArchiveManagementActorSpec {
   /** Constant for a sequence number. */
   private val SeqNo = 20180621
 
-  /** A key used by tests that simulate an encrypted archive. */
-  private val CryptKey = new AESKeyGenerator().generateKey("MySecretArchive")
-
   /** Class for the content processor actor. */
   private val ClsContentProcessor = classOf[HttpArchiveContentProcessorActor]
 
@@ -98,27 +89,9 @@ object HttpArchiveManagementActorSpec {
   private val ClsDownloadManagementActor =
     HttpDownloadManagementActor(null, null, null, null).actorClass()
 
-  /** Class for the actor that resolves encrypted URIs. */
-  private val ClsUriResolverActor = classOf[UriResolverActor]
-
-  /** Class for the actor that executes requests against encrypted archives. */
-  private val ClsCryptRequestActor = classOf[CryptHttpRequestActor]
-
-  /** Class for the actor that handles basic authentication. */
-  private val ClsBasicAuthActor = classOf[HttpBasicAuthRequestActor]
-
-  /** Class for the actor that implements cookie management. */
-  private val ClsCookieManagementActor = classOf[HttpCookieManagementActor]
-
-  /** Class for the multi host request actor. */
-  private val ClsMultiHostActor = classOf[HttpMultiHostRequestActor]
-
   /** A state indicating that a scan operation is in progress. */
   private val ProgressState = ContentProcessingUpdateServiceImpl.InitialState
     .copy(scanInProgress = true)
-
-  /** A dummy request that it is used where it is needed. */
-  private val TestSendRequest = HttpRequests.SendRequest(HttpRequest(), 42)
 
   /**
     * A class for storing information about child actors created by the
@@ -170,36 +143,16 @@ object HttpArchiveManagementActorSpec {
       .mkString("[", ", ", "]")
 
   /**
-    * Creates a response object for a successful request to the content
+    * Creates a response data source for a successful request to the content
     * document of the test archive.
     *
-    * @return the success response
+    * @return the data source with the content document
     */
-  private def createSuccessResponse(): HttpResponse =
-    HttpResponse(status = StatusCodes.OK, entity = createMediumDescriptionsJson())
+  private def createSuccessResponse(): Source[ByteString, Any] = {
+    val data = ByteString(createMediumDescriptionsJson()).grouped(128)
+    Source(data.toList)
+  }
 
-  /**
-    * Helper function to filter out all child actors whose class is the same as
-    * the specified one.
-    *
-    * @param actorClass the desired actor class
-    * @param children   the list of child actors
-    * @return the filtered list of child actors of the given class
-    */
-  private def childActorsOfClass(actorClass: Class[_], children: Seq[ChildActorCreation]): Seq[ChildActorCreation] =
-    children.filter(c => c.props.actorClass() == actorClass)
-
-  /**
-    * Helper function to find the child actors of a specific type.
-    *
-    * @param children the list of child actors
-    * @param ct       the class tag for the actor class
-    * @tparam T the type of the actor class
-    * @return a list with the child actors of the given class
-    */
-  private def childActorsOfType[T](children: Seq[ChildActorCreation])(implicit ct: ClassTag[T]):
-  Seq[ChildActorCreation] =
-    childActorsOfClass(ct.runtimeClass, children)
 }
 
 /**
@@ -224,11 +177,11 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     val removeActor = TestProbe()
     val pathGenerator = new TempPathGenerator(Paths get "temp")
     val props = HttpArchiveManagementActor(ArchiveConfig, pathGenerator, mediaManager.ref,
-      metaManager.ref, monitoringActor.ref, removeActor.ref, Some(CryptKey))
+      metaManager.ref, monitoringActor.ref, removeActor.ref)
     classOf[HttpArchiveManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ContentProcessingUpdateServiceImpl, ArchiveConfig, pathGenerator,
-      mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref, Some(CryptKey)))
+      mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref))
   }
 
   /**
@@ -264,65 +217,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     checkProcessing(new HttpArchiveManagementActorTestHelper)
   }
 
-  it should "correctly deal with encrypted archives" in {
-    val helper = new HttpArchiveManagementActorTestHelper(cryptArchive = true)
-    checkProcessing(helper)
-  }
-
-  it should "create only a minimum set of child actors" in {
-    val helper = new HttpArchiveManagementActorTestHelper
-    checkProcessing(helper)
-
-    val actorCreations = helper.childActorCreations
-    childActorsOfType[HttpCookieManagementActor](actorCreations) should have size 0
-    childActorsOfType[HttpBasicAuthRequestActor](actorCreations) should have size 0
-    childActorsOfType[HttpCookieManagementActor](actorCreations) should have size 0
-    childActorsOfType[CryptHttpRequestActor](actorCreations) should have size 0
-    childActorsOfClass(RequestActorTestImpl.ClsRequestActor, actorCreations) should have size 1
-  }
-
-  it should "create a correct request actor for basic auth" in {
-    val credentials = UserCredentials("scott", Secret("tiger"))
-    val authFunc = futureResult(HttpArchiveManagementActor.basicAuthConfigureFunc(credentials))
-    val config = ArchiveConfig.copy(authFunc = authFunc)
-    val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config)
-    checkProcessing(helper)
-
-    val actorCreations = helper.childActorCreations
-    val requestActor = childActorsOfClass(RequestActorTestImpl.ClsRequestActor, actorCreations).head
-    childActorsOfType[HttpBasicAuthRequestActor](actorCreations) match {
-      case h :: t if t.isEmpty =>
-        h.props.args should contain theSameElementsInOrderAs List(credentials, requestActor.child)
-    }
-  }
-
-  it should "create a correct request actor if cookie management is enabled" in {
-    val config = ArchiveConfig.copy(needsCookieManagement = true)
-    val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config)
-    checkProcessing(helper)
-
-    childActorsOfType[HttpCookieManagementActor](helper.childActorCreations) should have size 1
-  }
-
-  it should "create a correct request actor if multi-host support is needed" in {
-    val helper = new HttpArchiveManagementActorTestHelper(multiHost = true)
-    checkProcessing(helper)
-
-    childActorsOfType[HttpMultiHostRequestActor](helper.childActorCreations) should have size 1
-  }
-
-  it should "correctly combine multiple aspects when creating the request actor" in {
-    val authFunc = futureResult(HttpArchiveManagementActor.basicAuthConfigureFunc(
-      UserCredentials("scott", Secret("tiger"))))
-    val config = ArchiveConfig.copy(needsCookieManagement = true,
-      authFunc = authFunc)
-    val helper = new HttpArchiveManagementActorTestHelper(archiveConfig = config, cryptArchive = true)
-    checkProcessing(helper)
-
-    val actorCreations = helper.childActorCreations
-    childActorsOfType[CryptHttpRequestActor](actorCreations) should have size 1
-  }
-
   it should "notify the union archive about a started scan operation" in {
     val helper = new HttpArchiveManagementActorTestHelper
 
@@ -342,7 +236,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   it should "not send a process request for a response error" in {
     val helper = new HttpArchiveManagementActorTestHelper
 
-    helper.initFailedArchiveResponse(new Exception)
+    helper.stub((), ProgressState)(_.processingDone())
+      .initFailedArchiveResponse(new Exception)
       .triggerScan(initSuccessResponse = false)
       .expectNoProcessingRequest()
   }
@@ -515,8 +410,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
   it should "return a server error state if the server could not be contacted" in {
     val helper = new HttpArchiveManagementActorTestHelper
-    val exception = FailedRequestException(message = "Server not reachable!", response = None,
-      cause = new IOException("Crashed"), request = TestSendRequest)
+    val exception = new IOException("Crashed")
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
       .initFailedArchiveResponse(exception)
@@ -531,8 +425,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     val response = HttpResponse(status = status)
 
     helper.stub((), ContentProcessingUpdateServiceImpl.InitialState)(_.processingDone())
-      .initFailedArchiveResponse(FailedRequestException(response = Some(response), message = "Failure",
-        cause = null, request = TestSendRequest))
+      .initFailedArchiveResponse(FailedResponseException(response))
       .triggerScan(initSuccessResponse = false)
       .checkArchiveState(HttpArchiveStateFailedRequest(status))
     verify(helper.updateService).processingDone()
@@ -557,13 +450,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   /**
     * A test helper class managing all dependencies of a test actor instance.
     *
-    * @param cryptArchive  flag whether the test archive should be encrypted
-    * @param multiHost     flag whether the protocol needs multiple hosts
     * @param archiveConfig the archive configuration to be used
     */
-  private class HttpArchiveManagementActorTestHelper(cryptArchive: Boolean = false,
-                                                     multiHost: Boolean = false,
-                                                     archiveConfig: HttpArchiveConfig = ArchiveConfig)
+  private class HttpArchiveManagementActorTestHelper(archiveConfig: HttpArchiveConfig = ArchiveConfig)
     extends StateTestHelper[ContentProcessingState, ContentProcessingUpdateService] {
     /** Mock for the update service. */
     override val updateService: ContentProcessingUpdateService = mock[ContentProcessingUpdateService]
@@ -592,43 +481,20 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the content propagation actor. */
     private val probeContentPropagationActor = TestProbe()
 
-    /** Test probe for the URI resolver actor. */
-    private val probeUriResolverActor = TestProbe()
-
-    /** The actor for sending requests. */
-    private val plainRequestActor = system.actorOf(RequestActorTestImpl())
-
-    /** The actor for sending basic auth requests. */
-    private val basicAuthRequestActor = system.actorOf(RequestActorTestImpl())
-
-    /** The actor for managing cookies. */
-    private val cookieManagementActor = system.actorOf(RequestActorTestImpl())
-
-    /** The actor for sending encrypted requests. */
-    private val cryptRequestActor = system.actorOf(RequestActorTestImpl())
-
-    private val multiHostRequestActor = system.actorOf(RequestActorTestImpl())
-
     /** Mock for the temp path generator. */
     private val pathGenerator = mock[TempPathGenerator]
 
     /** The actor simulating the download management actor. */
     private val downloadManagementActor = ForwardTestActor()
 
-    /** The mock for the archive protocol. */
-    private val httpProtocol = createProtocol()
+    /** The mock for the media downloader. */
+    private val downloader = mock[MediaDownloader]
 
     /** A queue for recording the child actors that have been created. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
 
-    /**
-      * Stores the current request actor to be used. As request actors can be
-      * decorated, the reference changes depending on the setup of decorators.
-      */
-    private val refRequestActor = new AtomicReference[ActorRef]
-
     /** The final configuration for the archive. */
-    val config: HttpArchiveConfig = archiveConfig.copy(protocol = httpProtocol)
+    val config: HttpArchiveConfig = archiveConfig.copy(downloader = downloader)
 
     /** The actor to be tested. */
     val manager: TestActorRef[HttpArchiveManagementActor] = createTestActor()
@@ -680,11 +546,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       *
       * @return the request message
       */
-    def expectProcessingRequest(): ProcessHttpArchiveRequest = {
-      val request = probeContentProcessor.expectMsgType[ProcessHttpArchiveRequest]
-      request.requestActor should be(requestActor)
-      request
-    }
+    def expectProcessingRequest(): ProcessHttpArchiveRequest =
+      probeContentProcessor.expectMsgType[ProcessHttpArchiveRequest]
 
     /**
       * Expects that no processing request is sent to the content processor
@@ -715,7 +578,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return this test helper
       */
     def initSuccessArchiveResponse(): HttpArchiveManagementActorTestHelper =
-      initArchiveContentResponse(Future.successful(HttpRequests.ResponseData(createSuccessResponse(), null)))
+      initArchiveContentResponse(Future.successful(createSuccessResponse()))
 
     /**
       * Prepares the mock request actor to return an exception response for a
@@ -754,54 +617,15 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     }
 
     /**
-      * Returns a list with information about child actors that have been
-      * created by the management actor.
-      *
-      * @return a list with information about child actors
-      */
-    def childActorCreations: List[ChildActorCreation] = {
-      @scala.annotation.tailrec
-      def addNextChildActor(list: List[ChildActorCreation]): List[ChildActorCreation] = {
-        val child = childCreationQueue.poll()
-        if (child == null) list
-        else addNextChildActor(child :: list)
-      }
-
-      addNextChildActor(Nil)
-    }
-
-    /**
-      * Returns the actor to be used for sending HTTP requests. This actor
-      * depends on the encryption state of the archive and the decorators that
-      * have been configured.
-      *
-      * @return the actor for sending HTTP requests
-      */
-    private def requestActor: ActorRef = refRequestActor.get()
-
-    /**
-      * Creates the mock for the HTTP protocol and configures it according to
-      * the parameters passed to the constructor.
-      *
-      * @return the mock protocol
-      */
-    private def createProtocol(): HttpArchiveProtocol = {
-      val protocol = mock[HttpArchiveProtocol]
-      when(protocol.requiresMultiHostSupport).thenReturn(multiHost)
-      protocol
-    }
-
-    /**
-      * Prepares the mock for the HTTP protocol to handle a download request
-      * for the archive's main content file.
+      * Prepares the mock for the downloader to handle a download request for
+      * the archive's main content file.
       *
       * @param result the result to answer the request
-      * @return
+      * @return this test helper
       */
-    private def initArchiveContentResponse(result: Future[HttpRequests.ResponseData]):
+    private def initArchiveContentResponse(result: Future[Source[ByteString, Any]]):
     HttpArchiveManagementActorTestHelper = {
-      when(httpProtocol.downloadMediaFile(argEq(requestActor), argEq(config.archiveURI))(any(), any(),
-        argEq(config.processorTimeout))).thenReturn(result)
+      when(downloader.downloadContentFile()).thenReturn(result)
       this
     }
 
@@ -821,8 +645,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     private def createProps(): Props =
       Props(new HttpArchiveManagementActor(updateService, config, pathGenerator,
         probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
-        probeMonitoringActor.ref, probeRemoveActor.ref,
-        if (cryptArchive) Some(CryptKey) else None)
+        probeMonitoringActor.ref, probeRemoveActor.ref)
         with ChildActorFactory {
 
         /**
@@ -851,38 +674,6 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               p.args should be(List(probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
                 ArchiveURIStr))
               probeContentPropagationActor.ref
-
-            case ClsUriResolverActor if cryptArchive =>
-              p.args should be(List(requestActor, httpProtocol, CryptKey,
-                RequestActorTestImpl.TestArchiveBasePath, ArchiveConfig.cryptUriCacheSize))
-              probeUriResolverActor.ref
-
-            case RequestActorTestImpl.ClsRequestActor =>
-              refRequestActor.get() should be(null)
-              p.args should contain only(ArchiveConfig.archiveURI, ArchiveConfig.requestQueueSize)
-              refRequestActor.set(plainRequestActor)
-              plainRequestActor
-
-            case ClsCryptRequestActor if cryptArchive =>
-              p.args should be(List(probeUriResolverActor.ref, requestActor, CryptKey,
-                ArchiveConfig.processorTimeout))
-              refRequestActor.set(cryptRequestActor)
-              cryptRequestActor
-
-            case ClsBasicAuthActor =>
-              refRequestActor.set(basicAuthRequestActor)
-              basicAuthRequestActor
-
-            case ClsCookieManagementActor =>
-              p.args should contain only requestActor
-              refRequestActor.set(cookieManagementActor)
-              cookieManagementActor
-
-            case ClsMultiHostActor =>
-              refRequestActor.get() should be(null)
-              refRequestActor.set(multiHostRequestActor)
-              p.args should be(List(HttpArchiveManagementActor.MultiHostCacheSize, config.requestQueueSize))
-              multiHostRequestActor
           }
           childCreationQueue offer ChildActorCreation(p, child)
           child

@@ -16,19 +16,16 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import java.nio.charset.StandardCharsets
-import java.security.Key
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Status}
-import akka.http.scaladsl.model.HttpResponse
 import akka.routing.SmallestMailboxPool
-import akka.stream.scaladsl.Sink
-import akka.util.{ByteString, Timeout}
+import akka.stream.scaladsl.{Sink, Source}
+import akka.util.ByteString
+import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.impl._
-import de.oliver_heger.linedj.archivehttp.impl.crypt.{CryptHttpRequestActor, UriResolverActor}
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.impl.io._
 import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
@@ -42,6 +39,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, Meta
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -55,10 +53,9 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
                                                unionMediaManager: ActorRef,
                                                unionMetaDataManager: ActorRef,
                                                monitoringActor: ActorRef,
-                                               removeActor: ActorRef,
-                                               optCryptKey: Option[Key])
+                                               removeActor: ActorRef)
     extends HttpArchiveManagementActor(processingService, config, pathGenerator,
-      unionMediaManager, unionMetaDataManager, monitoringActor, removeActor, optCryptKey)
+      unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
       with ChildActorFactory
 
   /**
@@ -70,14 +67,13 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
     * @param unionMetaDataManager the union meta data manager actor
     * @param monitoringActor      the download monitoring actor
     * @param removeActor          the actor for removing temp files
-    * @param optCryptKey          an option for a key for decryption
     * @return ''Props'' for creating a new actor instance
     */
   def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
             unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
-            monitoringActor: ActorRef, removeActor: ActorRef, optCryptKey: Option[Key] = None): Props =
+            monitoringActor: ActorRef, removeActor: ActorRef): Props =
     Props(classOf[HttpArchiveManagementActorImpl], ContentProcessingUpdateServiceImpl, config,
-      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor, optCryptKey)
+      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
 
   /** The object for parsing medium descriptions in JSON. */
   private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
@@ -161,7 +157,7 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
     */
   private def stateFromException(ex: Throwable): HttpArchiveState =
     ex match {
-      case FailedRequestException(_, _, Some(response), _) =>
+      case FailedResponseException(response) =>
         HttpArchiveStateFailedRequest(response.status)
       case _ =>
         HttpArchiveStateServerError(ex)
@@ -190,20 +186,15 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
   * @param unionMetaDataManager the union meta data manager actor
   * @param monitoringActor      the download monitoring actor
   * @param removeActor          the actor for removing temp files
-  * @param optCryptKey          an option with the decryption key
   */
 class HttpArchiveManagementActor(processingService: ContentProcessingUpdateService,
                                  config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
                                  unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
-                                 monitoringActor: ActorRef, removeActor: ActorRef,
-                                 optCryptKey: Option[Key]) extends Actor
+                                 monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
   with ActorLogging {
   this: ChildActorFactory =>
 
   import HttpArchiveManagementActor._
-
-  /** The actor for sending HTTP requests. */
-  private var requestActor: ActorRef = _
 
   /** The archive content processor actor. */
   private var archiveContentProcessor: ActorRef = _
@@ -237,7 +228,6 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   import context.dispatcher
 
   override def preStart(): Unit = {
-    requestActor = createRequestActor()
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]))
@@ -304,7 +294,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       unionMetaDataManager ! UpdateOperationStarts(None)
       archiveStateResponse = None
       val currentSeqNo = processingState.seqNo
-      loadArchiveContent() map { resp => createProcessArchiveRequest(resp, currentSeqNo)
+      loadArchiveContent() map { data => createProcessArchiveRequest(data, currentSeqNo)
       } onComplete {
         case Success(req) =>
           archiveContentProcessor ! req
@@ -320,34 +310,30 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * Creates a request to process an HTTP archive from the given response for
     * the archive's content document.
     *
-    * @param resp     the response from the archive
+    * @param data     the source from the content document
     * @param curSeqNo the current sequence number for the message
     * @return the processing request message
     */
-  private def createProcessArchiveRequest(resp: HttpResponse, curSeqNo: Int):
+  private def createProcessArchiveRequest(data: Source[ByteString, Any], curSeqNo: Int):
   ProcessHttpArchiveRequest = {
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     val sink = Sink.actorRefWithBackpressure(self, HttpArchiveProcessingInit,
       HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure)
-    ProcessHttpArchiveRequest(clientFlow = null, requestActor = requestActor, archiveConfig = config,
+    ProcessHttpArchiveRequest(clientFlow = null, requestActor = null, archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
-      sink = sink, mediaSource = resp.entity.dataBytes.via(parseStage),
+      sink = sink, mediaSource = data.via(parseStage),
       seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
       infoParallelism = InfoParallelism)
   }
 
   /**
-    * Loads the content document from the managed archive using the request
-    * actor created on construction time.
+    * Loads the content document from the managed archive and returns a
+    * ''Future'' with a source of its bytes.
     *
     * @return a ''Future'' with the result of the operation
     */
-  private def loadArchiveContent(): Future[HttpResponse] = {
-    implicit val system: ActorSystem = context.system
-    implicit val requestTimeout: Timeout = config.processorTimeout
-    log.info("Requesting content of archive {}.", config.archiveURI)
-    config.protocol.downloadMediaFile(requestActor, config.archiveURI) map (_.response)
-  }
+  private def loadArchiveContent(): Future[Source[ByteString, Any]] =
+    config.downloader.downloadContentFile()
 
   /**
     * Performs a state update using the specified update function.
@@ -391,33 +377,5 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
     pendingStateClients foreach (_ ! response)
     pendingStateClients = Set.empty
-  }
-
-  /**
-    * Creates the actor to be used for HTTP requests. This actor depends on the
-    * encrypted flag of the current archive.
-    *
-    * @return the actor to execute HTTP requests
-    */
-  private def createRequestActor(): ActorRef = {
-    val requestActorProps = if (config.protocol.requiresMultiHostSupport)
-      HttpMultiHostRequestActor(MultiHostCacheSize, config.requestQueueSize)
-    else HttpRequestActor(config)
-    val plainRequestActor = createChildActor(requestActorProps)
-
-    val cookieActor = if (config.needsCookieManagement) createChildActor(HttpCookieManagementActor(plainRequestActor))
-    else plainRequestActor
-    val decoratedRequestActor = config.authFunc(cookieActor, this)
-    optCryptKey match {
-      case Some(key) =>
-        val archiveBasePath = UriHelper.extractParent(config.archiveURI.path.toString())
-        log.info("Creating request actor for encrypted archive, base path is {}.", archiveBasePath)
-        val resolverActor =
-          createChildActor(Props(classOf[UriResolverActor], decoratedRequestActor, config.protocol, key,
-            archiveBasePath, config.cryptUriCacheSize))
-        createChildActor(Props(classOf[CryptHttpRequestActor], resolverActor, decoratedRequestActor, key,
-          config.processorTimeout))
-      case None => decoratedRequestActor
-    }
   }
 }
