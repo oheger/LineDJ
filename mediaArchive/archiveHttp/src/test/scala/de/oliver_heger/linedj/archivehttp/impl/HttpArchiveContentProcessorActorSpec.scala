@@ -450,8 +450,6 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     ProcessHttpArchiveRequest = {
       val downloader = createDownloader(responseMapping)
       ProcessHttpArchiveRequest(mediaSource = source,
-        clientFlow = null,
-        requestActor = null,
         archiveConfig = config.copy(downloader = downloader), settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
         seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)

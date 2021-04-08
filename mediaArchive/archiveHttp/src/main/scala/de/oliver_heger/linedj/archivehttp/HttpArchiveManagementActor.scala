@@ -319,9 +319,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     val sink = Sink.actorRefWithBackpressure(self, HttpArchiveProcessingInit,
       HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure)
-    ProcessHttpArchiveRequest(clientFlow = null, requestActor = null, archiveConfig = config,
-      settingsProcessorActor = mediumInfoProcessor, metaDataProcessorActor = metaDataProcessor,
-      sink = sink, mediaSource = data.via(parseStage),
+    ProcessHttpArchiveRequest(archiveConfig = config, settingsProcessorActor = mediumInfoProcessor,
+      metaDataProcessorActor = metaDataProcessor, sink = sink, mediaSource = data.via(parseStage),
       seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
       infoParallelism = InfoParallelism)
   }

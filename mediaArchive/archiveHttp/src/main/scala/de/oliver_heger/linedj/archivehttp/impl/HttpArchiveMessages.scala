@@ -17,15 +17,12 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.HttpArchiveState
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-
-import scala.util.Try
 
 /**
   * Data class representing a description of a medium in an HTTP archive.
@@ -163,8 +160,6 @@ case class MediumPropagated(seqNo: Int)
   * mechanism to handle cancellation of scan operations.
   *
   * @param mediaSource            the source for the content of the HTTP archive
-  * @param clientFlow             a flow for requesting files from the archive
-  * @param requestActor           the actor for sending HTTP requests
   * @param archiveConfig          the configuration for the HTTP archive
   * @param settingsProcessorActor the actor to process settings requests
   * @param metaDataProcessorActor the actor to process meta data requests
@@ -174,9 +169,6 @@ case class MediumPropagated(seqNo: Int)
   * @param seqNo                  the sequence number of the current scan operation
   */
 case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
-                                     clientFlow: Flow[(HttpRequest, RequestData),
-                                       (Try[HttpResponse], RequestData), _],
-                                     requestActor: ActorRef,
                                      archiveConfig: HttpArchiveConfig,
                                      settingsProcessorActor: ActorRef,
                                      metaDataProcessorActor: ActorRef,
