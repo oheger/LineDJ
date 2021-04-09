@@ -16,19 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Status}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status}
 import akka.routing.SmallestMailboxPool
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
-import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.core.http.auth.OAuthTokenData
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, OAuthStorageConfig, UserCredentials}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
-import de.oliver_heger.linedj.archivehttp.impl.io._
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth._
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
@@ -40,10 +35,10 @@ import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, Up
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import java.nio.charset.StandardCharsets
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Success
 
-object HttpArchiveManagementActor extends HttpAuthFactory {
+object HttpArchiveManagementActor {
   /** The size of the cache for request actors with multi-host support. */
   val MultiHostCacheSize = 32
 
@@ -83,57 +78,6 @@ object HttpArchiveManagementActor extends HttpAuthFactory {
 
   /** The number of parallel processor actors for medium info files. */
   private val InfoParallelism = 2
-
-  /**
-    * Returns a function to configure authentication that implements the basic
-    * auth scheme.
-    *
-    * @param credentials the credentials to be applied
-    * @return the basic auth configure function
-    */
-  override def basicAuthConfigureFunc(credentials: UserCredentials): Future[AuthConfigureFunc] =
-    Future.successful {
-      (requestActor, factory) =>
-        factory.createChildActor(Props(classOf[HttpBasicAuthRequestActor], credentials, requestActor))
-    }
-
-  /**
-    * Returns a ''Future'' with a function to configure authentication based on
-    * OAuth 2.0. This function tries to load all relevant OAuth-specific
-    * information as specified by the passed in configuration. This is done
-    * asynchronously and may fail. The resulting function can then extend a
-    * plain HTTP request actor to send a correct access token in the
-    * ''Authorization'' header.
-    *
-    * @param storageConfig the OAuth storage configuration
-    * @param ec            the execution context
-    * @param system        the actor system to materialize streams
-    * @return a ''Future'' with the OAuth configure function
-    */
-  override def oauthConfigureFunc(storageConfig: OAuthStorageConfig)
-                                 (implicit ec: ExecutionContext, system: ActorSystem): Future[AuthConfigureFunc] =
-    for {config <- OAuthStorageServiceImpl.loadConfig(storageConfig)
-         secret <- OAuthStorageServiceImpl.loadClientSecret(storageConfig)
-         tokens <- OAuthStorageServiceImpl.loadTokens(storageConfig)
-         } yield oauthConfigureFunc(config, secret, tokens)
-
-  /**
-    * Internal helper function for creating a configure function for OAuth 2
-    * authentication. This function assumes that the provider-specific
-    * information has already been loaded.
-    *
-    * @param oauthConfig  the OAuth configuration
-    * @param clientSecret the client secret
-    * @param tokens       the initial token information
-    * @return the OAuth configure function
-    */
-  private def oauthConfigureFunc(oauthConfig: OAuthConfig, clientSecret: Secret, tokens: OAuthTokenData):
-  AuthConfigureFunc = (requestActor, factory) => {
-    val idpActorProps = HttpRequestActor(oauthConfig.tokenEndpoint, HttpArchiveConfig.DefaultRequestQueueSize)
-    val idpActor = factory.createChildActor(idpActorProps)
-    factory.createChildActor(OAuthTokenActor(requestActor, idpActor, oauthConfig, clientSecret, tokens,
-      OAuthTokenRetrieverServiceImpl))
-  }
 
   /**
     * A function for parsing JSON to a sequence of ''HttpMediumDesc'' objects.
