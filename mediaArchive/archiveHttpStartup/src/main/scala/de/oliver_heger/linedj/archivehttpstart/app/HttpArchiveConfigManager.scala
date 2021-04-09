@@ -127,7 +127,7 @@ private object HttpArchiveConfigManager {
     else {
       val currentKey = KeyArchives + s"($idx)"
       val optNextData = createArchiveData(c, downloadConfig, realms, currentKey, names) map (d =>
-        (data + (d.config.archiveName -> d), names + d.shortName))
+        (data + (d.config.archiveConfig.archiveName -> d), names + d.shortName))
       val nextData = optNextData getOrElse(data, names)
       addArchive(c, downloadConfig, realms, idx - 1, nextData._1, nextData._2)
     }
@@ -184,8 +184,8 @@ private object HttpArchiveConfigManager {
     * @return the short name derived from the archive name
     */
   private def extractShortName(config: HttpArchiveStartupConfig): String =
-    if (config.archiveName.length <= LengthShortName) config.archiveName
-    else config.archiveName.substring(0, LengthShortName)
+    if (config.archiveConfig.archiveName.length <= LengthShortName) config.archiveConfig.archiveName
+    else config.archiveConfig.archiveName.substring(0, LengthShortName)
 
   /**
     * Returns an ''Option'' with the realm to be used for an archive. This
@@ -204,8 +204,8 @@ private object HttpArchiveConfigManager {
       case Success(realm) =>
         Some(realm)
       case Failure(ex) =>
-        log.error(s"Could not create archive for ${archiveConfig.archiveURI}. It references an invalid realm.",
-          ex)
+        log.error(s"Could not create archive for ${archiveConfig.archiveConfig.archiveURI}. " +
+          "It references an invalid realm.", ex)
         None
     }
 

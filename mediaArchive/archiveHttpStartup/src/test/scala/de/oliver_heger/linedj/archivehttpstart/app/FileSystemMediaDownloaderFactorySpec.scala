@@ -65,16 +65,15 @@ object FileSystemMediaDownloaderFactorySpec {
   private val ArchiveConfig = HttpArchiveConfig(processorTimeout = Timeout(2.minutes), processorCount = 2,
     propagationBufSize = 4, maxContentSize = 8192, downloadBufferSize = 4096, downloadMaxInactivity = 10.seconds,
     downloadReadChunkSize = 4096, timeoutReadSize = 17, requestQueueSize = 24, cryptUriCacheSize = 0,
-    archiveURI = "", archiveName = "", downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
-    needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
+    archiveURI = ArchiveUri, archiveName = ArchiveName, downloadConfig = null, metaMappingConfig = null,
+    contentMappingConfig = null, needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
 
   /**
     * A test archive startup configuration with basic properties. Some test
     * cases derive modified configurations from this object.
     */
   private val ArchiveStartupConfig = HttpArchiveStartupConfig(archiveConfig = ArchiveConfig,
-    archiveURI = ArchiveUri, archiveName = ArchiveName, requestQueueSize = 16, needsCookieManagement = false,
-    needsRetrySupport = false)
+    requestQueueSize = 16, needsCookieManagement = false, needsRetrySupport = false)
 
   /** The auth config used by the tests. */
   private val TestAuthConfig = BasicAuthConfig("scott", Secret("tiger"))

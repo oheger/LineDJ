@@ -272,9 +272,9 @@ object HttpArchiveStartupConfig {
       downloadConfig = downloadConfig,
       metaMappingConfig = extractMappingConfig(c, Path + PrefixMetaUriMapping),
       contentMappingConfig = extractMappingConfig(c, Path + PrefixContentUriMapping),
+      archiveURI = c.getString(Path + PropArchiveUri),
+      archiveName = extractArchiveName(c, Path),
       //TODO Remove these properties from HttpArchiveConfig.
-      archiveURI = "",
-      archiveName = null,
       requestQueueSize = 0,
       cryptUriCacheSize = 0,
       needsCookieManagement = false,
@@ -282,8 +282,6 @@ object HttpArchiveStartupConfig {
       authFunc = null,
       downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
-      archiveURI = c.getString(Path + PropArchiveUri),
-      archiveName = extractArchiveName(c, Path),
       requestQueueSize = c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize),
       needsCookieManagement = c.getBoolean(Path + PropNeedsCookieManagement, false),
       needsRetrySupport = c.getBoolean(Path + PropNeedsRetrySupport, false))
@@ -338,8 +336,6 @@ object HttpArchiveStartupConfig {
   *    These are the other properties supported by this class.
   *
   * @param archiveConfig         the ''HttpArchiveConfig'' for managing this archive
-  * @param archiveURI            the URI of the archive
-  * @param archiveName           a name of this archive
   * @param requestQueueSize      the size of the request queue of the request
   *                              actor
   * @param needsCookieManagement flag whether support for managing
@@ -348,8 +344,6 @@ object HttpArchiveStartupConfig {
   *                              Requests" responses should be added
   */
 case class HttpArchiveStartupConfig(archiveConfig: HttpArchiveConfig,
-                                    archiveURI: Uri,
-                                    archiveName: String,
                                     requestQueueSize: Int,
                                     needsCookieManagement: Boolean,
                                     needsRetrySupport: Boolean)

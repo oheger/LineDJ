@@ -241,7 +241,7 @@ class HttpArchiveOverviewController(messageBus: MessageBus, configManager: HttpA
   private def sendLocksForArchives(archives: Iterable[HttpArchiveData]): Unit = {
     archives.filter(_.encrypted)
       .foreach { data =>
-        messageBus publish LockStateChanged(data.config.archiveName, None)
+        messageBus publish LockStateChanged(data.config.archiveConfig.archiveName, None)
       }
   }
 

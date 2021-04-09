@@ -143,8 +143,8 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     triedConfig match {
       case Success(startUpConfig) =>
         val config = startUpConfig.archiveConfig
-        startUpConfig.archiveURI should be(Uri(ArchiveUri))
-        startUpConfig.archiveName should be(ArchiveName)
+        config.archiveURI should be(Uri(ArchiveUri))
+        config.archiveName should be(ArchiveName)
         config.processorCount should be(ProcessorCount)
         config.processorTimeout should be(Timeout(ProcessorTimeout, TimeUnit.SECONDS))
         config.propagationBufSize should be(PropagationBufSize)
@@ -246,7 +246,7 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
 
     createStartupConfig(c) match {
       case Success(config) =>
-        config.archiveName should be(expName)
+        config.archiveConfig.archiveName should be(expName)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }

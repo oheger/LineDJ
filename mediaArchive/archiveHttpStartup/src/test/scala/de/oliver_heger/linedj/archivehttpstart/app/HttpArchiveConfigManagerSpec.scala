@@ -45,7 +45,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     names.zipWithIndex.foreach { t =>
       val expUri = StartupConfigTestHelper.archiveUri(t._2 + 1)
       val archiveData = manager.archives(t._1)
-      archiveData.config.archiveURI.toString() should be(expUri)
+      archiveData.config.archiveConfig.archiveURI.toString() should be(expUri)
       archiveData.encrypted shouldBe false
       archiveData.protocol should be(HttpArchiveConfigManager.DefaultProtocolName)
     }
@@ -174,7 +174,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archivesForRealm(Realm)
-      .map(_.config.archiveName) should contain theSameElementsAs expNames
+      .map(_.config.archiveConfig.archiveName) should contain theSameElementsAs expNames
   }
 
   it should "evaluate the encrypted flag for archives" in {

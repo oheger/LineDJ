@@ -340,7 +340,9 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     case LoginStateChanged(realm, Some(creds)) =>
       removeRealmCredentials(realm)
       realms += realm -> creds
-      configManager.archivesForRealm(realm) foreach (data => updateArchiveState(data.config.archiveName, data))
+      configManager.archivesForRealm(realm) foreach { data =>
+        updateArchiveState(data.config.archiveConfig.archiveName, data)
+      }
       triggerArchiveStartIfPossible()
 
     case LoginStateChanged(realm, None) =>
