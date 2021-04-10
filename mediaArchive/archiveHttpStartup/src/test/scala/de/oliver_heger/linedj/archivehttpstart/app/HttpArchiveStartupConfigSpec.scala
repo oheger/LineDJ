@@ -160,7 +160,7 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
         config.metaMappingConfig.urlEncode shouldBe true
         config.contentMappingConfig.removePrefix should be(null)
         config.contentMappingConfig.pathComponentsToRemove should be(0)
-        config.contentMappingConfig.uriTemplate should be(HttpArchiveConfig
+        config.contentMappingConfig.uriTemplate should be(HttpArchiveStartupConfig
           .DefaultUriMappingTemplate)
         config.contentMappingConfig.urlEncode shouldBe false
         startUpConfig.requestQueueSize should be(RequestQueueSize)

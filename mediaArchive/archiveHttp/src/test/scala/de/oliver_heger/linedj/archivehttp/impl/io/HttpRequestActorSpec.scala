@@ -56,15 +56,15 @@ object HttpRequestActorSpec {
   private val Data = new Object
 
   /** The size of the request queue. */
-  private val QueueSize = 42
+  private val QueueSize = 16
 
   /** A test configuration for an HTTP archive. */
   private val TestConfig = HttpArchiveConfig(archiveURI = ServerUri,
-    requestQueueSize = QueueSize, archiveName = "MyTestArchive", processorCount = 1,
+    archiveName = "MyTestArchive", processorCount = 1,
     processorTimeout = Timeout(1.minute), propagationBufSize = 128, maxContentSize = 10000,
     downloadBufferSize = 65536, downloadMaxInactivity = 30.seconds, downloadReadChunkSize = 100,
     timeoutReadSize = 1024, downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null,
-    cryptUriCacheSize = 1024, needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
+    downloader = null)
 
   /** A list with default headers of the test request. */
   private val DefaultHeaders = List(ETag("some_tag"))
@@ -103,17 +103,16 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     classOf[HttpRequestActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(TestConfig.archiveURI, TestConfig.requestQueueSize))
+    props.args should be(List(TestConfig.archiveURI, QueueSize))
   }
 
   it should "create correct properties from single parameters" in {
     val uri = TestConfig.archiveURI
-    val queueSize = TestConfig.requestQueueSize
 
-    val props = HttpRequestActor(uri, queueSize)
+    val props = HttpRequestActor(uri, QueueSize)
     classOf[HttpRequestActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[HttpFlowFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(TestConfig.archiveURI, TestConfig.requestQueueSize))
+    props.args should be(List(TestConfig.archiveURI, QueueSize))
   }
 
   it should "handle a successful request" in {
@@ -164,7 +163,7 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   it should "close the request queue when it is stopped" in {
     val queue = mock[SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])]]
-    val requestActor = system.actorOf(Props(new HttpRequestActor(TestConfig.archiveURI, TestConfig.requestQueueSize)
+    val requestActor = system.actorOf(Props(new HttpRequestActor(TestConfig.archiveURI, QueueSize)
       with HttpFlowFactory with SystemPropertyAccess {
       override def requestQueue: SourceQueueWithComplete[(HttpRequest, Promise[HttpResponse])] = queue
     }))
@@ -255,7 +254,7 @@ class HttpRequestActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return the ''Props'' for a test actor instance
       */
     private def createTestActorProps(): Props =
-      Props(new HttpRequestActor(TestConfig.archiveURI, TestConfig.requestQueueSize) with HttpFlowFactory
+      Props(new HttpRequestActor(TestConfig.archiveURI, QueueSize) with HttpFlowFactory
         with SystemPropertyAccess {
         override def createHttpFlow[T](uri: Uri)(implicit actorSystem: ActorSystem):
         Flow[(HttpRequest, T), (Try[HttpResponse], T), Any] = {

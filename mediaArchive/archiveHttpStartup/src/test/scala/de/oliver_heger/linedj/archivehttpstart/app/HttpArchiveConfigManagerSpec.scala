@@ -150,7 +150,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val ShortName = "Arc"
     val config = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration, 1)
     config.setProperty(StartupConfigTestHelper.KeyArchives + "." +
-      HttpArchiveConfig.PropArchiveName, ShortName)
+      HttpArchiveStartupConfig.PropArchiveName, ShortName)
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(ShortName).shortName should be(ShortName)

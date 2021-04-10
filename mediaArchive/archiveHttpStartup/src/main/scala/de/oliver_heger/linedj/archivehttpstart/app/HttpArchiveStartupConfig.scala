@@ -274,12 +274,6 @@ object HttpArchiveStartupConfig {
       contentMappingConfig = extractMappingConfig(c, Path + PrefixContentUriMapping),
       archiveURI = c.getString(Path + PropArchiveUri),
       archiveName = extractArchiveName(c, Path),
-      //TODO Remove these properties from HttpArchiveConfig.
-      requestQueueSize = 0,
-      cryptUriCacheSize = 0,
-      needsCookieManagement = false,
-      protocol = null,
-      authFunc = null,
       downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
       requestQueueSize = c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize),

@@ -37,7 +37,7 @@ object HttpRequestActor {
     * @return the properties to create a new actor instance
     */
   def apply(config: HttpArchiveConfig): Props =
-    apply(config.archiveURI, config.requestQueueSize)
+    apply(config.archiveURI, 16)  // TODO This whole class can be removed in future
 
   /**
     * Returns an object with properties to create a new actor instance that is

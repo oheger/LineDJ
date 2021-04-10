@@ -86,11 +86,11 @@ object StartupConfigTestHelper {
                          protocol: Option[String] = None, encrypted: Boolean = false):
   Configuration = {
     c.addProperty("media.mediaArchive." + DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
-    val propsBase = Map(HttpArchiveConfig.PropArchiveName -> archiveName(idx),
-      HttpArchiveConfig.PropArchiveUri -> archiveUri(idx),
-      HttpArchiveConfig.PropDownloadBufferSize -> 16384,
-      HttpArchiveConfig.PropDownloadMaxInactivity -> 5 * 60,
-      HttpArchiveConfig.PropTimeoutReadSize -> 128 * 1024,
+    val propsBase = Map(HttpArchiveStartupConfig.PropArchiveName -> archiveName(idx),
+      HttpArchiveStartupConfig.PropArchiveUri -> archiveUri(idx),
+      HttpArchiveStartupConfig.PropDownloadBufferSize -> 16384,
+      HttpArchiveStartupConfig.PropDownloadMaxInactivity -> 5 * 60,
+      HttpArchiveStartupConfig.PropTimeoutReadSize -> 128 * 1024,
       "realm" -> realm.getOrElse(realmName(idx)))
     val propsProto = protocol.fold(propsBase)(p => propsBase + ("protocol" -> p))
     val propsEnc = if (encrypted) propsProto + ("encrypted" -> true) else propsProto

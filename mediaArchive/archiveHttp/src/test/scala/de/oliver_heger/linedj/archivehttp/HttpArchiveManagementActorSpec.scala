@@ -25,7 +25,6 @@ import akka.util.{ByteString, Timeout}
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig.AuthConfigureFunc
 import de.oliver_heger.linedj.archivehttp.impl._
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
@@ -51,8 +50,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object HttpArchiveManagementActorSpec {
-  /** An auth function that does not special configuration. */
-  private val NoAuthFunc: AuthConfigureFunc = (actor, _) => actor
 
   /** The value of the propagation buffer size config property. */
   private val PropBufSize = 4
@@ -62,7 +59,7 @@ object HttpArchiveManagementActorSpec {
     * modified by specific tests.
     */
   private val ArchiveConfig = RequestActorTestImpl.createTestArchiveConfig()
-    .copy(propagationBufSize = PropBufSize, authFunc = NoAuthFunc)
+    .copy(propagationBufSize = PropBufSize)
 
   /** URI to the test music archive. */
   private val ArchiveURIStr = ArchiveConfig.archiveURI.toString()

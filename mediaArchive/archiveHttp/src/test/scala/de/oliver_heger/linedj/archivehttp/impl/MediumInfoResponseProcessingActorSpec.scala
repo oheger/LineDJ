@@ -16,11 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import java.nio.charset.StandardCharsets
-
 import akka.NotUsed
 import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.model.{HttpResponse, Uri}
+import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
@@ -37,6 +35,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.charset.StandardCharsets
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
@@ -73,8 +72,7 @@ object MediumInfoResponseProcessingActorSpec {
     "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = null,
-    contentMappingConfig = null, requestQueueSize = 4, cryptUriCacheSize = 1024,
-    needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
+    contentMappingConfig = null, downloader = null)
 
   /** A timeout value for waiting for async results. */
   private val WaitTimeout = 3.seconds

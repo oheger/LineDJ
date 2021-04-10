@@ -64,9 +64,8 @@ object FileSystemMediaDownloaderFactorySpec {
   /** A test archive configuration. */
   private val ArchiveConfig = HttpArchiveConfig(processorTimeout = Timeout(2.minutes), processorCount = 2,
     propagationBufSize = 4, maxContentSize = 8192, downloadBufferSize = 4096, downloadMaxInactivity = 10.seconds,
-    downloadReadChunkSize = 4096, timeoutReadSize = 17, requestQueueSize = 24, cryptUriCacheSize = 0,
-    archiveURI = ArchiveUri, archiveName = ArchiveName, downloadConfig = null, metaMappingConfig = null,
-    contentMappingConfig = null, needsCookieManagement = false, protocol = null, authFunc = null, downloader = null)
+    downloadReadChunkSize = 4096, timeoutReadSize = 17, archiveURI = ArchiveUri, archiveName = ArchiveName,
+    downloadConfig = null, metaMappingConfig = null, contentMappingConfig = null, downloader = null)
 
   /**
     * A test archive startup configuration with basic properties. Some test

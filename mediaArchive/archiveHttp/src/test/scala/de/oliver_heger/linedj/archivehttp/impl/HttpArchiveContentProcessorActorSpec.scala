@@ -22,14 +22,13 @@ import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Matchers.any
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
@@ -58,8 +57,8 @@ object HttpArchiveContentProcessorActorSpec {
   final val ErrorPrefix = "Error:"
 
   /** A default URI mapping configuration for the archive content file. */
-  private val ContentMappingConfig =
-    HttpArchiveConfig.extractMappingConfig(new PropertiesConfiguration, "")
+  private val ContentMappingConfig = UriMappingConfig(removeComponents = 0, removePrefix = "",
+    uriTemplate = "${uri}", pathSeparator = "/", urlEncode = false)
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig = RequestActorTestImpl.createTestArchiveConfig()
@@ -235,7 +234,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val Prefix = "test/"
     val config = DefaultArchiveConfig
       .copy(contentMappingConfig = DefaultArchiveConfig.contentMappingConfig
-        .copy(uriTemplate = Prefix + HttpArchiveConfig.DefaultUriMappingTemplate))
+        .copy(uriTemplate = Prefix + "${uri}"))
     val descriptions = createMediumDescriptions(4)
     val mapping = createResponseMapping(descriptions.map { desc =>
       HttpMediumDesc(Prefix + desc.mediumDescriptionPath, Prefix + desc.metaDataPath)
