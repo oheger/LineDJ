@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl.io.oauth
+package de.oliver_heger.linedj.archivehttp.io.oauth
 
 /**
   * A data class collecting the properties required for an OAuth client

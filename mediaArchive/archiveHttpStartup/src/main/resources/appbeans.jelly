@@ -26,7 +26,7 @@
     <di:contextBean var="superPasswordServiceVar" name="superPasswordService"/>
 
     <!-- The service for accessing OAuth configuration data. -->
-    <di:const targetClassName="de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthStorageServiceImpl$"
+    <di:const targetClassName="de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl$"
               field="MODULE$" var="oauthStorageServiceVar"/>
     <di:contextBean var="oauthStorageServiceVar" name="oauthStorageService"/>
 

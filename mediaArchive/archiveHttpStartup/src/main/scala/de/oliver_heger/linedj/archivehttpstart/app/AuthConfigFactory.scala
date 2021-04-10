@@ -20,7 +20,7 @@ import akka.actor.ActorSystem
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.{AuthConfig, BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth.{OAuthConfig, OAuthStorageService}
+import de.oliver_heger.linedj.archivehttp.io.oauth.{OAuthConfig, OAuthStorageService}
 
 import scala.concurrent.{ExecutionContext, Future}
 

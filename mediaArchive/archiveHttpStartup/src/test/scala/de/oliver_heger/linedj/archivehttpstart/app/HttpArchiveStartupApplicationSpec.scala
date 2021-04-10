@@ -23,8 +23,8 @@ import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.archivehttp.impl.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
+import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec

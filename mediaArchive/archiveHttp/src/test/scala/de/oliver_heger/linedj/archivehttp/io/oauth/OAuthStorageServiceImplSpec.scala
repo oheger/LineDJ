@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archivehttp.impl.io.oauth
+package de.oliver_heger.linedj.archivehttp.io.oauth
 
-import java.nio.file.{Files, Path}
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
+import java.nio.file.{Files, Path}
 import scala.xml.SAXParseException
 
 object OAuthStorageServiceImplSpec {
