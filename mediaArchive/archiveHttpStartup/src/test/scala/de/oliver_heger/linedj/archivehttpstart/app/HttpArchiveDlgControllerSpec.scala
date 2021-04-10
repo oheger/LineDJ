@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import de.oliver_heger.linedj.crypt.KeyGenerator
+import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
@@ -358,9 +358,6 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     /** Mock for the password input field. */
     private val txtPassword = mock[ComponentHandler[String]]
 
-    /** Mock for the key generator. */
-    private val keyGen = mock[KeyGenerator]
-
     /**
       * Prepares the mock text field for the password to return the test
       * password and generates a mock key that is returned by the key
@@ -369,9 +366,7 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       * @return the mock key that corresponds to the test password
       */
     def preparePassword(): UnlockControllerTestHelper = {
-      val key = mock[Key]
       when(txtPassword.getData).thenReturn(Password)
-      when(keyGen.generateKey(Password)).thenReturn(key)
       this
     }
 
@@ -381,11 +376,11 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return the crypt key
       */
-    def key: Key = keyGen.generateKey(Password)
+    def key: Key = Aes.keyFromString(Password)
 
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
-      new HttpArchiveUnlockDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, Archive, keyGen)
+      new HttpArchiveUnlockDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, Archive)
   }
 
   /**

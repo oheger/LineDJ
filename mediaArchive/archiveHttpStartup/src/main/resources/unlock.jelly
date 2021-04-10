@@ -31,7 +31,6 @@
       <di:param refName="comp:btnCancel"/>
       <di:param refName="comp:txtArchiveName"/>
       <di:param value="${archiveName}"/>
-      <di:param refName="keyGenerator"/>
     </di:constructor>
   </di:bean>
 

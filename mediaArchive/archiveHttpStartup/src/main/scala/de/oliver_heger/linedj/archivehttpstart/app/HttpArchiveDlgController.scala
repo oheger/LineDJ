@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
+import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.crypt.KeyGenerator
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormActionListener}
@@ -193,22 +193,20 @@ class HttpArchiveLoginDlgController(bus: UIBus, txtUser: ComponentHandler[String
   * @param btnCancel    the component handler for the cancel button
   * @param txtPrompt    the component handler for the prompt text
   * @param archiveName  the name of the current HTTP archive
-  * @param keyGenerator the object to generate the secret key
   */
 class HttpArchiveUnlockDlgController(bus: UIBus,
                                      txtPassword: ComponentHandler[String],
                                      btnOk: ComponentHandler[_],
                                      btnCancel: ComponentHandler[_],
                                      txtPrompt: StaticTextHandler,
-                                     archiveName: String,
-                                     keyGenerator: KeyGenerator)
+                                     archiveName: String)
   extends HttpArchiveDlgController(bus, btnOk, btnCancel, txtPrompt, archiveName) {
   /**
     * @inheritdoc This implementation produces a ''LockStateChanged'' message
     *             with the crypt key generated from the entered password.
     */
   override protected def generateOkMessage(): Any = {
-    val key = keyGenerator.generateKey(txtPassword.getData)
+    val key = Aes.keyFromString(txtPassword.getData)
     LockStateChanged(archiveName, Some(key))
   }
 }
