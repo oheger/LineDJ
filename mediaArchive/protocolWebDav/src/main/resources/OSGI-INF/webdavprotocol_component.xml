@@ -21,10 +21,10 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.HttpArchiveProtocolWebDav" immediate="true">
-    <implementation class="de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocol" />
+    <implementation class="de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocolSpec" />
 
     <service>
-        <provide interface="de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol"/>
+        <provide interface="de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec"/>
     </service>
 
 </component>
