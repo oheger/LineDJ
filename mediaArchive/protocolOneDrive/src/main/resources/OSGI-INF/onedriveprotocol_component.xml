@@ -21,10 +21,10 @@
 -->
 <component xmlns="http://www.osgi.org/xmlns/scr/v1.1.0"
            name="lineDJ.HttpArchiveProtocolOneDrive" immediate="true">
-    <implementation class="de.oliver_heger.linedj.archive.protocol.onedrive.OneDriveProtocol" />
+    <implementation class="de.oliver_heger.linedj.archive.protocol.onedrive.OneDriveProtocolSpec" />
 
     <service>
-        <provide interface="de.oliver_heger.linedj.archivehttp.spi.HttpArchiveProtocol"/>
+        <provide interface="de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec"/>
     </service>
 
 </component>

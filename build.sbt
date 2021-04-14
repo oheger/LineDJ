@@ -275,12 +275,12 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
   .settings(
     name := "linedj-protocol-onedrive",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
-    OsgiKeys.importPackage := Seq("!de.oliver_heger.linedj.archivehttp.impl.io", "*"),
+    OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
-  ) dependsOn(shared % "compile->compile;test->test", archiveHttp % "compile->compile;test->test")
+  ) dependsOn(shared % "compile->compile;test->test", archiveHttpStartup)
 
 /**
   * A project providing functionality related to cryptography.
