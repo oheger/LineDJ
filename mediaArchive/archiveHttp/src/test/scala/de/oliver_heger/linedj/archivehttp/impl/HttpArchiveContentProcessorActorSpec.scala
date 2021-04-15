@@ -24,7 +24,6 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
-import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -61,8 +60,12 @@ object HttpArchiveContentProcessorActorSpec {
     uriTemplate = "${uri}", pathSeparator = "/", urlEncode = false)
 
   /** A default configuration for the test archive. */
-  private val DefaultArchiveConfig = RequestActorTestImpl.createTestArchiveConfig()
-    .copy(contentMappingConfig = ContentMappingConfig)
+  private val DefaultArchiveConfig =
+    HttpArchiveConfig(archiveURI = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+      archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
+      maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
+      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
+      contentMappingConfig = ContentMappingConfig, downloader = null)
 
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = DefaultArchiveConfig.archiveURI.toString()

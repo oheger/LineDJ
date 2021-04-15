@@ -19,11 +19,10 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.ByteString
+import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
-import de.oliver_heger.linedj.archivehttp.RequestActorTestImpl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
@@ -39,6 +38,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.IOException
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 object HttpDownloadManagementActorSpec {
   /** The URI of a test file to be downloaded. */
@@ -310,7 +310,11 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the configuration
       */
     private def createConfig(): HttpArchiveConfig =
-      RequestActorTestImpl.createTestArchiveConfig().copy(downloader = downloader)
+      HttpArchiveConfig(archiveURI = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+        archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
+        maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
+        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
+        contentMappingConfig = null, downloader = downloader)
 
     /**
       * Creates a new test actor instance.

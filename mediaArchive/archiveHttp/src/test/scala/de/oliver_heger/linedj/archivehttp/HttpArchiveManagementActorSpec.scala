@@ -58,8 +58,12 @@ object HttpArchiveManagementActorSpec {
     * The template for the test archive configuration. (Some properties are
     * modified by specific tests.
     */
-  private val ArchiveConfig = RequestActorTestImpl.createTestArchiveConfig()
-    .copy(propagationBufSize = PropBufSize)
+  private val ArchiveConfig =
+    HttpArchiveConfig(archiveURI = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+      archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = PropBufSize,
+      maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
+      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
+      contentMappingConfig = null, downloader = null)
 
   /** URI to the test music archive. */
   private val ArchiveURIStr = ArchiveConfig.archiveURI.toString()
