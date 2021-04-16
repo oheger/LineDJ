@@ -89,20 +89,24 @@ created manually. Below is an example:
 ----
 
 == Protocols
-The term _HTTP archive_ (obviously) indicates that media files and meta data are
+The term _HTTP archive_ (obviously) indicates that media files and metadata are
 located on servers that are accessed via the HTTP protocol. There are, however,
 different APIs how to download specific files from the server, or how to query
 the content of specific folders. Different vendors for cloud storage define
 their own proprietary APIs to access the content on the server or make use of
 standard protocols, such as http://webdav.org/[WebDav]. To deal with these
-different access methods, HTTP archives access their data through a generic
-protocol interface.
+different access methods, HTTP archives access their data through the
+https://github.com/oheger/cloud-files[CloudFiles] library, which supports
+different server protocols through a generic `FileSystem` interface.
 
-The protocol interface consists of a couple of traits in the
-`de.oliver_heger.linedj.archivehttp.spi` package of the _archivehttp_ project.
-Concrete implementations of these traits are found in separate OSGi modules; in
-order to enable support for a specific protocol, the corresponding bundle needs
-to be installed in the OSGi container.
+The `FileSystem` for a specific server type has to be correctly set up and
+configured based on the archive configuration. To do this in an extensible way,
+the _archivehttpstartup_ project defines the `HttpArchiveProtocolSpec` trait in
+the `de.oliver_heger.linedj.archivehttpstart.spi` package. The trait basically
+defines some properties and declares a function to create a proper file system
+instance. Concrete implementations of this trait are found in separate OSGi
+modules; in order to enable support for a specific protocol, the corresponding
+bundle needs to be installed in the OSGi container.
 
 Each protocol bundle defines a unique name. In the <<Configuration,configuration>>
 of an archive, the name of the desired protocol is specified. Only archives that
@@ -121,7 +125,7 @@ content definition file of this archive, e.g.
 `https://webdav.magentacloud.de/test-archive/testContent.json`
 
 This protocol is used by default if no protocol is specified in the
-configuration of an archive,
+configuration of an archive.
 
 === OneDrive
 This protocol allows access to data stored in a
@@ -165,6 +169,7 @@ example configuration with all supported options:
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <downloadReadChunkSize>8192</downloadReadChunkSize>
       <timeoutReadSize>262144</timeoutReadSize>
+      <needRetry>true</needRetry>
       <uriMapping>
         <removePrefix>path://</removePrefix>
         <removePathComponents>1</removePathComponents>
@@ -222,7 +227,7 @@ for instance if multiple archives are hosted on the same server or if the same
 credentials are used for different servers (which is not recommended).
 
 A single realm declaration defines a name for the realm, the authentication
-mechanism to be used, and additional meta data that depends on the concrete
+mechanism to be used, and additional metadata that depends on the concrete
 authentication mechanism. Currently, the following mechanisms are supported:
 
 .Supported authentication mechanisms
@@ -256,7 +261,7 @@ archive references a realm by name for which no declaration exists, an implicit
 declaration of a _basic_ realm with this name is created automatically.
 
 The declaration of a realm of type _oauth_ is more complex as it requires some
-additional meta data:
+additional metadata:
 
 [source,xml]
 ----
@@ -318,7 +323,7 @@ A file defining basic properties of an IDP looks as follows:
 </oauth-config>
 ----
 
-=== Basic meta data
+=== Basic metadata
 
 The properties of this category define the basic parameters of the HTTP
 archive, such as its URL or its name. The following properties are supported:
@@ -367,6 +372,12 @@ required. If set to *true*, a special HTTP request actor is installed that
 deals with `Set-Cookie` headers from the server. Setting this flag can be
 necessary in special restricted environments, e.g. behind a corporation proxy
 server. | Yes, defaults to *false*.
+| needRetry | A flag whether for this archive a special retry logic for
+requests should be enabled. Some servers do not allow many requests in a short
+time range (which may happen when the content files of larger archives are
+loaded). They then react with failure responses with status 429 - Too many
+requests. If this flag is set, such responses are handled, and the requests are
+retried after some delay. | Yes, defaults to *false*.
 |=================
 
 === Download configuration
@@ -414,8 +425,8 @@ for a single HTTP archive. | Yes, defaults to the system temp directory.
 When loading data from an HTTP archive URI references have to be resolved in
 multiple ways:
 * The content document of the archive refers to the medium description file and
-  the meta data file for each medium contained in the archive.
-* The meta data files list the (typically relative) URIs of the song files 
+  the metadata file for each medium contained in the archive.
+* The metadata files list the (typically relative) URIs of the song files
   belonging to this medium.
 
 These references are typically generated for local media archives. Because of
@@ -423,7 +434,7 @@ this they cannot necessarily be used directly to reference a file in the
 HTTP archive. Therefore, a mapping has to be applied to come to the final URIs
 for files to be downloaded. For this purpose, a _uriMapping_ configuration is
 supported. The basic idea here is that the URI for a file is derived from the
-URI declared in the content document or the meta data file applying the 
+URI declared in the content document or the metadata file applying the
 following algorithm:
 
 * An optional prefix is removed from the original URI. This is useful for
@@ -467,11 +478,11 @@ to, and _${uri}_ for the processed URI of the file. | Yes, defaults to _${uri}_
 
 The configuration of an HTTP archive may contain two sections defining the
 mapping of URIs: 
-* The _uriMapping_ element encloses the mapping configuration for meta data
+* The _uriMapping_ element encloses the mapping configuration for metadata
   files. It is evaluated when media files are downloaded from the archive.
 * The _contentUriMapping_ element contains the mapping configuration for the
   archive's content document. It is applied when the medium description and
-  meta data files are retrieved from the archive.  
+  metadata files are retrieved from the archive.
 
 === Timeouts
 
