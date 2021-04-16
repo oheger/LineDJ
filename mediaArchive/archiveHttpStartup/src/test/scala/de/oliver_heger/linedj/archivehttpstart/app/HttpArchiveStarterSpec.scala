@@ -20,13 +20,13 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
+import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
-import de.oliver_heger.linedj.crypt.AESKeyGenerator
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -63,7 +63,7 @@ object HttpArchiveStarterSpec {
   private val ArcIndex = 28
 
   /** A key for testing the handling of encrypted archives. */
-  private val CryptKey = new AESKeyGenerator().generateKey("keyForMyArchive")
+  private val CryptKey = Aes.keyFromString("keyForMyArchive")
 
   /**
     * Creates a configuration object with the properties defining the test
