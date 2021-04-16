@@ -22,9 +22,9 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
+import com.github.cloudfiles.crypt.alg.aes.Aes
+import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import de.oliver_heger.linedj.archivehttp.impl.crypt.CryptService
-import de.oliver_heger.linedj.crypt.AESKeyGenerator
 
 import java.security.SecureRandom
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,40 +39,37 @@ import scala.xml.{Elem, XML}
   */
 object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData] {
   /** Constant for the suffix used for the file with the OAuth config. */
-  val SuffixConfigFile = ".xml"
+  final val SuffixConfigFile = ".xml"
 
   /** Constant for the suffix used for the file with the client secret. */
-  val SuffixSecretFile = ".sec"
+  final val SuffixSecretFile = ".sec"
 
   /** Constant for the suffix of the file with token information. */
-  val SuffixTokenFile = ".toc"
+  final val SuffixTokenFile = ".toc"
 
   /** Property for the client ID in the persistent config representation. */
-  val PropClientId = "client-id"
+  final val PropClientId = "client-id"
 
   /**
     * Property for the authorization endpoint in the persistent config
     * representation.
     */
-  val PropAuthorizationEndpoint = "authorization-endpoint"
+  final val PropAuthorizationEndpoint = "authorization-endpoint"
 
   /**
     * Property for the token endpoint in the persistent config
     * representation.
     */
-  val PropTokenEndpoint = "token-endpoint"
+  final val PropTokenEndpoint = "token-endpoint"
 
   /** Property for the scope in the persistent config representation. */
-  val PropScope = "scope"
+  final val PropScope = "scope"
 
   /** Property for the redirect URI in the persistent config representation. */
-  val PropRedirectUri = "redirect-uri"
+  final val PropRedirectUri = "redirect-uri"
 
   /** The separator character used within the token file. */
   private val TokenSeparator = "\t"
-
-  /** The object to generate keys. */
-  private val keyGenerator = new AESKeyGenerator
 
   /** The secure random object. */
   private implicit val secRandom: SecureRandom = new SecureRandom
@@ -162,6 +159,8 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
     * @param secret the password for decryption
     * @return the decorated source
     */
-  private def cryptSource[Mat](source: Source[ByteString, Mat], secret: Secret): Source[ByteString, Mat] =
-    CryptService.decryptSource(keyGenerator.generateKey(secret.secret), source)
+  private def cryptSource[Mat](source: Source[ByteString, Mat], secret: Secret): Source[ByteString, Mat] = {
+    val key = Aes.keyFromString(secret.secret)
+    CryptService.decryptSource(Aes, key, source)
+  }
 }
