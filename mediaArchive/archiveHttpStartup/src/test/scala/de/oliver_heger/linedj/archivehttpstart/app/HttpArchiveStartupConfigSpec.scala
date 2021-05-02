@@ -67,6 +67,12 @@ object HttpArchiveStartupConfigSpec {
   /** The amount of data to read when a timeout occurs. */
   private val TimeoutReadSize = 256 * 1024
 
+  /** The size of the cache for decrypted paths. */
+  private val CryptCacheSize = 4321
+
+  /** The chunk size for crypt operations. */
+  private val CryptChunkSize = 111
+
   /** The prefix to be removed during URI mapping. */
   private val RemovePrefix = "path://"
 
@@ -108,6 +114,8 @@ object HttpArchiveStartupConfigSpec {
     c.addProperty(at + ".requestQueueSize", RequestQueueSize)
     c.addProperty(at + ".needCookies", true)
     c.addProperty(at + ".needRetry", true)
+    c.addProperty(at + ".cryptUriCacheSize", CryptCacheSize)
+    c.addProperty(at + ".cryptNamesChunkSize", CryptChunkSize)
     c
   }
 
@@ -166,6 +174,8 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
         startUpConfig.requestQueueSize should be(RequestQueueSize)
         startUpConfig.needsCookieManagement shouldBe true
         startUpConfig.needsRetrySupport shouldBe true
+        startUpConfig.cryptCacheSize should be(CryptCacheSize)
+        startUpConfig.cryptChunkSize should be(CryptChunkSize)
         config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
@@ -389,6 +399,28 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     createStartupConfig(c) match {
       case Success(config) =>
         config.needsRetrySupport shouldBe false
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default crypt cache size if unspecified" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropCryptUriCacheSize)
+
+    createStartupConfig(c) match {
+      case Success(config) =>
+        config.cryptCacheSize should be(HttpArchiveStartupConfig.DefaultCryptUriCacheSize)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default crypt chunk size if unspecified" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropCryptNamesChunkSize)
+
+    createStartupConfig(c) match {
+      case Success(config) =>
+        config.cryptChunkSize should be(HttpArchiveStartupConfig.DefaultCryptNamesChunkSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }

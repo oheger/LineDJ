@@ -72,7 +72,8 @@ object FileSystemMediaDownloaderFactorySpec {
     * cases derive modified configurations from this object.
     */
   private val ArchiveStartupConfig = HttpArchiveStartupConfig(archiveConfig = ArchiveConfig,
-    requestQueueSize = 16, needsCookieManagement = false, needsRetrySupport = false)
+    requestQueueSize = 16, needsCookieManagement = false, needsRetrySupport = false,
+    cryptCacheSize = 2048, cryptChunkSize = 32)
 
   /** The auth config used by the tests. */
   private val TestAuthConfig = BasicAuthConfig("scott", Secret("tiger"))

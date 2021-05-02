@@ -189,6 +189,23 @@ object HttpArchiveStartupConfig {
   final val PropNeedsRetrySupport = "needRetry"
 
   /**
+    * The configuration property that defines the size of the cache for
+    * encrypted URIs. When accessing a file system with encrypted names element
+    * names need to be decrypted in order to resolve paths. To avoid repeating
+    * decrypt operations, a cache can be configured that stores already
+    * resolved paths.
+    */
+  final val PropCryptUriCacheSize = "cryptUriCacheSize"
+
+  /**
+    * The configuration property to set the chunk size when decrypting the
+    * element names in a folder. A chunk of elements with this size is
+    * decrypted, then the result is processed. Lower values leed to a higher
+    * parallelism.
+    */
+  final val PropCryptNamesChunkSize = "cryptNamesChunkSize"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -229,6 +246,12 @@ object HttpArchiveStartupConfig {
 
   /** Default value for the request queue size property. */
   final val DefaultRequestQueueSize = 16
+
+  /** Default value for the crypt URI cache size property. */
+  final val DefaultCryptUriCacheSize = 1024
+
+  /** Default value for the crypt chunk size property. */
+  final val DefaultCryptNamesChunkSize = 32
 
   /** The separator for property keys. */
   private val Separator = "."
@@ -277,6 +300,8 @@ object HttpArchiveStartupConfig {
       downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
       requestQueueSize = c.getInt(Path + PropRequestQueueSize, DefaultRequestQueueSize),
+      cryptCacheSize = c.getInt(Path + PropCryptUriCacheSize, DefaultCryptUriCacheSize),
+      cryptChunkSize = c.getInt(Path + PropCryptNamesChunkSize, DefaultCryptNamesChunkSize),
       needsCookieManagement = c.getBoolean(Path + PropNeedsCookieManagement, false),
       needsRetrySupport = c.getBoolean(Path + PropNeedsRetrySupport, false))
   }
@@ -332,6 +357,8 @@ object HttpArchiveStartupConfig {
   * @param archiveConfig         the ''HttpArchiveConfig'' for managing this archive
   * @param requestQueueSize      the size of the request queue of the request
   *                              actor
+  * @param cryptCacheSize        the size of the cache for decrypted paths
+  * @param cryptChunkSize        the chunk size for decrypt operations
   * @param needsCookieManagement flag whether support for managing
   *                              proxy-related cookies is required
   * @param needsRetrySupport     flag whether retry logic for "429 Too Many
@@ -339,5 +366,7 @@ object HttpArchiveStartupConfig {
   */
 case class HttpArchiveStartupConfig(archiveConfig: HttpArchiveConfig,
                                     requestQueueSize: Int,
+                                    cryptCacheSize: Int,
+                                    cryptChunkSize: Int,
                                     needsCookieManagement: Boolean,
                                     needsRetrySupport: Boolean)
