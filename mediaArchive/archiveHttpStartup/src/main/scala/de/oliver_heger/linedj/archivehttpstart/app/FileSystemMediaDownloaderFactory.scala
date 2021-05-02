@@ -23,7 +23,7 @@ import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
 import com.github.cloudfiles.crypt.alg.aes.Aes
-import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
+import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 
@@ -79,9 +79,9 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
   (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], cryptKey: Key):
   HttpArchiveFileSystem[ID, FILE, FOLDER] = {
-    implicit val secRandom: SecureRandom = new SecureRandom
-    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, Aes, cryptKey, cryptKey)
-    val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, Aes, cryptKey, cryptKey)
+    val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
+    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, cryptConfig)
+    val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, cryptConfig)
     fs.copy(fileSystem = cryptContentFs)
   }
 

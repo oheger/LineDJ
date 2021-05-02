@@ -137,14 +137,14 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       .createDownloaderSuccess(optKey = Some(key))
     downloader.archiveFileSystem.fileSystem match {
       case fs: CryptContentFileSystem[_, _, _] =>
-        fs.keyEncrypt should be(key)
-        fs.keyDecrypt should be(key)
-        fs.algorithm should be(Aes)
+        fs.config.keyEncrypt should be(key)
+        fs.config.keyDecrypt should be(key)
+        fs.config.algorithm should be(Aes)
         fs.delegate match {
           case fsn: CryptNamesFileSystem[_, _, _] =>
-            fsn.keyEncrypt should be(key)
-            fsn.keyDecrypt should be(key)
-            fsn.algorithm should be(Aes)
+            fsn.config.keyEncrypt should be(key)
+            fsn.config.keyDecrypt should be(key)
+            fsn.config.algorithm should be(Aes)
             helper.checkFileSystem(fsn.delegate)
           case f => fail("Unexpected delegate file system: " + f)
         }
