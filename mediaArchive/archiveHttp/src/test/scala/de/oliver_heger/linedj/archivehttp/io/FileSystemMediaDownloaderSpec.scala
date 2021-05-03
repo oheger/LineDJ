@@ -122,6 +122,13 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     helper.probeHttpSender.expectMessage(HttpRequestSender.Stop)
   }
 
+  it should "close the file system on shutdown" in {
+    val helper = new DownloaderTestHelper
+
+    helper.shutdownDownloader()
+      .expectFileSystemClosed()
+  }
+
   /**
     * A test helper class managing a test instance and its dependencies.
     *
@@ -197,6 +204,16 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
       */
     def shutdownDownloader(): DownloaderTestHelper = {
       downloader.shutdown()
+      this
+    }
+
+    /**
+      * Checks whether the file system used by the downloader has been closed.
+      *
+      * @return this test helper
+      */
+    def expectFileSystemClosed(): DownloaderTestHelper = {
+      verify(mockFileSystem).close()
       this
     }
 

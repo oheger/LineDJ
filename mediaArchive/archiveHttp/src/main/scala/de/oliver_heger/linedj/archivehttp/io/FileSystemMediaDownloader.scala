@@ -56,10 +56,11 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
 
   /**
     * @inheritdoc This implementation stops the HTTP sender actor used by this
-    *             downloader.
+    *             downloader and closes the file system.
     */
   override def shutdown(): Unit = {
     httpSender ! HttpRequestSender.Stop
+    archiveFileSystem.fileSystem.close()
   }
 
   /**
