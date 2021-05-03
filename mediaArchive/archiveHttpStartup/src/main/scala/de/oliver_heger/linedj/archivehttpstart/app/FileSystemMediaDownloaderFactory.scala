@@ -18,15 +18,18 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.{ActorSystem, typed}
+import akka.util.Timeout
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
 import com.github.cloudfiles.crypt.alg.aes.Aes
+import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 
+import scala.language.existentials
 import java.security.{Key, SecureRandom}
 import scala.util.Try
 
@@ -48,7 +51,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
   (implicit system: ActorSystem): Try[MediaDownloader] = {
     protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveURI.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
-      val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, _))
+      val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
 
       val senderConfig = createSenderConfig(startupConfig, authConfig, actorBaseName)
       val spawner: Spawner = system
@@ -77,10 +80,13 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     * @return the extended file system
     */
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
-  (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], cryptKey: Key):
-  HttpArchiveFileSystem[ID, FILE, FOLDER] = {
+  (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
+  (implicit system: ActorSystem): HttpArchiveFileSystem[ID, FILE, FOLDER] = {
     val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
-    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, cryptConfig)
+    implicit val timeout: Timeout = startupConfig.archiveConfig.processorTimeout
+    val resolver = CachePathComponentsResolver[ID, FILE, FOLDER](system, startupConfig.cryptCacheSize,
+      startupConfig.cryptChunkSize)
+    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, cryptConfig, resolver)
     val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, cryptConfig)
     fs.copy(fileSystem = cryptContentFs)
   }

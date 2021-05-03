@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, typed}
 import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import akka.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
 import akka.testkit.TestKit
 import akka.util.Timeout
+import com.github.cloudfiles.core.FileSystem.Operation
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
@@ -31,6 +32,8 @@ import com.github.cloudfiles.core.http.{HttpRequestSender, Secret}
 import com.github.cloudfiles.core.{FileSystem, Model}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.{CryptContentFileSystem, CryptNamesFileSystem}
+import com.github.cloudfiles.crypt.service.CryptService
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
@@ -41,7 +44,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.security.Key
+import java.security.{Key, SecureRandom}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -106,7 +110,7 @@ object FileSystemMediaDownloaderFactorySpec {
   * Test class for ''FileSystemMediaDownloaderFactory''.
   */
 class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("FileSystemMediaDownloaderFactorySpec"))
 
   /** The test kit for typed actors. */
@@ -151,6 +155,48 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
         }
       case f => fail("Unexpected file system: " + f)
     }
+  }
+
+  it should "configure a cached resolver for the crypt names file system" in {
+    val Password = "<ThePassword>"
+    val key = Aes.keyFromString(Password)
+    implicit val random: SecureRandom = new SecureRandom
+    val testKit = ActorTestKit()
+    implicit val system: typed.ActorSystem[Nothing] = testKit.system
+    val httpActor = testKit.spawn(HttpRequestSender(Uri("http://test.example.org")))
+
+    def fileMock(id: String, name: String): FileType = {
+      val file = mock[FileType]
+      when(file.id).thenReturn(id)
+      when(file.name).thenReturn(CryptService.encryptTextToBase64(Aes, key, name))
+      file
+    }
+
+    def stubOperation[A](result: A): Operation[A] = Operation { sender =>
+      sender should be(httpActor)
+      Future.successful(result)
+    }
+
+    val FileID1 = "fid1"
+    val FileID2 = "fidOther"
+    val FileName1 = "testFile1.txt"
+    val FileName2 = "otherFile.dat"
+    val RootID = "RootFolderID"
+    val content = Model.FolderContent(RootID,
+      Map(FileID1 -> fileMock(FileID1, FileName1),
+        FileID2 -> fileMock(FileID2, FileName2)),
+      Map.empty)
+    val helper = new FactoryTestHelper
+    val downloader = helper.expectSenderCreation(createSenderConfig())
+      .createDownloaderSuccess(optKey = Some(key))
+    val fileSystem = downloader.archiveFileSystem.fileSystem
+    when(helper.fileSystem.rootID).thenReturn(stubOperation(RootID))
+    doReturn(stubOperation(content)).when(helper.fileSystem).folderContent(RootID)
+
+    futureResult(fileSystem.resolvePath(FileName1).run(httpActor)) should be(FileID1)
+    futureResult(fileSystem.resolvePath(FileName2).run(httpActor)) should be(FileID2)
+    verify(helper.fileSystem).folderContent(RootID) // only a single invocation
+    testKit.shutdownTestKit()
   }
 
   it should "create a downloader with multi-host support" in {
@@ -214,7 +260,8 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     private val requestSenderFactory = mock[HttpRequestSenderFactory]
 
     /** Mock for the file system. */
-    private val fileSystem = mock[ExtensibleFileSystem[String, FileType, FolderType, FolderContentType]]
+    val fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType] =
+      mock[ExtensibleFileSystem[String, FileType, FolderType, FolderContentType]]
 
     /** The mock for the protocol specification. */
     private val protocolSpec = createProtocolSpec()
