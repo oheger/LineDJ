@@ -185,6 +185,7 @@ example configuration with all supported options:
       <archiveName>Another Archive</archiveName>
       <encrypted>true</encrypted>
       <cryptUriCacheSize>2048</cryptUriCacheSize>
+      <cryptNamesChunkSize>32</cryptNamesChunkSize>
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <needCookies>true</needCookies>
@@ -529,6 +530,15 @@ expensive process. Therefore, parts of URIs that have already been resolved are
 stored in a cache, so that they can be reused when similar URIs need to be
 processed. This property defines the number of URIs that can be cached.
 | Yes, defaults to 1024
+| cryptNamesChunkSize | When populating the cache for resolved URIs, whole
+folders are processed, and the names of the elements they contain are
+decrypted. This property controls how many names are decrypted in a single
+chunk before processing the decrypted names further. It can be used to tweak
+decryption and resolving performance. The optimum value depends on a concrete
+deployment, but in a nutshell, values that are too high reduce parallelism in
+processing, while values too low increase the overhead of passing result
+messages. So, you need to find a proper balance.
+| Yes, defaults to 32
 |==============================
 
 === Super password file
