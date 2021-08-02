@@ -68,9 +68,9 @@ java.util.List[SongData], scanner: DirectoryScanner)
    * @return the ''ExportData''
    */
   private def createExportData(): ExportData = {
-    import collection.JavaConversions._
+    import scala.jdk.CollectionConverters._
     val exportPath = Paths get settings.getTargetDirectory
-    ExportActor.ExportData(exportSongs, scanIfNecessary(exportPath), exportPath, clearTarget =
+    ExportActor.ExportData(exportSongs.asScala.toSeq, scanIfNecessary(exportPath), exportPath, clearTarget =
       settings.getClearMode == ExportSettings.ClearAll,
       overrideFiles = settings.getClearMode == ExportSettings.ClearOverride)
   }

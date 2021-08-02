@@ -52,8 +52,8 @@ java.util.Map[String, PlaylistManipulator]) extends FormChangeListener {
     * @return the scala map
     */
   private def createManipulatorMap(): Map[String, PlaylistManipulator] = {
-    import scala.collection.JavaConversions._
-    val scalaMap: Map[String, PlaylistManipulator] = manipulators.toMap
+    import scala.jdk.CollectionConverters._
+    val scalaMap: Map[String, PlaylistManipulator] = manipulators.asScala.toMap
     scalaMap
   }
 }

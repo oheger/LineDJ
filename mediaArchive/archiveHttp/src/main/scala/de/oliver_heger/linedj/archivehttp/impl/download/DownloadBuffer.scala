@@ -101,7 +101,7 @@ private class DownloadBuffer private(queue: Queue[ByteString], val size: Int,
     * @return an ''Iterable'' with all contained blocks
     */
   def chunks: Iterable[ByteString] =
-    optFirstBlock.map(_ :: queue.toList) getOrElse queue
+    optFirstBlock.map(_ :: queue.toList) getOrElse queue.toList
 
   /**
     * Obtains a block with data of the requested size if there is a first

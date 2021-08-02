@@ -22,10 +22,10 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
+import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
-import de.oliver_heger.linedj.archivehttp.{HttpArchiveState => _, _}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -1060,7 +1060,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return tuple with numeric indices and clear flags
       */
     def fetchStarterParameters(): (Seq[Int], Seq[Boolean]) = {
-      import collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       val captorIdx = ArgumentCaptor.forClass(classOf[Int])
       val captorClear = ArgumentCaptor.forClass(classOf[Boolean])
       verify(archiveStarter, times(2))
@@ -1069,7 +1069,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
           any(classOf[GenericHttpArchiveProtocolSpec]),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
           captorClear.capture())(any(), any())
-      (captorIdx.getAllValues.asScala, captorClear.getAllValues.asScala)
+      (captorIdx.getAllValues.asScala.toSeq, captorClear.getAllValues.asScala.toSeq)
     }
 
     /**

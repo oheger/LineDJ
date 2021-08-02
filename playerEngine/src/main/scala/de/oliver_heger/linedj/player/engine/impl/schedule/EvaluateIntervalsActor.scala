@@ -131,7 +131,7 @@ class EvaluateIntervalsActor extends Actor {
     * @param refDate the reference date
     * @return a ''Future'' with the result of the evaluation
     */
-  private def evaluateQueries(queries: TraversableOnce[IntervalQuery], refDate: LocalDateTime)
+  private def evaluateQueries(queries: Seq[IntervalQuery], refDate: LocalDateTime)
   : Future[IntervalQueryResult] =
     Future.sequence(queries map (q => Future {
       q(refDate)

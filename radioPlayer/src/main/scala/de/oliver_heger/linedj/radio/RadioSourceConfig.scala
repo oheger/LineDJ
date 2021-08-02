@@ -97,14 +97,14 @@ object RadioSourceConfig {
   private def readSourcesFromConfig(config: Configuration): Seq[(String, RadioSource, Int,
     Seq[IntervalQuery])] = {
     val srcConfigs = config.asInstanceOf[HierarchicalConfiguration].configurationsAt(KeySources)
-    import collection.JavaConversions._
-    val sources = srcConfigs.par filter { c =>
+    import scala.jdk.CollectionConverters._
+    val sources = srcConfigs.asScala filter { c =>
       c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
     } map { c =>
       (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString
       (KeySourceExtension))), c.getInt(KeySourceRanking, DefaultRanking), readExclusions(c))
     }
-    sources.seq sortWith compareSources
+    sources.sortWith(compareSources).toSeq
   }
 
   /**
@@ -115,8 +115,8 @@ object RadioSourceConfig {
     */
   private def readExclusions(config: HierarchicalConfiguration): Seq[IntervalQuery] = {
     val exConfigs = config configurationsAt KeyExclusions
-    import collection.JavaConversions._
-    exConfigs.foldLeft(List.empty[IntervalQuery]) { (q, c) =>
+    import scala.jdk.CollectionConverters._
+    exConfigs.asScala.foldLeft(List.empty[IntervalQuery]) { (q, c) =>
       parseIntervalQuery(c) match {
         case Some(query) => IntervalQueries.cyclic(query) :: q
         case None => q

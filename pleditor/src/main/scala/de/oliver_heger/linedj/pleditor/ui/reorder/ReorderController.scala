@@ -75,7 +75,7 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
   override def windowOpened(windowEvent: WindowEvent): Unit = {
     window = WindowUtils windowFromEvent windowEvent
     buttonHandler setEnabled false
-    reorderService.loadAvailableReorderServices() onSuccess { case list =>
+    reorderService.loadAvailableReorderServices() foreach { list =>
       sync.asyncInvoke(new Runnable {
         override def run(): Unit = {
           fillListModel(list)

@@ -94,8 +94,8 @@ object OpenExportProgressDlgCommandSpec {
    */
   private def exportData(scanResult: ScanResult, clearTarget: Boolean, overrideFiles: Boolean):
   ExportActor.ExportData = {
-    import collection.JavaConverters._
-    ExportActor.ExportData(songs = ExportSongs.asScala, targetContent = scanResult, exportPath =
+    import scala.jdk.CollectionConverters._
+    ExportActor.ExportData(songs = ExportSongs.asScala.toSeq, targetContent = scanResult, exportPath =
       ExportPath, clearTarget, overrideFiles)
   }
 }

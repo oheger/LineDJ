@@ -65,11 +65,11 @@ class OpenReorderDlgCommand(scriptLocator: Locator, tabHandler: TableHandler) ex
     *             selected songs in the builder data.
     */
   override protected[playlist] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
-    import collection.JavaConversions._
+    import scala.jdk.CollectionConverters._
     val context = new PlaylistSelectionContext(tabHandler)
     val selection = tabHandler.getModel.subList(context.minimumSelectionIndex, context
       .maximumSelectionIndex + 1)
-    builderData.addProperty(ReorderSongsPropertyKey, selection.toList)
+    builderData.addProperty(ReorderSongsPropertyKey, selection.asScala.toList)
     builderData.addProperty(StartIndexPropertyKey, context.minimumSelectionIndex)
   }
 }

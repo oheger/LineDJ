@@ -137,7 +137,7 @@ private class PlayerConfigFactory {
     */
   def createPlayerConfig(c: Configuration, prefix: String, mediaManager: ActorRef,
                          actorCreator: ActorCreator): PlayerConfig = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val p = if (prefix.endsWith(".")) prefix else prefix + '.'
     PlayerConfig(inMemoryBufferSize = c.getInt(p + PropInMemoryBufferSize, DefInMemoryBufferSize),
       playbackContextLimit = c.getInt(p + PropPlaybackContextLimit, DefPlaybackContextLimit),
@@ -146,7 +146,7 @@ private class PlayerConfigFactory {
       bufferFileSize = c.getInt(p + PropBufferFileSize, DefBufferFileSize),
       bufferChunkSize = c.getInt(p + PropBufferChunkSize, DefBufferChunkSize),
       bufferTempPath = Option(c.getString(p + PropBufferTempPath)) map (Paths.get(_)),
-      bufferTempPathParts = c.getList(p + PropBufferTempPathParts).asScala map String.valueOf,
+      bufferTempPathParts = c.getList(p + PropBufferTempPathParts).asScala.map(String.valueOf).toSeq,
       downloadInProgressNotificationDelay =
         c.getInt(p + PropDownloadProgressNotificationDelay,
           DefDownloadProgressNotificationDelay.toSeconds.toInt).seconds,

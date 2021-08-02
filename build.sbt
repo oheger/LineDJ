@@ -23,10 +23,10 @@ import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 lazy val AkkaVersion = "2.6.14"
 lazy val AkkaHttpVersion = "10.2.4"
 lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.12.13"
+lazy val VersionScala = "2.13.6"
 lazy val VersionScalaz = "7.3.3"
 lazy val VersionJavaFX = "11.0.2"
-lazy val VersionJguiraffe = "1.4-SNAPSHOT"
+lazy val VersionJguiraffe = "1.4"
 lazy val VersionScalaTest = "3.2.7"
 lazy val VersionMockito = "1.9.5"
 lazy val VersionScalaTestMockito = "1.0.0-M2"
@@ -35,7 +35,7 @@ lazy val VersionJetty = "9.4.2.v20170220"
 lazy val VersionJackson = "2.12.2"
 lazy val VersionAeron = "1.32.0"
 lazy val VersionSslConfig = "0.4.2"
-lazy val VersionCloudFiles = "0.1"
+lazy val VersionCloudFiles = "0.3-SNAPSHOT"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 
@@ -90,7 +90,7 @@ lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test classifier "tests",
-  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.0"
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
 ) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
@@ -106,10 +106,9 @@ lazy val logDependencies = Seq(
 val defaultSettings = Seq(
   version := "1.0-SNAPSHOT",
   scalaVersion := VersionScala,
-  scalacOptions += "-Ypartial-unification",
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
-  libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "1.0.6",
+  libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.0.1",
   resolvers += Resolver.mavenLocal
 )
 

@@ -28,7 +28,7 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 
 import scala.annotation.tailrec
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 object PlaylistController {
   /** Factor for the size of a Megabyte. */
@@ -210,7 +210,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     val newSongs = songs.drop(currentTableSize)
       .map(id => songDataFactory.createSongData(id, metaData.getOrElse(id, UndefinedMetaData)))
     unresolvedSongCount += newSongs.count(isSongUnresolved)
-    tableHandler.getModel addAll newSongs
+    tableHandler.getModel addAll newSongs.asJava
     tableHandler.rowsInserted(currentTableSize, currentTableSize + newSongs.size - 1)
     updateStatusLine()
     updateActions()
@@ -223,7 +223,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     * method is called after the playlist has been manipulated.
     */
   private def updateStatusLine(): Unit = {
-    statusLine setText generateStatusLineText(tableHandler.getModel, statusLineTemplate)
+    statusLine setText generateStatusLineText(tableHandler.getModel.asScala.toSeq, statusLineTemplate)
   }
 
   /**

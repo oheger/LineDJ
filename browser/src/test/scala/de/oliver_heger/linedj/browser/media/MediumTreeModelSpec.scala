@@ -121,8 +121,8 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers {
                              artist: String = Artist): Boolean = {
     val artistNode = config.configurationAt(artist).getRootNode
     if (artistNode.getChildrenCount == expected.size) {
-      import collection.JavaConversions._
-      val nodesWithItems = artistNode.getChildren zip expected
+      import scala.jdk.CollectionConverters._
+      val nodesWithItems = artistNode.getChildren.asScala zip expected
       nodesWithItems forall { e =>
         e._1.getValue == e._2 && e._1.getName.endsWith(e._2.album)
       }
