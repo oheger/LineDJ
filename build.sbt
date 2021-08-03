@@ -20,7 +20,7 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.6.14"
+lazy val AkkaVersion = "2.6.15"
 lazy val AkkaHttpVersion = "10.2.4"
 lazy val OsgiVersion = "5.0.0"
 lazy val VersionScala = "2.13.6"
@@ -32,9 +32,10 @@ lazy val VersionMockito = "1.9.5"
 lazy val VersionScalaTestMockito = "1.0.0-M2"
 lazy val VersionJunit = "4.13"  // needed by mockito
 lazy val VersionJetty = "9.4.2.v20170220"
-lazy val VersionJackson = "2.12.2"
-lazy val VersionAeron = "1.32.0"
-lazy val VersionSslConfig = "0.4.2"
+lazy val VersionJackson = "2.12.4"
+lazy val VersionAeron = "1.34.0"
+lazy val VersionSslConfig = "0.4.3"
+lazy val VersionScalaCompat = "0.9.1"
 lazy val VersionCloudFiles = "0.3-SNAPSHOT"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
@@ -48,7 +49,8 @@ lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
   "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
-  "org.scala-lang" % "scala-reflect" % VersionScala
+  "org.scala-lang" % "scala-reflect" % VersionScala,
+  "org.scala-lang.modules" %% "scala-java8-compat" % VersionScalaCompat
 )
 
 /**
