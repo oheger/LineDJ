@@ -27,11 +27,10 @@ lazy val VersionScala = "2.13.6"
 lazy val VersionScalaz = "7.3.3"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
-lazy val VersionScalaTest = "3.2.7"
+lazy val VersionScalaTest = "3.2.9"
 lazy val VersionMockito = "1.9.5"
 lazy val VersionScalaTestMockito = "1.0.0-M2"
-lazy val VersionJunit = "4.13"  // needed by mockito
-lazy val VersionJetty = "9.4.2.v20170220"
+lazy val VersionJunit = "4.13.2"  // needed by mockito
 lazy val VersionJackson = "2.12.4"
 lazy val VersionAeron = "1.34.0"
 lazy val VersionSslConfig = "0.4.3"
@@ -239,9 +238,6 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
     libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
-    libraryDependencies += "org.eclipse.jetty" % "jetty-server" % VersionJetty % Test,
-    libraryDependencies += "org.eclipse.jetty" % "jetty-servlet" % VersionJetty % Test,
-    libraryDependencies += "javax.servlet" % "javax.servlet-api" % "3.1.0" % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
