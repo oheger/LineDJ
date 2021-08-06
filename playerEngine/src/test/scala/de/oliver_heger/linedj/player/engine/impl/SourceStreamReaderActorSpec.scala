@@ -345,7 +345,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
               probeBufferActor.ref
 
             case ClassM3uReaderActor =>
-              p.args shouldBe 'empty
+              p.args shouldBe empty
               m3uReaderActor.ref
           }
         }

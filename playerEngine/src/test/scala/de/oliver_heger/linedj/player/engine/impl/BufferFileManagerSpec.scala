@@ -39,7 +39,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
 
   "A BufferFileManager" should "be empty initially" in {
     val manager = createManager()
-    manager.read shouldBe 'empty
+    manager.read shouldBe empty
   }
 
   it should "not be full initially" in {
@@ -114,7 +114,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
 
     manager append file
     manager.checkOut() should be(file)
-    manager.read shouldBe 'empty
+    manager.read shouldBe empty
   }
 
   it should "throw an exception when checking out from an empty buffer" in {
@@ -166,7 +166,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     paths should have length 2
     paths should contain(file1)
     paths should contain(file2)
-    listManagedDirectory() shouldBe 'empty
+    listManagedDirectory() shouldBe empty
   }
 
   /**

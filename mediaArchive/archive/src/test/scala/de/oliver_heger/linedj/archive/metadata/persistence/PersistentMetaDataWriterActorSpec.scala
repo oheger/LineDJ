@@ -298,7 +298,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   Seq[MetaDataProcessingSuccess] = {
     val json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8)
     val (results, failure) = invokeParser(json, mid)
-    failure shouldBe 'empty
+    failure shouldBe empty
     results
   }
 

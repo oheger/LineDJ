@@ -62,7 +62,7 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new ReorderManagerActorTestHelper
 
     helper.actor ! ReorderManagerActor.GetAvailableReorderServices
-    expectMsgType[ReorderManagerActor.AvailableReorderServices].services shouldBe 'empty
+    expectMsgType[ReorderManagerActor.AvailableReorderServices].services shouldBe empty
   }
 
   it should "allow adding reorder services" in {

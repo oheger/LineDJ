@@ -97,7 +97,7 @@ class LRUCacheSpec extends AnyFlatSpec with Matchers {
     val cache = addEntries(new LRUCache[String, Int](pairs.size - 1)(), pairs)
     cache.size should be(pairs.size - 1)
     cache contains pairs.head._1 shouldBe false
-    cache get pairs.head._1 shouldBe 'empty
+    cache get pairs.head._1 shouldBe empty
     assertContains(cache, pairs.tail: _*)
     cache.keySet should contain theSameElementsAs pairs.tail.map(_._1)
     cache.toMap should contain theSameElementsAs pairs.tail
@@ -197,6 +197,6 @@ class LRUCacheSpec extends AnyFlatSpec with Matchers {
   it should "handle a remove operation for a non-existing key" in {
     val cache = addEntries(new LRUCache[String, Int](8)(), entries(1, 2))
 
-    cache removeItem entryKey(42) shouldBe 'empty
+    cache removeItem entryKey(42) shouldBe empty
   }
 }

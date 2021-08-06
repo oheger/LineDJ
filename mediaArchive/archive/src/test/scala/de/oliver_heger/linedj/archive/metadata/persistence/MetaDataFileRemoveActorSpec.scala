@@ -134,7 +134,7 @@ class MetaDataFileRemoveActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
       override def createChildActor(p: Props): ActorRef = {
         classOf[RemoveFileActor] isAssignableFrom p.actorClass() shouldBe true
-        p.args shouldBe 'empty
+        p.args shouldBe empty
         val child = childActorList.head
         childActorList = childActorList.tail
         child

@@ -46,7 +46,7 @@ class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers {
     val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
     val (results, optFailure) = parser.processChunk(json, MediumID("irrelevant", None), lastChunk
       = true, None)
-    optFailure shouldBe 'empty
+    optFailure shouldBe empty
     results should have size 1
     results.head
   }
@@ -71,7 +71,7 @@ class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers {
 
     val parsedData = convertAndParse(metaData, path, uri)
     parsedData.metaData.size should be(0)
-    parsedData.metaData.artist shouldBe 'empty
+    parsedData.metaData.artist shouldBe empty
   }
 
   it should "quote quotation marks in strings" in {

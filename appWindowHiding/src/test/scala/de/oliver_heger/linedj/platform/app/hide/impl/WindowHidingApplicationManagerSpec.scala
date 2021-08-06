@@ -273,7 +273,7 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     verify(app).showMainWindow(false)
     val captor = ArgumentCaptor.forClass(classOf[ApplicationWindowState])
     verify(reg.callback).apply(captor.capture())
-    captor.getValue.visibleApps shouldBe 'empty
+    captor.getValue.visibleApps shouldBe empty
   }
 
   it should "obtain a window configuration from a registered application" in {

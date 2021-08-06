@@ -55,7 +55,7 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
 
     classOf[DelayActor] isAssignableFrom props.actorClass() shouldBe true
     classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
-    props.args shouldBe 'empty
+    props.args shouldBe empty
   }
 
   it should "forward a message directly if there is no delay" in {

@@ -85,13 +85,13 @@ class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with Mo
   "An AppConfigWindowConfiguration" should "ignore a config without storage key" in {
     val config = new PropertiesConfiguration
 
-    AppConfigWindowConfiguration(config) shouldBe 'empty
+    AppConfigWindowConfiguration(config) shouldBe empty
   }
 
   it should "ignore a config with the storage key disabled" in {
     val config = initConfig(enabled = false)
 
-    AppConfigWindowConfiguration(config) shouldBe 'empty
+    AppConfigWindowConfiguration(config) shouldBe empty
   }
 
   it should "consider an undefined application as visible" in {

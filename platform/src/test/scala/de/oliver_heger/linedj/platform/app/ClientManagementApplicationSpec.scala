@@ -475,7 +475,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     runApp(app)
 
     val optRec = app.mockBus.findListenerForMessage(RegisterService(ServiceDependency("foo")))
-    optRec shouldBe 'defined
+    optRec shouldBe defined
   }
 
   it should "create a correct MediaFacadeActorsServiceWrapper" in {

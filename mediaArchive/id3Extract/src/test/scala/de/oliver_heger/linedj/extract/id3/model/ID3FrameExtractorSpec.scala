@@ -92,7 +92,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     val content = readResourceFile(name)
     val headerExtractor = new ID3HeaderExtractor
     val optHeader = headerExtractor extractID3Header content
-    optHeader shouldBe 'defined
+    optHeader shouldBe defined
 
     val frameData = content.slice(ID3HeaderExtractor.ID3HeaderSize, ID3HeaderExtractor.ID3HeaderSize
       + optHeader.get.size)
@@ -141,7 +141,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
 
     extractor addData data
     val frame = extractor.createFrame()
-    frame.tags shouldBe 'empty
+    frame.tags shouldBe empty
   }
 
   it should "be able to process an ID3v2.3 frame" in {
@@ -212,7 +212,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     provider.artist.get should be("Test Artist")
     provider.album.get should be("Test Album")
     provider.trackNo.get should be(11)
-    provider.inceptionYear shouldBe 'empty
+    provider.inceptionYear shouldBe empty
   }
 
   it should "be able to process frame data chunk-wise" in {

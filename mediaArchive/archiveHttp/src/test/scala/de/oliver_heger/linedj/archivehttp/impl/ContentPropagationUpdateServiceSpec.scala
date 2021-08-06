@@ -249,8 +249,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
   "ContentPropagationUpdateServiceImpl" should "have a valid initial state" in {
     val state = ContentPropagationUpdateServiceImpl.InitialState
 
-    state.messages shouldBe 'empty
-    state.pendingMessages shouldBe 'empty
+    state.messages shouldBe empty
+    state.pendingMessages shouldBe empty
     state.removeAck shouldBe true
   }
 
@@ -262,7 +262,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
 
     val next = modifyState(ContentPropagationUpdateServiceImpl
       .mediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false))
-    next.pendingMessages shouldBe 'empty
+    next.pendingMessages shouldBe empty
     next.removeAck shouldBe true
     next.messages should contain theSameElementsInOrderAs expMessages
   }
@@ -293,7 +293,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(ContentPropagationUpdateServiceImpl
       .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false), state)
     next.pendingMessages should contain theSameElementsInOrderAs expMessages
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
   }
 
   it should "evaluate the remove parameter" in {
@@ -333,7 +333,7 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(ContentPropagationUpdateServiceImpl.removalConfirmed(), state)
     next.removeAck shouldBe true
     next.messages should be(pending)
-    next.pendingMessages shouldBe 'empty
+    next.pendingMessages shouldBe empty
   }
 
   it should "return the messages to be sent" in {
@@ -358,9 +358,9 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
 
     val (next, sendMsg) = updateState(ContentPropagationUpdateServiceImpl
       .handleMediumProcessed(mediumResult(Idx), actors, ArchiveName, remove = false))
-    next.pendingMessages shouldBe 'empty
+    next.pendingMessages shouldBe empty
     next.removeAck shouldBe true
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
     sendMsg.toSeq should contain theSameElementsInOrderAs expMessages
   }
 
@@ -374,8 +374,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val (next, sendMsg) = updateState(ContentPropagationUpdateServiceImpl.handleRemovalConfirmed(),
       state)
     next.removeAck shouldBe true
-    next.messages shouldBe 'empty
-    next.pendingMessages shouldBe 'empty
+    next.messages shouldBe empty
+    next.pendingMessages shouldBe empty
     sendMsg should be(pending)
   }
 }

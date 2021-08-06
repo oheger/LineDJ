@@ -175,7 +175,7 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       TestActorRef(Props(new RemoveTempFilesActor(DispatcherName) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[RemoveFileActor])
-          p.args shouldBe 'empty
+          p.args shouldBe empty
           p.dispatcher should be(DispatcherName)
           removeFileActor.ref
         }

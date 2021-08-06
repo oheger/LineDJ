@@ -522,7 +522,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       val consumerReg = PlaylistMetaDataRegistration(id = componentID,
         callback = updateMetaData)
       res receive consumerReg
-      playlistMetaData.data shouldBe 'empty // check initial consumer invocation
+      playlistMetaData.data shouldBe empty // check initial consumer invocation
       res
     }
 

@@ -782,13 +782,13 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private def createStatusHandler(): StatusLineHandler = {
       val handler = mock[StatusLineHandler]
       doAnswer((invocation: InvocationOnMock) => {
-        statusResult shouldBe 'empty
+        statusResult shouldBe empty
         validationErrorCount = invocation.getArguments.head.asInstanceOf[Int]
         validationWarningCount = invocation.getArguments()(1).asInstanceOf[Int]
       }).when(handler).updateProgress(anyInt(), anyInt())
 
       doAnswer((invocation: InvocationOnMock) => {
-        statusResult shouldBe 'empty
+        statusResult shouldBe empty
         validationErrorCount = invocation.getArguments.head.asInstanceOf[Int]
         validationWarningCount = invocation.getArguments()(1).asInstanceOf[Int]
         statusResult = Some(invocation.getArguments()(2).asInstanceOf[Boolean])

@@ -62,7 +62,7 @@ class ReplacementSourceSelectionStrategySpec extends AnyFlatSpec with Matchers {
     val strategy = new ReplacementSourceSelectionStrategy
 
     strategy.findReplacementSource(sources, LocalDateTime.now(),
-      RadioSource.NoRanking) shouldBe 'empty
+      RadioSource.NoRanking) shouldBe empty
   }
 
   it should "return None if the best replacement is worse than the original source" in {
@@ -71,7 +71,7 @@ class ReplacementSourceSelectionStrategySpec extends AnyFlatSpec with Matchers {
       (radioSource(2), Inside(new LazyDate(until plusSeconds 1))))
     val strategy = new ReplacementSourceSelectionStrategy
 
-    strategy.findReplacementSource(sources, until, RadioSource.NoRanking) shouldBe 'empty
+    strategy.findReplacementSource(sources, until, RadioSource.NoRanking) shouldBe empty
   }
 
   it should "return an Inside result with a shorter until date" in {

@@ -319,7 +319,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def verifyNoActorCreation(): TempFileManagerTestHelper = {
-      childActors shouldBe 'empty
+      childActors shouldBe empty
       this
     }
 

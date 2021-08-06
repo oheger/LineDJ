@@ -37,10 +37,10 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       UIServiceManager.AddService(classOf[Runnable], service, None)
 
     val optMsg = addMsg as classOf[Runnable]
-    optMsg shouldBe 'defined
+    optMsg shouldBe defined
     val runnable: Runnable = optMsg.get.service
     runnable should be(service)
-    addMsg.as(classOf[ClientApplicationContext]) shouldBe 'empty
+    addMsg.as(classOf[ClientApplicationContext]) shouldBe empty
   }
 
   it should "allow adding a new service" in {

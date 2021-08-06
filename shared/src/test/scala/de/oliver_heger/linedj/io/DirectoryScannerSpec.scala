@@ -105,7 +105,7 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
 
     val result = scanner scan testDirectory
     val wrongSizes = result.files filter (d => fileName(d.path).length != d.size)
-    wrongSizes shouldBe 'empty
+    wrongSizes shouldBe empty
   }
 
   it should "support suppressing files with specific extensions" in {

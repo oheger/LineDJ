@@ -188,7 +188,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     eval2.source should be(src)
     eval2.queries should be(RadioSourceQueries(src))
     eval2.stateCount should be(eval.stateCount)
-    eval.exclusions shouldBe 'empty
+    eval.exclusions shouldBe empty
   }
 
   it should "process a CheckCurrentSource message" in {
@@ -641,7 +641,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[EvaluateIntervalsActor])
-          p.args shouldBe 'empty
+          p.args shouldBe empty
           evaluateActorProbe.ref
         }
       })

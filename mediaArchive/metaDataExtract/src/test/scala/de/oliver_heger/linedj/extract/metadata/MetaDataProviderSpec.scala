@@ -30,12 +30,12 @@ class MetaDataProviderSpec extends AnyFlatSpec with Matchers {
   it should "return None for a non-numeric inception year" in {
     val provider = new MetaDataProviderTestImpl(
       inceptionYearString = Some("Nineteeneightyfour"))
-    provider.inceptionYear shouldBe 'empty
+    provider.inceptionYear shouldBe empty
   }
 
   it should "handle a non existing inception year" in {
     val provider = new MetaDataProviderTestImpl
-    provider.inceptionYear shouldBe 'empty
+    provider.inceptionYear shouldBe empty
   }
 
   it should "convert a track number if it is fully numeric" in {
@@ -50,17 +50,17 @@ class MetaDataProviderSpec extends AnyFlatSpec with Matchers {
 
   it should "return None for a non-numeric track number" in {
     val provider = new MetaDataProviderTestImpl(trackNoString = Some("NaN"))
-    provider.trackNo shouldBe 'empty
+    provider.trackNo shouldBe empty
   }
 
   it should "handle an undefined track number" in {
     val provider = new MetaDataProviderTestImpl
-    provider.trackNo shouldBe 'empty
+    provider.trackNo shouldBe empty
   }
 
   it should "handle a track number that is empty" in {
     val provider = new MetaDataProviderTestImpl(trackNoString = Some(""))
-    provider.trackNo shouldBe 'empty
+    provider.trackNo shouldBe empty
   }
 
   /**

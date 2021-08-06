@@ -61,7 +61,7 @@ class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
 
     try {
       val context = factory.createPlaybackContext(audioStream, "test.mp3")
-      context shouldBe 'empty
+      context shouldBe empty
     } finally audioStream.close()
   }
 
@@ -70,7 +70,7 @@ class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
     val audioStream = stream("test.mp3")
 
     try {
-      factory.createPlaybackContext(audioStream, "test.wav") shouldBe 'empty
+      factory.createPlaybackContext(audioStream, "test.wav") shouldBe empty
     } finally audioStream.close()
   }
 

@@ -181,14 +181,14 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
   "A MediaScanStateUpdateService" should "define a valid initial state" in {
     val s = MediaScanStateUpdateServiceImpl.InitialState
-    s.scanClient shouldBe 'empty
+    s.scanClient shouldBe empty
     s.scanInProgress shouldBe false
     s.removeState should be(UnionArchiveRemoveState.Removed)
     s.startAnnounced shouldBe false
     s.seqNo should be(0)
     s.fileData should have size 0
     s.mediaData should have size 0
-    s.ackPending shouldBe 'empty
+    s.ackPending shouldBe empty
     s.ackMetaManager shouldBe true
     s.currentResults should have size 0
     s.currentMediaData should have size 0
@@ -201,7 +201,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.triggerStartScan(root, actor()), state)
     next should be(state)
-    msg shouldBe 'empty
+    msg shouldBe empty
   }
 
   it should "support triggering a new scan operation" in {
@@ -244,8 +244,8 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     next.startAnnounced shouldBe true
     next.ackMetaManager shouldBe false
-    msg.ack shouldBe 'empty
-    msg.unionArchiveMessage shouldBe 'empty
+    msg.ack shouldBe empty
+    msg.unionArchiveMessage shouldBe empty
     msg.metaManagerMessage should be(Some(MediaScanStarts(state.scanClient.get)))
   }
 
@@ -258,8 +258,8 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.startAnnounced shouldBe false
     next.ackMetaManager shouldBe true
     next.removeState should be(UnionArchiveRemoveState.Pending)
-    msg.ack shouldBe 'empty
-    msg.metaManagerMessage shouldBe 'empty
+    msg.ack shouldBe empty
+    msg.metaManagerMessage shouldBe empty
     msg.unionArchiveMessage should be(Some(ArchiveComponentRemoved(ArchiveName)))
   }
 
@@ -384,7 +384,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   it should "handle a request for an actor to ACK if none is pending" in {
     val (next, ack) = updateState(MediaScanStateUpdateServiceImpl.actorToAck())
 
-    ack shouldBe 'empty
+    ack shouldBe empty
     next should be theSameInstanceAs MediaScanStateUpdateServiceImpl.InitialState
   }
 
@@ -395,7 +395,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, optAck) = updateState(MediaScanStateUpdateServiceImpl.actorToAck(), state)
     optAck should be(Some(ack))
-    next.ackPending shouldBe 'empty
+    next.ackPending shouldBe empty
   }
 
   it should "not return the actor to ACK if there are current results" in {
@@ -403,7 +403,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       currentResults = List(scanResult(1)))
 
     val (next, optAck) = updateState(MediaScanStateUpdateServiceImpl.actorToAck(), state)
-    optAck shouldBe 'empty
+    optAck shouldBe empty
     next should be theSameInstanceAs state
   }
 
@@ -412,7 +412,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       currentMediaData = mediaMap(2))
 
     val (next, optAck) = updateState(MediaScanStateUpdateServiceImpl.actorToAck(), state)
-    optAck shouldBe 'empty
+    optAck shouldBe empty
     next should be theSameInstanceAs state
   }
 
@@ -454,7 +454,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
     next should be(state)
-    optMsg shouldBe 'empty
+    optMsg shouldBe empty
   }
 
   it should "not return a meta data message if ACK from the manager is pending" in {
@@ -463,7 +463,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
     next should be(state)
-    optMsg shouldBe 'empty
+    optMsg shouldBe empty
   }
 
   it should "not return a meta data message if a remove operation is pending" in {
@@ -473,7 +473,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
     next should be(state)
-    optMsg shouldBe 'empty
+    optMsg shouldBe empty
   }
 
   it should "not return a union archive message if no current media data is present" in {
@@ -481,7 +481,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       .unionArchiveMessage(ArchiveName))
 
     next should be theSameInstanceAs MediaScanStateUpdateServiceImpl.InitialState
-    optMsg shouldBe 'empty
+    optMsg shouldBe empty
   }
 
   it should "return a union archive message if there is current meta data" in {
@@ -499,7 +499,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       seqNo = 28)
 
     val next = modifyState(MediaScanStateUpdateServiceImpl.scanComplete(state.seqNo), state)
-    next.scanClient shouldBe 'empty
+    next.scanClient shouldBe empty
     next.scanInProgress shouldBe false
     next.availableMediaSent shouldBe false
     next.seqNo should not be state.seqNo
@@ -541,7 +541,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
         state)
     next.currentResults should have size 0
     next.currentMediaData should have size 0
-    next.ackPending shouldBe 'empty
+    next.ackPending shouldBe empty
     msg should be(ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)),
       Some(result), Some(ack)))
   }
@@ -564,7 +564,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentMediaData should have size 0
     msg.unionArchiveMessage should be(Some(AddMedia(expMediaData, ArchiveName, None)))
     msg.metaManagerMessage should be(Some(res1.result))
-    msg.ack shouldBe 'empty
+    msg.ack shouldBe empty
   }
 
   it should "handle an ACK from the meta data manager" in {
@@ -580,7 +580,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentResults should have size 0
     next.currentMediaData should have size 0
     next.ackMetaManager shouldBe false
-    next.ackPending shouldBe 'empty
+    next.ackPending shouldBe empty
     msg should be(ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)),
       Some(result), Some(ack)))
   }
@@ -597,8 +597,8 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       ArchiveName), state)
     next.availableMediaSent shouldBe true
     next.mediaData should have size 0
-    next.ackPending shouldBe 'empty
-    next.scanClient shouldBe 'empty
+    next.ackPending shouldBe empty
+    next.scanClient shouldBe empty
     msg.metaManagerMessage should be(Some(AvailableMedia(mediaData)))
     msg.ack should be(Some(ack))
     msg.unionArchiveMessage should be(Some(AddMedia(currentMedia, ArchiveName, None)))
@@ -614,7 +614,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.mediaData should have size 0
     next.currentMediaData should have size 0
     next.currentResults should have size 0
-    next.ackPending shouldBe 'empty
+    next.ackPending shouldBe empty
     msg should be(ScanStateTransitionMessages(ack = Some(ack)))
   }
 }

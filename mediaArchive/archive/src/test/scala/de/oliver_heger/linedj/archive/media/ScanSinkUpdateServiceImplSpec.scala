@@ -138,8 +138,8 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
     ScanSinkUpdateServiceImpl.InitialState.scanResults should have size 0
     ScanSinkUpdateServiceImpl.InitialState.mediaInfo should have size 0
     ScanSinkUpdateServiceImpl.InitialState.resultAck shouldBe true
-    ScanSinkUpdateServiceImpl.InitialState.ackMediumFiles shouldBe 'empty
-    ScanSinkUpdateServiceImpl.InitialState.ackMediumInfo shouldBe 'empty
+    ScanSinkUpdateServiceImpl.InitialState.ackMediumFiles shouldBe empty
+    ScanSinkUpdateServiceImpl.InitialState.ackMediumInfo shouldBe empty
     ScanSinkUpdateServiceImpl.InitialState.resultsDone shouldBe false
     ScanSinkUpdateServiceImpl.InitialState.infoDone shouldBe false
   }
@@ -193,8 +193,8 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
       mediaInfo = Map(Medium2 -> createMediumInfo(Medium2)))
 
     val (next, actors) = updateState(ScanSinkUpdateServiceImpl.actorsToAck(2), state)
-    next.ackMediumInfo shouldBe 'empty
-    next.ackMediumFiles shouldBe 'empty
+    next.ackMediumInfo shouldBe empty
+    next.ackMediumFiles shouldBe empty
     actors should contain only(act1, act2)
   }
 
@@ -203,7 +203,7 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
     val state = ScanSinkUpdateServiceImpl.InitialState.copy(ackMediumFiles = Some(actor))
 
     val (next, actors) = updateState(ScanSinkUpdateServiceImpl.actorsToAck(5), state)
-    next.ackMediumFiles shouldBe 'empty
+    next.ackMediumFiles shouldBe empty
     actors should contain only actor
   }
 
@@ -228,7 +228,7 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
       mediaInfo = info, ackMediumFiles = Some(act1), ackMediumInfo = Some(act2))
 
     val (next, actors) = updateState(ScanSinkUpdateServiceImpl.actorsToAck(2), state)
-    next.ackMediumInfo shouldBe 'empty
+    next.ackMediumInfo shouldBe empty
     next.ackMediumFiles should be(Some(act1))
     actors should contain only act2
   }
@@ -303,7 +303,7 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
     next.resultAck shouldBe false
     next.scanResults should have size 0
     next.mediaInfo should have size 0
-    next.ackMediumFiles shouldBe 'empty
+    next.ackMediumFiles shouldBe empty
   }
 
   it should "handle the arrival of a new medium info" in {
@@ -322,7 +322,7 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
     next.resultAck shouldBe false
     next.scanResults should have size 0
     next.mediaInfo should have size 0
-    next.ackMediumInfo shouldBe 'empty
+    next.ackMediumInfo shouldBe empty
   }
 
   it should "handle the arrival of a result ACK" in {
@@ -343,8 +343,8 @@ class ScanSinkUpdateServiceImplSpec(testSystem: ActorSystem) extends TestKit(tes
     next.resultAck shouldBe false
     next.scanResults should have size 0
     next.mediaInfo should have size 0
-    next.ackMediumFiles shouldBe 'empty
-    next.ackMediumInfo shouldBe 'empty
+    next.ackMediumFiles shouldBe empty
+    next.ackMediumInfo shouldBe empty
   }
 
   it should "update the scan results done flag" in {

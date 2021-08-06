@@ -17,14 +17,14 @@ class ID3HeaderExtractorSpec extends AnyFlatSpec with Matchers {
     val extractor = new ID3HeaderExtractor
     val data = ByteString(new Array[Byte](ID3HeaderExtractor.ID3HeaderSize - 1))
 
-    extractor extractID3Header data shouldBe 'empty
+    extractor extractID3Header data shouldBe empty
   }
 
   it should "reject a buffer that does not contain header information" in {
     val extractor = new ID3HeaderExtractor
     val data = ByteString(FileTestHelper.toBytes("ID201234569870"))
 
-    extractor extractID3Header data shouldBe 'empty
+    extractor extractID3Header data shouldBe empty
   }
 
   /**

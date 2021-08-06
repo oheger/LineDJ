@@ -88,10 +88,10 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     val state = ContentProcessingUpdateServiceImpl.InitialState
 
     state.mediaInProgress should be(0)
-    state.ack shouldBe 'empty
-    state.pendingResult shouldBe 'empty
-    state.pendingClient shouldBe 'empty
-    state.propagateMsg shouldBe 'empty
+    state.ack shouldBe empty
+    state.pendingResult shouldBe empty
+    state.pendingClient shouldBe empty
+    state.propagateMsg shouldBe empty
     state.contentInArchive shouldBe false
     state.removeTriggered shouldBe true
     state.seqNo should be(0)
@@ -105,10 +105,10 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
 
     val (next, f) = updateState(ContentProcessingUpdateServiceImpl.processingStarts(), state)
     f shouldBe true
-    next.propagateMsg shouldBe 'empty
-    next.ack shouldBe 'empty
-    next.pendingResult shouldBe 'empty
-    next.pendingClient shouldBe 'empty
+    next.propagateMsg shouldBe empty
+    next.ack shouldBe empty
+    next.pendingResult shouldBe empty
+    next.pendingClient shouldBe empty
     next.seqNo should not be state.seqNo
     next.mediaInProgress should be(0)
     next.removeTriggered shouldBe false
@@ -156,8 +156,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     next.propagateMsg should be(Some(PropagateMediumResult(result, removeContent = false)))
     next.contentInArchive shouldBe true
     next.ack should be(Some(testActor))
-    next.pendingClient shouldBe 'empty
-    next.pendingResult shouldBe 'empty
+    next.pendingClient shouldBe empty
+    next.pendingResult shouldBe empty
   }
 
   it should "ignore a result with a wrong sequence number" in {
@@ -176,8 +176,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     val next = modifyState(ContentProcessingUpdateServiceImpl.resultAvailable(result, testActor,
       MaxInProgress), state)
     next.mediaInProgress should be(MaxInProgress)
-    next.propagateMsg shouldBe 'empty
-    next.ack shouldBe 'empty
+    next.propagateMsg shouldBe empty
+    next.ack shouldBe empty
     next.pendingResult should be(Some(result))
     next.pendingClient should be(Some(testActor))
   }
@@ -236,8 +236,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     val next = modifyState(ContentProcessingUpdateServiceImpl.resultPropagated(state.seqNo,
       MaxInProgress), state)
     next.mediaInProgress should be(MaxInProgress)
-    next.pendingClient shouldBe 'empty
-    next.pendingResult shouldBe 'empty
+    next.pendingClient shouldBe empty
+    next.pendingResult shouldBe empty
     next.propagateMsg should be(Some(PropagateMediumResult(result, removeContent = false)))
     next.ack should be(Some(testActor))
   }
@@ -252,8 +252,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
       MaxInProgress), state)
     next.pendingClient should be(Some(testActor))
     next.pendingResult should be(Some(result))
-    next.ack shouldBe 'empty
-    next.propagateMsg shouldBe 'empty
+    next.ack shouldBe empty
+    next.propagateMsg shouldBe empty
     next.mediaInProgress should be(MaxInProgress)
   }
 
@@ -270,8 +270,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
       .copy(propagateMsg = Some(propMsg), ack = Some(testActor))
 
     val (next, data) = updateState(ContentProcessingUpdateServiceImpl.fetchTransitionData(), state)
-    next.ack shouldBe 'empty
-    next.propagateMsg shouldBe 'empty
+    next.ack shouldBe empty
+    next.propagateMsg shouldBe empty
     data.propagateMsg should be(Some(propMsg))
     data.actorToAck should be(Some(testActor))
   }
@@ -282,8 +282,8 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     val (next, data) = updateState(ContentProcessingUpdateServiceImpl
       .handleResultAvailable(result, testActor, MaxInProgress))
     next.mediaInProgress should be(1)
-    next.ack shouldBe 'empty
-    next.propagateMsg shouldBe 'empty
+    next.ack shouldBe empty
+    next.propagateMsg shouldBe empty
     data.propagateMsg should be(Some(PropagateMediumResult(result, removeContent = false)))
     data.actorToAck should be(Some(testActor))
   }
@@ -297,10 +297,10 @@ class ContentProcessingUpdateServiceSpec(testSystem: ActorSystem) extends TestKi
     val (next, data) = updateState(ContentProcessingUpdateServiceImpl
       .handleResultPropagated(state.seqNo, MaxInProgress), state)
     next.mediaInProgress should be(MaxInProgress)
-    next.pendingClient shouldBe 'empty
-    next.pendingResult shouldBe 'empty
-    next.propagateMsg shouldBe 'empty
-    next.ack shouldBe 'empty
+    next.pendingClient shouldBe empty
+    next.pendingResult shouldBe empty
+    next.propagateMsg shouldBe empty
+    next.ack shouldBe empty
     data.propagateMsg should be(Some(PropagateMediumResult(result, removeContent = false)))
     data.actorToAck should be(Some(testActor))
   }

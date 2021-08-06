@@ -261,7 +261,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return this test helper
       */
     def expectNoChildActorCreation(): DownloadManagementTestHelper = {
-      childCreationQueue shouldBe 'empty
+      childCreationQueue shouldBe empty
       this
     }
 

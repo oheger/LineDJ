@@ -103,7 +103,7 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
 
   it should "return None if an unknown medium ID is to be resolved" in {
     MediaFileUriHandler.resolveUri(TestMedium, "path://somePath/someFile.mp3",
-      Map.empty) shouldBe 'empty
+      Map.empty) shouldBe empty
   }
 
   it should "resolve a valid path URI" in {
@@ -124,7 +124,7 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
     val MediaData = Map(TestMedium -> UriMapping)
 
     MediaFileUriHandler.resolveUri(TestMedium, "somePath/someFile.mp3",
-      MediaData) shouldBe 'empty
+      MediaData) shouldBe empty
   }
 
   it should "be able to split a valid URI for the global undefined medium" in {
@@ -169,7 +169,7 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
     val refUri = "ref://" + RootName + ":" + ComponentIDEnc + ":NoPathUriFollows"
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
-      Map.empty) shouldBe 'empty
+      Map.empty) shouldBe empty
   }
 
   it should "return None for a reference URI if the target medium is unknown" in {
@@ -182,7 +182,7 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
       pathUri
 
     MediaFileUriHandler.resolveUri(MediumID.UndefinedMediumID, refUri,
-      MediaData) shouldBe 'empty
+      MediaData) shouldBe empty
   }
 
   it should "be able to remove a path prefix" in {
@@ -217,7 +217,7 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
   it should "return None as specific medium for an incorrect URI" in {
     val media = Seq(TestMedium)
 
-    MediaFileUriHandler.findSpecificUndefinedMedium("invalidUri", media) shouldBe 'empty
+    MediaFileUriHandler.findSpecificUndefinedMedium("invalidUri", media) shouldBe empty
   }
 
   it should "return None as specific medium if no medium can be found" in {
@@ -226,6 +226,6 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
     val media = Seq(MediumID(RootName, None), MediumID("otherRoot", None, ComponentID),
       MediumID("foo", Some("bar"), "someComp"))
 
-    MediaFileUriHandler.findSpecificUndefinedMedium(refUri, media) shouldBe 'empty
+    MediaFileUriHandler.findSpecificUndefinedMedium(refUri, media) shouldBe empty
   }
 }

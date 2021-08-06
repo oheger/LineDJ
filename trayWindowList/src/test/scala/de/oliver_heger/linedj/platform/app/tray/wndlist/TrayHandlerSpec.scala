@@ -65,7 +65,7 @@ class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val tray = mock[SystemTray]
     when(tray.add(any(classOf[TrayIcon]))).thenThrow(new IllegalArgumentException)
 
-    TrayHandlerImpl.addIconToTray(tray, createImage(), Tip) shouldBe 'empty
+    TrayHandlerImpl.addIconToTray(tray, createImage(), Tip) shouldBe empty
   }
 
   it should "do a complete add icon operation" in {

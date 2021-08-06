@@ -515,7 +515,7 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers {
 
   it should "select None from an empty list" in {
     IntervalQueries.selectResult(List.empty,
-      IntervalQueries.LongestInsideSelector) shouldBe 'empty
+      IntervalQueries.LongestInsideSelector) shouldBe empty
   }
 
   it should "select the correct result from a list" in {

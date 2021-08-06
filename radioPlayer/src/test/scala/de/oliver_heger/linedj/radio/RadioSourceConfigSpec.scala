@@ -228,7 +228,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "unsupported"), "1")
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "drop a minute exclusion with an invalid from" in {
@@ -237,7 +237,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "minutes[@to]"), 52)
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "drop a minute exclusion with an invalid to" in {
@@ -246,7 +246,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "minutes[@to]"), "-1")
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "ignore a minute exclusion with from >= to" in {
@@ -255,7 +255,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "minutes[@to]"), "58")
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "ignore a minute exclusion with a non-string parameter" in {
@@ -264,7 +264,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "minutes[@to]"), "58")
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "combine multiple interval queries" in {
@@ -289,7 +289,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "hours[@to]"), "25")
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "parse a days-of-week query" in {
@@ -316,7 +316,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     config.addProperty(exclusionKey(0, "days.day"), Array("TUESDAY", "FRIDAY", "unknown day"))
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions(radioSource(1)) shouldBe 'empty
+    sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "create cyclic interval queries" in {

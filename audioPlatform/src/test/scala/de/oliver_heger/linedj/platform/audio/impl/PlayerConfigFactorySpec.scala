@@ -128,11 +128,11 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.bufferChunkSize should be(DefBufferChunkSize)
     conf.bufferFilePrefix should be(DefBufferFilePrefix)
     conf.bufferFileExtension should be(DefBufferFileExt)
-    conf.bufferTempPath shouldBe 'empty
-    conf.bufferTempPathParts shouldBe 'empty
+    conf.bufferTempPath shouldBe empty
+    conf.bufferTempPathParts shouldBe empty
     conf.downloadInProgressNotificationDelay should be(DefDownloadProgressNotificationDelay)
     conf.downloadInProgressNotificationInterval should be(DefDownloadProgressNotificationInterval)
-    conf.blockingDispatcherName shouldBe 'empty
+    conf.blockingDispatcherName shouldBe empty
   }
 
   it should "store the management actor and the actor creator" in {

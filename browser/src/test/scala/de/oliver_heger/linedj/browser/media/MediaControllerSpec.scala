@@ -327,7 +327,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     val helper = new MediaControllerTestHelper
 
     helper.selectMedium()
-    helper.findMessageType[RemoveMetaDataRegistration] shouldBe 'empty
+    helper.findMessageType[RemoveMetaDataRegistration] shouldBe empty
   }
 
   it should "define a correct component ID" in {
@@ -354,7 +354,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
     helper sendAvailableMedia AvailableMediaMsg
     helper selectMedium mediumID(MediaNames(1))
-    helper.findMessageType[RemoveMetaDataRegistration] shouldBe 'empty
+    helper.findMessageType[RemoveMetaDataRegistration] shouldBe empty
   }
 
   it should "clear the tree model when another medium is selected" in {
@@ -362,11 +362,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     helper.treeModel.setProperty("someKey", "someValue")
 
     helper selectMedium mediumID(MediaNames(1))
-    helper.treeModel should not be 'empty
+    helper.treeModel should not be empty
     helper.clearReceivedMessages()
 
     helper.selectMedium()
-    helper.treeModel shouldBe 'empty
+    helper.treeModel shouldBe empty
   }
 
   it should "set the root node of the tree model to the medium name" in {
@@ -401,11 +401,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     helper.tableModel add "someData"
 
     helper selectMedium mediumID(MediaNames(1))
-    helper.tableModel should not be 'empty
+    helper.tableModel should not be empty
     helper.clearReceivedMessages()
 
     helper.selectMedium()
-    helper.tableModel shouldBe 'empty
+    helper.tableModel shouldBe empty
     verify(helper.tableHandler).tableDataChanged()
   }
 
@@ -479,7 +479,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
     callback(createChunk(mediumID = mediumID("another medium ID"), songs = createSongData(Artist1, Album1,
       Songs1)))
-    helper.treeModel shouldBe 'empty
+    helper.treeModel shouldBe empty
   }
 
   it should "ignore meta data chunks if no medium is selected" in {
@@ -490,7 +490,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
     callback(createChunk(mediumID = mediumID("other"), songs = createSongData(Artist1, Album1,
       Songs1)))
-    helper.treeModel shouldBe 'empty
+    helper.treeModel shouldBe empty
   }
 
   it should "fill the table model when an album is selected" in {
@@ -641,7 +641,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     helper.selectMedium()
 
     helper selectAlbums createTreePath(Artist1, Album1)
-    helper.tableModel shouldBe 'empty
+    helper.tableModel shouldBe empty
   }
 
   it should "support multiple selected album paths" in {
@@ -1001,7 +1001,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
      */
     def expectMessageType[T](implicit t: ClassTag[T]): T = {
       val optMsg = findMessageType(t)
-      optMsg shouldBe 'defined
+      optMsg shouldBe defined
       optMsg.get
     }
 

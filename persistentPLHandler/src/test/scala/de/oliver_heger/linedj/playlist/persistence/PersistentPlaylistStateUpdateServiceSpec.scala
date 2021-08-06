@@ -144,12 +144,12 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
   "A PersistentPlaylistStateUpdateService" should "define an initial state" in {
     val state = PersistentPlaylistStateUpdateServiceImpl.InitialState
 
-    state.loadedPlaylist shouldBe 'empty
-    state.componentID shouldBe 'empty
-    state.referencedMediaIDs shouldBe 'empty
-    state.availableMediaIDs shouldBe 'empty
-    state.availableChecksums shouldBe 'empty
-    state.messages shouldBe 'empty
+    state.loadedPlaylist shouldBe empty
+    state.componentID shouldBe empty
+    state.referencedMediaIDs shouldBe empty
+    state.availableMediaIDs shouldBe empty
+    state.availableChecksums shouldBe empty
+    state.messages shouldBe empty
   }
 
   it should "update the state when the component is activated" in {
@@ -200,7 +200,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(TestPlaylist,
       createCallback()), state)
-    next.referencedMediaIDs shouldBe 'empty
+    next.referencedMediaIDs shouldBe empty
     next.messages should have size 2
     next.messages should contain(TestPlaylist)
   }
@@ -223,8 +223,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
       .availableMediaArrived(createAvailableMedia(MediaIDs)), state)
     next.messages should contain only TestPlaylist
-    next.referencedMediaIDs shouldBe 'empty
-    next.availableMediaIDs shouldBe 'empty
+    next.referencedMediaIDs shouldBe empty
+    next.availableMediaIDs shouldBe empty
   }
 
   it should "activate the playlist when the checksum set can be matched" in {
@@ -247,8 +247,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av),
       state)
-    next.messages shouldBe 'empty
-    next.availableMediaIDs shouldBe 'empty
+    next.messages shouldBe empty
+    next.availableMediaIDs shouldBe empty
   }
 
   it should "not activate the playlist if there is no checksum to match against" in {
@@ -258,8 +258,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av),
       state)
-    next.messages shouldBe 'empty
-    next.availableMediaIDs shouldBe 'empty
+    next.messages shouldBe empty
+    next.availableMediaIDs shouldBe empty
   }
 
   it should "handle a state with referenced IDs, but no playlist gracefully" in {
@@ -267,7 +267,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
       .availableMediaArrived(createAvailableMedia(MediaIDs)), state)
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
     next.availableMediaIDs should contain only (MediaIDs: _*)
   }
 
@@ -278,7 +278,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     val (next, res) = updateState(PersistentPlaylistStateUpdateServiceImpl.fetchMessages(),
       state)
     res shouldBe messages
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
   }
 
   it should "handle the component activation" in {
@@ -287,7 +287,7 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     val (next, msg) = updateState(PersistentPlaylistStateUpdateServiceImpl
       .handleActivation(TestComponent, callback))
     next.componentID shouldBe Some(TestComponent)
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
     msg should contain only AvailableMediaRegistration(TestComponent, callback)
   }
 
@@ -297,10 +297,10 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
 
     val (next, msg) = updateState(PersistentPlaylistStateUpdateServiceImpl.
       handlePlaylistLoaded(TestPlaylist, callback), state)
-    next.referencedMediaIDs shouldBe 'empty
+    next.referencedMediaIDs shouldBe empty
     msg should contain only(TestPlaylist,
       AudioPlayerStateChangeRegistration(TestComponent, callback))
-    next.messages shouldBe 'empty
+    next.messages shouldBe empty
     next.loadedPlaylist shouldBe Some(TestPlaylist)
   }
 
@@ -311,8 +311,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     val (next, msg) = updateState(PersistentPlaylistStateUpdateServiceImpl
       .handleNewAvailableMedia(createAvailableMedia(MediaIDs)), state)
     msg should contain only TestPlaylist
-    next.messages shouldBe 'empty
-    next.referencedMediaIDs shouldBe 'empty
-    next.availableMediaIDs shouldBe 'empty
+    next.messages shouldBe empty
+    next.referencedMediaIDs shouldBe empty
+    next.availableMediaIDs shouldBe empty
   }
 }

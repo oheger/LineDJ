@@ -126,8 +126,8 @@ class AudioPlayerControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
     val state = helper.lastState
     state.playbackActive shouldBe false
     state.playlistClosed shouldBe false
-    state.playlist.playedSongs shouldBe 'empty
-    state.playlist.pendingSongs shouldBe 'empty
+    state.playlist.playedSongs shouldBe empty
+    state.playlist.pendingSongs shouldBe empty
     state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
     state.playlistActivated shouldBe false
   }

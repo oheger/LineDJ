@@ -362,7 +362,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     val msg = helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false)
     msg.mediumID should be(TestMediumID)
-    msg.data shouldBe 'empty
+    msg.data shouldBe empty
     msg.complete shouldBe false
   }
 
@@ -371,7 +371,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendContribution()
 
     val msgEmpty = helper.queryAndExpectMetaData(TestMediumID, registerAsListener = true)
-    msgEmpty.data shouldBe 'empty
+    msgEmpty.data shouldBe empty
     msgEmpty.complete shouldBe false
 
     val filesForChunk1 = Contribution.files(TestMediumID).take(2)
@@ -402,7 +402,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     def findUrisInChunk(mediumID: MediumID, chunk: MetaDataChunk, files: Iterable[FileData]): Unit = {
       files.map(d =>
-        refUri(mediumID)(Paths get d.path)).filterNot(chunk.data.contains) shouldBe 'empty
+        refUri(mediumID)(Paths get d.path)).filterNot(chunk.data.contains) shouldBe empty
     }
 
     val helper = new MetaDataUnionActorTestHelper
@@ -449,7 +449,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new MetaDataUnionActorTestHelper
     val data = helper.sendContribution()
       .queryAndExpectMetaData(TestMediumID, registerAsListener = true).data
-    data shouldBe 'empty
+    data shouldBe empty
 
     helper.actor ! RemoveMediumListener(TestMediumID, testActor)
     helper.sendProcessingResults(TestMediumID, Contribution.files(TestMediumID))
@@ -470,7 +470,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     helper.sendScanStartsMessage()
       .queryAndExpectMetaData(TestMediumID,
-        registerAsListener = false).data should not be 'empty
+        registerAsListener = false).data should not be empty
   }
 
   it should "remove all medium listeners when the scan is canceled" in {

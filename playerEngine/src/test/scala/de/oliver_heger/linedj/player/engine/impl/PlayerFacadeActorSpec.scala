@@ -177,7 +177,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val creations = helper.expectActorCreations(TotalChildrenCount)
 
     val cdDelay = findActorCreation[DelayActor](creations)
-    cdDelay.props.args shouldBe 'empty
+    cdDelay.props.args shouldBe empty
   }
 
   it should "dispatch a message to the download actor" in {
@@ -429,7 +429,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def expectNoActorCreation(): PlayerFacadeTestHelper = {
-      actorCreationQueue shouldBe 'empty
+      actorCreationQueue shouldBe empty
       this
     }
 

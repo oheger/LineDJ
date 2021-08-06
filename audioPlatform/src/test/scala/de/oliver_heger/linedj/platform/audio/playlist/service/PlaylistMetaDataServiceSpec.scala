@@ -160,8 +160,8 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers {
       state.seqNo, state)(Factory)
     nextState should be(state)
     delta.fullUpdate shouldBe false
-    delta.resolvedSongs shouldBe 'empty
-    delta.updatedRanges shouldBe 'empty
+    delta.resolvedSongs shouldBe empty
+    delta.updatedRanges shouldBe empty
   }
 
   it should "process a new playlist" in {
@@ -196,8 +196,8 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers {
 
     val (delta, nextState) = PlaylistMetaDataService.processMetaDataUpdate(
       PlaylistMetaData(metaData), state)(Factory)
-    delta.resolvedSongs shouldBe 'empty
-    delta.updatedRanges shouldBe 'empty
+    delta.resolvedSongs shouldBe empty
+    delta.updatedRanges shouldBe empty
     delta.fullUpdate shouldBe false
     nextState.metaData should be(metaData)
   }
@@ -234,7 +234,7 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers {
 
     val state2 = checkMetaDataUpdate((1, 3), state1)
     val state3 = checkMetaDataUpdate((4, 8), state2)
-    state3.unresolvedSongs shouldBe 'empty
+    state3.unresolvedSongs shouldBe empty
   }
 
   it should "return correct update indices if multiple ranges are involved" in {

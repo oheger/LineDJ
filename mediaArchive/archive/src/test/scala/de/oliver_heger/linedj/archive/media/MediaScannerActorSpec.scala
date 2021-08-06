@@ -271,7 +271,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val results = helper.scan(Paths get "nonExistingPath")
       .waitForScanComplete()
       .fetchAllResults()
-    results shouldBe 'empty
+    results shouldBe empty
   }
 
   it should "support canceling a scan operation" in {

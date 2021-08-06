@@ -28,7 +28,7 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
 
   "A CombinedPlaybackContextFactory" should "return None if there are no sub factories" in {
     val factory = new CombinedPlaybackContextFactory(Nil)
-    factory.createPlaybackContext(mock[InputStream], Uri) shouldBe 'empty
+    factory.createPlaybackContext(mock[InputStream], Uri) shouldBe empty
   }
 
   it should "invoke its sub factories" in {
@@ -37,7 +37,7 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
     val stream = mock[InputStream]
 
     val factory = new CombinedPlaybackContextFactory(List(sub1, sub2))
-    factory.createPlaybackContext(stream, Uri) shouldBe 'empty
+    factory.createPlaybackContext(stream, Uri) shouldBe empty
     verify(sub1).createPlaybackContext(stream, Uri)
     verify(sub2).createPlaybackContext(stream, Uri)
   }
@@ -66,7 +66,7 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
     val factory = new CombinedPlaybackContextFactory(List(sub1))
     val factory2 = factory addSubFactory sub2
     factory2.createPlaybackContext(stream, Uri).get should be(context)
-    factory.createPlaybackContext(stream, Uri) shouldBe 'empty
+    factory.createPlaybackContext(stream, Uri) shouldBe empty
   }
 
   it should "support removing a sub factory" in {
@@ -76,7 +76,7 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
 
     val factory = new CombinedPlaybackContextFactory(List(sub1, sub2))
     val factory2 = factory removeSubFactory sub2
-    factory2.createPlaybackContext(stream, Uri) shouldBe 'empty
+    factory2.createPlaybackContext(stream, Uri) shouldBe empty
     verifyZeroInteractions(sub2)
   }
 }

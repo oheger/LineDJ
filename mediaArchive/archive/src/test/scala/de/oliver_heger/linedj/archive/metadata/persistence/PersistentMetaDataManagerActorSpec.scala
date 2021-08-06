@@ -471,7 +471,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
-    info.unusedFiles shouldBe 'empty
+    info.unusedFiles shouldBe empty
     info.metaDataFiles should have size 2
     info.metaDataFiles(mediumID(1)) should be(checksum(1))
     info.metaDataFiles(mediumID(2)) should be(checksum(2))
@@ -524,7 +524,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     actor ! PersistentMetaDataManagerActor.FetchMetaDataFileInfo(testActor)
     val info = expectMsgType[MetaDataFileInfo]
     info.metaDataFiles should contain(mediumID(2) -> checksum(2))
-    info.unusedFiles shouldBe 'empty
+    info.unusedFiles shouldBe empty
   }
 
   it should "ignore MetaDataWritten messages from invalid senders" in {

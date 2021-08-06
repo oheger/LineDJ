@@ -61,7 +61,7 @@ object AlbumTableModelSpec {
 class AlbumTableModelSpec extends AnyFlatSpec with Matchers {
   import AlbumTableModelSpec._
   "An AlbumTableModel" should "return an empty sequence for unknown data" in {
-    AlbumTableModel.empty songsFor AlbumKey("Unknown", "Unknown, too") shouldBe 'empty
+    AlbumTableModel.empty songsFor AlbumKey("Unknown", "Unknown, too") shouldBe empty
   }
 
   it should "allow appending songs in order" in {

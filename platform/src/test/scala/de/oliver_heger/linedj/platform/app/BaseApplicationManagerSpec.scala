@@ -238,7 +238,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     when(l1.onShutdown()).thenReturn(true)
     when(l2.onShutdown()).thenReturn(false)
     val listeners = List(l1, l2, l3)
-    captor.getValue.apply(listeners) shouldBe 'empty
+    captor.getValue.apply(listeners) shouldBe empty
     verify(l3, never()).onShutdown()
   }
 
@@ -366,7 +366,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       */
     def sendMessage(msg: Any): ApplicationManagerTestHelper = {
       val optListener = busListeners.find(_.isDefinedAt(msg))
-      optListener shouldBe 'defined
+      optListener shouldBe defined
       optListener.get.apply(msg)
       this
     }

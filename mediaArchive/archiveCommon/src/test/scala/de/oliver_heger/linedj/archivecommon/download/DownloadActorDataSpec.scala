@@ -96,7 +96,7 @@ class DownloadActorDataSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     mapping.add(reader, client, 0)
 
     mapping remove reader
-    mapping.findTimeouts(100000, 10.seconds) shouldBe 'empty
+    mapping.findTimeouts(100000, 10.seconds) shouldBe empty
   }
 
   it should "not update the timestamp of a non-existing mapping" in {
@@ -111,7 +111,7 @@ class DownloadActorDataSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     mapping.add(reader, client, 0)
 
     mapping.updateTimestamp(reader, 95000L) shouldBe true
-    mapping.findTimeouts(100000, 10.seconds) shouldBe 'empty
+    mapping.findTimeouts(100000, 10.seconds) shouldBe empty
   }
 
   it should "find reader actors created for a client" in {

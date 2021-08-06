@@ -239,14 +239,14 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
   "A PlaylistWriteStateUpdateService" should "have a correct initial state" in {
     val state = PlaylistWriteStateUpdateServiceImpl.InitialState
 
-    state.initialPlaylist shouldBe 'empty
-    state.playlistSeqNo shouldBe 'empty
+    state.initialPlaylist shouldBe empty
+    state.playlistSeqNo shouldBe empty
     state.currentPosition should be(CurrentPlaylistPosition(0, 0, 0))
     state.updatedPosition should be(state.currentPosition)
     state.pendingWriteOperations should have size 0
     state.writesToTrigger should have size 0
     state.writesInProgress should have size 0
-    state.closeRequest shouldBe 'empty
+    state.closeRequest shouldBe empty
     state.canClose shouldBe false
   }
 
@@ -635,7 +635,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val (next, messages) = updateState(PlaylistWriteStateUpdateServiceImpl
       .handlePlayerStateChange(plService, playerState, WriteConfig), state)
     saveAndLoadPlaylist(messages.writes) should be(SetPlaylist(playerState.playlist))
-    messages.closeAck shouldBe 'empty
+    messages.closeAck shouldBe empty
     next.playlistSeqNo should be(Some(2))
     next.writesToTrigger should have size 0
   }

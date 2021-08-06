@@ -83,14 +83,14 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
   it should "allow adding undefined meta data" in {
     val collector = new MetaDataPartsCollector(File)
 
-    collector setMp3MetaData Mp3Data shouldBe 'empty
+    collector setMp3MetaData Mp3Data shouldBe empty
   }
 
   it should "allow adding undefined ID3v1 meta data" in {
     val id3Collector = mock[MetaDataID3Collector]
     val collector = new MetaDataPartsCollector(File, id3Collector)
 
-    collector setID3v1MetaData None shouldBe 'empty
+    collector setID3v1MetaData None shouldBe empty
     verifyZeroInteractions(id3Collector)
   }
 
@@ -98,7 +98,7 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
     val id3Collector = mock[MetaDataID3Collector]
     val collector = new MetaDataPartsCollector(File, id3Collector)
 
-    collector setID3v1MetaData Some(ID3MetaData) shouldBe 'empty
+    collector setID3v1MetaData Some(ID3MetaData) shouldBe empty
     verify(id3Collector).addProvider(1, ID3MetaData)
   }
 
@@ -135,8 +135,8 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
     val collector = new MetaDataPartsCollector(File)
 
     collector.expectID3Data(ID3FrameHeader.version)
-    collector setID3v1MetaData Some(ID3MetaData) shouldBe 'empty
-    collector setMp3MetaData Mp3Data shouldBe 'empty
+    collector setID3v1MetaData Some(ID3MetaData) shouldBe empty
+    collector setMp3MetaData Mp3Data shouldBe empty
   }
 
   it should "accept ID3 data of other versions" in {

@@ -125,7 +125,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingSuccess = {
     val (data, failure) = p.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       optFailure = None)
-    failure shouldBe 'empty
+    failure shouldBe empty
     data should have size 1
     data.head
   }
@@ -166,9 +166,9 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.duration shouldBe 'empty
-    result.metaData.inceptionYear shouldBe 'empty
-    result.metaData.trackNumber shouldBe 'empty
+    result.metaData.duration shouldBe empty
+    result.metaData.inceptionYear shouldBe empty
+    result.metaData.trackNumber shouldBe empty
   }
 
   it should "handle an invalid size property" in {
@@ -201,10 +201,10 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val p = expectSuccessResult(createParser(), 2, Vector(props1, props2))
     val (data, failure) = p.processChunk(generateChunk(2), TestMedium, lastChunk = false,
       optFailure = None)
-    failure shouldBe 'empty
+    failure shouldBe empty
     data should have size 2
     data.head.metaData.title.get should be("Title1")
-    data(1).metaData.title shouldBe 'empty
+    data(1).metaData.title shouldBe empty
     data(1).uri should be("song://uri2.mp3")
   }
 

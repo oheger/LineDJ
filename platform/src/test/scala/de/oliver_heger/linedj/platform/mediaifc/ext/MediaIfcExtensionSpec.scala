@@ -202,7 +202,7 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     val ext = new MediaIfcExtensionTestImpl
 
     ext removeConsumer ComponentID()
-    ext.consumerRemovedNotifications.get() shouldBe 'empty
+    ext.consumerRemovedNotifications.get() shouldBe empty
   }
 
   it should "invoke a notification method when the archive becomes available" in {
@@ -241,8 +241,8 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext addConsumer createRegistration(1, buf)
 
     ext receive Message
-    ext.scanCompletedNotifications.get() shouldBe 'empty
-    ext.archiveAvailableNotifications.get() shouldBe 'empty
+    ext.scanCompletedNotifications.get() shouldBe empty
+    ext.archiveAvailableNotifications.get() shouldBe empty
     buf.toString().trim should be(consumerOutput(1, Answer))
   }
 
@@ -257,7 +257,7 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext addConsumer createRegistration(1, buf)
 
     ext receive MetaDataScanCompleted
-    ext.scanCompletedNotifications.get() shouldBe 'empty
+    ext.scanCompletedNotifications.get() shouldBe empty
     buf.toString().trim should be(consumerOutput(1, data))
   }
 
@@ -332,7 +332,7 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.addConsumer(regKeep, key)
 
     ext.removeConsumers() shouldBe true
-    ext.consumerList() shouldBe 'empty
+    ext.consumerList() shouldBe empty
     ext.consumerList(key) should contain only regKeep.callback
   }
 
@@ -348,7 +348,7 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.addConsumer(createRegistration(2), "otherKey")
 
     ext.clearConsumers() shouldBe true
-    ext.consumerMap shouldBe 'empty
+    ext.consumerMap shouldBe empty
   }
 
   it should "return a correct result if clearConsumers() is invoked if empty" in {

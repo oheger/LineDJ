@@ -73,7 +73,7 @@ class UriMapperSpec extends AnyFlatSpec with Matchers {
   }
 
   "A UriMapper" should "return None if there is no prefix match" in {
-    mapUri("other://song.mp3") shouldBe 'empty
+    mapUri("other://song.mp3") shouldBe empty
   }
 
   it should "apply a template correctly" in {
@@ -146,6 +146,6 @@ class UriMapperSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle a null URI as input" in {
-    mapUri(null) shouldBe 'empty
+    mapUri(null) shouldBe empty
   }
 }

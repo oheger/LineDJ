@@ -111,11 +111,11 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     val collector = new MetaDataID3Collector
     val provider = collector.createCombinedID3TagProvider()
 
-    provider.album shouldBe 'empty
-    provider.artist shouldBe 'empty
-    provider.inceptionYearString shouldBe 'empty
-    provider.title shouldBe 'empty
-    provider.trackNoString shouldBe 'empty
+    provider.album shouldBe empty
+    provider.artist shouldBe empty
+    provider.inceptionYearString shouldBe empty
+    provider.title shouldBe empty
+    provider.trackNoString shouldBe empty
   }
 
   it should "return the data from an added provider" in {

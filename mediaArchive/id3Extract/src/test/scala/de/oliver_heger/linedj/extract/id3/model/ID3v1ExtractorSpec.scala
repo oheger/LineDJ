@@ -49,21 +49,21 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   import ID3v1ExtractorSpec._
 
   "An ID3v1Extractor" should "reject an empty frame" in {
-    ID3v1Extractor.providerFor(TailBuffer(128)) shouldBe 'empty
+    ID3v1Extractor.providerFor(TailBuffer(128)) shouldBe empty
   }
 
   it should "reject a frame which is too small" in {
     val data = new Array[Byte](127)
     val buffer = TailBuffer(128, ByteString(fillArray(data, "TAG")))
 
-    ID3v1Extractor.providerFor(buffer) shouldBe 'empty
+    ID3v1Extractor.providerFor(buffer) shouldBe empty
   }
 
   it should "reject a frame with no valid ID" in {
     val data = new Array[Byte](128)
     val buffer = TailBuffer(128, ByteString(fillArray(data, "TAJ")))
 
-    ID3v1Extractor.providerFor(buffer) shouldBe 'empty
+    ID3v1Extractor.providerFor(buffer) shouldBe empty
   }
 
   /**
@@ -87,7 +87,7 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     provider.title.get should be("Testtitle")
     provider.album.get should be("A Test Collection")
     provider.inceptionYear.get should be(2006)
-    provider.trackNo shouldBe 'empty
+    provider.trackNo shouldBe empty
   }
 
   it should "extract the track number if defined" in {
@@ -116,13 +116,13 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "ignore a string consisting only of 0 bytes" in {
     val provider = providerFromStringExtractionTest("")
 
-    provider.title shouldBe 'empty
+    provider.title shouldBe empty
   }
 
   it should "ignore a string consisting only of whitespace" in {
     val provider = providerFromStringExtractionTest(" " * 32)
 
-    provider.title shouldBe 'empty
+    provider.title shouldBe empty
   }
 
   it should "trim text data" in {

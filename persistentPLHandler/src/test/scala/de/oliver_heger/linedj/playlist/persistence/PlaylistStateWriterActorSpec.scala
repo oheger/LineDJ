@@ -296,7 +296,7 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
         with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[PlaylistFileWriterActor])
-          p.args shouldBe 'empty
+          p.args shouldBe empty
           probeFileWriter.ref
         }
       }))

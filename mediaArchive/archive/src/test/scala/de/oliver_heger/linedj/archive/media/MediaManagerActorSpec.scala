@@ -386,7 +386,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
     response.length should be(-1)
-    response.contentReader shouldBe 'empty
+    response.contentReader shouldBe empty
   }
 
   it should "return a file response for an unknown medium ID" in {

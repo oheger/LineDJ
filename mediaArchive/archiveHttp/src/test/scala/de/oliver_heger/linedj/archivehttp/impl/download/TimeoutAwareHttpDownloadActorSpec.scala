@@ -698,7 +698,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def expectNoSchedule(): DownloadActorTestHelper = {
-      schedulerInvocationsQueue shouldBe 'empty
+      schedulerInvocationsQueue shouldBe empty
       this
     }
 

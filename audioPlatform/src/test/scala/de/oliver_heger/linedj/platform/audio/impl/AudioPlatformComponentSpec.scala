@@ -356,7 +356,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyMessageBusRegistrationRemoved(): ComponentTestHelper = {
-      messageBus.currentListeners shouldBe 'empty
+      messageBus.currentListeners shouldBe empty
       this
     }
 

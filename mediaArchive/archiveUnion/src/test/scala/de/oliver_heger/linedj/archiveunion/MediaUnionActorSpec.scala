@@ -207,7 +207,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     val response = expectMsgType[MediumFileResponse]
-    response.contentReader shouldBe 'empty
+    response.contentReader shouldBe empty
   }
 
   it should "reset the checksum mapping if new media data is added" in {
@@ -315,7 +315,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     stopActor(ctrl.ref)
     helper.manager ! MediumFileRequest(MediaFileID(mediumID(1, 1), "someUri"), withMetaData = true)
-    expectMsgType[MediumFileResponse].contentReader shouldBe 'empty
+    expectMsgType[MediumFileResponse].contentReader shouldBe empty
   }
 
   it should "use the sender as controller actor if not specified explicitly" in {

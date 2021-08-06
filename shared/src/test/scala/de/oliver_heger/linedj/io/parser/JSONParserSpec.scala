@@ -95,7 +95,7 @@ class JSONParserSpec extends AnyFlatSpec with Matchers {
       .asInstanceOf[Success[JSONData]]
     val results = (1 until JsonText.length).map(chunkTest)
     val errors = results.zipWithIndex.filter(_._1.isInstanceOf[Failure])
-    errors shouldBe 'empty
+    errors shouldBe empty
     results.filter(_.asInstanceOf[Success[JSONData]].get != result.get) should have size 0
   }
 

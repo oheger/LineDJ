@@ -244,12 +244,12 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     config.clearTree("media.localArchives.localArchive.toc")
     val tocConfig = createArchiveConfig(config).contentTableConfig
 
-    tocConfig.contentFile shouldBe 'empty
+    tocConfig.contentFile shouldBe empty
     tocConfig.descriptionRemovePrefix should be(null)
     tocConfig.pathComponentsToRemove should be(0)
     tocConfig.descriptionPathSeparator should be(null)
-    tocConfig.rootPrefix shouldBe 'empty
-    tocConfig.metaDataPrefix shouldBe 'empty
+    tocConfig.rootPrefix shouldBe empty
+    tocConfig.metaDataPrefix shouldBe empty
     tocConfig.descriptionUrlEncoding shouldBe false
   }
 

@@ -686,7 +686,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassRemoveFileActor =>
-              p.args shouldBe 'empty
+              p.args shouldBe empty
               p.dispatcher should be(ClientApplication.BlockingDispatcherName)
               removeFileActor.ref
 

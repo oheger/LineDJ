@@ -81,7 +81,7 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
   "An ID3v1ProcessingStage" should "handle a file without ID3v1 data" in {
     val result = processFile("testID3v2Data.bin")
 
-    result.metaData shouldBe 'empty
+    result.metaData shouldBe empty
   }
 
   it should "extract valid ID3v1 data" in {
@@ -99,6 +99,6 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     val futStream = source.via(stage).runWith(Sink.ignore)
     Await.result(futStream, 3.seconds)
-    probeProcessor.expectMsgType[ID3v1MetaData].metaData shouldBe 'empty
+    probeProcessor.expectMsgType[ID3v1MetaData].metaData shouldBe empty
   }
 }

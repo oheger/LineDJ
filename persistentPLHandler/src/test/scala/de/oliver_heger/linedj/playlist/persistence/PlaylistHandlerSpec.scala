@@ -555,7 +555,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
           name match {
             case "persistentPlaylistLoaderActor" =>
               props.actorClass() should be(classOf[LoadPlaylistActor])
-              props.args shouldBe 'empty
+              props.args shouldBe empty
               probeLoader.ref
             case "persistentPlaylistStateWriterActor" =>
               classOf[PlaylistStateWriterActor].isAssignableFrom(props.actorClass()) shouldBe true
