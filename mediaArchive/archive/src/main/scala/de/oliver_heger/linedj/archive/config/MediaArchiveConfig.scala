@@ -386,7 +386,7 @@ object MediaArchiveConfig {
     * @return the set with exclusions
     */
   private def obtainExtensionSet(c: Configuration, subConfig: Configuration, key: String): Set[String] = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val extensions = subConfig.getList(key, c.getList(ArchivesSection + key))
     extensions.asScala.map(_.toString.toUpperCase(Locale.ROOT)).toSet
   }

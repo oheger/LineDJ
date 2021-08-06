@@ -808,7 +808,7 @@ class HttpArchiveOverviewControllerSpec extends AnyFlatSpec with Matchers with M
       */
     private def checkTableModel(model: util.List[_],
                                 expModel: Iterable[TableElement]): ControllerTestHelper = {
-      import collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       model.asScala should contain theSameElementsInOrderAs expModel
       this
     }

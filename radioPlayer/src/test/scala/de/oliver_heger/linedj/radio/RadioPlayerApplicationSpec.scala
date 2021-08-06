@@ -300,7 +300,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return the set with added ''PlaybackContextFactory'' objects
       */
     def addedPlaybackContextFactories: Set[PlaybackContextFactory] = {
-      import collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       playbackContextFactories.keySet().asScala.toSet
     }
 

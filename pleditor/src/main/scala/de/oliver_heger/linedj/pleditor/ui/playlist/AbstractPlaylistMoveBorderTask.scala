@@ -34,7 +34,7 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     *             which order they have to be concatenated.
     */
   override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val selection = context.selectedIndices.toSet
     val model = context.tableHandler.getModel
     val indexedModel = model.asScala.toList.zipWithIndex

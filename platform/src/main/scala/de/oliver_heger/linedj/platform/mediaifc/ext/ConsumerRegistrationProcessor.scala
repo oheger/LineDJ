@@ -65,7 +65,7 @@ class ConsumerRegistrationProcessor(val providers: java.util.Collection[Consumer
     */
   def setMessageBus(bus: MessageBus): Unit = {
     messageBus = bus
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     registrations = providers.asScala.flatMap(_.registrations)
     registrations foreach bus.publish
   }

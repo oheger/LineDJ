@@ -59,7 +59,7 @@ object ActivatePlaylistTaskSpec {
 class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import ActivatePlaylistTaskSpec._
-  import collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   "An ActivatePlaylistTask" should "send a correct SetPlaylist message" in {
     val indices = List(1, 2, 4, 8, 11, 23)

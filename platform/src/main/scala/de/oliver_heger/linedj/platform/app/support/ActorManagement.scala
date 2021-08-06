@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.app.PlatformComponent
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.{ActorStopper, ManagedActorData}
 import org.osgi.service.component.ComponentContext
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object ActorManagement {
 

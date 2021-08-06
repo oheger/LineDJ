@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
-import scala.collection.JavaConverters
+import scala.jdk.CollectionConverters._
 
 /**
   * A specialized implementation of an ''UnknownPropertyResolver'' that
@@ -51,8 +51,7 @@ class UnknownPropertyResourceResolver(val appCtx: ApplicationContext,
     */
   def this(appCtx: ApplicationContext, resUnknownArtist: String, resUnknownAlbum: String,
            titleProcessors: java.util.Collection[SongTitleProcessor]) = {
-    this(appCtx, resUnknownArtist, resUnknownAlbum,
-      JavaConverters.collectionAsScalaIterable(titleProcessors).toList)
+    this(appCtx, resUnknownArtist, resUnknownAlbum, titleProcessors.asScala.toList)
   }
 
   /** The resolved name for an unknown artist. */

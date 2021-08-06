@@ -36,7 +36,7 @@ class ActivatePlaylistTask(playlistService: PlaylistService[Playlist, MediaFileI
                            messageBus: MessageBus,
                            tableModel: java.util.List[SongData]) extends Runnable {
   override def run(): Unit = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val playlist = playlistService.toPlaylist(tableModel.asScala.map(_.id).toList, 0)
     playlist foreach (messageBus publish SetPlaylist(_))
   }

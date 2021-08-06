@@ -50,7 +50,7 @@ class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoS
   }
 
   "A MessageBusRegistration" should "register all message bus listeners" in {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
     val registration = new MessageBusRegistration(listenerMap.keySet.asJava)
@@ -60,7 +60,7 @@ class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoS
   }
 
   it should "remove registrations in a shutdown method" in {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
     listenerMap.values.zipWithIndex.foreach { t =>

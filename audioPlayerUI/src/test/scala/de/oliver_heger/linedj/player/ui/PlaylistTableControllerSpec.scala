@@ -248,7 +248,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     private val controller = new PlaylistTableController(songDataFactory, service,
       playlistService, tableHandler)
 
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     /**
       * Prepares the mock for the meta data service to process a playlist

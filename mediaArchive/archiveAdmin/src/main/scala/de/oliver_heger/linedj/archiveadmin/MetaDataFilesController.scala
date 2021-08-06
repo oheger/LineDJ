@@ -36,7 +36,7 @@ import net.sf.jguiraffe.resources.Message
 import org.slf4j.LoggerFactory
 
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 object MetaDataFilesController {

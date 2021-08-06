@@ -426,7 +426,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     private def fetchMessageBusListener(): Iterable[Receive] = {
       val captor = ArgumentCaptor.forClass(classOf[Receive])
       verify(bus, atLeastOnce()).registerListener(captor.capture())
-      import collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       captor.getAllValues.asScala
     }
   }

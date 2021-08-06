@@ -247,7 +247,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     * @param items the validation errors to be appended
     */
   private def appendValidationErrors(items: Seq[ValidationErrorItem]): Unit = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     doSynced {
       val modelSize = tableHandler.getModel.size()
       tableHandler.getModel.addAll(items.asJava)

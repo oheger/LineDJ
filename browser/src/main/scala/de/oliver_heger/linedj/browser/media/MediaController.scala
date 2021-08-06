@@ -462,7 +462,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
    * @return all album keys in the tree model
    */
   private def fetchAllAlbumKeys(): Seq[AlbumKey] = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     treeModel.getKeys.asScala.flatMap(resolveAlbumKey).toSeq
   }
 
@@ -478,7 +478,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     treeModel.getProperty(key) match {
       case ak: AlbumKey => List(ak)
       case col: java.util.Collection[_] =>
-        import collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
         col.asScala.map(_.asInstanceOf[AlbumKey]).toSeq
     }
 

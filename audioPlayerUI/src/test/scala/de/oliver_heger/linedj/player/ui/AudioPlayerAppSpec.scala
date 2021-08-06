@@ -86,7 +86,7 @@ class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestS
     val application = activateApp(new AudioPlayerAppTestImpl)
 
     val actionStore = queryBean[ActionStore](application.getMainWindowBeanContext, "ACTION_STORE")
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val playerActions = actionStore.getActions(
       actionStore.getActionNamesForGroup(UIController.PlayerActionGroup)).asScala
     playerActions.size should be > 0
