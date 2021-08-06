@@ -367,7 +367,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     */
   private def fetchWriteActor(): ActorRef = {
     if (writeFileActor == null) {
-      writeFileActor = createChildActor(Props[WriteChunkActor])
+      writeFileActor = createChildActor(Props[WriteChunkActor]())
     }
     writeFileActor
   }

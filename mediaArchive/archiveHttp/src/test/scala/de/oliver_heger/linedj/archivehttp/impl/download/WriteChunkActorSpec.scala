@@ -50,7 +50,7 @@ class WriteChunkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val target = createPathInDirectory("writeTest.txt")
     val source = createTestSource()
     val request = WriteChunkActor.WriteRequest(target, source, 42)
-    val actor = system.actorOf(Props[WriteChunkActor])
+    val actor = system.actorOf(Props[WriteChunkActor]())
 
     actor ! request
     val response = expectMsgType[WriteChunkActor.WriteResponse]

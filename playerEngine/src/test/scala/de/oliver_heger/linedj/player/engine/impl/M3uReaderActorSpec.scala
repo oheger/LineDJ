@@ -65,7 +65,7 @@ class M3uReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     * @param ref the reference to the audio stream
     */
   private def checkResolveAudioStream(ref: StreamReference): Unit = {
-    val actor = system.actorOf(Props[M3uReaderActor])
+    val actor = system.actorOf(Props[M3uReaderActor]())
 
     actor ! M3uReaderActor.ResolveAudioStream(ref)
     expectMsg(M3uReaderActor.AudioStreamResolved(ref, AudioStreamRef))
@@ -85,7 +85,7 @@ class M3uReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
   it should "throw an exception if no stream URI is found" in {
     val ref = createM3uFile("#only comments", "", "# and empty lines", "")
-    val actor = TestActorRef[M3uReaderActor](Props[M3uReaderActor])
+    val actor = TestActorRef[M3uReaderActor](Props[M3uReaderActor]())
 
     intercept[java.io.IOException] {
       actor.underlyingActor receive M3uReaderActor.ResolveAudioStream(ref)

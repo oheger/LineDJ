@@ -62,7 +62,7 @@ class ActorWithChild extends Actor {
   private var client: ActorRef = _
 
   override def preStart(): Unit = {
-    child = createChildActor(Props[SomeChildActor])
+    child = createChildActor(Props[SomeChildActor]())
   }
 
   override def receive: Receive = {

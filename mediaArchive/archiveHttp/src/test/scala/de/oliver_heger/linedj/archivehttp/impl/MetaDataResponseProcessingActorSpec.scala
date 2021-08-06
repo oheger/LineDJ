@@ -153,7 +153,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     val metaDataResults = createProcessingResults(8, mapped = false)
     val mappedResults = createProcessingResults(8, mapped = true)
     val source = createDataSource(generateJson(metaDataResults))
-    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
 
     actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
@@ -189,7 +189,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
 
   it should "apply a size restriction when processing a response" in {
     val source = createDataSource(generateJson(createProcessingResults(32, mapped = false)))
-    val actor = system.actorOf(Props[MetaDataResponseProcessingActor])
+    val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
 
     actor ! ProcessResponse(TestMediumID, null, source,
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)

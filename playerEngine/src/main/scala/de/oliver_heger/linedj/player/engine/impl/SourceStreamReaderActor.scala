@@ -117,7 +117,7 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     if (needToResolveAudioStream(streamRef)) {
-      val m3uReader = createChildActor(config.applyBlockingDispatcher(Props[M3uReaderActor]))
+      val m3uReader = createChildActor(config.applyBlockingDispatcher(Props[M3uReaderActor]()))
       m3uReader ! M3uReaderActor.ResolveAudioStream(streamRef)
     } else {
       bufferActor = createBufferActor(streamRef)

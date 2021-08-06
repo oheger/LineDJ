@@ -59,7 +59,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
   }
 
   "An Mp3DataProcessorActor" should "create a default extractor" in {
-    val ref = TestActorRef[Mp3DataProcessorActor](Props[Mp3DataProcessorActor])
+    val ref = TestActorRef[Mp3DataProcessorActor](Props[Mp3DataProcessorActor]())
 
     ref.underlyingActor.extractor should not be null
     ref.underlyingActor.extractor.getFrameCount should be(0)

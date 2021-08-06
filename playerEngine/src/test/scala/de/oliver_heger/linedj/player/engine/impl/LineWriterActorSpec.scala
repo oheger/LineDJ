@@ -48,7 +48,7 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
-    val actor = system.actorOf(Props[LineWriterActor])
+    val actor = system.actorOf(Props[LineWriterActor]())
 
     actor ! WriteAudioData(line, data)
     val written = expectMsgType[AudioDataWritten]
@@ -58,7 +58,7 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   it should "handle a DrainLine message" in {
     val line = mock[SourceDataLine]
-    val actor = system.actorOf(Props[LineWriterActor])
+    val actor = system.actorOf(Props[LineWriterActor]())
 
     actor ! LineWriterActor.DrainLine(line)
     expectMsg(LineWriterActor.LineDrained)
@@ -69,7 +69,7 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
-    val actor = system.actorOf(Props[LineWriterActor])
+    val actor = system.actorOf(Props[LineWriterActor]())
     when(line.write(argEq(dataArray), anyInt(), anyInt())).thenAnswer((_: InvocationOnMock) => {
       Thread.sleep(50)
       dataArray.length

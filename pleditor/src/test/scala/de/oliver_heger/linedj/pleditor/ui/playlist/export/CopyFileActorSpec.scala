@@ -148,7 +148,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   }
 
   it should "download and copy a file to the target location" in {
-    val readerActor = system.actorOf(Props[DownloadActorTestImpl])
+    val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val target = createPathInDirectory(TargetFile)
 
@@ -158,7 +158,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   }
 
   it should "send the confirmation message to the correct client actor" in {
-    val readerActor = system.actorOf(Props[DownloadActorTestImpl])
+    val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val probeManager = TestProbe()
     val actor = system.actorOf(actorProps(mediaManagerProbe = Some(probeManager)))
     val target = createPathInDirectory(TargetFile)
@@ -188,7 +188,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     readDataFile(target1) should be(Data2)
     mediaManagerProbe.expectMsg(FileRequest)
 
-    val readerActor = system.actorOf(Props[DownloadActorTestImpl])
+    val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val target2 = createPathInDirectory(TargetFile)
     prepareCopyOperation(actor, readerActor, target2)
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target2))
@@ -216,7 +216,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   }
 
   it should "stop the reader actor when the copy operation is complete" in {
-    val readerActor = system.actorOf(Props[DownloadActorTestImpl])
+    val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val target = createPathInDirectory(TargetFile)
     prepareCopyOperation(actor, readerActor, target)
@@ -244,7 +244,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   }
 
   it should "crash if the target file could not be written" in {
-    val downloadActor = system.actorOf(Props[DownloadActorTestImpl])
+    val downloadActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val invalidPath = Paths.get("")
     prepareCopyOperation(actor, downloadActor, invalidPath)
@@ -277,7 +277,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
   it should "send progress notifications when copying a file" in {
     val actor = system.actorOf(actorProps(progressSize = 500))
-    val reader = system.actorOf(Props[DownloadActorTestImpl])
+    val reader = system.actorOf(Props[DownloadActorTestImpl]())
     val target = createPathInDirectory(TargetFile)
     prepareCopyOperation(actor, reader, target)
 
@@ -287,7 +287,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
   it should "reset the progress counters when starting a new copy operation" in {
     val actor = system.actorOf(actorProps(progressSize = 500))
-    val reader = system.actorOf(Props[DownloadActorTestImpl])
+    val reader = system.actorOf(Props[DownloadActorTestImpl]())
     val target = createPathInDirectory(TargetFile)
     prepareCopyOperation(actor, reader, target)
     expectMsg(CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(FileRequest, target), 500))

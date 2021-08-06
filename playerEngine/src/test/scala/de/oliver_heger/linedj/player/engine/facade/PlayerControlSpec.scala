@@ -110,7 +110,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   it should "create Props for the line writer when no blocking dispatcher is defined" in {
     val config = PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null)
 
-    PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor])
+    PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor]())
   }
 
   it should "support adding event listeners" in {

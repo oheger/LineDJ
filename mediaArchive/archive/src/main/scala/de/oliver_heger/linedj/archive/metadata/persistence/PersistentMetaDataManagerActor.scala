@@ -237,7 +237,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     writerActor = createChildActor(Props(classOf[PersistentMetaDataWriterActor],
       config.metaDataPersistenceWriteBlockSize))
     removeActor = createChildActor(MetaDataFileRemoveActor())
-    tocWriterActor = createChildActor(Props[ArchiveToCWriterActor])
+    tocWriterActor = createChildActor(Props[ArchiveToCWriterActor]())
   }
 
   override def receive: Receive = {

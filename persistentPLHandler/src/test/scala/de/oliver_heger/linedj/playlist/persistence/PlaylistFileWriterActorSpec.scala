@@ -43,7 +43,7 @@ class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val target = createPathInDirectory("test.dat")
     val content = FileTestHelper.testBytes().grouped(32).map(a => ByteString(a))
     val src = Source[ByteString](content.toList)
-    val writer = system.actorOf(Props[PlaylistFileWriterActor])
+    val writer = system.actorOf(Props[PlaylistFileWriterActor]())
 
     writer ! PlaylistFileWriterActor.WriteFile(src, target)
     expectMsg(PlaylistFileWriterActor.FileWritten(target, None))
@@ -54,7 +54,7 @@ class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val target = createPathInDirectory("error")
     Files createDirectory target
     val source = Source.single(ByteString("This will not work"))
-    val writer = system.actorOf(Props[PlaylistFileWriterActor])
+    val writer = system.actorOf(Props[PlaylistFileWriterActor]())
 
     writer ! PlaylistFileWriterActor.WriteFile(source, target)
     val msg = expectMsgType[PlaylistFileWriterActor.FileWritten]

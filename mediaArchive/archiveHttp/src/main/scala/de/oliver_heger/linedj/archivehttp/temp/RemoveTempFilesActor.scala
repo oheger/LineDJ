@@ -124,7 +124,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
   private var removeFileActor: ActorRef = _
 
   override def preStart(): Unit = {
-    removeFileActor = createChildActor(Props[RemoveFileActor]
+    removeFileActor = createChildActor(Props[RemoveFileActor]()
       .withDispatcher(blockingDispatcherName))
   }
 

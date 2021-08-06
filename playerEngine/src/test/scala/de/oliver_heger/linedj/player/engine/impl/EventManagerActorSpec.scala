@@ -98,7 +98,7 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "An EventManagerActor" should "propagate events to a registered sink" in {
     val queue = new LinkedBlockingQueue[PlayerEvent]
     val sink = queuingSink(queue)
-    val actor = system.actorOf(Props[EventManagerActor])
+    val actor = system.actorOf(Props[EventManagerActor]())
 
     actor ! EventManagerActor.RegisterSink(1, sink)
     publishEvents(actor, Events: _*)
@@ -111,7 +111,7 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val sink = queuingSink(queue1)
     val otherSink = queuingSink(queue2)
     val events = Events splitAt 1
-    val actor = system.actorOf(Props[EventManagerActor])
+    val actor = system.actorOf(Props[EventManagerActor]())
 
     actor ! EventManagerActor.RegisterSink(1, sink)
     actor ! EventManagerActor.RegisterSink(2, otherSink)

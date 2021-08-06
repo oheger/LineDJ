@@ -396,7 +396,7 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     */
   private class ResolverTestHelper(timeout: Timeout = RequestTimeout) extends Identifiable {
     /** The meta data manager simulator actor. */
-    private val metaDataActor = system.actorOf(Props[MetaDataActorTestImpl])
+    private val metaDataActor = system.actorOf(Props[MetaDataActorTestImpl]())
 
     /** The test message bus. */
     private val messageBus = new MessageBusTestImpl

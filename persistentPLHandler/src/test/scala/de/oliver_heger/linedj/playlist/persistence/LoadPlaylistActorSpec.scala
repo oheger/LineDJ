@@ -340,7 +340,7 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return the test actor instance
       */
     private def createLoaderActor(): ActorRef =
-      system.actorOf(Props[LoadPlaylistActor])
+      system.actorOf(Props[LoadPlaylistActor]())
   }
 
 }

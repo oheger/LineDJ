@@ -498,7 +498,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref,
         TestProbe().ref, mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
     val factory = ref.underlyingActor.tempFileActorManager.actorFactory
-    val childActor = factory createChildActor Props[WriteChunkActor]
+    val childActor = factory createChildActor Props[WriteChunkActor]()
 
     system stop childActor
     checkActorStopped(ref)

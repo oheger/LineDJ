@@ -29,7 +29,7 @@ class ActorFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "An ActorFactory" should "allow creating a new actor" in {
     val system = mock[ActorSystem]
     val ref = mock[ActorRef]
-    val props = Props[DummyActor]
+    val props = Props[DummyActor]()
     val Name = "MyTestActor"
     when(system.actorOf(props, Name)).thenReturn(ref)
 

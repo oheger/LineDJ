@@ -72,7 +72,7 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
   private def checkWriteOperation(target: Path): Unit = {
     val source = createTestSource()
     val request = WriteRequest(target = target, source = source)
-    val actor = system.actorOf(Props[FileWriterActorTestImpl])
+    val actor = system.actorOf(Props[FileWriterActorTestImpl]())
 
     actor ! request
     val response = expectMsgType[FileWritten]
@@ -119,7 +119,7 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "support cancellation of a write operation" in {
     val source = createTestSource().delay(1.second, DelayOverflowStrategy.backpressure)
     val target = createPathInDirectory("delayed.txt")
-    val actor = TestActorRef[FileWriterActorTestImpl](Props[FileWriterActorTestImpl])
+    val actor = TestActorRef[FileWriterActorTestImpl](Props[FileWriterActorTestImpl]())
 
     actor ! WriteRequest(source, target)
     actor receive AbstractStreamProcessingActor.CancelStreams

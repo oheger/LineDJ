@@ -133,7 +133,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
 
   "A MediumInfoResponseProcessingActor" should "create a default parser" in {
     val actor = TestActorRef[MediumInfoResponseProcessingActor](
-      Props[MediumInfoResponseProcessingActor])
+      Props[MediumInfoResponseProcessingActor]())
 
     actor.underlyingActor.infoParser should not be null
   }

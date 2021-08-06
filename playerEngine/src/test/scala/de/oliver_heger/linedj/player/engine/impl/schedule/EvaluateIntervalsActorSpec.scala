@@ -74,7 +74,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     val date = LocalDateTime.of(2016, Month.JUNE, 19, 21, 55)
     val queries = List(IntervalQueries.hours(10, 12), IntervalQueries.hours(23, 24),
       IntervalQueries.hours(19, 22), IntervalQueries.hours(21, 23))
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
     val msg = EvaluateIntervalsActor.EvaluateSource(radioSource(1), date, queries)
 
     actor ! msg
@@ -90,7 +90,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "handle a source with no interval queries" in {
     val date = LocalDateTime.of(2016, Month.JUNE, 20, 22, 22)
     val queries = List.empty[IntervalQuery]
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
     val msg = EvaluateIntervalsActor.EvaluateSource(radioSource(1), date, queries)
 
     actor ! msg
@@ -125,7 +125,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val queries = (1 to 32) map (_ => createQuery())
     val msg = EvaluateIntervalsActor.EvaluateSource(radioSource(1), refDate, queries)
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
 
     actor ! msg
     val response = expectMsgType[EvaluateIntervalsActor.EvaluateSourceResponse]
@@ -142,7 +142,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       radioSource(2) -> List(IntervalQueries.hours(23, 24), IntervalQueries.hours(17, 19)),
       radioSource(3) -> List(IntervalQueries.hours(20, 22)))
     val request = createMultiSourcesRequest(date, srcMap)
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
 
     actor ! request
     val response = expectMsgType[EvaluateIntervalsActor.EvaluateReplacementSourcesResponse]
@@ -168,7 +168,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     val srcMap = Map(radioSource(1) -> List(IntervalQueries.hours(18, 20)),
       radioSource(2) -> List.empty)
     val request = createMultiSourcesRequest(date, srcMap)
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
 
     actor ! request
     val response = expectMsgType[EvaluateIntervalsActor.EvaluateReplacementSourcesResponse]
@@ -181,7 +181,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     val srcMap = Map(radioSource(1) -> List(IntervalQueries.hours(18, 20)),
       radioSource(0) -> List(IntervalQueries.hours(19, 22)))
     val request = createMultiSourcesRequest(date, srcMap)
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
 
     actor ! request
     val response = expectMsgType[EvaluateIntervalsActor.EvaluateReplacementSourcesResponse]
@@ -198,7 +198,7 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       radioSource(8) -> List(IntervalQueries.hours(4, 5)))
     val request = createMultiSourcesRequest(date, srcMap,
       exclusions = Set(radioSource(2), radioSource(8), radioSource(11)))
-    val actor = system.actorOf(Props[EvaluateIntervalsActor])
+    val actor = system.actorOf(Props[EvaluateIntervalsActor]())
 
     actor ! request
     val response = expectMsgType[EvaluateIntervalsActor.EvaluateReplacementSourcesResponse]

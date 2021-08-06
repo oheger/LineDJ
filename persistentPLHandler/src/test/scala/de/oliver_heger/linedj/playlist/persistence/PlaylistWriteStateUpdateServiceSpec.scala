@@ -210,7 +210,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
   private def saveAndLoadPlaylist(writeMessages: Iterable[WriteFile]): SetPlaylist = {
     implicit val ec: ExecutionContext = system.dispatcher
     val msgBus = new MessageBusTestImpl()
-    val loadActor = system.actorOf(Props[LoadPlaylistActor])
+    val loadActor = system.actorOf(Props[LoadPlaylistActor]())
     val pathMapping = createTempFiles()
 
     val writeResult = Future.sequence(writeMessages.map(msg =>

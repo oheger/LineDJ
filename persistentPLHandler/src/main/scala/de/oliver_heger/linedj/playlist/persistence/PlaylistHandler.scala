@@ -215,7 +215,7 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * @param config the configuration for this handler
     */
   private def triggerLoadOfPersistentPlaylist(config: PlaylistHandlerConfig): Unit = {
-    val loaderActor = clientApplicationContext.actorFactory.createActor(Props[LoadPlaylistActor],
+    val loaderActor = clientApplicationContext.actorFactory.createActor(Props[LoadPlaylistActor](),
       LoaderActorName)
     loaderActor ! LoadPlaylistActor.LoadPlaylistData(config.pathPlaylist,
       config.pathPosition, config.maxFileSize, bus)

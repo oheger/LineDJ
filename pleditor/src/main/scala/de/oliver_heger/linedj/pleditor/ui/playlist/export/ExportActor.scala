@@ -355,7 +355,7 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     mediaFacade.requestActor(MediaActors.MediaManager).map(o =>
       MediaManagerFetched(o.get)) pipeTo self
 
-    removeFileActor = createChildActor(Props[RemoveFileActor]
+    removeFileActor = createChildActor(Props[RemoveFileActor]()
       .withDispatcher(ClientApplication.BlockingDispatcherName))
     context watch removeFileActor
   }

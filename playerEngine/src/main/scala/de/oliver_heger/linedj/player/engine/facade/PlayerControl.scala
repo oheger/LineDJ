@@ -64,7 +64,7 @@ object PlayerControl {
     * @return creation properties for the line writer actor
     */
   private[facade] def createLineWriterActorProps(config: PlayerConfig): Props =
-    config applyBlockingDispatcher Props[LineWriterActor]
+    config applyBlockingDispatcher Props[LineWriterActor]()
 }
 
 /**

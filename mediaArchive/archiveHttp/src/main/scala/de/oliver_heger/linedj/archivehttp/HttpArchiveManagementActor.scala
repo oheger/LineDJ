@@ -172,11 +172,11 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   import context.dispatcher
 
   override def preStart(): Unit = {
-    archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor])
+    archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor]())
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
-      .props(Props[MediumInfoResponseProcessingActor]))
+      .props(Props[MediumInfoResponseProcessingActor]()))
     metaDataProcessor = createChildActor(SmallestMailboxPool(MetaDataParallelism)
-      .props(Props[MetaDataResponseProcessingActor]))
+      .props(Props[MetaDataResponseProcessingActor]()))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))

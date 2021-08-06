@@ -88,7 +88,7 @@ object DelayActor {
     *
     * @return creation ''Props'' for a new actor instance
     */
-  def apply(): Props = Props[DelayActorImpl]
+  def apply(): Props = Props[DelayActorImpl]()
 }
 
 /**

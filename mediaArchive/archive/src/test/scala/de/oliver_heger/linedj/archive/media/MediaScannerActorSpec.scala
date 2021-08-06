@@ -368,7 +368,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       system.actorOf(Props(classOf[ResultsConsumerActor], resultQueue, scanCompleted))
 
     /** The mock info parser actor. */
-    private val infoParser = system.actorOf(Props[MockMediumInfoParserActor])
+    private val infoParser = system.actorOf(Props[MockMediumInfoParserActor]())
 
     /** The actor to be tested. */
     private val scanActor = createTestActor()

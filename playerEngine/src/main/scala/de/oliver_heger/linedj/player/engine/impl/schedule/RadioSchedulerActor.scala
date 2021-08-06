@@ -171,7 +171,7 @@ class RadioSchedulerActor(eventActor: ActorRef,
 
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    evaluateIntervalsActor = createChildActor(Props[EvaluateIntervalsActor])
+    evaluateIntervalsActor = createChildActor(Props[EvaluateIntervalsActor]())
   }
 
   override def receive: Receive = {

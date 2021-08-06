@@ -283,7 +283,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
       response.contentReader.get
     } else {
       log.warning("Download failed! Creating dummy actor.")
-      context.actorOf(Props[DummyReaderActor])
+      context.actorOf(Props[DummyReaderActor]())
     }
     bufferActor ! FillBuffer(downloadActor)
     Some(downloadActor)

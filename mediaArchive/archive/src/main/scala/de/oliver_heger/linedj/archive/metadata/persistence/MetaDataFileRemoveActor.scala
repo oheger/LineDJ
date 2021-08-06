@@ -68,7 +68,7 @@ object MetaDataFileRemoveActor {
     *
     * @return a ''Props'' object for creating a new actor
     */
-  def apply(): Props = Props[MetaDataFileRemoveActorImpl]
+  def apply(): Props = Props[MetaDataFileRemoveActorImpl]()
 }
 
 /**
@@ -201,7 +201,7 @@ class MetaDataFileRemoveActor extends Actor {
   childRef match {
     case Some(r) => (r, childRef)
     case None =>
-      val child = createChildActor(Props[RemoveFileActor])
+      val child = createChildActor(Props[RemoveFileActor]())
       context watch child
       (child, Some(child))
   }

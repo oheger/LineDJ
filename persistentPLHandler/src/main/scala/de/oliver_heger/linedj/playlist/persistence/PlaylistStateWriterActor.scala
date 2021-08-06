@@ -83,7 +83,7 @@ class PlaylistStateWriterActor(private[persistence]
 
   override def preStart(): Unit = {
     super.preStart()
-    fileWriterActor = createChildActor(Props[PlaylistFileWriterActor])
+    fileWriterActor = createChildActor(Props[PlaylistFileWriterActor]())
   }
 
   override def receive: Receive = {

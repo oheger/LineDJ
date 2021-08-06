@@ -180,7 +180,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
   it should "support querying an actor from the UI thread" in {
     val helper = new ActorClientSupportTestHelper
     helper.activate()
-    val actor = system.actorOf(Props[AskActor], "askActor")
+    val actor = system.actorOf(Props[AskActor](), "askActor")
     val refAnswer = new AtomicInteger
 
     val request = helper.support.actorRequest(actor, MsgPing)
@@ -198,7 +198,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
   it should "respect the timeout for an actor invocation" in {
     val helper = new ActorClientSupportTestHelper
     helper.activate()
-    val actor = system.actorOf(Props[AskActor], "askActorTimeout")
+    val actor = system.actorOf(Props[AskActor](), "askActorTimeout")
     val refAnswer = new AtomicReference[Try[Int]]
     val timeout = Timeout(100.millis)
 

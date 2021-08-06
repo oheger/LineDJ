@@ -39,7 +39,7 @@ object ForwardTestActor {
     * @return a reference to the newly created actor
     */
   def apply()(implicit system: ActorSystem): ActorRef =
-  system.actorOf(Props[ForwardTestActor])
+  system.actorOf(Props[ForwardTestActor]())
 }
 
 /**

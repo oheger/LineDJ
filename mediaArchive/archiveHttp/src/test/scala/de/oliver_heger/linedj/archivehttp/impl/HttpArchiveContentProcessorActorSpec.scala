@@ -386,7 +386,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     private val sinkProbe = TestProbe()
 
     /** The actor to be tested. */
-    private val contentProcessorActor = system.actorOf(Props[HttpArchiveContentProcessorActor])
+    private val contentProcessorActor = system.actorOf(Props[HttpArchiveContentProcessorActor]())
 
     /**
       * Simulates a processing operation on the test archive.

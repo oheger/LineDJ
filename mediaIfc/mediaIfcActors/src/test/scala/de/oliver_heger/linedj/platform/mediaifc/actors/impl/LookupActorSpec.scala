@@ -45,7 +45,7 @@ class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val sequence, nextSequence = mock[DelaySequence]
     val queue = new SynchronousQueue[ActorRef]
     when(sequence.nextDelay).thenAnswer((_: InvocationOnMock) => {
-      queue.put(system.actorOf(Props[ActorToBeMonitored], ActorName))
+      queue.put(system.actorOf(Props[ActorToBeMonitored](), ActorName))
       (1, nextSequence)
     })
     when(nextSequence.nextDelay).thenReturn((1, nextSequence))
@@ -73,7 +73,7 @@ class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     when(sequence.nextDelay).thenAnswer(answer)
     when(nextSequence.nextDelay).thenAnswer(answer)
 
-    val monitoredActor = system.actorOf(Props[ActorToBeMonitored], ActorName)
+    val monitoredActor = system.actorOf(Props[ActorToBeMonitored](), ActorName)
     val lookupActor = system.actorOf(Props(classOf[LookupActor], actorPath, testActor,
       sequence))
     expectMsg(LookupActor.RemoteActorAvailable(actorPath, monitoredActor))
