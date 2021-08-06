@@ -277,7 +277,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     *
     * @param f the function to execute on the UI thread
     */
-  private def doSynced(f: => Unit) {
+  private def doSynced(f: => Unit): Unit = {
     sync.asyncInvoke(() => if (!windowClosed) f)
   }
 

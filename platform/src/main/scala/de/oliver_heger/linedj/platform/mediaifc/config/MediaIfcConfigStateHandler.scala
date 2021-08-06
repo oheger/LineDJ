@@ -34,5 +34,5 @@ trait MediaIfcConfigStateHandler {
     *
     * @param configAvailable flag whether configuration is supported
     */
-  def updateState(configAvailable: Boolean)
+  def updateState(configAvailable: Boolean): Unit
 }

@@ -63,7 +63,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     * @param tagName the name of the tag in question
     * @param exp     the expected content of this tag
     */
-  private def checkID3Tag(frame: ID3Frame, tagName: String, exp: String) {
+  private def checkID3Tag(frame: ID3Frame, tagName: String, exp: String): Unit = {
     val tag = frame.tags(tagName)
     tag.asString should be(exp)
   }

@@ -145,7 +145,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val request2 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
     val helper = new DownloadManagementTestHelper
 
-    def checkDownloadIndex(request: MediumFileRequest, expIdx: Int) {
+    def checkDownloadIndex(request: MediumFileRequest, expIdx: Int): Unit = {
       helper.executeRequest(request)
       expectMsgType[MediumFileResponse]
       val (_, timeoutData) = helper.expectDownloadActorCreation()

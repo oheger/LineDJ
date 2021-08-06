@@ -361,7 +361,7 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * operation are reset. It is then no longer possible to reset the stream to
     * this position.
     */
-  private def checkMarkReadLimit() {
+  private def checkMarkReadLimit(): Unit = {
     if (markedChunk != UndefinedMarkIndex && bytesReadAfterMark >= markReadLimit) {
       markedChunk = UndefinedMarkIndex
     }

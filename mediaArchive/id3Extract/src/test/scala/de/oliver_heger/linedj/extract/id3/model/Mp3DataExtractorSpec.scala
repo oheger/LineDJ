@@ -45,7 +45,7 @@ object Mp3DataExtractorSpec {
     * @param b3  byte 3
     * @param b4  byte 4
     */
-  private def writeFrame(bos: ByteArrayOutputStream, b2: Int, b3: Int, b4: Int) {
+  private def writeFrame(bos: ByteArrayOutputStream, b2: Int, b3: Int, b4: Int): Unit = {
     bos.write(0xFF)
     bos.write(b2)
     bos.write(b3)
