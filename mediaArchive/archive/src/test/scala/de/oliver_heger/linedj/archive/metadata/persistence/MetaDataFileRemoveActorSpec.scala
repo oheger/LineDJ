@@ -89,7 +89,7 @@ object MetaDataFileRemoveActorSpec {
     override def receive: Receive = {
       case RemoveFileActor.RemoveFile(path) =>
         queue offer path
-        sender ! RemoveFileActor.FileRemoved(path)
+        sender() ! RemoveFileActor.FileRemoved(path)
     }
   }
 

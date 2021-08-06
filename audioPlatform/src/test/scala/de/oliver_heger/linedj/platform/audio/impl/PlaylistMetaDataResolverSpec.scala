@@ -579,7 +579,7 @@ class MetaDataActorTestImpl extends Actor {
     case req: GetFilesMetaData =>
       requestMapping get req match {
         case Some(response) =>
-          sender ! response
+          sender() ! response
         case None =>
           pendingRequests = PendingMetaDataRequest(req, sender()) :: pendingRequests
       }

@@ -222,7 +222,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         playbackSeconds = src.skipTime
         requestAudioDataIfPossible()
       } else {
-        sender ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
+        sender() ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
       }
 
     case res@BufferDataResult(data) =>
@@ -244,7 +244,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
 
     case AudioDataWritten(length, duration) =>
       if (!audioPlaybackPending) {
-        sender ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
+        sender() ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
           " received!")
       } else {
         audioPlaybackPending = false
@@ -309,7 +309,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     }
     else {
       if (!audioDataPending) {
-        sender ! PlaybackProtocolViolation(msg, "Received unexpected data!")
+        sender() ! PlaybackProtocolViolation(msg, "Received unexpected data!")
         false
       } else {
         audioDataPending = false

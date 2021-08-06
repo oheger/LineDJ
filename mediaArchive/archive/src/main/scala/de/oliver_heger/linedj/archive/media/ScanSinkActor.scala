@@ -116,7 +116,7 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
 
   override def receive: Receive = {
     case Init =>
-      sender ! Ack
+      sender() ! Ack
 
     case res: EnhancedMediaScanResult =>
       switchState(sinkUpdateService.handleNewScanResult(res, sender(), maxBufferSize))

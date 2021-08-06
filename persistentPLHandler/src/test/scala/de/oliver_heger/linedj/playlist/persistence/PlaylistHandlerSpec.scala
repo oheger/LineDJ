@@ -627,7 +627,7 @@ private class StateWriterTestActor(probe: ActorRef) extends Actor {
 
     case CloseRequest if acceptClose =>
       probe ! CloseRequest
-      sender ! CloseAck(probe)
+      sender() ! CloseAck(probe)
 
     case msg =>
       probe ! msg

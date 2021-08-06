@@ -84,7 +84,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     val childActor = system.actorOf(Props(new Actor {
       override def receive: Receive = {
         case PingMessage =>
-          sender ! PongMessage
+          sender() ! PongMessage
       }
     } ))
     val helper = new RemoteManagementActorTestHelper(Some(childActor))

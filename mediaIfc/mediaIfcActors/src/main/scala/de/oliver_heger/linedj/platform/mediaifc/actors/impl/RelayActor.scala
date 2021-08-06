@@ -292,7 +292,7 @@ Actor {
       sendToTarget(target, msg)
 
     case MediaActorRequest(actorType) =>
-      sender ! MediaActorResponse(actorType, trackingState remoteActorOption actorType)
+      sender() ! MediaActorResponse(actorType, trackingState remoteActorOption actorType)
 
     case RemoveListener(mediumId) =>
       sendToTarget(MediaActors.MetaDataManager, RemoveMediumListener(mediumId, self))

@@ -121,7 +121,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
 
   override def receive: Receive = {
     case GetAvailableMedia =>
-      sender ! availableMedia
+      sender() ! availableMedia
 
     case AddMedia(media, compID, optCtrlActor) =>
       availableMedia = AvailableMedia(availableMedia.mediaList ++ media)
@@ -140,7 +140,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
         case Some(ctrl) =>
           ctrl forward fileReq
         case None =>
-          sender ! undefinedMediumFileResponse(fileReq)
+          sender() ! undefinedMediumFileResponse(fileReq)
       }
 
     case req@GetFilesMetaData(files, _) =>

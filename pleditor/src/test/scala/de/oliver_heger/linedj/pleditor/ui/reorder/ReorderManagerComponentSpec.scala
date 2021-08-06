@@ -109,7 +109,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     val props = Props(new Actor {
       override def receive: Receive = {
         case ReorderManagerActor.GetAvailableReorderServices =>
-          sender ! ReorderManagerActor.AvailableReorderServices(serviceList)
+          sender() ! ReorderManagerActor.AvailableReorderServices(serviceList)
       }
     })
     val managerActor = system.actorOf(props, "TestReorderManagementActor")

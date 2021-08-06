@@ -144,7 +144,7 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case GetAvailableReorderServices =>
-      sender ! AvailableReorderServices(availableReorderServices())
+      sender() ! AvailableReorderServices(availableReorderServices())
 
     case AddReorderService(service, name) =>
       val child = createChildActor(Props(classOf[ReorderActor], service))

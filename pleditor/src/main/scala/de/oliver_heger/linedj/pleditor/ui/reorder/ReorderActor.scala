@@ -62,6 +62,6 @@ object ReorderActor {
 class ReorderActor(reorder: PlaylistReorderer) extends Actor {
   override def receive: Receive = {
     case request: ReorderRequest =>
-      sender ! ReorderResponse(reorder.reorder(request.songs), request)
+      sender() ! ReorderResponse(reorder.reorder(request.songs), request)
   }
 }

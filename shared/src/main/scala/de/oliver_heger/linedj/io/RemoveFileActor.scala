@@ -59,6 +59,6 @@ class RemoveFileActor extends Actor {
   override def receive: Receive = {
     case RemoveFile(path) =>
       Files delete path
-      sender ! FileRemoved(path)
+      sender() ! FileRemoved(path)
   }
 }

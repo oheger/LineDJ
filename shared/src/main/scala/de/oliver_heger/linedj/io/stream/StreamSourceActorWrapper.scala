@@ -67,7 +67,7 @@ class StreamSourceActorWrapper(wrappedActor: ActorRef, termErrorMsg: Any) extend
 
     case m if sender() != wrappedActor && optClient.isEmpty =>
       if (wrappedActorTerminated) {
-        sender ! termErrorMsg
+        sender() ! termErrorMsg
       } else {
         optClient = Some(sender())
         wrappedActor ! m

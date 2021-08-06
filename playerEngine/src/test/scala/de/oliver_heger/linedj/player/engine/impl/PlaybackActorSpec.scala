@@ -1123,13 +1123,13 @@ private class SimulatedSourceActor(sources: List[AudioSource], data: List[Any]) 
   override def receive: Receive = {
     case GetAudioSource =>
       if (currentSources.nonEmpty) {
-        sender ! currentSources.head
+        sender() ! currentSources.head
         currentSources = currentSources.tail
       }
 
     case GetAudioData(_) =>
       if (currentData.nonEmpty) {
-        sender ! currentData.head
+        sender() ! currentData.head
         currentData = currentData.tail
       }
   }

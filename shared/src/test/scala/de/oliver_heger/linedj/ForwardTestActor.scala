@@ -55,6 +55,6 @@ object ForwardTestActor {
 class ForwardTestActor extends Actor {
   override def receive: Receive = {
     case msg =>
-      sender ! ForwardedMessage(msg)
+      sender() ! ForwardedMessage(msg)
   }
 }

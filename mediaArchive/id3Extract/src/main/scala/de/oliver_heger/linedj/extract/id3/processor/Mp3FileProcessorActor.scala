@@ -118,13 +118,13 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
 
   override def receive: Receive = {
     case Mp3StreamInit =>
-      sender ! Mp3ChunkAck
+      sender() ! Mp3ChunkAck
 
     case mp3Data: ProcessMp3Data =>
       mp3DataActor ! mp3Data
       chunksInProgress += 1
       if (chunksInProgress == 1) {
-        sender ! Mp3ChunkAck
+        sender() ! Mp3ChunkAck
       } else {
         ackActor = sender()
       }

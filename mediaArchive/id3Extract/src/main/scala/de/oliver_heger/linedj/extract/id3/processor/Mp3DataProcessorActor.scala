@@ -37,10 +37,10 @@ class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) 
   override def receive: Receive = {
     case ProcessMp3Data(data) =>
       extractor addData data
-      sender ! Mp3DataProcessed
+      sender() ! Mp3DataProcessed
 
     case Mp3MetaDataRequest =>
-      sender ! createMetaData()
+      sender() ! createMetaData()
   }
 
   /**

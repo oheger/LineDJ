@@ -65,7 +65,7 @@ private[impl] object M3uReaderActor {
 class M3uReaderActor extends Actor with ActorLogging {
   override def receive: Receive = {
     case ResolveAudioStream(streamRef) =>
-      sender ! AudioStreamResolved(streamRef, processM3uFile(streamRef))
+      sender() ! AudioStreamResolved(streamRef, processM3uFile(streamRef))
   }
 
   /**

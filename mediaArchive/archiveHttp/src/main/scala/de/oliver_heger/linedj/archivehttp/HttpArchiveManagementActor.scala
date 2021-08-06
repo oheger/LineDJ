@@ -211,7 +211,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     case HttpArchiveStateRequest =>
       archiveStateResponse match {
         case Some(response) =>
-          sender ! response
+          sender() ! response
         case None =>
           pendingStateClients += sender()
       }
@@ -221,13 +221,13 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
     case GetMetaDataFileInfo =>
       // here just a dummy response is returned for this archive type
-      sender ! MetaDataFileInfo(Map.empty, Set.empty, None)
+      sender() ! MetaDataFileInfo(Map.empty, Set.empty, None)
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams
       mediumInfoProcessor ! CancelStreams
       metaDataProcessor ! CancelStreams
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
   }
 
   /**

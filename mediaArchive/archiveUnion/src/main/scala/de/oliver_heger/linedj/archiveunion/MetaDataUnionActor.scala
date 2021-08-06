@@ -238,10 +238,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     case GetMetaData(mediumID, registerAsListener, registrationID) =>
       mediaMap get mediumID match {
         case None =>
-          sender ! UnknownMedium(mediumID)
+          sender() ! UnknownMedium(mediumID)
 
         case Some(handler) =>
-          handler.metaData foreach (sendMetaDataResponse(sender, _, registrationID))
+          handler.metaData foreach (sendMetaDataResponse(sender(), _, registrationID))
           if (registerAsListener && !handler.isComplete) {
             val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID,
               Nil)
@@ -289,7 +289,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         mediumListeners.clear()
         completeScanOperation()
       }
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
 
     case Terminated(actor) =>
       // a state listener or processor actor died, so remove it from the set(s)
@@ -621,7 +621,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def handleFilesMetaDataRequest(req: GetFilesMetaData,
                                          mapping: Map[MediaFileID, MediumID]): Unit = {
-    sender ! FilesMetaDataResponse(req, resolveFilesMetaData(req, mapping))
+    sender() ! FilesMetaDataResponse(req, resolveFilesMetaData(req, mapping))
   }
 
   /**
@@ -655,6 +655,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         size = counters.size, duration = counters.duration)
     } else
       ArchiveComponentStatistics(archiveComponentID, -1, -1, -1, -1)
-    sender ! stats
+    sender() ! stats
   }
 }

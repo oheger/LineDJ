@@ -188,23 +188,23 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
 
     case PlaybackActor.GetAudioSource =>
       if (pendingAudioSourceRequest.isDefined) {
-        sender ! PlaybackProtocolViolation(PlaybackActor.GetAudioSource, ErrPendingSourceRequest)
+        sender() ! PlaybackProtocolViolation(PlaybackActor.GetAudioSource, ErrPendingSourceRequest)
       } else {
         currentAudioSource match {
-          case Some(s) => handleSourceRequest(sender, s)
+          case Some(s) => handleSourceRequest(sender(), s)
           case None => pendingAudioSourceRequest = Some(sender())
         }
       }
 
     case req: PlaybackActor.GetAudioData =>
       if (pendingAudioDataRequest.isDefined) {
-        sender ! PlaybackProtocolViolation(req, ErrPendingDataRequest)
+        sender() ! PlaybackProtocolViolation(req, ErrPendingDataRequest)
       } else {
         currentSourceReader match {
           case Some(r) if !newSource =>
             r ! req
             pendingAudioDataRequest = Some(sender())
-          case _ => sender ! SourceEndMessage
+          case _ => sender() ! SourceEndMessage
         }
       }
 
@@ -226,7 +226,7 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
         r ! CloseRequest
         pendingCloseAck += 1
       }
-      sendCloseAckIfPossible(sender)
+      sendCloseAckIfPossible(sender())
       context become closing(sender())
   }
 

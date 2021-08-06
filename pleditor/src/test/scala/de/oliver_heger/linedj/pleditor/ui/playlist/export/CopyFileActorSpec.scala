@@ -329,7 +329,7 @@ class DownloadActorTestImpl extends Actor {
         case _ =>
           DownloadComplete
       }
-      sender ! response
+      sender() ! response
   }
 }
 

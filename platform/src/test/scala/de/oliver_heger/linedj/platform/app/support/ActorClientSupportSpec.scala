@@ -61,7 +61,7 @@ object ActorClientSupportSpec {
     */
   class AskActor extends Actor {
     override def receive: Receive = {
-      case MsgPing => sender ! MsgPong
+      case MsgPing => sender() ! MsgPong
     }
   }
 }

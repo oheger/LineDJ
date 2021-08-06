@@ -268,7 +268,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       }
 
     case FetchMetaDataFileInfo(controller) =>
-      sender ! fetchCurrentMetaFileInfo(controller)
+      sender() ! fetchCurrentMetaFileInfo(controller)
 
     case req: RemovePersistentMetaData =>
       val (target, msg) = generateRemoveRequestResponse(req, optMetaDataFiles, sender())

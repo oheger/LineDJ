@@ -180,7 +180,7 @@ class DataActor(data: List[String]) extends Actor {
           dataResponse(h)
         case _ => Some(Completed)
       }
-      response foreach sender.!
+      response foreach sender().!
   }
 
   /**

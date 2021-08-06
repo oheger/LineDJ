@@ -130,7 +130,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       if (!scanInProgress) {
         initiateNewScan(client)
       }
-      sender ! ScanResultProcessed
+      sender() ! ScanResultProcessed
 
     case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
       if (handleProcessingResult(result.mediumID, result)) {
@@ -152,7 +152,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       sendAckIfPossible(esr)
 
     case _: EnhancedMediaScanResult => // no scan in progress or closing
-      sender ! ScanResultProcessed
+      sender() ! ScanResultProcessed
 
     case av: AvailableMedia =>
       availableMedia = Some(av.media)
@@ -160,7 +160,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       onConditionSatisfied()
 
     case CloseRequest if !scanInProgress =>
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
 
     case CloseRequest if scanInProgress =>
       val actorsToClose = processorActors.values.toSet + persistenceManager
@@ -178,7 +178,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case removeMsg: RemovePersistentMetaData =>
       if (scanInProgress) {
-        sender ! RemovePersistentMetaDataResult(removeMsg, Set.empty)
+        sender() ! RemovePersistentMetaDataResult(removeMsg, Set.empty)
       } else {
         persistenceManager forward removeMsg
       }
@@ -200,7 +200,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private def sendAckIfPossible(esr: EnhancedMediaScanResult): Unit = {
     mediaInProgress ++= esr.scanResult.mediaFiles.keys
     if (mediaInProgress.size <= config.metaDataMediaBufferSize) {
-      sender ! ScanResultProcessed
+      sender() ! ScanResultProcessed
     } else {
       pendingAck = pendingAck enqueue sender()
     }

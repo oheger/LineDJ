@@ -159,7 +159,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       override def receive: Receive = {
         case CloseRequest =>
           closeCounter.incrementAndGet()
-          sender ! CloseAck(self)
+          sender() ! CloseAck(self)
       }
     })))
 

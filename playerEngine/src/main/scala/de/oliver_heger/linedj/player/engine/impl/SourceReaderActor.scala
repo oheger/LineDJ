@@ -218,7 +218,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
 
     case CloseRequest =>
       fileReaderActor foreach context.stop
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
       context become closing
   }
 
@@ -242,7 +242,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @param errorText the error text
     */
   private def protocolError(msg: Any, errorText: String): Unit = {
-    sender ! PlaybackProtocolViolation(msg, errorText)
+    sender() ! PlaybackProtocolViolation(msg, errorText)
   }
 
   /**

@@ -425,7 +425,7 @@ class Mp3FileProcessorTestActor(queue: LinkedBlockingQueue[Any],
   override def receive: Receive = {
     case m =>
       if (m == Mp3StreamInit || m.isInstanceOf[ProcessMp3Data]) {
-        sender ! Mp3ChunkAck
+        sender() ! Mp3ChunkAck
       }
       if (!f.isDefinedAt(m) || f(m)) {
         queue offer m

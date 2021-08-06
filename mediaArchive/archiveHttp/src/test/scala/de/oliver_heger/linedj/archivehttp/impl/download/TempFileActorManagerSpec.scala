@@ -476,6 +476,6 @@ private case class FileReadMsg(msg: Any, actorIdx: Int)
   */
 class SimulatedFileReaderActor(idx: Int) extends Actor {
   override def receive: Receive = {
-    case m => sender ! FileReadMsg(m, idx)
+    case m => sender() ! FileReadMsg(m, idx)
   }
 }

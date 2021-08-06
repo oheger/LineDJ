@@ -90,10 +90,10 @@ class LineWriterActor extends Actor {
     case WriteAudioData(line, data) =>
       val startTime = System.nanoTime()
       line.write(data.toArray, 0, data.length)
-      sender ! AudioDataWritten(data.length, System.nanoTime() - startTime)
+      sender() ! AudioDataWritten(data.length, System.nanoTime() - startTime)
 
     case DrainLine(line) =>
       line.drain()
-      sender ! LineDrained
+      sender() ! LineDrained
   }
 }

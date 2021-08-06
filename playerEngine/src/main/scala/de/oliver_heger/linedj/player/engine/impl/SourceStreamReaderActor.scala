@@ -135,7 +135,7 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
 
     case req: PlaybackActor.GetAudioData =>
       if (dataClient.isDefined) {
-        sender ! PlaybackProtocolViolation(req, ErrUnexpectedRequest)
+        sender() ! PlaybackProtocolViolation(req, ErrUnexpectedRequest)
       } else {
         sendDataRequest(req)
         pendingDataRequest = Some(req)
@@ -156,7 +156,7 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
           ref ! CloseRequest
           ref
         case None =>
-          sender ! CloseAck(self)
+          sender() ! CloseAck(self)
           null
       }
       context become closing(sender(), bufferRef)

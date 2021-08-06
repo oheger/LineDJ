@@ -312,11 +312,11 @@ class WrapperActorImpl(messages: Option[BlockingQueue[ProcessMetaDataFile]]) ext
   override def receive: Receive = {
     case p: ProcessMetaDataFile =>
       if (!p.fileData.path.contains(MetaDataExtractionActorSpec.ErrorIndexStr)) {
-        sender ! MetaDataExtractionActorSpec.createProcessingResult(p.fileData, p.resultTemplate)
+        sender() ! MetaDataExtractionActorSpec.createProcessingResult(p.fileData, p.resultTemplate)
         messages foreach (_.offer(p))
       }
 
     case CloseRequest =>
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
   }
 }

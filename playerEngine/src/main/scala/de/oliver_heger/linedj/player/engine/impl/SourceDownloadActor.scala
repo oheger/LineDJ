@@ -84,7 +84,7 @@ object SourceDownloadActor {
   private class DummyReaderActor extends Actor {
     override def receive: Receive = {
       case DownloadData(_) =>
-        sender ! DownloadComplete
+        sender() ! DownloadComplete
     }
   }
 
@@ -168,7 +168,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
   override def receive: Receive = {
     case src: AudioSourcePlaylistInfo =>
       if (playlistClosed) {
-        sender ! PlaybackProtocolViolation(src, ErrorSourceAfterPlaylistEnd)
+        sender() ! PlaybackProtocolViolation(src, ErrorSourceAfterPlaylistEnd)
       } else {
         if (src == PlaylistEnd) {
           if (nothingToProcess()) {
@@ -190,7 +190,7 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
           downloadInProgress = Some(response.request)
 
         case None =>
-          sender ! PlaybackProtocolViolation(response, ErrorUnexpectedDownloadResponse)
+          sender() ! PlaybackProtocolViolation(response, ErrorUnexpectedDownloadResponse)
       }
 
     case filled: BufferFilled =>
@@ -205,12 +205,12 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
           }
 
         case None =>
-          sender ! PlaybackProtocolViolation(filled, ErrorUnexpectedBufferFilled)
+          sender() ! PlaybackProtocolViolation(filled, ErrorUnexpectedBufferFilled)
       }
 
     case CloseRequest =>
       currentReadActor foreach context.stop
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
 
     case ReportReaderActorAlive =>
       for {

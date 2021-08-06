@@ -323,7 +323,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
   override def receive: Receive = {
     case FillBuffer(actor) =>
       if (fillActor.isDefined) {
-        sender ! BufferBusy
+        sender() ! BufferBusy
       } else {
         bytesWrittenForSource = 0
         fillActor = Some(actor)
@@ -359,7 +359,7 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
 
     case ReadBuffer =>
       if (readClient.isDefined) {
-        sender ! BufferBusy
+        sender() ! BufferBusy
       } else {
         readClient = Some(sender())
         serveReadRequest()
@@ -385,16 +385,16 @@ class LocalBufferActor(config: PlayerConfig, bufferManager: BufferFileManager)
 
   def closing: Receive = {
     case FillBuffer(_) =>
-      sender ! BufferBusy
+      sender() ! BufferBusy
 
     case WriteStreamComplete =>
       closingState.writeActorClosed()
 
     case ReadBuffer =>
-      sender ! BufferBusy
+      sender() ! BufferBusy
 
     case SequenceComplete =>
-      sender ! BufferBusy
+      sender() ! BufferBusy
 
     case BufferReadComplete(actor) if actor == readActor =>
       handleCompletedReadOperationOnClosing()

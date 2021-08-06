@@ -220,7 +220,7 @@ class RadioSchedulerActor(eventActor: ActorRef,
 
     case CloseRequest =>
       stateChanged()
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
   }
 
   /**

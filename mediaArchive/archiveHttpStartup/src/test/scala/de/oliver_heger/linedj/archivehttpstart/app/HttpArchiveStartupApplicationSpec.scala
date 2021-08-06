@@ -1152,7 +1152,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
 class ArchiveStateActor(stateResponse: HttpArchiveStateResponse) extends Actor {
   override def receive: Receive = {
     case de.oliver_heger.linedj.archivehttp.HttpArchiveStateRequest =>
-      sender ! stateResponse
+      sender() ! stateResponse
   }
 }
 

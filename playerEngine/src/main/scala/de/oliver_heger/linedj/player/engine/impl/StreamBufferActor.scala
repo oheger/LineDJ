@@ -93,12 +93,12 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     case PlaybackActor.GetAudioData(length) =>
       val buf = new Array[Byte](math.min(length, buffer.available()))
       buffer read buf
-      sender !  BufferDataResult(ByteString(buf))
+      sender() !  BufferDataResult(ByteString(buf))
       triggerFillBuffer()
 
     case CloseRequest =>
       closeStream()
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
       context become closed
   }
 
@@ -110,7 +110,7 @@ class StreamBufferActor(config: PlayerConfig, streamRef: StreamReference) extend
     */
   def closed: Receive = {
     case PlaybackActor.GetAudioData(_) =>
-      sender ! BufferDataComplete
+      sender() ! BufferDataComplete
   }
 
   /**

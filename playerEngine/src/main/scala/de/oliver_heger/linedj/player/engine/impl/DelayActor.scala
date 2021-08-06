@@ -152,7 +152,7 @@ class DelayActor extends Actor with ActorLogging {
     case CloseRequest =>
       pendingSchedules foreach (e => e._2.cancellable.cancel())
       pendingSchedules.clear()
-      sender ! CloseAck(self)
+      sender() ! CloseAck(self)
   }
 
   /**
