@@ -52,7 +52,7 @@ object RandomGroupingPlaylistReordererSpec {
   private def evalSongs(orderedSongs: Seq[SongData]): (String, String, Boolean) = {
     val state = ("_", "", true)
     orderedSongs.foldLeft(state) { (state, song) =>
-      val title = song.getTitle
+      val title = song.title
       if (title.head != state._1.last)
         (state._1 + title.head, "", state._3)
       else (state._1, title, state._3 && state._2 < title)
@@ -77,11 +77,11 @@ class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
     new RandomGroupingPlaylistReorderer[Char] {
 
       override val groupOrdering: Ordering[SongData] =
-        (x: SongData, y: SongData) => x.getTitle compareTo y.getTitle
+        (x: SongData, y: SongData) => x.title compareTo y.getTitle()
 
       override val resourceBundleBaseName: String = "Irrelevant"
 
-      override def groupSong(s: SongData): Char = s.getTitle.head
+      override def groupSong(s: SongData): Char = s.getTitle().head
     }
 
   /**

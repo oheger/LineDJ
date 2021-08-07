@@ -34,5 +34,5 @@ class PlaylistReordererRandomAlbum extends RandomGroupingPlaylistReorderer[Strin
 
   override val groupOrdering: SongAlbumOrdering.type = SongAlbumOrdering
 
-  override def groupSong(song: SongData): String = song.getAlbum
+  override def groupSong(song: SongData): String = song.album
 }

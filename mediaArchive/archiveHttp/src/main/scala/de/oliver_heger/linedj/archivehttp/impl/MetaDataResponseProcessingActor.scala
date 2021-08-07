@@ -58,7 +58,7 @@ class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
       .filter(_._2.isDefined)
       .map(t => t._1.copy(uri = t._2.get))
       .toMat(sink)(Keep.both)
-      .run
+      .run()
     (futStream.map(MetaDataResponseProcessingResult(mid, _, seqNo)), killSwitch)
   }
 }

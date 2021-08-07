@@ -96,7 +96,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     def createStartup(): MediaArchiveStartup = {
       val startup = new MediaArchiveStartup
-      startup initClientContext createClientContext
+      startup initClientContext createClientContext()
       startup
     }
 

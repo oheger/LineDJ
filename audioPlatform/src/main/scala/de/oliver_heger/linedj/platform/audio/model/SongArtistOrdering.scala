@@ -27,7 +27,7 @@ package de.oliver_heger.linedj.platform.audio.model
   */
 object SongArtistOrdering extends Ordering[SongData] {
   override def compare(x: SongData, y: SongData): Int = {
-    val c = x.getArtist compareToIgnoreCase y.getArtist
+    val c = x.artist compareToIgnoreCase y.artist
     if (c != 0) c
     else SongAlbumOrdering.compare(x, y)
   }

@@ -83,7 +83,7 @@ class OpenExportSettingsDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
     command prepareBuilderData builderData
     val captor = ArgumentCaptor.forClass(classOf[ExportSettings])
     verify(builderData).addProperty(argEq("exportSettings"), captor.capture())
-    captor.getValue.getClearMode should be(ClearMode)
-    captor.getValue.getTargetDirectory should be(ExportPath)
+    captor.getValue.getClearMode() should be(ClearMode)
+    captor.getValue.getTargetDirectory() should be(ExportPath)
   }
 }

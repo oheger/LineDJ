@@ -253,7 +253,7 @@ object ExportActor {
    * @return the song name
    */
   private def generateTargetFileName(s: (SongData, Int), digits: Int): String =
-    s"${formatIndex(s._2, digits)} - ${validTitle(s._1.getTitle)}${extractExtension(s._1.id.uri)}"
+    s"${formatIndex(s._2, digits)} - ${validTitle(s._1.title)}${extractExtension(s._1.id.uri)}"
 
   /**
    * Generates a song title that contains only valid characters to be used in

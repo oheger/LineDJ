@@ -25,7 +25,7 @@ package de.oliver_heger.linedj.platform.audio.model
 object SongTrackNoOrdering extends Ordering[SongData] {
   override def compare(x: SongData, y: SongData): Int = {
     val c = extractTrackNumber(x) - extractTrackNumber(y)
-    if (c != 0) c else java.lang.String.CASE_INSENSITIVE_ORDER.compare(x.getTitle, y.getTitle)
+    if (c != 0) c else java.lang.String.CASE_INSENSITIVE_ORDER.compare(x.title, y.title)
   }
 
   /**

@@ -44,7 +44,7 @@ object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[String, M
 
   override def fetchMetaDataOfMedium(mediumID: MediumID): MetaDataResult[Map[String, MediaMetaData]] =
     Kleisli { messageBus =>
-      val promise = Promise[Map[String, MediaMetaData]]
+      val promise = Promise[Map[String, MediaMetaData]]()
       val chunkData = collection.mutable.Map.empty[String, MediaMetaData]
       val callback: ConsumerFunction[MetaDataChunk] = chunk => {
         chunkData ++= chunk.data

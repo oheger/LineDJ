@@ -47,8 +47,8 @@ ExportSettings) extends FormActionListener {
     */
   override def actionPerformed(formActionEvent: FormActionEvent): Unit = {
     if (controller.validateAndDisplayMessages().isValid) {
-      config.exportClearMode = settings.getClearMode
-      config.exportPath = settings.getTargetDirectory
+      config.exportClearMode = settings.clearMode
+      config.exportPath = settings.targetDirectory
     }
   }
 }

@@ -59,7 +59,7 @@ object MediaController {
    * @return the ''AlbumKey'' for this song
    */
   private def createAlbumKey(song: SongData): AlbumKey = {
-    AlbumKey(artist = upper(song.getArtist), album = upper(song.getAlbum))
+    AlbumKey(artist = upper(song.artist), album = upper(song.album))
   }
 
   /**

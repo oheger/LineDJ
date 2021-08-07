@@ -69,10 +69,10 @@ java.util.List[SongData], scanner: DirectoryScanner)
    */
   private def createExportData(): ExportData = {
     import scala.jdk.CollectionConverters._
-    val exportPath = Paths get settings.getTargetDirectory
+    val exportPath = Paths get settings.targetDirectory
     ExportActor.ExportData(exportSongs.asScala.toSeq, scanIfNecessary(exportPath), exportPath, clearTarget =
-      settings.getClearMode == ExportSettings.ClearAll,
-      overrideFiles = settings.getClearMode == ExportSettings.ClearOverride)
+      settings.clearMode == ExportSettings.ClearAll,
+      overrideFiles = settings.clearMode == ExportSettings.ClearOverride)
   }
 
   /**
@@ -84,7 +84,7 @@ java.util.List[SongData], scanner: DirectoryScanner)
    * @return the result of the scan operation
    */
   private def scanIfNecessary(path: Path): ScanResult = {
-    if (settings.getClearMode != ExportSettings.ClearOverride) {
+    if (settings.clearMode != ExportSettings.ClearOverride) {
       try {
         scanner scan path
       } catch {

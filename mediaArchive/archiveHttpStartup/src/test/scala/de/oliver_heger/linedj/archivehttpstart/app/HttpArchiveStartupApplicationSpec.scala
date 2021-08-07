@@ -529,7 +529,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     val helper = new StartupTestHelper
     prepareMultiRealmLogin(helper, Some(createStateActor(archiveState)))
     triggerArchiveCreation(helper)
-    val msg = helper.messageBus.processNextMessage[HttpArchiveStateChanged]
+    val msg = helper.messageBus.processNextMessage[HttpArchiveStateChanged]()
     msg should be(stateNotification(1, HttpArchiveStateInitializing))
     helper.expectArchiveStateNotification(stateNotification(3, HttpArchiveStateInitializing))
 

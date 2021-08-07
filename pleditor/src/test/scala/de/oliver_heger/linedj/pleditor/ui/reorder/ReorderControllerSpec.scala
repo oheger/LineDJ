@@ -109,7 +109,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
   private def expectWindowOpened(helper: ReorderControllerTestHelper, optWindow: Option[Window] =
   None): WindowEvent = {
     val event = createWindowEventWithWindow(optWindow)
-    val future = Promise[Seq[(PlaylistReorderer, String)]].future
+    val future = Promise[Seq[(PlaylistReorderer, String)]]().future
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(future)
     event
   }
@@ -126,7 +126,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
   it should "populate the list model with the available reorder services" in {
     val event = createWindowEventWithWindow()
-    val promise = Promise[Seq[(PlaylistReorderer, String)]]
+    val promise = Promise[Seq[(PlaylistReorderer, String)]]()
     val services = List((mock[PlaylistReorderer], "B"), (mock[PlaylistReorderer], "A"),
       (mock[PlaylistReorderer], "C"))
     val helper = new ReorderControllerTestHelper
@@ -144,7 +144,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
   it should "handle an empty list of reorder services" in {
     val event = createWindowEventWithWindow()
-    val promise = Promise[Seq[(PlaylistReorderer, String)]]
+    val promise = Promise[Seq[(PlaylistReorderer, String)]]()
     val helper = new ReorderControllerTestHelper
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(promise.future)
 

@@ -38,7 +38,7 @@ object SongAlbumOrdering extends Ordering[SongData] {
     val c = extractInceptionYear(x) - extractInceptionYear(y)
     if (c != 0) c
     else {
-      val c1 = x.getAlbum compareToIgnoreCase y.getAlbum
+      val c1 = x.album compareToIgnoreCase y.album
       if (c1 != 0) c1
       else SongTrackNoOrdering.compare(x, y)
     }
