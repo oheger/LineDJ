@@ -103,9 +103,7 @@ object DirectoryStreamSource {
     * @return the equivalent ''DirectoryStream.Filter''
     */
   implicit def toDirFilter(filter: PathFilter): DirectoryStream.Filter[Path] =
-    new DirectoryStream.Filter[Path] {
-      override def accept(entry: Path): Boolean = filter.accept(entry)
-    }
+    (entry: Path) => filter.accept(entry)
 
   /**
     * A ''PathFilter'' implementation that accepts all entries in a directory.
@@ -472,9 +470,9 @@ abstract class DirectoryStreamSource[A](val root: Path,
           }
         }
 
-        override def onDownstreamFinish(): Unit = {
+        override def onDownstreamFinish(cause: Throwable): Unit = {
           iterationComplete(currentState)
-          super.onDownstreamFinish()
+          super.onDownstreamFinish(cause)
         }
       })
     }

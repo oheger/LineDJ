@@ -39,6 +39,7 @@ import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupApplication {

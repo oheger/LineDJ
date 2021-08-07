@@ -89,7 +89,7 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
    * @return a tuple with the bus and the protocol buffer
    */
   private def createBus(): (UIBus, StringBuilder) = {
-    val protocol = StringBuilder.newBuilder
+    val protocol = new StringBuilder()
     (new UIBus(createSync(protocol)), protocol)
   }
 

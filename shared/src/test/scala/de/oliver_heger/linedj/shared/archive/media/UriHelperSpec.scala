@@ -291,7 +291,7 @@ class UriHelperSpec extends AnyFlatSpec with Matchers {
     val Uri = "/a/uri/with/multiple/components"
     val components = UriHelper splitComponents Uri
 
-    UriHelper fromComponents components should be(Uri)
+    UriHelper fromComponents components.toSeq should be(Uri)
   }
 
   it should "map the components of a URI" in {

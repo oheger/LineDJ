@@ -77,7 +77,7 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
               val (results, nextFailure) = parser(bs, lastFailure, false)
               lastFailure = nextFailure
               if (results.nonEmpty) {
-                emitMultiple(out, results.toIterator)
+                emitMultiple(out, results.iterator)
               } else {
                 pull(in)
               }
@@ -91,7 +91,7 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
 
             case Some(bs) =>
               val (results, _) = parser(bs, lastFailure, true)
-              emitMultiple(out, results.toIterator, () => complete(out))
+              emitMultiple(out, results.iterator, () => complete(out))
           }
         }
       })

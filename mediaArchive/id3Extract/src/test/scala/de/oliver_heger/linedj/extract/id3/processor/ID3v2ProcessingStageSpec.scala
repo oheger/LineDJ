@@ -73,7 +73,7 @@ object ID3v2ProcessingStageSpec {
     * @return the content as an iteration of chunks
     */
   private def readTestFileChunked(chunkSize: Int): Iterable[ByteString] =
-    readTestFile().grouped(chunkSize).toIterable
+    readTestFile().grouped(chunkSize).iterator.to(Iterable)
 
   /**
     * Produces a source with chunked content of the test file.

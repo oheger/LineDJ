@@ -77,7 +77,7 @@ object IntervalQueries {
     * result may be used as default value for queries that can return an
     * optional result.
     */
-  val BeforeForEver = Before(new LazyDate(forEverDate()))
+  val BeforeForEver: Before = Before(new LazyDate(forEverDate()))
 
   /**
     * Creates an ''IntervalQuery'' for an hour interval.
@@ -232,7 +232,7 @@ object IntervalQueries {
     * @param defaultResult the default result to be returned
     * @return the sequence interval query
     */
-  def sequence(queries: TraversableOnce[IntervalQuery], selector: ResultSelector =
+  def sequence(queries: Iterable[IntervalQuery], selector: ResultSelector =
   LongestInsideSelector, defaultResult: IntervalQueryResult = BeforeForEver): IntervalQuery =
     date =>
       selectResult(queries map (q => q(date)), selector) getOrElse defaultResult
@@ -245,7 +245,7 @@ object IntervalQueries {
     * @param selector the ''ResultSelector''
     * @return the selected result
     */
-  def selectResult(results: TraversableOnce[IntervalQueryResult], selector: ResultSelector):
+  def selectResult(results: Iterable[IntervalQueryResult], selector: ResultSelector):
   Option[IntervalQueryResult] = {
     val initSel: Option[IntervalQueryResult] = None
     results.foldLeft(initSel)(selector(_, _))
@@ -348,7 +348,7 @@ object IntervalQueries {
                           fInc: LocalDateTime => LocalDateTime, from: Int, until: Int):
   IntervalQuery =
     date => {
-      if (date.get(field) >= until) After { d =>
+      if (date.get(field) >= until) After { _ =>
           fInc(fSet(date, date.range(field).getMaximum.toInt))
         }
       else if (date.get(field) < from) {

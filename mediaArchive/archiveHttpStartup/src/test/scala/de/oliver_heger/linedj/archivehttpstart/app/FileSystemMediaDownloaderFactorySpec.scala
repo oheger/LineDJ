@@ -47,6 +47,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.security.{Key, SecureRandom}
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 object FileSystemMediaDownloaderFactorySpec {

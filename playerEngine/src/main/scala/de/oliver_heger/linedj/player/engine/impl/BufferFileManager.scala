@@ -18,9 +18,10 @@ package de.oliver_heger.linedj.player.engine.impl
 
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file._
-
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.impl.BufferFileManager.BufferFile
+
+import scala.collection.immutable.ArraySeq
 
 object BufferFileManager {
   /** The system property pointing to the user's home directory. */
@@ -193,7 +194,7 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    * @return a sequence with the paths which were contained in this buffer
    */
   def removeContainedPaths(): Seq[BufferFile] = {
-    content.flatten map removeFile
+    ArraySeq.unsafeWrapArray(content).flatten map removeFile
   }
 
   /**

@@ -44,6 +44,7 @@ import java.nio.file.{Files, Paths}
 import java.security.Key
 import java.time.Instant
 import scala.concurrent.Future
+import scala.language.existentials
 import scala.util.{Failure, Try}
 
 object HttpArchiveStarterSpec {

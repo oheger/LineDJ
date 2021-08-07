@@ -25,7 +25,7 @@ object MetaDataJsonConverter {
     * @param s the string
     * @return the quoted string
     */
-  private def quoteStr(s: String): String = '"' + s.replace('"', '\'') + '"'
+  private def quoteStr(s: String): String = s"\"${s.replace('"', '\'')}\""
 }
 
 /**

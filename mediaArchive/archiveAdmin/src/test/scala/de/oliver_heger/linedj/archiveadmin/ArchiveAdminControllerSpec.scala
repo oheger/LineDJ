@@ -100,7 +100,7 @@ object ArchiveAdminControllerSpec {
     * @param o the object
     * @return the transformed string
     */
-  private def transformedString(o: Any): String = o + "_transformed"
+  private def transformedString(o: Any): String = s"${o}_transformed"
 
   /**
     * Produces a state updated event with the specified operation in progress

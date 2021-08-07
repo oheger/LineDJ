@@ -56,6 +56,7 @@ import java.security.Key
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.language.existentials
 
 object HttpArchiveStartupApplicationSpec {
   /** Test user name. */
@@ -140,7 +141,7 @@ object HttpArchiveStartupApplicationSpec {
     */
   private def adaptActorNames(resources: HttpArchiveStarter.ArchiveResources, index: Int):
   HttpArchiveStarter.ArchiveResources = {
-    val modifiedActors = resources.actors.map(e => (e._1.replace(ArcIndex + "_", index + "_"), e._2))
+    val modifiedActors = resources.actors.map(e => (e._1.replace(s"${ArcIndex}_", s"${index}_"), e._2))
     resources.copy(actors = modifiedActors)
   }
 

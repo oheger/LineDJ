@@ -81,13 +81,12 @@ object DynamicInputStreamSpec {
     * @param stream          the test stream
     * @param optOutputStream an optional output stream for storing read results;
     *                        if this is not provided, a new stream is created
-    * @param bufSize         the size of the buffer for read operations
     * @param data            a sequence of chunks to be added to the stream
     * @return the output stream with the data read from the stream
     */
-  private def readWhileAppending(stream: DynamicInputStream, optOutputStream:
-  Option[ByteArrayOutputStream], bufSize: Int, data: Seq[String]): ByteArrayOutputStream = {
-    val buf = new Array[Byte](bufSize)
+  private def readWhileAppending(stream: DynamicInputStream, optOutputStream: Option[ByteArrayOutputStream],
+                                 data: Seq[String]): ByteArrayOutputStream = {
+    val buf = new Array[Byte](16)
     val bos = optOutputStream.getOrElse(new ByteArrayOutputStream)
     for (c <- data) {
       stream append createData(c)
@@ -265,7 +264,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "allow reading data from multiple chunks" in {
-    val Data = Array("O Romeo, Romeo, wherefore art thou Romeo?",
+    val Data = Seq("O Romeo, Romeo, wherefore art thou Romeo?",
       "Deny thy father and refuse thy name;",
       "Or if thou wilt not, be but sworn my love",
       "And I'll no longer be a Capulet.")
@@ -287,7 +286,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
     * @return the test stream
     */
   private def checkCombinedReadAndAppendOperations(initialCapacity: Int): DynamicInputStream = {
-    val Data = Array("'Tis but thy name that is my enemy:",
+    val Data = Seq("'Tis but thy name that is my enemy:",
       "Thou art thyself, though not a Montague.",
       "What's Montague? It is nor hand nor foot,",
       "Nor arm nor face, nor any other part",
@@ -300,7 +299,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
       "and for thy name, which is no part of thee,",
       "Take all myself.")
     val stream = new DynamicInputStream(initialCapacity)
-    val bos = readWhileAppending(stream, None, 16, Data)
+    val bos = readWhileAppending(stream, None, Data)
     readStream(stream = stream, optOutputStream = Some(bos))
     checkReadResult(bos, Data: _*)
     stream
@@ -347,7 +346,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
     * @param numberOfResets the number of reset operations to execute
     */
   private def checkReset(numberOfResets: Int): Unit = {
-    val Data = Array("Romeo:",
+    val Data = Seq("Romeo:",
       "Hold, Tybalt! Good Mercutio!",
       "[Tybalt under Romeo's arm thrusts Mercutio in. Away Tybalt]",
       "Mercutio:",
@@ -355,12 +354,12 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
       "A plague a' both your houses! I am sped.",
       "Is he gone and hath nothing?")
     val stream = new DynamicInputStream(4)
-    stream append createData(Data(0))
+    stream append createData(Data.head)
     val buf = new Array[Byte](1024)
     stream read buf
 
     stream.mark(16384) // this actually means "no limit"
-    val bos = readWhileAppending(stream, None, 16, Data.tail)
+    val bos = readWhileAppending(stream, None, Data.tail)
     val count = stream read buf
     bos.write(buf, 0, count)
     checkReadResult(bos, Data.tail: _*)
@@ -410,7 +409,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
 
     stream.clear()
     stream.available() should be(0)
-    stream should not be 'completed
+    stream should not be Symbol("completed")
     val Chunk = "If thou art taken. Hence be gone, away!"
     appendChunks(stream, Chunk)
     readStream(stream).toByteArray should be(toBytes(Chunk))
@@ -463,7 +462,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
 
   it should "be able to find a specific byte in multiple chunks" in {
     val Remaining = " furnish forth the marriage tables."
-    val Data = Array("Thrift, thrift, Horatio, the funeral bak'd-meats", "Did coldly" + Remaining)
+    val Data = Seq("Thrift, thrift, Horatio, the funeral bak'd-meats", "Did coldly" + Remaining)
     val stream = createStreamWithChunks(Data: _*)
     val chunk = new Array[Byte](5)
     stream read chunk
@@ -503,7 +502,7 @@ class DynamicInputStreamSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "allow skipping data over multiple chunks" in {
-    val Data = Array("The King doth wake to-night and takes his rouse,",
+    val Data = Seq("The King doth wake to-night and takes his rouse,",
       "Keeps wassail, and the swagg'ring up-spring reels;",
       "And as he drains his draughts of Rhenish down,",
       "The kettle-drum and trumpet thus bray out",

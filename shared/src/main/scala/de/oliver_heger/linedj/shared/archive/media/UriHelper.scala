@@ -306,7 +306,7 @@ object UriHelper {
     * @return the resulting URI
     */
   def mapComponents(uri: String)(f: String => String): String = {
-    val components = splitComponents(uri)
+    val components = splitComponents(uri).toSeq
     val mappedComponents = components map f
     fromComponents(mappedComponents)
   }

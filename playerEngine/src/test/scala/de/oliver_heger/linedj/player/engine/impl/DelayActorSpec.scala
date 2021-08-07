@@ -117,7 +117,7 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     val otherMsg = "another message"
     helper.propagate(0.seconds, msg = otherMsg)
     helper.targetProbe.expectMsg(otherMsg)
-    invocation.cancellable shouldBe 'cancelled
+    invocation.cancellable shouldBe Symbol("cancelled")
   }
 
   it should "reset a pending cancellable when a new message arrives" in {
@@ -202,8 +202,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
 
     helper.actor ! CloseRequest
     expectMsg(CloseAck(helper.actor))
-    invocation1.cancellable shouldBe 'cancelled
-    invocation2.cancellable shouldBe 'cancelled
+    invocation1.cancellable shouldBe Symbol("cancelled")
+    invocation2.cancellable shouldBe Symbol("cancelled")
   }
 
   it should "remove all delay data after processing a close request" in {

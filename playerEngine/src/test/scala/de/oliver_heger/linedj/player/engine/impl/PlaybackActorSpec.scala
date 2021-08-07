@@ -991,7 +991,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     actor ! CloseRequest
     expectMsg(CloseAck(actor))
-    actor.underlyingActor should not be 'playing
+    actor.underlyingActor should not be Symbol("playing")
   }
 
   it should "ignore messages after receiving a close request" in {

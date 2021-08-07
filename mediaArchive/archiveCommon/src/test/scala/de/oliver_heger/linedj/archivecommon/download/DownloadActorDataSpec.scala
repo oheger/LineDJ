@@ -87,7 +87,7 @@ class DownloadActorDataSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .add(reader4, testActor, 70000L)
 
     val timeouts = mapping.findTimeouts(90000, 1.minute)
-    timeouts.toStream should contain only(reader1, reader2)
+    timeouts.to(LazyList) should contain only(reader1, reader2)
   }
 
   it should "also remove timestamps when removing a mapping" in {

@@ -106,7 +106,7 @@ AppendPlaylistActionTask(messageBus) {
 class AppendSongsActionTask(tableHandler: TableHandler, messageBus: MessageBus) extends
 AppendPlaylistActionTask(messageBus) {
   override protected def fetchSongsToAppend(): Seq[SongData] = {
-    val selectedIndices = tableHandler.getSelectedIndices
+    val selectedIndices = tableHandler.getSelectedIndices.toSeq
     selectedIndices map (tableHandler.getModel.get(_).asInstanceOf[SongData])
   }
 }

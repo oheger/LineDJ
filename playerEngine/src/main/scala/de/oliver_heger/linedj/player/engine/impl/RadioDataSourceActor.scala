@@ -75,7 +75,7 @@ object RadioDataSourceActor {
     */
   private def updateAudioSourceWithDefaultFileExtension(src: AudioSource, defaultExt: String):
   AudioSource = {
-    val dotExt = '.' + defaultExt
+    val dotExt = s".$defaultExt"
     if (!src.uri.endsWith(dotExt)) src.copy(uri = src.uri + dotExt)
     else src
   }

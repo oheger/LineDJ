@@ -44,7 +44,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
 
   it should "not be full initially" in {
     val manager = createManager()
-    manager should not be 'full
+    manager should not be Symbol("full")
   }
 
   it should "create correct names for buffer files" in {
@@ -82,7 +82,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     val manager = createManager()
     manager append BufferFile(manager.createPath(), SourceLengths)
     manager append BufferFile(manager.createPath(), Nil)
-    manager shouldBe 'full
+    manager shouldBe Symbol("full")
 
     intercept[IllegalStateException] {
       manager append BufferFile(manager.createPath(), SourceLengths)

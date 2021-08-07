@@ -131,7 +131,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       when(extractor.getSampleRate).thenReturn(metaData.sampleRate)
       when(extractor.getMinBitRate).thenReturn(metaData.minimumBitRat)
       when(extractor.getMaxBitRate).thenReturn(metaData.maximumBitRate)
-      when(extractor.getDuration).thenReturn(metaData.duration)
+      when(extractor.getDuration).thenReturn(metaData.duration.toFloat)
       this
     }
 
