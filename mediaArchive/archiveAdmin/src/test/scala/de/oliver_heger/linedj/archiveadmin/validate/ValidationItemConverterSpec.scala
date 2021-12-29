@@ -154,7 +154,7 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
     private def createApplicationContext(): ApplicationContext = {
       val ctx = mock[ApplicationContext]
       Mockito.when(ctx.getResourceText(anyString())).thenAnswer((invocation: InvocationOnMock) =>
-        s"{invocation.getArguments.head}$ResolvedSuffix")
+        s"${invocation.getArguments.head}$ResolvedSuffix")
       ctx
     }
   }
