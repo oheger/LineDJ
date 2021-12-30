@@ -20,22 +20,22 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions. */
-lazy val AkkaVersion = "2.6.15"
-lazy val AkkaHttpVersion = "10.2.4"
+lazy val AkkaVersion = "2.6.18"
+lazy val AkkaHttpVersion = "10.2.7"
 lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.13.6"
-lazy val VersionScalaz = "7.3.3"
+lazy val VersionScala = "2.13.7"
+lazy val VersionScalaz = "7.3.5"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
+lazy val VersionSlf4j = "1.7.32"
 lazy val VersionScalaTest = "3.2.9"
 lazy val VersionMockito = "1.9.5"
 lazy val VersionScalaTestMockito = "1.0.0-M2"
 lazy val VersionJunit = "4.13.2"  // needed by mockito
-lazy val VersionJackson = "2.12.4"
-lazy val VersionAeron = "1.34.0"
-lazy val VersionSslConfig = "0.4.3"
-lazy val VersionScalaCompat = "0.9.1"
-lazy val VersionCloudFiles = "0.3-SNAPSHOT"
+lazy val VersionJackson = "2.13.1"
+lazy val VersionAeron = "1.37.0"
+lazy val VersionSslConfig = "0.6.0"
+lazy val VersionCloudFiles = "0.3"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 
@@ -48,8 +48,7 @@ lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
   "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
-  "org.scala-lang" % "scala-reflect" % VersionScala,
-  "org.scala-lang.modules" %% "scala-java8-compat" % VersionScalaCompat
+  "org.scala-lang" % "scala-reflect" % VersionScala
 )
 
 /**
@@ -100,8 +99,8 @@ lazy val osgiDependencies = Seq(
 )
 
 lazy val logDependencies = Seq(
-  "org.slf4j" % "slf4j-api" % "1.7.10",
-  "org.slf4j" % "slf4j-simple" % "1.7.10" % Test
+  "org.slf4j" % "slf4j-api" % VersionSlf4j,
+  "org.slf4j" % "slf4j-simple" % VersionSlf4j % Test
 )
 
 val defaultSettings = Seq(
@@ -851,7 +850,7 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     name := "linedj-archive-osgiImage",
     sourceImagePaths := Seq("base", "archive"),
     excludedModules := DefaultExcludedModules,
-    libraryDependencies ++= remotingDependencies
+    libraryDependencies ++= remotingDependencies,
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded)
 
