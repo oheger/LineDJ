@@ -45,13 +45,13 @@ import sbt.{Def, _}
   * The plugin supports some configuration settings to fine-tune the creation
   * of OSGi images:
   *  - Exclusions for dependencies not to be added to the image can be
-  * specified.
+  *    specified.
   *  - The sub output directory in which to write the collected dependency
-  * bundles can be provided.
+  *    bundles can be provided.
   *  - Sub folders to the OSGi image templates can be specified. These folders
-  * are copied into the generated image.
+  *    are copied into the generated image.
   *  - The root path in which all OSGi image templates are located is defined
-  * by the ''osgi.image.rootPath'' system property.  
+  *    by the ''osgi.image.rootPath'' system property.
   */
 object OsgiImagePlugin extends AutoPlugin {
   /** The system property that defines the root path of source OSGi images. */
@@ -228,7 +228,7 @@ object OsgiImagePlugin extends AutoPlugin {
     val imageDir = new File(targetPath, ImageTargetDirectory)
     log.info("Generating OSGi image under " + imageDir)
 
-    createBundleDir(dependencies, projects, bundlePath, imageDir)
+    createBundleDir(dependencies, projects, bundlePath, imageDir, log)
     copySourceImages(sourcePaths, imageDir, log)
   }
 
@@ -239,13 +239,20 @@ object OsgiImagePlugin extends AutoPlugin {
     * @param projects     the inter-project dependencies to be included
     * @param bundlePath   the relative bundle directory in the image
     * @param imageDir     the path where to generate the image
+    * @param log          the logger
     */
   private def createBundleDir(dependencies: Seq[File], projects: Seq[File], bundlePath: String,
-                              imageDir: File): Unit = {
+                              imageDir: File, log: ManagedLogger): Unit = {
     val bundleDir = new File(imageDir, bundlePath)
-    val bundleFiles = dependencies.filter(isBundle) ++ projects
+    val (dependencyBundles, nonBundles) = dependencies.partition(isBundle)
+    val bundleFiles = dependencyBundles ++ projects
     val bundleMapping = bundleFiles pair Path.flat(bundleDir)
     IO.copy(bundleMapping, CopyOptions(overwrite = true, preserveLastModified = true, preserveExecutable = false))
+
+    if (nonBundles.nonEmpty) {
+      log.warn("Found dependencies that are no bundles:")
+      nonBundles.map(_.name).sorted.foreach(file => log.info("- " + file))
+    }
   }
 
   /**
