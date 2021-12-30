@@ -19,34 +19,36 @@ import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
 import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
-/** Definition of versions. */
-lazy val AkkaVersion = "2.6.18"
-lazy val AkkaHttpVersion = "10.2.7"
-lazy val OsgiVersion = "5.0.0"
-lazy val VersionScala = "2.13.7"
-lazy val VersionScalaz = "7.3.5"
+/** Definition of versions for production dependencies. */
+lazy val VersionAeron = "1.37.0"
+lazy val VersionAkka = "2.6.18"
+lazy val VersionAkkaHttp = "10.2.7"
+lazy val VersionCloudFiles = "0.3"
+lazy val VersionJackson = "2.13.1"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
+lazy val VersionOsgi = "5.0.0"
+lazy val VersionScala = "2.13.7"
+lazy val VersionScalaz = "7.3.5"
 lazy val VersionSlf4j = "1.7.32"
-lazy val VersionScalaTest = "3.2.9"
-lazy val VersionMockito = "1.9.5"
-lazy val VersionScalaTestMockito = "1.0.0-M2"
-lazy val VersionJunit = "4.13.2"  // needed by mockito
-lazy val VersionJackson = "2.13.1"
-lazy val VersionAeron = "1.37.0"
 lazy val VersionSslConfig = "0.6.0"
-lazy val VersionCloudFiles = "0.3"
+
+/** Test dependencies. */
+lazy val VersionJunit = "4.13.2"  // needed by mockito
+lazy val VersionMockito = "1.9.5"
+lazy val VersionScalaTest = "3.2.9"
+lazy val VersionScalaTestMockito = "1.0.0-M2"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 
 lazy val akkaDependencies = Seq(
-  "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-testkit" % AkkaVersion % Test,
-  "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-slf4j" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-remote" % AkkaVersion,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-actor" % VersionAkka,
+  "com.typesafe.akka" %% "akka-actor-typed" % VersionAkka,
+  "com.typesafe.akka" %% "akka-testkit" % VersionAkka % Test,
+  "com.typesafe.akka" %% "akka-stream" % VersionAkka,
+  "com.typesafe.akka" %% "akka-slf4j" % VersionAkka,
+  "com.typesafe.akka" %% "akka-remote" % VersionAkka,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % VersionAkka,
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
   "org.scala-lang" % "scala-reflect" % VersionScala
 )
@@ -94,8 +96,8 @@ lazy val jguiraffeDependencies = Seq(
 ) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
-  "org.osgi" % "org.osgi.core" % OsgiVersion % "provided",
-  "org.osgi" % "org.osgi.compendium" % OsgiVersion % "provided"
+  "org.osgi" % "org.osgi.core" % VersionOsgi % "provided",
+  "org.osgi" % "org.osgi.compendium" % VersionOsgi % "provided"
 )
 
 lazy val logDependencies = Seq(
@@ -231,12 +233,12 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
-    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http" % VersionAkkaHttp,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp,
     libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
@@ -310,7 +312,7 @@ lazy val actorSystem = (project in file("actorSystem"))
   .settings(
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
-    libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % AkkaVersion,
+    libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % VersionAkka,
     // need to import packages of akka modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
       "akka.remote",
@@ -374,7 +376,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion % Test,
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
