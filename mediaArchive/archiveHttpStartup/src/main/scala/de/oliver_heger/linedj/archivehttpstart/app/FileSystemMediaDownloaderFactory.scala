@@ -25,7 +25,7 @@ import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.core.http.factory.{HttpRequestSenderConfig, HttpRequestSenderFactory, Spawner}
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
-import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesFileSystem}
+import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 
@@ -83,10 +83,11 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
   (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
   (implicit system: ActorSystem): HttpArchiveFileSystem[ID, FILE, FOLDER] = {
     val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
+    val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
     implicit val timeout: Timeout = startupConfig.archiveConfig.processorTimeout
     val resolver = CachePathComponentsResolver[ID, FILE, FOLDER](system, startupConfig.cryptCacheSize,
       startupConfig.cryptChunkSize)
-    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, cryptConfig, resolver)
+    val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, namesConfig, resolver)
     val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, cryptConfig)
     fs.copy(fileSystem = cryptContentFs)
   }

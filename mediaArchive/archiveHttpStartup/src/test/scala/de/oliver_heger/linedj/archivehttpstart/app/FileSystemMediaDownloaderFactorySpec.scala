@@ -148,9 +148,10 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
         fs.config.algorithm should be(Aes)
         fs.delegate match {
           case fsn: CryptNamesFileSystem[_, _, _] =>
-            fsn.config.keyEncrypt should be(key)
-            fsn.config.keyDecrypt should be(key)
-            fsn.config.algorithm should be(Aes)
+            fsn.namesConfig.ignoreUnencrypted shouldBe true
+            fsn.namesConfig.cryptConfig.keyEncrypt should be(key)
+            fsn.namesConfig.cryptConfig.keyDecrypt should be(key)
+            fsn.namesConfig.cryptConfig.algorithm should be(Aes)
             helper.checkFileSystem(fsn.delegate)
           case f => fail("Unexpected delegate file system: " + f)
         }
