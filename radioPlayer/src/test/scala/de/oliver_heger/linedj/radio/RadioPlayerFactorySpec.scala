@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.radio
 import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec

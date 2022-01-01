@@ -122,7 +122,7 @@ class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
 
     command prepareBuilderData builderData
     val expData = exportData(ScanResult(Nil, Nil), clearTarget = false, overrideFiles = true)
-    verifyZeroInteractions(scanner)
+    verifyNoInteractions(scanner)
     verify(builderData).addProperty("exportData", expData)
   }
 

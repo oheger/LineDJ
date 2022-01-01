@@ -40,7 +40,7 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val facade = new DisabledMediaFacade(bus)
 
     facade activate true
-    verifyZeroInteractions(bus)
+    verifyNoInteractions(bus)
   }
 
   it should "implement send()" in {
@@ -48,7 +48,7 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val facade = new DisabledMediaFacade(bus)
 
     facade.send(MediaActors.MediaManager, GetAvailableMedia)
-    verifyZeroInteractions(bus)
+    verifyNoInteractions(bus)
   }
 
   it should "implement initConfiguration()" in {
@@ -57,7 +57,7 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val facade = new DisabledMediaFacade(bus)
 
     facade initConfiguration config
-    verifyZeroInteractions(bus, config)
+    verifyNoInteractions(bus, config)
   }
 
   it should "publish a media state" in {
@@ -73,7 +73,7 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val facade = new DisabledMediaFacade(bus)
 
     facade removeMetaDataListener MediumID("mid", None)
-    verifyZeroInteractions(bus)
+    verifyNoInteractions(bus)
   }
 
   it should "implement requestActor()" in {

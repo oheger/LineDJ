@@ -20,7 +20,7 @@ import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
 
 import javax.swing.ImageIcon
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

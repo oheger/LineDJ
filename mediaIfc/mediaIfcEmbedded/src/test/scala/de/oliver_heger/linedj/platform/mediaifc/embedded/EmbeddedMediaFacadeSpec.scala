@@ -42,7 +42,7 @@ class EmbeddedMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val facade = new EmbeddedMediaFacadeTestHelper().createFacade()
 
     facade.createActorPathPrefix(config) should be("/user/")
-    verifyZeroInteractions(config)
+    verifyNoInteractions(config)
   }
 
   /**

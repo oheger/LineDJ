@@ -24,7 +24,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import javax.sound.sampled.SourceDataLine
-import org.mockito.Matchers.{anyInt, eq => argEq}
+import org.mockito.ArgumentMatchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll

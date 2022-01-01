@@ -35,7 +35,7 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.mockito.Matchers.{anyString, eq => eqArg}
+import org.mockito.ArgumentMatchers.{anyString, eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

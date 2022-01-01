@@ -20,7 +20,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
-import org.mockito.Matchers.{any, anyBoolean}
+import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

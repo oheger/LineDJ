@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.browser.media
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction, PopupMenuBuilder}
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

@@ -37,7 +37,7 @@ class DurationTransformerSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val transformer = new DurationTransformer
 
     transformer.transform(duration, context) should be(expResult)
-    verifyZeroInteractions(context)
+    verifyNoInteractions(context)
   }
 
   "A DurationTransformer" should "support a simple conversion" in {

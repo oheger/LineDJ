@@ -25,7 +25,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import org.apache.commons.configuration.HierarchicalConfiguration
-import org.mockito.Matchers.{any, anyBoolean}
+import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -514,7 +514,7 @@ class HttpArchiveOverviewControllerSpec extends AnyFlatSpec with Matchers with M
       controller.windowDeactivated(event)
       controller.windowDeiconified(event)
       controller.windowIconified(event)
-      verifyZeroInteractions(event)
+      verifyNoInteractions(event)
     }
 
     /**

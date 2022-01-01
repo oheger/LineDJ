@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedIt
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationTestHelper._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec

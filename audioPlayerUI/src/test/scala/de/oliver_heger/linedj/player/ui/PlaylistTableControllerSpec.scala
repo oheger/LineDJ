@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.mockito.Matchers.{any, anyInt}
+import org.mockito.ArgumentMatchers.{any, anyInt}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

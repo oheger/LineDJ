@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -290,7 +290,7 @@ class AudioPlayerControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
     val initEvent = helper.lastStateEvent
 
     helper send StopAudioPlayback()
-    verifyZeroInteractions(helper.audioPlayer)
+    verifyNoInteractions(helper.audioPlayer)
     helper.lastStateEvent should be(initEvent)
   }
 
@@ -309,7 +309,7 @@ class AudioPlayerControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
     val initEvent = helper.lastStateEvent
 
     helper send SkipCurrentSource
-    verifyZeroInteractions(helper.audioPlayer)
+    verifyNoInteractions(helper.audioPlayer)
     helper.lastStateEvent should be(initEvent)
   }
 

@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, anyString, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, anyString, eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

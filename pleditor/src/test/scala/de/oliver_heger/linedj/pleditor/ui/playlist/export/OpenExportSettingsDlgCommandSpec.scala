@@ -26,7 +26,7 @@ import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
-import org.mockito.Matchers.{eq => argEq}
+import org.mockito.ArgumentMatchers.{eq => argEq}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

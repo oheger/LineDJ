@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.platform.app
 
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-
 import akka.actor.{Actor, ActorSystem, Terminated}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency}
@@ -30,7 +29,7 @@ import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.{ArgumentCaptor, Mockito}
@@ -158,8 +157,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
   MediaFacadeFactory = {
     val facade = optFacade getOrElse mock[MediaFacade]
     val factory = mock[MediaFacadeFactory]
-    when(factory.createMediaFacade(any(classOf[ActorFactory]), any(classOf[MessageBus])))
-      .thenReturn(facade)
+    when(factory.createMediaFacade(any(), any())).thenReturn(facade)
     factory
   }
 

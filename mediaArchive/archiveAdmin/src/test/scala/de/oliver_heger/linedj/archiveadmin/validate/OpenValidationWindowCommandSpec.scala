@@ -27,7 +27,7 @@ import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.Locator
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => eqArg}
+import org.mockito.ArgumentMatchers.{eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

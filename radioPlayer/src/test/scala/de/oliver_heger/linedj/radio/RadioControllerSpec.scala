@@ -30,7 +30,7 @@ import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
-import org.mockito.Matchers.{eq => argEq, _}
+import org.mockito.ArgumentMatchers.{eq => argEq, _}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -322,7 +322,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     doAnswer((_: InvocationOnMock) => {
       ctrl elementChanged mock[FormChangeEvent]
       null
-    }).when(helper.comboHandler).addItem(anyInt(), anyObject(), anyObject())
+    }).when(helper.comboHandler).addItem(anyInt(), any(), any())
     doReturn(radioSource(3)).when(helper.comboHandler).getData
 
     ctrl windowOpened event()
@@ -403,7 +403,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
     f(ctrl, ev)
-    verifyZeroInteractions(ev)
+    verifyNoInteractions(ev)
   }
 
   it should "ignore de-iconified events" in {
@@ -694,7 +694,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val pb = helper.playbacksFor(radioSource(1))
     pb should have size 2
     pb.head.makeCurrent shouldBe false
-    verifyZeroInteractions(helper.statusHandler)
+    verifyNoInteractions(helper.statusHandler)
   }
 
   /**
@@ -1038,10 +1038,10 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       val player = mock[RadioPlayer]
       when(player.playSource(any(), anyBoolean(), anyBoolean(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
-          val playback = RadioSourcePlayback(invocation.getArgumentAt(0, classOf[RadioSource]),
-            invocation.getArgumentAt(1, classOf[Boolean]),
-            invocation.getArgumentAt(2, classOf[Boolean]),
-            invocation.getArgumentAt(3, classOf[FiniteDuration]))
+          val playback = RadioSourcePlayback(invocation.getArgument(0, classOf[RadioSource]),
+            invocation.getArgument(1, classOf[java.lang.Boolean]),
+            invocation.getArgument(2, classOf[java.lang.Boolean]),
+            invocation.getArgument(3, classOf[FiniteDuration]))
           playedSources = playback :: playedSources
         })
       player

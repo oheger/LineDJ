@@ -100,7 +100,7 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val task = taskCreator(controller)
     task.run()
 
-    verifyZeroInteractions(bus)
+    verifyNoInteractions(bus)
     verify(controller, never()).playerActionTriggered()
   }
 
@@ -198,7 +198,7 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist))
-    verifyZeroInteractions(plService)
+    verifyNoInteractions(plService)
   }
 
   it should "respect the playlist closed flag" in {

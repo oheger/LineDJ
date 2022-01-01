@@ -35,7 +35,7 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll

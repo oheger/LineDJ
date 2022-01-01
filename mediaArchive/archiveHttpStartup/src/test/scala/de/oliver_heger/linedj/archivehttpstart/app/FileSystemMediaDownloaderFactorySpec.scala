@@ -37,7 +37,7 @@ import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
-import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

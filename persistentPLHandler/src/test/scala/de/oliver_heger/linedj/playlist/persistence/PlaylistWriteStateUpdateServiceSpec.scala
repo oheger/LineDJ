@@ -299,7 +299,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       createPlayerState(InitialPlaylistSize + 5, activated = false), WriteConfig),
       StateWithPlaylist)
     next should be theSameInstanceAs StateWithPlaylist
-    verifyZeroInteractions(plService)
+    verifyNoInteractions(plService)
   }
 
   it should "trigger a playlist write operation if the sequence number changes" in {

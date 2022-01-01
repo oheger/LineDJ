@@ -36,7 +36,7 @@ class NewPlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val task = new NewPlaylistTask(mock[PlaylistController], mock[MessageBus])
 
     task isEnabled context shouldBe true
-    verifyZeroInteractions(context)
+    verifyNoInteractions(context)
   }
 
   it should "clear the table model and reset the playlist" in {

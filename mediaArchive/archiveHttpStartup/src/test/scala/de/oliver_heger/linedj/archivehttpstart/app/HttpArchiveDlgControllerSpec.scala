@@ -22,7 +22,7 @@ import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
-import org.mockito.Mockito.{doReturn, verify, verifyZeroInteractions, when}
+import org.mockito.Mockito.{doReturn, verify, verifyNoInteractions, when}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -257,7 +257,7 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       controller windowDeactivated event
       controller windowDeiconified event
       controller windowIconified event
-      verifyZeroInteractions(event)
+      verifyNoInteractions(event)
       this
     }
 

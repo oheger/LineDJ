@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll

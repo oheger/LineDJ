@@ -36,10 +36,8 @@ lazy val VersionSlf4j = "1.7.32"
 lazy val VersionSslConfig = "0.6.0"
 
 /** Test dependencies. */
-lazy val VersionJunit = "4.13.2"  // needed by mockito
-lazy val VersionMockito = "1.9.5"
-lazy val VersionScalaTest = "3.2.9"
-lazy val VersionScalaTestMockito = "1.0.0-M2"
+lazy val VersionScalaTest = "3.2.10"
+lazy val VersionScalaTestMockito = "3.2.10.0"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 
@@ -74,9 +72,7 @@ lazy val remotingDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
-  "org.scalatestplus" %% "scalatestplus-mockito" % VersionScalaTestMockito % Test,
-  "junit" % "junit" % VersionJunit % Test,
-  "org.mockito" % "mockito-core" % VersionMockito % Test
+  "org.scalatestplus" %% "mockito-3-12" % VersionScalaTestMockito % Test
 )
 
 lazy val osName = System.getProperty("os.name")

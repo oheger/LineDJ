@@ -33,6 +33,6 @@ class DisabledMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with Mock
 
     val facade = factory.createMediaFacade(actorFactory, bus)
     facade.bus should be(bus)
-    verifyZeroInteractions(bus, actorFactory)
+    verifyNoInteractions(bus, actorFactory)
   }
 }

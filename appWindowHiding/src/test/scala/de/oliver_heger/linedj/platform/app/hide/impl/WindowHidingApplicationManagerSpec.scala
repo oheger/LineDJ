@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -144,7 +144,7 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager.sendMessage(WindowStateConsumerUnregistration(reg.id))
       .addApplications(createApplicationData(2))
-    verifyZeroInteractions(reg.callback)
+    verifyNoInteractions(reg.callback)
   }
 
   it should "process a message to hide an application window" in {

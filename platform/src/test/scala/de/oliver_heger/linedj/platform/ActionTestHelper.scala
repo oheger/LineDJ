@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform
 
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
-import org.mockito.Matchers.{anyBoolean, anyString}
+import org.mockito.ArgumentMatchers.{anyBoolean, anyString}
 import org.mockito.Mockito.{doAnswer, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer

@@ -213,7 +213,7 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def activateComponent(): ActorManagementTestHelper = {
       component activate componentContext
-      verifyZeroInteractions(componentContext)
+      verifyNoInteractions(componentContext)
       this
     }
 
@@ -224,7 +224,7 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def deactivateComponent(): ActorManagementTestHelper = {
       component deactivate componentContext
-      verifyZeroInteractions(componentContext)
+      verifyNoInteractions(componentContext)
       this
     }
 

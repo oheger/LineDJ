@@ -20,7 +20,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.Application
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -130,7 +130,7 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.enableBus = false
 
     helper.manager processServices func
-    verifyZeroInteractions(func)
+    verifyNoInteractions(func)
   }
 
   it should "ignore a processing message for another service type" in {
@@ -139,7 +139,7 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.manager addService mock[Application]
 
     helper receive UIServiceManager.ProcessServices(classOf[Runnable], func)
-    verifyZeroInteractions(func)
+    verifyNoInteractions(func)
   }
 
   it should "publish a processing result on the message bus" in {

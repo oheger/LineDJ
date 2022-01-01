@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
-import org.mockito.Matchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll

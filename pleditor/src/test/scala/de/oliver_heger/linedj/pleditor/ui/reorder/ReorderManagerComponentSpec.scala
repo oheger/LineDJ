@@ -97,7 +97,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new ReorderManagerComponentTestHelper
 
     helper.component deactivate context
-    verifyZeroInteractions(context)
+    verifyNoInteractions(context)
     val watcher = TestProbe()
     watcher watch helper.reorderManagerActor.ref
     watcher.expectMsgType[Terminated]

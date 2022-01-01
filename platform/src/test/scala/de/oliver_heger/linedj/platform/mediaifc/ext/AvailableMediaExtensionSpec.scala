@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{Ava
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

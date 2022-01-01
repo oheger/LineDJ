@@ -1,9 +1,8 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.io.InputStream
-
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -53,7 +52,7 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
     val factory = new CombinedPlaybackContextFactory(List(sub1, sub2, sub3))
     factory.createPlaybackContext(stream, Uri).get should be(context)
     verify(sub2).createPlaybackContext(stream, Uri)
-    verifyZeroInteractions(sub3)
+    verifyNoInteractions(sub3)
   }
 
   it should "support adding a new sub factory" in {
@@ -77,6 +76,6 @@ class CombinedPlaybackContextFactorySpec extends AnyFlatSpec with Matchers with 
     val factory = new CombinedPlaybackContextFactory(List(sub1, sub2))
     val factory2 = factory removeSubFactory sub2
     factory2.createPlaybackContext(stream, Uri) shouldBe empty
-    verifyZeroInteractions(sub2)
+    verifyNoInteractions(sub2)
   }
 }

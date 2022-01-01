@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
@@ -32,6 +31,7 @@ import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResu
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -718,7 +718,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       doAnswer((invocationOnMock: InvocationOnMock) => {
         queue offer invocationOnMock.getArguments.head
         null
-      }).when(msgBus).publish(org.mockito.Matchers.any())
+      }).when(msgBus).publish(any())
       facade
     }
   }

@@ -88,7 +88,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent AudioSourceStartedEvent(AudioSource.infinite("Test"))
-    verifyZeroInteractions(helper.controller)
+    verifyNoInteractions(helper.controller)
   }
 
   it should "ignore an event from another player" in {

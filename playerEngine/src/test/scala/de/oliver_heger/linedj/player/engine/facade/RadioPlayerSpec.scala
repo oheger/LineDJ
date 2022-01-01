@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.player.engine.impl.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, RadioSource}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -277,7 +277,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       val probeSourceActor = TestProbe()
       val factory = mock[ChildActorFactory]
       Mockito.when(factory.createChildActor(any())).thenAnswer((invocation: InvocationOnMock) => {
-        val props = invocation.getArgumentAt(0, classOf[Props])
+        val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         props.args should be(List(config, probeEventActor.ref))

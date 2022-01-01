@@ -94,7 +94,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
 
     facade.send(MediaActors.MediaManager, Message)
     expectMsg(RemoteMessage)
-    verifyZeroInteractions(facade.bus)
+    verifyNoInteractions(facade.bus)
   }
 
   it should "simplify sending an activation message to the associated actor" in {

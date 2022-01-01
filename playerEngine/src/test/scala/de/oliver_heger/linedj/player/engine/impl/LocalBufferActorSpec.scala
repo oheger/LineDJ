@@ -19,7 +19,7 @@ import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadDa
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}

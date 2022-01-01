@@ -91,7 +91,7 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
     val collector = new MetaDataPartsCollector(File, id3Collector)
 
     collector setID3v1MetaData None shouldBe empty
-    verifyZeroInteractions(id3Collector)
+    verifyNoInteractions(id3Collector)
   }
 
   it should "pass defined ID3v1 meta data to the ID3 collector" in {

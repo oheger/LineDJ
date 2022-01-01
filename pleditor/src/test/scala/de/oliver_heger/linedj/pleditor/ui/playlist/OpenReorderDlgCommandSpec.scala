@@ -65,7 +65,7 @@ class OpenReorderDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSu
     val command = new OpenReorderDlgCommand(Locator, mock[TableHandler])
 
     command.updatePlaylist(context)
-    verifyZeroInteractions(context)
+    verifyNoInteractions(context)
   }
 
   it should "be enabled if a selection exists" in {

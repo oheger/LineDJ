@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archiveadmin.validate
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextData, StaticTextHandler}
 import net.sf.jguiraffe.resources.Message
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec

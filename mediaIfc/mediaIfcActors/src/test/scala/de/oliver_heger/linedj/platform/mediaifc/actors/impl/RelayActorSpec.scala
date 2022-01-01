@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -26,6 +25,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -459,7 +459,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
      */
     private def createMessageBus(): MessageBus = {
       val bus = mock[MessageBus]
-      when(bus.publish(org.mockito.Matchers.any())).thenAnswer((invocationOnMock: InvocationOnMock) => {
+      when(bus.publish(any())).thenAnswer((invocationOnMock: InvocationOnMock) => {
         testActor ! invocationOnMock.getArguments()(0)
         true
       })

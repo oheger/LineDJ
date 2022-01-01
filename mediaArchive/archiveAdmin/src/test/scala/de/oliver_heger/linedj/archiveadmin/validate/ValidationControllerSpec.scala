@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archiveadmin.validate
 import java.util
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.KillSwitch
@@ -37,7 +36,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.{any, anyBoolean, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -450,7 +449,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       val event = new WindowEvent(this, window, WindowEvent.Type.WINDOW_OPENED)
       sender(controller, event)
       if (checkNoAction) {
-        verifyZeroInteractions(window)
+        verifyNoInteractions(window)
       }
       this
     }

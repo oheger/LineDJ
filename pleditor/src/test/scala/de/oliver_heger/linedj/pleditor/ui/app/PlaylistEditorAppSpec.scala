@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcesso
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.{PlaylistActionEnabler, PlaylistController}
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec

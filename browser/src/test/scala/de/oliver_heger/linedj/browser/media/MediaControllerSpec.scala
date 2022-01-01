@@ -37,7 +37,7 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model._
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.commons.configuration.tree.{ConfigurationNode, DefaultConfigurationNode, DefaultExpressionEngine}
-import org.mockito.Matchers.{any, anyInt}
+import org.mockito.ArgumentMatchers.{any, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

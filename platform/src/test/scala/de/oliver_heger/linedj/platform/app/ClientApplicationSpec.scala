@@ -28,7 +28,7 @@ import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowListener, WindowManager}
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Matchers.{any, anyBoolean}
+import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.service.component.ComponentContext
@@ -86,7 +86,7 @@ ApplicationTestSupport {
 
     app initClientContext context
     app.clientApplicationContext should be(context)
-    verifyZeroInteractions(context)
+    verifyNoInteractions(context)
   }
 
   it should "define a bean for the window manager" in {

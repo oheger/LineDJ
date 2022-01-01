@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
 import java.nio.file.Paths
-
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ScanResult
@@ -36,7 +35,7 @@ import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import net.sf.jguiraffe.resources.Message
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -98,7 +97,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     helper.controller.windowDeactivated(event)
     helper.controller.windowDeiconified(event)
     helper.controller.windowIconified(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   it should "register itself as message bus listener" in {
@@ -328,7 +327,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
       val facade = mock[MediaFacade]
       val bus = mock[MessageBus]
       when(facade.bus).thenReturn(bus)
-      when(bus.registerListener(org.mockito.Matchers.any[Actor.Receive])).thenReturn(ListenerID)
+      when(bus.registerListener(any[Actor.Receive])).thenReturn(ListenerID)
       facade
     }
 
@@ -342,7 +341,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     private def createActorFactory(actor: TestProbe, facade: MediaFacade): ActorFactory = {
       val factory = mock[ActorFactory]
       when(factory.actorSystem).thenReturn(system)
-      when(factory.createActor(org.mockito.Matchers.any[Props], eqArg("playlistExportActor")))
+      when(factory.createActor(any[Props], eqArg("playlistExportActor")))
         .thenAnswer((invocationOnMock: InvocationOnMock) => {
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
           classOf[ExportActor].isAssignableFrom(props.actorClass()) shouldBe true

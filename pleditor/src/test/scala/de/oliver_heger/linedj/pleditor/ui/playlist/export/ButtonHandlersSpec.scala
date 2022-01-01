@@ -64,7 +64,7 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val handler = new SetDefaultSettingsHandler(controller, config, settings)
 
     handler.actionPerformed(null)
-    verifyZeroInteractions(config)
+    verifyNoInteractions(config)
   }
 
   /**

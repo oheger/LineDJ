@@ -84,6 +84,6 @@ class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val parseFunc = mock[ChunkSequenceParser[String]]
 
     runFlow(parseFunc, source) should have size 0
-    verifyZeroInteractions(parseFunc)
+    verifyNoInteractions(parseFunc)
   }
 }

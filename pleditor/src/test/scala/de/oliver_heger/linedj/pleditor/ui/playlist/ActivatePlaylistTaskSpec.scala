@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import org.mockito.Matchers.{any, anyInt}
+import org.mockito.ArgumentMatchers.{any, anyInt}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -84,6 +84,6 @@ class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSug
 
     val task = new ActivatePlaylistTask(plService, bus, model)
     task.run()
-    verifyZeroInteractions(bus)
+    verifyNoInteractions(bus)
   }
 }

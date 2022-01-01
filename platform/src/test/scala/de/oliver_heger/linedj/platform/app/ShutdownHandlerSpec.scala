@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -229,7 +229,7 @@ class ShutdownHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def expectNoActorCreation(): HandlerTestHelper = {
-      verifyZeroInteractions(application.actorFactory)
+      verifyNoInteractions(application.actorFactory)
       this
     }
 

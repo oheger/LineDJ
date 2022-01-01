@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import org.apache.commons.configuration.Configuration
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => eqArg, _}
+import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext

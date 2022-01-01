@@ -23,7 +23,7 @@ import java.util.Locale
 import de.oliver_heger.linedj.platform.app.hide._
 import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext, ClientApplicationContextImpl}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, anyString}
+import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext

@@ -26,7 +26,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext
@@ -131,7 +131,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.activate()
     helper.support.resolveActorUIThread(path)(func)
     val uiMsg = helper.expectUIMessage()
-    verifyZeroInteractions(func)
+    verifyNoInteractions(func)
     helper sendToBusListener uiMsg
     val captor = ArgumentCaptor.forClass(classOf[Try[ActorRef]])
     verify(func).apply(captor.capture())
@@ -240,7 +240,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def activate(): ActorClientSupportTestHelper = {
       val componentContext = mock[ComponentContext]
       support activate componentContext
-      verifyZeroInteractions(componentContext)
+      verifyNoInteractions(componentContext)
       val captor = ArgumentCaptor.forClass(classOf[Actor.Receive])
       verify(clientContext.messageBus).registerListener(captor.capture())
       busListener = captor.getValue
@@ -255,7 +255,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     def deactivate(): ActorClientSupportTestHelper = {
       val componentContext = mock[ComponentContext]
       support deactivate componentContext
-      verifyZeroInteractions(componentContext)
+      verifyNoInteractions(componentContext)
       this
     }
 

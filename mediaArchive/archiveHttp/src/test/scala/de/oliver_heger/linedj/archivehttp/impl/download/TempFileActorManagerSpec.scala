@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll

@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll

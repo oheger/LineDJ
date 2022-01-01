@@ -40,7 +40,7 @@ import net.sf.jguiraffe.di.impl.DefaultBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.mockito.Matchers.{any, anyBoolean, anyInt, anyString, argThat, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, anyBoolean, anyInt, anyString, argThat, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.OngoingStubbing
@@ -1165,8 +1165,7 @@ class ArchiveStateActor(stateResponse: HttpArchiveStateResponse) extends Actor {
   * @param expCredentials the expected credentials
   */
 class CredentialsMatcher(expCredentials: UserCredentials) extends ArgumentMatcher[UserCredentials] {
-  override def matches(argument: Any): Boolean = {
-    val actualCredentials = argument.asInstanceOf[UserCredentials]
+  override def matches(actualCredentials: UserCredentials): Boolean = {
     expCredentials.userName == actualCredentials.userName &&
       expCredentials.password.secret == actualCredentials.password.secret
   }

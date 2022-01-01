@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.{AutoStartAlways, AutoStartIfClosed, AutoStartMode, AutoStartNever}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

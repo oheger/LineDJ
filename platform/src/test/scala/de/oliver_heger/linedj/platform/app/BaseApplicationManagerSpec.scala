@@ -22,7 +22,7 @@ import net.sf.jguiraffe.gui.app.{Application, ApplicationContext, ApplicationShu
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
-import org.mockito.Matchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -159,7 +159,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val listener = fetchRegisteredShutdownListener(app)
     reset(app)
     listener shutdown app
-    verifyZeroInteractions(app)
+    verifyNoInteractions(app)
   }
 
   it should "init an application with a window closing strategy" in {

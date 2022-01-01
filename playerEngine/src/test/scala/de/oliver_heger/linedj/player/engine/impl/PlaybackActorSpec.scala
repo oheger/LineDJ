@@ -13,7 +13,7 @@ import de.oliver_heger.linedj.player.engine.impl.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor._
 import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, SourceDataLine}
-import org.mockito.Matchers.{eq => eqArg, _}
+import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -498,7 +498,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! createSource(1)
     sendAudioData(actor, BufferDataComplete)
     expectMsg(GetAudioSource)
-    verifyZeroInteractions(line)
+    verifyNoInteractions(line)
   }
 
   it should "not play audio data if the in-memory buffer is almost empty" in {

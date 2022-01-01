@@ -35,7 +35,7 @@ import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, List
 import net.sf.jguiraffe.gui.forms.Form
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers._
+import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -170,7 +170,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     helper.sendMetaDataStateEvent(MetaDataScanCanceled)
       .sendMetaDataStateEvent(MetaDataScanCompleted)
-    verifyZeroInteractions(helper.form)
+    verifyNoInteractions(helper.form)
   }
 
   it should "set the property for the song count" in {
@@ -369,7 +369,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.selectArchiveComponent(null)
-    verifyZeroInteractions(helper.application)
+    verifyNoInteractions(helper.application)
   }
 
   it should "cache the statistics of an archive" in {

@@ -46,7 +46,7 @@ import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
-import org.mockito.Matchers.{eq => eqArg, _}
+import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -472,7 +472,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val event = helper.windowEvent()
 
     helper.controller.windowDeiconified(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   it should "ignore a window closed event" in {
@@ -480,7 +480,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val event = helper.windowEvent()
 
     helper.controller.windowClosed(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   it should "ignore a window activated event" in {
@@ -488,7 +488,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val event = helper.windowEvent()
 
     helper.controller.windowActivated(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   it should "ignore a window de-activated event" in {
@@ -496,7 +496,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val event = helper.windowEvent()
 
     helper.controller.windowDeactivated(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   it should "ignore a window iconified event" in {
@@ -504,7 +504,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val event = helper.windowEvent()
 
     helper.controller.windowIconified(event)
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   /**

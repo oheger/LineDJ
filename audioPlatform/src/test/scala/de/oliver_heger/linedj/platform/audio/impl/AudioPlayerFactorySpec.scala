@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Matchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll

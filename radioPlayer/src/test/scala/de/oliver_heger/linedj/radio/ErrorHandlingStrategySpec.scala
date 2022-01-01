@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
-import org.mockito.Matchers.{any, anyBoolean}
+import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

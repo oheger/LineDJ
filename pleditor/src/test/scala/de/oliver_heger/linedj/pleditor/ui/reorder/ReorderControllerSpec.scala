@@ -25,7 +25,7 @@ import net.sf.jguiraffe.gui.builder.event.{FormActionEvent, FormChangeEvent}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
-import org.mockito.Matchers.{any, anyInt, anyString}
+import org.mockito.ArgumentMatchers.{any, anyInt, anyString}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -58,7 +58,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     f(helper.controller, event)
     helper.verifyNoInteractions()
-    verifyZeroInteractions(event)
+    verifyNoInteractions(event)
   }
 
   "A ReorderController" should "do nothing when the window is deiconified" in {
@@ -121,7 +121,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     helper.controller windowOpened event
     verify(helper.buttonHandler).setEnabled(false)
     verify(helper.reorderService).loadAvailableReorderServices()
-    verifyZeroInteractions(helper.listHandler)
+    verifyNoInteractions(helper.listHandler)
   }
 
   it should "populate the list model with the available reorder services" in {
@@ -238,7 +238,7 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       * Checks that the mock objects have not been accessed.
       */
     def verifyNoInteractions(): Unit = {
-      verifyZeroInteractions(listHandler, reorderService)
+      Mockito.verifyNoInteractions(listHandler, reorderService)
     }
 
     /**
