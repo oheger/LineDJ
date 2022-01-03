@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-import java.util.jar.{Attributes, JarFile}
-
+import com.github.oheger.sbt.spifly.SpiFlyKeys
 import com.typesafe.sbt.osgi.OsgiKeys
 import sbt.Keys._
 import sbt.internal.util.ManagedLogger
 import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
 import sbt.{Def, _}
+
+import java.util.jar.{Attributes, JarFile}
+import scala.language.postfixOps
 
 /**
   * A project- internally plugin that supports the creation of OSGi images.
@@ -127,7 +129,10 @@ object OsgiImagePlugin extends AutoPlugin {
       sourceImagePaths := Nil,
       osgiImage := {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
-        val projectFiles = fetchDependentProjectFiles().value
+        val projectFiles = (fetchDependentProjectFiles(OsgiKeys.bundle).value ++ fetchDependentProjectFiles(SpiFlyKeys.spiFly).value)
+          .filter(_.isDefined)
+          .map(_.get)
+          .distinct
         buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePaths.value,
           streams.value.log)
       }
@@ -187,11 +192,11 @@ object OsgiImagePlugin extends AutoPlugin {
     *
     * @return a task for obtaining bundle jars of dependent projects
     */
-  private def fetchDependentProjectFiles(): Def.Initialize[Task[Seq[sbt.File]]] = Def.taskDyn {
+  private def fetchDependentProjectFiles(task: TaskKey[File]): Def.Initialize[Task[Seq[Option[sbt.File]]]] = Def.taskDyn {
     val projectsDependencies = sbt.Keys.buildDependencies.value.classpathTransitive
     val currentProjectDependencies = projectsDependencies.getOrElse(thisProjectRef.value, Nil)
     val filter = ScopeFilter(inProjects(currentProjectDependencies: _*))
-    OsgiKeys.bundle.all(filter)
+    (task ?).all(filter)
   }
 
   /**
