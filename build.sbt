@@ -30,11 +30,11 @@ lazy val VersionJackson = "2.13.1"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
 lazy val VersionJLayer = "1.0.1.4"
+lazy val VersionLog4j = "2.17.1"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionScala = "2.13.7"
 lazy val VersionScalaz = "7.3.5"
-lazy val VersionSlf4j = "1.7.32"
 lazy val VersionSslConfig = "0.6.0"
 lazy val VersionTritonus = "0.3.7.4"
 
@@ -102,8 +102,10 @@ lazy val osgiDependencies = Seq(
 )
 
 lazy val logDependencies = Seq(
-  "org.slf4j" % "slf4j-api" % VersionSlf4j,
-  "org.slf4j" % "slf4j-simple" % VersionSlf4j % Test
+  "org.apache.logging.log4j" % "log4j-api" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-core" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-jcl" % VersionLog4j,
+  "org.apache.logging.log4j" % "log4j-slf4j-impl" % VersionLog4j
 )
 
 val defaultSettings = Seq(
