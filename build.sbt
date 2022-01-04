@@ -43,6 +43,8 @@ lazy val VersionScalaTest = "3.2.10"
 lazy val VersionScalaTestMockito = "3.2.10.0"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
+ThisBuild / version := "1.0-SNAPSHOT"
+ThisBuild / scalaVersion := VersionScala
 
 lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % VersionAkka,
@@ -108,9 +110,8 @@ lazy val logDependencies = Seq(
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % VersionLog4j
 )
 
-val defaultSettings = Seq(
-  version := "1.0-SNAPSHOT",
-  scalaVersion := VersionScala,
+/** Settings common to most projects that implement actual functionality. */
+lazy val defaultSettings = Seq(
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
   libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.0.1",
@@ -128,7 +129,7 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive)
+  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -833,6 +834,21 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
 
+/**
+  * Project for a fragment bundle to make log4j-provider.properties available
+  * to log4j-api.
+  */
+lazy val log4jApiFragment = (project in file("logging/log4jApiFragment"))
+  .enablePlugins(SbtOsgi)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-log4j-api-fragment",
+    OsgiKeys.privatePackage := Seq.empty,
+    OsgiKeys.additionalHeaders := Map(
+      "Fragment-Host" -> "org.apache.logging.log4j.api",
+      "DynamicImport-Package" -> "*;resolution:=optional"
+    )
+  )
 
 /* Projects for OSGi applications/images. */
 
