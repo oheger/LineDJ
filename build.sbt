@@ -29,11 +29,14 @@ lazy val VersionCloudFiles = "0.4"
 lazy val VersionJackson = "2.13.1"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
+lazy val VersionJLayer = "1.0.1.4"
+lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionScala = "2.13.7"
 lazy val VersionScalaz = "7.3.5"
 lazy val VersionSlf4j = "1.7.32"
 lazy val VersionSslConfig = "0.6.0"
+lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
 lazy val VersionScalaTest = "3.2.10"
@@ -586,17 +589,19 @@ lazy val playerEngine = (project in file("playerEngine"))
   * bundle adding support for mp3 files to the player engine.
   */
 lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
-  .enablePlugins(SbtOsgi, SbtSpiFly)
+  .enablePlugins(SbtSpiFly)
   .settings(defaultSettings: _*)
-  .settings(OSGi.osgiSettings)
-  .settings(spiFlySettings: _*)
+  .settings(spiFlySettings)
   .settings(
     name := "linedj-mp3-playback-context-factory",
     fork := true,
+    SpiFlyKeys.classifier := None,
     libraryDependencies ++= Seq(
-      "com.googlecode.soundlibs" % "jlayer" % "1.0.1-2",
-      "com.googlecode.soundlibs" % "tritonus-share" % "0.3.7-3",
-      "com.googlecode.soundlibs" % "mp3spi" % "1.9.5-2"
+      "com.googlecode.soundlibs" % "jlayer" % VersionJLayer,
+      "com.googlecode.soundlibs" % "tritonus-share" % VersionTritonus,
+      "com.googlecode.soundlibs" % "mp3spi" % VersionMp3Spi,
+      "org.apache.aries" % "org.apache.aries.util" % VersionAriesUtil,
+      "org.apache.aries.spifly" % "org.apache.aries.spifly.static.bundle" % VersionAriesSpiflyStatic
     ),
     libraryDependencies ++= logDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -865,12 +870,12 @@ lazy val browserOsgiImage = (project in file("images/browser"))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-browser-osgiImage",
-    sourceImagePaths := Seq("base", "baseAudioPlatform", "browser"),
+    sourceImagePaths := Seq("base", "browser"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
-  trayWindowList)
+  trayWindowList, mp3PlaybackContextFactory)
 
 
 /**
@@ -884,12 +889,12 @@ lazy val playerOsgiImage = (project in file("images/player"))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-player-osgiImage",
-    sourceImagePaths := Seq("base", "baseAudioPlatform", "player"),
+    sourceImagePaths := Seq("base", "player"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
-  trayWindowList, persistentPlaylistHandler)
+  trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory)
 
 /**
   * Project for the advanced audio player application.
@@ -902,13 +907,13 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-player-advanced-osgiImage",
-    sourceImagePaths := Seq("base", "baseAudioPlatform", "player_advanced"),
+    sourceImagePaths := Seq("base", "player_advanced"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
-  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive)
+  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive, mp3PlaybackContextFactory)
 
 /**
   * Project for the radio application.
@@ -920,7 +925,7 @@ lazy val radioOsgiImage = (project in file("images/radio"))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-radio-osgiImage",
-    sourceImagePaths := Seq("base", "baseAudioPlatform", "radio"),
+    sourceImagePaths := Seq("base", "radio"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies
-  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled)
+  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory)
