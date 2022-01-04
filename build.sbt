@@ -129,7 +129,7 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment)
+  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -847,6 +847,20 @@ lazy val log4jApiFragment = (project in file("logging/log4jApiFragment"))
     OsgiKeys.additionalHeaders := Map(
       "Fragment-Host" -> "org.apache.logging.log4j.api",
       "DynamicImport-Package" -> "*;resolution:=optional"
+    )
+  )
+
+/**
+  * Project for a fragment bundle to configure log4j in an OSGi environment.
+  */
+lazy val log4jConfFragment = (project in file("logging/log4jConfFragment"))
+  .enablePlugins(SbtOsgi)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-log4j-conf-fragment",
+    OsgiKeys.privatePackage := Seq.empty,
+    OsgiKeys.additionalHeaders := Map(
+      "Fragment-Host" -> "org.apache.logging.log4j.core"
     )
   )
 
