@@ -890,7 +890,7 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
-  mediaIfcEmbedded)
+  mediaIfcEmbedded, log4jApiFragment, log4jConfFragment)
 
 /**
   * Project for the browser application.
@@ -908,7 +908,7 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
-  trayWindowList, mp3PlaybackContextFactory)
+  trayWindowList, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
 
 
 /**
@@ -927,7 +927,7 @@ lazy val playerOsgiImage = (project in file("images/player"))
     libraryDependencies ++= remotingDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
-  trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory)
+  trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
 
 /**
   * Project for the advanced audio player application.
@@ -946,7 +946,8 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
-  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive, mp3PlaybackContextFactory)
+  archiveHttpStartup, mediaIfcEmbedded, protocolWebDav, protocolOneDrive, mp3PlaybackContextFactory, log4jApiFragment,
+  log4jConfFragment)
 
 /**
   * Project for the radio application.
@@ -961,4 +962,5 @@ lazy val radioOsgiImage = (project in file("images/radio"))
     sourceImagePaths := Seq("base", "radio"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies
-  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory)
+  ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,
+  log4jConfFragment)
