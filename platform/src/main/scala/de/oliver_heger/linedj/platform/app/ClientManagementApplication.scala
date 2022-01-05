@@ -246,6 +246,15 @@ class ClientManagementApplication extends Application with
     * @param compContext the component context
     */
   def activate(compContext: ComponentContext): Unit = {
+    // This is sort of a hack that is required, so that Commons Logging can
+    // find its configuration file. In this configuration file, the logging via
+    // Log4j is then configured.
+    // Commons Logging is used by JGUIraffe; so all UI-related logs are written
+    // using this framework.
+    // For some reason, the logs written by this application class are not
+    // redirect; but the hack works for all other client applications.
+    Thread.currentThread().setContextClassLoader(getClass.getClassLoader)
+
     log.info("Activating ClientManagementApplication.")
     bundleContext = compContext.getBundleContext
     setExitHandler(createExitHandler(compContext, system, log))

@@ -298,6 +298,7 @@ lazy val platform = (project in file("platform"))
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
+    OsgiKeys.importPackage := Seq("org.apache.logging.log4j.jcl", "*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
