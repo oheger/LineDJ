@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.actor.Actor.Receive
 import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
@@ -31,8 +30,8 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
+import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
@@ -81,7 +80,7 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
   import PlaylistHandler._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** A flag to record whether shutdown handling was done. */
   private val shutdownDone = new AtomicBoolean

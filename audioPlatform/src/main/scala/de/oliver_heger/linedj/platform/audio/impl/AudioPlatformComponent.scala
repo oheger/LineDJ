@@ -25,8 +25,8 @@ import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, TimeoutException}
@@ -137,7 +137,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   import AudioPlatformComponent._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The actors for the media facade. */
   private var mediaFacadeActors: MediaFacadeActors = _

@@ -17,15 +17,14 @@
 package de.oliver_heger.linedj.player.ui
 
 import java.util.Locale
-
 import de.oliver_heger.linedj.platform.audio.AudioPlayerState
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartMode
 import org.apache.commons.configuration.Configuration
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 object AudioPlayerConfig {
   /** The logger. */
-  private val Log = LoggerFactory.getLogger(classOf[AudioPlayerConfig])
+  private val Log = LogManager.getLogger(classOf[AudioPlayerConfig])
 
   /** Common prefix for all configuration keys. */
   val ConfigPrefix = "audio.ui."

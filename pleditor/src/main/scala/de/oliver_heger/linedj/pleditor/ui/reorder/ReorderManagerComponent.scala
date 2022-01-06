@@ -22,8 +22,8 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
@@ -47,7 +47,7 @@ class ReorderManagerComponent extends ReorderService {
   import ReorderManagerComponent._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The client context. */
   private var clientApplicationContext: ClientApplicationContext = _

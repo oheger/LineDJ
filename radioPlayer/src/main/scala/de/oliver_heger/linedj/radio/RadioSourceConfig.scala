@@ -17,13 +17,11 @@
 package de.oliver_heger.linedj.radio
 
 import java.time.DayOfWeek
-
 import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import org.apache.commons.configuration.{Configuration, ConversionException,
-HierarchicalConfiguration}
-import org.slf4j.LoggerFactory
+import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
+import org.apache.logging.log4j.LogManager
 
 /**
   * Companion object for ''RadioSourceConfig''.
@@ -71,7 +69,7 @@ object RadioSourceConfig {
   private val KeyIntervalDays = "days.day"
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(classOf[RadioSourceConfig])
+  private val log = LogManager.getLogger(classOf[RadioSourceConfig])
 
   /**
     * Creates a new instance of ''RadioSourceConfig'' with the content of the

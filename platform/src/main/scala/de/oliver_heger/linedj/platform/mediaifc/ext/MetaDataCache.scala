@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.utils.LRUCache
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 object MetaDataCache {
   /**
@@ -130,7 +130,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   import MetaDataCache._
 
   /** Logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The cache with the already received meta data chunks per medium. */
   private var receivedChunks = createMetaDataCache()

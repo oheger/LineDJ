@@ -19,12 +19,11 @@ package de.oliver_heger.linedj.archive.config
 import java.nio.file.{Path, Paths}
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import org.apache.commons.configuration.Configuration
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -229,7 +228,7 @@ object MediaArchiveConfig {
   val DefaultTocDescRemovePathComponents = 0
 
   /** The logger. */
-  private val Log = LoggerFactory.getLogger(classOf[MediaArchiveConfig])
+  private val Log = LogManager.getLogger(classOf[MediaArchiveConfig])
 
   /**
     * Processes the passed in configuration and extracts [[MediaArchiveConfig]]

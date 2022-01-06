@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 object MetaDataParser {
   /** The property for the song title. */
@@ -61,7 +61,7 @@ object MetaDataParser {
   val UnknownFileSize: Int = -1
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(classOf[MetaDataParser])
+  private val log = LogManager.getLogger(classOf[MetaDataParser])
 
   /**
     * Converts a map representing a JSON object to the corresponding

@@ -20,9 +20,8 @@ import java.io.InputStream
 import java.util.Locale
 import javax.sound.sampled.DataLine.Info
 import javax.sound.sampled._
-
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 /**
   * A specialized ''PlaybackContextFactory'' implementation that can handle MP3
@@ -30,7 +29,7 @@ import org.slf4j.LoggerFactory
   */
 class Mp3PlaybackContextFactory extends PlaybackContextFactory {
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /**
     * @inheritdoc This implementation checks whether the URI has a supported

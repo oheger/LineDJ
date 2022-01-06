@@ -21,7 +21,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.app.ShutdownHandler._
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 object ShutdownHandler {
   /** The name used for the shutdown management actor. */
@@ -133,7 +133,7 @@ object ShutdownHandler {
   */
 class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListener {
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** Stores the shutdown observers registered at this component. */
   private var observers = Map.empty[ComponentID, ShutdownObserver]

@@ -33,7 +33,7 @@ import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
 import net.sf.jguiraffe.resources.Message
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.beans.BeanProperty
 import scala.jdk.CollectionConverters._
@@ -168,7 +168,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   private val MediaRegistrationID = ComponentID()
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The message bus. */
   private val messageBus = application.clientApplicationContext.messageBus

@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
-import org.slf4j.LoggerFactory
 
 object LocalArchiveStartup {
   /** Name for the archive group actor. */
@@ -47,7 +47,7 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
   import LocalArchiveStartup._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The object holding the actors of the media facade. */
   private var facadeActors: MediaFacadeActors = _

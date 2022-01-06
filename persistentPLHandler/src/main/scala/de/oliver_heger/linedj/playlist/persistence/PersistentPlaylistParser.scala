@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import java.nio.charset.StandardCharsets
-
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser._
@@ -26,7 +25,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItem
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.annotation.tailrec
 import scala.util.{Success, Try}
@@ -62,7 +61,7 @@ object PersistentPlaylistParser {
     new PersistentPlaylistParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
 
   /** The logger. */
-  private val Log = LoggerFactory.getLogger(classOf[PersistentPlaylistParser])
+  private val Log = LogManager.getLogger(classOf[PersistentPlaylistParser])
 
   /**
     * Returns a stage for extracting playlist items from a persistent playlist

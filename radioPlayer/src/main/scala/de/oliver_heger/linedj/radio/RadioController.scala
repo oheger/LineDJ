@@ -27,7 +27,7 @@ import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -119,7 +119,7 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   import RadioController._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]

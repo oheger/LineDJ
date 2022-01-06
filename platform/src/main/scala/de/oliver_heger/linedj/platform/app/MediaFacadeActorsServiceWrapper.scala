@@ -17,16 +17,14 @@
 package de.oliver_heger.linedj.platform.app
 
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.Actor.Receive
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
-import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
-.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import org.apache.logging.log4j.LogManager
 import org.osgi.framework.{BundleContext, ServiceRegistration}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
@@ -88,7 +86,7 @@ private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplic
   import MediaFacadeActorsServiceWrapper._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The registration ID for the message bus listener. */
   private var msgBusListenerID = 0

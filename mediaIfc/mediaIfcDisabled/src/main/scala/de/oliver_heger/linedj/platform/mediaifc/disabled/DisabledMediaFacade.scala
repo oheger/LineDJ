@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.Configuration
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.Future
 
@@ -39,7 +39,7 @@ import scala.concurrent.Future
   */
 class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade {
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /**
     * @inheritdoc This is just a dummy implementation.

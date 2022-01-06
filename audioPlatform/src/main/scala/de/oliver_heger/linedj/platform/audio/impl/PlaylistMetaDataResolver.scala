@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import de.oliver_heger.linedj.shared.archive.metadata.{FilesMetaDataResponse, GetFilesMetaData, MediaMetaData}
 import de.oliver_heger.linedj.utils.LRUCache
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -117,7 +117,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     AudioPlayerStateChangeRegistration(componentID, handleAudioPlayerEvent)
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** Implicit timeout declaration for requests to the meta data actor. */
   private implicit val metaDataTimeout: Timeout = requestTimeout

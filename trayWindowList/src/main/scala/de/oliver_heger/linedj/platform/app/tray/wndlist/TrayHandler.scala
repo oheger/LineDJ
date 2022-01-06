@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app.tray.wndlist
 
-import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
+import org.apache.logging.log4j.LogManager
 
-import org.slf4j.LoggerFactory
+import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
 
 /**
   * An internally used helper trait which wraps access to the system tray.
@@ -44,7 +44,7 @@ private trait TrayHandler {
   */
 private object TrayHandlerImpl extends TrayHandler {
   /** Logger. */
-  private val Log = LoggerFactory.getLogger(getClass)
+  private val Log = LogManager.getLogger(getClass)
 
   /**
     * Adds an icon to the tray and returns a handler object that can be used to

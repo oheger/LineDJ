@@ -21,7 +21,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 object BaseApplicationManager {
 
@@ -88,7 +88,7 @@ trait BaseApplicationManager extends ApplicationManager {
   import BaseApplicationManager._
 
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /**
     * A special shutdown listener to be registered at all installed

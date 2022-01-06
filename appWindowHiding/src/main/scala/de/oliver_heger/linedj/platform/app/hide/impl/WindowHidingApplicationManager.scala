@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplic
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.window.Window
+import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
-import org.slf4j.LoggerFactory
 
 /**
   * A specialized ''ApplicationManager'' implementation which keeps track on
@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory
 class WindowHidingApplicationManager extends BaseApplicationManager
   with ConsumerSupport[ApplicationWindowState, AnyRef] {
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** A set with the application currently visible. */
   private var visibleApplications = Set.empty[ClientApplication]

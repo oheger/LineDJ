@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archiveadmin.validate
 
 import java.util.Comparator
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
@@ -33,7 +32,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -109,7 +108,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
                            validationFlow: ValidationFlow[_], converter: ValidationItemConverter,
                            statusHandler: StatusLineHandler) extends WindowListener {
   /** The logger. */
-  private val log = LoggerFactory.getLogger(getClass)
+  private val log = LogManager.getLogger(getClass)
 
   /** The EC for running futures. */
   private implicit val ec: ExecutionContext = app.clientApplicationContext.actorSystem.dispatcher
