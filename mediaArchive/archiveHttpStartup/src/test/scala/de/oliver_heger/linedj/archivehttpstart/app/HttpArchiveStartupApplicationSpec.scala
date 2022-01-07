@@ -169,7 +169,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     TestKit shutdownActorSystem system
   }
 
-  "An ArchiveAdminApp" should "construct an instance correctly" in {
+  "HttpArchiveStartupApplication" should "construct an instance correctly" in {
     val app = new HttpArchiveStartupApplication
 
     app shouldBe a[HttpArchiveStartupApplication]
@@ -395,6 +395,27 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveCreation()
   }
 
+  it should "not start an archive again that is currently starting" in {
+    val promise = Promise[HttpArchiveStarter.ArchiveResources]()
+    val helper = new StartupTestHelper
+    helper.messageBus.uiFutureProcessing = false
+    helper.startupApplication()
+      .initArchiveStartupResultFuture(2, 2)(_ => promise.future)
+      .prepareMediaFacadeActorsRequest()
+      .sendLoginForRealm(2)
+      .sendAvailability(MediaFacade.MediaArchiveAvailable)
+      .expectArchiveStateNotifications(HttpArchiveStateNotLoggedIn, 1, 3, 4)
+      .expectArchiveStateNotification(stateNotification(ProtocolArchiveIndex, HttpArchiveStateNoProtocol))
+    // The callbacks for future completion on the UI thread must be invoked from the main test thread.
+    val uiFutureMsg1 = helper.messageBus.expectMessageType[Any]
+    helper.messageBus.publishDirectly(uiFutureMsg1)
+
+    helper.sendLoginForRealm(2)
+    val uiFutureMsg2 = helper.messageBus.expectMessageType[Any]
+    helper.messageBus.publishDirectly(uiFutureMsg2)
+    helper.fetchStarterParameters(1)
+  }
+
   it should "do a logout first if a login message is received" in {
     val helper = new StartupTestHelper
 
@@ -410,7 +431,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateNotLoggedIn))
       .expectArchiveStateNotification(stateNotification(2, HttpArchiveStateInitializing))
 
-    val (indices, clears) = helper.fetchStarterParameters()
+    val (indices, clears) = helper.fetchStarterParameters(2)
     indices.size should be > 1
     indices.toSet should have size indices.size
     clears.size should be(indices.size)
@@ -1002,11 +1023,32 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     def initArchiveStartupResult(resources: HttpArchiveStarter.ArchiveResources, archiveIdx: Int,
                                  realmIdx: Int, optProtocol: Option[GenericHttpArchiveProtocolSpec] = None,
-                                 optKey: Option[Key] = None): StartupTestHelper = {
+                                 optKey: Option[Key] = None): StartupTestHelper =
+      initArchiveStartupResultFuture(archiveIdx, realmIdx, optProtocol, optKey) { invocation =>
+        Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
+      }
+
+    /**
+      * Prepares the mock startup object for a startup operation that yields
+      * a ''Future'' produced by a result function. With this method, arbitrary
+      * archive creations can be prepared.
+      *
+      * @param archiveIdx  the index of the test archive
+      * @param realmIdx    the index of the test realm
+      * @param optProtocol an option for the expected HTTP protocol
+      * @param optKey      the optional decryption key
+      * @param fResult     the function to generate the result ''Future''
+      * @return this test helper
+      */
+    def initArchiveStartupResultFuture(archiveIdx: Int, realmIdx: Int,
+                                       optProtocol: Option[GenericHttpArchiveProtocolSpec] = None,
+                                       optKey: Option[Key] = None)
+                                      (fResult: InvocationOnMock => Future[HttpArchiveStarter.ArchiveResources]):
+    StartupTestHelper = {
       expectStarterInvocation(archiveIdx, optProtocol getOrElse webDavProtocol, realmIdx, optKey)
         .thenAnswer((invocation: InvocationOnMock) => {
           archiveStartupCount.incrementAndGet()
-          Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
+          fResult(invocation)
         })
       this
     }
@@ -1058,13 +1100,14 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * object. These consist of the archive indices and the flags to clear
       * the temporary directory.
       *
+      * @param expectedInvocations the expected number of starter invocations
       * @return tuple with numeric indices and clear flags
       */
-    def fetchStarterParameters(): (Seq[Int], Seq[Boolean]) = {
+    def fetchStarterParameters(expectedInvocations: Int): (Seq[Int], Seq[Boolean]) = {
       import scala.jdk.CollectionConverters._
       val captorIdx = ArgumentCaptor.forClass(classOf[Int])
       val captorClear = ArgumentCaptor.forClass(classOf[Boolean])
-      verify(archiveStarter, times(2))
+      verify(archiveStarter, times(expectedInvocations))
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
           probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
           any(classOf[GenericHttpArchiveProtocolSpec]),

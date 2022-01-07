@@ -207,6 +207,12 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
   private var archiveStates = Map.empty[String, ArchiveStateData]
 
   /**
+    * A set containing the names of archives that are currently starting. This
+    * is used to prevent that an archive is started multiple times in parallel.
+    */
+  private var archivesStarting = Set.empty[String]
+
+  /**
     * A map storing the HTTP protocol specs currently available using the
     * protocol name as key.
     */
@@ -493,6 +499,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     if (isMediaArchiveAvailable) {
       val archiveStarter = archiveStarterBean
       archivesToBeStarted foreach { e =>
+        log.info(s"Starting HTTP archive '${e._1}'.")
+        archivesStarting += e._1
         archiveIndexCounter += 1
         val currentArchiveIndex = archiveIndexCounter
         val protocol = protocols(e._2.protocol)
@@ -519,14 +527,17 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private def handleArchiveStartupResult(name: String, index: Int,
                                          triedResult: Try[HttpArchiveStarter.ArchiveResources]): Unit = {
+    archivesStarting -= name
     val orgState = archiveStates(name)
     val nextData = triedResult match {
       case Success(resources) =>
+        log.info(s"Archive '$name' has been started.")
         resources.actors foreach (e => registerActor(e._1, e._2))
         registerActor(resources.httpActorName, () => resources.downloader.shutdown())
         orgState.copy(resources = Some(resources), archiveIndex = index,
           state = HttpArchiveStateChanged(name, HttpArchiveStateInitializing))
       case Failure(exception) =>
+        log.error(s"Could not start archive '$name'.", exception)
         val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
         orgState.deactivate(HttpArchiveStateChanged(name, state))
     }
@@ -552,7 +563,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private def archivesToBeStarted: Map[String, HttpArchiveData] =
     configManager.archives filter { e =>
-      !archiveStates(e._1).isStarted && archiveState(e._1, e._2).isStarted
+      !archiveStates(e._1).isStarted && archiveState(e._1, e._2).isStarted && !archivesStarting(e._1)
     }
 
   /**
