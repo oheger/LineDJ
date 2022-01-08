@@ -141,7 +141,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     val combine = new ProcessingResultCombiningStage
     val filterUndef = Flow[MediumProcessingResult].filter(isValidResult)
     val sinkDone = Sink.ignore
-    val g = RunnableGraph.fromGraph(GraphDSL.create(ks, sinkDone)((_, _)) { implicit builder =>
+    val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks, sinkDone)((_, _)) { implicit builder =>
       (ks, sink) =>
         import GraphDSL.Implicits._
         val broadcast = builder.add(Broadcast[HttpMediumDesc](2))

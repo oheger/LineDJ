@@ -187,7 +187,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     val sinkInfo = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.MediaInfoComplete, mapException)
     val ks = KillSwitches.single[Path]
-    val g = RunnableGraph.fromGraph(GraphDSL.create(ks) { implicit builder =>
+    val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks) { implicit builder =>
       ks =>
         import GraphDSL.Implicits._
         val broadcast = builder.add(Broadcast[Path](2))
