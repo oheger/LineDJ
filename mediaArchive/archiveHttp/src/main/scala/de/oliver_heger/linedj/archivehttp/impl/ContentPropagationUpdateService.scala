@@ -84,14 +84,14 @@ trait ContentPropagationUpdateService {
     * boolean remove parameter is '''true''', a request to remove the content
     * of the current HTTP archive from the union archive is generated as well.
     *
-    * @param result     the medium processing result
-    * @param actors     involved actors
-    * @param archiveUri URI for the current HTTP archive
-    * @param remove     flag whether archive content is to be removed
+    * @param result    the medium processing result
+    * @param actors    involved actors
+    * @param archiveID the ID of the current HTTP archive
+    * @param remove    flag whether archive content is to be removed
     * @return the updated state
     */
   def mediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                      archiveUri: String, remove: Boolean): StateUpdate[Unit]
+                      archiveID: String, remove: Boolean): StateUpdate[Unit]
 
   /**
     * Updates the state when an ACK for a remove request arrives. Then pending
@@ -115,16 +115,16 @@ trait ContentPropagationUpdateService {
     * accordingly and returning a sequence with messages that have to be sent
     * now.
     *
-    * @param result     the medium processing result
-    * @param actors     involved actors
-    * @param archiveUri URI for the current HTTP archive
-    * @param remove     flag whether archive content is to be removed
+    * @param result    the medium processing result
+    * @param actors    involved actors
+    * @param archiveID ID of the current HTTP archive
+    * @param remove    flag whether archive content is to be removed
     * @return the updated state and messages to be sent
     */
   def handleMediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                            archiveUri: String, remove: Boolean):
+                            archiveID: String, remove: Boolean):
   StateUpdate[Iterable[MessageData]] = for {
-    _ <- mediumProcessed(result, actors, archiveUri, remove)
+    _ <- mediumProcessed(result, actors, archiveID, remove)
     msg <- messagesToSend()
   } yield msg
 
@@ -150,15 +150,15 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     ContentPropagationState(messages = Nil, pendingMessages = Nil, removeAck = true)
 
   override def mediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
-                               archiveUri: String, remove: Boolean):
+                               archiveID: String, remove: Boolean):
   StateUpdate[Unit] = modify { s =>
     if (remove)
       ContentPropagationState(messages = List(MessageData(actors.mediaManager,
-        Seq(ArchiveComponentRemoved(archiveUri)))), removeAck = false,
-        pendingMessages = createMessagesForMedium(result, actors, archiveUri, result.seqNo))
+        Seq(ArchiveComponentRemoved(archiveID)))), removeAck = false,
+        pendingMessages = createMessagesForMedium(result, actors, archiveID, result.seqNo))
     else {
       val orgMessages = if (s.removeAck) s.messages else s.pendingMessages
-      val updateMessages = createMessagesForMedium(result, actors, archiveUri,
+      val updateMessages = createMessagesForMedium(result, actors, archiveID,
         result.seqNo) ::: orgMessages
       val (newMessages, newPending) =
         if (s.removeAck) (updateMessages, s.pendingMessages)
@@ -181,30 +181,30 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     * Creates a list with ''MessageData'' objects representing the messages to
     * be sent for the result of a processed medium.
     *
-    * @param result     the ''MediumProcessingResult''
-    * @param actors     actors involved in propagation
-    * @param archiveUri the URI of the archive
-    * @param seqNo      the sequence number of the current operation
+    * @param result    the ''MediumProcessingResult''
+    * @param actors    actors involved in propagation
+    * @param archiveID the ID of the archive
+    * @param seqNo     the sequence number of the current operation
     * @return a list with the messages to propagate this result
     */
   private def createMessagesForMedium(result: MediumProcessingResult, actors: PropagationActors,
-                                      archiveUri: String, seqNo: Int): List[MessageData] =
-    List(createAddMediaMessage(result, actors, archiveUri),
+                                      archiveID: String, seqNo: Int): List[MessageData] =
+    List(createAddMediaMessage(result, actors, archiveID),
       createMetaDataMessages(result, actors), createPropagatedMessage(seqNo, actors))
 
   /**
     * Creates the message to the media manager actor that adds a medium
     * description to the union archive.
     *
-    * @param result     the current result object
-    * @param actors     actors involved in propagation
-    * @param archiveUri the URI of the archive
+    * @param result    the current result object
+    * @param actors    actors involved in propagation
+    * @param archiveID the ID of the archive
     * @return the ''MessageData'' object with the message
     */
   private def createAddMediaMessage(result: MediumProcessingResult, actors: PropagationActors,
-                                    archiveUri: String): MessageData =
+                                    archiveID: String): MessageData =
     MessageData(actors.mediaManager,
-      Seq(AddMedia(Map(result.mediumInfo.mediumID -> result.mediumInfo), archiveUri,
+      Seq(AddMedia(Map(result.mediumInfo.mediumID -> result.mediumInfo), archiveID,
         Some(actors.client))))
 
   /**

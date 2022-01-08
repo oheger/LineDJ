@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 object ContentPropagationActorSpec {
   /** The URI of the test archive. */
-  private val ArchiveUri = "https://music.test-archive.org/test"
+  private val ArchiveID = "test-music-archive"
 
   /** The sequence number. */
   private val SeqNo = 20180619
@@ -75,7 +75,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val mediaManager = TestProbe().ref
     val metaManager = TestProbe().ref
     val actor = TestActorRef[ContentPropagationActor](Props(classOf[ContentPropagationActor],
-      mediaManager, metaManager, ArchiveUri))
+      mediaManager, metaManager, ArchiveID))
 
     actor.underlyingActor.propagationService should be(ContentPropagationUpdateServiceImpl)
   }
@@ -91,10 +91,10 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val state2 = state1.copy(messages = sendMsg2)
 
     helper.stub(sendMsg1: Iterable[MessageData], state1) { svc =>
-      svc.handleMediumProcessed(result1, helper.actors, ArchiveUri, remove = true)
+      svc.handleMediumProcessed(result1, helper.actors, ArchiveID, remove = true)
     }
       .stub(sendMsg2: Iterable[MessageData], state2) { svc =>
-        svc.handleMediumProcessed(result2, helper.actors, ArchiveUri, remove = false)
+        svc.handleMediumProcessed(result2, helper.actors, ArchiveID, remove = false)
       }
       .send(PropagateMediumResult(result1, removeContent = true))
       .expectStateUpdate(ContentPropagationUpdateServiceImpl.InitialState)
@@ -107,7 +107,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
   }
 
   it should "handle a remove confirmation" in {
-    val confirm = RemovedArchiveComponentProcessed(ArchiveUri)
+    val confirm = RemovedArchiveComponentProcessed(ArchiveID)
     val result = createResult()
     val helper = new PropagationActorTestHelper
     val sendMsg1 = List(MessageData(helper.actors.mediaManager, Seq("confirm")))
@@ -117,7 +117,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     helper.stub(sendMsg1: Iterable[MessageData], state1) { svc => svc.handleRemovalConfirmed() }
       .stub(sendMsg2: Iterable[MessageData], state2) { svc =>
-        svc.handleMediumProcessed(result, helper.actors, ArchiveUri, remove = false)
+        svc.handleMediumProcessed(result, helper.actors, ArchiveID, remove = false)
       }
       .send(confirm)
       .expectStateUpdate(ContentPropagationUpdateServiceImpl.InitialState)
@@ -168,7 +168,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     private def createTestActor(): ActorRef =
       system.actorOf(Props(classOf[ContentPropagationActor], updateService, probeMediaManager.ref,
-        probeMetaManager.ref, ArchiveUri))
+        probeMetaManager.ref, ArchiveID))
   }
 
 }

@@ -41,11 +41,12 @@ import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProces
   * @param propagationService the content propagation update service
   * @param mediaManager       the union media manager actor
   * @param metaDataManager    the union meta data manager actor
-  * @param archiveUri         the URI of the HTTP archive
+  * @param archiveID          the ID of the HTTP archive (this is used as
+  *                           component ID in messages for the union archive)
   */
 class ContentPropagationActor(private[impl] val propagationService: ContentPropagationUpdateService,
                               mediaManager: ActorRef, metaDataManager: ActorRef,
-                              archiveUri: String) extends Actor {
+                              archiveID: String) extends Actor {
   /**
     * Creates a new instance of ''ContentPropagationActor'' with the specified
     * parameters. The default content propagation service is used.
@@ -65,7 +66,7 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
   override def receive: Receive = {
     case PropagateMediumResult(result, remove) =>
       updateStateAndSendMessages(propagationService.handleMediumProcessed(result, createActors(),
-        archiveUri, remove))
+        archiveID, remove))
 
     case RemovedArchiveComponentProcessed(_) =>
       updateStateAndSendMessages(propagationService.handleRemovalConfirmed())
