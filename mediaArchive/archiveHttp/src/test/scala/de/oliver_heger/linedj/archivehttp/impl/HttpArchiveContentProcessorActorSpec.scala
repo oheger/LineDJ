@@ -104,7 +104,7 @@ object HttpArchiveContentProcessorActorSpec {
   def mediumID(mediumDesc: HttpMediumDesc): MediumID = {
     val idx = mediumDesc.mediumDescriptionPath lastIndexOf '/'
     MediumID(mediumDesc.mediumDescriptionPath.substring(0, idx),
-      Some(mediumDesc.mediumDescriptionPath), ArchiveUri)
+      Some(mediumDesc.mediumDescriptionPath), DefaultArchiveConfig.archiveName)
   }
 
   /**

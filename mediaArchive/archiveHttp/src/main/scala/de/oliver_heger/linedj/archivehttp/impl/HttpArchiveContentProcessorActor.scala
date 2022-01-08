@@ -278,7 +278,6 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   private def createMediumID(req: ProcessHttpArchiveRequest, md: HttpMediumDesc): MediumID = {
     val pos = md.mediumDescriptionPath.lastIndexOf('/')
     val mediumURI = md.mediumDescriptionPath.substring(0, pos)
-    MediumID(mediumURI, Some(md.mediumDescriptionPath),
-      req.archiveConfig.archiveURI.toString())
+    MediumID(mediumURI, Some(md.mediumDescriptionPath), req.archiveConfig.archiveName)
   }
 }
