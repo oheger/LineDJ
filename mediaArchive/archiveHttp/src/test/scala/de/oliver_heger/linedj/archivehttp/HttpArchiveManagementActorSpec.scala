@@ -65,9 +65,6 @@ object HttpArchiveManagementActorSpec {
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = null, downloader = null)
 
-  /** URI to the test music archive. */
-  private val ArchiveURIStr = ArchiveConfig.archiveURI.toString()
-
   /** Constant for an archive name. */
   private val ArchiveName = ArchiveConfig.archiveName
 
@@ -673,7 +670,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
             case ClsContentPropagationActor =>
               p.args should be(List(probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
-                ArchiveURIStr))
+                ArchiveConfig.archiveName))
               probeContentPropagationActor.ref
           }
           childCreationQueue offer ChildActorCreation(p, child)
