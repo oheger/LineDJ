@@ -85,6 +85,17 @@ class MediaFileUriHandlerSpec extends AnyFlatSpec with Matchers {
       filePath(fileName)) should be(fileUriEnc(fileName))
   }
 
+  it should "correctly encode URI components with critical characters" in {
+    val fileName = "My test \\ check song.mp3"
+    val encFileName = "My%20test%20%5C%20check%20song.mp3"
+    val path = filePath(fileName)
+
+    // Skip this test on file systems where the backslash is used as separator, e.g. on Windows.
+    if (path.getFileName.toString == fileName) {
+      MediaFileUriHandler.generateMediaFileUri(Root, path) should be(fileUriEnc(encFileName))
+    }
+  }
+
   it should "generate a correct URI for the global undefined medium" in {
     val fileName = "someFile.mp3"
     val fileURI = fileUriEnc(fileName)

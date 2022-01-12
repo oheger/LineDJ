@@ -142,6 +142,7 @@ lazy val shared = (project in file("shared"))
   .settings(
     name := "linedj-shared",
     libraryDependencies += "org.scalaz" %% "scalaz-core" % VersionScalaz,
+    libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
     OsgiKeys.privatePackage := Seq.empty
   )

@@ -16,11 +16,12 @@
 
 package de.oliver_heger.linedj.shared.archive.union
 
+import com.github.cloudfiles.core.http.UriEncodingHelper
+
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.regex.Pattern
-
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, UriHelper}
 
@@ -78,10 +79,15 @@ object MediaFileUriHandler {
     * @param path       the path to the file in question
     * @return the generated URI for this file
     */
-  def generateMediaFileUri(mediumRoot: Path, path: Path): String =
-    UriHelper.urlEncode(mediumRoot.relativize(path).toString)
-      .replace("%2F", "/")
-      .replace("%5C", "/")
+  def generateMediaFileUri(mediumRoot: Path, path: Path): String = {
+    def pathComponents(it: java.util.Iterator[Path]): List[String] =
+      if (it.hasNext) it.next().toString :: pathComponents(it)
+      else Nil
+
+    val relativePath = mediumRoot.relativize(path)
+    val components = pathComponents(relativePath.iterator())
+    UriEncodingHelper.removeLeadingSeparator(UriEncodingHelper.fromComponentsWithEncode(components))
+  }
 
   /**
     * Generates a URI to be used for the global undefined medium list that
