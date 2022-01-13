@@ -97,17 +97,26 @@ case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends Remot
 
 /**
   * A message sent by ''MediaManagerActor'' in response to a request for the
-  * files on a medium. This message contains a sequence with the URIs of the
-  * files stored on this medium. The ''existing'' flag can be evaluated if the
-  * list is empty: a value of '''true''' means that the medium exists, but
-  * does not contain any files; a value of '''false''' indicates an unknown
-  * medium.
+  * files on a medium. This message contains a sequence with the IDs of the
+  * files stored on this medium. Via these IDs, the files can then be requested
+  * directly from the archive. (Note that in most cases the [[MediumID]] in the
+  * file IDs will be the same as the one of the message; there are, however,
+  * corner cases when this is not the case - e.g. when querying the undefined
+  * medium.) The ''existing'' flag can be evaluated if the list is empty: a
+  * value of '''true''' means that the medium exists, but does not contain any
+  * files; a value of '''false''' indicates an unknown medium.
+  *
+  * TODO: Remove the uris field after all clients have been adapted.
   *
   * @param mediumID the ID of the medium that was queried
   * @param uris     a sequence with the URIs for the files on this medium
+  * @param fileIDs  a set with the IDs of the files on this medium
   * @param existing a flag whether the medium exists
   */
-case class MediumFiles(mediumID: MediumID, uris: Set[String], existing: Boolean) extends RemoteSerializable
+case class MediumFiles(mediumID: MediumID,
+                       uris: Set[String],
+                       fileIDs: Set[MediaFileID],
+                       existing: Boolean) extends RemoteSerializable
 
 /**
   * A message processed by ''MediaManagerActor'' which requests the download of

@@ -41,7 +41,7 @@ object MediaManagerActor {
     * Constant for a prototype of a ''MediumFiles'' message for an unknown
     * medium.
     */
-  private val UnknownMediumFiles = MediumFiles(null, Set.empty, existing = false)
+  private val UnknownMediumFiles = MediumFiles(null, Set.empty, Set.empty, existing = false)
 
   /**
     * Constant for a ''FileData'' referring to a non-existing file.
@@ -161,7 +161,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
     case GetMediumFiles(mediumID) =>
       val optResponse = scanState.fileData.get(mediumID) map
-        (files => MediumFiles(mediumID, files.keySet, existing = true))
+        (files => MediumFiles(mediumID, files.keySet, Set.empty, existing = true))
       sender() ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
 
     case request: MediumFileRequest =>
