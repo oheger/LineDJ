@@ -25,7 +25,7 @@ import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.ArgumentMatchers.any
@@ -182,7 +182,7 @@ object HttpArchiveContentProcessorActorSpec {
   def createMetaDataProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MetaDataResponseProcessingResult = {
     val mid = mediumID(desc)
-    val data = List(MetaDataProcessingSuccess(mediumID = mid, uri = desc.metaDataPath,
+    val data = List(MetaDataProcessingSuccess(mediumID = mid, uri = MediaFileUri(desc.metaDataPath),
       metaData = MediaMetaData(title = Some(reqUri))))
     MetaDataResponseProcessingResult(mid, data, SeqNo)
   }

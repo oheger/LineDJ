@@ -25,7 +25,7 @@ import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.uri.{UriMapper, UriMappingSpec}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.Mockito._
@@ -73,9 +73,9 @@ object MetaDataResponseProcessingActorSpec {
     * @param mapped flag whether the URI should be mapped
     * @return the new URI
     */
-  private def createUri(idx: Int, mapped: Boolean): String =
-    if (mapped) s"$MediumPath$SongPath/song$idx.mp3"
-    else s"audio://$MediumPath$SongPath/song$idx.mp3"
+  private def createUri(idx: Int, mapped: Boolean): MediaFileUri =
+    MediaFileUri(if (mapped) s"$MediumPath$SongPath/song$idx.mp3"
+    else s"audio://$MediumPath$SongPath/song$idx.mp3")
 
   /**
     * Creates a meta data processing result object for the specified index.

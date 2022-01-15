@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archive.metadata
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
@@ -28,7 +27,7 @@ import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediaScanCompleted, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -86,7 +85,7 @@ object MetaDataManagerActorSpec {
     * @param path the path
     * @return the URI for this path
     */
-  private def uriFor(path: Path): String = path.toString
+  private def uriFor(path: Path): MediaFileUri = MediaFileUri(path.toString)
 
   /**
     * Generates a medium ID.
@@ -225,7 +224,7 @@ object MetaDataManagerActorSpec {
     * @return the URI to file mapping for this result
     */
   private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
-    result.mediaFiles.values.flatten.map(f => (uriFor(Paths get f.path), f)).toMap
+    result.mediaFiles.values.flatten.map(f => (uriFor(Paths get f.path).uri, f)).toMap
 
   /**
     * Helper method to ensure that no more messages are sent to a test probe.

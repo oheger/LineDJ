@@ -72,7 +72,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
-    mediumUris -= result.uri
+    mediumUris -= result.uri.uri
     val complete = isComplete
     nextChunkData = updateNextChunkData(result)
 
@@ -122,7 +122,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param result the meta data result
     * @return the URI to be used for the represented file
     */
-  protected def extractUri(result: MetaDataProcessingSuccess): String = result.uri
+  protected def extractUri(result: MetaDataProcessingSuccess): String = result.uri.uri
 
   /**
     * Updates the current result object by adding the content of the given
@@ -266,7 +266,7 @@ private class UndefinedMediumDataHandler extends MediumDataHandler(MediumID.Unde
     * @return the URI to be used for the represented file
     */
   override protected def extractUri(result: MetaDataProcessingSuccess): String =
-    MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri)
+    MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri.uri)
 
   /**
     * Checks whether the specified URI belongs to the given archive component.

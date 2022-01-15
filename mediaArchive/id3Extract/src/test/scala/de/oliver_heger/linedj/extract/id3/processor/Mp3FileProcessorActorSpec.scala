@@ -17,14 +17,13 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -46,7 +45,7 @@ object Mp3FileProcessorActorSpec {
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =
-    MetaDataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = "mp3://testSong.mp3",
+    MetaDataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = MediaFileUri("mp3://testSong.mp3"),
       metaData = MediaMetaData())
 
   /** Test meta data to be returned by the collector mock. */

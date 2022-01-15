@@ -19,11 +19,10 @@ package de.oliver_heger.linedj.extract.metadata
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -73,8 +72,7 @@ object MetaDataExtractorWrapperActorSpec {
     * @param ext  the extension
     * @return the URI for this test file
     */
-  private def testUri(name: String, ext: String): String =
-    s"song://music/test/$name.$ext"
+  private def testUri(name: String, ext: String): MediaFileUri = MediaFileUri(s"song://music/test/$name.$ext")
 
   /**
     * Creates a ''ProcessMetaDataFile'' message for a test file.
@@ -177,7 +175,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   it should "handle files without an extension" in {
     val fileData = FileData("PathWithoutExtension", 28)
     val msg = ProcessMetaDataFile(fileData,
-      MetaDataProcessingSuccess(TestMediumID, "a URI", MediaMetaData()))
+      MetaDataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetaData()))
     val helper = new ExtractorActorTestHelper
 
     helper.addFileExtension("", None)

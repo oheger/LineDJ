@@ -18,11 +18,10 @@ package de.oliver_heger.linedj.archiveunion
 
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanAllMedia}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediaFileUri, MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
@@ -102,7 +101,7 @@ object MetaDataUnionActorSpec {
     * @param path the path
     * @return the URI for this path
     */
-  private def uriFor(path: Path): String = path.toString
+  private def uriFor(path: Path): MediaFileUri = MediaFileUri(path.toString)
 
   /**
     * Generates a medium ID.
@@ -232,7 +231,7 @@ object MetaDataUnionActorSpec {
     val undef = contrib.files.filter(e => e._1.mediumDescriptionPath.isEmpty)
     undef.toList.flatMap { e =>
       e._2 map (f => MediaFileUriHandler.generateUndefinedMediumUri(e._1,
-        uriFor(Paths get f.path)))
+        uriFor(Paths get f.path).uri))
     }
   }
 
@@ -289,7 +288,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
                                  expectedFiles: Iterable[FileData], expComplete: Boolean): Unit = {
-    checkMetaDataChunkWithUris(msg, mediumID, expectedFiles, expComplete)(uriFor)
+    checkMetaDataChunkWithUris(msg, mediumID, expectedFiles, expComplete)(p => uriFor(p).uri)
   }
 
   /**
@@ -934,7 +933,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     val receivedUris = findCompletedMessage(Nil)
-    val expUris = successFiles map (fd => uriFor(path(fd.path)))
+    val expUris = successFiles map (fd => uriFor(path(fd.path)).uri)
     receivedUris should contain theSameElementsAs expUris
   }
 
@@ -943,7 +942,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val files = Contribution.files(mid)
     val unkMediumFile = MediaFileID(MediumID("unknownMedium", Some("unknown")), "unknown")
     val unkUriFile = MediaFileID(mid, "nonExistingUri")
-    val exFiles = files map (f => MediaFileID(mid, uriFor(Paths get f.path)))
+    val exFiles = files map (f => MediaFileID(mid, uriFor(Paths get f.path).uri))
     val request = GetFilesMetaData(exFiles.toSet + unkMediumFile + unkUriFile, seqNo = 42)
     val helper = new MetaDataUnionActorTestHelper
     helper.sendContribution()
@@ -957,7 +956,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     data.keys should contain only (expKeys: _*)
     files.drop(1) foreach { f =>
       val p = path(f.path)
-      val id = MediaFileID(mid, uriFor(p))
+      val id = MediaFileID(mid, uriFor(p).uri)
       data(id) should be(metaDataFor(p))
     }
   }
@@ -966,9 +965,9 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val mid = MediaIDs(1)
     val midMapped = MediumID("otherMedium", Some("other"), "other")
     val files = Contribution.files(mid)
-    val reqFile1 = MediaFileID(mid, uriFor(Paths get files.head.path))
+    val reqFile1 = MediaFileID(mid, uriFor(Paths get files.head.path).uri)
     val fileMapped = files.drop(1).head
-    val reqFile2 = MediaFileID(midMapped, uriFor(Paths get fileMapped.path))
+    val reqFile2 = MediaFileID(midMapped, uriFor(Paths get fileMapped.path).uri)
     val request = MetaDataUnionActor.GetFilesMetaDataWithMapping(GetFilesMetaData(seqNo = 11,
       files = Seq(reqFile1, reqFile2)), Map(reqFile2 -> mid))
     val helper = new MetaDataUnionActorTestHelper

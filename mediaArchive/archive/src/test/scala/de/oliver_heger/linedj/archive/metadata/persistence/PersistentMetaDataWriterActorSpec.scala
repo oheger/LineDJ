@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
 import akka.Done
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.event.LoggingAdapter
@@ -32,7 +31,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.mockito.ArgumentMatchers.{anyString, eq => eqArg}
@@ -245,7 +244,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     */
   private def checkProcessingResults(results: Seq[MetaDataProcessingSuccess], startIndex: Int,
                                      endIndex: Int, mid: MediumID = TestMedium): Unit = {
-    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(mid, uri(i), metaData(i)))
+    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(mid, MediaFileUri(uri(i)),
+      metaData(i)))
     results should contain theSameElementsAs expResults
   }
 

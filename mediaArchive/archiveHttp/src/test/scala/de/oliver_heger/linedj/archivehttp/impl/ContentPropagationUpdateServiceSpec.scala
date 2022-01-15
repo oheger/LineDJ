@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
 import org.scalatest.BeforeAndAfterAll
@@ -102,7 +102,7 @@ object ContentPropagationUpdateServiceSpec {
     */
   private def metaDataProcessingResult(medIdx: Int, fileIdx: Int): MetaDataProcessingSuccess = {
     val filePath = mediumFilePath(medIdx, fileIdx)
-    MetaDataProcessingSuccess(mediumID = mediumID(medIdx), uri = filePath,
+    MetaDataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
       metaData = MediaMetaData(title = Some(filePath), size = fileSize(medIdx, fileIdx)))
   }
 

@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.shared.archive.union
 
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 object MetaDataProcessingResultSpec {
   /** A test URI. */
-  private val TestUri = "test/mp3/song.mp3"
+  private val TestUri = MediaFileUri("test/mp3/song.mp3")
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("Settings"))

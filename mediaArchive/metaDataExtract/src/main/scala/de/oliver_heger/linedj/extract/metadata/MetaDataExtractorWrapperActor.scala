@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.extract.metadata
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, PathUtils}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -89,7 +90,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     * A map storing information about the requests currently in progress. This
     * is needed to find the correct receivers for result messages.
     */
-  private var requests = Map.empty[String, ActorRef]
+  private var requests = Map.empty[MediaFileUri, ActorRef]
 
   override def receive: Receive = receiveProcessing
 

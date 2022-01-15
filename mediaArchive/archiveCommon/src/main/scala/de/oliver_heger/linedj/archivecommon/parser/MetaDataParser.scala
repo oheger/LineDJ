@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivecommon.parser
 
 import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, ParserTypes}
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.logging.log4j.LogManager
@@ -86,7 +86,7 @@ object MetaDataParser {
     * @return the processing result
     */
   private def createProcessingResult(obj: Map[String, String], mediumID: MediumID): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(mediumID = mediumID, uri = obj(PropUri), metaData = createMetaData(obj))
+    MetaDataProcessingSuccess(mediumID = mediumID, uri = MediaFileUri(obj(PropUri)), metaData = createMetaData(obj))
 
   /**
     * Extracts an optional property of type Int from the given map. If the

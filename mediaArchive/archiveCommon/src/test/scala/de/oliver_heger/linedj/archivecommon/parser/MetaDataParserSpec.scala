@@ -144,7 +144,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
     result.mediumID should be(TestMedium)
-    result.uri should be(props(MetaDataParser.PropUri))
+    result.uri.uri should be(props(MetaDataParser.PropUri))
     result.metaData.album.get should be("Album")
     result.metaData.artist.get should be("Artist")
     result.metaData.duration.get should be(180)
@@ -204,7 +204,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     data should have size 2
     data.head.metaData.title.get should be("Title1")
     data(1).metaData.title shouldBe empty
-    data(1).uri should be("song://uri2.mp3")
+    data(1).uri.uri should be("song://uri2.mp3")
   }
 
   it should "filter out results that have no path or URI" in {

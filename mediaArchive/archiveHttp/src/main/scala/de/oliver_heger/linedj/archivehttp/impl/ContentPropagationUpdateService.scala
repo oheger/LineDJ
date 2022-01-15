@@ -217,7 +217,7 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     */
   private def createMetaDataMessages(result: MediumProcessingResult, actors: PropagationActors):
   MessageData = {
-    val files = result.metaData map (m => FileData(m.uri, m.metaData.size))
+    val files = result.metaData map (m => FileData(m.uri.uri, m.metaData.size))
     val contribution = MediaContribution(Map(result.mediumInfo.mediumID -> files))
     val messages = contribution :: result.metaData.toList
     MessageData(actors.metaManager, messages)

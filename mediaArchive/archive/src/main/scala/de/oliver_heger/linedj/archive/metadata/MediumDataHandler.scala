@@ -60,8 +60,8 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return a flag whether this is a valid result
     */
   def resultReceived(result: MetaDataProcessingResult): Boolean = {
-    if (mediumPaths contains result.uri) {
-      mediumPaths -= result.uri
+    if (mediumPaths contains result.uri.uri) {
+      mediumPaths -= result.uri.uri
       true
     } else false
   }

@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.extract.id3.processor
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.stream.scaladsl.Source
@@ -28,7 +27,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.BeforeAndAfterAll
@@ -48,8 +47,8 @@ object Mp3MetaDataExtractorActorSpec {
   private val TestFileData = FileData("someMp3File.mp3", 2354875L)
 
   /** A test result template object. */
-  private val ResultTemplate = MetaDataProcessingSuccess(MediumID("someMedium", Some("someSettings")), "someURI",
-    null)
+  private val ResultTemplate = MetaDataProcessingSuccess(MediumID("someMedium", Some("someSettings")),
+    MediaFileUri("someURI"), null)
 
   /**
     * A data defining an expected child actor creation. An instance holds the

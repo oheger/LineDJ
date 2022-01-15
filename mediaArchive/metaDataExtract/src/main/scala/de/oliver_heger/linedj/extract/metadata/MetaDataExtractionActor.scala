@@ -25,7 +25,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -214,5 +214,5 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     */
   private def processRequest(mediumID: MediumID, fd: FileData,
                              pathUriMapping: Map[String, String]): ProcessMetaDataFile =
-    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, pathUriMapping(fd.path), MediaMetaData()))
+    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, MediaFileUri(pathUriMapping(fd.path)), MediaMetaData()))
 }

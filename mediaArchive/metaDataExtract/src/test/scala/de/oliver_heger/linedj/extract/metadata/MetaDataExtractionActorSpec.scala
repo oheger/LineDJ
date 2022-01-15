@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.extract.metadata
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-
 import akka.NotUsed
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.stream.DelayOverflowStrategy
@@ -26,7 +25,7 @@ import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -74,7 +73,7 @@ object MetaDataExtractionActorSpec {
     * @param idx the index of the file
     * @return the test URI
     */
-  private def testUri(idx: Int): String = s"song://uri_$idx.mp3"
+  private def testUri(idx: Int): MediaFileUri = MediaFileUri(s"song://uri_$idx.mp3")
 
   /**
     * Generates a test ''FileData'' object.
@@ -91,7 +90,7 @@ object MetaDataExtractionActorSpec {
     * @return the URI mapping
     */
   private def createUriMapping(): Map[String, FileData] =
-    (1 to MaxTestFiles).map(i => (testUri(i), testFileData(i))).toMap
+    (1 to MaxTestFiles).map(i => (testUri(i).uri, testFileData(i))).toMap
 
   /**
     * Generates a processing request for a number of test files.

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.shared.archive.union
 
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
@@ -102,7 +102,7 @@ sealed trait MetaDataProcessingResult {
     *
     * @return the URI
     */
-  def uri: String
+  def uri: MediaFileUri
 }
 
 /**
@@ -118,7 +118,7 @@ sealed trait MetaDataProcessingResult {
   * @param metaData an object with the meta data that could be extracted
   */
 case class MetaDataProcessingSuccess(override val mediumID: MediumID,
-                                     override val uri: String, metaData: MediaMetaData)
+                                     override val uri: MediaFileUri, metaData: MediaMetaData)
   extends MetaDataProcessingResult {
   /**
     * Returns a new instance of ''MetaDataProcessingResult'' with the same
@@ -153,7 +153,7 @@ case class MetaDataProcessingSuccess(override val mediumID: MediumID,
   * @param exception the exception which is the cause of the failure
   */
 case class MetaDataProcessingError(override val mediumID: MediumID,
-                                   override val uri: String,
+                                   override val uri: MediaFileUri,
                                    exception: Throwable)
   extends MetaDataProcessingResult
 
