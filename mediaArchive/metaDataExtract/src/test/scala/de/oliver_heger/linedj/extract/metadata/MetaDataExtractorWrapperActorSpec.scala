@@ -86,8 +86,7 @@ object MetaDataExtractorWrapperActorSpec {
   private def createProcessRequest(name: String, ext: String): ProcessMetaDataFile = {
     val path = testPath(name, ext)
     val fileData = FileData(path, fileSize(path))
-    val template = MetaDataProcessingSuccess(path, TestMediumID,
-      testUri(name, ext), MediaMetaData())
+    val template = MetaDataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetaData())
     ProcessMetaDataFile(fileData, template)
   }
 
@@ -102,8 +101,7 @@ object MetaDataExtractorWrapperActorSpec {
     val path = testPath(name, ext)
     val data = MediaMetaData(size = fileSize(path), title = Some(name),
       artist = Some("Artist for " + name), album = Some(name + " album"))
-    MetaDataProcessingSuccess(path = path, uri = testUri(name, ext),
-      mediumID = TestMediumID, metaData = data)
+    MetaDataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metaData = data)
   }
 }
 
@@ -179,7 +177,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   it should "handle files without an extension" in {
     val fileData = FileData("PathWithoutExtension", 28)
     val msg = ProcessMetaDataFile(fileData,
-      MetaDataProcessingSuccess("a path", TestMediumID, "a URI", MediaMetaData()))
+      MetaDataProcessingSuccess(TestMediumID, "a URI", MediaMetaData()))
     val helper = new ExtractorActorTestHelper
 
     helper.addFileExtension("", None)
@@ -215,8 +213,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "handle error processing results" in {
     val File = "errorFile"
-    val errResult = MetaDataProcessingError(testPath(File, SupportedFileExtension), TestMediumID,
-      testUri(File, SupportedFileExtension), new Exception("failed"))
+    val errResult = MetaDataProcessingError(TestMediumID, testUri(File, SupportedFileExtension),
+      new Exception("failed"))
     val helper = new ExtractorActorTestHelper
 
     helper.postProcessRequest(File, SupportedFileExtension)

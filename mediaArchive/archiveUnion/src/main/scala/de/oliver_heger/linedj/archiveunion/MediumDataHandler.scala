@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataState}
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult, MetaDataProcessingSuccess}
 
 /**
@@ -34,10 +34,10 @@ import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDat
   */
 private class MediumDataHandler(mediumID: MediumID) {
   /**
-    * A set with the names of all files in this medium. This is used to
+    * A set with the URIs of all files in this medium. This is used to
     * determine whether all data has been fetched.
     */
-  private val mediumPaths = collection.mutable.Set.empty[String]
+  private val mediumUris = collection.mutable.Set.empty[String]
 
   /** The current data available for the represented medium. */
   protected var currentData: List[MetaDataChunk] = initialData()
@@ -53,7 +53,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param files the files that are going to be processed
     */
   def expectMediaFiles(files: Iterable[FileData]): Unit = {
-    mediumPaths ++= files.map(_.path)
+    mediumUris ++= files.map(_.path)
   }
 
   /**
@@ -72,7 +72,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
-    mediumPaths -= result.path.toString
+    mediumUris -= result.uri
     val complete = isComplete
     nextChunkData = updateNextChunkData(result)
 
@@ -85,7 +85,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     *
     * @return a flag whether all meta data is available
     */
-  def isComplete: Boolean = mediumPaths.isEmpty
+  def isComplete: Boolean = mediumUris.isEmpty
 
   /**
     * Returns the meta data stored currently in this object.
@@ -173,7 +173,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   private def updateNextChunkData(result: MetaDataProcessingResult): Map[String, MediaMetaData] =
     result match {
-      case result@MetaDataProcessingSuccess(_, _, _, metaData) =>
+      case result@MetaDataProcessingSuccess(_, _, metaData) =>
         nextChunkData + (extractUri(result) -> metaData)
       case _ => nextChunkData
     }

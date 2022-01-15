@@ -144,7 +144,6 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
     result.mediumID should be(TestMedium)
-    result.path should be(props(MetaDataParser.PropPath))
     result.uri should be(props(MetaDataParser.PropUri))
     result.metaData.album.get should be("Album")
     result.metaData.artist.get should be("Artist")

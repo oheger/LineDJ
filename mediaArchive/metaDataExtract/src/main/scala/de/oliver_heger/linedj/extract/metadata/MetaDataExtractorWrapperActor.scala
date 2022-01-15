@@ -108,7 +108,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
       }
 
     case result: MetaDataProcessingResult =>
-      log.info("Received processing result for {}.", result.path)
+      log.info("Received processing result for {}.", result.uri)
       requests.get(result.uri) foreach (_ ! result)
       requests -= result.uri
 

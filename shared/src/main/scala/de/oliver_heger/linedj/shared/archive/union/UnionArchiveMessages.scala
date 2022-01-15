@@ -91,13 +91,6 @@ case class UpdateOperationCompleted(processor: Option[ActorRef])
   */
 sealed trait MetaDataProcessingResult {
   /**
-    * Returns the path of the media file.
-    *
-    * @return the path
-    */
-  def path: String
-
-  /**
     * Returns the ID of the medium the media file belongs to
     *
     * @return the medium ID
@@ -120,12 +113,11 @@ sealed trait MetaDataProcessingResult {
   * media file has been processed successfully. The message contains the meta
   * data that could be extracted.
   *
-  * @param path     the path to the media file
   * @param mediumID the ID of the medium this file belongs to
   * @param uri      the URI of the file
   * @param metaData an object with the meta data that could be extracted
   */
-case class MetaDataProcessingSuccess(override val path: String, override val mediumID: MediumID,
+case class MetaDataProcessingSuccess(override val mediumID: MediumID,
                                      override val uri: String, metaData: MediaMetaData)
   extends MetaDataProcessingResult {
   /**
@@ -147,8 +139,7 @@ case class MetaDataProcessingSuccess(override val path: String, override val med
     * @return the transformed error result
     */
   def toError(exception: Throwable): MetaDataProcessingError =
-    MetaDataProcessingError(path = path, uri = uri, mediumID = mediumID,
-      exception = exception)
+    MetaDataProcessingError(uri = uri, mediumID = mediumID, exception = exception)
 }
 
 /**
@@ -157,13 +148,13 @@ case class MetaDataProcessingSuccess(override val path: String, override val med
   * Messages of this type are produced when no meta data can be extracted from
   * a specific file. This normally means that the file is corrupt.
   *
-  * @param path      the path to the media file
   * @param mediumID  the ID of the medium this file belongs to
   * @param uri       the URI of the file
   * @param exception the exception which is the cause of the failure
   */
-case class MetaDataProcessingError(override val path: String, override val mediumID: MediumID,
-                                   override val uri: String, exception: Throwable)
+case class MetaDataProcessingError(override val mediumID: MediumID,
+                                   override val uri: String,
+                                   exception: Throwable)
   extends MetaDataProcessingResult
 
 /**

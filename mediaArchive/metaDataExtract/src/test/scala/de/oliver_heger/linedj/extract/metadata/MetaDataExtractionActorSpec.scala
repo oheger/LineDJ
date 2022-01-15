@@ -125,8 +125,7 @@ object MetaDataExtractionActorSpec {
     */
   def createProcessingResult(idx: Int): MetaDataProcessingSuccess = {
     val fileData = testFileData(idx)
-    val template = MetaDataProcessingSuccess(fileData.path, TestMediumID, testUri(idx),
-      MediaMetaData())
+    val template = MetaDataProcessingSuccess(TestMediumID, testUri(idx), MediaMetaData())
     createProcessingResult(fileData, template)
   }
 }

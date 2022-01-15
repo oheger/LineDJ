@@ -46,8 +46,7 @@ object Mp3FileProcessorActorSpec {
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =
-    MetaDataProcessingSuccess(path = "some/dir/" + FileSpec.path,
-      mediumID = MediumID("some/medium", None), uri = "mp3://testSong.mp3",
+    MetaDataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = "mp3://testSong.mp3",
       metaData = MediaMetaData())
 
   /** Test meta data to be returned by the collector mock. */
@@ -80,8 +79,7 @@ object Mp3FileProcessorActorSpec {
     * @return the error message
     */
   private def createFailureMessage(cause: Throwable): MetaDataProcessingError =
-    MetaDataProcessingError(TestProcessingResult.path, TestProcessingResult.mediumID,
-      TestProcessingResult.uri, cause)
+    MetaDataProcessingError(TestProcessingResult.mediumID, TestProcessingResult.uri, cause)
 
   /**
     * A data class used to record the creation of child actors.

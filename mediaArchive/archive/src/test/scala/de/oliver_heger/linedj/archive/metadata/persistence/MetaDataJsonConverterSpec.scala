@@ -59,7 +59,6 @@ class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers {
     val uri = "song://someTestSong.mp3"
 
     val parsedData = convertAndParse(metaData, path, uri)
-    parsedData.path should be(path.toString)
     parsedData.uri should be(uri)
     parsedData.metaData should be(metaData)
   }

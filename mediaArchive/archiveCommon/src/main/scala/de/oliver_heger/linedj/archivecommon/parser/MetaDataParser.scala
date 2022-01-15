@@ -85,10 +85,8 @@ object MetaDataParser {
     * @param mediumID the medium ID
     * @return the processing result
     */
-  private def createProcessingResult(obj: Map[String, String], mediumID: MediumID):
-  MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(mediumID = mediumID, uri = obj(PropUri),
-      path = obj(PropPath), metaData = createMetaData(obj))
+  private def createProcessingResult(obj: Map[String, String], mediumID: MediumID): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(mediumID = mediumID, uri = obj(PropUri), metaData = createMetaData(obj))
 
   /**
     * Extracts an optional property of type Int from the given map. If the

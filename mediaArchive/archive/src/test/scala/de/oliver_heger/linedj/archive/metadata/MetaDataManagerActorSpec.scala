@@ -82,11 +82,11 @@ object MetaDataManagerActorSpec {
 
   /**
     * Generates the URI for a path. This is used to construct a URI mapping.
-    *
+    * TODO: This may no longer be needed when paths and URIs are no longer mixed.
     * @param path the path
     * @return the URI for this path
     */
-  private def uriFor(path: Path): String = "song://" + path.toString
+  private def uriFor(path: Path): String = path.toString
 
   /**
     * Generates a medium ID.
@@ -121,8 +121,7 @@ object MetaDataManagerActorSpec {
     */
   private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess = {
     val path = Paths get file.path
-    MetaDataProcessingSuccess(file.path, mediumID, uriFor(path),
-      metaDataFor(path))
+    MetaDataProcessingSuccess(mediumID, uriFor(path), metaDataFor(path))
   }
 
   /**
@@ -139,8 +138,7 @@ object MetaDataManagerActorSpec {
     @tailrec
     def loop(current: List[FileData], index: Int): List[FileData] = {
       if (index == 0) current
-      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3").toString,
-        20) :: current, index - 1)
+      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3").toString, 20) :: current, index - 1)
     }
 
     loop(Nil, count)

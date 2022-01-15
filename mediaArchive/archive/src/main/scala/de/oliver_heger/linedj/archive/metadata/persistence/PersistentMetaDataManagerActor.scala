@@ -107,7 +107,7 @@ object PersistentMetaDataManagerActor {
       * @return the updated instance
       */
     def updateResolvedFiles(result: MetaDataProcessingSuccess): MediumData =
-      copy(resolvedFiles = resolvedFiles + result.path)
+      copy(resolvedFiles = resolvedFiles + result.uri)
 
     /**
       * Creates an object with information about meta data files that have not

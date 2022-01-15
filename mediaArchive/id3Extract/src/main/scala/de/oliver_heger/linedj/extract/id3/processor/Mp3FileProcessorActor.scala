@@ -217,6 +217,5 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     * @return the processing error message
     */
   private def createProcessingErrorMsg(exception: Throwable): MetaDataProcessingError =
-    MetaDataProcessingError(resultTemplate.path, resultTemplate.mediumID,
-      resultTemplate.uri, exception)
+    MetaDataProcessingError(resultTemplate.mediumID, resultTemplate.uri, exception)
 }

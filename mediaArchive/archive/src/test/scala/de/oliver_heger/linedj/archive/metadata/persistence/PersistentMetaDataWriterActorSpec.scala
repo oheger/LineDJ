@@ -245,8 +245,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     */
   private def checkProcessingResults(results: Seq[MetaDataProcessingSuccess], startIndex: Int,
                                      endIndex: Int, mid: MediumID = TestMedium): Unit = {
-    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(path(i).toString,
-      mid, uri(i), metaData(i)))
+    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(mid, uri(i), metaData(i)))
     results should contain theSameElementsAs expResults
   }
 

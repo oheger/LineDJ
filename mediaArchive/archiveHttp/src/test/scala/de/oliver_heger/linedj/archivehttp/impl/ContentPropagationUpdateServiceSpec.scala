@@ -102,9 +102,8 @@ object ContentPropagationUpdateServiceSpec {
     */
   private def metaDataProcessingResult(medIdx: Int, fileIdx: Int): MetaDataProcessingSuccess = {
     val filePath = mediumFilePath(medIdx, fileIdx)
-    MetaDataProcessingSuccess(path = filePath, mediumID = mediumID(medIdx),
-      uri = "song://" + filePath, metaData = MediaMetaData(title = Some(filePath),
-        size = fileSize(medIdx, fileIdx)))
+    MetaDataProcessingSuccess(mediumID = mediumID(medIdx), uri = filePath,
+      metaData = MediaMetaData(title = Some(filePath), size = fileSize(medIdx, fileIdx)))
   }
 
   /**

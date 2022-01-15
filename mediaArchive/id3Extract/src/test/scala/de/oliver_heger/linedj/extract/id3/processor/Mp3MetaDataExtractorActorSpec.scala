@@ -48,8 +48,8 @@ object Mp3MetaDataExtractorActorSpec {
   private val TestFileData = FileData("someMp3File.mp3", 2354875L)
 
   /** A test result template object. */
-  private val ResultTemplate = MetaDataProcessingSuccess("somePath.mp3",
-    MediumID("someMedium", Some("someSettings")), "someURI", null)
+  private val ResultTemplate = MetaDataProcessingSuccess(MediumID("someMedium", Some("someSettings")), "someURI",
+    null)
 
   /**
     * A data defining an expected child actor creation. An instance holds the

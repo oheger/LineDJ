@@ -22,11 +22,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 object MetaDataProcessingResultSpec {
-  /** A test path. */
-  private val TestPath = "test/mp3/song.mp3"
-
   /** A test URI. */
-  private val TestUri = "song://test/song.mp3"
+  private val TestUri = "test/mp3/song.mp3"
 
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("Settings"))
@@ -37,7 +34,7 @@ object MetaDataProcessingResultSpec {
     * @return the test result
     */
   private def createResult(): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(TestPath, TestMedium, TestUri, null)
+    MetaDataProcessingSuccess(TestMedium, TestUri, null)
 }
 
 /**
@@ -55,7 +52,6 @@ class MetaDataProcessingResultSpec extends AnyFlatSpec with Matchers {
     val orgResult = createResult()
     val result = orgResult.withMetaData(metaData)
     result.uri should be(orgResult.uri)
-    result.path should be(orgResult.path)
     result.mediumID should be(orgResult.mediumID)
     result.metaData should be(metaData)
   }
@@ -66,7 +62,6 @@ class MetaDataProcessingResultSpec extends AnyFlatSpec with Matchers {
 
     val errResult = orgResult.toError(exception)
     errResult.uri should be(orgResult.uri)
-    errResult.path should be(orgResult.path)
     errResult.mediumID should be(orgResult.mediumID)
     errResult.exception should be(exception)
   }

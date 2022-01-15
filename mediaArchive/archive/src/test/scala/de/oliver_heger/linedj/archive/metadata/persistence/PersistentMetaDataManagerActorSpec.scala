@@ -176,8 +176,7 @@ object PersistentMetaDataManagerActorSpec {
     * @return a list with processing results for this medium
     */
   private def processingResults(mid: MediumID): List[MetaDataProcessingSuccess] =
-    mediumFiles(mid) map (f => MetaDataProcessingSuccess(f.path, mid, f.path,
-      MediaMetaData(title = Some("Song " + f.path))))
+    mediumFiles(mid) map (f => MetaDataProcessingSuccess(mid, f.path, MediaMetaData(title = Some("Song " + f.path))))
 
   /**
     * Creates a test process medium for the specified medium.
