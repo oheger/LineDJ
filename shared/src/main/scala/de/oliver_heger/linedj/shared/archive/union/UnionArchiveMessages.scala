@@ -44,13 +44,14 @@ case class AddMedia(media: Map[MediumID, MediumInfo], archiveCompID: String,
   * An archive component first has to send this message to the meta data union
   * actor. So the actor knows which files are available and which meta data is
   * expected. Then for each contributed media file a
-  * [[MetaDataProcessingSuccess]] message has to be sent. That way the meta data
+  * [[MetaDataProcessingResult]] message has to be sent. That way the meta data
   * actor is able to determine when the meta data for all managed media is
   * complete.
   *
-  * @param files a map with meta data files that are part of this contribution
+  * @param files a map with the URIs of meta data files that are part of this
+  *              contribution
   */
-case class MediaContribution(files: Map[MediumID, Iterable[FileData]])
+case class MediaContribution(files: Map[MediumID, Iterable[MediaFileUri]])
 
 /**
   * A message processed by the meta data union actor announcing that a meta

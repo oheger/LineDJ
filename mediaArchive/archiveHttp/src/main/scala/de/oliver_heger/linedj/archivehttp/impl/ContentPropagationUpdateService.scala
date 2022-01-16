@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution}
 import scalaz.State
 import scalaz.State._
@@ -217,7 +216,7 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     */
   private def createMetaDataMessages(result: MediumProcessingResult, actors: PropagationActors):
   MessageData = {
-    val files = result.metaData map (m => FileData(m.uri.uri, m.metaData.size))
+    val files = result.metaData map (m => m.uri)
     val contribution = MediaContribution(Map(result.mediumInfo.mediumID -> files))
     val messages = contribution :: result.metaData.toList
     MessageData(actors.metaManager, messages)

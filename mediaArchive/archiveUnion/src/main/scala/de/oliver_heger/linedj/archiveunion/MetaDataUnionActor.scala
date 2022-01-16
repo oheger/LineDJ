@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archiveunion
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID, ScanAllMedia}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediaFileUri, MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 
@@ -243,8 +243,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         case Some(handler) =>
           handler.metaData foreach (sendMetaDataResponse(sender(), _, registrationID))
           if (registerAsListener && !handler.isComplete) {
-            val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID,
-              Nil)
+            val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
             mediumListeners(mediumID) = newListeners
           }
       }
@@ -361,7 +360,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param e an entry from the map of media files from a scan result object
     */
-  private def prepareHandlerForMedium(e: (MediumID, Iterable[FileData])): Unit = {
+  private def prepareHandlerForMedium(e: (MediumID, Iterable[MediaFileUri])): Unit = {
     val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2

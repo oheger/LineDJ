@@ -16,12 +16,10 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediaFileUri, MediumID, ScanAllMedia}
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.mockito.Mockito.when
@@ -30,6 +28,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 
 object MetaDataUnionActorSpec {
@@ -95,15 +95,6 @@ object MetaDataUnionActorSpec {
   private def path(s: String): Path = Paths get s
 
   /**
-    * Generates the URI for a path. This is used to construct a URI mapping.
-    * TODO: Remove this when there is no longer a mix of paths and URIs.
-    *
-    * @param path the path
-    * @return the URI for this path
-    */
-  private def uriFor(path: Path): MediaFileUri = MediaFileUri(path.toString)
-
-  /**
     * Generates a medium ID.
     *
     * @param name a unique name for the ID
@@ -115,33 +106,33 @@ object MetaDataUnionActorSpec {
   }
 
   /**
-    * Extracts an index from the given path. All test paths produced by
+    * Extracts an index from the given URI. All test URIs produced by
     * ''generateMediaFiles()'' end on a numeric index (before the file
     * extension). This function extracts this index. (Note: it is not very
-    * robust for other paths.)
+    * robust for other URIs.)
     *
-    * @param path the path
+    * @param uri the URI
     * @return the index of this path
     */
-  private def extractPathIndex(path: Path): Int = {
-    val pathStr = path.toString takeWhile (_ != '.')
+  private def extractUriIndex(uri: MediaFileUri): Int = {
+    val uriStr = uri.uri takeWhile (_ != '.')
 
     @tailrec def loop(index: Int): Int =
-      if (Character isDigit pathStr(index)) loop(index - 1)
-      else pathStr.substring(index + 1).toInt
+      if (Character isDigit uriStr(index)) loop(index - 1)
+      else uriStr.substring(index + 1).toInt
 
-    loop(pathStr.length - 1)
+    loop(uriStr.length - 1)
   }
 
   /**
-    * Creates a test meta data object for the specified path.
+    * Creates a test meta data object for the specified URI.
     *
-    * @param path the path
+    * @param uri the URI
     * @return the meta data for this path (following conventions)
     */
-  private def metaDataFor(path: Path): MediaMetaData = {
-    val index = extractPathIndex(path)
-    MediaMetaData(title = Some(path.getFileName.toString),
+  private def metaDataFor(uri: MediaFileUri): MediaMetaData = {
+    val index = extractUriIndex(uri)
+    MediaMetaData(title = Some(UriHelper.extractName(uri.uri)),
       duration = Some(index * 10),
       size = index * 100)
   }
@@ -150,14 +141,11 @@ object MetaDataUnionActorSpec {
     * Generates a meta data processing result for the specified parameters.
     *
     * @param mediumID the medium ID
-    * @param file     the file data
+    * @param uri     the URI of the media file
     * @return a successful processing result for this file
     */
-  private def processingResult(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess = {
-    val path = Paths get file.path
-    val metaDataMsg = MetaDataProcessingSuccess(mediumID, uriFor(path), metaDataFor(path))
-    metaDataMsg
-  }
+  private def processingResult(mediumID: MediumID, uri: MediaFileUri): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(mediumID, uri, metaDataFor(uri))
 
   /**
     * Creates a test media contribution object.
@@ -190,24 +178,18 @@ object MetaDataUnionActorSpec {
   }
 
   /**
-    * Generates a number of media files that belong to the specified test
-    * medium.
+    * Generates a number of URIs for media files that belong to the specified
+    * test medium.
     *
     * @param mediumPath the path of the medium
     * @param count      the number of files to generate
     * @return the resulting list
     */
-  private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
+  private def generateMediaFiles(mediumPath: Path, count: Int): List[MediaFileUri] = {
     val basePath = Option(mediumPath.getParent) getOrElse mediumPath
-
-    @tailrec
-    def loop(current: List[FileData], index: Int): List[FileData] = {
-      if (index == 0) current
-      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3").toString,
-        20) :: current, index - 1)
-    }
-
-    loop(Nil, count)
+    (1 to count).map { index =>
+      MediaFileUri(basePath.resolve(s"TestFile_$index.mp3").toString)
+    }.toList
   }
 
   /**
@@ -227,12 +209,9 @@ object MetaDataUnionActorSpec {
     * @return all URIs of matched files as they appear in the global undefined
     *         list
     */
-  private def undefinedMediumUris(contrib: MediaContribution): Iterable[String] = {
+  private def undefinedMediumUris(contrib: MediaContribution): Iterable[MediaFileUri] = {
     val undef = contrib.files.filter(e => e._1.mediumDescriptionPath.isEmpty)
-    undef.toList.flatMap { e =>
-      e._2 map (f => MediaFileUriHandler.generateUndefinedMediumUri(e._1,
-        uriFor(Paths get f.path).uri))
-    }
+    undef.toList.flatMap { e => e._2 }
   }
 
   /**
@@ -278,17 +257,16 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   /**
     * Checks whether a meta data chunk received from the test actor contains the
-    * expected data for the given medium ID. File URIs are expected to follow
-    * default conventions.
+    * expected data for the given medium ID.
     *
     * @param msg           the chunk message to be checked
     * @param mediumID      the medium ID as string
-    * @param expectedFiles the expected files
+    * @param expectedUris the URIs of the expected files
     * @param expComplete   the expected complete flag
     */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
-                                 expectedFiles: Iterable[FileData], expComplete: Boolean): Unit = {
-    checkMetaDataChunkWithUris(msg, mediumID, expectedFiles, expComplete)(p => uriFor(p).uri)
+                                 expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
+    checkMetaDataChunkWithUris(msg, mediumID, expectedUris, expComplete)
   }
 
   /**
@@ -297,17 +275,15 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     *
     * @param msg           the chunk message to be checked
     * @param mediumID      the medium ID as string
-    * @param expectedFiles the expected files
+    * @param expectedUris the URIs of the expected files
     * @param expComplete   the expected complete flag
-    * @param uriGen        the URI generator to be used
     */
   private def checkMetaDataChunkWithUris(msg: MetaDataChunk, mediumID: MediumID,
-                                         expectedFiles: Iterable[FileData], expComplete: Boolean)
-                                        (uriGen: Path => String): Unit = {
+                                         expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
     msg.mediumID should be(mediumID)
-    msg.data should have size expectedFiles.size
-    expectedFiles foreach { m =>
-      msg.data(uriGen(Paths get m.path)) should be(metaDataFor(Paths get m.path))
+    msg.data should have size expectedUris.size
+    expectedUris foreach { uri =>
+      msg.data(uri.uri) should be(metaDataFor(uri))
     }
     msg.complete shouldBe expComplete
   }
@@ -319,7 +295,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param files the list of files for the contribution
     * @return the contribution
     */
-  private def createOtherContribution(files: Iterable[FileData]): MediaContribution = {
+  private def createOtherContribution(files: Iterable[MediaFileUri]): MediaContribution = {
     val root = path("anotherRootDirectory")
     val medID = MediumID(root.toString, Some("someDescFile.txt"), OtherArchiveCompID)
     MediaContribution(Map(medID -> files))
@@ -334,7 +310,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return the alternative contribution
     */
   private def processAnotherContribution(helper: MetaDataUnionActorTestHelper,
-                                         files: Iterable[FileData]): MediaContribution = {
+                                         files: Iterable[MediaFileUri]): MediaContribution = {
     val contribution: MediaContribution = createOtherContribution(files)
     helper.processContribution(contribution)
     contribution
@@ -395,14 +371,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       expComplete = true)
   }
 
-  // TODO: Rework the test for the undefined medium.
+  // TODO: Rework handling of the global undefined medium.
   ignore should "handle the undefined medium even over multiple contributions" in {
-    def refUri(mediumID: MediumID)(path: Path): String =
-      s"ref://${mediumID.mediumURI}:${mediumID.archiveComponentID}:${uriFor(path)}"
-
-    def findUrisInChunk(mediumID: MediumID, chunk: MetaDataChunk, files: Iterable[FileData]): Unit = {
-      files.map(d =>
-        refUri(mediumID)(Paths get d.path)).filterNot(chunk.data.contains) shouldBe empty
+    def findUrisInChunk(chunk: MetaDataChunk, uris: Iterable[MediaFileUri]): Unit = {
+      uris.map(_.uri).filterNot(chunk.data.contains) shouldBe empty
     }
 
     val helper = new MetaDataUnionActorTestHelper
@@ -412,13 +384,13 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true,
       TestRegistrationID)
     checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
-      filesForChunk1, expComplete = false)(refUri(UndefinedMediumID))
+      filesForChunk1, expComplete = false)
     val filesForChunk2 = List(Contribution.files(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
     Contribution.files.filterNot(_._1.mediumDescriptionPath.isEmpty)
       .foreach(e => helper.sendProcessingResults(e._1, e._2))
     checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
-      filesForChunk2, expComplete = true)(refUri(UndefinedMediumID))
+      filesForChunk2, expComplete = true)
 
     val filesForChunk3 = generateMediaFiles(path("fileOnOtherMedium"), 4)
     val root2 = path("anotherRootDirectory")
@@ -428,8 +400,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
     val chunk = helper.expectMetaDataResponse(0)
-    findUrisInChunk(UndefinedMediumID, chunk, Contribution.files(UndefinedMediumID))
-    findUrisInChunk(UndefinedMediumID2, chunk, filesForChunk3)
+    findUrisInChunk(chunk, Contribution.files(UndefinedMediumID))
+    findUrisInChunk(chunk, filesForChunk3)
   }
 
   it should "split large chunks of meta data into multiple ones" in {
@@ -572,11 +544,9 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "support meta data without a duration" in {
     val helper = new MetaDataUnionActorTestHelper
-    val file = Contribution.files(TestMediumID).head
+    val uri = Contribution.files(TestMediumID).head
     helper.sendContribution()
-    val path = Paths get file.path
-    helper.actor receive MetaDataProcessingSuccess(TestMediumID, uriFor(path),
-      metaDataFor(path).copy(duration = None))
+    helper.actor receive MetaDataProcessingSuccess(TestMediumID, uri, metaDataFor(uri).copy(duration = None))
 
     val listener = helper.newStateListener(expectStateMsg = false)
     listener.expectMsgType[MetaDataStateUpdated].state.duration should be(0)
@@ -733,8 +703,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     val chunk = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
       registerAsListener = false)
-    val expectedMetaData = Contribution.files(UndefinedMediumID) map (d =>
-      metaDataFor(Paths get d.path))
+    val expectedMetaData = Contribution.files(UndefinedMediumID) map metaDataFor
     expectedMetaData should contain only (chunk.data.values.toSeq: _*)
   }
 
@@ -754,7 +723,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
   it should "adapt the global undefined list if an archive component is removed" in {
     val helper = new MetaDataUnionActorTestHelper
     val contrib = createContributionFromOtherComponent()
-    helper.processContribution(Contribution).processContribution(contrib)
+    helper.processContribution(Contribution)
+      .processContribution(contrib)
       .sendArchiveComponentRemoved()
 
     val chunk = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
@@ -776,7 +746,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     chunk2 should be theSameInstanceAs chunk
   }
 
-  it should "handle multiple chunks of the undefined medium if a component is removed" in {
+  // TODO: Rework handling of the global undefined medium.
+  ignore should "handle multiple chunks of the undefined medium if a component is removed" in {
     val helper = new MetaDataUnionActorTestHelper
     val mid = MediumID("alternativeMedium", None, "alternativeComponent")
     val alternativeContribution =
@@ -787,13 +758,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .processContribution(alternativeContribution)
       .sendArchiveComponentRemoved(mid.archiveComponentID)
 
-    val chunk1 = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID,
-      registerAsListener = false)
+    val chunk1 = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
     chunk1.complete shouldBe false
     val chunk2 = helper.expectMetaDataResponse()
     chunk2.complete shouldBe true
     val allKeys = chunk1.data.keySet ++ chunk2.data.keySet
-    val uris = undefinedMediumUris(Contribution).toSeq ++ undefinedMediumUris(otherContrib)
+    val uris = (undefinedMediumUris(Contribution).toSeq ++ undefinedMediumUris(otherContrib)).map(_.uri)
     allKeys should contain only (uris: _*)
   }
 
@@ -933,7 +903,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     val receivedUris = findCompletedMessage(Nil)
-    val expUris = successFiles map (fd => uriFor(path(fd.path)).uri)
+    val expUris = successFiles map (_.uri)
     receivedUris should contain theSameElementsAs expUris
   }
 
@@ -942,7 +912,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val files = Contribution.files(mid)
     val unkMediumFile = MediaFileID(MediumID("unknownMedium", Some("unknown")), "unknown")
     val unkUriFile = MediaFileID(mid, "nonExistingUri")
-    val exFiles = files map (f => MediaFileID(mid, uriFor(Paths get f.path).uri))
+    val exFiles = files map (f => MediaFileID(mid, f.uri))
     val request = GetFilesMetaData(exFiles.toSet + unkMediumFile + unkUriFile, seqNo = 42)
     val helper = new MetaDataUnionActorTestHelper
     helper.sendContribution()
@@ -955,9 +925,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val data = resp.data.toMap
     data.keys should contain only (expKeys: _*)
     files.drop(1) foreach { f =>
-      val p = path(f.path)
-      val id = MediaFileID(mid, uriFor(p).uri)
-      data(id) should be(metaDataFor(p))
+      val id = MediaFileID(mid, f.uri)
+      data(id) should be(metaDataFor(f))
     }
   }
 
@@ -965,9 +934,9 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val mid = MediaIDs(1)
     val midMapped = MediumID("otherMedium", Some("other"), "other")
     val files = Contribution.files(mid)
-    val reqFile1 = MediaFileID(mid, uriFor(Paths get files.head.path).uri)
+    val reqFile1 = MediaFileID(mid, files.head.uri)
     val fileMapped = files.drop(1).head
-    val reqFile2 = MediaFileID(midMapped, uriFor(Paths get fileMapped.path).uri)
+    val reqFile2 = MediaFileID(midMapped, fileMapped.uri)
     val request = MetaDataUnionActor.GetFilesMetaDataWithMapping(GetFilesMetaData(seqNo = 11,
       files = Seq(reqFile1, reqFile2)), Map(reqFile2 -> mid))
     val helper = new MetaDataUnionActorTestHelper
@@ -979,7 +948,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     resp.request should be(request.request)
     val data = resp.data.toMap
     data.keys should contain only(reqFile1, reqFile2)
-    data(reqFile2) should be(metaDataFor(path(fileMapped.path)))
+    data(reqFile2) should be(metaDataFor(fileMapped))
   }
 
   it should "handle messages indicating start and end of update operations" in {
@@ -1140,8 +1109,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param files    the list of files
       * @return this test helper
       */
-    def sendProcessingResults(mediumID: MediumID, files: Iterable[FileData]):
-    MetaDataUnionActorTestHelper = {
+    def sendProcessingResults(mediumID: MediumID, files: Iterable[MediaFileUri]): MetaDataUnionActorTestHelper = {
       files foreach { m =>
         actor receive processingResult(mediumID, m)
       }
@@ -1179,11 +1147,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * handling.
       *
       * @param mediumID the medium ID
-      * @param files    the list of files
+      * @param files    the list of URIs for media files
       * @return the list with successful results sent to the test actor
       */
-    def sendProcessingResultsAndError(mediumID: MediumID, files: Iterable[FileData]):
-    Iterable[FileData] = {
+    def sendProcessingResultsAndError(mediumID: MediumID, files: Iterable[MediaFileUri]): Iterable[MediaFileUri] = {
       val successFiles = files dropRight 1
       val errResult = processingResult(mediumID, files.last).toError(new Exception("Error"))
       sendProcessingResults(mediumID, successFiles)

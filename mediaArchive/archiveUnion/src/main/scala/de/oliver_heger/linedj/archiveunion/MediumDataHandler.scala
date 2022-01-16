@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult, MetaDataProcessingSuccess}
 
@@ -37,7 +36,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * A set with the URIs of all files in this medium. This is used to
     * determine whether all data has been fetched.
     */
-  private val mediumUris = collection.mutable.Set.empty[String]
+  private val mediumUris = collection.mutable.Set.empty[MediaFileUri]
 
   /** The current data available for the represented medium. */
   protected var currentData: List[MetaDataChunk] = initialData()
@@ -52,8 +51,8 @@ private class MediumDataHandler(mediumID: MediumID) {
     *
     * @param files the files that are going to be processed
     */
-  def expectMediaFiles(files: Iterable[FileData]): Unit = {
-    mediumUris ++= files.map(_.path)
+  def expectMediaFiles(files: Iterable[MediaFileUri]): Unit = {
+    mediumUris ++= files
   }
 
   /**
@@ -72,7 +71,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
                  (f: (=> MetaDataChunk) => Unit): Boolean = {
-    mediumUris -= result.uri.uri
+    mediumUris -= result.uri
     val complete = isComplete
     nextChunkData = updateNextChunkData(result)
 

@@ -82,13 +82,14 @@ object ContentPropagationUpdateServiceSpec {
     medIdx * 100 + fileIdx * 10
 
   /**
-    * Generates the media files for the test medium with the given index.
+    * Generates the URIS of the media files for the test medium with the given
+    * index.
     *
     * @param idx the index
     * @return the map with the content of this medium
     */
-  private def mediumContent(idx: Int): Map[MediumID, Iterable[FileData]] = {
-    val files = (1 to idx).map(i => FileData(mediumFilePath(idx, i), fileSize(idx, i)))
+  private def mediumContent(idx: Int): Map[MediumID, Iterable[MediaFileUri]] = {
+    val files = (1 to idx).map(i => MediaFileUri(mediumFilePath(idx, i)))
     Map(mediumID(idx) -> files)
   }
 

@@ -133,14 +133,9 @@ object MetaDataManagerActorSpec {
     */
   private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
     val basePath = Option(mediumPath.getParent) getOrElse mediumPath
-
-    @tailrec
-    def loop(current: List[FileData], index: Int): List[FileData] = {
-      if (index == 0) current
-      else loop(FileData(basePath.resolve(s"TestFile_$index.mp3").toString, 20) :: current, index - 1)
+    (1 to count).toList.map { index =>
+      FileData(basePath.resolve(s"TestFile_$index.mp3").toString, 20)
     }
-
-    loop(Nil, count)
   }
 
   /**
@@ -218,6 +213,14 @@ object MetaDataManagerActorSpec {
   }
 
   /**
+    * Generates the URI for the given media file.
+    *
+    * @param file the file
+    * @return the URI for this file
+    */
+  private def fileUri(file: FileData): MediaFileUri = uriFor(Paths get file.path)
+
+  /**
     * Generates a global URI to file mapping for the given result object.
     *
     * @param result the ''MediaScanResult''
@@ -225,6 +228,15 @@ object MetaDataManagerActorSpec {
     */
   private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
     result.mediaFiles.values.flatten.map(f => (uriFor(Paths get f.path).uri, f)).toMap
+
+  /**
+    * Converts the medium files in the given scan result to their URIs.
+    *
+    * @param result the ''MediaScanResult''
+    * @return a map with medium IDs mapped to the URIs of contained files
+    */
+  private def convertToFileUris(result: MediaScanResult): Map[MediumID, List[MediaFileUri]] =
+    result.mediaFiles.map { e => e._1 -> (e._2 map fileUri) }
 
   /**
     * Helper method to ensure that no more messages are sent to a test probe.
@@ -798,7 +810,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     def expectMediaContribution(esr: EnhancedMediaScanResult = EnhancedScanResult):
     MetaDataManagerActorTestHelper = {
       metaDataUnionActor.expectMsg(UpdateOperationStarts(Some(actor)))
-      metaDataUnionActor.expectMsg(MediaContribution(esr.scanResult.mediaFiles))
+      metaDataUnionActor.expectMsg(MediaContribution(convertToFileUris(esr.scanResult)))
       this
     }
 
