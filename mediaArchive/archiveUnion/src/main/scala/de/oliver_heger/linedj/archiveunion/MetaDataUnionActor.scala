@@ -93,17 +93,16 @@ object MetaDataUnionActor {
   private val InitialComponentCounters = ComponentCounters(0, 0, 0, 0)
 
   /**
-    * Returns a flag whether the specified medium ID refers to files not
-    * assigned to a medium, but is not the global undefined medium. Such IDs
-    * have to be treated in a special way because the global undefined medium
-    * has to be updated.
+    * Updates the complete state of the given ''MetaDataChunk''. Only if
+    * necessary, a modified copy of the given chunk is created.
     *
-    * @param mediumID the medium ID to check
-    * @return a flag whether this is an unassigned medium
+    * @param chunk    the chunk in question
+    * @param complete the desired complete state
+    * @return the chunk with this complete state
     */
-  private def isUnassignedMedium(mediumID: MediumID): Boolean =
-    mediumID.mediumDescriptionPath.isEmpty && mediumID != MediumID.UndefinedMediumID
-
+  private def chunkWithCompletionState(chunk: MetaDataChunk, complete: Boolean): MetaDataChunk =
+    if (chunk.complete == complete) chunk
+    else chunk.copy(complete = complete)
 }
 
 /**
@@ -115,21 +114,21 @@ object MetaDataUnionActor {
   * archive component has to do the following interactions with this actor:
   *
   *  - At the beginning of the interaction an [[UpdateOperationStarts]] message
-  * has to be sent to announce that now meta data will be added.
+  *    has to be sent to announce that now meta data will be added.
   *  - A [[MediaContribution]] message has to be sent listing all media and
-  * files a component wants to contribute.
+  *    files a component wants to contribute.
   *  - For each file part of the contribution a [[MetaDataProcessingSuccess]]
-  * message has to be sent.
+  *    message has to be sent.
   *  - These two steps can be repeated, e.g. for multiple media managed by the
-  * archive component.
+  *    archive component.
   *  - When the component will send no more contributions, it should announce
-  * this by sending a [[UpdateOperationCompleted]] message.
+  *    this by sending a [[UpdateOperationCompleted]] message.
   *  - When data owned by a component becomes invalid and should be replaced
-  * with newer information the same steps have to be followed, but an
-  * [[ArchiveComponentRemoved]] message should be sent first; this removes
-  * all data related to this component. To be sure that the message has been
-  * processed, the confirmation should be waited for before actually sending
-  * data.
+  *    with newer information the same steps have to be followed, but an
+  *    [[ArchiveComponentRemoved]] message should be sent first; this removes
+  *    all data related to this component. To be sure that the message has been
+  *    processed, the confirmation should be waited for before actually sending
+  *    data.
   *
   * This protocol allows this actor to determine whether all meta data has been
   * received or whether processing results are still pending. This is required
@@ -168,6 +167,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private val mediumListeners =
     collection.mutable.Map.empty[MediumID, List[(ActorRef, Int)]]
 
+  /** Stores the listeners for the global undefined medium. */
+  private var undefinedMediumListeners = List.empty[(ActorRef, Int)]
+
   /** A list with the currently registered state listeners. */
   private var stateListeners = Set.empty[ActorRef]
 
@@ -186,9 +188,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
   /** A map with statistics about the currently known archive component IDs. */
   private var archiveComponentStats = Map.empty[String, ComponentCounters]
-
-  /** The special handler for the undefined medium. */
-  private val undefinedMediumHandler = new UndefinedMediumDataHandler
 
   /** A flag whether a scan is currently in progress. */
   private var scanInProgress = false
@@ -222,10 +221,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     case result: MetaDataProcessingResult if scanInProgress =>
       val completedMediaSize = completedMedia.size
       if (handleProcessingResult(result.mediumID, result)) {
-        if (isUnassignedMedium(result.mediumID)) {
-          // update global unassigned list
-          handleProcessingResult(MediumID.UndefinedMediumID, result)
-        }
         updateStatistics(result)
       }
       if (completedMedia.size != completedMediaSize) {
@@ -234,6 +229,26 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
     case ScanAllMedia if !scanInProgress =>
       initiateNewScan()
+
+    case GetMetaData(mediumID, registerAsListener, registrationID) if mediumID == MediumID.UndefinedMediumID =>
+      val chunks = mediaMap.filter(_._1.isArchiveUndefinedMedium)
+        .flatMap(_._2.metaData)
+      if (chunks.isEmpty) {
+        sender() ! UnknownMedium(mediumID)
+      } else {
+        val (first, last) = if (scanInProgress) (chunks, None)
+        else (chunks.init, chunks.lastOption)
+        first foreach { c =>
+          sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = false), registrationID)
+        }
+        last foreach { c =>
+          sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = true), registrationID)
+        }
+
+        if (registerAsListener) {
+          undefinedMediumListeners = (sender(), registrationID) :: undefinedMediumListeners
+        }
+      }
 
     case GetMetaData(mediumID, registerAsListener, registrationID) =>
       mediaMap get mediumID match {
@@ -348,7 +363,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     scanInProgress = true
     totalCounters = InitialComponentCounters
     completedMedia = Set.empty
-    undefinedMediumHandler.reset()
     archiveComponentStats = Map.empty
   }
 
@@ -364,10 +378,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2
-
-    if (isUnassignedMedium(mediumID)) {
-      mediaMap += (MediumID.UndefinedMediumID -> undefinedMediumHandler)
-    }
   }
 
   /**
@@ -400,14 +410,11 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID))) {
       mediumListeners remove mediumID
-      if (mediumID != MediumID.UndefinedMediumID) {
-        // the undefined medium is handled at the very end of the scan
-        completedMedia += mediumID
-        totalCounters = totalCounters.mediumCompleted()
-        updateComponentStats(mediumID.archiveComponentID)(_.mediumCompleted())
-        fireStateEvent(MediumMetaDataCompleted(mediumID))
-        fireStateEvent(createStateUpdatedEvent())
-      }
+      completedMedia += mediumID
+      totalCounters = totalCounters.mediumCompleted()
+      updateComponentStats(mediumID.archiveComponentID)(_.mediumCompleted())
+      fireStateEvent(MediumMetaDataCompleted(mediumID))
+      fireStateEvent(createStateUpdatedEvent())
     }
   }
 
@@ -422,6 +429,13 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     lazy val chunkMsg = chunk
     mediumListeners get mediumID foreach { l =>
       l foreach (t => sendMetaDataResponse(t._1, chunkMsg, t._2))
+    }
+
+    if (mediumID.isArchiveUndefinedMedium) {
+      lazy val incompleteChunkMsg = chunkWithCompletionState(chunkMsg, complete = false)
+      undefinedMediumListeners foreach { t =>
+        sendMetaDataResponse(t._1, incompleteChunkMsg, t._2)
+      }
     }
   }
 
@@ -476,12 +490,11 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   private def completeScanOperation(): Unit = {
     scanInProgress = false
     log.info("Scan stopped.")
-    undefinedMediumHandler.complete(handleCompleteChunk(MediumID.UndefinedMediumID))
     mediumListeners.remove(MediumID.UndefinedMediumID)
     if (hasUndefinedMedium) {
       fireStateEvent(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
     }
-    handlePendingMediumListener()
+    handlePendingMediumListeners()
     fireStateEvent(createStateUpdatedEvent()) // a final update event
     fireStateEvent(MetaDataScanCompleted)
     updateForRemovedArchiveComponent()
@@ -490,14 +503,22 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   /**
     * Takes care that pending medium listeners receive a final response
     * message. Such listeners are caused by removed archive components whose
-    * data is incomplete.
+    * data is incomplete. Listeners for the undefined medium always receive
+    * such a final message, because as long as the scan is in progress, there
+    * can always be a new archive-specific undefined medium.
     */
-  private def handlePendingMediumListener(): Unit = {
+  private def handlePendingMediumListeners(): Unit = {
     mediumListeners.foreach { e =>
       lazy val chunk = MetaDataChunk(e._1, Map.empty, complete = true)
       e._2 foreach (l => sendMetaDataResponse(l._1, chunk, l._2))
     }
     mediumListeners.clear()
+
+    lazy val lastUndefinedMediumChunk = MetaDataChunk(MediumID.UndefinedMediumID, Map.empty, complete = true)
+    undefinedMediumListeners foreach { t =>
+      sendMetaDataResponse(t._1, lastUndefinedMediumChunk, t._2)
+    }
+    undefinedMediumListeners = Nil
   }
 
   /**
@@ -543,10 +564,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         songCount = totalCounters.songCount - c.counters.songCount,
         size = totalCounters.size - c.counters.size,
         duration = totalCounters.duration - c.counters.duration)
-      if (!undefinedMediumHandler.removeDataFromComponent(c.componentID,
-        config.metaDataMaxMessageSize)) {
-        mediaMap.remove(MediumID.UndefinedMediumID)
-      }
       c.sender ! RemovedArchiveComponentProcessed(c.componentID)
     }
     fireStateEvent(MetaDataScanStarted)

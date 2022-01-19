@@ -141,7 +141,7 @@ object MetaDataUnionActorSpec {
     * Generates a meta data processing result for the specified parameters.
     *
     * @param mediumID the medium ID
-    * @param uri     the URI of the media file
+    * @param uri      the URI of the media file
     * @return a successful processing result for this file
     */
   private def processingResult(mediumID: MediumID, uri: MediaFileUri): MetaDataProcessingSuccess =
@@ -259,10 +259,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * Checks whether a meta data chunk received from the test actor contains the
     * expected data for the given medium ID.
     *
-    * @param msg           the chunk message to be checked
-    * @param mediumID      the medium ID as string
+    * @param msg          the chunk message to be checked
+    * @param mediumID     the medium ID as string
     * @param expectedUris the URIs of the expected files
-    * @param expComplete   the expected complete flag
+    * @param expComplete  the expected complete flag
     */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
                                  expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
@@ -273,10 +273,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * Checks whether a meta data chunk received from the test actor contains the
     * expected data for the given medium ID and verifies the URIs in the chunk.
     *
-    * @param msg           the chunk message to be checked
-    * @param mediumID      the medium ID as string
+    * @param msg          the chunk message to be checked
+    * @param mediumID     the medium ID as string
     * @param expectedUris the URIs of the expected files
-    * @param expComplete   the expected complete flag
+    * @param expComplete  the expected complete flag
     */
   private def checkMetaDataChunkWithUris(msg: MetaDataChunk, mediumID: MediumID,
                                          expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
@@ -371,26 +371,21 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       expComplete = true)
   }
 
-  // TODO: Rework handling of the global undefined medium.
-  ignore should "handle the undefined medium even over multiple contributions" in {
-    def findUrisInChunk(chunk: MetaDataChunk, uris: Iterable[MediaFileUri]): Unit = {
-      uris.map(_.uri).filterNot(chunk.data.contains) shouldBe empty
-    }
-
+  it should "handle the undefined medium even over multiple contributions" in {
     val helper = new MetaDataUnionActorTestHelper
     helper.sendContribution()
     val filesForChunk1 = Contribution.files(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
-    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true,
-      TestRegistrationID)
-    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
-      filesForChunk1, expComplete = false)
+    helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true, TestRegistrationID)
+    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk1,
+      expComplete = false)
     val filesForChunk2 = List(Contribution.files(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
     Contribution.files.filterNot(_._1.mediumDescriptionPath.isEmpty)
       .foreach(e => helper.sendProcessingResults(e._1, e._2))
-    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), MediumID.UndefinedMediumID,
-      filesForChunk2, expComplete = true)
+    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk2,
+      expComplete = false)
+    helper.expectUndefinedMediumCompletionResponse()
 
     val filesForChunk3 = generateMediaFiles(path("fileOnOtherMedium"), 4)
     val root2 = path("anotherRootDirectory")
@@ -399,9 +394,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendContribution(contribution2)
       .sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
-    val chunk = helper.expectMetaDataResponse(0)
-    findUrisInChunk(chunk, Contribution.files(UndefinedMediumID))
-    findUrisInChunk(chunk, filesForChunk3)
+    val chunks = helper.expectMetaDataResponsesFor(0, UndefinedMediumID, UndefinedMediumID2)
+    checkMetaDataChunkWithUris(chunks(UndefinedMediumID), UndefinedMediumID, Contribution.files(UndefinedMediumID),
+      chunks.isComplete(UndefinedMediumID))
+    checkMetaDataChunkWithUris(chunks(UndefinedMediumID2), UndefinedMediumID2, filesForChunk3,
+      chunks.isComplete(UndefinedMediumID2))
+    chunks.checkCompletedFlags()
   }
 
   it should "split large chunks of meta data into multiple ones" in {
@@ -746,8 +744,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     chunk2 should be theSameInstanceAs chunk
   }
 
-  // TODO: Rework handling of the global undefined medium.
-  ignore should "handle multiple chunks of the undefined medium if a component is removed" in {
+  it should "handle multiple chunks of the undefined medium if a component is removed" in {
     val helper = new MetaDataUnionActorTestHelper
     val mid = MediumID("alternativeMedium", None, "alternativeComponent")
     val alternativeContribution =
@@ -758,11 +755,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .processContribution(alternativeContribution)
       .sendArchiveComponentRemoved(mid.archiveComponentID)
 
-    val chunk1 = helper.queryAndExpectMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
-    chunk1.complete shouldBe false
-    val chunk2 = helper.expectMetaDataResponse()
-    chunk2.complete shouldBe true
-    val allKeys = chunk1.data.keySet ++ chunk2.data.keySet
+    val undefinedIDs = List(Contribution, otherContrib).flatMap(_.files.keys)
+      .filter(_.mediumDescriptionPath.isEmpty)
+    helper.queryMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
+    val chunks = helper.expectMetaDataResponsesFor(TestRegistrationID, undefinedIDs: _*)
+    chunks.checkCompletedFlags()
+    val allKeys = chunks.chunks.flatMap(_._2.data.keys)
     val uris = (undefinedMediumUris(Contribution).toSeq ++ undefinedMediumUris(otherContrib)).map(_.uri)
     allKeys should contain only (uris: _*)
   }
@@ -1076,6 +1074,36 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
     /**
+      * Expects a number of meta data chunks for different media and returns a
+      * map with the received results.
+      *
+      * @param registrationID the registration ID
+      * @param ids            the IDs of the media in the expected chunks
+      * @return an object with the received chunks
+      */
+    def expectMetaDataResponsesFor(registrationID: Int, ids: MediumID*): MultiChunkResponse = {
+      val chunks = (1 to ids.size) map { _ =>
+        val chunk = expectMetaDataResponse(registrationID)
+        chunk.mediumID -> chunk
+      }
+      chunks.map(_._1) should contain only (ids: _*)
+      MultiChunkResponse(chunks)
+    }
+
+    /**
+      * Expects that a completion chunk for the undefined medium is received.
+      *
+      * @param registrationID the registration ID
+      * @return this test helper
+      */
+    def expectUndefinedMediumCompletionResponse(registrationID: Int = TestRegistrationID):
+    MetaDataUnionActorTestHelper = {
+      expectMetaDataResponse(registrationID) should be(MetaDataChunk(MediumID.UndefinedMediumID,
+        Map.empty, complete = true))
+      this
+    }
+
+    /**
       * Sends a request for meta data for the test actor and expects a response.
       *
       * @param mediumID           the medium ID
@@ -1271,5 +1299,44 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     when(config.metaDataUpdateChunkSize).thenReturn(2)
     when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
     config
+  }
+
+  /**
+    * A data class that represents multiple received meta data chunks and
+    * offers some functionality to test them. This is mainly used for tests
+    * related to the global undefined medium where chunks from different media
+    * are involved.
+    *
+    * @param chunks the list with chunks (in the order they were received)
+    */
+  private case class MultiChunkResponse(chunks: IndexedSeq[(MediumID, MetaDataChunk)]) {
+    /**
+      * Returns the chunk for the given medium ID or throws an exception if
+      * there is no such chunk.
+      *
+      * @param mid the ''MediumID''
+      * @return the chunk associated with this medium ID
+      */
+    def apply(mid: MediumID): MetaDataChunk = chunks.find(_._1 == mid).map(_._2).get
+
+    /**
+      * Checks the complete flags of the chunks contained in this object. The
+      * function expects that only for the last chunk the complete flag is
+      * '''true'''. Note: This function expects that the list of chunks is not
+      * empty.
+      */
+    def checkCompletedFlags(): Unit = {
+      chunks.init foreach (_._2.complete shouldBe false)
+      chunks.last._2.complete shouldBe true
+    }
+
+    /**
+      * Convenience function to return the ''complete'' flag of the chunk for
+      * the given medium ID.
+      *
+      * @param mid the ''MediumID''
+      * @return the ''complete'' flag of this chunk
+      */
+    def isComplete(mid: MediumID): Boolean = apply(mid).complete
   }
 }
