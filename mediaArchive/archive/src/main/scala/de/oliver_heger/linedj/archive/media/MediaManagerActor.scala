@@ -160,8 +160,10 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       handleScanRequest()
 
     case GetMediumFiles(mediumID) =>
-      val optResponse = scanState.fileData.get(mediumID) map
-        (files => MediumFiles(mediumID, files.keySet, Set.empty, existing = true))
+      val optResponse = scanState.fileData.get(mediumID) map { files =>
+        val fileIDs = files.keys map (uri => MediaFileID(mediumID, uri))
+        MediumFiles(mediumID, Set.empty, fileIDs.toSet, existing = true)
+      }
       sender() ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
 
     case request: MediumFileRequest =>

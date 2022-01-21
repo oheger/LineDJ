@@ -351,13 +351,14 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "support queries for the files of a medium" in {
+    val expectedIDs = TestFileData(TestMedium).keys map { uri => MediaFileID(TestMedium, uri) }
     val helper = new MediaManagerTestHelper
 
     helper.passTestData()
       .post(GetMediumFiles(TestMedium))
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(TestMedium)
-    msgFiles.uris should contain theSameElementsAs TestFileData(TestMedium).keys
+    msgFiles.fileIDs should contain theSameElementsAs expectedIDs
     msgFiles.existing shouldBe true
   }
 
@@ -368,7 +369,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper post GetMediumFiles(mid)
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(mid)
-    msgFiles.uris should have size 0
+    msgFiles.fileIDs shouldBe empty
     msgFiles.existing shouldBe false
   }
 
