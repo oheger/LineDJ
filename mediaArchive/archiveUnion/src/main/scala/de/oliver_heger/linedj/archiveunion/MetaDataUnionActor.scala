@@ -231,37 +231,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       initiateNewScan()
 
     case GetMetaData(mediumID, registerAsListener, registrationID) if mediumID == MediumID.UndefinedMediumID =>
-      val chunks = mediaMap.filter(_._1.isArchiveUndefinedMedium)
-        .flatMap(_._2.metaData)
-      if (chunks.isEmpty) {
-        sender() ! UnknownMedium(mediumID)
-      } else {
-        val (first, last) = if (scanInProgress) (chunks, None)
-        else (chunks.init, chunks.lastOption)
-        first foreach { c =>
-          sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = false), registrationID)
-        }
-        last foreach { c =>
-          sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = true), registrationID)
-        }
-
-        if (registerAsListener) {
-          undefinedMediumListeners = (sender(), registrationID) :: undefinedMediumListeners
-        }
-      }
+      handleGetMetaDataForUndefinedMedium(registerAsListener, registrationID)
 
     case GetMetaData(mediumID, registerAsListener, registrationID) =>
-      mediaMap get mediumID match {
-        case None =>
-          sender() ! UnknownMedium(mediumID)
-
-        case Some(handler) =>
-          handler.metaData foreach (sendMetaDataResponse(sender(), _, registrationID))
-          if (registerAsListener && !handler.isComplete) {
-            val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
-            mediumListeners(mediumID) = newListeners
-          }
-      }
+      handleGetMetaData(mediumID, registerAsListener, registrationID)
 
     case RemoveMediumListener(mediumID, listener) =>
       val listeners = mediumListeners.getOrElse(mediumID, Nil)
@@ -313,6 +286,84 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       if (removeProcessorActor(actor)) {
         log.warning("A processor actor terminated. Removed from collection.")
       }
+  }
+
+  /**
+    * Handles a request for meta data for the undefined medium. For this
+    * synthetic medium no dedicated handler exists; therefore, such requests
+    * need to be treated in a special way.
+    *
+    * @param registerAsListener flag whether a listener is to be registered
+    * @param registrationID     the registration ID
+    */
+  private def handleGetMetaDataForUndefinedMedium(registerAsListener: Boolean, registrationID: Int): Unit = {
+    val chunks = mediaMap.filter(_._1.isArchiveUndefinedMedium)
+      .flatMap(_._2.metaData)
+    if (chunks.isEmpty) {
+      if (scanInProgress && registerAsListener) {
+        registerUndefinedMediumListener(registrationID)
+      } else {
+        sender() ! UnknownMedium(MediumID.UndefinedMediumID)
+      }
+
+    } else {
+      val (first, last) = if (scanInProgress) (chunks, None)
+      else (chunks.init, chunks.lastOption)
+      first foreach { c =>
+        sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = false), registrationID)
+      }
+      last foreach { c =>
+        sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = true), registrationID)
+      }
+
+      if (registerAsListener && scanInProgress) {
+        registerUndefinedMediumListener(registrationID)
+      }
+    }
+  }
+
+  /**
+    * Handles a request for meta data for a specific medium.
+    *
+    * @param mediumID           the medium ID
+    * @param registerAsListener flag whether a listener is to be registered
+    * @param registrationID     the registration ID
+    */
+  private def handleGetMetaData(mediumID: MediumID, registerAsListener: Boolean, registrationID: Int): Unit = {
+    mediaMap get mediumID match {
+      case None =>
+        if (scanInProgress && registerAsListener) {
+          registerMediumListener(mediumID, registrationID)
+        } else {
+          sender() ! UnknownMedium(mediumID)
+        }
+
+      case Some(handler) =>
+        handler.metaData foreach (sendMetaDataResponse(sender(), _, registrationID))
+        if (registerAsListener && !handler.isComplete) {
+          registerMediumListener(mediumID, registrationID)
+        }
+    }
+  }
+
+  /**
+    * Adds a registration for a medium listener.
+    *
+    * @param mediumID       the ID of the medium in question
+    * @param registrationID the registration ID
+    */
+  private def registerMediumListener(mediumID: MediumID, registrationID: Int): Unit = {
+    val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
+    mediumListeners(mediumID) = newListeners
+  }
+
+  /**
+    * Adds a listener registration for the global undefined medium.
+    *
+    * @param registrationID the registration ID
+    */
+  private def registerUndefinedMediumListener(registrationID: Int): Unit = {
+    undefinedMediumListeners = (sender(), registrationID) :: undefinedMediumListeners
   }
 
   /**

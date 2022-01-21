@@ -36,6 +36,9 @@ object MetaDataUnionActorSpec {
   /** The maximum message size. */
   private val MaxMessageSize = 24
 
+  /** The sizes of chunk for sending updates to listeners. */
+  private val UpdateChunkSize = 2
+
   /** Constant for a default archive component ID. */
   private val ArchiveCompID = "testArchiveComponent"
 
@@ -157,8 +160,7 @@ object MetaDataUnionActorSpec {
     val fileData = MediaIDs zip numbersOfSongs map { e =>
       (e._1, generateMediaFiles(path(e._1.mediumDescriptionPath.get), e._2))
     }
-    val fileMap = Map(fileData: _*) + (MediumID(RootPath.toString, None) -> generateMediaFiles
-    (path("noMedium"), 11))
+    val fileMap = Map(fileData: _*) + (UndefinedMediumID -> generateMediaFiles(path("noMedium"), 11))
     MediaContribution(fileMap)
   }
 
@@ -257,7 +259,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   /**
     * Checks whether a meta data chunk received from the test actor contains the
-    * expected data for the given medium ID.
+    * expected data for the given medium ID and verifies the URIs in the chunk.
     *
     * @param msg          the chunk message to be checked
     * @param mediumID     the medium ID as string
@@ -266,20 +268,6 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def checkMetaDataChunk(msg: MetaDataChunk, mediumID: MediumID,
                                  expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
-    checkMetaDataChunkWithUris(msg, mediumID, expectedUris, expComplete)
-  }
-
-  /**
-    * Checks whether a meta data chunk received from the test actor contains the
-    * expected data for the given medium ID and verifies the URIs in the chunk.
-    *
-    * @param msg          the chunk message to be checked
-    * @param mediumID     the medium ID as string
-    * @param expectedUris the URIs of the expected files
-    * @param expComplete  the expected complete flag
-    */
-  private def checkMetaDataChunkWithUris(msg: MetaDataChunk, mediumID: MediumID,
-                                         expectedUris: Iterable[MediaFileUri], expComplete: Boolean): Unit = {
     msg.mediumID should be(mediumID)
     msg.data should have size expectedUris.size
     expectedUris foreach { uri =>
@@ -323,6 +311,12 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.queryAndExpectUnknownMedium(mediumID)
   }
 
+  it should "send an unknown answer for the undefined medium if it does not exist" in {
+    val helper = new MetaDataUnionActorTestHelper
+
+    helper.queryAndExpectUnknownMedium(MediumID.UndefinedMediumID)
+  }
+
   it should "allow querying a complete medium" in {
     val helper = new MetaDataUnionActorTestHelper
     helper.sendContribution()
@@ -351,13 +345,36 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     val filesForChunk1 = Contribution.files(TestMediumID).take(2)
     helper.sendProcessingResults(TestMediumID, filesForChunk1)
-    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk1,
-      expComplete = false)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk1, expComplete = false)
 
     val filesForChunk2 = List(Contribution.files(TestMediumID).last)
     helper.sendProcessingResults(TestMediumID, filesForChunk2)
-    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk2,
-      expComplete = true)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), TestMediumID, filesForChunk2, expComplete = true)
+  }
+
+  it should "handle queries for unknown media while a scan is in progress with a listener registration" in {
+    val contribution2 = createContributionFromOtherComponent()
+    val testID = contribution2.files.keys.iterator.next()
+    val expChunkCount = contribution2.files(testID).size / UpdateChunkSize
+    val helper = new MetaDataUnionActorTestHelper
+
+    val chunks = helper.sendContribution()
+      .queryMetaData(testID, registerAsListener = true)
+      .sendContribution(contribution2)
+      .sendAllProcessingResults(Contribution)
+      .sendAllProcessingResults(contribution2)
+      .expectMetaDataResponsesFor(TestRegistrationID, List.fill(expChunkCount)(testID): _*)
+    chunks.checkCompletedFlags()
+    checkMetaDataChunk(chunks.mergeChunks(testID), testID, contribution2.files(testID), expComplete = true)
+  }
+
+  it should "handle queries for unknown media while a scan is in progress without a listener registration" in {
+    val testID = MediumID("unknownMedium", Some("somePath"), "someComponent")
+    val helper = new MetaDataUnionActorTestHelper
+
+    helper.sendContribution()
+      .queryMetaData(testID, registerAsListener = false)
+      .expectUnknownMedium(testID)
   }
 
   it should "allow querying files not assigned to a medium" in {
@@ -366,9 +383,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val files = Contribution.files(UndefinedMediumID)
     helper.sendProcessingResults(UndefinedMediumID, files)
 
-    helper.actor ! GetMetaData(UndefinedMediumID, registerAsListener = false, 0)
-    checkMetaDataChunk(helper.expectMetaDataResponse(0), UndefinedMediumID, files,
-      expComplete = true)
+    helper.queryMetaData(UndefinedMediumID, registerAsListener = false, 0)
+    checkMetaDataChunk(helper.expectMetaDataResponse(0), UndefinedMediumID, files, expComplete = true)
   }
 
   it should "handle the undefined medium even over multiple contributions" in {
@@ -377,13 +393,13 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val filesForChunk1 = Contribution.files(UndefinedMediumID) dropRight 1
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk1)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true, TestRegistrationID)
-    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk1,
+    checkMetaDataChunk(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk1,
       expComplete = false)
     val filesForChunk2 = List(Contribution.files(UndefinedMediumID).last)
     helper.sendProcessingResults(UndefinedMediumID, filesForChunk2)
     Contribution.files.filterNot(_._1.mediumDescriptionPath.isEmpty)
       .foreach(e => helper.sendProcessingResults(e._1, e._2))
-    checkMetaDataChunkWithUris(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk2,
+    checkMetaDataChunk(helper.expectMetaDataResponse(), UndefinedMediumID, filesForChunk2,
       expComplete = false)
     helper.expectUndefinedMediumCompletionResponse()
 
@@ -395,11 +411,47 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .sendProcessingResults(UndefinedMediumID2, filesForChunk3)
     helper.actor ! GetMetaData(MediumID.UndefinedMediumID, registerAsListener = false, 0)
     val chunks = helper.expectMetaDataResponsesFor(0, UndefinedMediumID, UndefinedMediumID2)
-    checkMetaDataChunkWithUris(chunks(UndefinedMediumID), UndefinedMediumID, Contribution.files(UndefinedMediumID),
+    checkMetaDataChunk(chunks(UndefinedMediumID), UndefinedMediumID, Contribution.files(UndefinedMediumID),
       chunks.isComplete(UndefinedMediumID))
-    checkMetaDataChunkWithUris(chunks(UndefinedMediumID2), UndefinedMediumID2, filesForChunk3,
+    checkMetaDataChunk(chunks(UndefinedMediumID2), UndefinedMediumID2, filesForChunk3,
       chunks.isComplete(UndefinedMediumID2))
     chunks.checkCompletedFlags()
+  }
+
+  it should "handle a query for the undefined medium while a scan is in progress with a listener registration" in {
+    val data = Map(TestMediumID -> generateMediaFiles(path(TestMediumID.mediumURI), 4))
+    val contribution = MediaContribution(data)
+    val helper = new MetaDataUnionActorTestHelper
+
+    helper.sendContribution(contribution)
+      .queryMetaData(MediumID.UndefinedMediumID, registerAsListener = true)
+      .processContribution(contribution)
+      .expectUndefinedMediumCompletionResponse()
+  }
+
+  it should "handle a query for the undefined medium while a scan is in progress without a listener registration" in {
+    val data = Map(TestMediumID -> generateMediaFiles(path(TestMediumID.mediumURI), 1))
+    val contribution = MediaContribution(data)
+    val helper = new MetaDataUnionActorTestHelper
+
+    helper.sendContribution(contribution)
+      .queryMetaData(MediumID.UndefinedMediumID, registerAsListener = false)
+      .expectUnknownMedium(MediumID.UndefinedMediumID)
+  }
+
+  it should "not register a listener for the undefined medium if no scan is in progress" in {
+    val contribution2 = createContributionFromOtherComponent()
+    val probe = TestProbe()
+    val helper = new MetaDataUnionActorTestHelper
+    helper.sendContribution(Contribution)
+      .processContribution(Contribution)
+    helper.actor.tell(GetMetaData(MediumID.UndefinedMediumID, registerAsListener = true, TestRegistrationID),
+      probe.ref)
+    probe.expectMsgType[MetaDataResponse]
+
+    helper.sendContribution(contribution2)
+      .processContribution(contribution2)
+    expectNoMoreMessage(probe)
   }
 
   it should "split large chunks of meta data into multiple ones" in {
@@ -409,10 +461,8 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val medID = extractMediumID(processAnotherContribution(helper, files))
 
     helper.queryMetaData(medID, registerAsListener = true)
-    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files take MaxMessageSize,
-      expComplete = false)
-    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files drop MaxMessageSize,
-      expComplete = true)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files take MaxMessageSize, expComplete = false)
+    checkMetaDataChunk(helper.expectMetaDataResponse(), medID, files drop MaxMessageSize, expComplete = true)
   }
 
   it should "allow removing a medium listener" in {
@@ -423,8 +473,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     helper.actor ! RemoveMediumListener(TestMediumID, testActor)
     helper.sendProcessingResults(TestMediumID, Contribution.files(TestMediumID))
-    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
-      TestMediumID, Contribution.files(TestMediumID), expComplete = true)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false), TestMediumID, Contribution.files(TestMediumID), expComplete = true)
   }
 
   it should "ignore an unknown medium when removing a medium listener" in {
@@ -572,8 +621,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendScanStartsMessage().sendContribution()
       .sendProcessingResults(TestMediumID, results)
       .sendProcessingResults(MediaIDs(1), Contribution.files(MediaIDs(1)))
-    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
-      TestMediumID, results, expComplete = false)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false), TestMediumID, results, expComplete = false)
   }
 
   it should "send an event if the scan is canceled" in {
@@ -651,8 +699,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
         false
     }
     val mid = extractMediumID(contrib2)
-    checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = false), mid,
-      contrib2.files(mid), expComplete = true)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = false), mid, contrib2.files(mid), expComplete = true)
     startEventCount.get() should be(1)
   }
 
@@ -672,8 +719,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .sendAllProcessingResults(Contribution).sendAllProcessingResults(otherContrib)
 
     helper.sendArchiveComponentRemoved()
-    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false),
-      TestMediumID, Contribution.files(TestMediumID), expComplete = true)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(TestMediumID, registerAsListener = false), TestMediumID, Contribution.files(TestMediumID), expComplete = true)
     otherContrib.files.keys foreach helper.queryAndExpectUnknownMedium
   }
 
@@ -855,8 +901,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val files = contrib.files(mid) take 2
     helper.sendContribution(contrib).processContribution(Contribution)
       .sendProcessingResults(mid, files)
-    checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = true),
-      mid, files, expComplete = false)
+    checkMetaDataChunk(helper.queryAndExpectMetaData(mid, registerAsListener = true), mid, files, expComplete = false)
 
     val chunk = helper.sendArchiveComponentRemoved(expectResponse = false)
       .expectMetaDataResponse()
@@ -1086,7 +1131,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
         val chunk = expectMetaDataResponse(registrationID)
         chunk.mediumID -> chunk
       }
-      chunks.map(_._1) should contain only (ids: _*)
+      chunks.map(_._1) should contain theSameElementsAs ids
       MultiChunkResponse(chunks)
     }
 
@@ -1100,6 +1145,17 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     MetaDataUnionActorTestHelper = {
       expectMetaDataResponse(registrationID) should be(MetaDataChunk(MediumID.UndefinedMediumID,
         Map.empty, complete = true))
+      this
+    }
+
+    /**
+      * Expects an unknown medium response for the given medium.
+      *
+      * @param mediumID the medium ID
+      * @return this test helper
+      */
+    def expectUnknownMedium(mediumID: MediumID): MetaDataUnionActorTestHelper = {
+      expectMsg(UnknownMedium(mediumID))
       this
     }
 
@@ -1126,8 +1182,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       */
     def queryAndExpectUnknownMedium(mediumID: MediumID): MetaDataUnionActorTestHelper = {
       queryMetaData(mediumID, registerAsListener = false)
-      expectMsg(UnknownMedium(mediumID))
-      this
+      expectUnknownMedium(mediumID)
     }
 
     /**
@@ -1296,7 +1351,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def createConfig() = {
     val config = mock[MediaArchiveConfig]
-    when(config.metaDataUpdateChunkSize).thenReturn(2)
+    when(config.metaDataUpdateChunkSize).thenReturn(UpdateChunkSize)
     when(config.metaDataMaxMessageSize).thenReturn(MaxMessageSize)
     config
   }
@@ -1338,5 +1393,20 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the ''complete'' flag of this chunk
       */
     def isComplete(mid: MediumID): Boolean = apply(mid).complete
+
+    /**
+      * Returns a merged chunk that contains all the data of chunks with the
+      * given ''MediumID''.
+      *
+      * @param mid      the ''MediumID''
+      * @param complete the complete flag
+      * @return the merged ''MetaDataChunk''
+      */
+    def mergeChunks(mid: MediumID, complete: Boolean = true): MetaDataChunk = {
+      val data = chunks.filter(_._1 == mid)
+        .flatMap(_._2.data)
+        .toMap
+      MetaDataChunk(mid, data, complete)
+    }
   }
 }
