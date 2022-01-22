@@ -20,12 +20,62 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataChunk, MetaDataResponse}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.utils.LRUCache
 import org.apache.logging.log4j.LogManager
 
 object MetaDataCache {
+  /**
+    * A data class representing the content of a medium as served by this
+    * cache.
+    *
+    * An instance stores information about the files contained on a medium and
+    * their meta data. It is closely related to the [[MetaDataChunk]] class;
+    * but while the latter is optimized for transporting data from the archive
+    * to client components, this class allows easier access to single files by
+    * storing their [[MediaFileID]]. (This is necessary for files stemming from
+    * different media, as is the case for the synthetic global undefined
+    * medium.) Note that these IDs do not contain a checksum, since checksums
+    * for media are not available to the ''MetaDataCache''.
+    *
+    * @param data     a map with data about the files on this medium
+    * @param complete a flag whether the content has been loaded completely
+    */
+  case class MediumContent(data: Map[MediaFileID, MediaMetaData],
+                           complete: Boolean) {
+    /**
+      * Returns a new instance that contains the data of this instance plus the
+      * data of the given ''MetaDataChunk''. The ''complete'' flag from the
+      * chunk is evaluated as well.
+      *
+      * @param chunk the ''MetaDataChunk'' to be added
+      * @return the updated ''MediumContent''
+      */
+    def addChunk(chunk: MetaDataChunk): MediumContent = {
+      val chunkData = chunk.data map { e =>
+        (MediaFileID(chunk.mediumID, e._1), e._2)
+      }
+      MediumContent(data ++ chunkData, chunk.complete)
+    }
+
+    /**
+      * Returns a new instance with a map of data whose [[MediaFileID]]s have
+      * checksums resolved from the ''AvailableMedia'' instance if possible.
+      * Using this function, full IDs can be generated if the list of available
+      * media is known.
+      *
+      * @param availableMedia the ''AvailableMedia'' instance
+      * @return an updated ''MediumContent'' with checksums in the IDs
+      */
+    def resolveChecksums(availableMedia: AvailableMedia): MediumContent =
+      copy(data = data map { e =>
+        val id = availableMedia.media.get(e._1.mediumID).map(info => e._1.copy(checksum = Some(info.checksum)))
+          .getOrElse(e._1)
+        if (id != e._1) (id, e._2) else e
+      })
+  }
+
   /**
     * A message class processed by [[MetaDataCache]] to add a registration for the
     * meta data of a medium.
@@ -57,6 +107,13 @@ object MetaDataCache {
     * @param listenerID the unique listener ID
     */
   case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: ComponentID)
+
+  /**
+    * Constant for an empty ''MediumContent'' instance. Starting from this
+    * instance, content objects can be constructed by adding chunks of meta
+    * data.
+    */
+  final val EmptyContent: MediumContent = MediumContent(Map.empty, complete = false)
 
   /** Constant for the chunk for an unknown medium. */
   private val UndefinedChunk = MetaDataChunk(null, Map.empty, complete = false)

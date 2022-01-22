@@ -17,12 +17,11 @@
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
 import java.nio.file.Paths
-
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataResponse}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
@@ -54,6 +53,23 @@ object MetaDataCacheSpec {
     */
   private def mediumID(idx: Int): MediumID =
     MediumID(s"$idx. Hot Playlist", Some(Paths.get(s"playlist$idx.settings").toString))
+
+  /**
+    * Creates the URI of a test song based on the given index.
+    *
+    * @param idx the index of the song
+    * @return the URI for this test song
+    */
+  private def songUri(idx: Int): String = s"test/song$idx.mp3"
+
+  /**
+    * Creates an object with meta data for a test song based on the given
+    * index.
+    *
+    * @param idx the index of the song
+    * @return meta data for this test song
+    */
+  private def songMetaData(idx: Int): MediaMetaData = MediaMetaData(title = Some(s"Title$idx"))
 
   /**
     * Extracts the index from a test medium ID.
@@ -89,10 +105,24 @@ object MetaDataCacheSpec {
     */
   private def createChunk(songIndices: Seq[Int], complete: Boolean, mediumID: MediumID):
   MetaDataResponse = {
-    val songMappings = songIndices map (i => s"Song$i" -> MediaMetaData(title = Some(s"Title$i")))
+    val songMappings = songIndices map (i => songUri(i) -> songMetaData(i))
     MetaDataResponse(MetaDataChunk(mediumID, Map(songMappings: _*), complete),
       extractIndex(mediumID))
   }
+
+  /**
+    * Generates a map with data for the content of a medium based on a number
+    * of test songs and a given medium ID.
+    *
+    * @param songIndices the indices of the test songs
+    * @param mid         the ID of the medium
+    * @return a map with content data
+    */
+  private def contentData(songIndices: Seq[Int], mid: MediumID = Medium): Map[MediaFileID, MediaMetaData] =
+    songIndices.map { idx =>
+      val id = MediaFileID(mid, songUri(idx))
+      id -> songMetaData(idx)
+    }.toMap
 
   /**
     * Creates a response with a number of songs for the given medium. The song
@@ -103,8 +133,7 @@ object MetaDataCacheSpec {
     * @param mediumIdx     the index of the medium
     * @return generated meta data for this medium
     */
-  private def createMetaDataForMedium(numberOfSongs: Int, complete: Boolean, mediumIdx: Int):
-  MetaDataResponse =
+  private def createMetaDataForMedium(numberOfSongs: Int, complete: Boolean, mediumIdx: Int): MetaDataResponse =
     createChunk((1 to numberOfSongs).map(_ + 1000 * mediumIdx), complete, mediumID(mediumIdx))
 
   /**
@@ -115,8 +144,7 @@ object MetaDataCacheSpec {
     * @param media indices of media for which data is to be generated
     * @return a sequence with meta data for each medium
     */
-  private def createMetaData(media: Int*):
-  Seq[MetaDataResponse] =
+  private def createMetaData(media: Int*): Seq[MetaDataResponse] =
     media map (createMetaDataForMedium(SongsPerMedium, complete = true, _))
 
   /**
@@ -220,6 +248,61 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private def verifyReceivedChunks(buffer: ListBuffer[MetaDataChunk],
                                    chunks: MetaDataResponse*): Unit = {
     buffer.toList should be(chunks.map(_.chunk).toList)
+  }
+
+  "A MediumContent" should "provide an empty instance" in {
+    MetaDataCache.EmptyContent.data shouldBe empty
+    MetaDataCache.EmptyContent.complete shouldBe false
+  }
+
+  it should "allow adding a chunk" in {
+    val songIndices = Seq(1, 2, 3)
+    val chunk = createChunk(songIndices, complete = false, Medium).chunk
+    val expData = contentData(songIndices)
+
+    val content = MetaDataCache.EmptyContent.addChunk(chunk)
+    content.complete shouldBe false
+    content.data should contain theSameElementsAs expData
+  }
+
+  it should "combine multiple chunks" in {
+    val medium2 = mediumID(2)
+    val songIndices1 = Seq(1, 2, 3)
+    val songIndices2 = Seq(11, 12, 13)
+    val chunk1 = createChunk(songIndices1, complete = false, Medium).chunk
+    val chunk2 = createChunk(songIndices2, complete = true, medium2).chunk
+    val expData = contentData(songIndices1) ++ contentData(songIndices2, medium2)
+
+    val content = MetaDataCache.EmptyContent.addChunk(chunk1).addChunk(chunk2)
+    content.complete shouldBe true
+    content.data should contain theSameElementsAs expData
+  }
+
+  it should "resolve checksums in the file IDs" in {
+    def checksum(idx: Int): String = s"check$idx"
+
+    def createInfo(idx: Int): MediumInfo =
+      MediumInfo("name" + idx, "someDesc" + idx, mediumID(idx), "noOrder", "noParams", checksum(idx))
+
+    val chunk1 = createChunk(1, complete = false).chunk
+    val chunk2 = createChunk(2, complete = false, mediumID(2)).chunk
+    val chunk3 = createChunk(3, complete = true, mediumID(13)).chunk
+    val availableMedia = AvailableMedia(
+      List(Medium -> createInfo(1),
+        mediumID(2) -> createInfo(2),
+        mediumID(3) -> createInfo(3))
+    )
+    val expData = Map(MediaFileID(Medium, songUri(1), Some(checksum(1))) -> songMetaData(1),
+      MediaFileID(mediumID(2), songUri(2), Some(checksum(2))) -> songMetaData(2),
+      MediaFileID(mediumID(13), songUri(3)) -> songMetaData(3))
+    val content = MetaDataCache.EmptyContent
+      .addChunk(chunk1)
+      .addChunk(chunk2)
+      .addChunk(chunk3)
+
+    val contentWithChecksums = content.resolveChecksums(availableMedia)
+    contentWithChecksums.complete shouldBe true
+    contentWithChecksums.data should contain theSameElementsAs expData
   }
 
   "A MetaDataCache" should "send a remote request for a medium not completely stored" in {
