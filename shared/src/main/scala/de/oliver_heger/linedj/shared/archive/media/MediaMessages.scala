@@ -106,15 +106,11 @@ case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends Remot
   * value of '''true''' means that the medium exists, but does not contain any
   * files; a value of '''false''' indicates an unknown medium.
   *
-  * TODO: Remove the uris field after all clients have been adapted.
-  *
   * @param mediumID the ID of the medium that was queried
-  * @param uris     a sequence with the URIs for the files on this medium
   * @param fileIDs  a set with the IDs of the files on this medium
   * @param existing a flag whether the medium exists
   */
 case class MediumFiles(mediumID: MediumID,
-                       uris: Set[String],
                        fileIDs: Set[MediaFileID],
                        existing: Boolean) extends RemoteSerializable
 
