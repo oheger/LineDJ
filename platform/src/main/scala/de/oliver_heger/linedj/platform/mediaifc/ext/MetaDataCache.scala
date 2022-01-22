@@ -53,7 +53,7 @@ object MetaDataCache {
     * listener registration. This means that this listener will receive no further
     * messages for this medium.
     *
-    * @param mediumID the ID of the medium
+    * @param mediumID   the ID of the medium
     * @param listenerID the unique listener ID
     */
   case class RemoveMetaDataRegistration(mediumID: MediumID, listenerID: ComponentID)
@@ -72,35 +72,35 @@ object MetaDataCache {
 }
 
 /**
- * A specialized media interface extension implementing a client-side cache for
+  * A specialized media interface extension implementing a client-side cache for
   * meta data.
- *
- * Clients may request meta data for one and the same medium multiple times; it
- * therefore makes sense to cache it locally. This is done by this class. It
- * stores chunks of meta data received from the archive and is also able to
- * combine them; this is done in form of [[MetaDataChunk]] objects.
- *
- * This class is not directly accessed by other classes. Rather, interaction
- * takes place via the message bus: A component needing access to the meta data
- * of a medium sends a
- * [[de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MetaDataRegistration]]
- * message on the message bus. The
- * message contains a callback through which the sender can be notified about
- * incoming meta data. If data for this medium is contained in the cache, the
- * callback is directly triggered. Whether the caller is registered depends on
- * the availability of meta data: if the whole medium is contained in the
- * cache, no registration is needed as all information has already been passed
- * via the callback. Otherwise, the caller is registered and receives
- * notifications about incoming meta data chunks. When all chunks for this
- * medium have been received the registration is automatically removed.
- *
- * Some other interactions via the message bus are supported as well. For
- * instance, a client component can indicate that it is not longer
- * interested on the data of a certain medium. If necessary, this class then
- * sends a message for removing the corresponding medium listener.
- *
- * If the connection to the archive is lost and later reestablished, the cache
- * is cleared, and all registered listeners are removed.
+  *
+  * Clients may request meta data for one and the same medium multiple times; it
+  * therefore makes sense to cache it locally. This is done by this class. It
+  * stores chunks of meta data received from the archive and is also able to
+  * combine them; this is done in form of [[MetaDataChunk]] objects.
+  *
+  * This class is not directly accessed by other classes. Rather, interaction
+  * takes place via the message bus: A component needing access to the meta data
+  * of a medium sends a
+  * [[de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MetaDataRegistration]]
+  * message on the message bus. The
+  * message contains a callback through which the sender can be notified about
+  * incoming meta data. If data for this medium is contained in the cache, the
+  * callback is directly triggered. Whether the caller is registered depends on
+  * the availability of meta data: if the whole medium is contained in the
+  * cache, no registration is needed as all information has already been passed
+  * via the callback. Otherwise, the caller is registered and receives
+  * notifications about incoming meta data chunks. When all chunks for this
+  * medium have been received the registration is automatically removed.
+  *
+  * Some other interactions via the message bus are supported as well. For
+  * instance, a client component can indicate that it is not longer
+  * interested on the data of a certain medium. If necessary, this class then
+  * sends a message for removing the corresponding medium listener.
+  *
+  * If the connection to the archive is lost and later reestablished, the cache
+  * is cleared, and all registered listeners are removed.
   *
   * To prevent that the memory used by the cache grows without limits,  a
   * maximum number of meta data items to be stored can be specified. Note,
@@ -108,10 +108,10 @@ object MetaDataCache {
   * restrictions:
   *
   *  - at least a full medium is stored in the cache. So if this medium has
-  * more songs than the maximum size parameter, this limit is ignored.
+  *    more songs than the maximum size parameter, this limit is ignored.
   *  - The items of requested media remain in the cache until the medium has
-  * been completely loaded. So if clients request many media in parallel, the
-  * cache's size can (temporarily) grow over the specified limit.
+  *    been completely loaded. So if clients request many media in parallel, the
+  *    cache's size can (temporarily) grow over the specified limit.
   *
   * The size restriction works on medium level: When new meta data is added to
   * the cache and the cache size grows over the limit, the medium with the
@@ -119,11 +119,11 @@ object MetaDataCache {
   * mode.) This is repeated until the size limit can be met or no suitable
   * medium to be removed (according to the mentioned restrictions) can be
   * found.
- *
- * @param mediaFacade the facade to the media archive
-  * @param cacheSize the size restriction for this cache (see class
-  *                  documentation for more information)
- */
+  *
+  * @param mediaFacade the facade to the media archive
+  * @param cacheSize   the size restriction for this cache (see class
+  *                    documentation for more information)
+  */
 class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   extends MediaIfcExtension[MetaDataChunk, MediumID] {
 
@@ -219,11 +219,11 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     */
   private def metaDataReceived(chunk: MetaDataChunk, regID: Int): Unit = {
     if (regID == registrationID(chunk.mediumID)) {
-      if(receivedChunks contains chunk.mediumID) {
+      if (receivedChunks contains chunk.mediumID) {
         receivedChunks.updateItem(chunk.mediumID)(combine(_, chunk))
       } else {
         receivedChunks.addItem(chunk.mediumID, chunk)
-          log.info("Added medium {} to cache.", chunk.mediumID)
+        log.info("Added medium {} to cache.", chunk.mediumID)
       }
 
       invokeConsumers(chunk, chunk.mediumID)
@@ -250,7 +250,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @return the combined chunk
     */
   private def combine(chunk1: MetaDataChunk, chunk2: MetaDataChunk): MetaDataChunk =
-  chunk2.copy(data = chunk1.data ++ chunk2.data)
+    chunk2.copy(data = chunk1.data ++ chunk2.data)
 
   /**
     * Returns the expected registration ID for the given medium. This is used
@@ -260,7 +260,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @return the registration ID for this medium
     */
   private def registrationID(mediumID: MediumID): Int =
-  registrationIDs.getOrElse(mediumID, MediaFacade.InvalidListenerRegistrationID)
+    registrationIDs.getOrElse(mediumID, MediaFacade.InvalidListenerRegistrationID)
 
   /**
     * A function that determines whether an item from the meta data cache can

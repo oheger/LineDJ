@@ -53,7 +53,7 @@ object MetaDataCacheSpec {
     * @return the test medium ID with this index
     */
   private def mediumID(idx: Int): MediumID =
-  MediumID(s"$idx. Hot Playlist", Some(Paths.get(s"playlist$idx.settings").toString))
+    MediumID(s"$idx. Hot Playlist", Some(Paths.get(s"playlist$idx.settings").toString))
 
   /**
     * Extracts the index from a test medium ID.
@@ -67,24 +67,26 @@ object MetaDataCacheSpec {
   }
 
   /**
-   * Creates a response message with meta data. It contains only a single test
-   * song.
-   * @param songIdx the index of the test song
-   * @param complete the complete flag
-   * @param mediumID the medium ID
-   * @return the chunk
-   */
+    * Creates a response message with meta data. It contains only a single test
+    * song.
+    *
+    * @param songIdx  the index of the test song
+    * @param complete the complete flag
+    * @param mediumID the medium ID
+    * @return the chunk
+    */
   private def createChunk(songIdx: Int, complete: Boolean, mediumID: MediumID = Medium):
   MetaDataResponse =
     createChunk(List(songIdx), complete, mediumID)
 
   /**
-   * Creates a response message containing meta data for the given test songs.
-   * @param songIndices a list with the indices of the test songs
-   * @param complete the complete flag
-   * @param mediumID the medium ID
-   * @return the chunk
-   */
+    * Creates a response message containing meta data for the given test songs.
+    *
+    * @param songIndices a list with the indices of the test songs
+    * @param complete    the complete flag
+    * @param mediumID    the medium ID
+    * @return the chunk
+    */
   private def createChunk(songIndices: Seq[Int], complete: Boolean, mediumID: MediumID):
   MetaDataResponse = {
     val songMappings = songIndices map (i => s"Song$i" -> MediaMetaData(title = Some(s"Title$i")))
@@ -103,7 +105,7 @@ object MetaDataCacheSpec {
     */
   private def createMetaDataForMedium(numberOfSongs: Int, complete: Boolean, mediumIdx: Int):
   MetaDataResponse =
-  createChunk((1 to numberOfSongs).map(_ + 1000 * mediumIdx), complete, mediumID(mediumIdx))
+    createChunk((1 to numberOfSongs).map(_ + 1000 * mediumIdx), complete, mediumID(mediumIdx))
 
   /**
     * Generates meta data which can be send to the cache for a given set of
@@ -115,27 +117,29 @@ object MetaDataCacheSpec {
     */
   private def createMetaData(media: Int*):
   Seq[MetaDataResponse] =
-  media map (createMetaDataForMedium(SongsPerMedium, complete = true, _))
+    media map (createMetaDataForMedium(SongsPerMedium, complete = true, _))
 
   /**
-   * Creates a callback function for being used in tests which adds received
-   * messages to the specified list buffer.
-   * @param buffer the target list buffer
-   * @return the callback function
-   */
+    * Creates a callback function for being used in tests which adds received
+    * messages to the specified list buffer.
+    *
+    * @param buffer the target list buffer
+    * @return the callback function
+    */
   private def createCallback(buffer: ListBuffer[MetaDataChunk]): MetaDataChunk => Unit = {
     chunk => buffer += chunk
   }
 
   /**
-   * Creates a test meta data registration which collects received data in a
-   * list buffer. The registration is added to the cache. The list buffer is
-   * returned.
-   * @param cache the cache
-   * @param id the object representing the listener ID
-   * @param mediumID the medium ID
-   * @return the list buffer receiving callback messages
-   */
+    * Creates a test meta data registration which collects received data in a
+    * list buffer. The registration is added to the cache. The list buffer is
+    * returned.
+    *
+    * @param cache    the cache
+    * @param id       the object representing the listener ID
+    * @param mediumID the medium ID
+    * @return the list buffer receiving callback messages
+    */
   private def register(cache: MetaDataCache, id: ComponentID = TestComponentID,
                        mediumID: MediumID = Medium):
   ListBuffer[MetaDataChunk] = {
@@ -168,12 +172,12 @@ object MetaDataCacheSpec {
     * @return the new cache instance
     */
   private def createCache(facade: MediaFacade, cacheSize: Int = DefaultCacheSize): MetaDataCache =
-  new MetaDataCache(facade, cacheSize)
+    new MetaDataCache(facade, cacheSize)
 }
 
 /**
- * Test class for ''MetaDataCache''.
- */
+  * Test class for ''MetaDataCache''.
+  */
 class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   import MetaDataCacheSpec._
@@ -189,9 +193,9 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     when(facade.bus).thenReturn(bus)
     when(facade.queryMetaDataAndRegisterListener(any(classOf[MediumID])))
       .thenAnswer((invocation: InvocationOnMock) => {
-      val mid = invocation.getArguments.head.asInstanceOf[MediumID]
-      extractIndex(mid)
-    })
+        val mid = invocation.getArguments.head.asInstanceOf[MediumID]
+        extractIndex(mid)
+      })
     facade
   }
 
@@ -208,10 +212,11 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   /**
-   * Checks whether a callback received the expected chunks.
-   * @param buffer the buffer filled by the callback
-   * @param chunks the expected response messages
-   */
+    * Checks whether a callback received the expected chunks.
+    *
+    * @param buffer the buffer filled by the callback
+    * @param chunks the expected response messages
+    */
   private def verifyReceivedChunks(buffer: ListBuffer[MetaDataChunk],
                                    chunks: MetaDataResponse*): Unit = {
     buffer.toList should be(chunks.map(_.chunk).toList)
@@ -419,7 +424,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     metaData foreach (registerAndReceive(cache, _))
 
     register(cache)
-    createMetaData(4 to 6: _*) foreach(registerAndReceive(cache, _))
+    createMetaData(4 to 6: _*) foreach (registerAndReceive(cache, _))
     register(cache)
     verifyMetaDataRequest(facade, expTimes = 2)
   }
