@@ -101,10 +101,11 @@ object MediaControllerSpec {
     "addSongsAction")
 
   /**
-   * Returns the ID for a test medium based on its name.
-   * @param name the name of the medium
-   * @return the corresponding test medium ID
-   */
+    * Returns the ID for a test medium based on its name.
+    *
+    * @param name the name of the medium
+    * @return the corresponding test medium ID
+    */
   private def mediumID(name: String): MediumID = MediumID(MediumUriPrefix + name,
     Some(Paths.get(name).toString))
 
@@ -121,10 +122,11 @@ object MediaControllerSpec {
     else None
 
   /**
-   * Transforms the given string to upper case.
-   * @param s the string
-   * @return the string in upper case
-   */
+    * Transforms the given string to upper case.
+    *
+    * @param s the string
+    * @return the string in upper case
+    */
   private def toUpper(s: String): String = s toUpperCase Locale.ROOT
 
   /**
@@ -137,41 +139,45 @@ object MediaControllerSpec {
   private def archiveComponentName(mediumUri: String): String = "archive_component_" + mediumUri
 
   /**
-   * Creates a medium info object with dummy property values for the specified
-   * medium ID.
-   * @param id the medium ID
-   * @return the undefined medium info
-   */
+    * Creates a medium info object with dummy property values for the specified
+    * medium ID.
+    *
+    * @param id the medium ID
+    * @return the undefined medium info
+    */
   private def undefinedMediumInfo(id: MediumID): MediumInfo =
     MediumInfo(name = "(undefined)", description = null, mediumID = id, orderMode = null,
       orderParams = null, checksum = "nocheck")
 
   /**
-   * Creates a medium info object for a medium without a description file.
-   * @param uri the URI of the medium
-   * @return the undefined medium info
-   */
+    * Creates a medium info object for a medium without a description file.
+    *
+    * @param uri the URI of the medium
+    * @return the undefined medium info
+    */
   private def undefinedMediumInfo(uri: String): MediumInfo =
     undefinedMediumInfo(MediumID(uri, None, archiveComponentName(uri)))
 
   /**
-   * Generates a mapping for a medium info object.
-   * @param info the medium info object
-   * @return the mapping
-   */
+    * Generates a mapping for a medium info object.
+    *
+    * @param info the medium info object
+    * @return the mapping
+    */
   private def infoMapping(info: MediumInfo): (MediumID, MediumInfo) = (info.mediumID, info)
 
   /**
-   * Creates the message with available media based on the list of media
-   * names.
-   * @return the message for available media
-   */
+    * Creates the message with available media based on the list of media
+    * names.
+    *
+    * @return the message for available media
+    */
   private def createAvailableMediaMsg(): AvailableMedia = {
     val definedMappings = MediaNames map { m =>
       (mediumID(m), mediumInfo(m))
     }
     val undefinedMappings = List(infoMapping(undefinedMediumInfo(UndefinedMediumUri)), infoMapping
-      (undefinedMediumInfo("anotherUndefinedURI")))
+    (undefinedMediumInfo("anotherUndefinedURI")))
     val mappings = Random.shuffle(List(definedMappings, undefinedMappings).flatten)
     AvailableMedia(List(mappings: _*))
   }
@@ -196,15 +202,16 @@ object MediaControllerSpec {
     name + "_checksum"
 
   /**
-   * Creates ''SongData'' objects for a test album.
-   * @param artist the artist
-   * @param album the album name
-   * @param songs the sequence of songs on this album
-   * @param mediumID an optional medium ID
-   * @return a corresponding sequence of ''SongData'' objects
-   */
+    * Creates ''SongData'' objects for a test album.
+    *
+    * @param artist   the artist
+    * @param album    the album name
+    * @param songs    the sequence of songs on this album
+    * @param mediumID an optional medium ID
+    * @return a corresponding sequence of ''SongData'' objects
+    */
   private def createSongData(artist: String, album: String, songs: Seq[String],
-                              mediumID: MediumID = TestMediumID): Seq[SongData] = {
+                             mediumID: MediumID = TestMediumID): Seq[SongData] = {
     songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1,
       mediumName(mediumID) map mediumChecksum),
       MediaMetaData(title = Some(e._1), artist = Some(artist), album = Some(album),
@@ -212,12 +219,13 @@ object MediaControllerSpec {
   }
 
   /**
-   * Creates a ''MetaDataChunk'' object from the specified data.
-   * @param mediumID the medium URI/ID
-   * @param complete the complete flag
-   * @param songs a sequence with the songs
-   * @return the chunk
-   */
+    * Creates a ''MetaDataChunk'' object from the specified data.
+    *
+    * @param mediumID the medium URI/ID
+    * @param complete the complete flag
+    * @param songs    a sequence with the songs
+    * @return the chunk
+    */
   private def createChunk(mediumID: MediumID = TestMediumID, complete: Boolean = false,
                           songs: Seq[SongData]): MetaDataChunk = {
     val mappings = songs map (s => (s.id.uri, s.metaData))
@@ -225,19 +233,21 @@ object MediaControllerSpec {
   }
 
   /**
-   * Creates a ''TreeNodePath'' for the specified configuration node.
-   * @param node the configuration node
-   * @return the ''TreeNodePath'' for this node
-   */
+    * Creates a ''TreeNodePath'' for the specified configuration node.
+    *
+    * @param node the configuration node
+    * @return the ''TreeNodePath'' for this node
+    */
   private def createTreePath(node: ConfigurationNode): TreeNodePath = new TreeNodePath(node)
 
   /**
-   * Creates a ''TreeNodePath'' that points to a node representing the
-   * specified album.
-   * @param artist the artist
-   * @param album the album
-   * @return the ''TreeNodePath'' for this album
-   */
+    * Creates a ''TreeNodePath'' that points to a node representing the
+    * specified album.
+    *
+    * @param artist the artist
+    * @param album  the album
+    * @return the ''TreeNodePath'' for this album
+    */
   private def createTreePath(artist: String, album: String): TreeNodePath = {
     val key = AlbumKey(toUpper(artist), toUpper(album))
     val node = new DefaultConfigurationNode(key.album)
@@ -262,8 +272,8 @@ object MediaControllerSpec {
 }
 
 /**
- * Test class for ''MediaController''.
- */
+  * Test class for ''MediaController''.
+  */
 class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
   import MediaControllerSpec._
@@ -508,6 +518,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
   /**
     * Creates a test helper and prepares it for a test which uses an album
     * selection.
+    *
     * @return the prepared test helper
     */
   private def prepareAlbumSelection(): MediaControllerTestHelper = {
@@ -717,10 +728,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
   }
 
   /**
-   * Adds all test songs to the controller.
-   * @param helper the helper
-   * @return the list of songs that have been added
-   */
+    * Adds all test songs to the controller.
+    *
+    * @param helper the helper
+    * @return the list of songs that have been added
+    */
   private def addAllSongsToController(helper: MediaControllerTestHelper): List[Seq[SongData]] = {
     val songsAlbum1 = createSongData(Artist1, Album1, Songs1)
     val songsAlbum2 = createSongData(Artist1, Album2, Songs2)
@@ -840,10 +852,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
   }
 
   /**
-   * A test helper class managing mock objects for the dependencies of a
-   * controller.
-   */
+    * A test helper class managing mock objects for the dependencies of a
+    * controller.
+    */
   private class MediaControllerTestHelper extends ActionTestHelper with MockitoSugar {
+
     import ConsumerRegistrationProviderTestHelper._
 
     val songFactory: SongDataFactory = (id: MediaFileID, metaData: MediaMetaData) =>
@@ -905,18 +918,19 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Clears the buffer with the messages published to the message bus.
-     */
+      * Clears the buffer with the messages published to the message bus.
+      */
     def clearReceivedMessages(): Unit = {
       publishedMessages.clear()
     }
 
     /**
-     * Verifies that the controller has registered for meta data of the
-     * specified medium.
-     * @param mediumID the medium ID
-     * @return the function for receiving meta data chunks
-     */
+      * Verifies that the controller has registered for meta data of the
+      * specified medium.
+      *
+      * @param mediumID the medium ID
+      * @return the function for receiving meta data chunks
+      */
     def verifyMetaDataRequest(mediumID: MediumID = TestMediumID): MetaDataChunk => Unit = {
       val regMsg = expectMessageType[MetaDataRegistration]
       regMsg.id should be(controller.componentID)
@@ -925,10 +939,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Creates a mock for a list model and installs it for the combo box.
-     * @param size the size to be returned by the list model
-     * @return the list model mock
-     */
+      * Creates a mock for a list model and installs it for the combo box.
+      *
+      * @param size the size to be returned by the list model
+      * @return the list model mock
+      */
     def prepareMediaListModel(size: Int): ListModel = {
       val model = mock[ListModel]
       when(model.size()).thenReturn(size)
@@ -948,23 +963,25 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Selects the specified medium in the controller and verifies that the
-     * expected actions are performed. The controller should request the meta
-     * data of this medium. The corresponding listener callback is returned.
-     * @param mediumID the medium ID
-     * @return the function for receiving meta data chunks
-     */
+      * Selects the specified medium in the controller and verifies that the
+      * expected actions are performed. The controller should request the meta
+      * data of this medium. The corresponding listener callback is returned.
+      *
+      * @param mediumID the medium ID
+      * @return the function for receiving meta data chunks
+      */
     def selectMedium(mediumID: MediumID = TestMediumID): MetaDataChunk => Unit = {
       controller selectMedium mediumID
       verifyMetaDataRequest(mediumID)
     }
 
     /**
-     * Convenience method for selecting a medium and sending a chunk of meta
-     * data for it. The meta data callback is returned.
-     * @param chunk the chunk of meta data
-     * @return the function for receiving meta data
-     */
+      * Convenience method for selecting a medium and sending a chunk of meta
+      * data for it. The meta data callback is returned.
+      *
+      * @param chunk the chunk of meta data
+      * @return the function for receiving meta data
+      */
     def selectMediumAndSendMeta(chunk: MetaDataChunk): MetaDataChunk => Unit = {
       val callback = selectMedium(chunk.mediumID)
       clearReceivedMessages()
@@ -973,32 +990,35 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Selects the specified tree paths (representing artists or albums).
-     * @param paths the paths to be selected
-     */
+      * Selects the specified tree paths (representing artists or albums).
+      *
+      * @param paths the paths to be selected
+      */
     def selectAlbums(paths: TreeNodePath*): Unit = {
       controller selectAlbums paths.toArray
     }
 
     /**
-     * Searches for a message of the given type and returns an option with the
-     * found instance.
-     * @param t the class tag
-     * @tparam T the type of the message
-     * @return an options with the found message instance
-     */
+      * Searches for a message of the given type and returns an option with the
+      * found instance.
+      *
+      * @param t the class tag
+      * @tparam T the type of the message
+      * @return an options with the found message instance
+      */
     def findMessageType[T](implicit t: ClassTag[T]): Option[T] = {
       val cls = t.runtimeClass
       publishedMessages.toList.find(cls.isInstance).map(_.asInstanceOf[T])
     }
 
     /**
-     * Expects that a message of the given type was published via the message
-     * bus and returns the first occurrence.
-     * @param t the class tag
-     * @tparam T the type of the desired message
-     * @return the message of this type
-     */
+      * Expects that a message of the given type was published via the message
+      * bus and returns the first occurrence.
+      *
+      * @param t the class tag
+      * @tparam T the type of the desired message
+      * @return the message of this type
+      */
     def expectMessageType[T](implicit t: ClassTag[T]): T = {
       val optMsg = findMessageType(t)
       optMsg shouldBe defined
@@ -1006,22 +1026,24 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Expects that the specified message was published via the message bus.
-     * @param msg the expected message
-     * @tparam T the type of the message
-     * @return the same message
-     */
+      * Expects that the specified message was published via the message bus.
+      *
+      * @param msg the expected message
+      * @tparam T the type of the message
+      * @return the same message
+      */
     def expectMessage[T](msg: T): T = {
       publishedMessages should contain(msg)
       msg
     }
 
     /**
-     * Checks whether a specific album is stored in the tree model.
-     * @param artist the artist
-     * @param album the album
-     * @return the associated album key
-     */
+      * Checks whether a specific album is stored in the tree model.
+      *
+      * @param artist the artist
+      * @param album  the album
+      * @return the associated album key
+      */
     def expectAlbumInTreeModel(artist: String, album: String): AlbumKey = {
       val upperArtist = toUpper(artist)
       val upperAlbum = toUpper(album)
@@ -1031,9 +1053,10 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Checks whether the table model contains all the specified songs.
-     * @param songs the songs to be checked
-     */
+      * Checks whether the table model contains all the specified songs.
+      *
+      * @param songs the songs to be checked
+      */
     def expectSongsInTable(songs: Seq[SongData]): Unit = {
       songs forall tableModel.contains shouldBe true
     }
@@ -1072,10 +1095,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
       changePlaylistOpenState(playlistClosed = true)
 
     /**
-     * Creates a mock for the message bus. All messages published via the bus
-     * are stored in an internal buffer.
-     * @return the mock message bus
-     */
+      * Creates a mock for the message bus. All messages published via the bus
+      * are stored in an internal buffer.
+      *
+      * @return the mock message bus
+      */
     private def createMessageBusMock(): MessageBus = {
       val bus = mock[MessageBus]
       when(bus.publish(any())).thenAnswer((invocationOnMock: InvocationOnMock) => {
@@ -1087,6 +1111,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
 
     /**
       * Creates a mock for the media facade.
+      *
       * @param msgBus the underlying message bus
       * @return the mock for the remote message bus
       */
@@ -1097,9 +1122,10 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Creates the configuration acting as tree model.
-     * @return the tree model configuration
-     */
+      * Creates the configuration acting as tree model.
+      *
+      * @return the tree model configuration
+      */
     private def createTreeModelConfig(): HierarchicalConfiguration = {
       val config = new HierarchicalConfiguration
       val exprEngine = new DefaultExpressionEngine
@@ -1109,10 +1135,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Creates a mock tree handler.
-     * @param model the model for the tree
-     * @return the mock tree handler
-     */
+      * Creates a mock tree handler.
+      *
+      * @param model the model for the tree
+      * @return the mock tree handler
+      */
     private def createTreeHandler(model: HierarchicalConfiguration): TreeHandler = {
       val handler = mock[TreeHandler]
       when(handler.getModel).thenReturn(model)
@@ -1120,10 +1147,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     }
 
     /**
-     * Creates a mock table handler.
-     * @param model the model for the table
-     * @return the mock table handler
-     */
+      * Creates a mock table handler.
+      *
+      * @param model the model for the table
+      * @return the mock table handler
+      */
     private def createTableHandler(model: java.util.ArrayList[AnyRef]): TableHandler = {
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(model)

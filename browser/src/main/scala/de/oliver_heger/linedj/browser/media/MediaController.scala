@@ -54,74 +54,79 @@ object MediaController {
     ActionAddSongs)
 
   /**
-   * Creates an ''AlbumKey'' object for the specified song.
-   * @param song the ''SongData''
-   * @return the ''AlbumKey'' for this song
-   */
+    * Creates an ''AlbumKey'' object for the specified song.
+    *
+    * @param song the ''SongData''
+    * @return the ''AlbumKey'' for this song
+    */
   private def createAlbumKey(song: SongData): AlbumKey = {
     AlbumKey(artist = upper(song.artist), album = upper(song.album))
   }
 
   /**
-   * Transforms a string to upper case.
-   * @param s the string
-   * @return the string in upper case
-   */
+    * Transforms a string to upper case.
+    *
+    * @param s the string
+    * @return the string in upper case
+    */
   private def upper(s: String): String = s toUpperCase Locale.ENGLISH
 
   /**
-   * Processes the specified selection of tree nodes and obtains the keys for
-   * the albums to be added to the table view.
-   * @param paths the selected paths in the tree view
-   * @return a sequence of album keys to be displayed
-   */
+    * Processes the specified selection of tree nodes and obtains the keys for
+    * the albums to be added to the table view.
+    *
+    * @param paths the selected paths in the tree view
+    * @return a sequence of album keys to be displayed
+    */
   private def fetchSelectedAlbumKeys(paths: Array[TreeNodePath]): Iterable[AlbumKey] = {
     paths map (_.getTargetNode.getValue) filter (_.isInstanceOf[AlbumKey]) map (_
       .asInstanceOf[AlbumKey])
   }
 
   /**
-   * An internally used data class which collects all information required to
-   * update internal model classes with newly arrived chunks of meta data.
-   * @param treeModel the model for the tree view
-   * @param tableModel the model for the table view
-   * @param updaterMap a map with the updaters for the different artists
-   */
+    * An internally used data class which collects all information required to
+    * update internal model classes with newly arrived chunks of meta data.
+    *
+    * @param treeModel  the model for the tree view
+    * @param tableModel the model for the table view
+    * @param updaterMap a map with the updaters for the different artists
+    */
   private case class ModelUpdateData(treeModel: MediumTreeModel, tableModel: AlbumTableModel,
                                      updaterMap: Map[String, ConfigurationUpdater])
 
   /**
-   * An internally used data class which stores the different models containing
-   * the data for view components.
-   * @param treeModel the model for the tree view
-   * @param tableModel the model for the table view
-   */
+    * An internally used data class which stores the different models containing
+    * the data for view components.
+    *
+    * @param treeModel  the model for the tree view
+    * @param tableModel the model for the table view
+    */
   private case class Models(treeModel: MediumTreeModel, tableModel: AlbumTableModel)
 
 }
 
 /**
- * The controller class for the media view.
- *
- * This controller manages a view consisting of a combo box for selecting a
- * medium, a tree view displaying the artists and albums found in the medium,
- * and a table showing the songs of the albums selected in the tree view.
- *
- * Selecting a medium in the combo box causes a request for the meta data of
- * this medium. Incoming chunks of meta data are then added to the data models
- * of the controls. When the server becomes unavailable the combo box is
- * disabled, so that the user cannot select a new medium for which no meta data
- * is available.
- *
- * @param mediaFacade the facade to the media archive
- * @param songFactory the factory for ''SongData'' objects
- * @param comboMedia the handler for the combo with the media
- * @param treeHandler the handler for the tree view
- * @param tableHandler the handler for the table
- * @param inProgressWidget the widget handler for the in-progress indicator
- * @param actionStore the ''ActionStore''
- * @param undefinedMediumName the name to be used for the undefined medium
- */
+  * The controller class for the media view.
+  *
+  * This controller manages a view consisting of a combo box for selecting a
+  * medium, a tree view displaying the artists and albums found in the medium,
+  * and a table showing the songs of the albums selected in the tree view.
+  *
+  * Selecting a medium in the combo box causes a request for the meta data of
+  * this medium. Incoming chunks of meta data are then added to the data models
+  * of the controls. When the server becomes unavailable the combo box is
+  * disabled, so that the user cannot select a new medium for which no meta data
+  * is available.
+  *
+  * @param mediaFacade         the facade to the media archive
+  * @param songFactory         the factory for ''SongData'' objects
+  * @param comboMedia          the handler for the combo with the media
+  * @param treeHandler         the handler for the tree view
+  * @param tableHandler        the handler for the table
+  * @param inProgressWidget    the widget handler for the in-progress indicator
+  * @param actionStore         the ''ActionStore''
+  * @param undefinedMediumName the name to be used for the undefined medium
+  */
 class MediaController(mediaFacade: MediaFacade, songFactory: SongDataFactory, comboMedia:
 ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inProgressWidget:
                       WidgetHandler, actionStore: ActionStore, undefinedMediumName: String)
@@ -139,9 +144,9 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   private val tableModel = tableHandler.getModel
 
   /**
-   * An option with the currently selected medium URI. This is changed via the
-   * combo box with the available media.
-   */
+    * An option with the currently selected medium URI. This is changed via the
+    * combo box with the available media.
+    */
   private var selectedMediumID: Option[MediumID] = None
 
   /** The underlying model for the view controls. */
@@ -161,9 +166,9 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
 
   /** The registrations for consumers. */
   override val registrations: Iterable[ConsumerRegistration[_]] =
-  List(ArchiveAvailabilityRegistration(ComponentID(), handleArchiveAvailabilityEvent),
-    AvailableMediaRegistration(ComponentID(), handleAvailableMedia),
-    AudioPlayerStateChangeRegistration(ComponentID(), handlePlayerStateChangeEvent))
+    List(ArchiveAvailabilityRegistration(ComponentID(), handleArchiveAvailabilityEvent),
+      AvailableMediaRegistration(ComponentID(), handleAvailableMedia),
+      AudioPlayerStateChangeRegistration(ComponentID(), handlePlayerStateChangeEvent))
 
   /**
     * Initializes this controller. This method sets initial state of some of
@@ -174,12 +179,12 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Selects the specified medium. This method is called when the combo box
-   * selection is changed. This causes the data of the new medium to be
-   * requested and displayed.
+    * Selects the specified medium. This method is called when the combo box
+    * selection is changed. This causes the data of the new medium to be
+    * requested and displayed.
     *
     * @param mediumID the URI of the newly selected medium
-   */
+    */
   def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumID foreach clearOldMediumSelection
     publish(MetaDataRegistration(mediumID, componentID, processMetaDataChunk))
@@ -190,11 +195,11 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Notifies this controller that the selection of the tree view has changed.
-   * The table has to be updated accordingly to display all selected albums.
- *
-   * @param paths the paths representing the selection of the tree view
-   */
+    * Notifies this controller that the selection of the tree view has changed.
+    * The table has to be updated accordingly to display all selected albums.
+    *
+    * @param paths the paths representing the selection of the tree view
+    */
   def selectAlbums(paths: Array[TreeNodePath]): Unit = {
     models foreach { m =>
       selectedPaths = paths
@@ -216,24 +221,25 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Returns all songs belonging to selected albums. The songs are returned in
-   * the correct order (defined by artist names and albums).
+    * Returns all songs belonging to selected albums. The songs are returned in
+    * the correct order (defined by artist names and albums).
     *
     * @return a sequence with the songs of all selected albums
-   */
+    */
   def songsForSelectedAlbums: Seq[SongData] = {
     val keys = fetchAllAlbumKeys()
     songsForAlbumKeys(keys filter selectedAlbumKeys.contains)
   }
 
   /**
-   * Returns all songs belonging to an artist who is currently selected. This
-   * method not only returns the songs of the currently selected albums, but
-   * also all other songs of artists for whom at least one album is currently
-   * selected. The songs are returned in the correct order (defined by artist
-   * names and albums).
-   * @return a sequence with the songs of all selected artists
-   */
+    * Returns all songs belonging to an artist who is currently selected. This
+    * method not only returns the songs of the currently selected albums, but
+    * also all other songs of artists for whom at least one album is currently
+    * selected. The songs are returned in the correct order (defined by artist
+    * names and albums).
+    *
+    * @return a sequence with the songs of all selected artists
+    */
   def songsForSelectedArtists: Seq[SongData] = {
     val artistNames = selectedPaths.filter(_.size() == 2).map(_.getTargetNode.getName).toSet ++
       selectedAlbumKeys.map(_.artist)
@@ -241,19 +247,21 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Returns all songs belonging to the currently selected medium. The songs
-   * are returned in the correct order (defined by artist name and albums).
-   * @return a sequence with all songs of the current medium
-   */
+    * Returns all songs belonging to the currently selected medium. The songs
+    * are returned in the correct order (defined by artist name and albums).
+    *
+    * @return a sequence with all songs of the current medium
+    */
   def songsForSelectedMedium: Seq[SongData] =
     songsForAlbumKeys(fetchAllAlbumKeys())
 
   /**
-   * Determines the display name for the specified medium ID. There are some
-   * special cases to be taken into account (unknown medium, undefined medium).
-   * @param mediumID the medium ID
-   * @return the name to be displayed for this medium
-   */
+    * Determines the display name for the specified medium ID. There are some
+    * special cases to be taken into account (unknown medium, undefined medium).
+    *
+    * @param mediumID the medium ID
+    * @return the name to be displayed for this medium
+    */
   private def nameForMedium(mediumID: MediumID): String = {
     val optName = mediumID match {
       case MediumID.UndefinedMediumID => None
@@ -263,10 +271,11 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Processes a chunk of meta data when it arrives. The existing data models
-   * for the views are updated accordingly.
-   * @param chunk the chunks that was received
-   */
+    * Processes a chunk of meta data when it arrives. The existing data models
+    * for the views are updated accordingly.
+    *
+    * @param chunk the chunks that was received
+    */
   private def processMetaDataChunk(chunk: MetaDataChunk): Unit = {
     selectedMediumID foreach { uri =>
       if (chunk.mediumID == uri) {
@@ -276,10 +285,11 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Actually adds the specified chunk of meta data to the models maintained by
-   * this controller class.
-   * @param chunk the chunk of data to be added
-   */
+    * Actually adds the specified chunk of meta data to the models maintained by
+    * this controller class.
+    *
+    * @param chunk the chunk of data to be added
+    */
   private def addMetaDataChunk(chunk: MetaDataChunk): Unit = {
     val songData = chunk.data.toList map { e =>
       val song = songFactory.createSongData(createFileID(chunk.mediumID, e._1), e._2)
@@ -337,21 +347,23 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     } yield (targetMid, relUri)).map(t => (t._1, t._2.path))
 
   /**
-   * Checks whether a new chunk of meta data has an impact on the data
-   * currently displayed in the table view.
-   * @param songData the songs contained in the chunk
-   * @return a flag whether the table view has to be updated
-   */
+    * Checks whether a new chunk of meta data has an impact on the data
+    * currently displayed in the table view.
+    *
+    * @param songData the songs contained in the chunk
+    * @return a flag whether the table view has to be updated
+    */
   private def albumSelectionAffectedByChunk(songData: List[(AlbumKey, SongData)]): Boolean = {
     selectedAlbumKeys.nonEmpty && selectedAlbumKeys.intersect(songData.map(_._1).toSet).nonEmpty
   }
 
   /**
-   * Initializes new model objects from the data of the specified chunk. This
-   * method is called when the first chunk for a medium is received.
-   * @param songData the list with data to be added to the models
-   * @return the initialized models
-   */
+    * Initializes new model objects from the data of the specified chunk. This
+    * method is called when the first chunk for a medium is received.
+    *
+    * @param songData the list with data to be added to the models
+    * @return the initialized models
+    */
   private def initializeModels(songData: List[(AlbumKey, SongData)]): Models = {
     val mediumTreeModel = MediumTreeModel(songData)
     mediumTreeModel.fullUpdater().update(treeModel, mediumTreeModel)
@@ -359,12 +371,13 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Updates the current model objects with the data from the specified chunk.
-   * This method is called for further chunks received for a medium.
-   * @param songData the list with data to be added to the models
-   * @param models the current models
-   * @return the updated models
-   */
+    * Updates the current model objects with the data from the specified chunk.
+    * This method is called for further chunks received for a medium.
+    *
+    * @param songData the list with data to be added to the models
+    * @param models   the current models
+    * @return the updated models
+    */
   private def updateModels(songData: List[(AlbumKey, SongData)], models: Models):
   Models = {
     val updateData = songData.foldLeft(ModelUpdateData(models.treeModel, models.tableModel, Map
@@ -381,11 +394,12 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Populates the collection serving as table model after a change in the
-   * album selection.
-   * @param model the underlying table model object
-   * @param selectedKeys the keys of the selected albums
-   */
+    * Populates the collection serving as table model after a change in the
+    * album selection.
+    *
+    * @param model        the underlying table model object
+    * @param selectedKeys the keys of the selected albums
+    */
   private def fillTableModelForSelection(model: AlbumTableModel, selectedKeys:
   Iterable[AlbumKey]): Unit = {
     tableModel.clear()
@@ -397,8 +411,8 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Clears the current list model for the combo box.
-   */
+    * Clears the current list model for the combo box.
+    */
   private def removeExistingMediaFromComboBox(): Unit = {
     @tailrec def clearListModel(index: Int): Unit = {
       if (index >= 0) {
@@ -411,9 +425,10 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Performs cleanup before a new medium is selected.
-   * @param mediumID the ID of the last selected medium
-   */
+    * Performs cleanup before a new medium is selected.
+    *
+    * @param mediumID the ID of the last selected medium
+    */
   private def clearOldMediumSelection(mediumID: MediumID): Unit = {
     publish(RemoveMetaDataRegistration(mediumID, componentID))
     models = None
@@ -424,11 +439,12 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Adds all available media to the combo box. The entries are ordered by the
-   * names of the media.
-   * @param media the map with available media
-   * @return a flag whether data is available
-   */
+    * Adds all available media to the combo box. The entries are ordered by the
+    * names of the media.
+    *
+    * @param media the map with available media
+    * @return a flag whether data is available
+    */
   private def addMediaToComboBox(media: Map[MediumID, MediumInfo]): Boolean = {
     val orderedMedia = generateMediaList(media)
     orderedMedia.zipWithIndex.foreach(e => comboMedia.addItem(e._2, e._1._2, e._1._1))
@@ -444,6 +460,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     * Generates a list with data about media to be added to the model of the
     * media combo box. The list elements consist of the medium ID and the
     * display name for this medium.
+    *
     * @param media the map with available media
     * @return a list with the info to be added to the combo model
     */
@@ -458,9 +475,10 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-   * Determines all currently available album keys in the tree model.
-   * @return all album keys in the tree model
-   */
+    * Determines all currently available album keys in the tree model.
+    *
+    * @return all album keys in the tree model
+    */
   private def fetchAllAlbumKeys(): Seq[AlbumKey] = {
     import scala.jdk.CollectionConverters._
     treeModel.getKeys.asScala.flatMap(resolveAlbumKey).toSeq
@@ -483,11 +501,12 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     }
 
   /**
-   * Returns a sequence with the songs of all albums identified by the given
-   * sequence of ''AlbumKey'' objects.
-   * @param keys the keys of the albums in question
-   * @return a sequence with the songs of all these albums
-   */
+    * Returns a sequence with the songs of all albums identified by the given
+    * sequence of ''AlbumKey'' objects.
+    *
+    * @param keys the keys of the albums in question
+    * @return a sequence with the songs of all these albums
+    */
   private def songsForAlbumKeys(keys: Seq[AlbumKey]): Seq[SongData] =
     models match {
       case Some(m) =>
@@ -530,7 +549,8 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
 
   /**
     * Changes the enabled state of an action.
-    * @param name the action name
+    *
+    * @param name    the action name
     * @param enabled the new enabled state
     */
   private def enableAction(name: String, enabled: Boolean): Unit = {
@@ -597,6 +617,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
 
   /**
     * Publishes a message on the message bus.
+    *
     * @param msg the message to be published
     */
   private def publish(msg: Any): Unit = {
