@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
-import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, MetaDataProcessingResult, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess}
 
 /**
   * An internally used helper class for storing and managing the meta data
@@ -192,89 +192,4 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   private def initialData(): List[MetaDataChunk] =
     List(createInitialChunk())
-}
-
-/**
-  * A specialized ''MediaMetaData'' implementation responsible for the global
-  * undefined medium. This implementation is slightly different from the
-  * standard implementation. It uses a different mechanism to generate URIs.
-  * It also has some functionality to update its content because parts of the
-  * undefined medium list may be removed dynamically, or the list has to be
-  * cleared when a new scan starts.
-  */
-private class UndefinedMediumDataHandler extends MediumDataHandler(MediumID.UndefinedMediumID) {
-  /**
-    * @inheritdoc This implementation returns always '''false'''. The global
-    *             undefined list is explicitly completed at the end of a
-    *             scan operation.
-    */
-  override def isComplete: Boolean = false
-
-  /**
-    * Removes all data managed by the specified archive component. This is
-    * necessary when this component is no longer available.
-    *
-    * @param archiveComponentID the ID of the component in question
-    * @param maxChunkSize       the maximum number of entries per chunk
-    * @return a flag whether this handler still contains data after the remove
-    *         operation
-    */
-  def removeDataFromComponent(archiveComponentID: String, maxChunkSize: Int): Boolean = {
-    val updatedData = currentData.flatMap(_.data.filterNot { e =>
-      isFromArchiveComponent(archiveComponentID, e._1)
-    })
-    val orgCount = currentData.foldLeft(0)((cnt, chunk) => cnt + chunk.data.size)
-    if (orgCount != updatedData.size) {
-      currentData = regroup(updatedData, maxChunkSize)
-    }
-    updatedData.nonEmpty
-  }
-
-  /**
-    * Completes a scan operation. If there are pending results in a
-    * not-yet-completed chunk, they are added to the final results. The
-    * function for processing the new chunk of data is invoked (even if the
-    * chunk is empty; because now the ''complete'' flag is set).
-    *
-    * @param f the function for processing the new chunk of data
-    */
-  def complete(f: (=> MetaDataChunk) => Unit): Unit = {
-    processNextChunkData(0, Integer.MAX_VALUE, complete = true, f)
-  }
-
-  /**
-    * Creates chunks of the correct size for the specified list of data. This
-    * method can be called if the data has been changed.
-    *
-    * @param data         the (already updated) data
-    * @param maxChunkSize the maximum number of entries per chunk
-    * @return the list of chunks holding the updated data
-    */
-  private def regroup(data: List[(String, MediaMetaData)], maxChunkSize: Int):
-  List[MetaDataChunk] = {
-    val chunks = data.grouped(maxChunkSize).toList
-    chunks.map(e => MetaDataChunk(MediumID.UndefinedMediumID,
-      e.toMap, complete = e eq chunks.last))
-  }
-
-  /**
-    * Extracts the URI to be used when storing the specified result. The URI is
-    * different for the global undefined list.
-    *
-    * @param result the meta data result
-    * @return the URI to be used for the represented file
-    */
-  override protected def extractUri(result: MetaDataProcessingSuccess): String =
-    MediaFileUriHandler.generateUndefinedMediumUri(result.mediumID, result.uri.uri)
-
-  /**
-    * Checks whether the specified URI belongs to the given archive component.
-    *
-    * @param archiveComponentID the archive component ID
-    * @param uri                the URI
-    * @return a flag whether this URI is managed by this component
-    */
-  private def isFromArchiveComponent(archiveComponentID: String, uri: String):
-  Boolean =
-    MediaFileUriHandler.extractRefUri(uri).exists(_.componentID == archiveComponentID)
 }
