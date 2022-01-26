@@ -792,14 +792,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     helper.verifyAction("addSongsAction", enabled = false)
   }
 
-  // TODO: Rework handling of the undefined medium.
-  ignore should "create correct songs for the undefined medium" in {
+  it should "add correct checksums to media file IDs" in {
     val songName = Songs1.head
-    val songUri = "somePath/" + songName + ".mp3"
-    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
-      archiveComponentName(UndefinedMediumUri) + ":" + MediaFileUriHandler.PrefixPath + songUri
-    val songFileID = MediaFileID(MediumID.UndefinedMediumID, refUri)
-    val song = SongData(songFileID, MediaMetaData(title = Some(songName), artist = Some(Artist1),
+    val orgFileID = MediaFileID(mediumID(Medium), songName)
+    val processedID = orgFileID.copy(checksum = Some(AvailableMediaMsg.media(orgFileID.mediumID).checksum))
+    val song = SongData(orgFileID, MediaMetaData(title = Some(songName), artist = Some(Artist1),
       album = Some(Album1)), songName, Artist1, Album1)
     val helper = new MediaControllerTestHelper
     helper.sendDefaultAvailableMedia()
@@ -808,43 +805,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers {
     val songs = helper.controller.songsForSelectedMedium
     songs should have size 1
     val selSong = songs.head
-    selSong.id.mediumID should be(MediumID(UndefinedMediumUri, None,
-      archiveComponentName(UndefinedMediumUri)))
-    selSong.id.uri should be(songUri)
-  }
-
-  /**
-    * Checks whether failures when resolving a song from the undefined medium
-    * are handled correctly.
-    *
-    * @param uri the ref URI of the song to test with
-    */
-  private def checkFailedResolvingOfUndefMedium(uri: String): Unit = {
-    val songFileID = MediaFileID(MediumID.UndefinedMediumID, uri)
-    val song = SongData(songFileID, MediaMetaData(title = Some(uri), artist = Some(Artist1),
-      album = Some(Album1)), uri, Artist1, Album1)
-    val helper = new MediaControllerTestHelper
-    helper.sendDefaultAvailableMedia()
-    helper selectMediumAndSendMeta createContent(complete = true, songs = Seq(song))
-
-    val songs = helper.controller.songsForSelectedMedium
-    songs should have size 1
-    val selSong = songs.head
-    selSong.id.mediumID should be(MediumID.UndefinedMediumID)
-    selSong.id.uri should be(uri)
-  }
-
-  it should "handle an invalid ref URI for a song from the undefined medium" in {
-    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
-      archiveComponentName(UndefinedMediumUri) + ":" + "noValidUri"
-    checkFailedResolvingOfUndefMedium(refUri)
-  }
-
-  it should "handle an unresolvable medium for a song from the undefined medium" in {
-    val refUri = MediaFileUriHandler.PrefixReference + UndefinedMediumUri + ":" +
-      archiveComponentName("unknownArchive") + ":" +
-      MediaFileUriHandler.PrefixPath + "test/song.mp3"
-    checkFailedResolvingOfUndefMedium(refUri)
+    selSong.id should be(processedID)
   }
 
   /**

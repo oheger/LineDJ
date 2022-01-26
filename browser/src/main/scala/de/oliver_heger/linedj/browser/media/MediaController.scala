@@ -156,7 +156,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   private var selectedPaths = Array.empty[TreeNodePath]
 
   /** Stores the available media. */
-  private var availableMedia = Map.empty[MediumID, MediumInfo]
+  private var availableMedia = AvailableMedia(List.empty)
 
   /** A flag whether the current playlist is closed. */
   private var playlistClosed = true
@@ -262,7 +262,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   private def nameForMedium(mediumID: MediumID): String = {
     val optName = mediumID match {
       case MediumID.UndefinedMediumID => None
-      case _ => availableMedia.get(mediumID) map (_.name)
+      case _ => availableMedia.media.get(mediumID) map (_.name)
     }
     optName.getOrElse(undefinedMediumName)
   }
@@ -277,7 +277,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   private def processMetaDataChunk(currentMediumID: MediumID)(content: MediumContent): Unit = {
     selectedMediumID foreach { selectedID =>
       if (currentMediumID == selectedID) {
-        addMetaDataChunk(content)
+        addMetaDataChunk(content.resolveChecksums(availableMedia))
       }
     }
   }
@@ -559,7 +559,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     if (addMediaToComboBox(am.media)) {
       comboMedia setEnabled true
     }
-    availableMedia = am.media
+    availableMedia = am
   }
 
   /**
