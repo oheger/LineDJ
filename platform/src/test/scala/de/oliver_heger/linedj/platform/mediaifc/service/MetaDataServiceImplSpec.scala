@@ -17,9 +17,10 @@
 package de.oliver_heger.linedj.platform.mediaifc.service
 
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MediumContent
 import de.oliver_heger.linedj.platform.mediaifc.ext.{AvailableMediaExtension, MetaDataCache}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -76,8 +77,11 @@ object MetaDataServiceImplSpec {
     * @param to   the end index of meta data (including)
     * @return the map with test meta data
     */
-  def metaDataMap(mid: MediumID, from: Int, to: Int): Map[String, MediaMetaData] =
-    (from to to).map(idx => (s"songUri$idx", metaData(mid, idx))).toMap
+  def metaDataMap(mid: MediumID, from: Int, to: Int): Map[MediaFileID, MediaMetaData] =
+    (from to to).map { idx =>
+      val fileID = MediaFileID(mid, s"songUri$idx")
+      fileID -> metaData(mid, idx)
+      }.toMap
 }
 
 /**
@@ -125,9 +129,9 @@ class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
     val reg = bus.expectMessageType[MetaDataCache.MetaDataRegistration]
     reg.id should not be null
     reg.mediumID should be(Mid)
-    reg.callback(MetaDataChunk(Mid, metaDataMap(Mid, 1, 8), complete = false))
+    reg.callback(MediumContent(metaDataMap(Mid, 1, 8), complete = false))
     futMeta.isCompleted shouldBe false
-    reg.callback(MetaDataChunk(Mid, metaDataMap(Mid, 9, 16), complete = true))
+    reg.callback(MediumContent(metaDataMap(Mid, 9, 16), complete = true))
     futMeta.value should be(Some(Success(expMetaData)))
   }
 }

@@ -19,9 +19,10 @@ package de.oliver_heger.linedj.platform.mediaifc.service
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MediumContent
 import de.oliver_heger.linedj.platform.mediaifc.ext.{AvailableMediaExtension, MetaDataCache}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import scalaz.Kleisli
 
 import scala.concurrent.Promise
@@ -29,7 +30,7 @@ import scala.concurrent.Promise
 /**
   * Implementation object of the meta data service.
   */
-object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[String, MediaMetaData]] {
+object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] {
   override def fetchMedia(): MetaDataResult[AvailableMedia] = Kleisli { messageBus =>
     val promise = Promise[AvailableMedia]()
     val compID = ComponentID()
@@ -42,11 +43,11 @@ object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[String, M
     promise.future
   }
 
-  override def fetchMetaDataOfMedium(mediumID: MediumID): MetaDataResult[Map[String, MediaMetaData]] =
+  override def fetchMetaDataOfMedium(mediumID: MediumID): MetaDataResult[Map[MediaFileID, MediaMetaData]] =
     Kleisli { messageBus =>
-      val promise = Promise[Map[String, MediaMetaData]]()
-      val chunkData = collection.mutable.Map.empty[String, MediaMetaData]
-      val callback: ConsumerFunction[MetaDataChunk] = chunk => {
+      val promise = Promise[Map[MediaFileID, MediaMetaData]]()
+      val chunkData = collection.mutable.Map.empty[MediaFileID, MediaMetaData]
+      val callback: ConsumerFunction[MediumContent] = chunk => {
         chunkData ++= chunk.data
         if (chunk.complete) {
           promise.success(chunkData.toMap)

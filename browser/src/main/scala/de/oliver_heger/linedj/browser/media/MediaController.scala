@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.browser.media
 
-import java.util.Locale
-
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -26,14 +24,13 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
-import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MetaDataRegistration, RemoveMetaDataRegistration}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MetaDataChunk
-import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MediumContent, MetaDataRegistration, RemoveMetaDataRegistration}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, TableHandler, TreeHandler, TreeNodePath}
 
+import java.util.Locale
 import scala.annotation.tailrec
 
 object MediaController {
@@ -135,7 +132,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   import MediaController._
 
   /** The component ID of this controller. */
-  val componentID = ComponentID()
+  val componentID: ComponentID = ComponentID()
 
   /** The model of the tree view. */
   private val treeModel = treeHandler.getModel
@@ -187,7 +184,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     */
   def selectMedium(mediumID: MediumID): Unit = {
     selectedMediumID foreach clearOldMediumSelection
-    publish(MetaDataRegistration(mediumID, componentID, processMetaDataChunk))
+    publish(MetaDataRegistration(mediumID, componentID, processMetaDataChunk(mediumID)))
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
@@ -271,15 +268,16 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
   }
 
   /**
-    * Processes a chunk of meta data when it arrives. The existing data models
-    * for the views are updated accordingly.
+    * Processes an object with the content of a medium when it arrives. The
+    * existing data models for the views are updated accordingly.
     *
-    * @param chunk the chunks that was received
+    * @param currentMediumID the ID of the selected medium
+    * @param content         the chunks that was received
     */
-  private def processMetaDataChunk(chunk: MetaDataChunk): Unit = {
-    selectedMediumID foreach { uri =>
-      if (chunk.mediumID == uri) {
-        addMetaDataChunk(chunk)
+  private def processMetaDataChunk(currentMediumID: MediumID)(content: MediumContent): Unit = {
+    selectedMediumID foreach { selectedID =>
+      if (currentMediumID == selectedID) {
+        addMetaDataChunk(content)
       }
     }
   }
@@ -290,9 +288,9 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     *
     * @param chunk the chunk of data to be added
     */
-  private def addMetaDataChunk(chunk: MetaDataChunk): Unit = {
+  private def addMetaDataChunk(chunk: MediumContent): Unit = {
     val songData = chunk.data.toList map { e =>
-      val song = songFactory.createSongData(createFileID(chunk.mediumID, e._1), e._2)
+      val song = songFactory.createSongData(e._1, e._2)
       (createAlbumKey(song), song)
     }
 
@@ -312,39 +310,6 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       inProgressWidget setVisible false
     }
   }
-
-  /**
-    * Creates a ''MediaFileID'' from the specified parameters. The passed in
-    * medium ID and URI are used directly. If a checksum is available for this
-    * medium, it is added as well.
-    *
-    * @param mid the medium ID
-    * @param uri the URI
-    * @return the ''MediaFileID''
-    */
-  private def createFileID(mid: MediumID, uri: String): MediaFileID = {
-    val (targetMid, relUri) = resolveUndefinedMediumUri(mid, uri) getOrElse(mid, uri)
-    MediaFileID(targetMid, relUri, availableMedia.get(mid).map(_.checksum))
-  }
-
-  /**
-    * Tries to resolve the correct medium for the specified song URI. This
-    * function deals with songs from the global undefined medium. In order to
-    * resolve them correctly, they have to be mapped to the specific undefined
-    * medium of the archive component that hosts them. To do this, the function
-    * iterates over the available media to find the correct medium ID and also
-    * generates a suitable relative URI. This may fail for invalid URIs or
-    * non-existing media.
-    *
-    * @param mid the medium ID
-    * @param uri the URI of the song
-    * @return an option with a tuple of the resolved medium ID and relative URI
-    */
-  private def resolveUndefinedMediumUri(mid: MediumID, uri: String): Option[(MediumID, String)] =
-    (for {
-      targetMid <- MediaFileUriHandler.findSpecificUndefinedMedium(uri, availableMedia.keys)
-      relUri <- MediaFileUriHandler.extractRefUri(uri)
-    } yield (targetMid, relUri)).map(t => (t._1, t._2.path))
 
   /**
     * Checks whether a new chunk of meta data has an impact on the data

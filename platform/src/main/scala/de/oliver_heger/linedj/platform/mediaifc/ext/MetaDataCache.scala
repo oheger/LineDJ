@@ -20,6 +20,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MediumContent
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.utils.LRUCache
@@ -90,8 +91,8 @@ object MetaDataCache {
     * @param callback the callback function
     */
   case class MetaDataRegistration(mediumID: MediumID, override val id: ComponentID,
-                                  override val callback: ConsumerFunction[MetaDataChunk])
-    extends ConsumerRegistration[MetaDataChunk] {
+                                  override val callback: ConsumerFunction[MediumContent])
+    extends ConsumerRegistration[MediumContent] {
     override def unRegistration: AnyRef = RemoveMetaDataRegistration(mediumID, id)
   }
 
@@ -115,17 +116,14 @@ object MetaDataCache {
     */
   final val EmptyContent: MediumContent = MediumContent(Map.empty, complete = false)
 
-  /** Constant for the chunk for an unknown medium. */
-  private val UndefinedChunk = MetaDataChunk(null, Map.empty, complete = false)
-
   /**
     * The function that determines the size of items in the meta data LRU
     * cache.
     *
-    * @param chunk the chunk in question
+    * @param content the content in question
     * @return the size of this item in the cache
     */
-  private def cacheSizeFunc(chunk: MetaDataChunk): Int = chunk.data.size
+  private def cacheSizeFunc(content: MediumContent): Int = content.data.size
 }
 
 /**
@@ -135,7 +133,7 @@ object MetaDataCache {
   * Clients may request meta data for one and the same medium multiple times; it
   * therefore makes sense to cache it locally. This is done by this class. It
   * stores chunks of meta data received from the archive and is also able to
-  * combine them; this is done in form of [[MetaDataChunk]] objects.
+  * combine them; this is done in form of [[MediumContent]] objects.
   *
   * This class is not directly accessed by other classes. Rather, interaction
   * takes place via the message bus: A component needing access to the meta data
@@ -182,18 +180,18 @@ object MetaDataCache {
   *                    documentation for more information)
   */
 class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
-  extends MediaIfcExtension[MetaDataChunk, MediumID] {
+  extends MediaIfcExtension[MediumContent, MediumID] {
 
   import MetaDataCache._
 
   /** Logger. */
   private val log = LogManager.getLogger(getClass)
 
-  /** The cache with the already received meta data chunks per medium. */
-  private var receivedChunks = createMetaDataCache()
+  /** The cache with the already received content objects per medium. */
+  private var contentCache = createMetaDataCache()
 
-  /** A map storing registration IDs for the requested media. */
-  private var registrationIDs = Map.empty[MediumID, Int]
+  /** A map storing the requested media for registration IDs. */
+  private var registrationIDs = Map.empty[Int, MediumID]
 
   /**
     * A default key for this extension. This is typically not used.
@@ -207,7 +205,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *
     * @return the current number of entries in the cache
     */
-  def numberOfEntries: Int = receivedChunks.size
+  def numberOfEntries: Int = contentCache.size
 
   override protected def receiveSpecific: Receive = {
     case registration: MetaDataRegistration =>
@@ -232,17 +230,16 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @param registration the registration to be handled
     */
   private def handleRegistration(registration: MetaDataRegistration): Unit = {
-    val currentChunk = receivedChunks.getOrElse(registration.mediumID,
-      UndefinedChunk)
-    if (!currentChunk.complete) {
+    val currentContent = contentCache.getOrElse(registration.mediumID, EmptyContent)
+    if (!currentContent.complete) {
       addConsumer(registration, registration.mediumID)
-      if (currentChunk eq UndefinedChunk) {
+      if (currentContent eq EmptyContent) {
         val regID = mediaFacade.queryMetaDataAndRegisterListener(registration.mediumID)
-        registrationIDs += registration.mediumID -> regID
+        registrationIDs += regID -> registration.mediumID
       }
     }
-    if (currentChunk.data.nonEmpty) {
-      registration.callback(currentChunk)
+    if (currentContent.data.nonEmpty) {
+      registration.callback(currentContent)
     }
   }
 
@@ -260,8 +257,8 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     removeConsumer(listenerID, mediumID)
     if (consumerList(mediumID).isEmpty && oldConsumers.nonEmpty) {
       mediaFacade.removeMetaDataListener(mediumID)
-      registrationIDs -= mediumID
-      receivedChunks removeItem mediumID
+      registrationIDs = registrationIDs.filterNot(_._2 == mediumID)
+      contentCache removeItem mediumID
     }
   }
 
@@ -275,18 +272,19 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @param regID the registration ID
     */
   private def metaDataReceived(chunk: MetaDataChunk, regID: Int): Unit = {
-    if (regID == registrationID(chunk.mediumID)) {
-      if (receivedChunks contains chunk.mediumID) {
-        receivedChunks.updateItem(chunk.mediumID)(combine(_, chunk))
+    registrationIDs.get(regID) foreach { mediumID =>
+      lazy val contentUpdate = EmptyContent.addChunk(chunk)
+      if (contentCache contains mediumID) {
+        contentCache.updateItem(mediumID)(content => content.addChunk(chunk))
       } else {
-        receivedChunks.addItem(chunk.mediumID, chunk)
-        log.info("Added medium {} to cache.", chunk.mediumID)
+        contentCache.addItem(mediumID, contentUpdate)
+        log.info("Added medium {} to cache.", mediumID)
       }
 
-      invokeConsumers(chunk, chunk.mediumID)
+      invokeConsumers(contentUpdate, mediumID)
       if (chunk.complete) {
         removeConsumers(chunk.mediumID)
-        registrationIDs -= chunk.mediumID
+        registrationIDs -= regID
       }
     }
   }
@@ -296,43 +294,22 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *             stale data.
     */
   override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
-    receivedChunks = createMetaDataCache()
+    contentCache = createMetaDataCache()
   }
 
   /**
-    * Combines two chunks of meta data to a single one.
-    *
-    * @param chunk1 chunk 1
-    * @param chunk2 chunk 2
-    * @return the combined chunk
-    */
-  private def combine(chunk1: MetaDataChunk, chunk2: MetaDataChunk): MetaDataChunk =
-    chunk2.copy(data = chunk1.data ++ chunk2.data)
-
-  /**
-    * Returns the expected registration ID for the given medium. This is used
-    * to detect outdated meta data messages.
-    *
-    * @param mediumID the medium ID
-    * @return the registration ID for this medium
-    */
-  private def registrationID(mediumID: MediumID): Int =
-    registrationIDs.getOrElse(mediumID, MediaFacade.InvalidListenerRegistrationID)
-
-  /**
     * A function that determines whether an item from the meta data cache can
-    * be removed. Only items can be removed, for which no consumers are
-    * registered, i.e. which have been completely downloaded.
+    * be removed. Only items can be removed, which have been completely
+    * downloaded.
     *
-    * @param chunk the chunk in question
+    * @param content the content item in question
     * @return a flag whether this item can be removed from the cache
     */
-  private def cacheRemovableFunc(chunk: MetaDataChunk): Boolean = {
-    val canRemove = consumerList(chunk.mediumID).isEmpty
-    if (canRemove) {
-      log.info("Removing medium {} from meta data cache.", chunk.mediumID)
+  private def cacheRemovableFunc(content: MediumContent): Boolean = {
+    if (content.complete) {
+      log.info("Removing medium {} from meta data cache.", content.data.iterator.next()._1.mediumID)
     }
-    canRemove
+    content.complete
   }
 
   /**
@@ -340,7 +317,6 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *
     * @return the new cache
     */
-  private def createMetaDataCache(): LRUCache[MediumID, MetaDataChunk] =
-    new LRUCache[MediumID, MetaDataChunk](cacheSize)(sizeFunc =
-      cacheSizeFunc, removableFunc = cacheRemovableFunc)
+  private def createMetaDataCache(): LRUCache[MediumID, MediumContent] =
+    new LRUCache[MediumID, MediumContent](cacheSize)(sizeFunc = cacheSizeFunc, removableFunc = cacheRemovableFunc)
 }
