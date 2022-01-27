@@ -107,7 +107,7 @@ private object ScanResultEnhancer {
     * @return the sequence with URIs and original data objects
     */
   private def generateUris(root: Path, files: Seq[FileData]): Seq[(String, FileData)] =
-    files.map(f => MediaFileUriHandler.generateMediaFileUri(root, Paths get f.path))
+    files.map(f => MediaFileUriHandler.generateMediaFileUri(root, f.path))
       .zip(files)
 
   /**

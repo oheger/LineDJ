@@ -34,6 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
 import scala.concurrent.duration._
 
 object MetaDataExtractionActorSpec {
@@ -65,7 +66,7 @@ object MetaDataExtractionActorSpec {
     * @param idx the index of the file
     * @return the test path
     */
-  private def testPath(idx: Int): String = s"/music/song_$idx.mp3"
+  private def testPath(idx: Int): Path = Paths get s"/music/song_$idx.mp3"
 
   /**
     * Generates a uri for a test media file.
@@ -309,7 +310,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
 class WrapperActorImpl(messages: Option[BlockingQueue[ProcessMetaDataFile]]) extends Actor {
   override def receive: Receive = {
     case p: ProcessMetaDataFile =>
-      if (!p.fileData.path.contains(MetaDataExtractionActorSpec.ErrorIndexStr)) {
+      if (!p.fileData.path.toString.contains(MetaDataExtractionActorSpec.ErrorIndexStr)) {
         sender() ! MetaDataExtractionActorSpec.createProcessingResult(p.fileData, p.resultTemplate)
         messages foreach (_.offer(p))
       }

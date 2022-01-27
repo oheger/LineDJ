@@ -34,6 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
 import scala.concurrent.duration._
 
 object Mp3FileProcessorActorSpec {
@@ -41,7 +42,7 @@ object Mp3FileProcessorActorSpec {
   private val TagSizeLimit = 8192
 
   /** A test FileData object for a file to be processed. */
-  private val FileSpec = FileData("someMp3File.mp3", 20170426132934L)
+  private val FileSpec = FileData(Paths get "someMp3File.mp3", 20170426132934L)
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =

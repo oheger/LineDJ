@@ -45,7 +45,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param files the files that are going to be processed
     */
   def expectMediaFiles(files: Seq[FileData]): Unit = {
-    mediumPaths ++= files.map(_.path)
+    mediumPaths ++= files.map(_.path.toString)
   }
 
   /**

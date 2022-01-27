@@ -49,8 +49,7 @@ object MediaScannerActorSpec {
     * @param path the path
     * @return the corresponding ''FileData''
     */
-  private def fileData(path: Path): FileData =
-    FileData(path.toString, path.toString.length)
+  private def fileData(path: Path): FileData = FileData(path, path.toString.length)
 
   /**
     * Creates a ''FileData'' object representing a file in a directory.
@@ -107,8 +106,7 @@ object MediaScannerActorSpec {
     * @param file the file data
     * @return the file name
     */
-  private def extractFileName(file: FileData): String =
-    Paths.get(file.path).getFileName.toString
+  private def extractFileName(file: FileData): String = file.path.getFileName.toString
 
   /**
     * Extracts the IDs of all media from the given sequence of result objects.
@@ -151,8 +149,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   override protected def beforeAll(): Unit = {
     resolveTestFiles() foreach { file =>
-      val path = Paths get file.path
-      writeFileContent(path, FileTestHelper.TestData.substring(file.size.toInt))
+      writeFileContent(file.path, FileTestHelper.TestData.substring(file.size.toInt))
     }
   }
 
@@ -168,8 +165,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     */
   private def resolveTestFiles(): List[FileData] =
     TestFiles map { f =>
-      val path = createPathInDirectory(f.path)
-      f.copy(path = path.toString)
+      val path = createPathInDirectory(f.path.toString)
+      f.copy(path = path)
     }
 
   /**
@@ -179,7 +176,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return a set with all defined medium IDs
     */
   private def allDefinedMediumIDs(): Set[MediumID] =
-    TestFiles.map(_.path)
+    TestFiles.map(_.path.toString)
       .filter(_.endsWith(".settings"))
       .map { p =>
         val path = testDirectory resolve p

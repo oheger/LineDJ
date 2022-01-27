@@ -247,7 +247,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
         val transFunc = if (request.withMetaData) MediaFileDownloadActor.IdentityTransform
         else downloadTransformationFunc
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
-          Paths get fileData.path, config.downloadConfig.downloadChunkSize, transFunc))
+          fileData.path, config.downloadConfig.downloadChunkSize, transFunc))
         downloadManagerActor !
           DownloadMonitoringActor.DownloadOperationStarted(downloadActor, sender())
         MediumFileResponse(request, Some(downloadActor), fileData.size)

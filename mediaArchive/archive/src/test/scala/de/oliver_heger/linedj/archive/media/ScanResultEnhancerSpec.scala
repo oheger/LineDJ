@@ -74,8 +74,8 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     * @param rootPath the root path to resolve relative paths
     * @return the resulting path
     */
-  private def toPath(s: String, rootPath: Path): String =
-    rootPath.resolve(Paths.get(s.trim())).toString
+  private def toPath(s: String, rootPath: Path): Path =
+    rootPath.resolve(Paths.get(s.trim()))
 
   /**
     * Creates a sequence with paths representing the content of a test medium.
@@ -146,8 +146,7 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
 
     esr.fileUriMapping should have size 2 * contentList.size
     esr.fileUriMapping.values foreach { f =>
-      val uri = MediaFileUriHandler.generateMediaFileUri(testDirectory,
-        Paths get f.path)
+      val uri = MediaFileUriHandler.generateMediaFileUri(testDirectory, f.path)
       esr.fileUriMapping(uri) should be(f)
     }
   }

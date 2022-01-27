@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.io
 
-import java.nio.file.{Files, Path, Paths}
-
 import de.oliver_heger.linedj.FileTestHelper
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.{Files, Path}
 
 /**
  * Test class for ''DirectoryScanner''.
@@ -80,19 +80,16 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
   }
 
   /**
-    * Extracts the file name of a path string.
+    * Extracts the file name of a path.
     *
-    * @param s the path string
+    * @param path the path
     * @return the file name
     */
-  private def fileName(s: String): String = {
-    val path = Paths get s
-    path.getFileName.toString
-  }
+  private def fileName(path: Path): String =  path.getFileName.toString
 
   "A DirectoryScanner" should "return all files in the scanned directory structure" in {
     val fileData = setUpDirectoryStructure()
-    val allFiles = fileData.values.flatten.toSeq map (_.toString)
+    val allFiles = fileData.values.flatten.toSeq
     val scanner = new DirectoryScanner
 
     val result = scanner scan testDirectory

@@ -199,7 +199,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     * @return a JSON representation for this song
     */
   private def processElement(uri: String, file: FileData, data: MediaMetaData): String =
-    metaDataConverter.convert(uri, file.path, data)
+    metaDataConverter.convert(uri, file.path.toString, data)
 }
 
 /**

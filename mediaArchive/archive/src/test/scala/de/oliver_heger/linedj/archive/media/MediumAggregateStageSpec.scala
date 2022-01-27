@@ -80,7 +80,7 @@ object MediumAggregateStageSpec {
     * @return the new ''FileData'' object
     */
   private def createFileData(path: Path): FileData =
-    FileData(path.toString, path.toString.length)
+    FileData(path, path.toString.length)
 
   /**
     * Generates a ''Path'' representing a media file in the test directory
@@ -195,7 +195,7 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val path = createDataFile()
     val stage = new MediumAggregateStage(RootPath, ArchiveName)
 
-    stage.converter(path) should be(FileData(path.toString, FileTestHelper.TestData.length))
+    stage.converter(path) should be(FileData(path, FileTestHelper.TestData.length))
   }
 
   it should "aggregate the files of a single medium" in {

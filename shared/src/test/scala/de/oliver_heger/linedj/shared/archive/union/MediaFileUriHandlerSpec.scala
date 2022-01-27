@@ -59,7 +59,7 @@ object MediaFileUriHandlerSpec {
     * @param name the name of the file
     * @return a test ''FileData'' for this file
     */
-  private def fileData(name: String): FileData = FileData(filePath(name).toString, 42)
+  private def fileData(name: String): FileData = FileData(filePath(name), 42)
 
   /**
     * Generates an encoded URI for the given file name by prepending the

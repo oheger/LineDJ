@@ -148,7 +148,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       persistenceManager ! esr
       // TODO: Correct URI mapping.
       val mediaFiles = esr.scanResult.mediaFiles map { e =>
-        e._1 -> e._2.map(f => MediaFileUri(f.path))
+        e._1 -> e._2.map(f => MediaFileUri(f.path.toString))
       }
       metaDataUnionActor ! MediaContribution(mediaFiles)
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium

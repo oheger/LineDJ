@@ -117,7 +117,7 @@ object PersistentMetaDataManagerActor {
       */
     def unresolvedFiles(): Option[UnresolvedMetaDataFiles] = {
       val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot (d => resolvedFiles
-        .contains(d.path))
+        .contains(d.path.toString))
       if (unresolvedFiles.isEmpty) None
       else Some(UnresolvedMetaDataFiles(mediumID = mediumID, result = scanResult,
         files = unresolvedFiles))

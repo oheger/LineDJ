@@ -29,7 +29,7 @@ import scala.collection.mutable.ListBuffer
  * @param path the path pointing to the file
  * @param size the file size (in bytes)
  */
-case class FileData(path: String, size: Long)
+case class FileData(path: Path, size: Long)
 
 /**
  * A data class returned as result of a directory scan operation by
@@ -145,5 +145,5 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
    * @param file the path to the file
    * @return the corresponding ''FileData''
    */
-  private def createFileData(file: Path): FileData = FileData(file.toString, Files size file)
+  private def createFileData(file: Path): FileData = FileData(file, Files size file)
 }

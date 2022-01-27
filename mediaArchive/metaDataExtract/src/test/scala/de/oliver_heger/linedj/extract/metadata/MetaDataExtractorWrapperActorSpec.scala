@@ -34,6 +34,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+
 object MetaDataExtractorWrapperActorSpec {
   /** File extension for supported files. */
   private val SupportedFileExtension = "mp3"
@@ -53,7 +55,7 @@ object MetaDataExtractorWrapperActorSpec {
     * @param path the path to the test file
     * @return the file size
     */
-  private def fileSize(path: String): Int = path.length * 367
+  private def fileSize(path: Path): Int = path.toString.length * 367
 
   /**
     * Generates the path to a test file.
@@ -62,8 +64,7 @@ object MetaDataExtractorWrapperActorSpec {
     * @param ext  the extension
     * @return the path to this test file
     */
-  private def testPath(name: String, ext: String): String =
-    s"/music/$name.$ext"
+  private def testPath(name: String, ext: String): Path = Paths get s"/music/$name.$ext"
 
   /**
     * Generates the URI for a test file.
@@ -173,7 +174,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "handle files without an extension" in {
-    val fileData = FileData("PathWithoutExtension", 28)
+    val fileData = FileData(Paths get "PathWithoutExtension", 28)
     val msg = ProcessMetaDataFile(fileData,
       MetaDataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetaData()))
     val helper = new ExtractorActorTestHelper

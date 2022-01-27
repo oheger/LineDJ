@@ -63,7 +63,7 @@ object MetaDataExtractionActor {
     * @return the reverse path to URI mapping
     */
   private def reverseUriMapping(src: Map[String, FileData]): Map[String, String] =
-    src map (e => (e._2.path, e._1))
+    src map (e => (e._2.path.toString, e._1))
 }
 
 /**
@@ -214,5 +214,6 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     */
   private def processRequest(mediumID: MediumID, fd: FileData,
                              pathUriMapping: Map[String, String]): ProcessMetaDataFile =
-    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, MediaFileUri(pathUriMapping(fd.path)), MediaMetaData()))
+    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, MediaFileUri(pathUriMapping(fd.path.toString)),
+      MediaMetaData()))
 }

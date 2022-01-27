@@ -71,7 +71,7 @@ object ScanSinkUpdateServiceImplSpec {
     * @return the resulting file data object
     */
   private def createFileData(mid: MediumID, idx: Int): FileData =
-    FileData(s"${mid.mediumURI}/Song$idx.mp3", 100 * idx)
+    FileData(Paths get s"${mid.mediumURI}/Song$idx.mp3", 100 * idx)
 
   /**
     * Creates a test medium info object for the specified medium.

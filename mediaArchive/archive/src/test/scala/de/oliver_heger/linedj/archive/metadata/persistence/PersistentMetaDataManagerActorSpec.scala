@@ -157,8 +157,7 @@ object PersistentMetaDataManagerActorSpec {
     */
   private def mediumFiles(mediumID: MediumID): List[FileData] = {
     val mediumPath = RootPath resolve mediumID.mediumURI
-    (1 to FileCount).map(i => FileData((mediumPath resolve s"song$i.mp3").toString,
-      i * 1000)).toList
+    (1 to FileCount).map(i => FileData(mediumPath resolve s"song$i.mp3", i * 1000)).toList
   }
 
   /**
@@ -176,7 +175,7 @@ object PersistentMetaDataManagerActorSpec {
     * @return a list with processing results for this medium
     */
   private def processingResults(mid: MediumID): List[MetaDataProcessingSuccess] =
-    mediumFiles(mid) map (f => MetaDataProcessingSuccess(mid, MediaFileUri(f.path),
+    mediumFiles(mid) map (f => MetaDataProcessingSuccess(mid, MediaFileUri(f.path.toString),
       MediaMetaData(title = Some("Song " + f.path))))
 
   /**

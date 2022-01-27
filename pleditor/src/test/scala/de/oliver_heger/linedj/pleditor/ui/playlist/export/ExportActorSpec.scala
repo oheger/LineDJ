@@ -137,7 +137,7 @@ object ExportActorSpec {
    * @return the sequence of files
    */
   private def generateFiles(names: String*): Seq[FileData] =
-    names map (n => FileData(targetPath(n).toString, DefaultFileSize))
+    names map (n => FileData(targetPath(n), DefaultFileSize))
 
   /**
    * Generates a number of test songs in a specified range.
@@ -267,9 +267,8 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val (ops, _) = ExportActor.initializeExportData(data)
     val removeOps = ops takeWhile (_.operationType == ExportActor.OperationType.Remove)
     removeOps should have size (ops.size - 1)
-    val expPaths = TestScanResult.files.map(_.path) ++ TestScanResult.directories
-      .tail.reverse.map(_.toString)
-    extractPaths(removeOps).map(_.toString) should be(expPaths)
+    val expPaths = TestScanResult.files.map(_.path) ++ TestScanResult.directories.tail.reverse
+    extractPaths(removeOps) should contain theSameElementsInOrderAs expPaths
     val copyOp = ops.last
     copyOp.operationType should be(ExportActor.OperationType.Copy)
     copyOp.affectedPath should be(targetPath(1))
@@ -378,7 +377,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new ExportActorTestHelper
     helper prepareActor data
 
-    val removePath = Paths get TestScanResultWithSingleRemoveFile.files.head.path
+    val removePath = TestScanResultWithSingleRemoveFile.files.head.path
     helper.removeFileActor.expectMsg(RemoveFileActor.RemoveFile(removePath))
     helper send createCopyProgress(3)
     helper send RemoveFileActor.FileRemoved(removePath)

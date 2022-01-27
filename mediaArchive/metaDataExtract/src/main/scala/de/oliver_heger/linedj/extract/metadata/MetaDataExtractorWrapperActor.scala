@@ -100,7 +100,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
   private def receiveProcessing: Receive = {
     case p: ProcessMetaDataFile =>
       log.info("Meta data processing request for {}.", p.fileData.path)
-      val ext = PathUtils extractExtension p.fileData.path
+      val ext = PathUtils extractExtension p.fileData.path.toString
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
       a ! m

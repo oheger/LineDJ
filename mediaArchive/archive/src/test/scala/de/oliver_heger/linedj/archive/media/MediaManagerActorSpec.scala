@@ -124,7 +124,7 @@ object MediaManagerActorSpec {
   private def createFileData(): Map[MediumID, Map[String, FileData]] = {
     val path = RootPath resolve FileUri
     val uri = MediaFileUriHandler.generateMediaFileUri(RootPath, path)
-    val fileMap = Map(uri -> FileData(FileUri, 20180419))
+    val fileMap = Map(uri -> FileData(Paths get FileUri, 20180419))
     Map(TestMedium -> fileMap)
   }
 
@@ -411,8 +411,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val fileData = testMediumFile
     response.length should be(fileData.size)
     val downloadProps = helper.nextDownloadChildCreation().props
-    downloadProps.args should be(List(Paths get fileData.path, DownloadChunkSize,
-      MediaFileDownloadActor.IdentityTransform))
+    downloadProps.args should be(List(fileData.path, DownloadChunkSize, MediaFileDownloadActor.IdentityTransform))
   }
 
   it should "specify a correct transform function in a media file request" in {
@@ -440,7 +439,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val fileData = testMediumFile
     response.length should be(fileData.size)
     val downloadProps = helper.nextDownloadChildCreation().props
-    downloadProps.args.head should be(Paths get fileData.path)
+    downloadProps.args.head should be(fileData.path)
   }
 
   it should "inform the download manager about newly created download actors" in {

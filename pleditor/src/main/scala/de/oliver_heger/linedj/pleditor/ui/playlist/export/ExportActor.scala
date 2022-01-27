@@ -215,8 +215,7 @@ object ExportActor {
     if (data.clearTarget || data.overrideFiles) songsWithPath
     else {
       val existingPaths = Map(data.targetContent.files.map(f => (f.path, f.size)): _*)
-      songsWithPath.filterNot(s => existingPaths.contains(s._2.toString) &&
-        existingPaths(s._2.toString) == s._1.metaData.size)
+      songsWithPath.filterNot(s => existingPaths.contains(s._2) && existingPaths(s._2) == s._1.metaData.size)
     }
   }
 
@@ -227,7 +226,7 @@ object ExportActor {
    */
   private def createRemoveOperations(scanResult: ScanResult) : ListBuffer[ExportOperation] = {
     val buffer = ListBuffer.empty[ExportOperation]
-    buffer ++= scanResult.files.map(f => RemoveOperation(Paths get f.path))
+    buffer ++= scanResult.files.map(f => RemoveOperation(f.path))
     if (scanResult.directories.nonEmpty) {
       // The first directory is the output root directory
       buffer ++= scanResult.directories.tail.reverse.map(RemoveOperation)

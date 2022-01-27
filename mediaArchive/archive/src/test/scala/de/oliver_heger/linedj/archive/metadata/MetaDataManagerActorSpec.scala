@@ -118,10 +118,8 @@ object MetaDataManagerActorSpec {
     * @param file     the object with file data
     * @return the processing result
     */
-  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess = {
-    val path = Paths get file.path
-    MetaDataProcessingSuccess(mediumID, uriFor(path), metaDataFor(path))
-  }
+  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(mediumID, uriFor(file.path), metaDataFor(file.path))
 
   /**
     * Generates a number of media files that belong to the specified test
@@ -134,7 +132,7 @@ object MetaDataManagerActorSpec {
   private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
     val basePath = Option(mediumPath.getParent) getOrElse mediumPath
     (1 to count).toList.map { index =>
-      FileData(basePath.resolve(s"TestFile_$index.mp3").toString, 20)
+      FileData(basePath.resolve(s"TestFile_$index.mp3"), 20)
     }
   }
 
@@ -218,7 +216,7 @@ object MetaDataManagerActorSpec {
     * @param file the file
     * @return the URI for this file
     */
-  private def fileUri(file: FileData): MediaFileUri = uriFor(Paths get file.path)
+  private def fileUri(file: FileData): MediaFileUri = uriFor(file.path)
 
   /**
     * Generates a global URI to file mapping for the given result object.
@@ -227,7 +225,7 @@ object MetaDataManagerActorSpec {
     * @return the URI to file mapping for this result
     */
   private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
-    result.mediaFiles.values.flatten.map(f => (uriFor(Paths get f.path).uri, f)).toMap
+    result.mediaFiles.values.flatten.map(f => (uriFor(f.path).uri, f)).toMap
 
   /**
     * Converts the medium files in the given scan result to their URIs.
@@ -632,7 +630,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.startProcessing()
 
     helper.expectMediaContribution()
-      .sendProcessingResults(TestMediumID, List(FileData(path("unknownPath_42").toString, 42)))
+      .sendProcessingResults(TestMediumID, List(FileData(path("unknownPath_42"), 42)))
     expectNoMoreMessage(helper.metaDataUnionActor)
   }
 

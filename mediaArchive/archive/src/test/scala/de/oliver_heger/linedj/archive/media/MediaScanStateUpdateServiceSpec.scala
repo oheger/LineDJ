@@ -65,7 +65,7 @@ object MediaScanStateUpdateServiceSpec {
     */
   private def scanResult(idx: Int): EnhancedMediaScanResult = {
     val mid = mediumID(idx)
-    val files = (1 to idx).map(i => FileData(s"testSong$i.mp3", i * 42)).toList
+    val files = (1 to idx).map(i => FileData(Paths get s"testSong$i.mp3", i * 42)).toList
     val scanResult = MediaScanResult(Paths.get(mid.mediumURI), Map(mid -> files))
     val uriMapping = files.foldLeft(Map.empty[String, FileData])((m, f) => {
       m + (s"file://${f.path}" -> f)

@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import java.nio.file.Paths
-
 import akka.NotUsed
 import akka.actor.{Actor, ActorRef, Props, Terminated}
 import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
@@ -135,7 +133,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * @return the source for processing this file
     */
   private[processor] def createSource(file: FileData): Source[ByteString, Any] =
-    FileIO.fromPath(Paths.get(file.path), chunkSize = readChunkSize)
+    FileIO.fromPath(file.path, chunkSize = readChunkSize)
 
   /**
     * Creates the sink for processing an MP3 stream. This is a sink which

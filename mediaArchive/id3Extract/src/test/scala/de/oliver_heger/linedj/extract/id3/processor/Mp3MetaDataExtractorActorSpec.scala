@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -44,7 +44,7 @@ object Mp3MetaDataExtractorActorSpec {
   private val ReadChunkSize = 2048
 
   /** A test file data object. */
-  private val TestFileData = FileData("someMp3File.mp3", 2354875L)
+  private val TestFileData = FileData(Paths get "someMp3File.mp3", 2354875L)
 
   /** A test result template object. */
   private val ResultTemplate = MetaDataProcessingSuccess(MediumID("someMedium", Some("someSettings")),
@@ -177,7 +177,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
   it should "send an error message if there is a processing failure" in {
     val helper = new Mp3MetaDataExtractorTestHelper
 
-    helper.fishForStreamingMessage(FileData("non/existing/file.mp3", 42)) {
+    helper.fishForStreamingMessage(FileData(Paths get "non/existing/file.mp3", 42)) {
       case Mp3StreamFailure(_) => true
     } shouldBe a[Mp3StreamFailure]
   }
@@ -268,7 +268,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     def fishForStreamingMessage(file: String)(f: PartialFunction[Any, Boolean]): Any = {
       val testPath = copyTestFile(file)
       val size = Files.size(testPath)
-      fishForStreamingMessage(FileData(testPath.toString, size))(f)
+      fishForStreamingMessage(FileData(testPath, size))(f)
     }
 
     /**

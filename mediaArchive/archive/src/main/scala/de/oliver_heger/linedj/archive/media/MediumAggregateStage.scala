@@ -91,7 +91,7 @@ object MediumAggregateStage {
     */
   private def toFileData(p: Path): FileData = {
     val fileSize = Files size p
-    FileData(p.toString, fileSize)
+    FileData(p, fileSize)
   }
 
   /**
