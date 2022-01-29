@@ -54,7 +54,7 @@ object MediaScanStateUpdateServiceSpec {
     * @param idx the index
     * @return the checksum for this test medium
     */
-  private def checkSum(idx: Int): String = "check_" + mediumUri(idx)
+  private def checkSum(idx: Int): MediumChecksum = MediumChecksum("check_" + mediumUri(idx))
 
   /**
     * Generates a test scan result which contains data about a test medium with
@@ -83,9 +83,9 @@ object MediaScanStateUpdateServiceSpec {
     */
   private def mediumInfo(idx: Int, withChecksum: Boolean = false): MediumInfo = {
     val mid = mediumID(idx)
-    val cs = if (withChecksum) checkSum(idx) else ""
+    val cs = if (withChecksum) checkSum(idx) else MediumChecksum.Undefined
     MediumInfo(name = "Medium " + mid.mediumURI, mediumID = mid, description = "",
-      checksum = cs, orderMode = "", orderParams = "")
+      checksum = cs.checksum, orderMode = "", orderParams = "")
   }
 
   /**

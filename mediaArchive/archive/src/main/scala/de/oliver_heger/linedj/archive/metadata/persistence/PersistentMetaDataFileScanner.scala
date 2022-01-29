@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
-
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
+import de.oliver_heger.linedj.archive.media.MediumChecksum
 import de.oliver_heger.linedj.io.DirectoryStreamSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,9 +34,9 @@ object PersistentMetaDataFileScanner {
     * @param p the path of the meta data file
     * @return the checksum for this file
     */
-  private def checksumFor(p: Path): String = {
+  private def checksumFor(p: Path): MediumChecksum = {
     val name = p.getFileName.toString
-    name.substring(0, name.lastIndexOf('.'))
+    MediumChecksum(name.substring(0, name.lastIndexOf('.')))
   }
 
   /**
@@ -49,7 +49,7 @@ object PersistentMetaDataFileScanner {
     * @param dir the flag whether the path is a directory
     * @return the transformed stream element
     */
-  private def transformMetaDataFile(p: Path, dir: Boolean): (String, Path) =
+  private def transformMetaDataFile(p: Path, dir: Boolean): (MediumChecksum, Path) =
     (checksumFor(p), p)
 }
 
@@ -80,11 +80,11 @@ private class PersistentMetaDataFileScanner {
     * @return a future with a map with the results of the scan operation
     */
   def scanForMetaDataFiles(dir: Path)(implicit system: ActorSystem, ec: ExecutionContext):
-  Future[Map[String, Path]] = {
+  Future[Map[MediumChecksum, Path]] = {
     val source = DirectoryStreamSource.newBFSSource(dir,
       filter = DirectoryStreamSource
         .includeExtensionsFilter(Set(MetaDataFileExtension)))(transformMetaDataFile)
-    val sink = Sink.fold[Map[String, Path], (String, Path)](Map.empty)(_ + _)
+    val sink = Sink.fold[Map[MediumChecksum, Path], (MediumChecksum, Path)](Map.empty)(_ + _)
     source runWith sink
   }
 }

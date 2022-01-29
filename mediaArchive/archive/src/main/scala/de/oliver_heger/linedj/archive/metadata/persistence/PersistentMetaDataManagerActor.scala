@@ -17,10 +17,9 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.nio.file.Path
-
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumChecksum}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -66,7 +65,7 @@ object PersistentMetaDataManagerActor {
     *
     * @param files the map with meta data files
     */
-  private case class MetaDataFileResult(files: Map[String, Path])
+  private case class MetaDataFileResult(files: Map[MediumChecksum, Path])
 
   /**
     * An internally used data class that stores information about media that
@@ -185,7 +184,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * Stores information about meta data files available. The data is loaded
     * when the actor is started; so it may no be available immediately.
     */
-  private var optMetaDataFiles: Option[Map[String, Path]] = None
+  private var optMetaDataFiles: Option[Map[MediumChecksum, Path]] = None
 
   /**
     * A list with scan results sent to this actor. These results can only be
@@ -211,7 +210,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * received enhanced scan results. It is used to find out for which media
     * meta data files exist.
     */
-  private var checksumMapping = Map.empty[MediumID, String]
+  private var checksumMapping = Map.empty[MediumID, MediumChecksum]
 
   /**
     * The child actor for writing meta data for media with incomplete
@@ -278,7 +277,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       request.client ! RemovePersistentMetaDataResult(RemovePersistentMetaData(request.fileIDs),
         deleted)
       optMetaDataFiles = optMetaDataFiles map { files =>
-        files.filterNot(t => deleted.contains(t._1))
+        files.filterNot(t => deleted.contains(t._1.checksum))
       }
 
     case ScanCompleted =>
@@ -323,7 +322,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       .recover {
         case e: Exception =>
           log.error(e, "Could not read meta data files!")
-          Map.empty[String, Path]
+          Map.empty[MediumChecksum, Path]
       } map (m => MetaDataFileResult(m)) foreach (self ! _)
   }
 
@@ -339,12 +338,13 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @return a tuple with the target actor and the message to send
     */
   private def generateRemoveRequestResponse(req: RemovePersistentMetaData,
-                                            fileData: Option[Map[String, Path]],
+                                            fileData: Option[Map[MediumChecksum, Path]],
                                             caller: ActorRef): (ActorRef, Any) =
     fileData match {
       case Some(files) =>
+        val nameMapping = files map(e => e._1.checksum -> e._2)
         (removeActor, MetaDataFileRemoveActor.RemoveMetaDataFiles(req.checksumSet,
-          files, caller))
+          nameMapping, caller))
       case None =>
         (caller, RemovePersistentMetaDataResult(req, Set.empty))
     }
@@ -431,8 +431,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param checksum the checksum
     * @return the path for the corresponding meta data file
     */
-  private def generateMetaDataPath(checksum: String): Path =
-    config.metaDataPersistencePath.resolve(checksum + MetaDataFileExtension)
+  private def generateMetaDataPath(checksum: MediumChecksum): Path =
+    config.metaDataPersistencePath.resolve(checksum.checksum + MetaDataFileExtension)
 
   /**
     * Starts as many reader actors for meta data files as possible. For each
@@ -458,7 +458,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @return the updated list of pending results and lists for further
     *         processing of affected media
     */
-  private def groupPendingScanResults(optMetaDataFiles: Option[Map[String, Path]],
+  private def groupPendingScanResults(optMetaDataFiles: Option[Map[MediumChecksum, Path]],
                                       scanResults: List[EnhancedMediaScanResult]):
   (List[EnhancedMediaScanResult], List[UnresolvedMetaDataFiles], List[MediumData]) =
     optMetaDataFiles match {
@@ -478,7 +478,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param dataFiles the map with available data files
     * @return a tuple with sequences about unresolved media and read requests
     */
-  private def groupMedia(res: EnhancedMediaScanResult, dataFiles: Map[String, Path]):
+  private def groupMedia(res: EnhancedMediaScanResult, dataFiles: Map[MediumChecksum, Path]):
   (List[UnresolvedMetaDataFiles], List[MediumData]) = {
     res.scanResult.mediaFiles.foldLeft(
       (List.empty[UnresolvedMetaDataFiles], List.empty[MediumData])) {
@@ -498,7 +498,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param readRequests a sequence with read requests for known media
     * @return a tuple with the updated sequences
     */
-  private def groupMedium(mediumID: MediumID, dataFiles: Map[String, Path],
+  private def groupMedium(mediumID: MediumID, dataFiles: Map[MediumChecksum, Path],
                           res: EnhancedMediaScanResult,
                           unresolved: List[UnresolvedMetaDataFiles],
                           readRequests: List[MediumData]):
@@ -554,13 +554,15 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param controller    the controller actor for the file info object
     * @return the ''MetaDataFileInfo'' object
     */
-  private def createMetaDataFileInfo(metaDataFiles: Map[String, Path], checkMap: Map[MediumID, String],
-                                     controller: ActorRef):
-  MetaDataFileInfo = {
+  private def createMetaDataFileInfo(metaDataFiles: Map[MediumChecksum, Path], checkMap: Map[MediumID, MediumChecksum],
+                                     controller: ActorRef): MetaDataFileInfo = {
     val assignedFiles = checkMap filter (e => metaDataFiles contains e._2)
     val usedFiles = assignedFiles.values.toSet
     val unusedFiles = metaDataFiles.keySet diff usedFiles
-    MetaDataFileInfo(assignedFiles, unusedFiles, Some(controller))
+
+    val assignedFilesStr = assignedFiles map(e => e._1 -> e._2.checksum)
+    val unusedFilesStr = unusedFiles map (_.checksum)
+    MetaDataFileInfo(assignedFilesStr, unusedFilesStr, Some(controller))
   }
 
   /**
@@ -576,10 +578,10 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param f             the update function
     * @return the updated map
     */
-  private def updateMetaDataFiles(metaDataFiles: Map[String, Path],
-                                  checkMap: Map[MediumID, String], process: ProcessMedium)
-                                 (f: (Map[String, Path], String,
-                                   ProcessMedium) => Map[String, Path]): Map[String, Path] =
+  private def updateMetaDataFiles(metaDataFiles: Map[MediumChecksum, Path],
+                                  checkMap: Map[MediumID, MediumChecksum], process: ProcessMedium)
+                                 (f: (Map[MediumChecksum, Path], MediumChecksum,
+                                   ProcessMedium) => Map[MediumChecksum, Path]): Map[MediumChecksum, Path] =
     checkMap get process.mediumID match {
       case Some(cs) => f(metaDataFiles, cs, process)
       case None => metaDataFiles
@@ -593,8 +595,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param process       the ''ProcessMedium'' message from the writer actor
     * @return the updated meta data file mapping
     */
-  private def addMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
-                              process: ProcessMedium): Map[String, Path] =
+  private def addMetaDataFile(metaDataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
+                              process: ProcessMedium): Map[MediumChecksum, Path] =
     metaDataFiles + (checksum -> generateMetaDataPath(checksum))
 
   /**
@@ -606,8 +608,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param process       the ''ProcessMedium'' message from the writer actor
     * @return the updated meta data file mapping
     */
-  private def removeMetaDataFile(metaDataFiles: Map[String, Path], checksum: String,
-                                 process: ProcessMedium): Map[String, Path] =
+  private def removeMetaDataFile(metaDataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
+                                 process: ProcessMedium): Map[MediumChecksum, Path] =
     metaDataFiles - checksum
 
   /**

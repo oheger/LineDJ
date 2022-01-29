@@ -502,7 +502,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     */
   private def updateChecksumInfo(result: CombinedMediaScanResult): CombinedMediaScanResult = {
     val mediaMap = result.info map { e =>
-      (e._1, e._2.copy(checksum = result.result.checksumMapping.getOrElse(e._1, "")))
+      (e._1, e._2.copy(checksum = result.result.checksumMapping.getOrElse(e._1, MediumChecksum.Undefined).checksum))
     }
     result.copy(info = mediaMap)
   }

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.{ArchiveContentTableConfig, MediaArchiveConfig}
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
@@ -119,11 +119,21 @@ object PersistentMetaDataManagerActorSpec {
     * @param indices the indices of contained media
     * @return a mapping for meta data files
     */
-  private def persistentFileMapping(indices: Int*): Map[String, Path] =
+  private def persistentFileMapping(indices: Int*): Map[MediumChecksum, Path] =
     indices.map { i =>
-      val cs = checksum(i)
-      (cs, metaDataFile(cs))
+      val cs = MediumChecksum(checksum(i))
+      (cs, metaDataFile(cs.checksum))
     }.toMap
+
+  /**
+    * Generates a map with data about meta data files corresponding to the
+    * specified indices using plain strings for checksum values.
+    *
+    * @param indices the indices of contained media
+    * @return a mapping with meta data files
+    */
+  private def persistentFileMappingStr(indices: Int*): Map[String, Path] =
+    persistentFileMapping(indices: _*) map (e => e._1.checksum -> e._2)
 
   /**
     * Generates a scan result that contains media derived from the passed in
@@ -145,7 +155,7 @@ object PersistentMetaDataManagerActorSpec {
     * @return the ''EnhancedMediaScanResult''
     */
   private def enhancedScanResult(indices: Int*): EnhancedMediaScanResult = {
-    val checksumMapping = indices.map(i => (mediumID(i), checksum(i))).toMap
+    val checksumMapping = indices.map(i => (mediumID(i), MediumChecksum(checksum(i)))).toMap
     EnhancedMediaScanResult(scanResult(indices: _*), checksumMapping, Map.empty)
   }
 
@@ -578,7 +588,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     actor ! RemovePersistentMetaData(checksumSet)
     helper.removeActor.expectMsg(MetaDataFileRemoveActor.RemoveMetaDataFiles(checksumSet,
-      persistentFileMapping(1, 2, 3, 4), testActor))
+      persistentFileMappingStr(1, 2, 3, 4), testActor))
   }
 
   it should "set the correct path if a meta data file was written successfully" in {
@@ -609,7 +619,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val checksumSet = Set(checksum(3), checksum(4), checksum(5))
     val successSet = checksumSet - checksum(5)
     val request = MetaDataFileRemoveActor.RemoveMetaDataFiles(checksumSet,
-      persistentFileMapping(1, 2, 3, 4), testActor)
+      persistentFileMappingStr(1, 2, 3, 4), testActor)
     val response = MetaDataFileRemoveActor.RemoveMetaDataFilesResult(request,
       successSet)
     val helper = new PersistenceMetaDataManagerActorTestHelper
@@ -624,7 +634,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1, 2, 3, 4).createTestActor()
     val request = MetaDataFileRemoveActor.RemoveMetaDataFiles(Set(checksum(1)),
-      persistentFileMapping(1, 2, 3, 4), testActor)
+      persistentFileMappingStr(1, 2, 3, 4), testActor)
     val response = MetaDataFileRemoveActor.RemoveMetaDataFilesResult(request,
       Set(checksum(1)))
     actor ! response
@@ -632,7 +642,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     actor ! RemovePersistentMetaData(Set(checksum(2)))
     val request2 = helper.removeActor.expectMsgType[MetaDataFileRemoveActor.RemoveMetaDataFiles]
-    request2.pathMapping should be(persistentFileMapping(2, 3, 4))
+    request2.pathMapping should be(persistentFileMappingStr(2, 3, 4))
   }
 
   it should "trigger a ToC write operation at the end of a scan" in {
@@ -701,7 +711,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       * @return this test helper
       */
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper = {
-      val futResult = if (indices.isEmpty) Future.failed[Map[String, Path]](new IOException)
+      val futResult = if (indices.isEmpty) Future.failed[Map[MediumChecksum, Path]](new IOException)
       else Future.successful(persistentFileMapping(indices: _*))
       when(fileScanner.scanForMetaDataFiles(argEq(FilePath))(any(), any()))
         .thenReturn(futResult)

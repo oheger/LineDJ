@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import java.io.IOException
 import java.nio.file.Paths
-
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archive.media.MediumChecksum
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -46,8 +46,8 @@ class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit
 
   "A PersistentMetaDataFileScanner" should "find all meta data files in a directory" in {
     val FileCount = 8
-    val checkSumList = (1 to FileCount) map (i => s"checksum_$i")
-    val pathList = checkSumList map (s => writeFileContent(createPathInDirectory(s + ".mdt"),
+    val checkSumList = (1 to FileCount) map (i => MediumChecksum(s"checksum_$i"))
+    val pathList = checkSumList map (s => writeFileContent(createPathInDirectory(s.checksum + ".mdt"),
       FileTestHelper.TestData))
     // create some other files
     createDataFile()

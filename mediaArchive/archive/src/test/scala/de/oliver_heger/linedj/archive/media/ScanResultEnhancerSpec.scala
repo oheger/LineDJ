@@ -113,9 +113,9 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val esr = ScanResultEnhancer enhance createScanResult()
 
     val checksum = esr.checksumMapping(mid)
-    checksum.length should be > 8
+    checksum.checksum.length should be > 8
     val validChars = (('A' to 'F') ++ ('0' to '9')).toSet
-    checksum.forall(validChars.contains) shouldBe true
+    checksum.checksum.forall(validChars.contains) shouldBe true
   }
 
   it should "generate the same checksum for the same content" in {

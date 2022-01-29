@@ -48,7 +48,7 @@ private object ScanResultEnhancer {
     * @return the enhanced result
     */
   def enhance(result: MediaScanResult): EnhancedMediaScanResult = {
-    val init = (Map.empty[MediumID, String], Map.empty[String, FileData])
+    val init = (Map.empty[MediumID, MediumChecksum], Map.empty[String, FileData])
     val (checksumMapping, uriMapping) = result.mediaFiles.foldLeft(init) { (ms, e) =>
       calculateMappings(result, ms._1, ms._2, e._1, e._2)
     }
@@ -67,11 +67,11 @@ private object ScanResultEnhancer {
     * @return the updated mappings
     */
   private def calculateMappings(result: MediaScanResult,
-                                checksumMapping: Map[MediumID, String],
+                                checksumMapping: Map[MediumID, MediumChecksum],
                                 uriMapping: Map[String, FileData],
                                 mid: MediumID,
                                 files: List[FileData]):
-  (Map[MediumID, String], Map[String, FileData]) = {
+  (Map[MediumID, MediumChecksum], Map[String, FileData]) = {
     val fileUris = generateUris(result.root, files)
     val relativeFileUris = mid.mediumDescriptionPath match {
       case Some(desc) =>
@@ -90,11 +90,11 @@ private object ScanResultEnhancer {
     * @param fileUriData data about the files and their relative URIs
     * @return the resulting checksum
     */
-  private def calculateChecksum(fileUriData: Seq[(String, FileData)]): String = {
+  private def calculateChecksum(fileUriData: Seq[(String, FileData)]): MediumChecksum = {
     val digest = MessageDigest getInstance HashAlgorithm
     fileUriData map { t => t._1 + ':' + t._2.size } sortWith (_ < _) foreach (u =>
       digest.update(u.getBytes(StandardCharsets.UTF_8)))
-    toHexString(digest.digest())
+    MediumChecksum(toHexString(digest.digest()))
   }
 
   /**

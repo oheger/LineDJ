@@ -22,6 +22,19 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
+object MediumChecksum {
+  /** Constant representing an undefined checksum. */
+  final val Undefined = MediumChecksum("")
+}
+
+/**
+  * A value class representing a checksum calculated based on the content of a
+  * medium.
+  *
+  * @param checksum the actual checksum value
+  */
+case class MediumChecksum(checksum: String) extends AnyVal
+
 /**
   * A data class storing the results of a directory scan for media files (in its
   * raw form).
@@ -49,7 +62,7 @@ case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]]
   * @param fileUriMapping  a mapping from file URIs to the file objects
   */
 case class EnhancedMediaScanResult(scanResult: MediaScanResult,
-                                   checksumMapping: Map[MediumID, String],
+                                   checksumMapping: Map[MediumID, MediumChecksum],
                                    fileUriMapping: Map[String, FileData])
 
 /**

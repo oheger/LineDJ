@@ -62,7 +62,7 @@ object ScanSinkActorSpec {
     val mid = createMediumID(idx)
     val files = (1 to idx).map(i => FileData(Paths get s"${mid.mediumURI}/music/song$i.mp3", i * 10))
     val scanResult = MediaScanResult(Paths get mid.mediumURI, Map(mid -> files.toList))
-    EnhancedMediaScanResult(scanResult, Map(mid -> s"foo_$idx"), Map.empty)
+    EnhancedMediaScanResult(scanResult, Map(mid -> MediumChecksum(s"foo_$idx")), Map.empty)
   }
 
   /**
