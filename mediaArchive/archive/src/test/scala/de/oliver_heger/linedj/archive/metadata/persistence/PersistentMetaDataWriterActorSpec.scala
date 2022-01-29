@@ -16,20 +16,15 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.io.IOException
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import akka.Done
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.event.LoggingAdapter
 import akka.stream.IOResult
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
@@ -41,24 +36,32 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
 object PersistentMetaDataWriterActorSpec {
+  /** The root path of the test archive. */
+  private val RootPath = Paths get "archiveRoot"
+
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("Test"))
 
   /** Another medium ID. */
   private val OtherMedium = MediumID("otherMedium", None)
 
-  /** A mapping from URIs to paths. */
-  private val UriPathMapping = createUriPathMapping()
-
   /** The block size used by tests. */
   private val BlockSize = 20
 
   /** A JSON parser used by tests. */
   private val Parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
+
+  /** A converter between paths and URIs. */
+  private val converter = new PathUriConverter(RootPath)
 
   /**
     * A data class for storing information about a response message that has
@@ -87,14 +90,6 @@ object PersistentMetaDataWriterActorSpec {
   private def uri(index: Int): String = "song://TestSong" + index
 
   /**
-    * Generates the path for a test song based on the given index.
-    *
-    * @param index the index
-    * @return the path of this test song
-    */
-  private def path(index: Int): Path = Paths.get("testPath" + index + ".mp3")
-
-  /**
     * Generates a chunk of meta data containing test songs in a given index
     * range.
     *
@@ -109,14 +104,6 @@ object PersistentMetaDataWriterActorSpec {
     val songMapping = (startIndex to endIndex) map (i => (uri(i), metaData(i)))
     MetaDataResponse(MetaDataChunk(mediumID, songMapping.toMap, complete), 0)
   }
-
-  /**
-    * Generates a global mapping from URIs to files.
-    *
-    * @return the URI to path mapping
-    */
-  private def createUriPathMapping(): Map[String, FileData] =
-    (1 to 100).map(i => (uri(i), FileData(path(i), i))).toMap
 }
 
 /**
@@ -136,8 +123,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
   }
 
   "A PersistentMetaDataWriterActor" should "register at the meta data manager" in {
-    val msg = PersistentMetaDataWriterActor.ProcessMedium(TestMedium, createPathInDirectory("data" +
-      ".mdt"), testActor, Map.empty, 0)
+    val msg = PersistentMetaDataWriterActor.ProcessMedium(TestMedium, createPathInDirectory("data.mdt"),
+      testActor, converter, 0)
     val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], 50))
 
     actor ! msg
@@ -161,8 +148,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the data object
     */
   private def createMediumData(optSenderActor: Option[ActorRef] = None): MediumData =
-  MediumData(processMessage(null, TestMedium, 0), 0, Map.empty,
-    optSenderActor getOrElse TestProbe().ref)
+    MediumData(processMessage(null, TestMedium, 0), 0, Map.empty,
+      optSenderActor getOrElse TestProbe().ref)
 
   it should "create a default FutureIOResultHandler" in {
     val actor = createTestActorRef()
@@ -272,7 +259,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the test actor instance
     */
   private def createTestActor(handler: FutureIOResultHandler): ActorRef =
-  system.actorOf(Props(classOf[PersistentMetaDataWriterActor], BlockSize, handler))
+    system.actorOf(Props(classOf[PersistentMetaDataWriterActor], BlockSize, handler))
 
   /**
     * Returns a message that triggers the processing of a medium.
@@ -283,8 +270,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the message
     */
   private def processMessage(target: Path, mid: MediumID, resolvedSize: Int): ProcessMedium =
-    PersistentMetaDataWriterActor.ProcessMedium(mid, target, TestProbe().ref, UriPathMapping,
-      resolvedSize)
+    PersistentMetaDataWriterActor.ProcessMedium(mid, target, TestProbe().ref, converter, resolvedSize)
 
   /**
     * Parses a file with meta data and returns all extracted results.

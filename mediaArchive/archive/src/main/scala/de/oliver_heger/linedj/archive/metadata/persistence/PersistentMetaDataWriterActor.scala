@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.{Path, StandardOpenOption}
-
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef}
 import akka.event.LoggingAdapter
 import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Source}
+import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataResponse}
 
+import java.nio.file.{Path, StandardOpenOption}
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
@@ -39,14 +38,14 @@ object PersistentMetaDataWriterActor {
     * actor to register for this medium and to handle notifications about
     * chunks of meta data.
     *
-    * @param mediumID        the ID of the affected medium
-    * @param target          the path to the meta data file to be written
-    * @param metaDataManager the meta data manager actor
-    * @param uriPathMapping  a URI to path mapping
-    * @param resolvedSize    the number of resolved files on this medium
+    * @param mediumID         the ID of the affected medium
+    * @param target           the path to the meta data file to be written
+    * @param metaDataManager  the meta data manager actor
+    * @param pathUriConverter the converter for paths and URIs
+    * @param resolvedSize     the number of resolved files on this medium
     */
   case class ProcessMedium(mediumID: MediumID, target: Path, metaDataManager: ActorRef,
-                           uriPathMapping: Map[String, FileData], resolvedSize: Int)
+                           pathUriConverter: PathUriConverter, resolvedSize: Int)
 
   /**
     * An internally used message that is passed to this actor when a stream
@@ -69,7 +68,7 @@ object PersistentMetaDataWriterActor {
     *                        message; it is to be notified on write operations
     */
   private[persistence] case class MediumData(process: ProcessMedium, elementsWritten: Int,
-                                elements: Map[String, MediaMetaData], trigger: ActorRef)
+                                             elements: Map[String, MediaMetaData], trigger: ActorRef)
 
   /**
     * A message sent by [[PersistentMetaDataWriterActor]] to the triggering
@@ -181,7 +180,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     val source = Source(mediumData.elements)
     val listStage =
       new ListSeparatorStage[(String, MediaMetaData)]("[\n", ",\n", "\n]\n")((e, _) =>
-      processElement(e._1, mediumData.process.uriPathMapping(e._1), e._2))
+        processElement(e._1, mediumData.process.pathUriConverter.uriToPath(MediaFileUri(e._1)), e._2))
     source.via(listStage)
       .runWith(FileIO.toPath(mediumData.process.target,
         Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE,
@@ -193,13 +192,13 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     * The element is an entry of the map from a meta data chunk. It is
     * converted to a JSON representation in binary form.
     *
-    * @param uri   the URI of the song
-    * @param file  the ''FileData'' for the song
-    * @param data  the meta data for song
+    * @param uri  the URI of the song
+    * @param path the path for the song
+    * @param data the meta data for song
     * @return a JSON representation for this song
     */
-  private def processElement(uri: String, file: FileData, data: MediaMetaData): String =
-    metaDataConverter.convert(uri, file.path.toString, data)
+  private def processElement(uri: String, path: Path, data: MediaMetaData): String =
+    metaDataConverter.convert(uri, path.toString, data)
 }
 
 /**

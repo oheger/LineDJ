@@ -411,9 +411,10 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, resolved: Int):
   ProcessMedium =
+  // TODO: Pass the correct converter for the process message.
     PersistentMetaDataWriterActor.ProcessMedium(mediumID = u.mediumID,
-      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, uriPathMapping = u
-        .result.fileUriMapping, resolvedSize = resolved)
+      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, pathUriConverter = null,
+      resolvedSize = resolved)
 
   /**
     * Generates the path for a meta data file based on the specified
