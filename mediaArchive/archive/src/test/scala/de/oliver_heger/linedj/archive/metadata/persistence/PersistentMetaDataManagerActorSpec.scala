@@ -76,6 +76,9 @@ object PersistentMetaDataManagerActorSpec {
   /** Constant for the ToC writer actor class. */
   private val ClassToCWriterActor = classOf[ArchiveToCWriterActor]
 
+  /** The converter used by the test actor. */
+  private val Converter = new PathUriConverter(RootPath)
+
   /**
     * Generates a checksum based on the given index.
     *
@@ -194,11 +197,9 @@ object PersistentMetaDataManagerActorSpec {
     * @param medIdx the medium index
     * @return the ''ProcessMedium'' message
     */
-  private def createProcessMedium(medIdx: Int): PersistentMetaDataWriterActor.ProcessMedium = {
-    // TODO: Pass the correct converter.
+  private def createProcessMedium(medIdx: Int): PersistentMetaDataWriterActor.ProcessMedium =
     PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)),
-      null, null, 0)
-  }
+      null, Converter, 0)
 
   /**
     * Expects a message of the specified type for each of the passed in test
@@ -244,21 +245,20 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
   "A PersistenceMetaDataManagerActor" should "create a default file scanner" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val testRef = TestActorRef[PersistentMetaDataManagerActor](PersistentMetaDataManagerActor
-    (helper.config, helper.metaDataUnionActor.ref, new PathUriConverter(FilePath)))
+    (helper.config, helper.metaDataUnionActor.ref, Converter))
 
     testRef.underlyingActor.fileScanner should not be null
   }
 
   it should "generate correct creation properties" in {
-    val converter = new PathUriConverter(FilePath)
     val helper = new PersistenceMetaDataManagerActorTestHelper
-    val props = PersistentMetaDataManagerActor(helper.config, helper.metaDataUnionActor.ref, converter)
+    val props = PersistentMetaDataManagerActor(helper.config, helper.metaDataUnionActor.ref, Converter)
 
     classOf[PersistentMetaDataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args.head should be(helper.config)
     props.args(1) should be(helper.metaDataUnionActor.ref)
-    props.args(3) should be(converter)
+    props.args(3) should be(Converter)
   }
 
   it should "notify the caller for unknown media immediately" in {
@@ -849,12 +849,10 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       * @return the ''ProcessMedium'' message
       */
     private def processMsg(index: Int, resolved: Int, result: EnhancedMediaScanResult):
-    ProcessMedium = {
-      // TODO: Pass the correct converter.
+    ProcessMedium =
       PersistentMetaDataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
         mediumID = mediumID(index), metaDataManager = metaDataUnionActor.ref,
-        pathUriConverter = null, resolvedSize = resolved)
-    }
+        pathUriConverter = Converter, resolvedSize = resolved)
 
     /**
       * Creates a mock for the configuration.
@@ -879,7 +877,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       */
     private def createProps(): Props =
       Props(new PersistentMetaDataManagerActor(config, metaDataUnionActor.ref,
-        fileScanner) with ChildActorFactory {
+        fileScanner, Converter) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() match {
             case ClassReaderChildActor =>

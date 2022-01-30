@@ -135,7 +135,7 @@ object PersistentMetaDataManagerActor {
                                                    metaDataUnionActor: ActorRef,
                                                    fileScanner: PersistentMetaDataFileScanner,
                                                    converter: PathUriConverter)
-    extends PersistentMetaDataManagerActor(config, metaDataUnionActor, fileScanner)
+    extends PersistentMetaDataManagerActor(config, metaDataUnionActor, fileScanner, converter)
       with ChildActorFactory
 
   /**
@@ -172,11 +172,12 @@ object PersistentMetaDataManagerActor {
   * @param config             the configuration
   * @param metaDataUnionActor reference to the meta data union actor
   * @param fileScanner        the scanner for meta data files
+  * @param converter          the ''PathUriConverter''
   */
 class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
                                      metaDataUnionActor: ActorRef,
-                                     private[persistence] val fileScanner:
-                                     PersistentMetaDataFileScanner)
+                                     private[persistence] val fileScanner: PersistentMetaDataFileScanner,
+                                     converter: PathUriConverter)
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
@@ -413,9 +414,8 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     */
   private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, resolved: Int):
   ProcessMedium =
-  // TODO: Pass the correct converter for the process message.
     PersistentMetaDataWriterActor.ProcessMedium(mediumID = u.mediumID,
-      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, pathUriConverter = null,
+      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, pathUriConverter = converter,
       resolvedSize = resolved)
 
   /**
