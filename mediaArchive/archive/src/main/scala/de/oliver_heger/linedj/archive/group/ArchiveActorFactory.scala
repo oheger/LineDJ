@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.group
 
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
+import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -46,10 +46,11 @@ trait ArchiveActorFactory {
     */
   def createArchiveActors(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef, groupManager: ActorRef,
                           archiveConfig: MediaArchiveConfig): ActorRef = {
+    val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
-      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor))
+      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor, converter))
     val metaDataManager = createChildActor(MetaDataManagerActor(archiveConfig,
-      persistentMetaDataManager, metaDataUnionActor))
-    createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager))
+      persistentMetaDataManager, metaDataUnionActor, converter))
+    createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))
   }
 }

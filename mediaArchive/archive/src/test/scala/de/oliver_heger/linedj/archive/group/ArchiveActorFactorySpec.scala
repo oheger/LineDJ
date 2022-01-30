@@ -19,14 +19,22 @@ package de.oliver_heger.linedj.archive.group
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediaManagerActor
+import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.nio.file.Paths
+
+object ArchiveActorFactorySpec {
+  /** The root path with media files for the test archive. */
+  private val MediaRootPath = Paths get "ArchiveRootPath"
+}
 
 /**
   * Test class for ''ArchiveActorFactory''.
@@ -40,6 +48,8 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     super.afterAll()
   }
 
+  import ArchiveActorFactorySpec._
+
   "An ArchiveActorFactory" should "create all actors for a media archive" in {
     val helper = new FactoryTestHelper
 
@@ -52,7 +62,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private class FactoryTestHelper {
     /** Mock for the archive configuration. */
-    private val archiveConfig = mock[MediaArchiveConfig]
+    private val archiveConfig = createArchiveConfig()
 
     /** Test probe for the media union actor. */
     private val probeMediaUnionActor = TestProbe()
@@ -98,21 +108,22 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return the map to control the child actor creation
       */
     private def createChildActorsMap(): Map[Class[_], (Props => Boolean, ActorRef)] = {
-      val propsPersistentManager = PersistentMetaDataManagerActor(archiveConfig, probeMetaDataUnionActor.ref)
+      val propsPersistentManager = PersistentMetaDataManagerActor(archiveConfig, probeMetaDataUnionActor.ref, null)
       val propsMediaManager = MediaManagerActor(archiveConfig, probeMetaDataManager.ref,
-        probeMediaUnionActor.ref, probeGroupManager.ref)
+        probeMediaUnionActor.ref, probeGroupManager.ref, null)
       val propsMetaDataManager = MetaDataManagerActor(archiveConfig, probePersistenceManager.ref,
-        probeMetaDataUnionActor.ref)
-      Map(propsMediaManager.actorClass() -> (_ == propsMediaManager, probeMediaManager.ref),
-        propsMetaDataManager.actorClass() -> (_ == propsMetaDataManager, probeMetaDataManager.ref),
+        probeMetaDataUnionActor.ref, null)
+      Map(propsMediaManager.actorClass() -> (checkMediaManagerProps(propsMediaManager), probeMediaManager.ref),
+        propsMetaDataManager.actorClass() -> (checkMetaDataManagerProps(propsMetaDataManager),
+          probeMetaDataManager.ref),
         propsPersistentManager.actorClass() -> (checkPersistenceManagerProps(propsPersistentManager),
           probePersistenceManager.ref))
     }
 
     /**
       * Checks whether the correct Props for creating the persistent manager
-      * actor have been provided. Here a simple equals check is not possible
-      * because a scanner object is part of the arguments.
+      * actor have been provided. The ''PathUriConverter'' needs to be checked
+      * manually.
       *
       * @param expected the expected Props
       * @param actual   the actual Props
@@ -120,7 +131,61 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     private def checkPersistenceManagerProps(expected: Props)(actual: Props): Boolean =
       actual.args.size == expected.args.size &&
-        actual.args.slice(0, 2) == expected.args.slice(0, 2)
+        actual.args.slice(0, 2) == expected.args.slice(0, 2) &&
+        checkConverter(actual, 3)
+
+    /**
+      * Checks whether the correct Props for creating the metadata manager
+      * actor have been provided. The ''PathUriConverter'' needs to be checked
+      * manually.
+      *
+      * @param expected the expected Props
+      * @param actual   the actual Props
+      * @return a flag whether the actual Props are okay
+      */
+    private def checkMediaManagerProps(expected: Props)(actual: Props): Boolean =
+      actual.args.size == expected.args.size &&
+        actual.args.slice(0, 4) == expected.args.slice(0, 4) &&
+        checkConverter(actual, 4)
+
+    /**
+      * Checks whether the correct Props for creating the metadata manager
+      * actor have been provided. The ''PathUriConverter'' needs to be checked
+      * manually.
+      *
+      * @param expected the expected Props
+      * @param actual   the actual Props
+      * @return a flag whether the actual Props are okay
+      */
+    private def checkMetaDataManagerProps(expected: Props)(actual: Props): Boolean =
+      actual.args.size == expected.args.size &&
+        actual.args.slice(0, 3) == expected.args.slice(0, 3) &&
+        checkConverter(actual, 3)
+
+    /**
+      * Checks whether a correct converter has been passed as parameter in the
+      * given ''Props'' instance.
+      *
+      * @param props      the ''Props'' instance
+      * @param paramIndex the index of the parameter to test
+      * @return a flag whether this parameter is a valid ''PathUriConverter''
+      */
+    private def checkConverter(props: Props, paramIndex: Int): Boolean =
+      props.args(paramIndex) match {
+        case c: PathUriConverter => c.rootPath == MediaRootPath
+        case o => fail("Expected a PathUriConverter, but got: " + o)
+      }
+
+    /**
+      * Creates the configuration for the test archive.
+      *
+      * @return the archive configuration
+      */
+    private def createArchiveConfig(): MediaArchiveConfig = {
+      val config = mock[MediaArchiveConfig]
+      when(config.rootPath).thenReturn(MediaRootPath)
+      config
+    }
 
     /**
       * Creates the test factory instance. Installs a child actor factory that

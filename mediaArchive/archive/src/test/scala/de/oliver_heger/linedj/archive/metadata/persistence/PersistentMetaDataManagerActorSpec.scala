@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.{ArchiveContentTableConfig, MediaArchiveConfig}
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
@@ -244,19 +244,21 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
   "A PersistenceMetaDataManagerActor" should "create a default file scanner" in {
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val testRef = TestActorRef[PersistentMetaDataManagerActor](PersistentMetaDataManagerActor
-    (helper.config, helper.metaDataUnionActor.ref))
+    (helper.config, helper.metaDataUnionActor.ref, new PathUriConverter(FilePath)))
 
     testRef.underlyingActor.fileScanner should not be null
   }
 
   it should "generate correct creation properties" in {
+    val converter = new PathUriConverter(FilePath)
     val helper = new PersistenceMetaDataManagerActorTestHelper
-    val props = PersistentMetaDataManagerActor(helper.config, helper.metaDataUnionActor.ref)
+    val props = PersistentMetaDataManagerActor(helper.config, helper.metaDataUnionActor.ref, converter)
 
     classOf[PersistentMetaDataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args.head should be(helper.config)
     props.args(1) should be(helper.metaDataUnionActor.ref)
+    props.args(3) should be(converter)
   }
 
   it should "notify the caller for unknown media immediately" in {

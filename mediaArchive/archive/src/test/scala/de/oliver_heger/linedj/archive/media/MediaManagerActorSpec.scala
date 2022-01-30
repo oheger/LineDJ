@@ -193,8 +193,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val config = createConfiguration()
     val unionActor = TestProbe()
     val groupManager = TestProbe()
-    val props = MediaManagerActor(config, testActor, unionActor.ref, groupManager.ref)
-    props.args should be(List(config, testActor, unionActor.ref, groupManager.ref))
+    val converter = new PathUriConverter(RootPath)
+    val props = MediaManagerActor(config, testActor, unionActor.ref, groupManager.ref, converter)
+    props.args should be(List(config, testActor, unionActor.ref, groupManager.ref, converter))
 
     classOf[MediaManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
@@ -203,7 +204,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "use a default state update service" in {
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
-      testActor, TestProbe().ref, TestProbe().ref))
+      testActor, TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager.underlyingActor.scanStateUpdateService should be(MediaScanStateUpdateServiceImpl)
   }
@@ -457,7 +458,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "forward a request for meta file info to the meta data manager" in {
     val metaDataManager = ForwardTestActor()
     val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
-      TestProbe().ref, TestProbe().ref))
+      TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager ! GetMetaDataFileInfo
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))

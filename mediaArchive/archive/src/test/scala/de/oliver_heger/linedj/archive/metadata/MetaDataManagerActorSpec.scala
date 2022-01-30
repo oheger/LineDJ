@@ -266,9 +266,10 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   "A MetaDataManagerActor" should "create correct properties" in {
     val config = mock[MediaArchiveConfig]
     val persistenceMan, unionActor = TestProbe()
+    val converter = new PathUriConverter(path("somePath"))
 
-    val props = MetaDataManagerActor(config, persistenceMan.ref, unionActor.ref)
-    props.args should contain inOrderOnly(config, persistenceMan.ref, unionActor.ref)
+    val props = MetaDataManagerActor(config, persistenceMan.ref, unionActor.ref, converter)
+    props.args should contain inOrderOnly(config, persistenceMan.ref, unionActor.ref, converter)
     classOf[MetaDataManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true

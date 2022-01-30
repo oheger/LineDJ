@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata
 import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor.ScanResultProcessed
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
@@ -46,7 +46,7 @@ object MetaDataManagerActor {
   case object ScanResultProcessed
 
   private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
-                                         metaDataUnionActor: ActorRef)
+                                         metaDataUnionActor: ActorRef, converter: PathUriConverter)
     extends MetaDataManagerActor(config, persistenceManager, metaDataUnionActor)
       with ChildActorFactory with CloseSupport
 
@@ -56,11 +56,12 @@ object MetaDataManagerActor {
     * @param config             the server configuration object
     * @param persistenceManager reference to the persistence manager actor
     * @param metaDataUnionActor reference to the meta data union actor
+    * @param converter          the ''PathUriConverter''
     * @return creation properties for a new actor instance
     */
   def apply(config: MediaArchiveConfig, persistenceManager: ActorRef,
-            metaDataUnionActor: ActorRef): Props =
-    Props(classOf[MetaDataManagerActorImpl], config, persistenceManager, metaDataUnionActor)
+            metaDataUnionActor: ActorRef, converter: PathUriConverter): Props =
+    Props(classOf[MetaDataManagerActorImpl], config, persistenceManager, metaDataUnionActor, converter)
 
 }
 

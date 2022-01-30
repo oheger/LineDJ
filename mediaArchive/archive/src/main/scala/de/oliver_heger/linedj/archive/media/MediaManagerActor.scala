@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Paths
-
 import akka.actor._
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
@@ -48,8 +46,8 @@ object MediaManagerActor {
     */
   private val NonExistingFile = FileData(path = null, size = -1)
 
-  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef,
-                                      mediaUnionActor: ActorRef, groupManager: ActorRef)
+  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef, mediaUnionActor: ActorRef,
+                                      groupManager: ActorRef, converter: PathUriConverter)
     extends MediaManagerActor(config, metaDataManager, mediaUnionActor, groupManager) with ChildActorFactory
       with SchedulerSupport with CloseSupport
 
@@ -62,11 +60,12 @@ object MediaManagerActor {
     * @param metaDataManager a reference to the meta data manager actor
     * @param mediaUnionActor reference to the media union actor
     * @param groupManager    a reference to the group manager actor
+    * @param converter       the ''PathUriConverter''
     * @return a ''Props'' object for creating actor instances
     */
-  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef,
-            mediaUnionActor: ActorRef, groupManager: ActorRef): Props =
-    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, groupManager)
+  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef, mediaUnionActor: ActorRef,
+            groupManager: ActorRef, converter: PathUriConverter): Props =
+    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, groupManager, converter)
 
   /**
     * The transformation function to remove meta data from a file to be

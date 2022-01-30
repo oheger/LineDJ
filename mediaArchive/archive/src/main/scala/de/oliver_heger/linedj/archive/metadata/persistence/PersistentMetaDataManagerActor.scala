@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumChecksum}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumChecksum, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, UnresolvedMetaDataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -133,7 +133,8 @@ object PersistentMetaDataManagerActor {
 
   private class PersistentMetaDataManagerActorImpl(config: MediaArchiveConfig,
                                                    metaDataUnionActor: ActorRef,
-                                                   fileScanner: PersistentMetaDataFileScanner)
+                                                   fileScanner: PersistentMetaDataFileScanner,
+                                                   converter: PathUriConverter)
     extends PersistentMetaDataManagerActor(config, metaDataUnionActor, fileScanner)
       with ChildActorFactory
 
@@ -142,11 +143,12 @@ object PersistentMetaDataManagerActor {
     *
     * @param config             the configuration
     * @param metaDataUnionActor the meta data union actor
+    * @param converter          the ''PathUriConverter''
     * @return creation properties for a new actor instance
     */
-  def apply(config: MediaArchiveConfig, metaDataUnionActor: ActorRef): Props =
+  def apply(config: MediaArchiveConfig, metaDataUnionActor: ActorRef, converter: PathUriConverter): Props =
     Props(classOf[PersistentMetaDataManagerActorImpl], config, metaDataUnionActor,
-      new PersistentMetaDataFileScanner)
+      new PersistentMetaDataFileScanner, converter)
 }
 
 /**
@@ -342,7 +344,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
                                             caller: ActorRef): (ActorRef, Any) =
     fileData match {
       case Some(files) =>
-        val nameMapping = files map(e => e._1.checksum -> e._2)
+        val nameMapping = files map (e => e._1.checksum -> e._2)
         (removeActor, MetaDataFileRemoveActor.RemoveMetaDataFiles(req.checksumSet,
           nameMapping, caller))
       case None =>
@@ -561,7 +563,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     val usedFiles = assignedFiles.values.toSet
     val unusedFiles = metaDataFiles.keySet diff usedFiles
 
-    val assignedFilesStr = assignedFiles map(e => e._1 -> e._2.checksum)
+    val assignedFilesStr = assignedFiles map (e => e._1 -> e._2.checksum)
     val unusedFilesStr = unusedFiles map (_.checksum)
     MetaDataFileInfo(assignedFilesStr, unusedFilesStr, Some(controller))
   }
