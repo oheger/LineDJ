@@ -84,15 +84,6 @@ object MetaDataManagerActorSpec {
   private def path(s: String): Path = ArchiveRootPath resolve s
 
   /**
-    * Generates the URI for a path. This is used to construct a URI mapping.
-    * TODO: This may no longer be needed when paths and URIs are no longer mixed.
-    *
-    * @param path the path
-    * @return the URI for this path
-    */
-  private def uriFor(path: Path): MediaFileUri = MediaFileUri(path.toString)
-
-  /**
     * Generates a medium ID.
     *
     * @param name a unique name for the ID
@@ -124,7 +115,7 @@ object MetaDataManagerActorSpec {
     * @return the processing result
     */
   private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(mediumID, uriFor(file.path), metaDataFor(file.path))
+    MetaDataProcessingSuccess(mediumID, fileUri(file), metaDataFor(file.path))
 
   /**
     * Generates a number of media files that belong to the specified test

@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
+import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
 
 /**
@@ -29,13 +30,14 @@ import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
   * medium and allows keeping track when this medium has been completed.
   *
   * @param mediumID the medium ID
+  * @param converter the ''PathUriConverter''
   */
-private class MediumDataHandler(mediumID: MediumID) {
+private class MediumDataHandler(mediumID: MediumID, converter: PathUriConverter) {
   /**
     * A set with the paths of all files in this medium. This is used to
     * determine whether all data has been fetched.
     */
-  private var mediumPaths = Set.empty[String]
+  private var mediumUris = Set.empty[MediaFileUri]
 
   /**
     * Notifies this object that the specified list of media files is going to
@@ -45,7 +47,7 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param files the files that are going to be processed
     */
   def expectMediaFiles(files: Seq[FileData]): Unit = {
-    mediumPaths ++= files.map(_.path.toString)
+    mediumUris ++= files.map(file => converter.pathToUri(file.path))
   }
 
   /**
@@ -60,8 +62,8 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return a flag whether this is a valid result
     */
   def resultReceived(result: MetaDataProcessingResult): Boolean = {
-    if (mediumPaths contains result.uri.uri) {
-      mediumPaths -= result.uri.uri
+    if (mediumUris contains result.uri) {
+      mediumUris -= result.uri
       true
     } else false
   }
@@ -72,5 +74,5 @@ private class MediumDataHandler(mediumID: MediumID) {
     *
     * @return a flag whether all meta data is available
     */
-  def isComplete: Boolean = mediumPaths.isEmpty
+  def isComplete: Boolean = mediumUris.isEmpty
 }

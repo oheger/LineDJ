@@ -244,7 +244,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit = {
     val mediumID = e._1
-    val handler = mediaMap.getOrElse(mediumID, new MediumDataHandler(mediumID))
+    val handler = mediaMap.getOrElse(mediumID, new MediumDataHandler(mediumID, converter))
     handler expectMediaFiles e._2
     mediaMap += mediumID -> handler
   }
