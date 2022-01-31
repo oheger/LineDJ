@@ -41,6 +41,9 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 object MetaDataManagerActorSpec {
+  /** The root path of the test media archive. */
+  private val ArchiveRootPath = Paths get "archiveRoot"
+
   /** The number of parallel processors for the test root. */
   private val AsyncCount = 3
 
@@ -72,16 +75,18 @@ object MetaDataManagerActorSpec {
   private case class ChildCreation(probe: TestProbe, props: Props)
 
   /**
-    * Helper method for generating a path.
+    * Helper method for generating a path. All paths are sub paths of the test
+    * archive's root path.
     *
     * @param s the name of this path
     * @return the path
     */
-  private def path(s: String): Path = Paths get s
+  private def path(s: String): Path = ArchiveRootPath resolve s
 
   /**
     * Generates the URI for a path. This is used to construct a URI mapping.
     * TODO: This may no longer be needed when paths and URIs are no longer mixed.
+    *
     * @param path the path
     * @return the URI for this path
     */
@@ -130,7 +135,7 @@ object MetaDataManagerActorSpec {
     * @return the resulting list
     */
   private def generateMediaFiles(mediumPath: Path, count: Int): List[FileData] = {
-    val basePath = Option(mediumPath.getParent) getOrElse mediumPath
+    val basePath = mediumPath.getParent
     (1 to count).toList.map { index =>
       FileData(basePath.resolve(s"TestFile_$index.mp3"), 20)
     }
@@ -160,13 +165,12 @@ object MetaDataManagerActorSpec {
     */
   private def createScanResult(): MediaScanResult = {
     val numbersOfSongs = List(3, 8, 4)
-    val rootPath = path("Root")
     val fileData = MediaIDs zip numbersOfSongs map { e =>
       (e._1, generateMediaFiles(path(e._1.mediumDescriptionPath.get), e._2))
     }
-    val fileMap = Map(fileData: _*) + (MediumID(rootPath.toString, None) -> generateMediaFiles
-    (path("noMedium"), 11))
-    MediaScanResult(rootPath, fileMap)
+    val fileMap = Map(fileData: _*) +
+      (MediumID(ArchiveRootPath.toString, None) -> generateMediaFiles(path("noMedium"), 11))
+    MediaScanResult(ArchiveRootPath, fileMap)
   }
 
   /**
@@ -177,7 +181,7 @@ object MetaDataManagerActorSpec {
     */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
     EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, MediumChecksum("checksum_" + e._1.mediumURI))),
-      createFileUriMapping(result))
+      Map.empty)
   }
 
   /**
@@ -216,16 +220,10 @@ object MetaDataManagerActorSpec {
     * @param file the file
     * @return the URI for this file
     */
-  private def fileUri(file: FileData): MediaFileUri = uriFor(file.path)
-
-  /**
-    * Generates a global URI to file mapping for the given result object.
-    *
-    * @param result the ''MediaScanResult''
-    * @return the URI to file mapping for this result
-    */
-  private def createFileUriMapping(result: MediaScanResult): Map[String, FileData] =
-    result.mediaFiles.values.flatten.map(f => (uriFor(f.path).uri, f)).toMap
+  private def fileUri(file: FileData): MediaFileUri = {
+    val relativePath = ArchiveRootPath.relativize(file.path)
+    MediaFileUri(relativePath.toString)
+  }
 
   /**
     * Converts the medium files in the given scan result to their URIs.
@@ -312,8 +310,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val root = path("anotherRootDirectory")
     val medID = MediumID(root.toString, Some("someDescFile.txt"))
     val scanResult2 = MediaScanResult(root, Map(medID -> files))
-    val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> MediumChecksum("testCheckSum")),
-      createFileUriMapping(scanResult2))
+    val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> MediumChecksum("testCheckSum")), Map.empty)
     helper.actor ! esr
     if (expectAck) {
       expectAckFromManager()
@@ -935,8 +932,8 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       TestActorRef(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref)
-        with ChildActorFactory with CloseSupport {
+      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref,
+        new PathUriConverter(ArchiveRootPath)) with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {

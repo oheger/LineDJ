@@ -47,7 +47,7 @@ object MetaDataManagerActor {
 
   private class MetaDataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
                                          metaDataUnionActor: ActorRef, converter: PathUriConverter)
-    extends MetaDataManagerActor(config, persistenceManager, metaDataUnionActor)
+    extends MetaDataManagerActor(config, persistenceManager, metaDataUnionActor, converter)
       with ChildActorFactory with CloseSupport
 
   /**
@@ -90,9 +90,10 @@ object MetaDataManagerActor {
   * @param config             the central configuration object
   * @param persistenceManager reference to the persistence manager actor
   * @param metaDataUnionActor reference to the meta data union actor
+  * @param converter          the ''PathUriConverter''
   */
 class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef,
-                           metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
+                           metaDataUnionActor: ActorRef, converter: PathUriConverter) extends Actor with ActorLogging {
   this: ChildActorFactory with CloseSupport =>
 
   /** The factory for extractor actors. */
@@ -147,9 +148,8 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
       persistenceManager ! esr
-      // TODO: Correct URI mapping.
       val mediaFiles = esr.scanResult.mediaFiles map { e =>
-        e._1 -> e._2.map(f => MediaFileUri(f.path.toString))
+        e._1 -> e._2.map(f => converter.pathToUri(f.path))
       }
       metaDataUnionActor ! MediaContribution(mediaFiles)
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
