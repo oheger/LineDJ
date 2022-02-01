@@ -66,6 +66,9 @@ object MetaDataManagerActorSpec {
   /** A special test message sent to actors. */
   private val TestMessage = new Object
 
+  /** The converter for paths and URIs used by the tests. */
+  private val Converter = new PathUriConverter(ArchiveRootPath)
+
   /**
     * A data class used to record the creation of child actors.
     *
@@ -328,6 +331,25 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     watchProbe.expectMsgType[Terminated]
   }
 
+  /**
+    * Checks that the given probe receives a [[ProcessMediaFiles]] message with
+    * expected content. Since the message contains a conversion function, a
+    * direct comparison is not possible.
+    *
+    * @param probe     the test probe
+    * @param expMedium the expected ''MediumID''
+    * @param expFiles  the expected list of files
+    */
+  private def expectProcessMessage(probe: TestProbe, expMedium: MediumID, expFiles: List[FileData]): Unit = {
+    val message = probe.expectMsgType[ProcessMediaFiles]
+    message.mediumID should be(expMedium)
+    message.files should be(expFiles)
+
+    message.files foreach { file =>
+      message.uriMappingFunc(file.path) should be(Converter.pathToUri(file.path))
+    }
+  }
+
   it should "extract meta data from files that could not be resolved" in {
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
@@ -338,11 +360,9 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       EnhancedScanResult)
     helper.actor ! unresolved1
     val processor = helper.nextChild()
-    processor.expectMsg(ProcessMediaFiles(unresolved1.mediumID, unresolved1.files,
-      EnhancedScanResult.fileUriMapping))
+    expectProcessMessage(processor, unresolved1.mediumID, unresolved1.files)
     helper.actor ! unresolved2
-    processor.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files,
-      EnhancedScanResult.fileUriMapping))
+    expectProcessMessage(processor, unresolved2.mediumID, unresolved2.files)
     helper.numberOfChildActors should be(1)
   }
 
@@ -360,8 +380,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.actor ! unresolved2
     val creation = helper.nextChildCreation()
-    creation.probe.expectMsg(ProcessMediaFiles(unresolved2.mediumID, unresolved2.files,
-      otherResult.fileUriMapping))
+    expectProcessMessage(creation.probe, unresolved2.mediumID, unresolved2.files)
     creation.props.args(2) should be(AsyncCount)
     helper.numberOfChildActors should be(2)
   }
@@ -923,8 +942,8 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       TestActorRef(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref,
-        new PathUriConverter(ArchiveRootPath)) with ChildActorFactory with CloseSupport {
+      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref, Converter)
+        with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()
           if (checkChildActorProps) {

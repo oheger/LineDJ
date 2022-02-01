@@ -17,7 +17,9 @@
 package de.oliver_heger.linedj.extract.metadata
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+
+import java.nio.file.Path
 
 /**
   * A message received by [[MetaDataExtractionActor]] telling it to process the
@@ -25,12 +27,12 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
   *
   * This message actually initiates the extraction of meta data by the receiving
   * actor instance. It contains all files of a medium for which no persistent
-  * meta data could be obtained. In addition, a mapping is contained for
-  * convert file URIs to ''FileData'' objects.
+  * meta data could be obtained. In addition, a mapping function is provided to
+  * generate URIs for the paths of the processed ''FileData'' objects.
   *
   * @param mediumID       the ID of the medium
   * @param files          the files to be processed
-  * @param uriPathMapping the mapping from URIs to files
+  * @param uriMappingFunc a function to obtain URIs for media file paths
   */
 case class ProcessMediaFiles(mediumID: MediumID, files: List[FileData],
-                             uriPathMapping: Map[String, FileData])
+                             uriMappingFunc: Path => MediaFileUri)

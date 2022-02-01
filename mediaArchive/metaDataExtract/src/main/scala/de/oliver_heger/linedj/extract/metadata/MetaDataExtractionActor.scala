@@ -30,6 +30,8 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import java.nio.file.Path
+
 object MetaDataExtractionActor {
 
   private class MetaDataExtractionActorImpl(metaDataManager: ActorRef,
@@ -55,15 +57,6 @@ object MetaDataExtractionActor {
     Props(classOf[MetaDataExtractionActorImpl], metaDataManager, extractorFactory,
       asyncCount, asyncTimeout)
 
-  /**
-    * Generates a mapping that assigns paths to media files to their
-    * corresponding URIs.
-    *
-    * @param src the URI to ''FileData'' mapping
-    * @return the reverse path to URI mapping
-    */
-  private def reverseUriMapping(src: Map[String, FileData]): Map[String, String] =
-    src map (e => (e._2.path.toString, e._1))
 }
 
 /**
@@ -104,8 +97,6 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
                               asyncTimeout: Timeout)
   extends AbstractStreamProcessingActor with CancelableStreamSupport {
   this: ChildActorFactory with CloseSupport =>
-
-  import MetaDataExtractionActor._
 
   /** The extractor wrapper child actor. */
   private var extractorWrapperActor: ActorRef = _
@@ -164,7 +155,7 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     if (!streamInProgress && pendingRequests.nonEmpty) {
       val request = pendingRequests.head
       pendingRequests = pendingRequests.tail
-      processMediaFiles(request.mediumID, request.files, request.uriPathMapping)
+      processMediaFiles(request.mediumID, request.files, request.uriMappingFunc)
     }
   }
 
@@ -181,17 +172,17 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     * Processes a list of media files from a ''ProcessMediaFiles'' request.
     * For the given files a stream is created and materialized.
     *
-    * @param mediumID the ID of the medium the files belong to
-    * @param files    the list of files to be processed
+    * @param mediumID       the ID of the medium the files belong to
+    * @param files          the list of files to be processed
+    * @param uriMappingFunc the function to generate URIs for files
     */
   private def processMediaFiles(mediumID: MediumID, files: List[FileData],
-                                uriPathMapping: Map[String, FileData]): Unit = {
+                                uriMappingFunc: Path => MediaFileUri): Unit = {
     implicit val timeout: Timeout = asyncTimeout
-    val pathUriMapping = reverseUriMapping(uriPathMapping)
     val source = createSource(files)
     val sink = Sink.foreach(metaDataManager.!)
     val (ks, futStream) = source
-      .map(fd => processRequest(mediumID, fd, pathUriMapping))
+      .map(fd => processRequest(mediumID, fd, uriMappingFunc))
       .viaMat(KillSwitches.single)(Keep.right)
       .mapAsyncUnordered(asyncCount) { p =>
         (extractorWrapperActor ? p) recover {
@@ -209,11 +200,10 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     *
     * @param mediumID       the medium ID
     * @param fd             the data for the file to be processed
-    * @param pathUriMapping the mapping from file objects to URIs
+    * @param uriMappingFunc the function to generate URIs for files
     * @return the request to process this file
     */
   private def processRequest(mediumID: MediumID, fd: FileData,
-                             pathUriMapping: Map[String, String]): ProcessMetaDataFile =
-    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, MediaFileUri(pathUriMapping(fd.path.toString)),
-      MediaMetaData()))
+                             uriMappingFunc: Path => MediaFileUri): ProcessMetaDataFile =
+    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, uriMappingFunc(fd.path), MediaMetaData()))
 }

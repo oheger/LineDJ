@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import java.nio.file.Path
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts, PathUriConverter}
@@ -25,11 +24,12 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataMan
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediaScanCompleted, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import java.nio.file.Path
 import scala.collection.immutable.Queue
 
 object MetaDataManagerActor {
@@ -143,7 +143,7 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       val root = result.scanResult.root
       val actorMap = if (processorActors contains root) processorActors
       else processorActors + (root -> createProcessorActor(root))
-      actorMap(root) ! ProcessMediaFiles(mid, files, result.fileUriMapping)
+      actorMap(root) ! ProcessMediaFiles(mid, files, converter.pathToUri)
       processorActors = actorMap
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>

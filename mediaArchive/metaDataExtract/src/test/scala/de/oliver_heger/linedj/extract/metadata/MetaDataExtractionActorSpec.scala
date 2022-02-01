@@ -48,14 +48,14 @@ object MetaDataExtractionActorSpec {
   /** Constant for the pattern the error index appears in file names. */
   val ErrorIndexStr = "_42."
 
+  /** A regular expression to extract the index from a test file path. */
+  private val RegFilePath = raw"""song_(\d+).mp3""".r
+
   /** Test medium ID. */
   private val TestMediumID = MediumID("testMedium", Some("test.settings"))
 
   /** The maximum number of test files. */
   private val MaxTestFiles = 100
-
-  /** The URI mapping used by the test actor. */
-  private lazy val UriMapping = createUriMapping()
 
   /** Type definition for a function which can manipulate a stream source. */
   private type SourceAdapter = Source[FileData, NotUsed] => Source[FileData, NotUsed]
@@ -86,12 +86,17 @@ object MetaDataExtractionActorSpec {
     FileData(testPath(idx), (idx + 1) * 231)
 
   /**
-    * Creates the URI mapping used by the test actor.
+    * A function for mapping paths of media files to URIs. This is done based
+    * on the index of the test path.
     *
-    * @return the URI mapping
+    * @param path the path
+    * @return the URI for this path
     */
-  private def createUriMapping(): Map[String, FileData] =
-    (1 to MaxTestFiles).map(i => (testUri(i).uri, testFileData(i))).toMap
+  private def uriMappingFunc(path: Path): MediaFileUri =
+    path.getFileName.toString match {
+      case RegFilePath(idx) => testUri(idx.toInt)
+      case _ => MediaFileUri("invalid://" + path)
+    }
 
   /**
     * Generates a processing request for a number of test files.
@@ -102,7 +107,7 @@ object MetaDataExtractionActorSpec {
     */
   private def createProcessRequest(from: Int, to: Int): ProcessMediaFiles = {
     val files = from.to(to).map(testFileData).toList
-    ProcessMediaFiles(TestMediumID, files, UriMapping)
+    ProcessMediaFiles(TestMediumID, files, uriMappingFunc)
   }
 
   /**
