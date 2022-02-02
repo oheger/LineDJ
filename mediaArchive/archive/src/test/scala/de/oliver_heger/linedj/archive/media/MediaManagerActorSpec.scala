@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Paths
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
@@ -34,7 +30,7 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, RemovedArchiveComponentProcessed}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
+import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito.when
 import org.scalatest.BeforeAndAfterAll
@@ -42,6 +38,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
 object MediaManagerActorSpec {
@@ -129,36 +128,23 @@ object MediaManagerActorSpec {
   }
 
   /**
-    * Returns the URI of the single file contained in the test file data.
-    *
-    * @return the URI of the test file
-    */
-  private def testFileUri: String = TestFileData(TestMedium).keys.head
-
-  /**
-    * Returns the test file from the test file data.
-    *
-    * @return data about the test file
-    */
-  private def testMediumFile: FileData = TestFileData(TestMedium)(testFileUri)
-
-  /**
-    * Creates a request for the test medium file which is part of the test
+    * Creates a request for a test medium file which is part of the test
     * data.
     *
+    * @param uri          the URI of the test file
     * @param withMetaData flag whether meta data should be included
     * @return the request
     */
-  private def createMediumFileRequest(withMetaData: Boolean): MediumFileRequest = {
-    MediumFileRequest(MediaFileID(TestMedium, testFileUri), withMetaData)
+  private def createMediumFileRequest(uri: String, withMetaData: Boolean): MediumFileRequest = {
+    MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData)
   }
 }
 
 /**
   * Test class for ''MediaManagerActor''.
   */
-class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
   def this() = this(ActorSystem("MediaManagerActorSpec"))
 
   override protected def afterAll(): Unit = {
@@ -166,6 +152,14 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   import MediaManagerActorSpec._
+
+  /**
+    * Returns the root path of the test archive. This path is below the managed
+    * test directory, so that test media files can be created.
+    *
+    * @return the root path of the test archive
+    */
+  private def archiveRootPath: Path = testDirectory resolve RootPath
 
   /**
     * Creates a mock configuration object.
@@ -184,7 +178,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     when(config.scanMediaBufferSize).thenReturn(ScanBufSize)
     when(config.infoParserTimeout).thenReturn(ParserTimeout)
     when(config.infoSizeLimit).thenReturn(InfoSizeLimit)
-    when(config.rootPath).thenReturn(RootPath)
+    when(config.rootPath).thenReturn(archiveRootPath)
     when(config.downloadConfig).thenReturn(downloadConfig)
     config
   }
@@ -240,13 +234,13 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle a message to start a new scan operation" in {
     val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
-    val scanMsg = MediaScannerActor.ScanPath(RootPath, state1.seqNo)
+    val scanMsg = MediaScannerActor.ScanPath(archiveRootPath, state1.seqNo)
     val initMsg = ScanStateTransitionMessages(unionArchiveMessage = Some("union"),
       metaManagerMessage = Some("meta"))
     val helper = new MediaManagerTestHelper
 
     helper.stub(Option(scanMsg), state1) {
-      _.triggerStartScan(RootPath, testActor)
+      _.triggerStartScan(archiveRootPath, testActor)
     }
       .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
         _.startScanMessages(ArchiveName)
@@ -265,7 +259,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new MediaManagerTestHelper
 
     helper.stub(scanMsg, state) {
-      _.triggerStartScan(RootPath, testActor)
+      _.triggerStartScan(archiveRootPath, testActor)
     }
       .post(StartMediaScan)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
@@ -402,22 +396,23 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "return a correct download result" in {
-    val request = createMediumFileRequest(withMetaData = true)
     val helper = new MediaManagerTestHelper
+    val (uri, fileData) = helper.createTestMediaFile()
+    val request = createMediumFileRequest(uri, withMetaData = true)
 
     helper.passTestData()
       .post(request)
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
-    val fileData = testMediumFile
     response.length should be(fileData.size)
     val downloadProps = helper.nextDownloadChildCreation().props
     downloadProps.args should be(List(fileData.path, DownloadChunkSize, MediaFileDownloadActor.IdentityTransform))
   }
 
   it should "specify a correct transform function in a media file request" in {
-    val request = createMediumFileRequest(withMetaData = false)
     val helper = new MediaManagerTestHelper
+    val (uri, _) = helper.createTestMediaFile()
+    val request = createMediumFileRequest(uri, withMetaData = false)
 
     helper.passTestData()
       .post(request)
@@ -429,23 +424,10 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     func isDefinedAt "mp4" shouldBe false
   }
 
-  it should "handle a file request for a file in global undefined medium" in {
-    val fileURI = "ref://" + TestMedium.mediumURI + ":" + ArchiveName + ":" +
-      MediaFileUriHandler.PrefixPath + testFileUri
-    val helper = new MediaManagerTestHelper
-
-    helper.passTestData()
-      .post(MediumFileRequest(MediaFileID(TestMedium, fileURI), withMetaData = true))
-    val response = expectMsgType[MediumFileResponse]
-    val fileData = testMediumFile
-    response.length should be(fileData.size)
-    val downloadProps = helper.nextDownloadChildCreation().props
-    downloadProps.args.head should be(fileData.path)
-  }
-
   it should "inform the download manager about newly created download actors" in {
-    val request = createMediumFileRequest(withMetaData = true)
     val helper = new MediaManagerTestHelper
+    val (uri, _) = helper.createTestMediaFile()
+    val request = createMediumFileRequest(uri, withMetaData = true)
 
     val creation = helper.passTestData()
       .post(request)
@@ -510,6 +492,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * download operations.
       */
     private val downloadActorsQueue = new LinkedBlockingQueue[DownloadChildCreation]
+
+    /** The converter for Paths and URIs used by the test actor. */
+    private val converter = new PathUriConverter(archiveRootPath)
 
     /** The actor used for tests. */
     private val testManagerActor: TestActorRef[MediaManagerActor] = createTestActor()
@@ -684,6 +669,21 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
     /**
+      * Creates a media file in the test directory and returns its URI and
+      * ''FileData'' representation.
+      *
+      * @return a tuple with the URI and the ''FileData'' of the test file
+      */
+    def createTestMediaFile(): (String, FileData) = {
+      val path = archiveRootPath.resolve("some-medium")
+        .resolve("someArtist")
+        .resolve("someAlbum")
+        .resolve("someGreatHit.mp3")
+      val mediaFile = writeFileContent(path, FileTestHelper.TestData)
+      (converter.pathToUri(mediaFile).uri, FileData(mediaFile, FileTestHelper.TestData.length))
+    }
+
+    /**
       * Helper method to check whether the specified message was sent to the
       * given test probe.
       *
@@ -716,7 +716,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private def createTestActor(): TestActorRef[MediaManagerActor] = {
       TestActorRef[MediaManagerActor](Props(
         new MediaManagerActor(actorConfig, probeMetaDataManager.ref,
-          probeUnionMediaActor.ref, probeGroupManager.ref, updateService)
+          probeUnionMediaActor.ref, probeGroupManager.ref, updateService, converter)
           with ChildActorFactory with CloseSupport {
           override def createChildActor(p: Props): ActorRef = {
             p.actorClass() match {

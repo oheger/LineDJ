@@ -27,9 +27,11 @@ import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
-import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, RemovedArchiveComponentProcessed}
+import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import scalaz.State
+
+import java.nio.file.Files
 
 /**
   * Companion object.
@@ -48,7 +50,7 @@ object MediaManagerActor {
 
   private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef, mediaUnionActor: ActorRef,
                                       groupManager: ActorRef, converter: PathUriConverter)
-    extends MediaManagerActor(config, metaDataManager, mediaUnionActor, groupManager) with ChildActorFactory
+    extends MediaManagerActor(config, metaDataManager, mediaUnionActor, groupManager, converter) with ChildActorFactory
       with SchedulerSupport with CloseSupport
 
   /**
@@ -100,10 +102,12 @@ object MediaManagerActor {
   * @param mediaUnionActor        a reference to the media union actor
   * @param groupManager           a reference to the group manager actor
   * @param scanStateUpdateService the service to update the scan state
+  * @param converter              the ''PathUriConverter''
   */
 class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         mediaUnionActor: ActorRef, groupManager: ActorRef,
-                        private[media] val scanStateUpdateService: MediaScanStateUpdateService)
+                        private[media] val scanStateUpdateService: MediaScanStateUpdateService,
+                        converter: PathUriConverter)
   extends Actor with ActorLogging {
   me: ChildActorFactory with CloseSupport =>
 
@@ -116,10 +120,11 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @param metaDataManager a reference to the meta data manager actor
     * @param mediaUnionActor a reference to the media union actor
     * @param groupManager    a reference to the group manager actor
+    * @param converter       the ''PathUriConverter''
     */
   def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
-           mediaUnionActor: ActorRef, groupManager: ActorRef) =
-    this(config, metaDataManager, mediaUnionActor, groupManager, MediaScanStateUpdateServiceImpl)
+           mediaUnionActor: ActorRef, groupManager: ActorRef, converter: PathUriConverter) =
+    this(config, metaDataManager, mediaUnionActor, groupManager, MediaScanStateUpdateServiceImpl, converter)
 
   import MediaManagerActor._
 
@@ -260,15 +265,17 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
   /**
     * Obtains the ''FileData'' object referred to by the given
-    * ''MediumFileRequest''. The file is looked up in the data structures managed by
-    * this actor. If it cannot be found, result is ''None''.
+    * ''MediumFileRequest''. The path to the file is constructed based on its
+    * URI. If it exists, a corresponding ''FileData'' object is created.
+    * Otherwise, result is ''None''.
     *
     * @param request the request identifying the desired file
     * @return an option with the ''FileData''
     */
-  private def fetchFileData(request: MediumFileRequest): Option[FileData] = {
-    MediaFileUriHandler.resolveUri(request.fileID.mediumID, request.fileID.uri,
-      scanState.fileData)
-  }
+  private def fetchFileData(request: MediumFileRequest): Option[FileData] =
+    scanState.fileData.get(request.fileID.mediumID).flatMap { _ =>
+      Some(converter.uriToPath(MediaFileUri(request.fileID.uri)))
+    }.filter(path => Files.isRegularFile(path))
+      .map(path => FileData(path, Files.size(path)))
 
 }
