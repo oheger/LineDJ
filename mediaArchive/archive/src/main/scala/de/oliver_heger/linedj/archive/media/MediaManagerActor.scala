@@ -165,8 +165,8 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
     case GetMediumFiles(mediumID) =>
       val optResponse = scanState.fileData.get(mediumID) map { files =>
-        val fileIDs = files.keys map (uri => MediaFileID(mediumID, uri))
-        MediumFiles(mediumID, fileIDs.toSet, existing = true)
+        val fileIDs = files map (uri => MediaFileID(mediumID, uri.uri))
+        MediumFiles(mediumID, fileIDs, existing = true)
       }
       sender() ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
 
@@ -184,7 +184,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
     case res: ScanSinkActor.CombinedResults =>
       updateStateAndSendMessages(scanStateUpdateService.handleResultsReceived(res, sender(),
-        config.archiveName))
+        config.archiveName)(converter.pathToUri))
 
     case MediaScannerActor.PathScanCompleted(request) =>
       updateStateAndSendMessages(scanStateUpdateService.handleScanComplete(request.seqNo,

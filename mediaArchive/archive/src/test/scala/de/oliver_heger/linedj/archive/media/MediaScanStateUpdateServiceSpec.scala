@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Paths
-
+import java.nio.file.{Path, Paths}
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -30,6 +29,9 @@ import org.scalatest.matchers.should.Matchers
 object MediaScanStateUpdateServiceSpec {
   /** The name of the test archive. */
   private val ArchiveName = "TestLocalArchive"
+
+  /** Prefix for the URI of a media file. */
+  private val UriPrefix = "song://"
 
   /**
     * Generates the URI for the test medium with the given index.
@@ -57,6 +59,42 @@ object MediaScanStateUpdateServiceSpec {
   private def checkSum(idx: Int): MediumChecksum = MediumChecksum("check_" + mediumUri(idx))
 
   /**
+    * A function to convert paths to URIs; this is used by tests for result
+    * processing.
+    *
+    * @param path the path
+    * @return the URI for this path
+    */
+  private def uriForPath(path: Path): MediaFileUri = MediaFileUri(UriPrefix + path.toString)
+
+  /**
+    * Generates the name of a test song on a given test medium.
+    *
+    * @param mediumIdx the index of the medium
+    * @param songIdx   the index of the song
+    * @return the name of this test song
+    */
+  private def songName(mediumIdx: Int, songIdx: Int): String = s"medium$mediumIdx-testSong$songIdx.mp3"
+
+  /**
+    * Generates the path for a test song on a given test medium.
+    *
+    * @param mediumIdx the index of the medium
+    * @param songIdx   the index of the song
+    * @return the ''Path'' pointing to this test song
+    */
+  private def songPath(mediumIdx: Int, songIdx: Int): Path = Paths get songName(mediumIdx, songIdx)
+
+  /**
+    * Generates the URI for a test song on a given test medium.
+    *
+    * @param mediumIdx the index of the medium
+    * @param songIdx   the index of the song
+    * @return the URI referencing this test song
+    */
+  private def songUri(mediumIdx: Int, songIdx: Int): MediaFileUri = MediaFileUri(songName(mediumIdx, songIdx))
+
+  /**
     * Generates a test scan result which contains data about a test medium with
     * the given index.
     *
@@ -65,14 +103,32 @@ object MediaScanStateUpdateServiceSpec {
     */
   private def scanResult(idx: Int): EnhancedMediaScanResult = {
     val mid = mediumID(idx)
-    val files = (1 to idx).map(i => FileData(Paths get s"testSong$i.mp3", i * 42)).toList
+    val files = (1 to idx).map(i => FileData(songPath(idx, i), i * 42)).toList
     val scanResult = MediaScanResult(Paths.get(mid.mediumURI), Map(mid -> files))
-    val uriMapping = files.foldLeft(Map.empty[String, FileData])((m, f) => {
-      m + (s"file://${f.path}" -> f)
-    })
-    EnhancedMediaScanResult(scanResult = scanResult, fileUriMapping = uriMapping,
+    EnhancedMediaScanResult(scanResult = scanResult, fileUriMapping = Map.empty,
       checksumMapping = Map(mid -> checkSum(idx)))
   }
+
+  /**
+    * Generates a set with the URIs of the test songs contained on the given
+    * test medium.
+    *
+    * @param mediumIdx the index of the medium
+    * @return a set with the URIs of the test songs on this medium
+    */
+  private def mediumFileUris(mediumIdx: Int): Set[MediaFileUri] =
+    (1 to mediumIdx).map(songIdx => songUri(mediumIdx, songIdx)).toSet
+
+  /**
+    * Generates a set with URIs for the test songs on the given test medium
+    * that have been produced by the conversion function.
+    *
+    * @param mediumIdx the index of the medium
+    * @return a set with URIs of test songs after applying the conversion
+    *         function
+    */
+  private def convertedMediumFileUris(mediumIdx: Int): Set[MediaFileUri] =
+    scanResult(mediumIdx).scanResult.mediaFiles.flatMap(_._2).map(file => uriForPath(file.path)).toSet
 
   /**
     * Generates a test medium info object with the given index.
@@ -208,7 +264,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val root = Paths get "myArchiveRoot"
     val res = combinedResult(1)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(seqNo = 11,
-      fileData = Map(mediumID(1) -> res.result.fileUriMapping),
+      fileData = Map(mediumID(5) -> mediumFileUris(5)),
       mediaData = res.info.toList, startAnnounced = true)
     val client = actor()
     val expMsg = MediaScannerActor.ScanPath(root, state.seqNo)
@@ -310,31 +366,29 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       currentResults = List(scanResult(1)), ackPending = Some(actor()))
     val newResults = ScanSinkActor.CombinedResults(List(combinedResult(2)), state.seqNo)
-    val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(newResults,
-      actor()), state)
+    val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(newResults, actor())(uriForPath), state)
 
     next should be(state)
   }
 
   it should "process new results" in {
-    val res1 = combinedResult(1)
-    val res2 = combinedResult(2)
-    val res3 = combinedResult(3)
+    val res1 = combinedResult(2)
+    val res2 = combinedResult(3)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       mediaData = mediaMap(1, withChecksum = true).toList,
-      fileData = Map(mediumID(1) -> res1.result.fileUriMapping))
-    val newResults = List(res2, res3)
-    val expFileData = state.fileData ++ Map(mediumID(2) -> res2.result.fileUriMapping) ++
-      Map(mediumID(3) -> res3.result.fileUriMapping)
+      fileData = Map(mediumID(1) -> mediumFileUris(1)))
+    val newResults = List(res1, res2)
+    val expFileData = state.fileData ++ Map(mediumID(2) -> convertedMediumFileUris(2)) ++
+      Map(mediumID(3) -> convertedMediumFileUris(3))
     val expMediaData = multiMediaMap(1, 2, 3).toList
     val sender = actor()
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = sender,
-      results = ScanSinkActor.CombinedResults(newResults, state.seqNo)), state)
+      results = ScanSinkActor.CombinedResults(newResults, state.seqNo))(uriForPath), state)
 
     next.ackPending should be(Some(sender))
     next.mediaData should be(expMediaData)
     next.fileData should be(expFileData)
-    next.currentResults should be(List(res2.result, res3.result))
+    next.currentResults should be(List(res1.result, res2.result))
     next.currentMediaData should be(multiMediaMap(2, 3))
   }
 
@@ -349,13 +403,13 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val combinedRes = CombinedMediaScanResult(res, info)
     val state = stateInProgress()
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = actor(),
-      results = ScanSinkActor.CombinedResults(List(combinedRes), state.seqNo)), state)
+      results = ScanSinkActor.CombinedResults(List(combinedRes), state.seqNo))(uriForPath), state)
 
     next.currentResults should contain only res
     next.mediaData should be(info.toList)
     next.fileData should have size 2
-    next.fileData(mediumID(1)) should be(res1.fileUriMapping)
-    next.fileData(mediumID(2)) should be(res2.fileUriMapping)
+    next.fileData(mediumID(1)) should be(convertedMediumFileUris(1))
+    next.fileData(mediumID(2)) should be(convertedMediumFileUris(2))
   }
 
   it should "process new results with incomplete checksum mapping" in {
@@ -366,7 +420,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val combinedResults = ScanSinkActor.CombinedResults(seqNo = state.seqNo,
       results = List(CombinedMediaScanResult(esr, result.info)))
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = actor(),
-      results = combinedResults))
+      results = combinedResults)(uriForPath))
 
     next.currentMediaData(mid).checksum should be(MediaScanStateUpdateServiceImpl.UndefinedChecksum)
     next.mediaData.find(_._1 == mid).get._2.checksum should be(MediaScanStateUpdateServiceImpl.UndefinedChecksum)
@@ -375,8 +429,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   it should "ignore new results if the sequence number does not match" in {
     val state = stateInProgress()
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = actor(),
-      results = ScanSinkActor.CombinedResults(List(combinedResult(1)), state.seqNo + 1)),
-      state)
+      results = ScanSinkActor.CombinedResults(List(combinedResult(1)), state.seqNo + 1))(uriForPath), state)
 
     next should be(state)
   }
@@ -555,10 +608,9 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val expMediaData = multiMediaMap(1, 2)
     val sender = actor()
 
-    val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.handleResultsReceived(sender =
-      sender,
+    val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.handleResultsReceived(sender = sender,
       results = ScanSinkActor.CombinedResults(newResults, state.seqNo),
-      archiveName = ArchiveName), state)
+      archiveName = ArchiveName)(uriForPath), state)
     next.ackPending should be(Some(sender))
     next.currentResults should contain only res2.result
     next.currentMediaData should have size 0

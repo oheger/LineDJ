@@ -16,15 +16,14 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Path
-
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.media
-import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import scalaz.State
 import scalaz.State._
+
+import java.nio.file.Path
 
 /**
   * An enumeration representing the state of a request to remove the data of
@@ -56,7 +55,8 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
   * @param availableMediaSent flag whether the available media have been
   *                           sent to the meta data manager
   * @param seqNo              the sequence number for the current scan operation
-  * @param fileData           aggregated data for media files
+  * @param fileData           aggregated data for the media file URIs grouped
+  *                           by the media they belong to
   * @param mediaData          aggregated data about medium information
   * @param ackPending         reference to an actor that requires an ACK
   * @param ackMetaManager     flag whether an ACK from the meta data manager
@@ -70,7 +70,7 @@ private case class MediaScanState(scanClient: Option[ActorRef],
                                   startAnnounced: Boolean,
                                   availableMediaSent: Boolean,
                                   seqNo: Int,
-                                  fileData: Map[MediumID, Map[String, FileData]],
+                                  fileData: Map[MediumID, Set[MediaFileUri]],
                                   mediaData: List[(MediumID, MediumInfo)],
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
@@ -171,9 +171,11 @@ private trait MediaScanStateUpdateService {
     *
     * @param results the object with results
     * @param sender  the sending actor
+    * @param uriFunc the function to obtain a URI for a path
     * @return the updated ''State''
     */
-  def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef): StateUpdate[Unit]
+  def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef)
+                     (uriFunc: Path => MediaFileUri): StateUpdate[Unit]
 
   /**
     * Updates the state for an ACK for the latest results and returns an
@@ -248,11 +250,12 @@ private trait MediaScanStateUpdateService {
     * @param results     the object with results
     * @param sender      the sending actor
     * @param archiveName the name of the archive component
+    * @param uriFunc     the function to obtain a URI for a path
     * @return the updated ''State'' and messages to be sent
     */
-  def handleResultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef,
-                            archiveName: String): StateUpdate[ScanStateTransitionMessages] = for {
-    _ <- resultsReceived(results, sender)
+  def handleResultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef, archiveName: String)
+                           (uriFunc: Path => MediaFileUri): StateUpdate[ScanStateTransitionMessages] = for {
+    _ <- resultsReceived(results, sender)(uriFunc)
     msg <- fetchTransitionMessages(archiveName)
   } yield msg
 
@@ -375,12 +378,12 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     s.copy(ackMetaManager = true)
   }
 
-  override def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef):
-  StateUpdate[Unit] = modify { s =>
+  override def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef)
+                              (uriFunc: Path => MediaFileUri): StateUpdate[Unit] = modify { s =>
     if (s.ackPending.isDefined || results.seqNo != s.seqNo) s
     else {
       val resWithCheck = results.results map updateChecksumInfo
-      s.copy(fileData = updateFileDataForResults(s.fileData, resWithCheck),
+      s.copy(fileData = updateFileDataForResults(s.fileData, resWithCheck)(uriFunc),
         mediaData = updateMediaDataForResults(s.mediaData, resWithCheck),
         currentResults = extractCurrentResults(results.results),
         currentMediaData = extractCurrentMediaInfo(resWithCheck),
@@ -430,51 +433,22 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     if (s.seqNo == 0) Removed else Initial
 
   /**
-    * Creates the reverse mapping of the given URI mapping. This is needed to
-    * create mappings specific to a given medium.
-    *
-    * @param uriMapping the original URI mapping
-    * @return the reverse URI mapping
-    */
-  private def revertMapping(uriMapping: Map[String, FileData]): Map[FileData, String] =
-    uriMapping.foldLeft(Map.empty[FileData, String])((m, e) => m + (e._2 -> e._1))
-
-  /**
-    * Creates a URI mapping specific to the given medium from the (global)
-    * mapping contained in the given ''EnhancedMediaScanResult''.
-    *
-    * @param esr            the ''EnhancedMediaScanResult''
-    * @param mid            the ID of the medium affected
-    * @param reverseMapping the reverse URI mapping
-    * @return the URI mapping specific to the given medium
-    */
-  private def uriMappingForMedium(esr: EnhancedMediaScanResult, mid: MediumID,
-                                  reverseMapping: Map[FileData, String]): Map[String, FileData] =
-    esr.scanResult.mediaFiles(mid).foldLeft(Map.empty[String, FileData]) { (m, f) =>
-      m + (reverseMapping(f) -> f)
-    }
-
-  /**
     * Updates the data with media and their files for the given enhanced scan
     * result. The mapping from URIs to media files contained in the scan result
     * is added to the given map. As the URI mapping of the scan result is not
     * specific to single media, this is a bit more complex.
     *
-    * @param data the current file data
-    * @param esr  the ''EnhancedMediaScanResult'' to be added
+    * @param data    the current file data
+    * @param esr     the ''EnhancedMediaScanResult'' to be added
+    * @param uriFunc the function to obtain a URI for a path
     * @return the updated map with file data
     */
-  private def updateFileDataForResult(data: Map[MediumID, Map[String, FileData]],
-                                      esr: EnhancedMediaScanResult): Map[MediumID, Map[String,
-    FileData]] = {
-    lazy val reverseMapping = revertMapping(esr.fileUriMapping)
-    if (esr.scanResult.mediaFiles.size == 1)
-      data + (esr.scanResult.mediaFiles.keys.head -> esr.fileUriMapping)
-    else
-      esr.scanResult.mediaFiles.keys.foldLeft(data) { (map, mid) =>
-        map + (mid -> uriMappingForMedium(esr, mid, reverseMapping))
-      }
-  }
+  private def updateFileDataForResult(data: Map[MediumID, Set[MediaFileUri]], esr: EnhancedMediaScanResult)
+                                     (uriFunc: Path => MediaFileUri): Map[MediumID, Set[MediaFileUri]] =
+    esr.scanResult.mediaFiles.foldLeft(data) { (map, e) =>
+      val uris = e._2 map (file => uriFunc(file.path))
+      map + (e._1 -> uris.toSet)
+    }
 
   /**
     * Updates the data with media and their files for the given sequence of
@@ -482,13 +456,14 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     *
     * @param data    the current file data
     * @param results the sequence with result objects
+    * @param uriFunc the function to obtain a URI for a path
     * @return the updated map with file data
     */
-  private def updateFileDataForResults(data: Map[MediumID, Map[String, FileData]],
-                                       results: Iterable[CombinedMediaScanResult]):
-  Map[MediumID, Map[String, FileData]] =
+  private def updateFileDataForResults(data: Map[MediumID, Set[MediaFileUri]],
+                                       results: Iterable[CombinedMediaScanResult])
+                                      (uriFunc: Path => MediaFileUri): Map[MediumID, Set[MediaFileUri]] =
     results.foldLeft(data) { (map, res) =>
-      updateFileDataForResult(map, res.result)
+      updateFileDataForResult(map, res.result)(uriFunc)
     }
 
   /**

@@ -28,11 +28,13 @@ import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
-import de.oliver_heger.linedj.shared.archive.union.{MediaFileUriHandler, RemovedArchiveComponentProcessed}
+import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.mockito.Mockito.when
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
+import org.mockito.Mockito.{verify, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -78,7 +80,7 @@ object MediaManagerActorSpec {
     Some(RootPath.resolve("test.settings").toString), ArchiveName)
 
   /** A test file URI. */
-  private val FileUri = "artist/album/song.mp3"
+  private val FileUri = MediaFileUri("artist/album/song.mp3")
 
   /** The maximum size of medium description files. */
   private val InfoSizeLimit = 9876
@@ -93,7 +95,7 @@ object MediaManagerActorSpec {
   private val ParserTimeout = Timeout(100.seconds)
 
   /** Test file data to be managed by the test actor. */
-  private val TestFileData = createFileData()
+  private val TestFileData = Map(TestMedium -> Set(FileUri))
 
   /**
     * A data class storing information about a download actor created as child
@@ -113,18 +115,6 @@ object MediaManagerActorSpec {
     val msg = new Object
     probe.ref ! msg
     probe.expectMsg(msg)
-  }
-
-  /**
-    * Creates a map with test file data.
-    *
-    * @return the test file data
-    */
-  private def createFileData(): Map[MediumID, Map[String, FileData]] = {
-    val path = RootPath resolve FileUri
-    val uri = MediaFileUriHandler.generateMediaFileUri(RootPath, path)
-    val fileMap = Map(uri -> FileData(Paths get FileUri, 20180419))
-    Map(TestMedium -> fileMap)
   }
 
   /**
@@ -321,6 +311,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.passTestData(messages)
       .expectUnionArchiveMessage(messages.unionArchiveMessage.get)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
+      .verifyResultsReceivedUriFunc()
     probeAck.expectMsg(ScanSinkActor.Ack)
   }
 
@@ -336,17 +327,18 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       _.handleScanComplete(completeMsg.request.seqNo, ArchiveName)
     }
       .stub(ScanStateTransitionMessages(), MediaScanStateUpdateServiceImpl.InitialState) {
-        _.handleResultsReceived(result, testActor, ArchiveName)
+        _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
       }
       .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
       .post(result)
       .expectStateUpdate(state)
+      .verifyResultsReceivedUriFunc()
   }
 
   it should "support queries for the files of a medium" in {
-    val expectedIDs = TestFileData(TestMedium).keys map { uri => MediaFileID(TestMedium, uri) }
+    val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(TestMedium, uri.uri) }
     val helper = new MediaManagerTestHelper
 
     helper.passTestData()
@@ -651,9 +643,25 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
       val result = mock[ScanSinkActor.CombinedResults]
       stub(transitions, state) {
-        _.handleResultsReceived(result, testActor, ArchiveName)
+        _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
       }
       post(result)
+    }
+
+    /**
+      * Verifies the URI function that was passed to the update service when
+      * handling new results. It is tested whether this function yields the
+      * same results as the ''PathUriConverter''.
+      *
+      * @return this test helper
+      */
+    def verifyResultsReceivedUriFunc(): MediaManagerTestHelper = {
+      val capture = ArgumentCaptor.forClass(classOf[Path => MediaFileUri])
+      verify(updateService).handleResultsReceived(any(), any(), any())(capture.capture())
+      val uriFunc = capture.getValue.asInstanceOf[Path => MediaFileUri]
+      val testPath = RootPath.resolve("testPath")
+      uriFunc(testPath) should be(converter.pathToUri(testPath))
+      this
     }
 
     /**
