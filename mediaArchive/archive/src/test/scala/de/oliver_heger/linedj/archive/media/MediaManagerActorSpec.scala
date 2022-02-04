@@ -40,7 +40,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
@@ -128,6 +128,16 @@ object MediaManagerActorSpec {
   private def createMediumFileRequest(uri: String, withMetaData: Boolean): MediumFileRequest = {
     MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData)
   }
+
+  /**
+    * Appends the URI of another test file to the given test file data.
+    *
+    * @param fileData the original file data
+    * @param uri      the URI of the new file
+    * @return the resulting file data with the URI added
+    */
+  private def addUri(fileData: Map[MediumID, Set[MediaFileUri]], uri: String): Map[MediumID, Set[MediaFileUri]] =
+    Map(TestMedium -> (fileData(TestMedium) + MediaFileUri(uri)))
 }
 
 /**
@@ -360,31 +370,27 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     msgFiles.existing shouldBe false
   }
 
-  /**
-    * Checks whether a request for a non-existing media file is handled
-    * correctly.
-    *
-    * @param request the ID of the source to be requested
-    */
-  private def checkUnknownFileRequest(request: MediumFileRequest): Unit = {
+  it should "return a file response for an unknown medium ID" in {
     val helper = new MediaManagerTestHelper
 
-    helper.passTestData()
-      .post(request)
-    val response = expectMsgType[MediumFileResponse]
-    response.request should be(request)
-    response.length should be(-1)
-    response.contentReader shouldBe empty
-  }
-
-  it should "return a file response for an unknown medium ID" in {
-    checkUnknownFileRequest(MediumFileRequest(MediaFileID(MediumID("unknown medium", None),
+    helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(MediumID("unknown medium", None),
       "unknown URI"), withMetaData = false))
   }
 
   it should "return a file response for a request with an unknown URI" in {
-    checkUnknownFileRequest(MediumFileRequest(MediaFileID(TestMedium,
-      "unknown URI"), withMetaData = false))
+    val helper = new MediaManagerTestHelper
+    val (uri, _) = helper.createTestMediaFile()
+
+    helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData = false))
+  }
+
+  it should "return a file response for a non-existing path" in {
+    val helper = new MediaManagerTestHelper
+    val (uri, file) = helper.createTestMediaFile()
+    val testData = addUri(TestFileData, uri)
+    Files delete file.path
+
+    helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData = false), testData)
   }
 
   it should "return a correct download result" in {
@@ -392,7 +398,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val (uri, fileData) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = true)
 
-    helper.passTestData()
+    helper.passTestData(data = addUri(TestFileData, uri))
       .post(request)
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
@@ -406,7 +412,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val (uri, _) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = false)
 
-    helper.passTestData()
+    helper.passTestData(data = addUri(TestFileData, uri))
       .post(request)
     expectMsgType[MediumFileResponse]
     val downloadProps = helper.nextDownloadChildCreation().props
@@ -421,7 +427,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val (uri, _) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = true)
 
-    val creation = helper.passTestData()
+    val creation = helper.passTestData(data = addUri(TestFileData, uri))
       .post(request)
       .nextDownloadChildCreation()
     expectMsgType[MediumFileResponse]
@@ -636,11 +642,12 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * used to test access to the data managed by the actor.
       *
       * @param transitions optional transition messages to be generated
+      * @param data        the test data to be passed
       * @return this test helper
       */
-    def passTestData(transitions: ScanStateTransitionMessages = ScanStateTransitionMessages()):
-    MediaManagerTestHelper = {
-      val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
+    def passTestData(transitions: ScanStateTransitionMessages = ScanStateTransitionMessages(),
+                     data: Map[MediumID, Set[MediaFileUri]] = TestFileData): MediaManagerTestHelper = {
+      val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = data)
       val result = mock[ScanSinkActor.CombinedResults]
       stub(transitions, state) {
         _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
@@ -689,6 +696,25 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         .resolve("someGreatHit.mp3")
       val mediaFile = writeFileContent(path, FileTestHelper.TestData)
       (converter.pathToUri(mediaFile).uri, FileData(mediaFile, FileTestHelper.TestData.length))
+    }
+
+    /**
+      * Checks whether a request for a non-existing media file is handled
+      * correctly.
+      *
+      * @param request the ID of the source to be requested
+      * @param data    the test file data to be used
+      * @return this test helper
+      */
+    def checkUnknownFileRequest(request: MediumFileRequest, data: Map[MediumID, Set[MediaFileUri]] = TestFileData):
+    MediaManagerTestHelper = {
+      passTestData(data = data)
+      post(request)
+      val response = expectMsgType[MediumFileResponse]
+      response.request should be(request)
+      response.length should be(-1)
+      response.contentReader shouldBe empty
+      this
     }
 
     /**

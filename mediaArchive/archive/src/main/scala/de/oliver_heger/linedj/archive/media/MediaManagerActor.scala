@@ -273,7 +273,8 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @return an option with the ''FileData''
     */
   private def fetchFileData(request: MediumFileRequest): Option[FileData] =
-    scanState.fileData.get(request.fileID.mediumID).flatMap { _ =>
+    scanState.fileData.get(request.fileID.mediumID)
+      .filter(uris => uris(MediaFileUri(request.fileID.uri))).flatMap { _ =>
       Some(converter.uriToPath(MediaFileUri(request.fileID.uri)))
     }.filter(path => Files.isRegularFile(path))
       .map(path => FileData(path, Files.size(path)))
