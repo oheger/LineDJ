@@ -52,7 +52,7 @@ private object ScanResultEnhancer {
     val checksumMapping = result.mediaFiles.foldLeft(init) { (checksums, e) =>
       updateChecksumMappings(result, checksums, e._1, e._2)
     }
-    EnhancedMediaScanResult(result, checksumMapping, Map.empty)
+    EnhancedMediaScanResult(result, checksumMapping)
   }
 
   /**

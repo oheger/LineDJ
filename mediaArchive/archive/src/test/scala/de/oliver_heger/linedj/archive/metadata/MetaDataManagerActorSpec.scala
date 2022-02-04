@@ -174,8 +174,7 @@ object MetaDataManagerActorSpec {
     * @return the enhanced result
     */
   private def createEnhancedScanResult(result: MediaScanResult): EnhancedMediaScanResult = {
-    EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, MediumChecksum("checksum_" + e._1.mediumURI))),
-      Map.empty)
+    EnhancedMediaScanResult(result, result.mediaFiles map (e => (e._1, MediumChecksum("checksum_" + e._1.mediumURI))))
   }
 
   /**
@@ -304,7 +303,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val root = path("anotherRootDirectory")
     val medID = MediumID(root.toString, Some("someDescFile.txt"))
     val scanResult2 = MediaScanResult(root, Map(medID -> files))
-    val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> MediumChecksum("testCheckSum")), Map.empty)
+    val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> MediumChecksum("testCheckSum")))
     helper.actor ! esr
     if (expectAck) {
       expectAckFromManager()

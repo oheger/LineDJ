@@ -59,11 +59,9 @@ case class MediaScanResult(root: Path, mediaFiles: Map[MediumID, List[FileData]]
   *
   * @param scanResult      the original ''MediaScanResult''
   * @param checksumMapping a map storing checksums for the contained media
-  * @param fileUriMapping  a mapping from file URIs to the file objects
   */
 case class EnhancedMediaScanResult(scanResult: MediaScanResult,
-                                   checksumMapping: Map[MediumID, MediumChecksum],
-                                   fileUriMapping: Map[String, FileData])
+                                   checksumMapping: Map[MediumID, MediumChecksum])
 
 /**
   * A message that serves as an indicator about a newly started media scan.

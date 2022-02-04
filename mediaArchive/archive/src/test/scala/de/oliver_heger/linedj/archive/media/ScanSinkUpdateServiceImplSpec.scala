@@ -49,7 +49,7 @@ object ScanSinkUpdateServiceImplSpec {
     val fileMap = media.foldLeft(Map.empty[MediumID, List[FileData]]) { (m, id) =>
       m + (id -> createFiles(id))
     }
-    EnhancedMediaScanResult(MediaScanResult(RootPath, fileMap), Map.empty, Map.empty)
+    EnhancedMediaScanResult(MediaScanResult(RootPath, fileMap), Map.empty)
   }
 
   /**

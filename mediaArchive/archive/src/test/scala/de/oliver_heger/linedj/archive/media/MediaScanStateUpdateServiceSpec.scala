@@ -105,8 +105,7 @@ object MediaScanStateUpdateServiceSpec {
     val mid = mediumID(idx)
     val files = (1 to idx).map(i => FileData(songPath(idx, i), i * 42)).toList
     val scanResult = MediaScanResult(Paths.get(mid.mediumURI), Map(mid -> files))
-    EnhancedMediaScanResult(scanResult = scanResult, fileUriMapping = Map.empty,
-      checksumMapping = Map(mid -> checkSum(idx)))
+    EnhancedMediaScanResult(scanResult = scanResult, checksumMapping = Map(mid -> checkSum(idx)))
   }
 
   /**
@@ -397,8 +396,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val res2 = scanResult(2)
     val res = EnhancedMediaScanResult(scanResult = res1.scanResult.copy(mediaFiles =
       res1.scanResult.mediaFiles ++ res2.scanResult.mediaFiles),
-      checksumMapping = Map(mediumID(1) -> checkSum(1), mediumID(2) -> checkSum(2)),
-      fileUriMapping = res1.fileUriMapping ++ res2.fileUriMapping)
+      checksumMapping = Map(mediumID(1) -> checkSum(1), mediumID(2) -> checkSum(2)))
     val info = multiMediaMap(1, 2)
     val combinedRes = CombinedMediaScanResult(res, info)
     val state = stateInProgress()

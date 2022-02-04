@@ -159,7 +159,7 @@ object PersistentMetaDataManagerActorSpec {
     */
   private def enhancedScanResult(indices: Int*): EnhancedMediaScanResult = {
     val checksumMapping = indices.map(i => (mediumID(i), MediumChecksum(checksum(i)))).toMap
-    EnhancedMediaScanResult(scanResult(indices: _*), checksumMapping, Map.empty)
+    EnhancedMediaScanResult(scanResult(indices: _*), checksumMapping)
   }
 
   /**
