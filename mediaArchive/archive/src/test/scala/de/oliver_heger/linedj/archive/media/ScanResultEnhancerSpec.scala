@@ -16,16 +16,14 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
-
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
 import scala.io.Source
 
 object ScanResultEnhancerSpec {
@@ -135,20 +133,6 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val esr = ScanResultEnhancer enhance createScanResult(media)
 
     esr.checksumMapping(mid1) should be(esr.checksumMapping(mid2))
-  }
-
-  it should "generate a correct URI mapping" in {
-    val mid2 = createMediumID(Medium2)
-    val contentList = createContentList(mid2)
-    val media = createMediaFileMap() + (mid2 -> contentList)
-    val scanResult = createScanResult(media)
-    val esr = ScanResultEnhancer enhance scanResult
-
-    esr.fileUriMapping should have size 2 * contentList.size
-    esr.fileUriMapping.values foreach { f =>
-      val uri = MediaFileUriHandler.generateMediaFileUri(testDirectory, f.path)
-      esr.fileUriMapping(uri) should be(f)
-    }
   }
 
   it should "generate a checksum for a medium without a description file" in {

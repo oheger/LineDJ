@@ -48,39 +48,34 @@ private object ScanResultEnhancer {
     * @return the enhanced result
     */
   def enhance(result: MediaScanResult): EnhancedMediaScanResult = {
-    val init = (Map.empty[MediumID, MediumChecksum], Map.empty[String, FileData])
-    val (checksumMapping, uriMapping) = result.mediaFiles.foldLeft(init) { (ms, e) =>
-      calculateMappings(result, ms._1, ms._2, e._1, e._2)
+    val init = Map.empty[MediumID, MediumChecksum]
+    val checksumMapping = result.mediaFiles.foldLeft(init) { (checksums, e) =>
+      updateChecksumMappings(result, checksums, e._1, e._2)
     }
-    EnhancedMediaScanResult(result, checksumMapping, uriMapping)
+    EnhancedMediaScanResult(result, checksumMapping, Map.empty)
   }
 
   /**
-    * Calculates the mappings for a specific medium ID and aggregates them for
-    * all media.
+    * Updates the checksum mapping for a specific medium ID.
     *
     * @param result          the scan result
     * @param checksumMapping the aggregated checksum mapping
-    * @param uriMapping      the aggregated URI mapping
     * @param mid             the current medium ID
     * @param files           the files for this medium
-    * @return the updated mappings
+    * @return the updated checksum mapping
     */
-  private def calculateMappings(result: MediaScanResult,
-                                checksumMapping: Map[MediumID, MediumChecksum],
-                                uriMapping: Map[String, FileData],
-                                mid: MediumID,
-                                files: List[FileData]):
-  (Map[MediumID, MediumChecksum], Map[String, FileData]) = {
-    val fileUris = generateUris(result.root, files)
+  private def updateChecksumMappings(result: MediaScanResult,
+                                     checksumMapping: Map[MediumID, MediumChecksum],
+                                     mid: MediumID,
+                                     files: List[FileData]): Map[MediumID, MediumChecksum] = {
     val relativeFileUris = mid.mediumDescriptionPath match {
       case Some(desc) =>
         val mediumPath = (Paths get desc).getParent
         generateUris(mediumPath, files)
-      case None => fileUris
+      case None => generateUris(result.root, files)
     }
     val checksum = calculateChecksum(relativeFileUris)
-    (checksumMapping + (mid -> checksum), uriMapping ++ fileUris.toMap)
+    checksumMapping + (mid -> checksum)
   }
 
   /**
