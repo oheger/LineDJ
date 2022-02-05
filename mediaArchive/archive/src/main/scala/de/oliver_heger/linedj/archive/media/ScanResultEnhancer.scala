@@ -16,14 +16,12 @@
 
 package de.oliver_heger.linedj.archive.media
 
+import de.oliver_heger.linedj.io.FileData
+import de.oliver_heger.linedj.shared.archive.media.MediumID
+
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
 import java.security.MessageDigest
-
-import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MediaFileUriHandler
-
 import scala.annotation.tailrec
 
 /**
@@ -101,9 +99,10 @@ private object ScanResultEnhancer {
     * @param files the files to be transformed
     * @return the sequence with URIs and original data objects
     */
-  private def generateUris(root: Path, files: Seq[FileData]): Seq[(String, FileData)] =
-    files.map(f => MediaFileUriHandler.generateMediaFileUri(root, f.path))
-      .zip(files)
+  private def generateUris(root: Path, files: Seq[FileData]): Seq[(String, FileData)] = {
+    val rootUri = PathUriConverter.pathToURI(root)
+    files.map(f => PathUriConverter.pathToRelativeUri(rootUri, f.path).uri).zip(files)
+  }
 
   /**
     * Converts the given byte array into a hex string representation.
