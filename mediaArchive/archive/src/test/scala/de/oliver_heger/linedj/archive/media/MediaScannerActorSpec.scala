@@ -34,6 +34,9 @@ object MediaScannerActorSpec {
   /** A list with some test files that will be scanned by test cases. */
   private val TestFiles = testMediaFiles()
 
+  /** A set with IDs of all defined media in the test files. */
+  private val DefinedMediumIDs = findAllDefinedMediumIDs()
+
   /** A test sequence number. */
   val SeqNo = 128
 
@@ -91,6 +94,36 @@ object MediaScannerActorSpec {
   }
 
   /**
+    * Generates a URI relative to the test root path that corresponds to the
+    * given path.
+    *
+    * @param path the path
+    * @return the relative URI for this path
+    */
+  private def relativeUri(path: Path): String = {
+    def toComponents(it: java.util.Iterator[Path]): List[String] =
+      if (it.hasNext) it.next().toString :: toComponents(it)
+      else Nil
+
+    val relativePath = RootPath.relativize(path)
+    toComponents(relativePath.iterator).mkString("/")
+  }
+
+  /**
+    * Returns a set with all defined medium IDs for the test directory
+    * structure.
+    *
+    * @return a set with all defined medium IDs
+    */
+  private def findAllDefinedMediumIDs(): Set[MediumID] =
+    TestFiles.filter(_.path.toString.endsWith(".settings"))
+      .map { p =>
+        val mediumUri = relativeUri(p.path.getParent)
+        val settingsUri = relativeUri(p.path)
+        MediumID(mediumUri, Some(settingsUri), ArchiveName)
+      }.toSet
+
+  /**
     * Returns default properties for the creation of a test actor instance.
     *
     * @param parser the medium info parser actor
@@ -137,7 +170,7 @@ object MediaScannerActorSpec {
 }
 
 /**
-  * Test class for ''DirectoryScannerActor''.
+  * Test class for ''MediaScannerActor''.
   */
 class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
@@ -170,20 +203,6 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     }
 
   /**
-    * Returns a set with all defined medium IDs for the test directory
-    * structure.
-    *
-    * @return a set with all defined medium IDs
-    */
-  private def allDefinedMediumIDs(): Set[MediumID] =
-    TestFiles.map(_.path.toString)
-      .filter(_.endsWith(".settings"))
-      .map { p =>
-        val path = testDirectory resolve p
-        MediumID(path.getParent.toString, Some(path.toString), ArchiveName)
-      }.toSet
-
-  /**
     * Returns an ID for a test medium that contains the specified key.
     * Using keys like ''medium1'', or ''medium2'', a specific medium can be
     * selected.
@@ -192,7 +211,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the medium ID for this key
     */
   private def testMediumID(key: String): MediumID =
-    allDefinedMediumIDs().find(_.mediumURI contains key).get
+    DefinedMediumIDs.find(_.mediumURI contains key).get
 
   "A MediaScannerActor" should "return correct creation Props" in {
     val exclusions = Set("FOO", "BAR")
@@ -212,7 +231,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new ScannerActorTestHelper
 
     val results = helper.scanAndGetResults()
-    extractMedia(results) should contain allElementsOf allDefinedMediumIDs()
+    extractMedia(results) should contain allElementsOf DefinedMediumIDs
   }
 
   it should "read the content of media" in {
@@ -254,11 +273,12 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new ScannerActorTestHelper
     val results = helper.scanAndGetResults()
 
-    allDefinedMediumIDs() foreach { mid =>
+    DefinedMediumIDs foreach { mid =>
       val (_, optInfo) = findResultFor(results, mid)
       val info = optInfo.get
       info.mediumID should be(mid)
-      info.name should be(mid.mediumDescriptionPath.get)
+      val expPath = testDirectory.resolve(RootPath).resolve(mid.mediumDescriptionPath.get)
+      info.name should be(expPath.toString)
     }
   }
 

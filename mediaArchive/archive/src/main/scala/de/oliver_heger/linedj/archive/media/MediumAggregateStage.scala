@@ -84,6 +84,22 @@ object MediumAggregateStage {
   type FileDataFactory = Path => FileData
 
   /**
+    * Generates a ''MediumID'' based on the path to its ''settings'' file. The
+    * URI components of the ID are computed using the given converter, so that
+    * they are relative to the root path of the archive.
+    *
+    * @param settingsPath the path to the settings file
+    * @param archiveName  the name of the archive
+    * @param converter    the ''PathUriConverter''
+    * @return the ''MediumID'' for this settings file
+    */
+  def mediumIDFromSettingsPath(settingsPath: Path, archiveName: String, converter: PathUriConverter): MediumID = {
+    val mediumUri = converter.pathToUri(settingsPath.getParent).uri
+    val settingsUri = converter.pathToUri(settingsPath).uri
+    MediumID(mediumUri, Some(settingsUri), archiveName)
+  }
+
+  /**
     * Converts the specified path to a ''FileData'' object.
     *
     * @param p the path to be converted
@@ -110,22 +126,23 @@ object MediumAggregateStage {
     * an optional ''MediaScanResult'' is returned that contains the data of all
     * media that are now complete.
     *
-    * @param file        the current file to be processed
-    * @param root        the root path of the current media archive
-    * @param archiveName the name of the media archive
-    * @param converter   the function to create ''FileData'' objects
+    * @param file            the current file to be processed
+    * @param root            the root path of the current media archive
+    * @param archiveName     the name of the media archive
+    * @param converter       the ''PathUriConverter''
+    * @param fileDataFactory the function to create ''FileData'' objects
     * @return the object to calculate the next state
     */
-  private def nextState(file: Path, root: Path, archiveName: String, converter: FileDataFactory):
-  State[MediaState, Option[MediaScanResult]] =
+  private def nextState(file: Path, root: Path, archiveName: String, converter: PathUriConverter,
+                        fileDataFactory: FileDataFactory): State[MediaState, Option[MediaScanResult]] =
     State { s =>
       if (isSettingsFile(file)) {
-        val mid = MediumID.fromDescriptionPath(file, archiveName)
+        val mid: MediumID = mediumIDFromSettingsPath(file, archiveName, converter)
         val newAgg = MediumAggregateData(file.getParent, mid, Nil)
         val (completed, active) = s.span(!_.isInScope(file))
         (newAgg :: active, createScanResultForCompleteMedia(completed, root))
       } else {
-        val (next, completed) = processFile(s, file, converter)
+        val (next, completed) = processFile(s, file, fileDataFactory)
         (next, createScanResultForCompleteMedia(completed, root))
       }
     }
@@ -193,31 +210,33 @@ object MediumAggregateStage {
   * ''MediaScanResult'' object with no content. That way there is always some
   * feedback about a scan operation.
   *
-  * @param root        the root directory that is currently scanned
-  * @param archiveName the name of the archive (for generating medium IDs)
-  * @param converter   a function to convert a path to a ''FileData'' object
+  * @param root            the root directory that is currently scanned
+  * @param archiveName     the name of the archive (for generating medium IDs)
+  * @param converter       the ''PathUriConverter''
+  * @param fileDataFactory a function to convert a path to a ''FileData''
+  *                        object
   */
-private class MediumAggregateStage(val root: Path, val archiveName: String,
-                                   val converter: FileDataFactory =
-                                   MediumAggregateStage.toFileData)
+private class MediumAggregateStage(val root: Path,
+                                   val archiveName: String,
+                                   val converter: PathUriConverter,
+                                   val fileDataFactory: FileDataFactory = MediumAggregateStage.toFileData)
   extends GraphStage[FlowShape[Path, MediaScanResult]] {
-  val in = Inlet[Path]("MediumAggregateStage.in")
-  val out = Outlet[MediaScanResult]("MediumAggregateStage.out")
+  val in: Inlet[Path] = Inlet[Path]("MediumAggregateStage.in")
+  val out: Outlet[MediaScanResult] = Outlet[MediaScanResult]("MediumAggregateStage.out")
 
-  override val shape = FlowShape.of(in, out)
+  override val shape: FlowShape[Path, MediaScanResult] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) {
 
       import MediumAggregateStage._
 
-      var state: MediaState = List(MediumAggregateData(root, MediumID(root.toString, None,
-        archiveName), Nil))
+      var state: MediaState = List(MediumAggregateData(root, MediumID(root.toString, None, archiveName), Nil))
 
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           val file = grab(in)
-          val func = nextState(file, root, archiveName, converter)
+          val func = nextState(file, root, archiveName, converter, fileDataFactory)
           val (next, outcome) = func(state)
           state = next
           outcome match {

@@ -106,14 +106,33 @@ object MediumAggregateStageSpec {
     generateFilePath(mediumIdx, subLevel, SettingsName)
 
   /**
+    * Generates a URI relative to the test root path that corresponds to the
+    * given path.
+    *
+    * @param path the path
+    * @return the relative URI for this path
+    */
+  private def relativeUri(path: Path): String = {
+    def toComponents(it: java.util.Iterator[Path]): List[String] =
+      if (it.hasNext) it.next().toString :: toComponents(it)
+      else Nil
+
+    val relativePath = RootPath.relativize(path)
+    toComponents(relativePath.iterator).mkString("/")
+  }
+
+  /**
     * Generates the ID of a medium based on the given path of the medium
     * description file.
     *
     * @param settingsPath the path to the settings file
     * @return the medium ID
     */
-  private def generateMediumID(settingsPath: Path): MediumID =
-    MediumID.fromDescriptionPath(settingsPath, ArchiveName)
+  private def generateMediumID(settingsPath: Path): MediumID = {
+    val mediumUri = relativeUri(settingsPath.getParent)
+    val settingsUri = relativeUri(settingsPath)
+    MediumID(mediumUri, Some(settingsUri), ArchiveName)
+  }
 
   /**
     * Generates a ''MediaScanResult'' object that contains the paths of the
@@ -179,7 +198,7 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     */
   private def runStream(files: List[Path]): List[MediaScanResult] = {
     val source = Source(files)
-    val stage = new MediumAggregateStage(RootPath, ArchiveName, createFileData)
+    val stage = new MediumAggregateStage(RootPath, ArchiveName, new PathUriConverter(RootPath), createFileData)
     val sink = Sink.fold[List[MediaScanResult], MediaScanResult](List.empty)((lst, res) =>
       res :: lst)
     val futStream = source.via(stage).runWith(sink)
@@ -193,9 +212,9 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   it should "use a correct default file data converter function" in {
     val path = createDataFile()
-    val stage = new MediumAggregateStage(RootPath, ArchiveName)
+    val stage = new MediumAggregateStage(RootPath, ArchiveName, new PathUriConverter(RootPath))
 
-    stage.converter(path) should be(FileData(path, FileTestHelper.TestData.length))
+    stage.fileDataFactory(path) should be(FileData(path, FileTestHelper.TestData.length))
   }
 
   it should "aggregate the files of a single medium" in {

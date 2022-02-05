@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Path
-import java.util.Locale
-
 import akka.actor.{ActorLogging, ActorRef, Props}
 import akka.pattern.ask
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
@@ -26,9 +23,10 @@ import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.DirectoryStreamSource
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import java.nio.file.Path
+import java.util.Locale
 import scala.concurrent.Promise
 
 /**
@@ -187,14 +185,16 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     val sinkInfo = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.MediaInfoComplete, mapException)
     val ks = KillSwitches.single[Path]
+    val converter = new PathUriConverter(root)
+
     val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks) { implicit builder =>
       ks =>
         import GraphDSL.Implicits._
         val broadcast = builder.add(Broadcast[Path](2))
-        val aggregate = new MediumAggregateStage(root, archiveName)
+        val aggregate = new MediumAggregateStage(root, archiveName, converter)
         val enhance = Flow[MediaScanResult].map(ScanResultEnhancer.enhance)
         val filterSettings = Flow[Path].filter(isSettingsFile)
-        val parseRequest = Flow[Path].map(parseMediumInfoRequest)
+        val parseRequest = Flow[Path].map(p => parseMediumInfoRequest(p, converter))
         val parseInfo = Flow[MediumInfoParserActor.ParseMediumInfo].mapAsync(1) {
           r =>
             (mediumInfoParser ? r).mapTo[MediumInfoParserActor.ParseMediumInfoResult]
@@ -215,8 +215,9 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     * @param p the path to the settings file
     * @return the request for the medium info parser actor
     */
-  private def parseMediumInfoRequest(p: Path): MediumInfoParserActor.ParseMediumInfo =
-    MediumInfoParserActor.ParseMediumInfo(p, MediumID.fromDescriptionPath(p, archiveName), 0)
+  private def parseMediumInfoRequest(p: Path, converter: PathUriConverter): MediumInfoParserActor.ParseMediumInfo =
+    MediumInfoParserActor.ParseMediumInfo(p,
+      MediumAggregateStage.mediumIDFromSettingsPath(p, archiveName, converter), 0)
 
   /**
     * Creates the filter for the directory stream source based on the provided
