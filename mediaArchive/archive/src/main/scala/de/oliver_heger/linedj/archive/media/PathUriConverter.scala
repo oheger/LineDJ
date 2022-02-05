@@ -22,6 +22,35 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import java.net.URI
 import java.nio.file.Path
 
+object PathUriConverter {
+  /**
+    * Generates a ''MediaFileUri'' for the given path that is relative to the
+    * provided root URI. It is expected that the root URI points to a parent
+    * directory of the given path.
+    *
+    * @param rootUri the root URI for generating relative URIs
+    * @param path    the path to convert
+    * @return a ''MediaFileUri'' for the path relative to the root URI
+    */
+  def pathToRelativeUri(rootUri: URI, path: Path): MediaFileUri =
+    MediaFileUri(rootUri.relativize(pathToURI(path)).getPath)
+
+  /**
+    * Converts the given path to a ''URI''. This is typically necessary as an
+    * intermediate step before constructing a relative [[MediaFileUri]]. If
+    * multiple conversions from paths to [[MediaFileUri]]s are needed for the
+    * same root path, it is more efficient to convert the root path to a URI
+    * first and then reuse it for later conversions. Note: Unfortunately, the
+    * ''toURri()'' method of ''Path'' does not do any encoding; so this has to
+    * be done manually.
+    *
+    * @param path the path
+    * @return the corresponding encoded URI
+    */
+  def pathToURI(path: Path): URI =
+    new URI(UriEncodingHelper.encodeComponents(path.toUri.toString))
+}
+
 /**
   * A helper class that is responsible for converting between paths and URIs in
   * archives based on local directory structures.
@@ -35,8 +64,11 @@ import java.nio.file.Path
   * @param rootPath the root path of the archive
   */
 class PathUriConverter(val rootPath: Path) {
+
+  import de.oliver_heger.linedj.archive.media.PathUriConverter._
+
   /** A URI representing the archive's root path. */
-  val rootUri: URI = pathToUriEncoded(rootPath)
+  val rootUri: URI = pathToURI(rootPath)
 
   /**
     * Generates a URI for the given path of a media file. The path is expected
@@ -45,8 +77,7 @@ class PathUriConverter(val rootPath: Path) {
     * @param path the path to the media file
     * @return the corresponding ''MediaFileUri''
     */
-  def pathToUri(path: Path): MediaFileUri =
-    MediaFileUri(rootUri.relativize(pathToUriEncoded(path)).getPath)
+  def pathToUri(path: Path): MediaFileUri = pathToRelativeUri(rootUri, path)
 
   /**
     * Returns the path for the media file with the given URI. The URI is
@@ -57,15 +88,4 @@ class PathUriConverter(val rootPath: Path) {
     */
   def uriToPath(uri: MediaFileUri): Path =
     rootPath.resolve(UriEncodingHelper.removeLeadingSeparator(UriEncodingHelper.decodeComponents(uri.uri)))
-
-  /**
-    * Converts the given path to a URI with encoding. Unfortunately, the
-    * ''toURri()'' method of ''Path'' does not do any encoding; so this has to
-    * be done manually.
-    *
-    * @param path the path
-    * @return the corresponding encoded URI
-    */
-  private def pathToUriEncoded(path: Path): URI =
-    new URI(UriEncodingHelper.encodeComponents(path.toUri.toString))
 }
