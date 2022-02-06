@@ -19,11 +19,12 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import akka.actor.{ActorLogging, ActorRef}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
 import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveToCWriterActor.WriteToC
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.io.stream.{AbstractFileWriterActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+
+import java.nio.file.Path
 
 object ArchiveToCWriterActor {
 
@@ -31,14 +32,14 @@ object ArchiveToCWriterActor {
     * A message processed by [[ArchiveToCWriterActor]] telling it to write the
     * file with the table of content.
     *
-    * The actor generates the content file based on the provided configuration
-    * and writes it to the defined target location. Errors are just logged, no
+    * The actor generates the content file based on the provided content and
+    * writes it to the defined target location. Errors are just logged, no
     * response message is generated.
     *
-    * @param config  the configuration for the ToC
+    * @param target  the target path where to write the content file
     * @param content the content of the archive to be written out
     */
-  case class WriteToC(config: ArchiveContentTableConfig, content: List[(MediumID, String)])
+  case class WriteToC(target: Path, content: List[(MediumID, String)])
 
 }
 
@@ -57,9 +58,8 @@ object ArchiveToCWriterActor {
 class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStreamSupport
   with ActorLogging {
   override protected def customReceive: Receive = {
-    case m@WriteToC(config, content) =>
-      assert(config.contentFile.isDefined, "Undefined content file!")
-      writeFile(createToCSource(config, content), config.contentFile.get, m)
+    case m@WriteToC(target, content) =>
+      writeFile(createToCSource(content), target, m)
   }
 
   /**
@@ -76,12 +76,10 @@ class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStrea
   /**
     * Returns a ''Source'' to generate the ToC for an archive.
     *
-    * @param config  the configuration for the ToC
     * @param content the content
     * @return the source which produces the ToC
     */
-  private def createToCSource(config: ArchiveContentTableConfig,
-                              content: List[(MediumID, String)]): Source[ByteString, Any] = {
+  private def createToCSource(content: List[(MediumID, String)]): Source[ByteString, Any] = {
     val cr = System.lineSeparator()
     val source = Source(content).filter(_._1.mediumDescriptionPath.isDefined)
       .map { t =>

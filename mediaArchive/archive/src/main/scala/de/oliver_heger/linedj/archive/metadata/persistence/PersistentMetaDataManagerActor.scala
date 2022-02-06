@@ -286,10 +286,9 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       }
 
     case ScanCompleted =>
-      if (config.contentTableConfig.contentFile.isDefined) {
+      config.contentTableConfig.contentFile foreach { target =>
         val info = fetchCurrentMetaFileInfo(sender())
-        tocWriterActor ! ArchiveToCWriterActor.WriteToC(config.contentTableConfig,
-          info.metaDataFiles.toList)
+        tocWriterActor ! ArchiveToCWriterActor.WriteToC(target, info.metaDataFiles.toList)
       }
 
     case Terminated(reader) =>

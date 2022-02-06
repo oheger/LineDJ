@@ -659,7 +659,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
 
     helper.sendScanComplete(tocConfig)
     val op = helper.tocWriterActor.expectMsgType[ArchiveToCWriterActor.WriteToC]
-    op.config should be(tocConfig)
+    op.target should be(tocConfig.contentFile.get)
     op.content should contain theSameElementsAs expContent
   }
 

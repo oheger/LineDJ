@@ -16,31 +16,26 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object ArchiveToCWriterActorSpec {
-  /** A default config for writing the ToC file. */
-  private val ToCConfig = ArchiveContentTableConfig(contentFile = Some(Paths.get("content.json")),
-    descriptionRemovePrefix = "C:\\music\\", descriptionPathSeparator = "\\",
-    descriptionUrlEncoding = false, rootPrefix = Some("/music/"),
-    metaDataPrefix = Some("/meta/"), descriptionRemovePathComponents = 0)
+  /** The path of the content file written by the test actor. */
+  private val ContentFile = Paths.get("content.json")
 
   /** The line separator. */
   private val CR = System.lineSeparator()
@@ -106,7 +101,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val helper = new WriterActorTestHelper
 
     val op = helper.sendWriteRequest().nextWriteOperation()
-    op.target should be(ToCConfig.contentFile.get)
+    op.target should be(ContentFile)
   }
 
   it should "use a source that produces the expected content" in {
@@ -126,10 +121,9 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "do nothing in the result propagation method" in {
     val targetFile = createFileReference()
-    val config = ToCConfig.copy(contentFile = Some(targetFile))
     val helper = new WriterActorTestHelper(mockWrite = false)
 
-    helper.sendWriteRequest(config = config).awaitPropagation()
+    helper.sendWriteRequest(target = targetFile).awaitPropagation()
     val TestMsg = new Object
     testActor ! TestMsg
     expectMsg(TestMsg)
@@ -143,12 +137,10 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
         handleFailure(client, StreamFailure(new Exception("Test exception"), null))
       }
     }))
-    val config1 = ToCConfig.copy(contentFile = Some(createFileReference()))
-    actor ! ArchiveToCWriterActor.WriteToC(config1, DefaultContentList)
+    actor ! ArchiveToCWriterActor.WriteToC(createFileReference(), DefaultContentList)
     awaitCond(fileWrittenCount.get() == 1)
 
-    val config2 = ToCConfig.copy(contentFile = Some(createFileReference()))
-    actor ! ArchiveToCWriterActor.WriteToC(config2, DefaultContentList)
+    actor ! ArchiveToCWriterActor.WriteToC(createFileReference(), DefaultContentList)
     awaitCond(fileWrittenCount.get() == 2)
   }
 
@@ -173,14 +165,14 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * Sends the test actor a request to write a ToC based on the provided
       * parameters.
       *
-      * @param config  the ToC config
+      * @param target  the path where to write the content file
       * @param content a list with the actual content
       * @return this test helper
       */
-    def sendWriteRequest(config: ArchiveContentTableConfig = ToCConfig,
+    def sendWriteRequest(target: Path = ContentFile,
                          content: List[(MediumID, String)] = DefaultContentList):
     WriterActorTestHelper = {
-      writer ! ArchiveToCWriterActor.WriteToC(config, content)
+      writer ! ArchiveToCWriterActor.WriteToC(target, content)
       this
     }
 
