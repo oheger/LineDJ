@@ -21,7 +21,6 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import de.oliver_heger.linedj.archive.config.ArchiveContentTableConfig
 import de.oliver_heger.linedj.archive.metadata.persistence.ArchiveToCWriterActor.WriteToC
-import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.io.stream.{AbstractFileWriterActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -57,9 +56,6 @@ object ArchiveToCWriterActor {
   */
 class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStreamSupport
   with ActorLogging {
-  /** The URI mapper object. */
-  private val uriMapper = new UriMapper
-
   override protected def customReceive: Receive = {
     case m@WriteToC(config, content) =>
       assert(config.contentFile.isDefined, "Undefined content file!")
@@ -87,12 +83,10 @@ class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStrea
   private def createToCSource(config: ArchiveContentTableConfig,
                               content: List[(MediumID, String)]): Source[ByteString, Any] = {
     val cr = System.lineSeparator()
-    val source = Source(content).map { t =>
-      (uriMapper.mapUri(config, t._1, t._1.mediumDescriptionPath.orNull), t._2)
-    }.filter(_._1.isDefined)
+    val source = Source(content).filter(_._1.mediumDescriptionPath.isDefined)
       .map { t =>
-        val desc = s"""{"mediumDescriptionPath":"${t._1.get}""""
-        val meta = s""""metaDataPath":"${config.metaDataPrefix.getOrElse("")}${t._2}.mdt"}"""
+        val desc = s"""{"mediumDescriptionPath":"${t._1.mediumDescriptionPath.get}""""
+        val meta = s""""metaDataPath":"${t._2}.mdt"}"""
         desc + "," + meta
       }.scan(ByteString("[" + cr)) { (prev, e) =>
       if (prev(0) != '[') ByteString("," + cr + e)

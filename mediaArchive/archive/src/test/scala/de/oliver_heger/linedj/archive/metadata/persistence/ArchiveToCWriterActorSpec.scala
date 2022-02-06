@@ -48,21 +48,15 @@ object ArchiveToCWriterActorSpec {
   /** A list with default content for the archive. */
   private val DefaultContentList = generateContent()
 
-  /**
-    * Generates a default ToC.
-    *
-    * @param separator the separator to be used for URI paths
-    * @return the default ToC text
-    */
-  private def DefaultToC(separator: Char): String =
-    ("[" + CR +
-      """{"mediumDescriptionPath":"/music/U 2|playlist.settings",""" +
-      """"metaDataPath":"/meta/393839.mdt"},""" + CR +
-      """{"mediumDescriptionPath":"/music/classics|my favorites|playlist.settings",""" +
-      """"metaDataPath":"/meta/ccccc.mdt"},""" + CR +
-      """{"mediumDescriptionPath":"/music/Prince|playlist.settings",""" +
-      """"metaDataPath":"/meta/abc.mdt"}""" + CR + "]" + CR)
-      .replace('|', separator)
+  /** A default ToC. */
+  private val DefaultToC =
+    "[" + CR +
+      """{"mediumDescriptionPath":"U%202/playlist.settings",""" +
+      """"metaDataPath":"393839.mdt"},""" + CR +
+      """{"mediumDescriptionPath":"classics/my%20favorites/playlist.settings",""" +
+      """"metaDataPath":"ccccc.mdt"},""" + CR +
+      """{"mediumDescriptionPath":"Prince/playlist.settings",""" +
+      """"metaDataPath":"abc.mdt"}""" + CR + "]" + CR
 
   /**
     * Generates a test medium ID.
@@ -71,7 +65,7 @@ object ArchiveToCWriterActorSpec {
     * @return the test medium ID
     */
   private def mid(name: String): MediumID =
-    MediumID("uri:" + name, Some(ToCConfig.descriptionRemovePrefix + name + "\\playlist.settings"))
+    MediumID("uri:" + name, Some(name + "/playlist.settings"))
 
   /**
     * Generates a list of default test content contained in the archive.
@@ -79,7 +73,7 @@ object ArchiveToCWriterActorSpec {
     * @return the list with test content
     */
   private def generateContent(): List[(MediumID, String)] =
-    List((mid("U 2"), "393839"), (mid("classics\\my favorites"), "ccccc"),
+    List((mid("U%202"), "393839"), (mid("classics/my%20favorites"), "ccccc"),
       (mid("Prince"), "abc"))
 }
 
@@ -119,43 +113,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val helper = new WriterActorTestHelper
     val op = helper.sendWriteRequest().nextWriteOperation()
 
-    readSource(op.source) should be(DefaultToC('\\'))
-  }
-
-  it should "URL-encode description paths if enabled" in {
-    val config = ToCConfig.copy(descriptionUrlEncoding = true)
-    val expected = DefaultToC('/').replace(" ", "%20")
-    val helper = new WriterActorTestHelper
-    val op = helper.sendWriteRequest(config = config).nextWriteOperation()
-
-    readSource(op.source) should be(expected)
-  }
-
-  it should "handle an undefined root prefix" in {
-    val config = ToCConfig.copy(rootPrefix = None)
-    val helper = new WriterActorTestHelper
-    val op = helper.sendWriteRequest(config = config).nextWriteOperation()
-
-    val result = readSource(op.source)
-    result should include("\"U 2")
-  }
-
-  it should "handle an undefined meta data prefix" in {
-    val config = ToCConfig.copy(metaDataPrefix = None)
-    val helper = new WriterActorTestHelper
-    val op = helper.sendWriteRequest(config = config).nextWriteOperation()
-
-    val result = readSource(op.source)
-    result should include("\"abc")
-  }
-
-  it should "filter out entries rejected by the URI mapper" in {
-    val contentList = (MediumID("uri", Some("otherPrefix/playlist.settings")),
-      "foo") :: DefaultContentList
-    val helper = new WriterActorTestHelper
-    val op = helper.sendWriteRequest(content = contentList).nextWriteOperation()
-
-    readSource(op.source) should be(DefaultToC('\\'))
+    readSource(op.source) should be(DefaultToC)
   }
 
   it should "filter out entries without a description file" in {
@@ -163,7 +121,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val helper = new WriterActorTestHelper
     val op = helper.sendWriteRequest(content = contentList).nextWriteOperation()
 
-    readSource(op.source) should be(DefaultToC('\\'))
+    readSource(op.source) should be(DefaultToC)
   }
 
   it should "do nothing in the result propagation method" in {
