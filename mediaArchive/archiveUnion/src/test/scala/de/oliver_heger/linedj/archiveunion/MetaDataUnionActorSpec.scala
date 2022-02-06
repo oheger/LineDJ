@@ -105,7 +105,7 @@ object MetaDataUnionActorSpec {
     */
   private def mediumID(name: String, componentID: String = ArchiveCompID): MediumID = {
     val settingsPath = Paths.get(name, "playlist.settings")
-    MediumID.fromDescriptionPath(settingsPath, componentID)
+    MediumID(name, Some(settingsPath.toString), componentID)
   }
 
   /**

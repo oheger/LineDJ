@@ -18,8 +18,6 @@ package de.oliver_heger.linedj.shared.archive.media
 
 import de.oliver_heger.linedj.shared.archive.media.MediumID.UndefinedMediumID
 
-import java.nio.file.Path
-
 /**
   * A data class representing the ID of a medium.
   *
@@ -63,16 +61,4 @@ object MediumID {
     * is available).
     */
   val UndefinedMediumID: MediumID = MediumID("", None, "<undefined>")
-
-  /**
-    * Creates a ''MediumID'' object from the path to the description file. The
-    * medium URI is derived from this path.
-    *
-    * @param path               the path to the description file
-    * @param archiveComponentID the ID of the providing archive component
-    * @return the new ''MediumID''
-    */
-  def fromDescriptionPath(path: Path, archiveComponentID: String = ""): MediumID =
-    MediumID(mediumURI = path.getParent.toString, mediumDescriptionPath = Some(path.toString),
-      archiveComponentID)
 }

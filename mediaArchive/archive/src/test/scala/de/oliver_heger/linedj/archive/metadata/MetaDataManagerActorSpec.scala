@@ -94,7 +94,7 @@ object MetaDataManagerActorSpec {
     */
   private def mediumID(name: String): MediumID = {
     val settingsPath = Paths.get(name, "playlist.settings")
-    MediumID fromDescriptionPath settingsPath
+    MediumID(name, Some(settingsPath.toString), "someArchiveComponent")
   }
 
   /**
