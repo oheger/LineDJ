@@ -16,15 +16,14 @@
 
 package de.oliver_heger.linedj.archive.config
 
-import java.nio.file.{Path, Paths}
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
+import java.nio.file.{Path, Paths}
+import java.util.Locale
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -120,52 +119,8 @@ object MediaArchiveConfig {
     */
   val PropArchiveName: String = "archiveName"
 
-  /** Prefix for properties for the ToC of an archive. */
-  val ToCPrefix: String = "toc."
-
   /** The configuration property for the file where to store the archive ToC. */
-  val PropTocFile: String = ToCPrefix + "file"
-
-  /**
-    * The configuration property for prefix to be removed from a medium
-    * description path when writing the archive's ToC.
-    */
-  val PropTocDescRemovePrefix: String = ToCPrefix + "descRemovePrefix"
-
-  /**
-    * The configuration property for the number of path components to be
-    * removed from the URI to a medium description path when writing the
-    * archive's ToC.
-    */
-  val PropTocDescRemovePathComponents: String = ToCPrefix + "descRemovePathComponents"
-
-  /**
-    * The configuration property for the path separator in medium description
-    * files. This has to be treated in a special way if URI encoding is
-    * enabled.
-    */
-  val PropTocDescPatSeparator: String = ToCPrefix + "descPathSeparator"
-
-  /**
-    * The configuration property for the flag whether URL encoding has to be
-    * applied to the paths to medium description files when generating their
-    * URIs in the archive ToC.
-    */
-  val PropTocDescUrlEncoding: String = ToCPrefix + "descUrlEncoding"
-
-  /**
-    * The configuration property for the prefix for medium description files.
-    * When writing the ToC this prefix is added to the paths to medium
-    * description files.
-    */
-  val PropTocRootPrefix: String = ToCPrefix + "rootPrefix"
-
-  /**
-    * The configuration property for the prefix for meta data files. When
-    * writing the ToC it is assumed that all meta data files are located in a
-    * directory defined by this setting.
-    */
-  val PropTocMetaDataPrefix: String = ToCPrefix + "metaDataPrefix"
+  val PropTocFile: String = MetaPersistencePrefix + "tocFile"
 
   /** Prefix for properties related to media archive scan operations. */
   val ScanPrefix: String = "scan."
@@ -276,8 +231,8 @@ object MediaArchiveConfig {
       includedFileExtensions = obtainIncludedExtensions(config, subConfig),
       rootPath = Paths get stringProperty(config, subConfig, PropRootPath),
       processorCount = intProperty(config, subConfig, PropProcessorCount, Some(DefaultProcessorCount)),
+      contentFile = extractTocPath(config, subConfig),
       downloadConfig = DownloadConfig(subConfig, defDownloadConfig),
-      contentTableConfig = createTocConfig(config, subConfig),
       archiveName = resolveArchiveName(subConfig, nameResolver),
       infoParserTimeout = durationProperty(config, subConfig, PropScanParseInfoTimeout,
         Some(DefaultInfoParserTimeout.duration)),
@@ -391,25 +346,6 @@ object MediaArchiveConfig {
   }
 
   /**
-    * Extracts the settings for the ''ArchiveContentTableConfig'' from the
-    * given configuration object.
-    *
-    * @param c         the configuration
-    * @param subConfig the sub configuration transformed for the current key
-    * @return the config for the table of content
-    */
-  private def createTocConfig(c: Configuration, subConfig: Configuration): ArchiveContentTableConfig =
-    ArchiveContentTableConfig(contentFile = extractTocPath(c, subConfig),
-      descriptionRemovePrefix = stringProperty(c, subConfig, PropTocDescRemovePrefix),
-      descriptionPathSeparator = stringProperty(c, subConfig, PropTocDescPatSeparator),
-      descriptionUrlEncoding = subConfig.getBoolean(PropTocDescUrlEncoding,
-        c.getBoolean(ArchivesSection + PropTocDescUrlEncoding, false)),
-      rootPrefix = Option(stringProperty(c, subConfig, PropTocRootPrefix)),
-      metaDataPrefix = Option(stringProperty(c, subConfig, PropTocMetaDataPrefix)),
-      descriptionRemovePathComponents = intProperty(c, subConfig, PropTocDescRemovePathComponents,
-        Some(DefaultTocDescRemovePathComponents)))
-
-  /**
     * Extracts the path for the file where to store the ToC (if any) from the
     * given configuration.
     *
@@ -469,7 +405,8 @@ object MediaArchiveConfig {
   * @param rootPath                          the root path to be scanned for media files
   * @param processorCount                    the number of parallel processor actors for meta
   *                                          data extraction
-  * @param contentTableConfig                the config for the archives's table of content
+  * @param contentFile                       the optional path where to store
+  *                                          the archives's table of content
   * @param archiveName                       a name for this archive
   * @param infoParserTimeout                 timeout for the parsing of a medium description
   *                                          file
@@ -490,63 +427,7 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               includedFileExtensions: Set[String],
                                               rootPath: Path,
                                               processorCount: Int,
-                                              contentTableConfig: ArchiveContentTableConfig,
+                                              contentFile: Option[Path],
                                               archiveName: String,
                                               infoParserTimeout: Timeout,
                                               scanMediaBufferSize: Int)
-
-/**
-  * A class defining configuration options for the "table of content" of a
-  * media archive.
-  *
-  * If defined, an archive writes a JSON document in a standard format that
-  * lists all defined media and their meta data files. This can be useful, for
-  * instance, to export this data to an HTTP archive.
-  *
-  * When writing such a content file, some transformations have to be done
-  * depending on the layout of the target structure. These are defined here.
-  * Basically, the single media are identified by the path to their medium
-  * description file. As this file is typically an OS-specific absolute path,
-  * it has to be transformed to a relative URI. This is done by removing a
-  * prefix (for the absolute path), adding an optional other prefix (for the
-  * target location on a server) and doing URI encoding on all path components.
-  *
-  * Relative URIs for meta data files are generated as well. They are derived
-  * from the checksum of the medium and located under a configurable prefix.
-  *
-  * @param contentFile                     the path to the content file to be written;
-  *                                        if undefined, no content file is created
-  * @param descriptionRemovePrefix         a prefix to be removed from the path to
-  *                                        medium description files; can be undefined,
-  *                                        then no prefix is removed
-  * @param descriptionRemovePathComponents the number of path components to be
-  *                                        removed from the URIs to description
-  *                                        files
-  * @param descriptionPathSeparator        the separator character used in the path to
-  *                                        the medium description file
-  * @param descriptionUrlEncoding          flag whether for medium description paths
-  *                                        URL encoding is required
-  * @param rootPrefix                      the prefix to be added to description files
-  * @param metaDataPrefix                  the prefix to be added to meta data files
-  */
-case class ArchiveContentTableConfig(contentFile: Option[Path],
-                                     descriptionRemovePrefix: String,
-                                     descriptionRemovePathComponents: Int,
-                                     descriptionPathSeparator: String,
-                                     descriptionUrlEncoding: Boolean,
-                                     rootPrefix: Option[String],
-                                     metaDataPrefix: Option[String]) extends UriMappingSpec {
-  override val prefixToRemove: String = descriptionRemovePrefix
-
-  /**
-    * @inheritdoc For the purpose of writing the ToC for an archive, the
-    *             template is fix.
-    */
-  override val uriTemplate: String = rootPrefix.getOrElse("") + UriMappingSpec.VarUri
-
-  override val urlEncoding: Boolean = descriptionUrlEncoding
-
-  override val uriPathSeparator: String = descriptionPathSeparator
-
-  override val pathComponentsToRemove: Int = descriptionRemovePathComponents
-}

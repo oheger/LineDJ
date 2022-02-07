@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import de.oliver_heger.linedj.archive.config.{ArchiveContentTableConfig, MediaArchiveConfig}
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -212,20 +212,6 @@ object PersistentMetaDataManagerActorSpec {
     */
   private def expectMessages[T](probes: TestProbe*)(implicit t: ClassTag[T]): Set[T] =
     probes.foldLeft(Set.empty[T])((s, p) => s + p.expectMsgType[T])
-
-  /**
-    * Creates a dummy configuration for writing a ToC. Relevant is only whether
-    * the target path is defined.
-    *
-    * @param defined flag whether the target path is defined
-    * @return the config
-    */
-  private def createToCConfig(defined: Boolean): ArchiveContentTableConfig = {
-    val path = if (defined) Some(Paths get "toc.json") else None
-    ArchiveContentTableConfig(contentFile = path, descriptionPathSeparator = null,
-      descriptionRemovePrefix = null, descriptionUrlEncoding = false,
-      rootPrefix = None, metaDataPrefix = None, descriptionRemovePathComponents = 0)
-  }
 }
 
 /**
@@ -650,26 +636,25 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
   }
 
   it should "trigger a ToC write operation at the end of a scan" in {
-    val tocConfig = createToCConfig(defined = true)
+    val tocPath = Paths get "toc.json"
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
     actor ! enhancedScanResult(1, 2, 3)
     val expContent = List((mediumID(1), checksum(1)), (mediumID(2), checksum(2)),
       (mediumID(3), checksum(3)))
 
-    helper.sendScanComplete(tocConfig)
+    helper.sendScanComplete(Some(tocPath))
     val op = helper.tocWriterActor.expectMsgType[ArchiveToCWriterActor.WriteToC]
-    op.target should be(tocConfig.contentFile.get)
+    op.target should be(tocPath)
     op.content should contain theSameElementsAs expContent
   }
 
   it should "not trigger a ToC write operation if no target path is defined" in {
-    val tocConfig = createToCConfig(defined = false)
     val helper = new PersistenceMetaDataManagerActorTestHelper
     val actor = helper.initMediaFiles(1, 2, 3).createTestActor()
     actor ! enhancedScanResult(1, 2, 3)
 
-    helper.sendScanComplete(tocConfig)
+    helper.sendScanComplete(None)
     val TestMsg = new Object
     helper.tocWriterActor.ref ! TestMsg
     helper.tocWriterActor.expectMsg(TestMsg)
@@ -827,15 +812,14 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     }
 
     /**
-      * Sends a ScanComplete message to the test actor and initializes the
-      * configuration for ToC writing.
+      * Sends a ScanComplete message to the test actor and optionally a request
+      * to write the ToC.
       *
-      * @param tocConfig the ToC config
+      * @param tocPath the path to the file with the ToC
       * @return this test helper
       */
-    def sendScanComplete(tocConfig: ArchiveContentTableConfig):
-    PersistenceMetaDataManagerActorTestHelper = {
-      when(config.contentTableConfig).thenReturn(tocConfig)
+    def sendScanComplete(tocPath: Option[Path]): PersistenceMetaDataManagerActorTestHelper = {
+      when(config.contentFile).thenReturn(tocPath)
       managerActor receive PersistentMetaDataManagerActor.ScanCompleted
       this
     }

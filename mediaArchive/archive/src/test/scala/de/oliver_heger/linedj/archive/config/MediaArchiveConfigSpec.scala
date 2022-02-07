@@ -68,18 +68,6 @@ object MediaArchiveConfigSpec {
   /** Test path to the content file of the media archive. */
   private val TocFile = "path/to/media/content.json"
 
-  /** Test remove prefix for medium description files. */
-  private val TocRemoveDescPrefix = "C:\\data\\music\\archive\\"
-
-  /** Test number of path components to be removed in ToC URIs. */
-  private val TocRemovePathComponents = 3
-
-  /** Test prefix for URIs in the archive ToC. */
-  private val TocRootPrefix = "/remote/archive"
-
-  /** Test prefix for meta data files. */
-  private val TocMetaDataPrefix = "/metadata"
-
   /** The archive name as returned by the name resolver function. */
   private val ArchiveName = "MyTestArchive"
 
@@ -125,13 +113,7 @@ object MediaArchiveConfigSpec {
     config.addProperty(key + ".metaDataPersistence.parallelCount", MetaDataPersistenceParallelCount + index)
     config.addProperty(key + ".metaDataPersistence.writeBlockSize",
       MetaDataPersistenceWriteBlockSize + index)
-    config.addProperty(key + ".toc.file", TocFile + index)
-    config.addProperty(key + ".toc.descRemovePrefix", TocRemoveDescPrefix + index)
-    config.addProperty(key + ".toc.descRemovePathComponents", TocRemovePathComponents + index)
-    config.addProperty(key + ".toc.descPathSeparator", "\\" + index)
-    config.addProperty(key + ".toc.descUrlEncoding", true)
-    config.addProperty(key + ".toc.rootPrefix", TocRootPrefix + index)
-    config.addProperty(key + ".toc.metaDataPrefix", TocMetaDataPrefix + index)
+    config.addProperty(key + ".metaDataPersistence.tocFile", TocFile + index)
     config.addProperty(key + ".scan.parseInfoTimeout", InfoParserTimeout.duration.toSeconds + index)
     config.addProperty(key + ".scan.mediaBufferSize", ScanMediaBufferSize + index)
 
@@ -209,15 +191,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     config.processorCount should be(ProcessorCount + index)
     config.infoParserTimeout.duration should be(InfoParserTimeout.duration + index.seconds)
     config.scanMediaBufferSize should be(ScanMediaBufferSize + index)
-
-    val tocConfig = config.contentTableConfig
-    tocConfig.contentFile should be(Some(Paths.get(TocFile + index)))
-    tocConfig.descriptionRemovePrefix should be(TocRemoveDescPrefix + index)
-    tocConfig.descriptionRemovePathComponents should be(TocRemovePathComponents + index)
-    tocConfig.descriptionPathSeparator should be("\\" + index)
-    tocConfig.rootPrefix should be(Some(TocRootPrefix + index))
-    tocConfig.metaDataPrefix should be(Some(TocMetaDataPrefix + index))
-    tocConfig.descriptionUrlEncoding shouldBe true
+    config.contentFile should be(Some(Paths.get(TocFile + index)))
   }
 
   "A MediaArchiveConfig" should "create an instance from the application config" in {
@@ -239,18 +213,12 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     createArchiveConfig(c).processorCount should be(MediaArchiveConfig.DefaultProcessorCount)
   }
 
-  it should "use default values for the ToC config" in {
+  it should "use a default value for the ToC file" in {
     val config = createDefaultHierarchicalConfig()
-    config.clearTree("media.localArchives.localArchive.toc")
-    val tocConfig = createArchiveConfig(config).contentTableConfig
+    config.clearProperty("media.localArchives.localArchive.metaDataPersistence.tocFile")
+    val archiveConfig = createArchiveConfig(config)
 
-    tocConfig.contentFile shouldBe empty
-    tocConfig.descriptionRemovePrefix should be(null)
-    tocConfig.pathComponentsToRemove should be(0)
-    tocConfig.descriptionPathSeparator should be(null)
-    tocConfig.rootPrefix shouldBe empty
-    tocConfig.metaDataPrefix shouldBe empty
-    tocConfig.descriptionUrlEncoding shouldBe false
+    archiveConfig.contentFile shouldBe empty
   }
 
   it should "generate a default archive name using the resolver function" in {
