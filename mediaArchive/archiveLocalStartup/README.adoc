@@ -78,34 +78,21 @@ configuration options:
                 <parallelCount>2</parallelCount>
                 <writeBlockSize>40</writeBlockSize>
             </metaDataPersistence>
-            <toc>
-                <descRemovePrefix>/data/music/archive/media</descRemovePrefix>
-                <descPathSeparator>/</descPathSeparator>
-                <descUrlEncoding>true</descUrlEncoding>
-                <rootPrefix>/music/archive/media</rootPrefix>
-                <metaDataPrefix>/music/archive/metadata/</metaDataPrefix>
-            </toc>
             <localArchive>
                 <rootPath>/data/music/archive/1and1/media</rootPath>
                 <archiveName>1and1-${host}</archiveName>
                 <metaDataPersistence>
                     <path>/data/music/archive/1and1/metadata</path>
+                    <tocFile>/data/music/archive/1and1/content.json</tocFile>
                 </metaDataPersistence>
-                <toc>
-                    <file>/data/music/archive/1and1/content.json</file>
-                    <descRemovePrefix>/data/music/archive/1and1/media</descRemovePrefix>
-                </toc>
             </localArchive>
             <localArchive>
                 <rootPath>/data/music/archive/magenta1/media</rootPath>
                 <archiveName>magenta1-${host}</archiveName>
                 <metaDataPersistence>
                     <path>/data/music/archive/magenta1/metadata</path>
+                    <tocFile>/data/music/archive/magenta1/content.json</tocFile>
                 </metaDataPersistence>
-                <toc>
-                    <file>/data/music/archive/magenta1/content.json</file>
-                    <descRemovePrefix>/data/music/archive/magenta1/media</descRemovePrefix>
-                </toc>
             </localArchive>
         </localArchives>
     </media>
@@ -243,44 +230,10 @@ from the medium are scanned. After some media files have been processed, an
 case the scan is aborted. The _writeBlockSize_ property defines the number of
 media files to be processed after the currently collected meta data is
 persisted.
-|============================
-
-=== Archive table of contents
-
-A local archive can be configured to generate a JSON file with a table of
-contents, i.e. a list with all media it contains and their corresponding meta
-data files. This file has the same format as used by an _HTTP archive_ to
-define its content.
-
-The options are declared in a sub section named _toc_. They are optional; the
-ToC file is generated only if a target file is specified.
-
-.Configuration options for the table of contents
-[cols="1,3",options="header"]
-|============================
-| Setting | Description
-| file | Defines the location where the table of contents file is to be stored.
-If this property is missing, no such file is generated.
-| descRemovePrefix | The paths to the single media contained in the archive are
-typically absolute paths. For some use cases, e.g. if they are to be exposed
-via an HTTP server, they have to be converted to relative URIs. This property
-defines the prefix of the paths that must be removed for this purpose. Note
-that only media are included in the ToC document whose path starts with this
-prefix. If no prefix is specified, the whole paths to media are used.
-| descRemovePathComponents | After the path to a medium description file has
-been processed (by removing the prefix and converting it to a URI), it is
-possible to strip off a number of URI path components from the beginning. The
-number of components to remove can be specified using this property. The
-default value is 0; so no components will be removed.
-| descPathSeparator | The path separator used in paths to media description
-files. This is typically the slash on Linux and the backslash on Windows.
-| descUrlEncoding | A flag whether URL encoding should be applied to paths to
-media. If the media should be exposed via an HTTP server, this is typically
-needed.
-| rootPrefix | Here a prefix can be specified which is added to paths to media
-files. That way, they can be referenced correctly, even if they are stored in a
-sub folder structure.
-| metaDataPrefix | Analogous to _rootPrefix_, this a prefix added to meta data
-files. Such files may be stored in a dedicated folder; with this prefix, the
-folder can be selected.
+| metaDataPersistence.tocFile | A local archive can be configured to generate a
+JSON file with a table of contents, i.e. a list with all media it contains and
+their corresponding meta data files. This file has the same format as used by
+an _HTTP archive_ to define its content. With the _tocFile_ property, the path
+where to store the table of contents file can be specified. If it is missing,
+no such file is generated.
 |============================
