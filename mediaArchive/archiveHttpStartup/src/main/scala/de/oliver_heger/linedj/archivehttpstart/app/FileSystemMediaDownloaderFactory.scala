@@ -49,7 +49,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
   (protocolSpec: HttpArchiveProtocolSpec[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig,
    authConfig: AuthConfig, actorBaseName: String, optCryptKey: Option[Key])
   (implicit system: ActorSystem): Try[MediaDownloader] = {
-    protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveURI.toString(),
+    protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveBaseUri.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
 
@@ -57,7 +57,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
       val spawner: Spawner = system
       val sender = if (protocolSpec.requiresMultiHostSupport)
         requestSenderFactory.createMultiHostRequestSender(spawner, senderConfig)
-      else requestSenderFactory.createRequestSender(spawner, startupConfig.archiveConfig.archiveURI, senderConfig)
+      else requestSenderFactory.createRequestSender(spawner, startupConfig.archiveConfig.archiveBaseUri, senderConfig)
       val cookieSender = if (startupConfig.needsCookieManagement)
         spawner.spawn(CookieManagementExtension(sender), optName = Some(actorBaseName + "_cookie"))
       else sender

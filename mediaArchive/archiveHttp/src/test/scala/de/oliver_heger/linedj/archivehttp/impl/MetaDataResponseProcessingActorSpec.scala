@@ -61,7 +61,8 @@ object MetaDataResponseProcessingActorSpec {
     "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = MappingConfig,
-    contentMappingConfig = null, downloader = null)
+    contentMappingConfig = null, downloader = null, contentPath = Uri.Path(ArchivePath),
+    mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("mdt"))
 
   /** The sequence number used for requests. */
   private val SeqNo = 42

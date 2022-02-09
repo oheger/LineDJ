@@ -61,14 +61,15 @@ object HttpArchiveContentProcessorActorSpec {
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig =
-    HttpArchiveConfig(archiveURI = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+    HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-      contentMappingConfig = ContentMappingConfig, downloader = null)
+      contentMappingConfig = ContentMappingConfig, downloader = null, contentPath = Uri.Path("archiveContent.json"),
+      mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
 
   /** Constant for the URI pointing to the content file of the test archive. */
-  val ArchiveUri: String = DefaultArchiveConfig.archiveURI.toString()
+  val ArchiveUri: String = DefaultArchiveConfig.archiveBaseUri.toString()
 
   /** Message indicating stream completion. */
   private val CompleteMessage = new Object
@@ -561,7 +562,7 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
   override def receive: Receive = {
     case ProcessResponse(mid, desc, data, config, seqNo)
       if seqNo == HttpArchiveContentProcessorActorSpec.SeqNo &&
-        config.archiveURI == Uri(ArchiveUri) =>
+        config.archiveBaseUri == Uri(ArchiveUri) =>
       val client = sender()
       readData(data) foreach { text =>
         if (text.startsWith(ErrorPrefix)) {

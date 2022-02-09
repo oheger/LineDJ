@@ -102,8 +102,13 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * A class defining the configuration settings to be applied for an HTTP
   * archive.
   *
-  * @param archiveURI            the URI of the HTTP media archive
+  * @param archiveBaseUri        the base URI of the HTTP media archive; all
+  *                              paths are resolved against this URI
   * @param archiveName           a name for the HTTP media archive
+  * @param contentPath           the (relative) path to the content file
+  * @param mediaPath             the (relative) base path for all media files
+  * @param metaDataPath          the (relative) path under which all metadata
+  *                              files are located
   * @param processorCount        the number of parallel processor actors to be used
   *                              when downloading meta data from the archive
   * @param processorTimeout      the timeout for calls to processor actors
@@ -128,8 +133,11 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   *                              content file
   * @param downloader            the object to download media files
   */
-case class HttpArchiveConfig(archiveURI: Uri,
+case class HttpArchiveConfig(archiveBaseUri: Uri,
                              archiveName: String,
+                             contentPath: Uri.Path,
+                             mediaPath: Uri.Path,
+                             metaDataPath: Uri.Path,
                              processorCount: Int,
                              processorTimeout: Timeout,
                              propagationBufSize: Int,

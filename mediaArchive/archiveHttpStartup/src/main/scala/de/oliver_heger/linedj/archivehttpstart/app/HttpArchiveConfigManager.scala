@@ -204,7 +204,7 @@ private object HttpArchiveConfigManager {
       case Success(realm) =>
         Some(realm)
       case Failure(ex) =>
-        log.error(s"Could not create archive for ${archiveConfig.archiveConfig.archiveURI}. " +
+        log.error(s"Could not create archive for ${archiveConfig.archiveConfig.archiveBaseUri}. " +
           "It references an invalid realm.", ex)
         None
     }

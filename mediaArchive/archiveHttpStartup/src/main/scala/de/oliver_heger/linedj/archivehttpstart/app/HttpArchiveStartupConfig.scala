@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import com.github.cloudfiles.core.http.UriEncodingHelper
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import org.apache.commons.configuration.Configuration
@@ -36,6 +37,25 @@ object HttpArchiveStartupConfig {
     * archive URI.
     */
   final val PropArchiveName: String = "archiveName"
+
+  /**
+    * The configuration property for the relative path to the archive's file
+    * with the ToC. This file is loaded initially to find out, which media are
+    * contained in this archive.
+    */
+  final val PropContentPath: String = "contentPath"
+
+  /**
+    * The configuration property for the relative path under which the media
+    * files of this archive are stored.
+    */
+  final val PropMediaPath: String = "mediaPath"
+
+  /**
+    * The configuration property for the relative path under which the meta
+    * data files of this archive are stored.
+    */
+  final val PropMetaDataPath: String = "metaDataPath"
 
   /** The configuration property for the processor count. */
   final val PropProcessorCount: String = "processorCount"
@@ -206,6 +226,13 @@ object HttpArchiveStartupConfig {
   final val PropCryptNamesChunkSize = "cryptNamesChunkSize"
 
   /**
+    * The default value for the content path. If not specified otherwise, the
+    * archive's ToC is expected in a file named ''content.json'' in the root
+    * folder.
+    */
+  final val DefaultContentPath = "content.json"
+
+  /**
     * The default processor count value. This value is assumed if the
     * ''PropProcessorCount'' property is not specified.
     */
@@ -295,7 +322,10 @@ object HttpArchiveStartupConfig {
       downloadConfig = downloadConfig,
       metaMappingConfig = extractMappingConfig(c, Path + PrefixMetaUriMapping),
       contentMappingConfig = extractMappingConfig(c, Path + PrefixContentUriMapping),
-      archiveURI = c.getString(Path + PropArchiveUri),
+      archiveBaseUri = Uri(uri),
+      contentPath = extractContentPath(c, Path + PropContentPath),
+      mediaPath = extractSubPath(c, Path + PropMediaPath),
+      metaDataPath = extractSubPath(c, Path + PropMetaDataPath),
       archiveName = extractArchiveName(c, Path),
       downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
@@ -335,12 +365,32 @@ object HttpArchiveStartupConfig {
     if (name != null) name
     else {
       val uri = Uri(c.getString(prefix + PropArchiveUri))
-      val nameWithPath = uri.authority.host.address().replace('.', '_') +
-        uri.path.toString().replace('/', '_')
-      val posExt = nameWithPath lastIndexOf '.'
-      if (posExt > 0) nameWithPath.substring(0, posExt) else nameWithPath
+      uri.authority.host.address().replace('.', '_') +
+        UriEncodingHelper.removeTrailingSeparator(uri.path.toString()).replace('/', '_')
     }
   }
+
+  /**
+    * Extracts a relative path to the archive's base URI from the
+    * configuration. If this property is undefined, an empty path is returned.
+    *
+    * @param c   the configuration
+    * @param key the key of the property in question
+    * @return the resulting path
+    */
+  private def extractSubPath(c: Configuration, key: String): Uri.Path =
+    if (c.containsKey(key)) Uri.Path(UriEncodingHelper.removeLeadingSeparator(c.getString(key)))
+    else Uri.Path.Empty
+
+  /**
+    * Extracts the path to the archive's content file.
+    *
+    * @param c   the configuration
+    * @param key the key to the content path property
+    * @return the resulting path
+    */
+  private def extractContentPath(c: Configuration, key: String): Uri.Path =
+    Uri.Path(UriEncodingHelper.removeLeadingSeparator(c.getString(key, HttpArchiveStartupConfig.DefaultContentPath)))
 }
 
 /**

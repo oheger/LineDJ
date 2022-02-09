@@ -32,7 +32,16 @@ import scala.util.{Failure, Success, Try}
 
 object HttpArchiveStartupConfigSpec {
   /** The URI to the HTTP archive. */
-  private val ArchiveUri = "https://music.archive.org/music/test/content.json"
+  private val ArchiveUri = "https://music.archive.org/music/test/"
+
+  /** The path to the content file. */
+  private val ContentPath = "content.json"
+
+  /** The path to media files. */
+  private val MediaPath = "media/"
+
+  /** The path to metadata files. */
+  private val MetaDataPath = "meta"
 
   /** A test download configuration. */
   private val DownloadData = DownloadConfig(1.hour, 10.minutes, 8192)
@@ -97,6 +106,9 @@ object HttpArchiveStartupConfigSpec {
   private def createConfiguration(at: String = Prefix): Configuration = {
     val c = new PropertiesConfiguration
     c.addProperty(at + ".archiveUri", ArchiveUri)
+    c.addProperty(at + ".contentPath", "/" + ContentPath)
+    c.addProperty(at + ".mediaPath", "/" + MediaPath)
+    c.addProperty(at + ".metaDataPath", MetaDataPath)
     c.addProperty(at + ".archiveName", ArchiveName)
     c.addProperty(at + ".processorCount", ProcessorCount)
     c.addProperty(at + ".processorTimeout", ProcessorTimeout)
@@ -151,7 +163,10 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     triedConfig match {
       case Success(startUpConfig) =>
         val config = startUpConfig.archiveConfig
-        config.archiveURI should be(Uri(ArchiveUri))
+        config.archiveBaseUri should be(Uri(ArchiveUri))
+        config.contentPath should be(Uri.Path(ContentPath))
+        config.mediaPath should be(Uri.Path(MediaPath))
+        config.metaDataPath should be(Uri.Path(MetaDataPath))
         config.archiveName should be(ArchiveName)
         config.processorCount should be(ProcessorCount)
         config.processorTimeout should be(Timeout(ProcessorTimeout, TimeUnit.SECONDS))
@@ -243,32 +258,49 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     checkConfig(HttpArchiveStartupConfig(c, Prefix + '.', DownloadData))
   }
 
-  /**
-    * Helper method to test whether the archive name can be derived from the
-    * archive URI.
-    *
-    * @param expName the expected name
-    * @param uri     the URI to pass to the configuration
-    */
-  private def checkArchiveName(expName: String, uri: String = ArchiveUri): Unit = {
+  it should "derive the archive name from the URI" in {
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropArchiveName)
-    c.setProperty(Prefix + "." + HttpArchiveStartupConfig.PropArchiveUri, uri)
+    c.setProperty(Prefix + "." + HttpArchiveStartupConfig.PropArchiveUri, ArchiveUri)
 
     createStartupConfig(c) match {
       case Success(config) =>
-        config.archiveConfig.archiveName should be(expName)
+        config.archiveConfig.archiveName should be("music_archive_org_music_test")
       case Failure(e) =>
         fail("Unexpected exception: " + e)
     }
   }
 
-  it should "derive the archive name from the URI" in {
-    checkArchiveName("music_archive_org_music_test_content")
+  it should "set a default content path" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropContentPath)
+
+    createStartupConfig(c) match {
+      case Success(config) =>
+        config.archiveConfig.contentPath should be(Uri.Path(HttpArchiveStartupConfig.DefaultContentPath))
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
   }
 
-  it should "handle an archive name if the URI has no extension" in {
-    checkArchiveName(uri = "http://archive.org/foo/bar/index",
-      expName = "archive_org_foo_bar_index")
+  it should "set a default media path" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMediaPath)
+
+    createStartupConfig(c) match {
+      case Success(config) =>
+        config.archiveConfig.mediaPath should be(Uri.Path.Empty)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
+  }
+
+  it should "set a default meta data path" in {
+    val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMetaDataPath)
+
+    createStartupConfig(c) match {
+      case Success(config) =>
+        config.archiveConfig.metaDataPath should be(Uri.Path.Empty)
+      case Failure(e) =>
+        fail("Unexpected exception: " + e)
+    }
   }
 
   it should "set a default processor count if unspecified" in {

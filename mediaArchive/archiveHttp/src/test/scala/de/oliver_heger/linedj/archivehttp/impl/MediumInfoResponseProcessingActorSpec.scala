@@ -72,7 +72,8 @@ object MediumInfoResponseProcessingActorSpec {
     "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = null,
-    contentMappingConfig = null, downloader = null)
+    contentMappingConfig = null, downloader = null, contentPath = Uri.Path("toc.json"),
+    mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("metadata"))
 
   /** A timeout value for waiting for async results. */
   private val WaitTimeout = 3.seconds

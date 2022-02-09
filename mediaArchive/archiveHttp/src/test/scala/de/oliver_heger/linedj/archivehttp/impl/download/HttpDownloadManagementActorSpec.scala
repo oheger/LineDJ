@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
@@ -310,11 +311,12 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @return the configuration
       */
     private def createConfig(): HttpArchiveConfig =
-      HttpArchiveConfig(archiveURI = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+      HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
         archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
         maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
         downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-        contentMappingConfig = null, downloader = downloader)
+        contentMappingConfig = null, downloader = downloader, contentPath = Uri.Path("archiveContent.json"),
+        mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
 
     /**
       * Creates a new test actor instance.

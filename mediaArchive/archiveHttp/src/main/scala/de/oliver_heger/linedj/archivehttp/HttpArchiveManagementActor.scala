@@ -244,7 +244,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
           archiveContentProcessor ! req
         case scala.util.Failure(ex) =>
           log.error(ex, "Could not load content document for archive " +
-            config.archiveURI)
+            config.archiveBaseUri)
           self ! HttpArchiveProcessingComplete(stateFromException(ex))
       }
     }

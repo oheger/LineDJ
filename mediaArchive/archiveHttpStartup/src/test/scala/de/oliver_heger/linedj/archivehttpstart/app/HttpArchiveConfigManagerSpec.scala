@@ -45,7 +45,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     names.zipWithIndex.foreach { t =>
       val expUri = StartupConfigTestHelper.archiveUri(t._2 + 1)
       val archiveData = manager.archives(t._1)
-      archiveData.config.archiveConfig.archiveURI.toString() should be(expUri)
+      archiveData.config.archiveConfig.archiveBaseUri.toString() should be(expUri)
       archiveData.encrypted shouldBe false
       archiveData.protocol should be(HttpArchiveConfigManager.DefaultProtocolName)
     }
