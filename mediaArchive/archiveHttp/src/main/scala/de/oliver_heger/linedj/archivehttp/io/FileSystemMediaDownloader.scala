@@ -52,6 +52,17 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
     op.run(httpSender)
   }
 
+  override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] = {
+    implicit val ec: ExecutionContext = system.executionContext
+
+    val op = for {
+      id <- archiveFileSystem.fileSystem.resolvePath(path.toString())
+      entity <- archiveFileSystem.fileSystem.downloadFile(id)
+    } yield entity.dataBytes
+
+    op.run(httpSender)
+  }
+
   override def contentFileName: String = archiveFileSystem.contentFile
 
   /**

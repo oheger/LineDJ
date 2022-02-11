@@ -533,7 +533,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       */
     private def createDownloader(mapping: Map[Uri, Try[String]]): MediaDownloader = {
       val downloader = mock[MediaDownloader]
-      when(downloader.downloadMediaFile(any())).thenAnswer((invocation: InvocationOnMock) => {
+      when(downloader.downloadMediaFile(any(classOf[Uri]))).thenAnswer((invocation: InvocationOnMock) => {
         val uri = invocation.getArguments.head.asInstanceOf[Uri]
         Future.fromTry(mapping(uri).map(txt => Source.single(ByteString(txt))))
       })

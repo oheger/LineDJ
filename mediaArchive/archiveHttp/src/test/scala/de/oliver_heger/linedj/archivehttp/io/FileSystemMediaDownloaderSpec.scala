@@ -93,6 +93,70 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     }.invokeDownloader(DownloadUri, FileSource)
   }
 
+  it should "download a media file specified by a path" in {
+    val RelativePath = Uri.Path("path/to/file.mp3")
+    val FileSource = fileSource()
+    val entity = downloadEntity(FileSource)
+    val helper = new DownloaderTestHelper
+
+    helper.prepareFileSystem { fs =>
+      when(fs.resolvePath(RelativePath.toString())).thenReturn(helper.stubOperation(FileID))
+      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
+    }.invokeDownloader(RelativePath, None, FileSource)
+  }
+
+  it should "download a media file specified by a path and a segment" in {
+    val PathPrefix = Uri.Path("media")
+    val Segment = "/Rock/artist/album/song.mp3"
+    val FileSource = fileSource()
+    val entity = downloadEntity(FileSource)
+    val helper = new DownloaderTestHelper
+
+    helper.prepareFileSystem { fs =>
+      when(fs.resolvePath(s"$PathPrefix$Segment")).thenReturn(helper.stubOperation(FileID))
+      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
+    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+  }
+
+  it should "download a media file specified by a path and a segment if the path ends with a slash" in {
+    val PathPrefix = Uri.Path("media/")
+    val Segment = "Rock/artist/album/song.mp3"
+    val FileSource = fileSource()
+    val entity = downloadEntity(FileSource)
+    val helper = new DownloaderTestHelper
+
+    helper.prepareFileSystem { fs =>
+      when(fs.resolvePath(s"$PathPrefix$Segment")).thenReturn(helper.stubOperation(FileID))
+      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
+    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+  }
+
+  it should "download a media file specified by a path and a segment if there are trailing and leading slashes" in {
+    val PathPrefix = Uri.Path("media/")
+    val Segment = "/Rock/artist/album/song.mp3"
+    val FileSource = fileSource()
+    val entity = downloadEntity(FileSource)
+    val helper = new DownloaderTestHelper
+
+    helper.prepareFileSystem { fs =>
+      when(fs.resolvePath(s"$PathPrefix${Segment.drop(1)}")).thenReturn(helper.stubOperation(FileID))
+      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
+    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+  }
+
+  it should "download a media file specified by a path and a segment if there are no slashes as separators" in {
+    val PathPrefix = Uri.Path("media")
+    val Segment = "Rock/artist/album/song.mp3"
+    val FileSource = fileSource()
+    val entity = downloadEntity(FileSource)
+    val helper = new DownloaderTestHelper(rootPath = RootPath + "/")
+
+    helper.prepareFileSystem { fs =>
+      when(fs.resolvePath(s"$PathPrefix/$Segment")).thenReturn(helper.stubOperation(FileID))
+      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
+    }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
+  }
+
   it should "download the archive's content file" in {
     val FileSource = fileSource()
     val entity = downloadEntity(FileSource)
@@ -133,8 +197,10 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     * A test helper class managing a test instance and its dependencies.
     *
     * @param contentFile the name of the content file
+    * @param rootPath    the root path of the archive
     */
-  private class DownloaderTestHelper(contentFile: String = ContentFile) {
+  private class DownloaderTestHelper(contentFile: String = ContentFile,
+                                     rootPath: String = RootPath) {
     /**
       * Test probe for the HTTP sender actor which is required for interactions
       * with a file system.
@@ -186,6 +252,25 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     }
 
     /**
+      * Invokes the test downloader instance with the given path and an
+      * optional segment and checks whether the expected result is returned.
+      *
+      * @param path       the path to download
+      * @param optSegment the optional segment to append
+      * @param expResult  the expected result
+      * @return this test helper
+      */
+    def invokeDownloader(path: Uri.Path, optSegment: Option[String], expResult: Source[ByteString, Any]):
+    DownloaderTestHelper = {
+      val futResult = optSegment match {
+        case Some(segment) => downloader.downloadMediaFile(path, segment)
+        case None => downloader.downloadMediaFile(path)
+      }
+      futureResult(futResult) should be(expResult)
+      this
+    }
+
+    /**
       * Triggers the test downloader to download the archive's content file and
       * checks whether the expected result is returned.
       *
@@ -223,7 +308,7 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
       * @return the test downloader
       */
     private def createDownloader(): FileSystemMediaDownloader[String] = {
-      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, Uri.Path(RootPath), contentFile)
+      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, Uri.Path(rootPath), contentFile)
       new FileSystemMediaDownloader(httpArchiveFileSystem, probeHttpSender.ref)
     }
   }
