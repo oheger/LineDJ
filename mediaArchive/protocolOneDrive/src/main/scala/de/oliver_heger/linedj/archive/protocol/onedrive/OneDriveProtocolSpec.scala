@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
+import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem, OneDriveModel}
@@ -61,7 +62,7 @@ class OneDriveProtocolSpec
       val optRootPath = if (rootPath.isEmpty) None else Some(rootPath)
       val config = OneDriveConfig(driveID = driveID, optRootPath = optRootPath, timeout = timeout)
       val fileSystem = new OneDriveFileSystem(config)
-      Success(HttpArchiveFileSystem(fileSystem, rootPath, contentFile))
+      Success(HttpArchiveFileSystem(fileSystem, Uri.Path(rootPath), contentFile))
     }
   }
 }

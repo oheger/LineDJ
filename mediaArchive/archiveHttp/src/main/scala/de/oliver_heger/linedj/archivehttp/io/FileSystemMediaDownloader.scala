@@ -72,7 +72,8 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
     */
   private def fileSystemPath(uri: Uri): String = {
     val uriPath = uri.path.toString()
-    if (uriPath.startsWith(archiveFileSystem.rootPath)) uriPath.substring(archiveFileSystem.rootPath.length)
+    if (uriPath.startsWith(archiveFileSystem.rootPath.toString()))
+      uriPath.substring(archiveFileSystem.rootPath.charCount)
     else uriPath
   }
 }

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
+import akka.http.scaladsl.model.Uri
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 
@@ -38,5 +39,5 @@ import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
   */
 case class HttpArchiveFileSystem[ID, FILE <: Model.File[ID],
   FOLDER <: Model.Folder[ID]](fileSystem: ExtensibleFileSystem[ID, FILE, FOLDER, Model.FolderContent[ID, FILE, FOLDER]],
-                              rootPath: String,
+                              rootPath: Uri.Path,
                               contentFile: String)

@@ -46,7 +46,7 @@ class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers {
 
     spec.createFileSystemFromConfig(RootPath + "/" + ContentFile, timeout) match {
       case Success(fs) =>
-        fs.rootPath should be(RootPath)
+        fs.rootPath should be(Uri.Path(RootPath))
         fs.contentFile should be(ContentFile)
         fs.fileSystem match {
           case dav: DavFileSystem =>

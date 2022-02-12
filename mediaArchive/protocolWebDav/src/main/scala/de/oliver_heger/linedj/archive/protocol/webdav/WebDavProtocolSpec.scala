@@ -55,7 +55,7 @@ class WebDavProtocolSpec extends HttpArchiveProtocolSpec[Uri, DavModel.DavFile, 
     else {
       val davConfig = DavConfig(rootUri = root, timeout = timeout)
       val fs = new DavFileSystem(davConfig)
-      Success(HttpArchiveFileSystem(fs, root, contentFile))
+      Success(HttpArchiveFileSystem(fs, Uri.Path(root), contentFile))
     }
   }
 }

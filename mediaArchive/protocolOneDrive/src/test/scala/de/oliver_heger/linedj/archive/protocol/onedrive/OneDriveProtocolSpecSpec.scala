@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
+import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -50,7 +51,7 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers {
     spec.createFileSystemFromConfig(DriveID + RootPath + "/" + ContentFile, TestTimeout) match {
       case Success(fs) =>
         fs.contentFile should be(ContentFile)
-        fs.rootPath should be(RootPath)
+        fs.rootPath should be(Uri.Path(RootPath))
         fs.fileSystem match {
           case oneDrive: OneDriveFileSystem =>
             oneDrive.config.driveID should be(DriveID)
@@ -93,7 +94,7 @@ class OneDriveProtocolSpecSpec extends AnyFlatSpec with Matchers {
     spec.createFileSystemFromConfig(DriveID + "/" + ContentFile, Timeout(1.hour)) match {
       case Success(fs) =>
         fs.contentFile should be(ContentFile)
-        fs.rootPath should be("")
+        fs.rootPath should be(Uri.Path.Empty)
         val onedrive = fs.fileSystem.asInstanceOf[OneDriveFileSystem]
         onedrive.config.optRootPath should be(None)
         onedrive.config.driveID should be(DriveID)

@@ -337,7 +337,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
                                 optKey: Option[Key] = None): FileSystemMediaDownloader[_] =
       createDownloader(startupConfig, optKey) match {
         case Success(downloader: FileSystemMediaDownloader[_]) =>
-          downloader.archiveFileSystem.rootPath should be(RootPath)
+          downloader.archiveFileSystem.rootPath should be(Uri.Path(RootPath))
           downloader
         case r => fail("Unexpected result: " + r)
       }
@@ -361,7 +361,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     private def createProtocolSpec(): ProtocolSpecType = {
       val spec = mock[ProtocolSpecType]
       when(spec.requiresMultiHostSupport).thenReturn(false)
-      val fsSpec = HttpArchiveFileSystem(fileSystem, RootPath, ContentFile)
+      val fsSpec = HttpArchiveFileSystem(fileSystem, Uri.Path(RootPath), ContentFile)
       when(spec.createFileSystemFromConfig(ArchiveUri, ArchiveConfig.processorTimeout))
         .thenReturn(Success(fsSpec))
       spec

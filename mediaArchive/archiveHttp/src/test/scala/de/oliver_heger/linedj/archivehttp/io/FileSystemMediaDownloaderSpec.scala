@@ -223,7 +223,7 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
       * @return the test downloader
       */
     private def createDownloader(): FileSystemMediaDownloader[String] = {
-      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, RootPath, contentFile)
+      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, Uri.Path(RootPath), contentFile)
       new FileSystemMediaDownloader(httpArchiveFileSystem, probeHttpSender.ref)
     }
   }
