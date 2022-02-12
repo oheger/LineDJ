@@ -223,7 +223,7 @@ private class FutureIOResultHandler {
                          data: MediumData): Unit = {
     import context._
     futureResult onComplete { r =>
-      onResultComplete(r.flatMap(_.status), actor, log, data)
+      onResultComplete(r, actor, log, data)
     }
   }
 

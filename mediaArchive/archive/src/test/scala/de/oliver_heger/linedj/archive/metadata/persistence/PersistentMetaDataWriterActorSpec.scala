@@ -36,7 +36,6 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
@@ -186,21 +185,6 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     response.msg should be(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
       success = false))
     response.sender should be(actor)
-  }
-
-  it should "use a result handler that logs failed IOResults" in {
-    val log = mock[LoggingAdapter]
-    val exception = new IOException("Crash")
-    val ioResult = IOResult(42L, Failure(exception))
-    val promise = Promise[IOResult]()
-    val actor = createTestActorRef()
-    val writerActor = actor.underlyingActor
-
-    writerActor.resultHandler.handleFutureResult(writerActor.context, promise.future, testActor,
-      log, createMediumData())
-    promise complete Success(ioResult)
-    expectMsg(PersistentMetaDataWriterActor.StreamOperationComplete)
-    verify(log).error(eqArg(exception), anyString())
   }
 
   it should "use a result handler that notifies the sender about successful operations" in {
