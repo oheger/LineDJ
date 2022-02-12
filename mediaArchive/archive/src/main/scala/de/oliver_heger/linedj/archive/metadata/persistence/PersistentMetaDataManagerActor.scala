@@ -112,11 +112,13 @@ object PersistentMetaDataManagerActor {
       * Creates an object with information about meta data files that have not
       * been resolved. If there are no unresolved files, result is ''None''.
       *
+      * @param converter the ''PathUriConverter''
       * @return the object about unresolved meta data files
       */
-    def unresolvedFiles(): Option[UnresolvedMetaDataFiles] = {
-      val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot (d => resolvedFiles
-        .contains(d.path.toString))
+    def unresolvedFiles(converter: PathUriConverter): Option[UnresolvedMetaDataFiles] = {
+      val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot { d =>
+        resolvedFiles.contains(converter.pathToUri(d.path).uri)
+      }
       if (unresolvedFiles.isEmpty) None
       else Some(UnresolvedMetaDataFiles(mediumID = mediumID, result = scanResult,
         files = unresolvedFiles))
@@ -300,7 +302,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
       val optMediumData = mediaInProgress.values find (_.readerActor == reader)
       optMediumData foreach { d =>
-        val unresolvedFiles = d.unresolvedFiles()
+        val unresolvedFiles = d.unresolvedFiles(converter)
         unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor, d.resolvedFilesCount))
         mediaInProgress = mediaInProgress - d.mediumID
       }
@@ -399,8 +401,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     * @param metaManagerActor the meta data manager actor
     * @param resolved         the number of unresolved files
     */
-  private def processUnresolvedFiles(u: UnresolvedMetaDataFiles, metaManagerActor:
-  ActorRef, resolved: Int): Unit = {
+  private def processUnresolvedFiles(u: UnresolvedMetaDataFiles, metaManagerActor: ActorRef, resolved: Int): Unit = {
     metaManagerActor ! u
     writerActor ! createProcessMediumMessage(u, resolved)
   }
