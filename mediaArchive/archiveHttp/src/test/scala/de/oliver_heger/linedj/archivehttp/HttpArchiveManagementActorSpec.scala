@@ -59,7 +59,7 @@ object HttpArchiveManagementActorSpec {
     * modified by specific tests.
     */
   private val ArchiveConfig =
-    HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
+    HttpArchiveConfig(archiveBaseUri = "https://some.archive.org/data/music",
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = PropBufSize,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
@@ -624,7 +624,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       */
     private def initArchiveContentResponse(result: Future[Source[ByteString, Any]]):
     HttpArchiveManagementActorTestHelper = {
-      when(downloader.downloadContentFile()).thenReturn(result)
+      when(downloader.downloadMediaFile(ArchiveConfig.contentPath)).thenReturn(result)
       this
     }
 

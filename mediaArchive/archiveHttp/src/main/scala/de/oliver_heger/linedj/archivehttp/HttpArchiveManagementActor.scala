@@ -276,7 +276,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @return a ''Future'' with the result of the operation
     */
   private def loadArchiveContent(): Future[Source[ByteString, Any]] =
-    config.downloader.downloadContentFile()
+    config.downloader.downloadMediaFile(config.contentPath)
 
   /**
     * Performs a state update using the specified update function.
