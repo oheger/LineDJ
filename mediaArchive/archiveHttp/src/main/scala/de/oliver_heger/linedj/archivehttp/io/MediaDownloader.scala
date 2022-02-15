@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttp.io
 import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.github.cloudfiles.core.http.UriEncodingHelper
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader.appendPaths
 
 import scala.concurrent.Future
@@ -100,27 +99,6 @@ trait MediaDownloader {
     */
   def downloadMediaFile(pathPrefix: Uri.Path, filePath: String): Future[Source[ByteString, Any]] =
     downloadMediaFile(appendPaths(pathPrefix, filePath))
-
-  /**
-    * Returns the name of the file with the content of the archive. This file
-    * is typically loaded initially, to get an overview over the files stored
-    * in this archive. The file is expected to be located in the root folder.
-    *
-    * @return the name of the content file of this archive
-    */
-  def contentFileName: String
-
-  /**
-    * A convenience function to download the content file of the archive. This
-    * base implementation constructs a URI to a file in the root path with the
-    * name returned by ''contentFileName''. This URI is then downloaded.
-    *
-    * @return a ''Future'' with a ''Source'' of the content file's content
-    */
-  def downloadContentFile(): Future[Source[ByteString, Any]] = {
-    val uri = Uri(UriEncodingHelper.withLeadingSeparator(contentFileName))
-    downloadMediaFile(uri)
-  }
 
   /**
     * Shuts down this downloader when it is no longer needed. This function

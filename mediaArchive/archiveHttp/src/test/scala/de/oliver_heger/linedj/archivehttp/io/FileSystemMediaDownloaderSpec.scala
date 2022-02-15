@@ -157,28 +157,6 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     }.invokeDownloader(PathPrefix, Some(Segment), FileSource)
   }
 
-  it should "download the archive's content file" in {
-    val FileSource = fileSource()
-    val entity = downloadEntity(FileSource)
-    val helper = new DownloaderTestHelper
-
-    helper.prepareFileSystem { fs =>
-      when(fs.resolvePath("/" + ContentFile)).thenReturn(helper.stubOperation(FileID))
-      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.downloadContentFile(FileSource)
-  }
-
-  it should "download the archive's content file if it starts with a slash" in {
-    val FileSource = fileSource()
-    val entity = downloadEntity(FileSource)
-    val helper = new DownloaderTestHelper("/" + ContentFile)
-
-    helper.prepareFileSystem { fs =>
-      when(fs.resolvePath("/" + ContentFile)).thenReturn(helper.stubOperation(FileID))
-      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.downloadContentFile(FileSource)
-  }
-
   it should "stop the request actor on shutdown" in {
     val helper = new DownloaderTestHelper
 
@@ -267,18 +245,6 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
         case None => downloader.downloadMediaFile(path)
       }
       futureResult(futResult) should be(expResult)
-      this
-    }
-
-    /**
-      * Triggers the test downloader to download the archive's content file and
-      * checks whether the expected result is returned.
-      *
-      * @param expResult the expected result
-      * @return this test helper
-      */
-    def downloadContentFile(expResult: Source[ByteString, Any]): DownloaderTestHelper = {
-      futureResult(downloader.downloadContentFile()) should be(expResult)
       this
     }
 

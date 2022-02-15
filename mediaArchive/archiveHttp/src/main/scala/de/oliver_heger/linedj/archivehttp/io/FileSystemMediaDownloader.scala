@@ -63,8 +63,6 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
     op.run(httpSender)
   }
 
-  override def contentFileName: String = archiveFileSystem.contentFile
-
   /**
     * @inheritdoc This implementation stops the HTTP sender actor used by this
     *             downloader and closes the file system.
