@@ -63,9 +63,6 @@ object FileSystemMediaDownloaderFactorySpec {
   /** The root path of the test archive. */
   private val RootPath = "/archive/root"
 
-  /** The name of the content file of the test archive. */
-  private val ContentFile = "music-content.json"
-
   /** A test archive configuration. */
   private val ArchiveConfig = HttpArchiveConfig(processorTimeout = Timeout(2.minutes), processorCount = 2,
     propagationBufSize = 4, maxContentSize = 8192, downloadBufferSize = 4096, downloadMaxInactivity = 10.seconds,
@@ -361,7 +358,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     private def createProtocolSpec(): ProtocolSpecType = {
       val spec = mock[ProtocolSpecType]
       when(spec.requiresMultiHostSupport).thenReturn(false)
-      val fsSpec = HttpArchiveFileSystem(fileSystem, Uri.Path(RootPath), ContentFile)
+      val fsSpec = HttpArchiveFileSystem(fileSystem, Uri.Path(RootPath))
       when(spec.createFileSystemFromConfig(ArchiveUri, ArchiveConfig.processorTimeout))
         .thenReturn(Success(fsSpec))
       spec

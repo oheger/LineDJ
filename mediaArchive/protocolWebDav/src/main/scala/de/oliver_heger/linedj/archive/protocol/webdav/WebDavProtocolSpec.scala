@@ -18,13 +18,12 @@ package de.oliver_heger.linedj.archive.protocol.webdav
 
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
-import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.webdav.{DavConfig, DavFileSystem, DavModel}
 import de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocolSpec.WebDavProtocolName
 import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 object WebDavProtocolSpec {
   /** The name to be returned for this protocol. */
@@ -36,7 +35,9 @@ object WebDavProtocolSpec {
   *
   * This class provides information required for accessing media files from a
   * WebDav server. The actual access is done via a ''DavFileSystem'' from the
-  * CloudFiles project.
+  * CloudFiles project. The source URI passed to this class is a plain URI
+  * pointing to the archive's root folder. All URIs for media files, metadata
+  * files, or the content file are resolved relative to this folder.
   */
 class WebDavProtocolSpec extends HttpArchiveProtocolSpec[Uri, DavModel.DavFile, DavModel.DavFolder] {
   override def name: String = WebDavProtocolName
@@ -49,13 +50,9 @@ class WebDavProtocolSpec extends HttpArchiveProtocolSpec[Uri, DavModel.DavFile, 
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
   Try[HttpArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] = {
-    val (root, contentFile) = UriEncodingHelper.splitParent(sourceUri)
-    if (root.isEmpty || contentFile.isEmpty)
-      Failure(new IllegalArgumentException(s"Invalid archive URI '$sourceUri': Cannot extract content file.'"))
-    else {
-      val davConfig = DavConfig(rootUri = root, timeout = timeout)
-      val fs = new DavFileSystem(davConfig)
-      Success(HttpArchiveFileSystem(fs, Uri.Path(root), contentFile))
-    }
+    val rootUri = Uri(sourceUri)
+    val davConfig = DavConfig(rootUri = rootUri, timeout = timeout)
+    val fs = new DavFileSystem(davConfig)
+    Success(HttpArchiveFileSystem(fs, rootUri.path))
   }
 }

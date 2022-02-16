@@ -23,7 +23,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.Success
 
 class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers {
   "WebDavProtocolSpec" should "return the correct name" in {
@@ -40,31 +40,18 @@ class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers {
 
   it should "create a correct file system" in {
     val RootPath = "https://my-archive.example.org/music"
-    val ContentFile = "archive_content.json"
     val timeout = Timeout(30.seconds)
     val spec = new WebDavProtocolSpec
 
-    spec.createFileSystemFromConfig(RootPath + "/" + ContentFile, timeout) match {
+    spec.createFileSystemFromConfig(RootPath, timeout) match {
       case Success(fs) =>
-        fs.rootPath should be(Uri.Path(RootPath))
-        fs.contentFile should be(ContentFile)
+        fs.rootPath should be(Uri.Path("/music"))
         fs.fileSystem match {
           case dav: DavFileSystem =>
             dav.config.timeout should be(timeout)
             dav.config.rootUri should be(Uri(RootPath))
           case other => fail("Unexpected file system: " + other)
         }
-      case r => fail("Unexpected result: " + r)
-    }
-  }
-
-  it should "return a Failure when creating a file system if the URI is incomplete" in {
-    val SourceUri = "https://my-archive.example.org/"
-    val spec = new WebDavProtocolSpec
-
-    spec.createFileSystemFromConfig(SourceUri, Timeout(10.seconds)) match {
-      case Failure(exception: IllegalArgumentException) =>
-        exception.getMessage should include(SourceUri)
       case r => fail("Unexpected result: " + r)
     }
   }

@@ -25,19 +25,16 @@ import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
   * to access the data of an HTTP archive.
   *
   * The class combines an ''ExtensibleFileSystem'' with some metadata that is
-  * required to process HTTP archives, such as the root path and the name of
-  * the file with the archive's ToC.
+  * required to process HTTP archives, especially the root path.
   *
   * @param fileSystem  the file system to access media files in this archive
   * @param rootPath    the root path of this archive; this is needed to
   *                    correctly deal with relative and absolute URIs to media
   *                    files
-  * @param contentFile the name of the file with the archive's content
   * @tparam ID     the type of IDs in the file system
   * @tparam FILE   the type of files in the file system
   * @tparam FOLDER the type of folders in the file system
   */
 case class HttpArchiveFileSystem[ID, FILE <: Model.File[ID],
   FOLDER <: Model.Folder[ID]](fileSystem: ExtensibleFileSystem[ID, FILE, FOLDER, Model.FolderContent[ID, FILE, FOLDER]],
-                              rootPath: Uri.Path,
-                              contentFile: String)
+                              rootPath: Uri.Path)

@@ -38,9 +38,6 @@ object FileSystemMediaDownloaderSpec {
   /** The root path of the file system. */
   private val RootPath = "/music/archive"
 
-  /** The name of the file with the archive's content. */
-  private val ContentFile = "content.json"
-
   /**
     * Generates a source that reflects the content of the file to download.
     *
@@ -174,11 +171,9 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
   /**
     * A test helper class managing a test instance and its dependencies.
     *
-    * @param contentFile the name of the content file
     * @param rootPath    the root path of the archive
     */
-  private class DownloaderTestHelper(contentFile: String = ContentFile,
-                                     rootPath: String = RootPath) {
+  private class DownloaderTestHelper(rootPath: String = RootPath) {
     /**
       * Test probe for the HTTP sender actor which is required for interactions
       * with a file system.
@@ -274,7 +269,7 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
       * @return the test downloader
       */
     private def createDownloader(): FileSystemMediaDownloader[String] = {
-      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, Uri.Path(rootPath), contentFile)
+      val httpArchiveFileSystem = HttpArchiveFileSystem(mockFileSystem, Uri.Path(rootPath))
       new FileSystemMediaDownloader(httpArchiveFileSystem, probeHttpSender.ref)
     }
   }

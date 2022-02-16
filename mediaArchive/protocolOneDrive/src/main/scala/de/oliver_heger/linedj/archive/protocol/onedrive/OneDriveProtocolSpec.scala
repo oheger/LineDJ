@@ -39,7 +39,7 @@ object OneDriveProtocolSpec {
   *
   * The OneDrive account to be accessed is configured using the archive URL,
   * which must be of the form ''driveID/path''. ''driveID'' is the account ID,
-  * ''path'' is the root path in this account (including the document with the
+  * ''path'' is the root path in this account (without the document with the
   * archive's content).
   */
 class OneDriveProtocolSpec
@@ -49,20 +49,22 @@ class OneDriveProtocolSpec
   override val requiresMultiHostSupport: Boolean = true
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
-  Try[HttpArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] = {
-    val posPath = sourceUri.indexOf(UriEncodingHelper.UriSeparator)
-    if (posPath <= 0 || UriEncodingHelper.hasTrailingSeparator(sourceUri)) {
+  Try[HttpArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] =
+    if (UriEncodingHelper.hasLeadingSeparator(sourceUri))
       Failure(new IllegalArgumentException(s"Invalid archive URL '$sourceUri'. The URI must be of the form " +
-        "<driveID>/<content-path>"))
-    } else {
-      val driveID = sourceUri.substring(0, posPath)
-      val contentPath = sourceUri.substring(posPath)
-      val (rootPath, contentFile) = UriEncodingHelper.splitParent(contentPath)
+        "<driveID>/<content root path>"))
+    else {
 
-      val optRootPath = if (rootPath.isEmpty) None else Some(rootPath)
+      val archiveUri = UriEncodingHelper.removeTrailingSeparator(sourceUri)
+      val posPath = archiveUri.indexOf(UriEncodingHelper.UriSeparator)
+      val (driveID, rootPath) = if (posPath <= 0)
+        (archiveUri, Uri.Path.Empty)
+      else
+        (archiveUri.substring(0, posPath), Uri.Path(archiveUri.substring(posPath)))
+
+      val optRootPath = if (rootPath.isEmpty) None else Some(rootPath.toString())
       val config = OneDriveConfig(driveID = driveID, optRootPath = optRootPath, timeout = timeout)
       val fileSystem = new OneDriveFileSystem(config)
-      Success(HttpArchiveFileSystem(fileSystem, Uri.Path(rootPath), contentFile))
+      Success(HttpArchiveFileSystem(fileSystem, rootPath))
     }
-  }
 }
