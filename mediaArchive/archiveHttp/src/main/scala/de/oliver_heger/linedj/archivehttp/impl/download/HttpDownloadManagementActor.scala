@@ -28,8 +28,7 @@ import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object HttpDownloadManagementActor {
 
@@ -159,8 +158,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     log.info("Sending request for file {}.", req.fileID.uri)
     val downloadOp = DownloadOperationRequest(req, sender())
 
-    val futUri = Future.fromTry(Try(Uri(req.fileID.uri)))
-    futUri flatMap config.downloader.downloadMediaFile onComplete {
+    config.downloader.downloadMediaFile(config.mediaPath, req.fileID.uri) onComplete {
       case Success(data) =>
         self ! ProcessDownloadRequest(request = downloadOp, data)
       case Failure(exception) =>

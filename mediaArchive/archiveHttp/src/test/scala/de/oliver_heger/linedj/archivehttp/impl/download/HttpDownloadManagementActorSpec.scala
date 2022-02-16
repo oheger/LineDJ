@@ -165,15 +165,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       .expectErrorResponse(request)
   }
 
-  it should "send a failure response for an invalid URI" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, "test://an invalid URI?!"),
-      withMetaData = true)
-    val helper = new DownloadManagementTestHelper
-
-    helper.executeRequest(request)
-      .expectErrorResponse(request)
-  }
-
   /**
     * A test helper class managing a test actor and its dependencies.
     */
@@ -214,7 +205,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
         optData.fold(Future.failed[Source[ByteString, Any]](new IOException("Error from HTTP archive!"))) { src =>
           Future.successful(src)
         }
-      when(downloader.downloadMediaFile(DownloadUri)).thenReturn(futResult)
+      when(downloader.downloadMediaFile(config.mediaPath, DownloadUri)).thenReturn(futResult)
       downloadManager ! request
       this
     }
