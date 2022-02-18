@@ -23,8 +23,6 @@ import akka.pattern.ask
 import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
 import akka.util.ByteString
-import de.oliver_heger.linedj.archivecommon.uri.UriMapper
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 
@@ -95,9 +93,6 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
 
   import HttpArchiveContentProcessorActor._
 
-  /** A mapper for the content URI mapping. */
-  private val uriMapper = new UriMapper
-
   override def customReceive: Receive = {
     case req: ProcessHttpArchiveRequest =>
       val (killSwitch, futStream) = materializeStream(req)
@@ -162,23 +157,17 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   /**
     * Returns a flow that produces a tuple to be passed to a request flow based
     * on a medium description and a mapping function. The mapping function
-    * produces a concrete request from the ''HttpMediumDesc'', which can fail
-    * because URI mapping is involved. Such failed requests are filtered out.
-    * The resulting URI is relative and can be requested via the media
-    * downloader.
+    * produces a concrete request from the ''HttpMediumDesc'', represented by
+    * parameters that can be passed directly to a media downloader.
     *
     * @param req the request to process the archive
     * @param f   the request mapping function
     * @return a tuple of a request and a context data object
     */
   private def requestMappingFlow(req: ProcessHttpArchiveRequest)
-                                (f: (ProcessHttpArchiveRequest, HttpMediumDesc) =>
-                                  Option[(String, RequestData)]):
-  Flow[HttpMediumDesc, (Uri, RequestData), NotUsed] =
+                                (f: (ProcessHttpArchiveRequest, HttpMediumDesc) => (Uri.Path, String, RequestData)):
+  Flow[HttpMediumDesc, (Uri.Path, String, RequestData), NotUsed] =
     Flow[HttpMediumDesc].map(f(req, _))
-      .filter(_.isDefined)
-      .map(_.get)
-      .map(t => (Uri(t._1), t._2))
 
   /**
     * Creates a flow stage that invokes a processing actor to obtain a partial
@@ -199,33 +188,15 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
   private def processFlow[T](req: ProcessHttpArchiveRequest, parallelism: Int)
                             (fUndef: MediumID => T)
                             (implicit tag: ClassTag[T])
-  : Flow[(Uri, RequestData), T, NotUsed] =
-    Flow[(Uri, RequestData)].mapAsync(parallelism) { t =>
-      (for {data <- req.archiveConfig.downloader.downloadMediaFile(t._1)
-            procResp <- processHttpResponse(req, (data, t._2)).mapTo[T]
+  : Flow[(Uri.Path, String, RequestData), T, NotUsed] =
+    Flow[(Uri.Path, String, RequestData)].mapAsync(parallelism) { t =>
+      (for {data <- req.archiveConfig.downloader.downloadMediaFile(t._1, t._2)
+            procResp <- processHttpResponse(req, (data, t._3)).mapTo[T]
             } yield procResp) fallbackTo Future {
-        val mid = createMediumID(req, t._2.mediumDesc)
+        val mid = createMediumID(req, t._3.mediumDesc)
         fUndef(mid)
       }
     }
-
-  /**
-    * Creates a tuple with a (relative) request URI and request data for the
-    * specified path. URI mapping is applied to the path as defined in the
-    * archive's configuration.  As this might fail, result is an ''Option''.
-    * The resulting URI still needs to be resolved against the archive's base
-    * path.
-    *
-    * @param md      the description of the medium affected
-    * @param config  the config of the archive
-    * @param path    the path for the request
-    * @param reqData the ''RequestData''
-    * @return the tuple with the request URI and context data
-    */
-  private def createRequestData(md: HttpMediumDesc, config: HttpArchiveConfig, path: String, reqData: RequestData):
-  Option[(String, RequestData)] =
-    uriMapper.mapUri(config.contentMappingConfig, Some(md.mediumDescriptionPath), path)
-      .map(uriStr => (uriStr, reqData))
 
   /**
     * Generates request data for the medium info file of the specified medium
@@ -236,9 +207,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return request data for the medium info file
     */
   private def createMediumInfoRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
-  Option[(String, RequestData)] =
-    createRequestData(md, req.archiveConfig, md.mediumDescriptionPath,
-      RequestData(md, req.settingsProcessorActor))
+  (Uri.Path, String, RequestData) =
+    (req.archiveConfig.mediaPath, md.mediumDescriptionPath, RequestData(md, req.settingsProcessorActor))
 
   /**
     * Generates request data for the meta data file of the specified medium
@@ -249,9 +219,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return request data for the meta data file
     */
   private def createMetaDataRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
-  Option[(String, RequestData)] =
-    createRequestData(md, req.archiveConfig, md.metaDataPath,
-      RequestData(md, req.metaDataProcessorActor))
+  (Uri.Path, String, RequestData) =
+    (req.archiveConfig.metaDataPath, md.metaDataPath, RequestData(md, req.metaDataProcessorActor))
 
   /**
     * Processes a response received from the HTTP archive. The response now has

@@ -55,6 +55,12 @@ object HttpArchiveContentProcessorActorSpec {
   /** A prefix indicating an error response. */
   final val ErrorPrefix = "Error:"
 
+  /** The relative base path for the media files of the test archive. */
+  private val MediaPath = Uri.Path("media")
+
+  /** The relative base path for the metadata files of the test archive. */
+  private val MetaDataPath = Uri.Path("meta")
+
   /** A default URI mapping configuration for the archive content file. */
   private val ContentMappingConfig = UriMappingConfig(removeComponents = 0, removePrefix = "",
     uriTemplate = "${uri}", pathSeparator = "/", urlEncode = false)
@@ -66,7 +72,7 @@ object HttpArchiveContentProcessorActorSpec {
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
       contentMappingConfig = ContentMappingConfig, downloader = null, contentPath = Uri.Path("archiveContent.json"),
-      mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
+      mediaPath = MediaPath, metaDataPath = MetaDataPath)
 
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = DefaultArchiveConfig.archiveBaseUri.toString()
@@ -79,6 +85,24 @@ object HttpArchiveContentProcessorActorSpec {
 
   /** Message used to acknowledge messages from the stream. */
   private val AckMessage = new Object
+
+  /**
+    * A data class identifying a file to be downloaded using a
+    * [[MediaDownloader]]. An instance collects the parameters expected by the
+    * download function.
+    *
+    * @param path   the path prefix of the file in question
+    * @param suffix the suffix identifying the file
+    */
+  private case class DownloadKey(path: Uri.Path, suffix: String)
+
+  /**
+    * Type alias for a mapping defining download requests and responses to be
+    * served by a test [[MediaDownloader]]. The mapping basically contains a
+    * string result for a file to be downloaded. The download may fail;
+    * therefore, the result is a ''Try''.
+    */
+  private type DownloadMapping = Map[DownloadKey, Try[String]]
 
   /**
     * Returns a test settings path for the specified index.
@@ -127,14 +151,6 @@ object HttpArchiveContentProcessorActorSpec {
     (1 to count).map(createMediumDesc).toList
 
   /**
-    * Creates the URI to download the file with the specified path.
-    *
-    * @param path the path
-    * @return the corresponding download URI
-    */
-  private def createDownloadUri(path: String): Uri = Uri(path)
-
-  /**
     * Adds request/response mappings for the specified medium description to
     * the specified map.
     *
@@ -142,9 +158,10 @@ object HttpArchiveContentProcessorActorSpec {
     * @param desc    the description
     * @return the updated mapping
     */
-  private def appendResponseMapping(mapping: Map[Uri, Try[String]], desc: HttpMediumDesc): Map[Uri, Try[String]] = {
-    val mapSettings = createDownloadUri(desc.mediumDescriptionPath) -> Success(desc.mediumDescriptionPath)
-    val mapMetaData = createDownloadUri(desc.metaDataPath) -> Success(desc.metaDataPath)
+  private def appendResponseMapping(mapping: DownloadMapping, desc: HttpMediumDesc): DownloadMapping = {
+    val mapSettings =
+      DownloadKey(MediaPath, desc.mediumDescriptionPath) -> Success(desc.mediumDescriptionPath)
+    val mapMetaData = DownloadKey(MetaDataPath, desc.metaDataPath) -> Success(desc.metaDataPath)
     mapping + mapSettings + mapMetaData
   }
 
@@ -155,8 +172,8 @@ object HttpArchiveContentProcessorActorSpec {
     * @param mediaList the sequence with media descriptions
     * @return a corresponding request/response mapping
     */
-  private def createResponseMapping(mediaList: Iterable[HttpMediumDesc]): Map[Uri, Try[String]] =
-    mediaList.foldLeft(Map.empty[Uri, Try[String]])((map, desc) =>
+  private def createResponseMapping(mediaList: Iterable[HttpMediumDesc]): DownloadMapping =
+    mediaList.foldLeft(Map.empty[DownloadKey, Try[String]])((map, desc) =>
       appendResponseMapping(map, desc))
 
   /**
@@ -234,40 +251,10 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     expectNoMessage(100.millis)
   }
 
-  it should "apply a content URI mapping" in {
-    val Prefix = "test/"
-    val config = DefaultArchiveConfig
-      .copy(contentMappingConfig = DefaultArchiveConfig.contentMappingConfig
-        .copy(uriTemplate = Prefix + "${uri}"))
-    val descriptions = createMediumDescriptions(4)
-    val mapping = createResponseMapping(descriptions.map { desc =>
-      HttpMediumDesc(Prefix + desc.mediumDescriptionPath, Prefix + desc.metaDataPath)
-    })
-    val helper = new ContentProcessorActorTestHelper(checkProcessingMessages = false)
-
-    val results = helper.processArchive(descriptions, mapping, config)
-      .expectProcessingResults(descriptions.size)
-    results foreach { res =>
-      res.mediumInfo.description should startWith(Prefix)
-    }
-  }
-
   it should "handle an empty source" in {
     val helper = new ContentProcessorActorTestHelper
 
     helper.processArchive(List.empty, Map.empty, DefaultArchiveConfig)
-      .expectProcessingComplete(expectInit = true)
-  }
-
-  it should "filter out failures from the content URI mapping" in {
-    val config = DefaultArchiveConfig
-      .copy(contentMappingConfig = DefaultArchiveConfig.contentMappingConfig
-        .copy(removePrefix = "nonExistingPrefix"))
-    val descriptions = createMediumDescriptions(4)
-    val mapping = createResponseMapping(descriptions)
-    val helper = new ContentProcessorActorTestHelper
-
-    helper.processArchive(descriptions, mapping, config)
       .expectProcessingComplete(expectInit = true)
   }
 
@@ -276,12 +263,13 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val descriptions = createMediumDescriptions(8)
     val successMapping = createResponseMapping(descriptions)
     val failedSettingsDesc = createMediumDesc(42)
-    val mapping1 = successMapping + (createDownloadUri(failedSettingsDesc.mediumDescriptionPath) -> Success("")) +
-      (createDownloadUri(failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+    val mapping1 = successMapping +
+      (DownloadKey(MediaPath, failedSettingsDesc.mediumDescriptionPath) -> Success("")) +
+      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val failedMetaDesc = createMediumDesc(49)
-    val mapping = mapping1 + (createDownloadUri(failedMetaDesc.mediumDescriptionPath) ->
+    val mapping = mapping1 + (DownloadKey(MediaPath, failedMetaDesc.mediumDescriptionPath) ->
       Success(failedMetaDesc.mediumDescriptionPath)) +
-      (createDownloadUri(failedMetaDesc.metaDataPath) -> Success(""))
+      (DownloadKey(MetaDataPath, failedMetaDesc.metaDataPath) -> Success(""))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchive(failedMetaDesc :: failedSettingsDesc ::
@@ -297,13 +285,13 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val descriptions = createMediumDescriptions(8)
     val successMapping = createResponseMapping(descriptions)
     val failedSettingsDesc = createMediumDesc(42)
-    val mapping1 = successMapping + (createDownloadUri(
+    val mapping1 = successMapping + (DownloadKey(MediaPath,
       failedSettingsDesc.mediumDescriptionPath) -> Success(createErrorResponse("wrong_settings"))) +
-      (createDownloadUri(failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val failedMetaDesc = createMediumDesc(49)
-    val mapping = mapping1 + (createDownloadUri(failedMetaDesc.mediumDescriptionPath) ->
+    val mapping = mapping1 + (DownloadKey(MediaPath, failedMetaDesc.mediumDescriptionPath) ->
       Success(failedMetaDesc.mediumDescriptionPath)) +
-      (createDownloadUri(failedMetaDesc.metaDataPath) -> Success(createErrorResponse("wrong_meta_data")))
+      (DownloadKey(MetaDataPath, failedMetaDesc.metaDataPath) -> Success(createErrorResponse("wrong_meta_data")))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchive(failedMetaDesc :: failedSettingsDesc ::
@@ -317,9 +305,9 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val descriptions = createMediumDescriptions(8)
     val successMapping = createResponseMapping(descriptions)
     val failedSettingsDesc = createMediumDesc(42)
-    val mapping = successMapping + (createDownloadUri(
+    val mapping = successMapping + (DownloadKey(MediaPath,
       failedSettingsDesc.mediumDescriptionPath) -> Failure(new IOException("Boom"))) +
-      (createDownloadUri(failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchiveWithFailureMapping(failedSettingsDesc :: descriptions,
@@ -351,16 +339,16 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
 
   it should "handle processing results in unexpected order" in {
     val random = new Random
+    val descriptions = createMediumDescriptions(16)
 
-    def createShuffledMapping(descs: Seq[HttpMediumDesc], f: HttpMediumDesc => String): Map[Uri, Try[String]] = {
-      val requests = random.shuffle(descs map (d => createDownloadUri(f(d))))
-      val responses = random.shuffle(descs map (d => Success(f(d))))
+    def createShuffledMapping(basePath: Uri.Path, f: HttpMediumDesc => String): DownloadMapping = {
+      val requests = random.shuffle(descriptions map (d => DownloadKey(basePath, f(d))))
+      val responses = random.shuffle(descriptions map (d => Success(f(d))))
       requests.zip(responses).toMap
     }
 
-    val descriptions = createMediumDescriptions(16)
-    val mapping = createShuffledMapping(descriptions, _.mediumDescriptionPath) ++
-      createShuffledMapping(descriptions, _.metaDataPath)
+    val mapping = createShuffledMapping(MediaPath, _.mediumDescriptionPath) ++
+      createShuffledMapping(MetaDataPath, _.metaDataPath)
     val helper = new ContentProcessorActorTestHelper(checkProcessingMessages = false)
 
     val results = helper.processArchive(descriptions, mapping, DefaultArchiveConfig)
@@ -393,45 +381,45 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * Simulates a processing operation on the test archive.
       *
       * @param media           the sequence with media data
-      * @param responseMapping the response mapping
+      * @param downloadMapping the download mapping
       * @param config          the configuration for the archive
       * @return this test helper
       */
-    def processArchive(media: collection.immutable.Iterable[HttpMediumDesc], responseMapping: Map[Uri, Try[String]],
+    def processArchive(media: collection.immutable.Iterable[HttpMediumDesc], downloadMapping: DownloadMapping,
                        config: HttpArchiveConfig): ContentProcessorActorTestHelper =
-      processArchiveWithFailureMapping(media, responseMapping, config)
+      processArchiveWithFailureMapping(media, downloadMapping, config)
 
     /**
       * Simulates a processing operation on the test archive with potential
       * errors sent by the request actor.
       *
       * @param media           the sequence with media data
-      * @param responseMapping the response mapping
+      * @param downloadMapping the download mapping
       * @param config          the configuration for the archive
       * @return this test helper
       */
     def processArchiveWithFailureMapping(media: collection.immutable.Iterable[HttpMediumDesc],
-                                         responseMapping: Map[Uri, Try[String]],
+                                         downloadMapping: DownloadMapping,
                                          config: HttpArchiveConfig):
     ContentProcessorActorTestHelper =
-      processArchiveWithSource(Source[HttpMediumDesc](media), responseMapping, config)
+      processArchiveWithSource(Source[HttpMediumDesc](media), downloadMapping, config)
 
     /**
       * Simulates a processing operation on the test archive with the source
       * specified.
       *
       * @param source          the source for media data
-      * @param responseMapping the response mapping
+      * @param downloadMapping the download mapping
       * @param config          the configuration for the archive
       * @return this test helper
       */
     def processArchiveWithSource(source: Source[HttpMediumDesc, Any],
-                                 responseMapping: Map[Uri, Try[String]],
+                                 downloadMapping: DownloadMapping,
                                  config: HttpArchiveConfig):
     ContentProcessorActorTestHelper = {
       val sink = Sink.actorRefWithBackpressure(sinkProbe.ref, onCompleteMessage = CompleteMessage,
         onInitMessage = InitMessage, ackMessage = AckMessage, onFailureMessage = identity)
-      val msg = createProcessArchiveRequest(source, responseMapping, config, sink)
+      val msg = createProcessArchiveRequest(source, downloadMapping, config, sink)
       contentProcessorActor ! msg
       this
     }
@@ -441,17 +429,17 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * parameters.
       *
       * @param source          the source to be processed
-      * @param responseMapping the response mapping
+      * @param downloadMapping the download mapping
       * @param config          the configuration for the archive
       * @param sink            the sink for accepting the data
       * @return the processing request
       */
     def createProcessArchiveRequest(source: Source[HttpMediumDesc, Any],
-                                    responseMapping: Map[Uri, Try[String]],
+                                    downloadMapping: DownloadMapping,
                                     config: HttpArchiveConfig = DefaultArchiveConfig,
                                     sink: Sink[MediumProcessingResult, Any]):
     ProcessHttpArchiveRequest = {
-      val downloader = createDownloader(responseMapping)
+      val downloader = createDownloader(downloadMapping)
       ProcessHttpArchiveRequest(mediaSource = source,
         archiveConfig = config.copy(downloader = downloader), settingsProcessorActor = settingsProcessor,
         metaDataProcessorActor = metaDataProcessor, sink = sink,
@@ -531,11 +519,13 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       * @param mapping the mapping
       * @return the test downloader
       */
-    private def createDownloader(mapping: Map[Uri, Try[String]]): MediaDownloader = {
+    private def createDownloader(mapping: DownloadMapping): MediaDownloader = {
       val downloader = mock[MediaDownloader]
-      when(downloader.downloadMediaFile(any(classOf[Uri]))).thenAnswer((invocation: InvocationOnMock) => {
-        val uri = invocation.getArguments.head.asInstanceOf[Uri]
-        Future.fromTry(mapping(uri).map(txt => Source.single(ByteString(txt))))
+      when(downloader.downloadMediaFile(any(), any())).thenAnswer((invocation: InvocationOnMock) => {
+        val prefixPath = invocation.getArguments.head.asInstanceOf[Uri.Path]
+        val suffix = invocation.getArgument(1, classOf[String])
+        val key = DownloadKey(prefixPath, suffix)
+        Future.fromTry(mapping(key).map(txt => Source.single(ByteString(txt))))
       })
       downloader
     }
