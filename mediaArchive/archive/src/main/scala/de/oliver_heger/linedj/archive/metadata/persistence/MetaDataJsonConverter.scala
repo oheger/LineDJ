@@ -40,7 +40,14 @@ class MetaDataJsonConverter {
 
   import MetaDataJsonConverter._
 
-  def convert(uri: String, path: String, data: MediaMetaData): String = {
+  /**
+    * Generates a JSON representation for the given metadata.
+    *
+    * @param uri  the URI of the associated file
+    * @param data the metadata for this file
+    * @return a string with the JSON representation of this data
+    */
+  def convert(uri: String, data: MediaMetaData): String = {
 
     // Appends the specified property to the string builder
     def append(props: List[String], property: String, value: String, quote: Boolean):
@@ -63,8 +70,7 @@ class MetaDataJsonConverter {
       }
 
     val props = appendOpt(appendOpt(appendOpt(append(append(appendOpt(appendOpt(appendOpt(appendOpt(
-      append(Nil, "path", path, quote = true),
-      "inceptionYear", data.inceptionYear, quote = false),
+      Nil, "inceptionYear", data.inceptionYear, quote = false),
       "trackNumber", data.trackNumber, quote = false),
       "duration", data.duration, quote = false),
       "formatDescription", data.formatDescription, quote = true),

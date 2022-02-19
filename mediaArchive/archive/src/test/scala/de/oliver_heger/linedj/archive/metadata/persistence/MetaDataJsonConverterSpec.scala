@@ -16,15 +16,44 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.{Path, Paths}
+import de.oliver_heger.linedj.archive.metadata.persistence.MetaDataJsonConverterSpec.MetaDataTestParser
 
+import java.nio.file.{Path, Paths}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
-import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
+import de.oliver_heger.linedj.io.parser.{ChunkParser, JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+object MetaDataJsonConverterSpec {
+  /** A set listing the names of properties allowed for a metadata file. */
+  private val ValidProperties = Set("album", "artist", "title", "uri", "size", "formatDescription",
+    "duration", "trackNumber", "inceptionYear")
+
+  /**
+    * A specialized parser class for metadata. In addition to the actual
+    * parsing of results, this class also checks that no unexpected properties
+    * occur.
+    *
+    * @param chunkParser the underlying ''ChunkParser''
+    * @param jsonParser  the underlying JSON parser
+    */
+  private class MetaDataTestParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
+    ParserTypes.Failure],
+                                   jsonParser: ParserTypes.Parser[JSONParser.JSONData])
+    extends MetaDataParser(chunkParser, jsonParser) {
+    override def convertJsonObjects(mediumID: MediumID,
+                                    objects: IndexedSeq[Map[String, String]]):
+    IndexedSeq[MetaDataProcessingSuccess] = {
+      val validObjects = objects filter { obj =>
+        (obj.keySet -- ValidProperties).isEmpty
+      }
+      super.convertJsonObjects(mediumID, validObjects)
+    }
+  }
+}
 
 /**
   * Test class for ''MetaDataJsonConverter''.
@@ -42,10 +71,9 @@ class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers {
   private def convertAndParse(metaData: MediaMetaData, path: Path, uri: String):
   MetaDataProcessingSuccess = {
     val converter = new MetaDataJsonConverter
-    val json = "[" + converter.convert(uri, path.toString, metaData) + "]"
-    val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-    val (results, optFailure) = parser.processChunk(json, MediumID("irrelevant", None), lastChunk
-      = true, None)
+    val json = "[" + converter.convert(uri, metaData) + "]"
+    val parser = new MetaDataTestParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
+    val (results, optFailure) = parser.processChunk(json, MediumID("irrelevant", None), lastChunk = true, None)
     optFailure shouldBe empty
     results should have size 1
     results.head
