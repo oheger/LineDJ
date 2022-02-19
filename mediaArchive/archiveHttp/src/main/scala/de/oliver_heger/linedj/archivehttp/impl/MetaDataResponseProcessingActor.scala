@@ -20,9 +20,8 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
-import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 
 import scala.concurrent.Future
@@ -33,14 +32,8 @@ import scala.concurrent.Future
   * This actor parses the meta data file into a sequence of
   * [[MetaDataProcessingSuccess]] objects. This sequence is then passed in a
   * [[MetaDataResponseProcessingResult]] message to the sender actor.
-  *
-  * @param uriMapper the object for mapping URIs of meta data results
   */
-class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
-  extends AbstractResponseProcessingActor {
-
-  def this() = this(new UriMapper)
-
+class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor {
   /**
     * @inheritdoc This implementation processes the content of a meta data
     *             file and parses it into a sequence of
@@ -54,10 +47,6 @@ class MetaDataResponseProcessingActor(private val uriMapper: UriMapper)
       MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
       .viaMat(KillSwitches.single)(Keep.right)
-      // TODO: Rework URI mapping.
-      .map(r => (r, uriMapper.mapUri(config.metaMappingConfig, mid, r.uri.uri)))
-      .filter(_._2.isDefined)
-      .map(t => t._1.copy(uri = MediaFileUri(t._2.get)))
       .toMat(sink)(Keep.both)
       .run()
     (futStream.map(MetaDataResponseProcessingResult(mid, _, seqNo)), killSwitch)

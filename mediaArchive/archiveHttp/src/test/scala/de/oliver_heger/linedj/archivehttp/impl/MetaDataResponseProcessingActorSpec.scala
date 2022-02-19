@@ -22,7 +22,6 @@ import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivecommon.uri.{UriMapper, UriMappingSpec}
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
@@ -71,34 +70,30 @@ object MetaDataResponseProcessingActorSpec {
     * Generates a URI for a test media file.
     *
     * @param idx    the index of the test file
-    * @param mapped flag whether the URI should be mapped
     * @return the new URI
     */
-  private def createUri(idx: Int, mapped: Boolean): MediaFileUri =
-    MediaFileUri(if (mapped) s"$MediumPath$SongPath/song$idx.mp3"
-    else s"audio://$MediumPath$SongPath/song$idx.mp3")
+  private def createUri(idx: Int): MediaFileUri =
+    MediaFileUri(s"$MediumPath$SongPath/song$idx.mp3")
 
   /**
     * Creates a meta data processing result object for the specified index.
     *
     * @param idx    the index
-    * @param mapped flag whether the URI should be mapped
     * @return the test processing result
     */
-  private def processingResult(idx: Int, mapped: Boolean): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(TestMediumID, createUri(idx, mapped),
+  private def processingResult(idx: Int): MetaDataProcessingSuccess =
+    MetaDataProcessingSuccess(TestMediumID, createUri(idx),
       MediaMetaData(title = Some(s"Song$idx"), size = (idx + 1) * 100))
 
   /**
     * Creates a sequence with test meta data of the specified size.
     *
     * @param count  the number of meta data objects
-    * @param mapped flag whether the URIs of files should be mapped
     * @return the sequence with the produced meta data
     */
-  private def createProcessingResults(count: Int, mapped: Boolean):
+  private def createProcessingResults(count: Int):
   IndexedSeq[MetaDataProcessingSuccess] =
-    (1 to count) map (processingResult(_, mapped))
+    (1 to count) map ((idx: Int) => processingResult(idx))
 
   /**
     * Generates a JSON representation for the specified meta data.
@@ -110,7 +105,7 @@ object MetaDataResponseProcessingActorSpec {
     s"""{
        |"title":"${data.metaData.title.get}",
        |"size":"${data.metaData.size}",
-       |"uri":"${data.uri}",
+       |"uri":"${data.uri.uri}"
        |}
    """.stripMargin
 
@@ -149,48 +144,20 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     TestKit shutdownActorSystem system
   }
 
-  // TODO: Reactive when URI mapping has been reworked.
-  "A MetaDataResponseProcessingActor" should "handle a successful response" ignore {
-    val metaDataResults = createProcessingResults(8, mapped = false)
-    val mappedResults = createProcessingResults(8, mapped = true)
+  "A MetaDataResponseProcessingActor" should "handle a successful response" in {
+    val metaDataResults = createProcessingResults(8)
     val source = createDataSource(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
 
     actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
-    result.metaData should contain theSameElementsAs mappedResults
+    result.metaData should contain theSameElementsAs metaDataResults
     result.seqNo should be(SeqNo)
   }
 
-  // TODO: Reactive when URI mapping has been reworked.
-  ignore should "filter out results rejected by the URI mapper" in {
-    val MaxIndex = 6
-    val mapper = new UriMapper {
-      /**
-        * @inheritdoc This implementation rejects all test files with an index
-        *             bigger than the specified maximum index.
-        */
-      override def mapUri(config: UriMappingSpec, mid: MediumID, uriOrg: String):
-      Option[String] = {
-        val extPos = uriOrg.indexOf(".mp3")
-        val fileIdx = uriOrg.substring(extPos - 1, extPos).toInt
-        if (fileIdx <= MaxIndex) super.mapUri(config, mid, uriOrg)
-        else None
-      }
-    }
-    val metaDataResults = createProcessingResults(8, mapped = false)
-    val mappedResults = createProcessingResults(MaxIndex, mapped = true)
-    val source = createDataSource(generateJson(metaDataResults))
-    val actor = system.actorOf(Props(classOf[MetaDataResponseProcessingActor], mapper))
-
-    actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
-    val result = expectMsgType[MetaDataResponseProcessingResult]
-    result.metaData should contain theSameElementsAs mappedResults
-  }
-
   it should "apply a size restriction when processing a response" in {
-    val source = createDataSource(generateJson(createProcessingResults(32, mapped = false)))
+    val source = createDataSource(generateJson(createProcessingResults(32)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
 
     actor ! ProcessResponse(TestMediumID, null, source,
@@ -199,7 +166,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
   }
 
   it should "allow cancellation of the current stream" in {
-    val responseData = generateJson(createProcessingResults(64, mapped = false))
+    val responseData = generateJson(createProcessingResults(64))
     val jsonStrings = responseData.grouped(64)
       .map(ByteString(_))
     val source = Source[ByteString](jsonStrings.toList).delay(1.second,
@@ -226,7 +193,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     })
     val actor = TestActorRef[MetaDataResponseProcessingActor](props)
     actor ! ProcessResponse(TestMediumID, null,
-      createDataSource(generateJson(createProcessingResults(2, mapped = false))),
+      createDataSource(generateJson(createProcessingResults(2))),
       DefaultArchiveConfig, SeqNo)
     expectMsg(Result)
 
