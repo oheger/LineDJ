@@ -80,12 +80,9 @@ object MetaDataParserSpec {
     * @return the sequence with result objects
     */
   private def createResultObjects(): Vector[Map[String, String]] = {
-    val props1 = Map(MetaDataParser.PropPath -> "path1",
-      MetaDataParser.PropTitle -> "Title1")
-    val props2 = Map(MetaDataParser.PropArtist -> "Artist",
-      MetaDataParser.PropUri -> "song://uri2.mp3")
-    val props3 = Map(MetaDataParser.PropPath -> "path3",
-      MetaDataParser.PropTitle -> "Title",
+    val props1 = Map(MetaDataParser.PropTitle -> "Title1")
+    val props2 = Map(MetaDataParser.PropArtist -> "Artist")
+    val props3 = Map(MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri3.mp3")
     Vector(props1, props2, props3)
   }
@@ -136,7 +133,6 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       MetaDataParser.PropDuration -> "180",
       MetaDataParser.PropFormatDescription -> "format",
       MetaDataParser.PropInceptionYear -> "2012",
-      MetaDataParser.PropPath -> "path",
       MetaDataParser.PropSize -> "20160303212850",
       MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropTrackNumber -> "15",
@@ -158,7 +154,6 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "handle invalid Int properties correctly" in {
     val props = Map(MetaDataParser.PropDuration -> "> 180",
       MetaDataParser.PropInceptionYear -> "MCMLXXXIV",
-      MetaDataParser.PropPath -> "path",
       MetaDataParser.PropSize -> "20160303213928",
       MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropTrackNumber -> "unknown",
@@ -171,8 +166,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle an invalid size property" in {
-    val props = Map(MetaDataParser.PropPath -> "path",
-      MetaDataParser.PropSize -> "large",
+    val props = Map(MetaDataParser.PropSize -> "large",
       MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri.mp3")
 
@@ -181,8 +175,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle a missing size correctly" in {
-    val props = Map(MetaDataParser.PropPath -> "path",
-      MetaDataParser.PropTitle -> "Title",
+    val props = Map(MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
@@ -190,11 +183,9 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "return multiple results if available" in {
-    val props1 = Map(MetaDataParser.PropPath -> "path1",
-      MetaDataParser.PropTitle -> "Title1",
+    val props1 = Map(MetaDataParser.PropTitle -> "Title1",
       MetaDataParser.PropUri -> "song://uri1.mp3")
-    val props2 = Map(MetaDataParser.PropPath -> "path2",
-      MetaDataParser.PropArtist -> "Artist",
+    val props2 = Map(MetaDataParser.PropArtist -> "Artist",
       MetaDataParser.PropUri -> "song://uri2.mp3")
 
     val p = expectSuccessResult(createParser(), 2, Vector(props1, props2))
@@ -207,7 +198,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     data(1).uri.uri should be("song://uri2.mp3")
   }
 
-  it should "filter out results that have no path or URI" in {
+  it should "filter out results that have no URI" in {
     val objects = createResultObjects()
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1,

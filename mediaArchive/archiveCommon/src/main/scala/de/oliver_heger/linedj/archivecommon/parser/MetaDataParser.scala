@@ -25,40 +25,37 @@ import org.apache.logging.log4j.LogManager
 
 object MetaDataParser {
   /** The property for the song title. */
-  val PropTitle = "title"
+  final val PropTitle = "title"
 
   /** The property for the artist name. */
-  val PropArtist = "artist"
+  final val PropArtist = "artist"
 
   /** The property for the album name. */
-  val PropAlbum = "album"
+  final val PropAlbum = "album"
 
   /** The property for the inception year. */
-  val PropInceptionYear = "inceptionYear"
+  final val PropInceptionYear = "inceptionYear"
 
   /** The property for the track number. */
-  val PropTrackNumber = "trackNumber"
+  final val PropTrackNumber = "trackNumber"
 
   /** The property for the duration. */
-  val PropDuration = "duration"
+  final val PropDuration = "duration"
 
   /** The property for the format description. */
-  val PropFormatDescription = "formatDescription"
+  final val PropFormatDescription = "formatDescription"
 
   /** The property for the file size. */
-  val PropSize = "size"
+  final val PropSize = "size"
 
   /** The property for the song's URI. */
-  val PropUri = "uri"
-
-  /** The property for the song's path. */
-  val PropPath = "path"
+  final val PropUri = "uri"
 
   /**
     * Constant for an unknown file size. This value is set if the file size
     * has not been stored or is invalid.
     */
-  val UnknownFileSize: Int = -1
+  final val UnknownFileSize: Int = -1
 
   /** The logger. */
   private val log = LogManager.getLogger(classOf[MetaDataParser])
@@ -155,7 +152,7 @@ class MetaDataParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Re
   override def convertJsonObjects(mediumID: MediumID, objects: IndexedSeq[Map[String, String]]):
   IndexedSeq[MetaDataProcessingSuccess] = {
     objects filter {
-      m => m.contains(PropUri) && m.contains(PropPath)
+      m => m.contains(PropUri)
     } map (createProcessingResult(_, mediumID))
   }
 }
