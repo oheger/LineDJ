@@ -415,8 +415,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   private def createProcessMediumMessage(u: UnresolvedMetaDataFiles, resolved: Int):
   ProcessMedium =
     PersistentMetaDataWriterActor.ProcessMedium(mediumID = u.mediumID,
-      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, pathUriConverter = converter,
-      resolvedSize = resolved)
+      target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, resolvedSize = resolved)
 
   /**
     * Generates the path for a meta data file based on the specified

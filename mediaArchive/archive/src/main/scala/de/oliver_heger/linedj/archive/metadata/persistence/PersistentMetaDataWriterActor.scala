@@ -20,10 +20,9 @@ import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef}
 import akka.event.LoggingAdapter
 import akka.stream.IOResult
 import akka.stream.scaladsl.{FileIO, Source}
-import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, MetaDataWritten, ProcessMedium, StreamOperationComplete}
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataResponse}
 
 import java.nio.file.{Path, StandardOpenOption}
@@ -41,11 +40,9 @@ object PersistentMetaDataWriterActor {
     * @param mediumID         the ID of the affected medium
     * @param target           the path to the meta data file to be written
     * @param metaDataManager  the meta data manager actor
-    * @param pathUriConverter the converter for paths and URIs
     * @param resolvedSize     the number of resolved files on this medium
     */
-  case class ProcessMedium(mediumID: MediumID, target: Path, metaDataManager: ActorRef,
-                           pathUriConverter: PathUriConverter, resolvedSize: Int)
+  case class ProcessMedium(mediumID: MediumID, target: Path, metaDataManager: ActorRef, resolvedSize: Int)
 
   /**
     * An internally used message that is passed to this actor when a stream
@@ -180,7 +177,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     val source = Source(mediumData.elements)
     val listStage =
       new ListSeparatorStage[(String, MediaMetaData)]("[\n", ",\n", "\n]\n")((e, _) =>
-        processElement(e._1, mediumData.process.pathUriConverter.uriToPath(MediaFileUri(e._1)), e._2))
+        processElement(e._1, e._2))
     source.via(listStage)
       .runWith(FileIO.toPath(mediumData.process.target,
         Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE,
@@ -193,11 +190,10 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     * converted to a JSON representation in binary form.
     *
     * @param uri  the URI of the song
-    * @param path the path for the song
     * @param data the meta data for song
     * @return a JSON representation for this song
     */
-  private def processElement(uri: String, path: Path, data: MediaMetaData): String =
+  private def processElement(uri: String, data: MediaMetaData): String =
     metaDataConverter.convert(uri, data)
 }
 

@@ -198,8 +198,7 @@ object PersistentMetaDataManagerActorSpec {
     * @return the ''ProcessMedium'' message
     */
   private def createProcessMedium(medIdx: Int): PersistentMetaDataWriterActor.ProcessMedium =
-    PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)),
-      null, Converter, 0)
+    PersistentMetaDataWriterActor.ProcessMedium(mediumID(medIdx), metaDataFile(checksum(medIdx)), null, 0)
 
   /**
     * Expects a message of the specified type for each of the passed in test
@@ -836,7 +835,7 @@ class PersistentMetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     ProcessMedium =
       PersistentMetaDataWriterActor.ProcessMedium(target = FilePath.resolve(checksum(index) + ".mdt"),
         mediumID = mediumID(index), metaDataManager = metaDataUnionActor.ref,
-        pathUriConverter = Converter, resolvedSize = resolved)
+        resolvedSize = resolved)
 
     /**
       * Creates a mock for the configuration.

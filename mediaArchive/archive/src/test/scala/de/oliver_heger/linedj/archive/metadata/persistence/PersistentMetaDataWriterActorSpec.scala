@@ -22,7 +22,6 @@ import akka.event.LoggingAdapter
 import akka.stream.IOResult
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
@@ -37,16 +36,13 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
 object PersistentMetaDataWriterActorSpec {
-  /** The root path of the test archive. */
-  private val RootPath = Paths get "archiveRoot"
-
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("Test"))
 
@@ -58,9 +54,6 @@ object PersistentMetaDataWriterActorSpec {
 
   /** A JSON parser used by tests. */
   private val Parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-
-  /** A converter between paths and URIs. */
-  private val converter = new PathUriConverter(RootPath)
 
   /**
     * A data class for storing information about a response message that has
@@ -123,7 +116,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
 
   "A PersistentMetaDataWriterActor" should "register at the meta data manager" in {
     val msg = PersistentMetaDataWriterActor.ProcessMedium(TestMedium, createPathInDirectory("data.mdt"),
-      testActor, converter, 0)
+      testActor, 0)
     val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], 50))
 
     actor ! msg
@@ -254,7 +247,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the message
     */
   private def processMessage(target: Path, mid: MediumID, resolvedSize: Int): ProcessMedium =
-    PersistentMetaDataWriterActor.ProcessMedium(mid, target, TestProbe().ref, converter, resolvedSize)
+    PersistentMetaDataWriterActor.ProcessMedium(mid, target, TestProbe().ref, resolvedSize)
 
   /**
     * Parses a file with meta data and returns all extracted results.
