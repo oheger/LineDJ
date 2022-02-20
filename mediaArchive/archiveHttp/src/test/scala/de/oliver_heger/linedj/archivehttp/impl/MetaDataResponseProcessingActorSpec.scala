@@ -22,7 +22,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.{DelayOverflowStrategy, KillSwitch}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
@@ -50,17 +50,11 @@ object MetaDataResponseProcessingActorSpec {
   private val TestMediumID = MediumID("testMedium",
     Some(s"$ArchivePath/$MediumPath/test.settings"), "HTTPArchive")
 
-  /** A test mapping configuration. */
-  private val MappingConfig = UriMappingConfig(removePrefix = "audio://",
-    pathSeparator = null, urlEncode = false, uriTemplate = "${uri}",
-    removeComponents = 0)
-
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc" + ArchivePath),
     "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
-    downloadReadChunkSize = 500, timeoutReadSize = 250, metaMappingConfig = MappingConfig,
-    contentMappingConfig = null, downloader = null, contentPath = Uri.Path(ArchivePath),
+    downloadReadChunkSize = 500, timeoutReadSize = 250, downloader = null, contentPath = Uri.Path(ArchivePath),
     mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("mdt"))
 
   /** The sequence number used for requests. */

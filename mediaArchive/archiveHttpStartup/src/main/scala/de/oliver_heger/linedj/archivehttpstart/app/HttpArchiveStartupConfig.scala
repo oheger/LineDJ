@@ -20,7 +20,7 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.Configuration
 
 import java.util.concurrent.TimeUnit
@@ -262,15 +262,6 @@ object HttpArchiveStartupConfig {
     */
   final val DefaultDownloadReadChunkSize = 8192
 
-  /** Default value for the URI mapping template. */
-  final val DefaultUriMappingTemplate = "${uri}"
-
-  /**
-    * Default value for the number of path components to be removed. If not
-    * explicitly specified, no path components will be removed.
-    */
-  final val DefaultPathComponentsToRemove = 0
-
   /** Default value for the request queue size property. */
   final val DefaultRequestQueueSize = 16
 
@@ -320,8 +311,6 @@ object HttpArchiveStartupConfig {
       downloadReadChunkSize = c.getInt(Path + PropDownloadReadChunkSize, DefaultDownloadReadChunkSize),
       timeoutReadSize = c.getInt(Path + PropTimeoutReadSize),
       downloadConfig = downloadConfig,
-      metaMappingConfig = extractMappingConfig(c, Path + PrefixMetaUriMapping),
-      contentMappingConfig = extractMappingConfig(c, Path + PrefixContentUriMapping),
       archiveBaseUri = Uri(uri),
       contentPath = extractContentPath(c, Path + PropContentPath),
       mediaPath = extractSubPath(c, Path + PropMediaPath),
@@ -335,22 +324,6 @@ object HttpArchiveStartupConfig {
       needsCookieManagement = c.getBoolean(Path + PropNeedsCookieManagement, false),
       needsRetrySupport = c.getBoolean(Path + PropNeedsRetrySupport, false))
   }
-
-  /**
-    * Extracts the properties for URI mapping from the given configuration.
-    *
-    * @param c      the configuration
-    * @param prefix the prefix for configuration keys (must end with a
-    *               separator)
-    * @return the URI mapping configuration
-    */
-  def extractMappingConfig(c: Configuration, prefix: String): UriMappingConfig =
-    UriMappingConfig(removePrefix = c.getString(prefix + PropMappingRemovePrefix),
-      uriTemplate = c.getString(prefix + PropMappingUriTemplate, DefaultUriMappingTemplate),
-      pathSeparator = c.getString(prefix + PropMappingPathSeparator),
-      urlEncode = c.getBoolean(prefix + PropMappingEncoding, false),
-      removeComponents = c.getInt(prefix + PropMappingRemoveComponents,
-        DefaultPathComponentsToRemove))
 
   /**
     * Extracts the name for the archive from the configuration. If not

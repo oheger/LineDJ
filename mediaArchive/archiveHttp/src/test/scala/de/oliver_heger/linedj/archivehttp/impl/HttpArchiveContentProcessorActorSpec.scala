@@ -22,7 +22,7 @@ import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UriMappingConfig}
+import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
@@ -61,18 +61,13 @@ object HttpArchiveContentProcessorActorSpec {
   /** The relative base path for the metadata files of the test archive. */
   private val MetaDataPath = Uri.Path("meta")
 
-  /** A default URI mapping configuration for the archive content file. */
-  private val ContentMappingConfig = UriMappingConfig(removeComponents = 0, removePrefix = "",
-    uriTemplate = "${uri}", pathSeparator = "/", urlEncode = false)
-
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig =
     HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-      contentMappingConfig = ContentMappingConfig, downloader = null, contentPath = Uri.Path("archiveContent.json"),
-      mediaPath = MediaPath, metaDataPath = MetaDataPath)
+      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = null,
+      contentPath = Uri.Path("archiveContent.json"), mediaPath = MediaPath, metaDataPath = MetaDataPath)
 
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = DefaultArchiveConfig.archiveBaseUri.toString()

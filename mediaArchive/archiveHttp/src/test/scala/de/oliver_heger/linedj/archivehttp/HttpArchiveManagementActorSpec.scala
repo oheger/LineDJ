@@ -62,9 +62,8 @@ object HttpArchiveManagementActorSpec {
     HttpArchiveConfig(archiveBaseUri = "https://some.archive.org/data/music",
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = PropBufSize,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-      contentMappingConfig = null, downloader = null, contentPath = Uri.Path("archiveContent.json"),
-      mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
+      downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = null,
+      contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
 
   /** Constant for an archive name. */
   private val ArchiveName = ArchiveConfig.archiveName

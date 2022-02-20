@@ -305,9 +305,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
         archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
         maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, metaMappingConfig = null,
-        contentMappingConfig = null, downloader = downloader, contentPath = Uri.Path("archiveContent.json"),
-        mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
+        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = downloader,
+        contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
 
     /**
       * Creates a new test actor instance.

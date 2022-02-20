@@ -20,7 +20,6 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivecommon.uri.UriMappingSpec
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 
 import java.nio.file.Path
@@ -70,35 +69,6 @@ case class OAuthStorageConfig(rootDir: Path,
 }
 
 /**
-  * A configuration class to define the mapping of URIs read from meta data
-  * files.
-  *
-  * The URIs stored in the meta data files read from an HTTP archive are not
-  * necessarily in a form that they can be used directly for accessing files
-  * from the archive. So a mapping may be required firs. This class combines
-  * the properties that make up such a mapping.
-  *
-  * The properties are all optional; default values are used if they are not
-  * specified.
-  *
-  * @param removePrefix     a prefix to be removed from URIs
-  * @param removeComponents the number of prefix path components to remove
-  * @param uriTemplate      a template to construct the resulting URI
-  * @param pathSeparator    the path
-  * @param urlEncode        flag whether the URI needs to be encoded
-  */
-case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemplate: String,
-                            pathSeparator: String, urlEncode: Boolean) extends UriMappingSpec {
-  override val prefixToRemove: String = removePrefix
-
-  override val pathComponentsToRemove: Int = removeComponents
-
-  override val urlEncoding: Boolean = urlEncode
-
-  override val uriPathSeparator: String = pathSeparator
-}
-
-/**
   * A class defining the configuration settings to be applied for an HTTP
   * archive.
   *
@@ -128,9 +98,6 @@ case class UriMappingConfig(removePrefix: String, removeComponents: Int, uriTemp
   * @param timeoutReadSize       the size of data to read from the source to avoid
   *                              a timeout
   * @param downloadConfig        configuration for standard download properties
-  * @param metaMappingConfig     configuration for URI mapping for meta data
-  * @param contentMappingConfig  configuration for URI mapping for the archive
-  *                              content file
   * @param downloader            the object to download media files
   */
 case class HttpArchiveConfig(archiveBaseUri: Uri,
@@ -147,6 +114,4 @@ case class HttpArchiveConfig(archiveBaseUri: Uri,
                              downloadReadChunkSize: Int,
                              timeoutReadSize: Int,
                              downloadConfig: DownloadConfig,
-                             metaMappingConfig: UriMappingConfig,
-                             contentMappingConfig: UriMappingConfig,
                              downloader: MediaDownloader)

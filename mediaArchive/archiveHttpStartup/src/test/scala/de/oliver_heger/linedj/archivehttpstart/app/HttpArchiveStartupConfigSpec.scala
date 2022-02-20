@@ -19,9 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
-import de.oliver_heger.linedj.archivecommon.uri.UriMapper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -176,16 +174,6 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
         config.downloadReadChunkSize should be(DownloadReadChunkSize)
         config.downloadMaxInactivity should be(DownloadMaxInactivity)
         config.timeoutReadSize should be(TimeoutReadSize)
-        config.metaMappingConfig.removePrefix should be(RemovePrefix)
-        config.metaMappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
-        config.metaMappingConfig.uriTemplate should be(UriTemplate)
-        config.metaMappingConfig.pathSeparator should be(UriPathSeparator)
-        config.metaMappingConfig.urlEncode shouldBe true
-        config.contentMappingConfig.removePrefix should be(null)
-        config.contentMappingConfig.pathComponentsToRemove should be(0)
-        config.contentMappingConfig.uriTemplate should be(HttpArchiveStartupConfig
-          .DefaultUriMappingTemplate)
-        config.contentMappingConfig.urlEncode shouldBe false
         startUpConfig.requestQueueSize should be(RequestQueueSize)
         startUpConfig.needsCookieManagement shouldBe true
         startUpConfig.needsRetrySupport shouldBe true
@@ -210,28 +198,6 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     val c = createConfiguration()
 
     checkConfig(createStartupConfig(c))
-  }
-
-  it should "initialize a content mapping configuration" in {
-    val c = createConfiguration()
-    val pref = Prefix + ".contentUriMapping."
-    c.addProperty(pref + "removePrefix", RemovePrefix)
-    c.addProperty(pref + "removePathComponents", RemoveComponentCount)
-    c.addProperty(pref + "uriTemplate", UriTemplate)
-    c.addProperty(pref + "pathSeparator", UriPathSeparator)
-    c.addProperty(pref + "urlEncoding", true)
-
-    createStartupConfig(c) match {
-      case Success(startupConfig) =>
-        val config = startupConfig.archiveConfig
-        config.contentMappingConfig.removePrefix should be(RemovePrefix)
-        config.contentMappingConfig.pathComponentsToRemove should be(RemoveComponentCount)
-        config.contentMappingConfig.uriTemplate should be(UriTemplate)
-        config.contentMappingConfig.pathSeparator should be(UriPathSeparator)
-        config.contentMappingConfig.urlEncode shouldBe true
-      case Failure(e) =>
-        fail("Unexpected exception: " + e)
-    }
   }
 
   it should "initialize a correct download configuration" in {
@@ -378,40 +344,6 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
       case Failure(e) =>
         e shouldBe a[IllegalArgumentException]
     }
-  }
-
-  it should "use defaults for the URI mapping config" in {
-    val p = HttpArchiveStartupConfig.PrefixMetaUriMapping
-    val c = clearProperty(
-      clearProperty(
-        clearProperty(
-          clearProperty(
-            clearProperty(createConfiguration(), p + HttpArchiveStartupConfig.PropMappingRemovePrefix),
-            p + HttpArchiveStartupConfig.PropMappingUriTemplate),
-          p + HttpArchiveStartupConfig.PropMappingPathSeparator),
-        p + HttpArchiveStartupConfig.PropMappingEncoding),
-      p + HttpArchiveStartupConfig.PropMappingRemoveComponents)
-
-    createStartupConfig(c) match {
-      case Success(startupConfig) =>
-        val config = startupConfig.archiveConfig
-        config.metaMappingConfig.removePrefix should be(null)
-        config.metaMappingConfig.pathComponentsToRemove should be(0)
-        config.metaMappingConfig.uriTemplate should be("${uri}")
-        config.metaMappingConfig.pathSeparator should be(null)
-        config.metaMappingConfig.urlEncode shouldBe false
-      case Failure(e) =>
-        fail("Unexpected exception: " + e)
-    }
-  }
-
-  it should "use a default content URI mapping that does not manipulate URIs" in {
-    val Uri = "/music/test-archive/media/Madonna1/playlist.settings"
-    val mid = MediumID("someMedium", Some(Uri))
-    val mapper = new UriMapper
-    val config = checkConfig(createStartupConfig(createConfiguration()))
-
-    mapper.mapUri(config.contentMappingConfig, mid, Uri) should be(Some(Uri))
   }
 
   it should "use a default value for the cookie management flag" in {
