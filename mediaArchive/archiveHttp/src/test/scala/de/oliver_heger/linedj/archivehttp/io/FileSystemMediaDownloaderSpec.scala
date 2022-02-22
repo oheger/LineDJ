@@ -65,32 +65,7 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
 
   import FileSystemMediaDownloaderSpec._
 
-  "FileSystemMediaDownloader" should "resolve and download a URI from the configured file system" in {
-    val DownloadUri = Uri("https://archive.example.org/path/to/file.mp3")
-    val FileSource = fileSource()
-    val entity = downloadEntity(FileSource)
-    val helper = new DownloaderTestHelper
-
-    helper.prepareFileSystem { fs =>
-      when(fs.resolvePath(DownloadUri.path.toString())).thenReturn(helper.stubOperation(FileID))
-      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(DownloadUri, FileSource)
-  }
-
-  it should "strip the root prefix from a URL" in {
-    val RelativePath = "/my-album/my-song.mp3"
-    val DownloadUri = Uri(s"https://archive.example.org$RootPath$RelativePath")
-    val FileSource = fileSource()
-    val entity = downloadEntity(FileSource)
-    val helper = new DownloaderTestHelper
-
-    helper.prepareFileSystem { fs =>
-      when(fs.resolvePath(RelativePath)).thenReturn(helper.stubOperation(FileID))
-      doReturn(helper.stubOperation(entity)).when(fs).downloadFile(FileID)
-    }.invokeDownloader(DownloadUri, FileSource)
-  }
-
-  it should "download a media file specified by a path" in {
+  "FileSystemMediaDownloader" should "download a media file specified by a path" in {
     val RelativePath = Uri.Path("path/to/file.mp3")
     val FileSource = fileSource()
     val entity = downloadEntity(FileSource)
@@ -209,19 +184,6 @@ class FileSystemMediaDownloaderSpec extends ScalaTestWithActorTestKit with AnyFl
     def stubOperation[A](result: A): FileSystem.Operation[A] = FileSystem.Operation { sender =>
       sender should be(probeHttpSender.ref)
       Future.successful(result)
-    }
-
-    /**
-      * Invokes the test downloader instance with the given URI and checks
-      * whether the expected result is returned.
-      *
-      * @param uri       the URI to request
-      * @param expResult the expected result
-      * @return this test helper
-      */
-    def invokeDownloader(uri: Uri, expResult: Source[ByteString, Any]): DownloaderTestHelper = {
-      futureResult(downloader.downloadMediaFile(uri)) should be(expResult)
-      this
     }
 
     /**

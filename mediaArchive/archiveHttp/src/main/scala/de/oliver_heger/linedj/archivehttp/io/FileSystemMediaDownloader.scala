@@ -42,16 +42,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem[ID, _, _],
                                     val httpSender: ActorRef[HttpRequestSender.HttpCommand])
                                    (implicit system: ActorSystem[_]) extends MediaDownloader {
-  override def downloadMediaFile(uri: Uri): Future[Source[ByteString, Any]] = {
-    implicit val ec: ExecutionContext = system.executionContext
-    val op = for {
-      id <- archiveFileSystem.fileSystem.resolvePath(fileSystemPath(uri))
-      entity <- archiveFileSystem.fileSystem.downloadFile(id)
-    } yield entity.dataBytes
-
-    op.run(httpSender)
-  }
-
   override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] = {
     implicit val ec: ExecutionContext = system.executionContext
 
@@ -70,19 +60,5 @@ class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem
   override def shutdown(): Unit = {
     httpSender ! HttpRequestSender.Stop
     archiveFileSystem.fileSystem.close()
-  }
-
-  /**
-    * Extracts the path to resolve from the given URI. If the URI's path starts
-    * with the configured root path, this prefix is stripped.
-    *
-    * @param uri the URI to resolve
-    * @return the path to pass to the file system
-    */
-  private def fileSystemPath(uri: Uri): String = {
-    val uriPath = uri.path.toString()
-    if (uriPath.startsWith(archiveFileSystem.rootPath.toString()))
-      uriPath.substring(archiveFileSystem.rootPath.charCount)
-    else uriPath
   }
 }

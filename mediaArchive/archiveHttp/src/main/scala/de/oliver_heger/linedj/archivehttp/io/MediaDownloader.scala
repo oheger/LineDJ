@@ -62,18 +62,6 @@ object MediaDownloader {
 trait MediaDownloader {
   /**
     * The central function to download files from an HTTP media archive. The
-    * passed in URI is resolved and accessed asynchronously. If this is
-    * successful, a ''Source'' with the content of the file is returned, which
-    * can then be consumed by the caller. Implementations are responsible of
-    * cleaning up all resources in case of failure.
-    *
-    * @param uri the URI of the file to be resolved
-    * @return a ''Future'' with a ''Source'' of the file's content
-    */
-  def downloadMediaFile(uri: Uri): Future[Source[ByteString, Any]]
-
-  /**
-    * The central function to download files from an HTTP media archive. The
     * passed in ''Path'' is resolved against the archive's root path and
     * accessed asynchronously. If this is successful, a ''Source'' with the
     * content of the file is returned, which can then be consumed by the
