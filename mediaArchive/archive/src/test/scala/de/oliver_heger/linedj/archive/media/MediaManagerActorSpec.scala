@@ -76,8 +76,7 @@ object MediaManagerActorSpec {
   private val ArchiveName = "MyTestArchive"
 
   /** A test medium ID. */
-  private val TestMedium = MediumID("MyTestMedium",
-    Some(RootPath.resolve("test.settings").toString), ArchiveName)
+  private val TestMedium = MediumID("MyTestMedium", Some(RootPath.resolve("test.settings").toString))
 
   /** A test file URI. */
   private val FileUri = MediaFileUri("artist/album/song.mp3")
@@ -125,9 +124,8 @@ object MediaManagerActorSpec {
     * @param withMetaData flag whether meta data should be included
     * @return the request
     */
-  private def createMediumFileRequest(uri: String, withMetaData: Boolean): MediumFileRequest = {
+  private def createMediumFileRequest(uri: String, withMetaData: Boolean): MediumFileRequest =
     MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData)
-  }
 
   /**
     * Appends the URI of another test file to the given test file data.
@@ -348,13 +346,28 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "support queries for the files of a medium" in {
-    val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(TestMedium, uri.uri) }
+    val actualMedium = TestMedium.copy(archiveComponentID = ArchiveName)
+    val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(actualMedium, uri.uri) }
     val helper = new MediaManagerTestHelper
 
     helper.passTestData()
       .post(GetMediumFiles(TestMedium))
     val msgFiles = expectMsgType[MediumFiles]
     msgFiles.mediumID should be(TestMedium)
+    msgFiles.fileIDs should contain theSameElementsAs expectedIDs
+    msgFiles.existing shouldBe true
+  }
+
+  it should "support queries for the files of a medium if the archive component ID is different" in {
+    val requestedMedium = TestMedium.copy(archiveComponentID = "other")
+    val actualMedium = TestMedium.copy(archiveComponentID = ArchiveName)
+    val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(actualMedium, uri.uri) }
+    val helper = new MediaManagerTestHelper
+
+    helper.passTestData()
+      .post(GetMediumFiles(requestedMedium))
+    val msgFiles = expectMsgType[MediumFiles]
+    msgFiles.mediumID should be(requestedMedium)
     msgFiles.fileIDs should contain theSameElementsAs expectedIDs
     msgFiles.existing shouldBe true
   }
@@ -420,6 +433,22 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     func("mp3") shouldBe a[ID3v2ProcessingStage]
     func("MP3") shouldBe a[ID3v2ProcessingStage]
     func isDefinedAt "mp4" shouldBe false
+  }
+
+  it should "return a correct download result even if a medium from another archive component is requested" in {
+    val helper = new MediaManagerTestHelper
+    val (uri, fileData) = helper.createTestMediaFile()
+    val requestedMedium = TestMedium.copy(archiveComponentID = "fromAnotherArchiveComponent")
+    val requestedFileID = MediaFileID(requestedMedium, uri)
+    val request = MediumFileRequest(requestedFileID, withMetaData = true)
+
+    helper.passTestData(data = addUri(TestFileData, uri))
+      .post(request)
+    val response = expectMsgType[MediumFileResponse]
+    response.request should be(request)
+    response.length should be(fileData.size)
+    val downloadProps = helper.nextDownloadChildCreation().props
+    downloadProps.args should be(List(fileData.path, DownloadChunkSize, MediaFileDownloadActor.IdentityTransform))
   }
 
   it should "inform the download manager about newly created download actors" in {

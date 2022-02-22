@@ -164,8 +164,9 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       handleScanRequest()
 
     case GetMediumFiles(mediumID) =>
-      val optResponse = scanState.fileData.get(mediumID) map { files =>
-        val fileIDs = files map (uri => MediaFileID(mediumID, uri.uri))
+      val thisMediumID = mediumID.copy(archiveComponentID = config.archiveName)
+      val optResponse = filesForMedium(mediumID) map { files =>
+        val fileIDs = files map (uri => MediaFileID(thisMediumID, uri.uri))
         MediumFiles(mediumID, fileIDs, existing = true)
       }
       sender() ! optResponse.getOrElse(UnknownMediumFiles.copy(mediumID = mediumID))
@@ -273,10 +274,21 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @return an option with the ''FileData''
     */
   private def fetchFileData(request: MediumFileRequest): Option[FileData] =
-    scanState.fileData.get(request.fileID.mediumID)
+    filesForMedium(request.fileID.mediumID)
       .filter(uris => uris(MediaFileUri(request.fileID.uri))).flatMap { _ =>
       Some(converter.uriToPath(MediaFileUri(request.fileID.uri)))
     }.filter(path => Files.isRegularFile(path))
       .map(path => FileData(path, Files.size(path)))
 
+  /**
+    * Returns an ''Option'' with the URIs of the files contained in the given
+    * medium. When looking up the medium, the archive component ID is ignored.
+    * That way it is possible that media a found even if they are hosted by
+    * different archives.
+    *
+    * @param mediumID the ID of the requested medium
+    * @return an ''Option'' with the files of this medium
+    */
+  private def filesForMedium(mediumID: MediumID): Option[Set[MediaFileUri]] =
+    scanState.fileData.get(mediumID.copy(archiveComponentID = ""))
 }
