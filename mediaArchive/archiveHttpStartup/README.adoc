@@ -120,9 +120,9 @@ http://webdav.org/[WebDav] protocol. The name of this protocol is _webdav_
 (this string needs to be specified in the _protocol_ attribute in the
 configuration of an archive). The URI to be used to define an archive making
 use of the WebDav protocol is just the HTTP or HTTPS URI pointing to the
-content definition file of this archive, e.g.
+root folder of this archive, e.g.
 
-`https://webdav.magentacloud.de/test-archive/testContent.json`
+`https://webdav.magentacloud.de/test-archive/`
 
 This protocol is used by default if no protocol is specified in the
 configuration of an archive.
@@ -131,10 +131,13 @@ configuration of an archive.
 This protocol allows access to data stored in a
 https://onedrive.live.com/about/en-us/[Microsoft OneDrive] account. The short
 protocol name is _onedrive_. Archive URIs are of the form
-`<drive-id>/<relative-path>` where _drive-id_ is the ID of the OneDrive account
-and _relative-path_ points to the content definition file of this archive, e.g.
+`<drive-id>[/<relative-path>]` where _drive-id_ is the ID of the OneDrive account
+and the optional _relative-path_ defines the root folder of this archive, e.g.
 
-`4EF53021CAED4FB7/archive/testContent.json`
+`4EF53021CAED4FB7/archive/test`
+
+(If the whole drive should be included, just specify the drive ID and omit the
+path.)
 
 == Configuration
 
@@ -158,8 +161,11 @@ example configuration with all supported options:
   <archives>
     <archive>
       <realm>Server1</realm>
-      <archiveUri>https://www.cloud-archive.org/content.json</archiveUri>
+      <archiveUri>https://www.cloud-archive.org/</archiveUri>
       <archiveName>My Cloud Archive</archiveName>
+      <contentPath>content.json</contentPath>
+      <mediaPath>media</mediaPath>
+      <metaDataPath>mdt</metaDataPath>
       <processorCount>2</processorCount>
       <processorTimeout>60</processorTimeout>
       <propagationBufferSize>4</propagationBufferSize>
@@ -170,35 +176,19 @@ example configuration with all supported options:
       <downloadReadChunkSize>8192</downloadReadChunkSize>
       <timeoutReadSize>262144</timeoutReadSize>
       <needRetry>true</needRetry>
-      <uriMapping>
-        <removePrefix>path://</removePrefix>
-        <removePathComponents>1</removePathComponents>
-        <uriTemplate>${medium}/${uri}</uriTemplate>
-        <urlEncoding>true</urlEncoding>
-        <pathSeparator>/</pathSeparator>
-      </uriMapping>
     </archive>
     <archive>
       <realm>microsoft</realm>
-      <archiveUri>4EF53021CAED4FB7/archive/testContent.json</archiveUri>
+      <archiveUri>4EF53021CAED4FB7/archive/</archiveUri>
       <protocol>onedrive</protocol>
       <archiveName>Another Archive</archiveName>
+      <contentPath>testContent.json</contentPath>
       <encrypted>true</encrypted>
       <cryptUriCacheSize>2048</cryptUriCacheSize>
       <cryptNamesChunkSize>32</cryptNamesChunkSize>
       <downloadBufferSize>4194304</downloadBufferSize>
       <downloadMaxInactivity>60</downloadMaxInactivity>
       <needCookies>true</needCookies>
-      <uriMapping>
-        <removePrefix>path://</removePrefix>
-        <uriTemplate>${medium}/${uri}</uriTemplate>
-        <urlEncoding>true</urlEncoding>
-        <pathSeparator>/</pathSeparator>
-      </uriMapping>
-      <contentUriMapping>
-        <removePrefix>/music/test-archive</removePrefix>
-        <uriTemplate>/Musik${uri}</uriTemplate>
-      </contentUriMapping>
     </archive>
   </archives>
   <downloadTempDir>c:\data\download\temp</downloadTempDir>
@@ -338,6 +328,12 @@ depends on the protocol used for the archive; details can be found in the
 <<Protocols>> section. | No
 | archiveName | A human-readable name for this archive. The name is displayed
 in the UI of the HTTP archive startup application. | No
+| contentPath | The path (relative to the root path) to the file with the
+archive's table of content. | Yes, defaults to `content.json`
+| mediaPath | The path (relative to the root path) to the folder that contains
+all media files. | Yes, defaults to an empty path.
+| metaDataPath | The path (relative to the root path) to the folder with the
+metadata files. | Yes, defaults to an empty path.
 | protocol | References the protocol (its short name) to be used for this
 archive. This determines the way the server is accessed.
 | Yes, defaults to _webdav_
@@ -420,70 +416,6 @@ the end of the source is reached). | No
 for download operations. Note that this is a global setting and not specific
 for a single HTTP archive. | Yes, defaults to the system temp directory.
 |==============================
-
-=== URI mapping
-
-When loading data from an HTTP archive URI references have to be resolved in
-multiple ways:
-* The content document of the archive refers to the medium description file and
-  the metadata file for each medium contained in the archive.
-* The metadata files list the (typically relative) URIs of the song files
-  belonging to this medium.
-
-These references are typically generated for local media archives. Because of
-this they cannot necessarily be used directly to reference a file in the
-HTTP archive. Therefore, a mapping has to be applied to come to the final URIs
-for files to be downloaded. For this purpose, a _uriMapping_ configuration is
-supported. The basic idea here is that the URI for a file is derived from the
-URI declared in the content document or the metadata file applying the
-following algorithm:
-
-* An optional prefix is removed from the original URI. This is useful for
-  instance if the URI is actually an absolute path in a local file system, and
-  only a relative portion is relevant for the HTTP URI.
-* An optional URL encoding can be applied. This is again useful if original
-  URIs are based on file systems, so they can contain characters that are not
-  valid in HTTP URIs.
-* The path separator character is replaced by the slash ("/") used for URIs.
-* A configurable number of path components can be removed from the beginning of
-  the URI. This can be necessary if there is an overlap in the root path of a
-  medium and the paths of the files belonging to this medium.
-* The final URI is constructed based on a template that may contain static
-  elements and variables.
-  
-Details are defined using the following settings:
-
-.Options controlling URI mapping
-[cols="1,2,1,options="header"]
-|=============================
-| Setting | Description | Optional
-| removePrefix | The prefix to be removed from the original URI. If the
-original URI does not start with this prefix, this file is ignored.
-| Yes, if missing, no prefix is removed.
-| removePathComponents | The number of URI path components to be removed (from
-the beginning). Path components are separated by the '/' character; so
-typically URIs are stripped at the given number of occurrences of this
-separator character. | Yes, defaults to 0, which means that no components are
-removed.
-| urlEncoding | A boolean flag that determines whether an URL encoding is to be
-applied to original URIs. | Yes, defaults to *false*
-| pathSeparator | The separator character used to split path components in
-original URIs. This is needed if URL encoding is enabled to avoid that the path
-separator is encoded, too. It is typically a slash on Unix and a backslash on
-Windows. | Yes, if missing, path separator characters are ignored
-| uriTemplate| The template to generate the actual URI. This is an arbitrary
-string that can contain variables using the _${}_ notation. Supported variables
-are _${medium}_ for the the root path to the medium the current file belongs
-to, and _${uri}_ for the processed URI of the file. | Yes, defaults to _${uri}_
-|=============================
-
-The configuration of an HTTP archive may contain two sections defining the
-mapping of URIs: 
-* The _uriMapping_ element encloses the mapping configuration for metadata
-  files. It is evaluated when media files are downloaded from the archive.
-* The _contentUriMapping_ element contains the mapping configuration for the
-  archive's content document. It is applied when the medium description and
-  metadata files are retrieved from the archive.
 
 === Timeouts
 
