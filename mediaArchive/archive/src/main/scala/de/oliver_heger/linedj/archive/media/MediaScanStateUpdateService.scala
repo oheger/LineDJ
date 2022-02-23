@@ -447,8 +447,18 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
                                      (uriFunc: Path => MediaFileUri): Map[MediumID, Set[MediaFileUri]] =
     esr.scanResult.mediaFiles.foldLeft(data) { (map, e) =>
       val uris = e._2 map (file => uriFunc(file.path))
-      map + (e._1 -> uris.toSet)
+      map + (toInternalMediumID(e._1) -> uris.toSet)
     }
+
+  /**
+    * Converts the given ''MediumID'' to a one used internally in the scan
+    * state. Such IDs do not have an ''archiveComponentID''; so they can be
+    * easier matched against arbitrary ''MediumID''s from requests.
+    *
+    * @param mediumID the affected ''MediumID''
+    * @return the internal ''MediumID'' to be stored
+    */
+  private def toInternalMediumID(mediumID: MediumID): MediumID = mediumID.copy(archiveComponentID = "")
 
   /**
     * Updates the data with media and their files for the given sequence of

@@ -45,10 +45,13 @@ object MediaScanStateUpdateServiceSpec {
     * Generates a test medium ID with the given index.
     *
     * @param idx the index
+    * @param withComponentID flag whether the ID should contain an archive
+    *                        component ID
     * @return the medium ID with this index
     */
-  private def mediumID(idx: Int): MediumID =
-    MediumID(mediumUri(idx), Some(s"playlist$idx.settings"), ArchiveName)
+  private def mediumID(idx: Int, withComponentID: Boolean = true): MediumID =
+    MediumID(mediumUri(idx), Some(s"playlist$idx.settings"),
+      if(withComponentID) ArchiveName else "")
 
   /**
     * Generates a checksum for the test medium with the given index.
@@ -375,10 +378,11 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val res2 = combinedResult(3)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       mediaData = mediaMap(1, withChecksum = true).toList,
-      fileData = Map(mediumID(1) -> mediumFileUris(1)))
+      fileData = Map(mediumID(1, withComponentID = false) -> mediumFileUris(1)))
     val newResults = List(res1, res2)
-    val expFileData = state.fileData ++ Map(mediumID(2) -> convertedMediumFileUris(2)) ++
-      Map(mediumID(3) -> convertedMediumFileUris(3))
+    val expFileData = state.fileData ++
+      Map(mediumID(2, withComponentID = false) -> convertedMediumFileUris(2)) ++
+      Map(mediumID(3, withComponentID = false) -> convertedMediumFileUris(3))
     val expMediaData = multiMediaMap(1, 2, 3).toList
     val sender = actor()
     val next = modifyState(MediaScanStateUpdateServiceImpl.resultsReceived(sender = sender,
@@ -406,8 +410,8 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentResults should contain only res
     next.mediaData should be(info.toList)
     next.fileData should have size 2
-    next.fileData(mediumID(1)) should be(convertedMediumFileUris(1))
-    next.fileData(mediumID(2)) should be(convertedMediumFileUris(2))
+    next.fileData(mediumID(1, withComponentID = false)) should be(convertedMediumFileUris(1))
+    next.fileData(mediumID(2, withComponentID = false)) should be(convertedMediumFileUris(2))
   }
 
   it should "process new results with incomplete checksum mapping" in {
