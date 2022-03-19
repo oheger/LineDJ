@@ -47,15 +47,6 @@ object TimeoutAwareHttpDownloadActor {
     Props(classOf[TimeoutAwareHttpDownloadActorImpl], config, downloadManagerActor,
       downloadFileActor, pathGenerator, removeFileActor, downloadIndex, None)
 
-  /**
-    * Constant for the minimum delay between two timeout messages. There can
-    * be a race condition when a scheduled timeout message is canceled, but
-    * the message has already been put in this actor's queue. To avoid this,
-    * another timeout message that is received within this interval is simply
-    * ignored.
-    */
-  private val MinimumTimeoutDelay = 3000
-
   private class TimeoutAwareHttpDownloadActorImpl(config: HttpArchiveConfig,
                                                   downloadManagerActor: ActorRef,
                                                   downloadFileActor: ActorRef,
@@ -149,9 +140,6 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     */
   private var tempFilesWritten = Queue.empty[Path]
 
-  /** Timestamp when the last timeout message was received. */
-  private var lastTimeoutMessage = 0L
-
   /**
     * A counter for the number of bytes that need to be read when an inactivity
     * timeout was encountered.
@@ -194,12 +182,10 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
       // a temp file reader actor is done
       tempFileActorManager.downloadCompletedArrived() foreach handleCompletedReadOperation
 
-    case InactivityTimeout if !downloadComplete &&
-      System.currentTimeMillis() - lastTimeoutMessage > MinimumTimeoutDelay =>
+    case InactivityTimeout if !downloadComplete && cancellable.isDefined =>
       log.info("Inactivity timeout. Requesting {} bytes of data.", config.timeoutReadSize)
       bytesToReadDuringTimeout = config.timeoutReadSize
       readDuringTimeout()
-      lastTimeoutMessage = System.currentTimeMillis()
       cancellable = None
 
     case resp: WriteChunkActor.WriteResponse =>
