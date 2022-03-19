@@ -213,11 +213,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val data = generateDataChunk(1)
     val helper = new DownloadActorTestHelper
 
-    val schedulerData = helper.sendDataRequest()
+    helper.sendDataRequest()
       .expectDelegatedDataRequest()
-      .expectAndCheckSchedule()
-    schedulerData.cancellable.cancelCount should be(0)
-    helper.passData(data)
+      .passData(data)
     expectMsg(data)
   }
 
@@ -228,28 +226,21 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       .expectActorAliveNotification()
   }
 
-  it should "schedule a message to prevent too long inactivity" in {
-    val helper = new DownloadActorTestHelper
-
-    helper.expectAndCheckSchedule().cancellable.cancelCount should be(0)
-  }
-
   it should "cancel the scheduler and schedule a new timeout on receiving data from source" in {
     val helper = new DownloadActorTestHelper
-    val schedulerData = helper.expectAndCheckSchedule()
 
-    val schedulerData2 = helper.sendDataRequest().passData(generateDataChunk(0))
-      .expectAndCheckSchedule()
+    val schedulerData = helper.sendDataRequest().passData(generateDataChunk(0)).expectAndCheckSchedule()
+    val schedulerData2 = helper.triggerSchedule(1)
     schedulerData.cancellable.cancelCount should be(1)
-    expectMsgType[DownloadDataResult]
     schedulerData2.cancellable.cancelCount should be(0)
+    expectMsgType[DownloadDataResult]
   }
 
-  it should "cancel a scheduled message when it is stopped" in {
+  it should "cancel a scheduled message when the actor is stopped" in {
     val helper = new DownloadActorTestHelper
+    val schedulerData = helper.triggerSchedule(0)
 
-    val schedulerData = helper.stopTestActor()
-      .expectAndCheckSchedule()
+    helper.stopTestActor()
     awaitCond(schedulerData.cancellable.cancelCount == 1)
   }
 
@@ -267,7 +258,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "reset the scheduler handle when receiving a timeout notification" in {
     val helper = new DownloadActorTestHelper
-    val schedulerData = helper.expectAndCheckSchedule()
+    val schedulerData = helper.triggerSchedule(1)
 
     helper.sendMessage(schedulerData.message)
       .stopTestActor()
@@ -276,7 +267,8 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "not process two timeout messages in a short interval" in {
     val helper = new DownloadActorTestHelper
-    val schedulerData = helper.expectAndCheckSchedule()
+    val schedulerData = helper.triggerSchedule(0)
+    helper.expectDelegatedDataRequest()
 
     helper.sendMessage(schedulerData.message)
       .sendMessage(schedulerData.message)
@@ -317,7 +309,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "not reset the timeout when serving a request from buffer" in {
     val helper = new DownloadActorTestHelper
-    val schedulerData1 = helper.expectAndCheckSchedule()
+    val schedulerData1 = helper.triggerSchedule(0)
     helper.passData(generateDataChunk(1))
       .expectAndCheckSchedule()
     schedulerData1.cancellable.cancelCount should be(1)
@@ -407,7 +399,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "cancel the timeout scheduler on receiving download complete" in {
     val helper = new DownloadActorTestHelper
-    val scheduleData = helper.expectAndCheckSchedule()
+    val scheduleData = helper.triggerSchedule(0)
 
     helper.passDownloadComplete()
     scheduleData.cancellable.isCancelled shouldBe true
@@ -415,7 +407,6 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "handle download complete if a request is pending" in {
     val helper = new DownloadActorTestHelper
-    helper.expectAndCheckSchedule() // initial schedule
 
     helper.sendDataRequest().expectDelegatedDataRequest().passDownloadComplete()
     expectMsg(DownloadComplete)
@@ -435,6 +426,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "ignore a timeout message after download complete" in {
     val helper = new DownloadActorTestHelper
+    helper.triggerSchedule(0)
     helper.passDownloadComplete()
 
     helper.simulateInactivityTimeout()
@@ -703,15 +695,29 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
+      * Sends messages to the test actor to provoke a scheduler invocation.
+      * This invocation is returned.
+      *
+      * @param dataValue the value in the data chunk sent to the actor
+      * @return the ''SchedulerInvocation''
+      */
+    def triggerSchedule(dataValue: Int): SchedulerInvocation = {
+      val probeClient = TestProbe()
+      sendDataRequest(client = probeClient.ref)
+      passData(generateDataChunk(dataValue))
+      expectAndCheckSchedule()
+    }
+
+    /**
       * Sends a message to the test actor indicating a too long download
       * inactivity.
       *
       * @return this test helper
       */
     def simulateInactivityTimeout(): DownloadActorTestHelper = {
-      val schedulerData = expectAndCheckSchedule()
+      val schedulerData = triggerSchedule(0)
       downloadActor receive schedulerData.message
-      this
+      expectDelegatedDataRequest()
     }
 
     /**

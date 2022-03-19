@@ -169,7 +169,6 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self,
       config.downloadReadChunkSize, this)
     context watch downloadFileActor
-    scheduleForInactivityTimeout()
   }
 
   override def receive: Receive = {
