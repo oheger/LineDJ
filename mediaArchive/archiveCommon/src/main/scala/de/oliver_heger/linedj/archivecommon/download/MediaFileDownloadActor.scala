@@ -28,6 +28,11 @@ import de.oliver_heger.linedj.io.stream.StreamPullModeratorActor
 import de.oliver_heger.linedj.shared.archive.media._
 
 object MediaFileDownloadActor {
+  /**
+    * Constant for a response that is sent for a concurrent [[DownloadData]]
+    * message.
+    */
+  final val ConcurrentRequestResponse = DownloadDataResult(ByteString.empty)
 
   /** Internally used error message. */
   private case class ErrorMsg(exception: Throwable)
@@ -131,7 +136,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
 
   override protected val endOfStreamMessage: Any = DownloadComplete
 
-  override protected val concurrentRequestMessage: Any = DownloadDataResult(ByteString.empty)
+  override protected val concurrentRequestMessage: Any = ConcurrentRequestResponse
 
   /**
     * Creates the source which is the basis for the stream run by this actor.

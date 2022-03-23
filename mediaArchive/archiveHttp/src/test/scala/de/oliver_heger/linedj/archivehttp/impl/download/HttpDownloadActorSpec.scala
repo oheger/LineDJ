@@ -117,7 +117,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .downloadRequest(request1)
       .downloadRequest(request2)
       .expectNoForwardedDownloadRequest()
-    expectMsg(DownloadDataResult(ByteString.empty))
+    expectMsg(MediaFileDownloadActor.ConcurrentRequestResponse)
 
     promise.complete(Success(DownloadDataSource))
     helper.expectForwardedDownloadRequest(request1)

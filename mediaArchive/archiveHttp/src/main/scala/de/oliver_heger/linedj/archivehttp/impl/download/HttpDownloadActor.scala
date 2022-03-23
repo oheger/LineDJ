@@ -118,7 +118,7 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
       }
 
     case _: DownloadData =>
-      sender() ! DownloadDataResult(ByteString.empty)
+      sender() ! MediaFileDownloadActor.ConcurrentRequestResponse
   }
 
   /**

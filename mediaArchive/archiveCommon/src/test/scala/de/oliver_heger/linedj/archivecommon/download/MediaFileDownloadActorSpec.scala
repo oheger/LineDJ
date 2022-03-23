@@ -178,7 +178,7 @@ class MediaFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     actor.tell(DownloadData(ChunkSize), probe.ref)
     actor.tell(data, probe.ref)
     expectMsg(DownloadDataResult(data))
-    probe.expectMsg(DownloadDataResult(ByteString.empty))
+    probe.expectMsg(MediaFileDownloadActor.ConcurrentRequestResponse)
   }
 
   it should "handle smaller chunk sizes in requests" in {
