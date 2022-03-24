@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.Path
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
+import java.nio.file.Path
 import scala.collection.immutable.Queue
 
 object TimeoutAwareHttpDownloadActor {
@@ -35,26 +35,29 @@ object TimeoutAwareHttpDownloadActor {
     *
     * @param config               the configuration of the HTTP archive
     * @param downloadManagerActor the download manager actor
-    * @param downloadFileActor    the actor with the data to be downloaded
+    * @param downloadRequest      the request to download a media file
+    * @param transformFunc        the transformation function to be applied by
+    *                             the wrapped download actor
     * @param pathGenerator        an object to generate paths for temporary files
     * @param removeFileActor      helper actor to remove files
     * @param downloadIndex        the index of this download operation
     * @return ''Props'' to create a new actor instance
     */
   def apply(config: HttpArchiveConfig, downloadManagerActor: ActorRef,
-            downloadFileActor: ActorRef, pathGenerator: TempPathGenerator,
-            removeFileActor: ActorRef, downloadIndex: Int): Props =
+            downloadRequest: MediumFileRequest, transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
+            pathGenerator: TempPathGenerator, removeFileActor: ActorRef, downloadIndex: Int): Props =
     Props(classOf[TimeoutAwareHttpDownloadActorImpl], config, downloadManagerActor,
-      downloadFileActor, pathGenerator, removeFileActor, downloadIndex, None)
+      downloadRequest, transformFunc, pathGenerator, removeFileActor, downloadIndex, None)
 
   private class TimeoutAwareHttpDownloadActorImpl(config: HttpArchiveConfig,
                                                   downloadManagerActor: ActorRef,
-                                                  downloadFileActor: ActorRef,
+                                                  downloadRequest: MediumFileRequest,
+                                                  transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
                                                   pathGenerator: TempPathGenerator,
                                                   removeFileActor: ActorRef,
                                                   downloadIndex: Int,
                                                   optTempManager: Option[TempFileActorManager])
-    extends TimeoutAwareHttpDownloadActor(config, downloadManagerActor, downloadFileActor,
+    extends TimeoutAwareHttpDownloadActor(config, downloadManagerActor, downloadRequest, transformFunc,
       pathGenerator, removeFileActor, downloadIndex, optTempManager)
       with SchedulerSupport
 
@@ -82,11 +85,11 @@ object TimeoutAwareHttpDownloadActor {
   * An actor which implements the download actor protocol for downloads from an
   * HTTP archive.
   *
-  * This actor class wraps a plain download actor which has been initialized
-  * with a data source from an HTTP request. Per default, data requested by
-  * clients is fetched from this actor.
+  * This actor class wraps a plain download actor which has been created based
+  * on the passed in request to download a media file. Per default, data
+  * requested by clients is fetched from this actor.
   *
-  * If there are no client requests received for a configuration time,
+  * If there are no client requests received for a configurable time,
   * however, the actor reads data on its own and buffers it in-memory to avoid
   * a timeout of the HTTP connection. If the in-memory buffer becomes too
   * large, temporary files are created to hold the data until the client sends
@@ -94,16 +97,22 @@ object TimeoutAwareHttpDownloadActor {
   *
   * @param config               the configuration of the HTTP archive
   * @param downloadManagerActor the download manager actor
-  * @param downloadFileActor    the actor with the data to be downloaded
+  * @param downloadRequest      the request to download a media file
+  * @param transformFunc        the transformation function to be applied by
+  *                             the wrapped download actor
   * @param pathGenerator        an object to generate paths for temporary files
   * @param removeFileActor      helper actor to remove files
   * @param downloadIndex        the index of this download operation
   * @param optTempManager       an optional manager for temporary files; this is
   *                             used for testing purposes
   */
-class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerActor: ActorRef,
-                                    downloadFileActor: ActorRef, pathGenerator: TempPathGenerator,
-                                    removeFileActor: ActorRef, downloadIndex: Int,
+class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
+                                    downloadManagerActor: ActorRef,
+                                    downloadRequest: MediumFileRequest,
+                                    transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
+                                    pathGenerator: TempPathGenerator,
+                                    removeFileActor: ActorRef,
+                                    downloadIndex: Int,
                                     optTempManager: Option[TempFileActorManager])
   extends Actor with ChildActorFactory with ActorLogging {
   this: SchedulerSupport =>
@@ -118,6 +127,12 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     * request.
     */
   private var downloadActorAliveMsg: DownloadActorAlive = _
+
+  /**
+    * Stores the underlying download actor. It is created based on the file to
+    * be downloaded.
+    */
+  private var downloadFileActor: ActorRef = _
 
   /**
     * An object for buffering data if the client does not send requests with
@@ -156,6 +171,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig, downloadManagerAc
     downloadActorAliveMsg = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self,
       config.downloadReadChunkSize, this)
+    downloadFileActor = createChildActor(HttpDownloadActor(config, downloadRequest, transformFunc))
     context watch downloadFileActor
   }
 

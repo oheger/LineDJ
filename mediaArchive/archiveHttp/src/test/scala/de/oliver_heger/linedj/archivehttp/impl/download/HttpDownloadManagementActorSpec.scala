@@ -94,7 +94,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     helper.executeRequest(request)
     val downloadResponse = expectMsgType[MediumFileResponse]
-    val (_, timeoutData) = helper.expectDownloadActorCreation()
+    val (_, timeoutData) = helper.expectDownloadActorCreation(request)
     downloadResponse.request should be(request)
     downloadResponse.contentReader.get should be(timeoutData.child.ref)
     downloadResponse.length should be(0)
@@ -107,13 +107,12 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     * @param request the request to be sent
     * @return the transformation function
     */
-  private def sendRequestAndFetchTransformFunc(request: MediumFileRequest):
-  DownloadTransformFunc = {
+  private def sendRequestAndFetchTransformFunc(request: MediumFileRequest): DownloadTransformFunc = {
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest(request)
     expectMsgType[MediumFileResponse]
-    val (fileData, _) = helper.expectDownloadActorCreation()
+    val (fileData, _) = helper.expectDownloadActorCreation(request)
     fileData.props.args(2).asInstanceOf[DownloadTransformFunc]
   }
 
@@ -137,7 +136,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     helper.executeRequest(request)
     expectMsgType[MediumFileResponse]
-    val (_, timeoutData) = helper.expectDownloadActorCreation()
+    val (_, timeoutData) = helper.expectDownloadActorCreation(request)
     helper.expectMonitoringRegistration(timeoutData.child.ref)
   }
 
@@ -149,8 +148,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     def checkDownloadIndex(request: MediumFileRequest, expIdx: Int): Unit = {
       helper.executeRequest(request)
       expectMsgType[MediumFileResponse]
-      val (_, timeoutData) = helper.expectDownloadActorCreation()
-      timeoutData.props.args(5) should be(expIdx)
+      val (_, timeoutData) = helper.expectDownloadActorCreation(request)
+      timeoutData.props.args(6) should be(expIdx)
     }
 
     checkDownloadIndex(request1, 1)
@@ -226,9 +225,10 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * and the timeout download actor are returned, so that further checks can
       * be performed.
       *
+      * @param expRequest the expected request to download a file
       * @return a tuple with creation data for both child actors
       */
-    def expectDownloadActorCreation(): (ChildCreationData, ChildCreationData) = {
+    def expectDownloadActorCreation(expRequest: MediumFileRequest): (ChildCreationData, ChildCreationData) = {
       val fileDownloadCreation = nextChildActorCreation()
       fileDownloadCreation.props.actorClass() should be(classOf[HttpFileDownloadActor])
       fileDownloadCreation.props.args.head should be(DownloadDataSource)
@@ -240,9 +240,9 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
         timeoutActorCreation.props.actorClass()) shouldBe true
       timeoutActorCreation.props.args.head should be(config)
       timeoutActorCreation.props.args(1) should be(probeMonitoringActor.ref)
-      timeoutActorCreation.props.args(2) should be(fileDownloadCreation.child.ref)
-      timeoutActorCreation.props.args(3) should be(pathGenerator)
-      timeoutActorCreation.props.args(4) should be(probeRemoveActor.ref)
+      timeoutActorCreation.props.args(2) should be(expRequest)
+      timeoutActorCreation.props.args(4) should be(pathGenerator)
+      timeoutActorCreation.props.args(5) should be(probeRemoveActor.ref)
 
       (fileDownloadCreation, timeoutActorCreation)
     }

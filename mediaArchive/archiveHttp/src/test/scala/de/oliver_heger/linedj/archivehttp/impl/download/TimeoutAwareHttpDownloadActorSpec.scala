@@ -16,17 +16,16 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.stream.scaladsl.Source
+import akka.http.scaladsl.model.Uri
+import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
+import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
@@ -38,10 +37,16 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object TimeoutAwareHttpDownloadActorSpec {
+  /** The class of the actor for writing chunks. */
+  private val ClsWriteChunkActor = classOf[WriteChunkActor]
+
   /** Name of the test archive. */
   private val ArchiveName = "MyTestArchive"
 
@@ -63,8 +68,20 @@ object TimeoutAwareHttpDownloadActorSpec {
   /** Test inactivity timeout value. */
   private val InactivityTimeout = 5.minutes
 
+  /** The property defining the media folder of the test archive. */
+  private val MediaPath = Uri.Path("theMediaFolder")
+
+  /** A test transformation function passed to the test actor. */
+  private val TransformFunc: MediaFileDownloadActor.DownloadTransformFunc = {
+    case "mp3" => Flow[ByteString].map(bs => bs.map(b => (b + 1).toByte))
+  }
+
+  /** A test request for a medium file. */
+  private val TestMediaFileRequest = MediumFileRequest(MediaFileID(MediumID("someMediumUri", Some("path")),
+    "someUri"), withMetaData = true)
+
   /** A test request for a chunk to download. */
-  private val TestRequest = DownloadData(DataChunkSize)
+  private val TestDownloadRequest = DownloadData(DataChunkSize)
 
   /**
     * Generates a message with test data. The generated data consists of an
@@ -136,6 +153,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     when(config.timeoutReadSize).thenReturn(TimeoutReadSize)
     when(config.downloadBufferSize).thenReturn(BufferSize)
     when(config.archiveName).thenReturn(ArchiveName)
+    when(config.mediaPath).thenReturn(MediaPath)
+    val downloader = mock[MediaDownloader]
+    when(config.downloader).thenReturn(downloader)
     config
   }
 
@@ -186,8 +206,8 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   "A TimeoutAwareHttpDownloadActor" should "create a default temp file manager" in {
     val ref = TestActorRef[TimeoutAwareHttpDownloadActor](
-      TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref,
-        TestProbe().ref, mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
+      TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref, TestMediaFileRequest, TransformFunc,
+        mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
 
     ref.underlyingActor.tempFileActorManager.readChunkSize should be(ReadChunkSize)
     ref.underlyingActor.tempFileActorManager.downloadActor should be(ref)
@@ -195,17 +215,16 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "create correct creation properties" in {
     val downloadManager = TestProbe()
-    val downloadActor = TestProbe()
     val removeActor = TestProbe()
     val config = createConfig()
     val generator = mock[TempPathGenerator]
-    val props = TimeoutAwareHttpDownloadActor(config, downloadManager.ref, downloadActor.ref,
-      generator, removeActor.ref, DownloadIndex)
+    val props = TimeoutAwareHttpDownloadActor(config, downloadManager.ref, TestMediaFileRequest,
+      TransformFunc, generator, removeActor.ref, DownloadIndex)
 
     classOf[TimeoutAwareHttpDownloadActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(config, downloadManager.ref, downloadActor.ref, generator,
+    props.args should be(List(config, downloadManager.ref, TestMediaFileRequest, TransformFunc, generator,
       removeActor.ref, DownloadIndex, None))
   }
 
@@ -280,7 +299,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val helper = new DownloadActorTestHelper
     helper.sendDataRequest().expectDelegatedDataRequest()
 
-    helper.sendMessage(TestRequest)
+    helper.sendMessage(TestDownloadRequest)
       .expectNoDelegatedDataRequest()
   }
 
@@ -465,7 +484,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "react on a temp file complete message if download is complete" in {
-    val requestData = DownloadRequestData(TestRequest, testActor)
+    val requestData = DownloadRequestData(TestDownloadRequest, testActor)
     val helper = new DownloadActorTestHelper
 
     helper.sendMessage(generateWriteResponse(1))
@@ -487,8 +506,8 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "stop itself if a child actor dies" in {
     val ref = TestActorRef[TimeoutAwareHttpDownloadActor](
-      TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref,
-        TestProbe().ref, mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
+      TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref, TestMediaFileRequest, TransformFunc,
+        mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
     val factory = ref.underlyingActor.tempFileActorManager.actorFactory
     val childActor = factory createChildActor Props[WriteChunkActor]()
 
@@ -596,7 +615,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @param client  the client actor
       * @return this test helper
       */
-    def sendDataRequest(request: DownloadData = TestRequest, client: ActorRef = testActor):
+    def sendDataRequest(request: DownloadData = TestDownloadRequest, client: ActorRef = testActor):
     DownloadActorTestHelper = {
       downloadActor.tell(request, client)
       this
@@ -609,7 +628,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @param request the expected request
       * @return this test helper
       */
-    def expectDelegatedDataRequest(request: DownloadData = TestRequest):
+    def expectDelegatedDataRequest(request: DownloadData = TestDownloadRequest):
     DownloadActorTestHelper = {
       probeDownloadActor.expectMsg(request)
       this
@@ -784,7 +803,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def enableTempManagerRequestProcessing(): DownloadActorTestHelper = {
-      when(tempFileManager.initiateClientRequest(testActor, TestRequest))
+      when(tempFileManager.initiateClientRequest(testActor, TestDownloadRequest))
         .thenAnswer((_: InvocationOnMock) => {
           latchTempManagerRequest.countDown()
           true
@@ -940,20 +959,27 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       *
       * @return the test actor instance
       */
-    private def createTestActor(): TestActorRef[TimeoutAwareHttpDownloadActor] =
-      TestActorRef(Props(new TimeoutAwareHttpDownloadActor(createConfig(),
-        probeDownloadManager.ref, probeDownloadActor.ref, pathGenerator, probeRemoveActor.ref,
-        DownloadIndex, Some(tempFileManager))
+    private def createTestActor(): TestActorRef[TimeoutAwareHttpDownloadActor] = {
+      val config = createConfig()
+      TestActorRef(Props(new TimeoutAwareHttpDownloadActor(config, probeDownloadManager.ref, TestMediaFileRequest,
+        TransformFunc, pathGenerator, probeRemoveActor.ref, DownloadIndex, Some(tempFileManager))
         with ChildActorFactory with RecordingSchedulerSupport {
         override val queue: BlockingQueue[SchedulerInvocation] = schedulerInvocationsQueue
 
         override def createChildActor(p: Props): ActorRef = {
-          p.actorClass() should be(classOf[WriteChunkActor])
-          p.args should have size 0
-          writeActorCounter.incrementAndGet() should be(1)
-          probeWriteActor.ref
+          p.actorClass() match {
+            case ClsWriteChunkActor =>
+              p.args should have size 0
+              writeActorCounter.incrementAndGet() should be(1)
+              probeWriteActor.ref
+
+            case _ =>
+              val expDownloadActorProps = HttpDownloadActor(config, TestMediaFileRequest, TransformFunc)
+              p should be(expDownloadActorProps)
+              probeDownloadActor.ref
+          }
         }
       }))
+    }
   }
-
 }
