@@ -18,9 +18,8 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.{ByteString, Timeout}
+import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
@@ -30,15 +29,12 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.io.IOException
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object HttpDownloadManagementActorSpec {
@@ -48,8 +44,8 @@ object HttpDownloadManagementActorSpec {
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("description"))
 
-  /** A source simulating the data of a download file. */
-  private val DownloadDataSource = Source.single(ByteString("The file content to download."))
+  /** A test request for a medium file. */
+  private val TestMediaFileRequest = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
 
   /**
     * A data class storing information about child actors created by the test
@@ -81,21 +77,19 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val monitoringActor = TestProbe()
     val removeActor = TestProbe()
 
-    val props = HttpDownloadManagementActor(config, pathGen, monitoringActor.ref,
-      removeActor.ref)
+    val props = HttpDownloadManagementActor(config, pathGen, monitoringActor.ref, removeActor.ref)
     classOf[HttpDownloadManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(config, pathGen, monitoringActor.ref, removeActor.ref))
   }
 
   it should "execute a download request successfully" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val helper = new DownloadManagementTestHelper
 
-    helper.executeRequest(request)
+    helper.executeRequest()
     val downloadResponse = expectMsgType[MediumFileResponse]
-    val (_, timeoutData) = helper.expectDownloadActorCreation(request)
-    downloadResponse.request should be(request)
+    val timeoutData = helper.expectDownloadActorCreation()
+    downloadResponse.request should be(TestMediaFileRequest)
     downloadResponse.contentReader.get should be(timeoutData.child.ref)
     downloadResponse.length should be(0)
   }
@@ -104,7 +98,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     * Sends a test request to the test actor and obtains the transformation
     * function used by the download actor.
     *
-    * @param request the request to be sent
+    * @param request the test request
     * @return the transformation function
     */
   private def sendRequestAndFetchTransformFunc(request: MediumFileRequest): DownloadTransformFunc = {
@@ -112,65 +106,50 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     helper.executeRequest(request)
     expectMsgType[MediumFileResponse]
-    val (fileData, _) = helper.expectDownloadActorCreation(request)
-    fileData.props.args(2).asInstanceOf[DownloadTransformFunc]
+    val creationData = helper.expectDownloadActorCreation(request)
+    creationData.props.args(3).asInstanceOf[DownloadTransformFunc]
   }
 
   it should "use an identity transformation if meta data should be downloaded" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
+    val transformFunc = sendRequestAndFetchTransformFunc(TestMediaFileRequest)
 
-    val transformFunc = sendRequestAndFetchTransformFunc(request)
     transformFunc should be(MediaFileDownloadActor.IdentityTransform)
   }
 
   it should "use a correct transformation function if meta data is to be stripped" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
-
+    val request = TestMediaFileRequest.copy(withMetaData = false)
     val transformFunc = sendRequestAndFetchTransformFunc(request)
+
     transformFunc("Mp3") shouldBe a[ID3v2ProcessingStage]
   }
 
   it should "register the download actor at the monitoring actor" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
     val helper = new DownloadManagementTestHelper
 
-    helper.executeRequest(request)
+    helper.executeRequest()
     expectMsgType[MediumFileResponse]
-    val (_, timeoutData) = helper.expectDownloadActorCreation(request)
-    helper.expectMonitoringRegistration(timeoutData.child.ref)
+    val creationData = helper.expectDownloadActorCreation()
+    helper.expectMonitoringRegistration(creationData.child.ref)
   }
 
   it should "increment the download index per operation" in {
-    val request1 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
-    val request2 = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = false)
     val helper = new DownloadManagementTestHelper
 
-    def checkDownloadIndex(request: MediumFileRequest, expIdx: Int): Unit = {
-      helper.executeRequest(request)
+    def checkDownloadIndex(expIdx: Int): Unit = {
+      helper.executeRequest()
       expectMsgType[MediumFileResponse]
-      val (_, timeoutData) = helper.expectDownloadActorCreation(request)
-      timeoutData.props.args(6) should be(expIdx)
+      val creationData = helper.expectDownloadActorCreation()
+      creationData.props.args(6) should be(expIdx)
     }
 
-    checkDownloadIndex(request1, 1)
-    checkDownloadIndex(request2, 2)
-  }
-
-  it should "handle a failed response from the HTTP archive" in {
-    val request = MediumFileRequest(MediaFileID(TestMedium, DownloadUri), withMetaData = true)
-    val helper = new DownloadManagementTestHelper
-
-    helper.executeFailedRequest(request)
-      .expectErrorResponse(request)
+    checkDownloadIndex(1)
+    checkDownloadIndex(2)
   }
 
   /**
     * A test helper class managing a test actor and its dependencies.
     */
   private class DownloadManagementTestHelper {
-    /** Mock for the downloader. */
-    private val downloader = mock[MediaDownloader]
-
     /** The configuration for the HTTP archive. */
     private val config = createConfig()
 
@@ -190,49 +169,25 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val downloadManager = createTestActor()
 
     /**
-      * Sends a request to download a file to the test actor and initializes
-      * the data to be returned from the downloader.
+      * Sends a test request to download a file to the test actor.
       *
-      * @param request the request for the file to be downloaded
-      * @param optData optional data to be returned; ''None'' causes a failure
+      * @param request the request to be sent
       * @return this test helper
       */
-    def executeRequest(request: MediumFileRequest,
-                       optData: Option[Source[ByteString, Any]] = Some(DownloadDataSource)):
-    DownloadManagementTestHelper = {
-      val futResult =
-        optData.fold(Future.failed[Source[ByteString, Any]](new IOException("Error from HTTP archive!"))) { src =>
-          Future.successful(src)
-        }
-      when(downloader.downloadMediaFile(config.mediaPath, DownloadUri)).thenReturn(futResult)
+    def executeRequest(request: MediumFileRequest = TestMediaFileRequest): DownloadManagementTestHelper = {
       downloadManager ! request
       this
     }
 
     /**
-      * Executes a download request that is going to fail. The HTTP sender
-      * implementation is prepared to return a failed future.
+      * Checks that a correct child actor for a download operation has been
+      * created. The data object for the creation of the timeout download
+      * actor is returned, so that further checks can be performed.
       *
-      * @param request the request for the file to be downloaded
-      * @return this test helper
+      * @param expRequest the expected request
+      * @return the creation data object for the child actor
       */
-    def executeFailedRequest(request: MediumFileRequest): DownloadManagementTestHelper =
-      executeRequest(request, optData = None)
-
-    /**
-      * Check that correct child actors for a download operation have been
-      * created. The data objects for the creation of the file download actor
-      * and the timeout download actor are returned, so that further checks can
-      * be performed.
-      *
-      * @param expRequest the expected request to download a file
-      * @return a tuple with creation data for both child actors
-      */
-    def expectDownloadActorCreation(expRequest: MediumFileRequest): (ChildCreationData, ChildCreationData) = {
-      val fileDownloadCreation = nextChildActorCreation()
-      fileDownloadCreation.props.actorClass() should be(classOf[HttpFileDownloadActor])
-      fileDownloadCreation.props.args.head should be(DownloadDataSource)
-
+    def expectDownloadActorCreation(expRequest: MediumFileRequest = TestMediaFileRequest): ChildCreationData = {
       val timeoutActorCreation = nextChildActorCreation()
       classOf[TimeoutAwareHttpDownloadActor].isAssignableFrom(
         timeoutActorCreation.props.actorClass()) shouldBe true
@@ -244,17 +199,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       timeoutActorCreation.props.args(4) should be(pathGenerator)
       timeoutActorCreation.props.args(5) should be(probeRemoveActor.ref)
 
-      (fileDownloadCreation, timeoutActorCreation)
-    }
-
-    /**
-      * Checks that no child actor has been created.
-      *
-      * @return this test helper
-      */
-    def expectNoChildActorCreation(): DownloadManagementTestHelper = {
-      childCreationQueue shouldBe empty
-      this
+      timeoutActorCreation
     }
 
     /**
@@ -266,21 +211,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     def expectMonitoringRegistration(actor: ActorRef): DownloadManagementTestHelper = {
       probeMonitoringActor.expectMsg(DownloadOperationStarted(actor, testActor))
       this
-    }
-
-    /**
-      * Expects that a ''MediumFileResponse'' was sent to the test actor
-      * indicating a failure.
-      *
-      * @param request the original request
-      * @return this test helper
-      */
-    def expectErrorResponse(request: MediumFileRequest): DownloadManagementTestHelper = {
-      val response = expectMsgType[MediumFileResponse]
-      response.request should be(request)
-      response.contentReader should be(None)
-      response.length should be(-1)
-      expectNoChildActorCreation()
     }
 
     /**
@@ -305,7 +235,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       HttpArchiveConfig(archiveBaseUri = "https://some.archive.org" + "/data" + "/" + "archiveContent.json",
         archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
         maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
-        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = downloader,
+        downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = mock[MediaDownloader],
         contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
 
     /**

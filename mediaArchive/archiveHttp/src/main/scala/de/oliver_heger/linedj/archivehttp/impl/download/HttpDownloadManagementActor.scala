@@ -17,9 +17,6 @@
 package de.oliver_heger.linedj.archivehttp.impl.download
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.Source
-import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.DownloadOperationStarted
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -28,19 +25,7 @@ import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-import scala.util.{Failure, Success}
-
 object HttpDownloadManagementActor {
-
-  /**
-    * An internally used data class to store information about a request to
-    * download a file from an HTTP archive.
-    *
-    * @param request the actual request for the file
-    * @param client  the requesting client
-    */
-  case class DownloadOperationRequest(request: MediumFileRequest, client: ActorRef)
-
   /**
     * Returns a ''Props'' instance for creating an actor instance of this
     * class.
@@ -62,17 +47,6 @@ object HttpDownloadManagementActor {
                                                 removeActor: ActorRef)
     extends HttpDownloadManagementActor(config, pathGenerator, monitoringActor, removeActor)
       with ChildActorFactory
-
-  /**
-    * A message class this actor sends to itself when a response for a download
-    * request is returned from the downloader. Then all information is
-    * available to send an answer to the client actor.
-    *
-    * @param request the original download request
-    * @param data    the source with the data to be downloaded
-    */
-  private case class ProcessDownloadRequest(request: DownloadOperationRequest,
-                                            data: Source[ByteString, Any])
 
   /**
     * The transformation function to remove meta data from a file to be
@@ -102,10 +76,7 @@ object HttpDownloadManagementActor {
   * An actor class that manages download operations from an HTTP archive.
   *
   * This actor class processes download requests for files hosted by the
-  * archive. When such a request arrives it delegates to the HTTP protocol to
-  * actually send a request to the archive for the media file in question.
-  * On receiving a success response, it creates an [[HttpFileDownloadActor]] to
-  * read the data from the archive and wraps it in a
+  * archive. When such a request arrives it creates a
   * [[TimeoutAwareHttpDownloadActor]]. This actor is then passed to the
   * requesting client.
   *
@@ -132,20 +103,12 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     */
   implicit private def system: ActorSystem = context.system
 
-  /** The timeout when sending a download request. */
-  implicit private val requestTimeout: Timeout = config.processorTimeout
-
-  import context.dispatcher
-
   /** A counter for download operations. */
   private var downloadIndex = 0
 
   override def receive: Receive = {
     case req: MediumFileRequest =>
       triggerFileDownload(req)
-
-    case ProcessDownloadRequest(request, data) =>
-      processSuccessResponse(request, data)
   }
 
   /**
@@ -155,37 +118,13 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     * @param req the request for the file to be downloaded
     */
   private def triggerFileDownload(req: MediumFileRequest): Unit = {
-    log.info("Sending request for file {}.", req.fileID.uri)
-    val downloadOp = DownloadOperationRequest(req, sender())
-
-    config.downloader.downloadMediaFile(config.mediaPath, req.fileID.uri) onComplete {
-      case Success(data) =>
-        self ! ProcessDownloadRequest(request = downloadOp, data)
-      case Failure(exception) =>
-        log.error(exception, "Download request for {} failed!", req.fileID.uri)
-        downloadOp.client ! MediumFileResponse(req, None, -1)
-    }
-  }
-
-  /**
-    * Processes a successful response for a request to download a file.
-    * Download actors are created and sent to the client actor.
-    *
-    * @param request the download request to be handled
-    * @param data    the source with the data to be downloaded
-    */
-  private def processSuccessResponse(request: DownloadOperationRequest, data: Source[ByteString, Any]):
-  Unit = {
     downloadIndex += 1
     log.debug("Starting download operation {} after receiving successful response.",
       downloadIndex)
-    // TODO: Correct creation of the download actor.
-    val fileDownloadActor = createChildActor(HttpFileDownloadActor(data,
-      Uri(request.request.fileID.uri), downloadTransformationFunc(request.request)))
     val timeoutActor = createChildActor(TimeoutAwareHttpDownloadActor(config, monitoringActor,
-      request.request, downloadTransformationFunc(request.request), pathGenerator, removeActor, downloadIndex))
+      req, downloadTransformationFunc(req), pathGenerator, removeActor, downloadIndex))
     monitoringActor ! DownloadOperationStarted(downloadActor = timeoutActor,
-      client = request.client)
-    request.client ! MediumFileResponse(request.request, Some(timeoutActor), 0)
+      client = sender())
+    sender() ! MediumFileResponse(req, Some(timeoutActor), 0)
   }
 }
