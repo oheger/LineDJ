@@ -23,7 +23,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadActor.DownloadRequestCompleted
-import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult, MediumFileRequest}
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult, MediumFileRequest}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.ExecutionContext
@@ -36,17 +36,21 @@ private object HttpDownloadActor {
     * @param config          the ''HttpArchiveConfig''
     * @param downloadRequest the download request to process
     * @param transformFunc   the transformation function for the download actor
+    * @param bytesToSkip     the number of bytes to skip from the data source
+    *                        of the download when resuming a failed download
     * @return ''Props'' to create a new actor instance
     */
   def apply(config: HttpArchiveConfig,
             downloadRequest: MediumFileRequest,
-            transformFunc: MediaFileDownloadActor.DownloadTransformFunc): Props =
-    Props(classOf[HttpDownloadActorImpl], config, downloadRequest, transformFunc)
+            transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
+            bytesToSkip: Long = 0): Props =
+    Props(classOf[HttpDownloadActorImpl], config, downloadRequest, transformFunc, bytesToSkip)
 
   private class HttpDownloadActorImpl(config: HttpArchiveConfig,
                                       downloadRequest: MediumFileRequest,
-                                      transformFunc: MediaFileDownloadActor.DownloadTransformFunc)
-    extends HttpDownloadActor(config, downloadRequest, transformFunc) with ChildActorFactory
+                                      transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
+                                      bytesToSkip: Long)
+    extends HttpDownloadActor(config, downloadRequest, transformFunc, bytesToSkip) with ChildActorFactory
 
   /**
     * An internal message the actor sends to itself when the download of the
@@ -75,15 +79,24 @@ private object HttpDownloadActor {
   * instantiate an actor with the proper ''Source''. Using this actor, an actor
   * reference is available immediately and can be used for sending messages.
   *
+  * In addition, it is possible to skip a number of bytes from the download's
+  * data source. This is needed to resume failed downloads.
+  *
   * @param config          the ''HttpArchiveConfig''
   * @param downloadRequest the download request to process
   * @param transformFunc   the transformation function for the download actor
+  * @param bytesToSkip     the number of bytes to skip from the data source
+  *                        of the download when resuming a failed download
   */
 private class HttpDownloadActor(config: HttpArchiveConfig,
                                 downloadRequest: MediumFileRequest,
-                                transformFunc: MediaFileDownloadActor.DownloadTransformFunc)
+                                transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
+                                bytesToSkip: Long)
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
+  /** A counter storing the bytes to be skipped. */
+  private var skipCount = bytesToSkip
+
   override def receive: Receive = {
     case request: DownloadData =>
       implicit val ec: ExecutionContext = context.dispatcher
@@ -108,9 +121,14 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
         case Success(source) =>
           val downloadActor =
             createChildActor(HttpFileDownloadActor(source, Uri(downloadRequest.fileID.uri), transformFunc))
-          context.become(downloadActive(downloadActor))
           context watch downloadActor
-          self.tell(request, client)
+          if (skipCount > 0) {
+            context become skipping(downloadActor, request, client)
+            downloadActor ! request
+          } else {
+            context.become(downloadActive(downloadActor))
+            self.tell(request, client)
+          }
 
         case Failure(exception) =>
           log.error(exception, "Download failed for {}.", downloadRequest.fileID)
@@ -119,6 +137,40 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
 
     case _: DownloadData =>
       sender() ! MediaFileDownloadActor.ConcurrentRequestResponse
+  }
+
+  /**
+    * Returns a message handler function that controls the phase in which a
+    * part of the download is skipped. In this phase, download requests are
+    * sent to the wrapped actor, and the responses are ignored, until the
+    * amount of data to skip is reached. Termination of the download actor and
+    * concurrent requests have to be checked, too.
+    *
+    * @param downloadActor the managed download actor
+    * @param request       the request to be processed
+    * @param client        the client of the ongoing request
+    * @return the handler function controlling the skip phase
+    */
+  private def skipping(downloadActor: ActorRef, request: DownloadData, client: ActorRef): Receive = {
+    case result@DownloadDataResult(data) =>
+      if (skipCount >= data.size) {
+        skipCount -= data.size
+        downloadActor ! request
+      } else {
+        context become downloadActive(downloadActor)
+        val remainingResult = if (skipCount == 0) result
+        else DownloadDataResult(data.drop(skipCount.toInt))
+        client ! remainingResult
+      }
+
+    case DownloadData(_) =>
+      sender() ! MediaFileDownloadActor.ConcurrentRequestResponse
+
+    case DownloadComplete =>
+      client ! DownloadComplete
+
+    case Terminated(_) =>
+      childActorTerminated()
   }
 
   /**
@@ -134,7 +186,15 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
       downloadActor forward downloadRequest
 
     case Terminated(_) =>
-      log.error("Managed HttpFileDownloadActor terminated.")
-      context stop self
+      childActorTerminated()
+  }
+
+  /**
+    * Handles the case that the managed download child actor terminates. Then
+    * this actor needs to be stopped as well.
+    */
+  private def childActorTerminated(): Unit = {
+    log.error("Managed HttpFileDownloadActor terminated.")
+    context stop self
   }
 }
