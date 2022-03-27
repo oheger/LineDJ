@@ -132,7 +132,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @param seqNo the sequence number of the temporary file
     */
   def pendingWriteOperation(seqNo: Int): Unit = {
-    pendingWrites += seqNo
+    pendingWrites = pendingWrites.union(Set(seqNo))
   }
 
   /**
@@ -142,7 +142,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @param fileData information about the write operation
     */
   def tempFileWritten(fileData: WriteChunkActor.WriteResponse): Unit = {
-    temporaryFiles += TempFileData(fileData.request.target, fileData.request.seqNo)
+    temporaryFiles = temporaryFiles.union(Set(TempFileData(fileData.request.target, fileData.request.seqNo)))
 
     currentRequest foreach { req =>
       currentReader = obtainCurrentReaderActor()
@@ -207,8 +207,8 @@ private class TempFileActorManager(val downloadActor: ActorRef,
   private def obtainCurrentReaderActor(): Option[TempReadOperation] =
     currentReader orElse {
       temporaryFiles.headOption flatMap matchTempFileIndex map { t =>
-        temporaryFiles -= t
-        pendingWrites -= t.seqNo
+        temporaryFiles = temporaryFiles.diff(Set(t))
+        pendingWrites = pendingWrites.diff(Set(t.seqNo))
         val actor = actorFactory.createChildActor(Props(classOf[MediaFileDownloadActor],
           t.path, readChunkSize, MediaFileDownloadActor.IdentityTransform))
         TempReadOperation(actor, t.path)
