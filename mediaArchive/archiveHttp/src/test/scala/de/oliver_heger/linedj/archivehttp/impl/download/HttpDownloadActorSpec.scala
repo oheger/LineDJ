@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
@@ -208,7 +208,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private val downloader = mock[MediaDownloader]
 
     /** A test probe to represent the wrapped file download actor. */
-    private val probeFileDownloadActor = TestProbe()
+    private val probeFileDownloadActor = StoppableTestProbe()
 
     /** A counter for the number of child actor creations. */
     private val childActorCount = new AtomicInteger
@@ -373,7 +373,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def stopWrappedDownloadActor(): DownloadActorTestHelper = {
-      system stop probeFileDownloadActor.ref
+      probeFileDownloadActor.stop()
       this
     }
 
