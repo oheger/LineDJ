@@ -21,7 +21,6 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.scaladsl.{Flow, Source}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
-import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -29,6 +28,7 @@ import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import de.oliver_heger.linedj.{RecordingSchedulerSupport, StoppableTestProbe}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -38,7 +38,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -173,6 +173,16 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
   }
 
   /**
+    * Expects that the given invocation of the scheduler is already canceled or
+    * will be in the near future.
+    *
+    * @param schedulerInvocation the invocation to check
+    */
+  private def expectCanceledSchedule(schedulerInvocation: SchedulerInvocation): Unit = {
+    awaitCond(schedulerInvocation.cancellable.isCancelled, message = "Schedule not canceled.")
+  }
+
+  /**
     * Generates an object for a read operation of a temporary file.
     *
     * @param fileIdx the index of the file
@@ -235,6 +245,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     helper.sendDataRequest()
       .expectDelegatedDataRequest()
       .passData(data)
+      .expectDownloadActorCreation()
     expectMsg(data)
   }
 
@@ -248,7 +259,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
   it should "cancel the scheduler and schedule a new timeout on receiving data from source" in {
     val helper = new DownloadActorTestHelper
 
-    val schedulerData = helper.sendDataRequest().passData(generateDataChunk(0)).expectAndCheckSchedule()
+    val schedulerData = helper.sendDataRequest().passData(generateDataChunk(0)).checkAndGetSchedule()
     val schedulerData2 = helper.triggerSchedule(1)
     schedulerData.cancellable.cancelCount should be(1)
     schedulerData2.cancellable.cancelCount should be(0)
@@ -272,7 +283,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       .passData(generateDataChunk(0, ReadChunkSize - 1))
       .expectDelegatedDataRequest(DownloadData(TimeoutReadSize - ReadChunkSize + 1))
       .passData(generateDataChunk(1, TimeoutReadSize))
-      .expectAndCheckSchedule()
+      .checkAndGetSchedule()
   }
 
   it should "reset the scheduler handle when receiving a timeout notification" in {
@@ -313,16 +324,16 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
   }
 
   it should "serve a request from a buffer" in {
-    val Chunk1 = 16
+    val ChunkSize = 16
     val probeClient = TestProbe()
     val helper = new DownloadActorTestHelper
 
-    helper.sendDataRequest(DownloadData(Chunk1), client = probeClient.ref)
+    helper.sendDataRequest(DownloadData(ChunkSize), client = probeClient.ref)
       .passData(generateDataChunk(1))
       .passData(generateDataChunk(2))
       .sendDataRequest(DownloadData(BufferSize))
-    probeClient.expectMsg(generateDataChunk(1, Chunk1))
-    expectMsg(generateDataChunk(1, DataChunkSize - Chunk1))
+    probeClient.expectMsg(generateDataChunk(1, ChunkSize))
+    expectMsg(generateDataChunk(1, DataChunkSize - ChunkSize))
     expectNoMessageToActor(probeClient)
   }
 
@@ -330,11 +341,11 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val helper = new DownloadActorTestHelper
     val schedulerData1 = helper.triggerSchedule(0)
     helper.passData(generateDataChunk(1))
-      .expectAndCheckSchedule()
+      .checkAndGetSchedule()
     schedulerData1.cancellable.cancelCount should be(1)
 
     val schedulerData2 = helper.passData(generateDataChunk(2))
-      .expectAndCheckSchedule()
+      .checkAndGetSchedule()
     helper.sendDataRequest()
     expectMsgType[DownloadDataResult]
     schedulerData2.cancellable.isCancelled shouldBe false
@@ -372,6 +383,15 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     helper.verifyWriteNotification(2).sendDataRequest()
       .expectDelegatedDataRequest()
       .expectNoWriteFileRequest()
+  }
+
+  it should "stop itself if a write actor terminates" in {
+    val helper = new DownloadActorTestHelper
+    helper.passMultipleDataChunks(generateMultipleDataChunks(4))
+      .expectWriteFileRequest()
+
+    helper.stopWriteActor()
+      .checkTestActorStopped()
   }
 
   it should "create a write actor on demand only" in {
@@ -504,17 +524,6 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       .expectTempFilesRemoved(List(readOp.path))
   }
 
-  it should "stop itself if a child actor dies" in {
-    val ref = TestActorRef[TimeoutAwareHttpDownloadActor](
-      TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref, TestMediaFileRequest, TransformFunc,
-        mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
-    val factory = ref.underlyingActor.tempFileActorManager.actorFactory
-    val childActor = factory createChildActor Props[WriteChunkActor]()
-
-    system stop childActor
-    checkActorStopped(ref)
-  }
-
   it should "stop a reader actor after a file has been read" in {
     val readOp = generateReadOperation(2)
     val completedOp = CompletedTempReadOperation(readOp, None)
@@ -554,10 +563,88 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       .expectNoTempFilesRemoved()
   }
 
-  it should "stop itself if the wrapped download actor dies" in {
+  it should "stop itself if the wrapped download actor dies without returning data" in {
     val helper = new DownloadActorTestHelper
 
     helper.stopWrappedDownloadActor()
+      .checkTestActorStopped()
+  }
+
+  it should "resume a failed download directly if no temp files are present" in {
+    val probeClient = TestProbe()
+    val helper = new DownloadActorTestHelper
+    val schedulerInvocation = helper.sendDataRequest(DownloadData(16), client = probeClient.ref)
+      .expectDownloadActorCreation()
+      .passData(generateDataChunk(1))
+      .expectAndCheckSchedule()
+      .passData(generateDataChunk(2))
+      .checkAndGetSchedule()
+
+    helper.stopWrappedDownloadActor()
+      .expectDownloadActorCreation(bytesToSkip = 2 * DataChunkSize)
+      .checkAndGetSchedule(1.second)
+    schedulerInvocation.cancellable.isCancelled shouldBe true
+  }
+
+  it should "resume a failed download later if temp files are present" in {
+    val probeClient = TestProbe()
+    val helper = new DownloadActorTestHelper
+
+    helper.sendDataRequest(DownloadData(DataChunkSize / 2), client = probeClient.ref)
+      .expectDownloadActorCreation()
+      .passData(generateDataChunk(1))
+      .setPendingTempFiles(Set(Paths get "temp.tmp"))
+      .stopWrappedDownloadActor()
+      .expectAndCheckCanceledSchedule()
+      .expectNoSchedule()
+      .setPendingTempFiles(Set.empty)
+      .sendDataRequest(DownloadData(16), client = probeClient.ref)
+      .checkAndGetSchedule(1.second)
+  }
+
+  it should "not resume a failed download as long as temp files are present" in {
+    val probeClient = TestProbe()
+    val helper = new DownloadActorTestHelper
+
+    helper.sendDataRequest(DownloadData(DataChunkSize / 2), client = probeClient.ref)
+      .expectDownloadActorCreation()
+      .passData(generateDataChunk(1))
+      .setPendingTempFiles(Set(Paths get "temp.tmp"))
+      .stopWrappedDownloadActor()
+      .expectAndCheckCanceledSchedule()
+      .expectNoSchedule()
+      .sendDataRequest(DownloadData(16), client = probeClient.ref)
+      .expectNoSchedule()
+  }
+
+  it should "not explicitly resume a failed download if data is requested from the download actor anyway" in {
+    val probeClient = TestProbe()
+    val helper = new DownloadActorTestHelper
+
+    helper.sendDataRequest(DownloadData(DataChunkSize), client = probeClient.ref)
+      .expectDownloadActorCreation()
+      .passData(generateDataChunk(1))
+      .setPendingTempFiles(Set(Paths get "temp.tmp"))
+      .stopWrappedDownloadActor()
+      .expectAndCheckCanceledSchedule()
+      .expectNoSchedule()
+      .setPendingTempFiles(Set.empty)
+      .sendDataRequest(DownloadData(16), client = probeClient.ref)
+      .expectNoSchedule()
+  }
+
+  it should "use a separate counter for received bytes per download attempt" in {
+    val probeClient = TestProbe()
+    val helper = new DownloadActorTestHelper
+
+    helper.sendDataRequest(DownloadData(DataChunkSize), client = probeClient.ref)
+      .expectDownloadActorCreation()
+      .passData(generateDataChunk(1))
+      .setPendingTempFiles(Set(Paths get "temp.tmp"))
+      .stopWrappedDownloadActor()
+      .expectDownloadActorCreation(bytesToSkip = DataChunkSize)
+      .expectAndCheckCanceledSchedule()
+      .stopWrappedDownloadActor()
       .checkTestActorStopped()
   }
 
@@ -568,20 +655,26 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     /** Test probe for the download manager actor. */
     private val probeDownloadManager = TestProbe()
 
-    /** Test probe for the wrapped download actor. */
-    private val probeDownloadActor = TestProbe()
+    /**
+      * A reference holding the current test probe for the wrapped download
+      * actor. This reference can change when a new instance is created.
+      */
+    private val downloadActorProbeHolder = new AtomicReference[StoppableTestProbe]
 
     /** Test probe for the remove actor. */
     private val probeRemoveActor = TestProbe()
 
     /** Test probe for the write actor. */
-    private val probeWriteActor = TestProbe()
+    private val probeWriteActor = StoppableTestProbe()
 
     /** A counter for the number of write actors that have been created. */
     private val writeActorCounter = new AtomicInteger
 
     /** Queue to track invocations of the scheduler. */
     private val schedulerInvocationsQueue = new LinkedBlockingQueue[SchedulerInvocation]
+
+    /** Queue to track creations of child download actors. */
+    private val downloadActorCreationsQueue = new LinkedBlockingQueue[Props]
 
     /** Latch to wait until the temp manager was triggered. */
     private val latchTempManagerRequest = new CountDownLatch(1)
@@ -651,7 +744,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def passData(data: DownloadDataResult): DownloadActorTestHelper = {
-      downloadActor.tell(data, probeDownloadActor.ref)
+      downloadActor.tell(data, probeDownloadActor)
       this
     }
 
@@ -672,7 +765,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def passDownloadComplete(): DownloadActorTestHelper = {
-      downloadActor.tell(DownloadComplete, probeDownloadActor.ref)
+      downloadActor.tell(DownloadComplete, probeDownloadActor)
       this
     }
 
@@ -690,17 +783,30 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
-      * Expects that a message was scheduled to prevent an abort of the
-      * download due to inactivity. Some key properties are verified.
+      * Expects that a message was scheduled to prevent that the download gets
+      * canceled due to inactivity and returns a data object with the details.
+      * Some key properties are verified.
       *
+      * @param expDelay the expected delay for the schedule
       * @return the data object with the scheduler invocation
       */
-    def expectAndCheckSchedule(): SchedulerInvocation = {
+    def checkAndGetSchedule(expDelay: FiniteDuration = InactivityTimeout): SchedulerInvocation = {
       val data = RecordingSchedulerSupport expectInvocation schedulerInvocationsQueue
       data.receiver should be(downloadActor)
       data.interval should be(null)
-      data.initialDelay should be(InactivityTimeout)
+      data.initialDelay should be(expDelay)
       data
+    }
+
+    /**
+      * Expects that a message was scheduled to prevent an inactivity timeout
+      * and verifies some key properties.
+      *
+      * @return this test helper
+      */
+    def expectAndCheckSchedule(): DownloadActorTestHelper = {
+      checkAndGetSchedule()
+      this
     }
 
     /**
@@ -710,6 +816,19 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       */
     def expectNoSchedule(): DownloadActorTestHelper = {
       schedulerInvocationsQueue shouldBe empty
+      this
+    }
+
+    /**
+      * Expects that a message was scheduled to prevent an inactivity timeout,
+      * but this schedule has been canceled again. Some key properties of the
+      * scheduler invocation are checked.
+      *
+      * @return this test helper
+      */
+    def expectAndCheckCanceledSchedule(): DownloadActorTestHelper = {
+      val invocation = checkAndGetSchedule()
+      expectCanceledSchedule(invocation)
       this
     }
 
@@ -724,7 +843,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       val probeClient = TestProbe()
       sendDataRequest(client = probeClient.ref)
       passData(generateDataChunk(dataValue))
-      expectAndCheckSchedule()
+      checkAndGetSchedule()
     }
 
     /**
@@ -754,6 +873,16 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       */
     def expectNoWriteFileRequest(): DownloadActorTestHelper = {
       expectNoMessageToActor(probeWriteActor)
+      this
+    }
+
+    /**
+      * Stops the current writer actor to test that this error is handled.
+      *
+      * @return this test helper
+      */
+    def stopWriteActor(): DownloadActorTestHelper = {
+      probeWriteActor.stop()
       this
     }
 
@@ -854,6 +983,20 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     def numberOfWriteActors: Int = writeActorCounter.get()
 
     /**
+      * Expects that a child download actor has been created with the given
+      * number of bytes to skip.
+      *
+      * @param bytesToSkip the expected number of bytes to skip
+      * @return this test helper
+      */
+    def expectDownloadActorCreation(bytesToSkip: Long = 0): DownloadActorTestHelper = {
+      val creationProps = downloadActorCreationsQueue.poll(3, TimeUnit.SECONDS)
+      creationProps should not be null
+      creationProps.args(3) should be(bytesToSkip)
+      this
+    }
+
+    /**
       * Stops the test actor instance. This can be used to check clean-up
       * behavior. Waits until the terminated confirmation is received.
       *
@@ -870,7 +1013,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def stopWrappedDownloadActor(): DownloadActorTestHelper = {
-      system stop probeDownloadActor.ref
+      system stop downloadActorProbeHolder.get().ref
       this
     }
 
@@ -901,7 +1044,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def checkWrappedDownloadActorStopped(): DownloadActorTestHelper = {
-      checkActorStopped(probeDownloadActor.ref)
+      checkActorStopped(probeDownloadActor)
       this
     }
 
@@ -955,6 +1098,17 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
+      * Returns the test probe for the current download actor.
+      *
+      * @return the test probe for the current download actor
+      */
+    private def probeDownloadActor: StoppableTestProbe = {
+      val probe = downloadActorProbeHolder.get()
+      probe should not be null
+      probe
+    }
+
+    /**
       * Creates the test actor instance.
       *
       * @return the test actor instance
@@ -974,9 +1128,15 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
               probeWriteActor.ref
 
             case _ =>
+              val expArgs = List(config, TestMediaFileRequest, TransformFunc)
               val expDownloadActorProps = HttpDownloadActor(config, TestMediaFileRequest, TransformFunc)
-              p should be(expDownloadActorProps)
-              probeDownloadActor.ref
+              p.actorClass() should be(expDownloadActorProps.actorClass())
+              p.args.slice(0, expArgs.size) should contain theSameElementsInOrderAs expArgs
+              p.args should have size expArgs.size + 1
+              downloadActorCreationsQueue offer p
+              val probe = StoppableTestProbe()
+              downloadActorProbeHolder.set(probe)
+              probe
           }
         }
       }))

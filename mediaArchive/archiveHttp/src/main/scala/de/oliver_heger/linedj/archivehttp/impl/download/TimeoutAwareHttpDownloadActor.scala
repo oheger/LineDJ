@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
 import java.nio.file.Path
 import scala.collection.immutable.Queue
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object TimeoutAwareHttpDownloadActor {
   /**
@@ -48,6 +49,9 @@ object TimeoutAwareHttpDownloadActor {
             pathGenerator: TempPathGenerator, removeFileActor: ActorRef, downloadIndex: Int): Props =
     Props(classOf[TimeoutAwareHttpDownloadActorImpl], config, downloadManagerActor,
       downloadRequest, transformFunc, pathGenerator, removeFileActor, downloadIndex, None)
+
+  /** A delay that is used when resuming a failed download. */
+  private val RetryDelay = 1.second
 
   private class TimeoutAwareHttpDownloadActorImpl(config: HttpArchiveConfig,
                                                   downloadManagerActor: ActorRef,
@@ -94,6 +98,11 @@ object TimeoutAwareHttpDownloadActor {
   * a timeout of the HTTP connection. If the in-memory buffer becomes too
   * large, temporary files are created to hold the data until the client sends
   * requests again.
+  *
+  * Despite of this mechanism, a server may close the connection if a download
+  * takes too long. This actor therefore implements a retry logic, so that a
+  * failed download is resumed if the data stored in temporary files is
+  * exhausted.
   *
   * @param config               the configuration of the HTTP archive
   * @param downloadManagerActor the download manager actor
@@ -155,6 +164,17 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     */
   private var tempFilesWritten = Queue.empty[Path]
 
+  /** A counter for the bytes that have already been received in total. */
+  private var bytesReceived = 0L
+
+  /**
+    * A counter for the bytes that have been received from the current download
+    * actor. This counter is reset every time a new download actor is created
+    * (i.e. when a failed download is resumed). The whole download is
+    * considered failed if from a download actor no bytes are received.
+    */
+  private var bytesReceivedFromActor = 0L
+
   /**
     * A counter for the number of bytes that need to be read when an inactivity
     * timeout was encountered.
@@ -171,7 +191,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     downloadActorAliveMsg = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self,
       config.downloadReadChunkSize, this)
-    downloadFileActor = createChildActor(HttpDownloadActor(config, downloadRequest, transformFunc))
+    downloadFileActor = createChildDownloadActor(0)
     context watch downloadFileActor
   }
 
@@ -208,10 +228,17 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
       tempFileActorManager tempFileWritten resp
       tempFilesWritten = tempFilesWritten enqueue resp.request.target
 
-    case Terminated(_) =>
-      // A write operation or the wrapped actor failed => stop this download actor
-      log.warning("Child actor or download actor stopped! Canceling download operation {}.",
+    case Terminated(actor) if actor == downloadFileActor && bytesReceivedFromActor > 0 =>
+      handleFailedResumableDownload()
+
+    case Terminated(actor) if actor == downloadFileActor =>
+      log.error("Download actor was terminated without sending data. Canceling download operation {}.",
         downloadIndex)
+      context stop self
+
+    case Terminated(_) =>
+      // A write operation failed => stop this download actor
+      log.error("Writing data to a temp file failed! Canceling download operation {}.", downloadIndex)
       context stop self
   }
 
@@ -231,15 +258,26 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
   }
 
   /**
-    * @inheritdoc This implementation creates a child actor and starts
-    *             watching it. If the actor crashes, the current download
-    *             operation will fail. (This actor then stops itself.)
+    * Creates a child actor using the specified ''Props'' and initiates death
+    * watch. This actor always needs to react if a child dies.
+    *
+    * @param p the creation properties
+    * @return the newly created actor
     */
-  override def createChildActor(p: Props): ActorRef = {
-    val child = super.createChildActor(p)
+  private def createAndWatchChildActor(p: Props): ActorRef = {
+    val child = createChildActor(p)
     context watch child
     child
   }
+
+  /**
+    * Creates a new download actor which performs the actual download.
+    *
+    * @param bytesToSkip the number of bytes to skip from the download
+    * @return the new download actor
+    */
+  private def createChildDownloadActor(bytesToSkip: Long): ActorRef =
+    createAndWatchChildActor(HttpDownloadActor(config, downloadRequest, transformFunc, bytesToSkip))
 
   /**
     * Handles a chunk of data received from the wrapped download actor. The
@@ -251,6 +289,8 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * @param res the download data result
     */
   private def handleDataFromDownloadActor(res: DownloadDataResult): Unit = {
+    bytesReceived += res.data.size
+    bytesReceivedFromActor += res.data.size
     downloadBuffer = downloadBuffer addChunk res.data
     currentRequest foreach { cd =>
       val (optData, buf) = downloadBuffer fetchData cd.request.size
@@ -265,7 +305,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     bytesToReadDuringTimeout = math.max(0, bytesToReadDuringTimeout - res.data.size)
     if (!readDuringTimeout()) {
       resetScheduler()
-      scheduleForInactivityTimeout()
+      scheduleForInactivityTimeout(config.downloadMaxInactivity)
     }
   }
 
@@ -282,6 +322,10 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
       case (Some(bs), buf) =>
         client ! DownloadDataResult(bs)
         downloadBuffer = buf
+        if (shouldResumeFailedDownload()) {
+          resumeFailedDownload()
+        }
+
       case (None, _) =>
         if (downloadComplete) {
           client ! DownloadComplete
@@ -346,11 +390,14 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
   /**
     * Schedules a message to receive a notification when an inactivity timeout
     * occurs. In this case, the actor has to query another chunk from the
-    * wrapped download actor.
+    * wrapped download actor. This message is scheduled periodically during a
+    * normal download operation. Via this message, a failed download is resumed
+    * as well.
+    *
+    * @param delay the delay after which the timeout message is scheduled
     */
-  private def scheduleForInactivityTimeout(): Unit = {
-    cancellable = Some(scheduleMessageOnce(config.downloadMaxInactivity, self,
-      InactivityTimeout))
+  private def scheduleForInactivityTimeout(delay: FiniteDuration): Unit = {
+    cancellable = Some(scheduleMessageOnce(delay, self, InactivityTimeout))
   }
 
   /**
@@ -368,8 +415,49 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     */
   private def fetchWriteActor(): ActorRef = {
     if (writeFileActor == null) {
-      writeFileActor = createChildActor(Props[WriteChunkActor]())
+      writeFileActor = createAndWatchChildActor(Props[WriteChunkActor]())
     }
     writeFileActor
+  }
+
+  /**
+    * Handles a failed download that can be resumed. This function is called if
+    * the current download actor died after it has sent some data. The
+    * expectation is then that the server might have closed the connection
+    * because the download operation took too long. The operation will be
+    * retried either directly (if no temporary files are present) or later,
+    * when the in-memory buffer is accessed.
+    */
+  private def handleFailedResumableDownload(): Unit = {
+    log.error("Download actor was terminated after sending {} bytes of data in download operation {}.",
+      bytesReceivedFromActor, downloadIndex)
+    downloadFileActor = createChildDownloadActor(bytesReceived)
+    bytesReceivedFromActor = 0
+    resetScheduler()
+    if (tempFileActorManager.pendingTempPaths.isEmpty) {
+      resumeFailedDownload()
+    }
+  }
+
+  /**
+    * Returns a flag whether the current download has failed and should now be
+    * resumed. This is a rather complex condition. If a download has failed,
+    * there is no active schedule for inactivity timeouts and bytes from the
+    * download have already been received. Also, the download is not resumed
+    * until all temporary files have been processed.
+    *
+    * @return a flag whether to resume the current download now
+    */
+  private def shouldResumeFailedDownload(): Boolean =
+    cancellable.isEmpty && bytesReceived > 0 && !downloadComplete && tempFileActorManager.pendingTempPaths.isEmpty
+
+  /**
+    * Triggers the necessary actions to resume a failed download. This
+    * basically means that the scheduler for inactivity timeouts is activated
+    * again.
+    */
+  private def resumeFailedDownload(): Unit = {
+    scheduleForInactivityTimeout(RetryDelay)
+    log.info("Resuming failed download {}, skipping {} bytes of data.", downloadIndex, bytesReceived)
   }
 }
