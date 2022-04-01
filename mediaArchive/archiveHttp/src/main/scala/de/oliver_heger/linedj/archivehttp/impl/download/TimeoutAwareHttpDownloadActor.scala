@@ -189,8 +189,8 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
 
   override def preStart(): Unit = {
     downloadActorAliveMsg = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
-    tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self,
-      config.downloadReadChunkSize, this)
+    // TODO: Correctly create the TempFileActorManager.
+    tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self, null)
     downloadFileActor = createChildDownloadActor(0)
     context watch downloadFileActor
   }

@@ -16,19 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.Path
-
-import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
+import akka.actor.ActorRef
 import de.oliver_heger.linedj.archivehttp.impl.download.TempFileActorManager.TempFileData
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 
+import java.nio.file.Path
 import scala.collection.SortedSet
 import scala.collection.immutable.TreeSet
 
-object TempFileActorManager {
-
+private object TempFileActorManager {
   /**
     * An internally used data class to store information about a temporary file
     * to be processed.
@@ -62,21 +58,16 @@ object TempFileActorManager {
   * written during the current download operation. It offers methods to access
   * data and to update the state when new temporary files are added.
   *
-  * @param downloadActor the actor controlling the current download
-  * @param readChunkSize the chunk size for read file operations
-  * @param actorFactory  the factory for creating child actors
+  * @param downloadActor   the actor controlling the current download
+  * @param operationHolder the object managing read operations
   */
 private class TempFileActorManager(val downloadActor: ActorRef,
-                                   val readChunkSize: Int,
-                                   val actorFactory: ChildActorFactory) {
+                                   val operationHolder: TempReadOperationHolder) {
   /** A set with write operations that are currently pending. */
   private var pendingWrites: SortedSet[Int] = TreeSet.empty
 
   /** Stores the current download data request. */
   private var currentRequest: Option[DownloadRequestData] = None
-
-  /** Stores the currently processed reader actor. */
-  private var currentReader: Option[TempReadOperation] = None
 
   /** Stores the temporary files to be processed by this object. */
   private var temporaryFiles: SortedSet[TempFileData] = TreeSet.empty
@@ -88,7 +79,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @return an ''Iterable'' with paths to files that have not been read
     */
   def pendingTempPaths: Iterable[Path] = {
-    val currentPath = currentReader.map(r => List(r.path)) getOrElse List.empty[Path]
+    val currentPath = operationHolder.currentReadOperation.map(r => List(r.path)) getOrElse List.empty[Path]
     val waitingPaths = temporaryFiles.map(_.path).toList
     currentPath ::: waitingPaths
   }
@@ -108,8 +99,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
                             request: DownloadData): Boolean = {
     if (currentRequest.isDefined) true
     else {
-      currentReader = obtainCurrentReaderActor()
-      currentReader match {
+      obtainCurrentReadOperation() match {
         case Some(TempReadOperation(actor, _)) =>
           currentRequest = Some(DownloadRequestData(request, client))
           sendDownloadRequest(actor, request)
@@ -145,8 +135,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     temporaryFiles = temporaryFiles.union(Set(TempFileData(fileData.request.target, fileData.request.seqNo)))
 
     currentRequest foreach { req =>
-      currentReader = obtainCurrentReaderActor()
-      currentReader foreach (op => sendDownloadRequest(op.reader, req.request))
+      obtainCurrentReadOperation() foreach (op => sendDownloadRequest(op.reader, req.request))
     }
   }
 
@@ -176,7 +165,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *         currently pending request
     */
   def downloadCompletedArrived(): Option[CompletedTempReadOperation] =
-    currentReader map { op =>
+    operationHolder.currentReadOperation map { op =>
       CompletedTempReadOperation(op, obtainPendingRequest())
     }
 
@@ -190,7 +179,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
   private def obtainPendingRequest(): Option[DownloadRequestData] =
     currentRequest match {
       case Some(req) =>
-        currentReader = None
+        operationHolder.resetReadOperation()
         currentRequest = None
         if (initiateClientRequest(req.client, req.request)) None
         else Some(req)
@@ -204,14 +193,12 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *
     * @return an ''Option'' for the current reader actor
     */
-  private def obtainCurrentReaderActor(): Option[TempReadOperation] =
-    currentReader orElse {
+  private def obtainCurrentReadOperation(): Option[TempReadOperation] =
+    operationHolder.getOrCreateCurrentReadOperation {
       temporaryFiles.headOption flatMap matchTempFileIndex map { t =>
         temporaryFiles = temporaryFiles.diff(Set(t))
         pendingWrites = pendingWrites.diff(Set(t.seqNo))
-        val actor = actorFactory.createChildActor(Props(classOf[MediaFileDownloadActor],
-          t.path, readChunkSize, MediaFileDownloadActor.IdentityTransform))
-        TempReadOperation(actor, t.path)
+        t.path
       }
     }
 

@@ -39,7 +39,7 @@ private case class DownloadRequestData(request: DownloadData, client: ActorRef)
   * @param reader the reader actor used to read the file
   * @param path   the path of the temporary file
   */
-private case class TempReadOperation(reader: ActorRef, path: Path)
+case class TempReadOperation(reader: ActorRef, path: Path)
 
 /**
   * An internally used class that holds the information to react on a download

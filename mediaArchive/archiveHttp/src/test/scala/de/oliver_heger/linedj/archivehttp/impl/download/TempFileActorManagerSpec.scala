@@ -16,31 +16,21 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
 object TempFileActorManagerSpec {
-  /** Test read chunk size. */
-  private val ReadChunkSize = 16384
-
   /** Test chunk size for download data requests. */
   private val DownloadChunkSize = 8192
 
@@ -82,7 +72,7 @@ object TempFileActorManagerSpec {
   * Test class for ''TempFileActorManager''.
   */
 class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("TempFileActorManagerSpec"))
 
   override protected def afterAll(): Unit = {
@@ -111,9 +101,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .tempFileWritten(1)
       .initiateClientRequest(expectedResult = true)
     val creationData = helper.nextChildActor()
-    creationData.creationProps.actorClass() should be(classOf[MediaFileDownloadActor])
-    creationData.creationProps.args should be(List(createTempPath(1), ReadChunkSize,
-      MediaFileDownloadActor.IdentityTransform))
+    creationData.path should be(createTempPath(1))
     helper.expectReadActorRequest(
       creationData.actorIdx) should be(DownloadData(DownloadChunkSize))
   }
@@ -220,7 +208,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .initiateClientRequest(expectedResult = true)
       .tempFileWritten(2).tempFileWritten(3).tempFileWritten(1)
     val creationData = helper.nextChildActor()
-    creationData.creationProps.args.head should be(createTempPath(1))
+    creationData.path should be(createTempPath(1))
   }
 
   it should "not return temp paths before files have been created" in {
@@ -242,7 +230,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val expPaths = List(createTempPath(1), createTempPath(2))
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).tempFileWritten(1)
-        .pendingWriteOperation(2).tempFileWritten(2)
+      .pendingWriteOperation(2).tempFileWritten(2)
       .initiateClientRequest(expectedResult = true)
 
     helper.tempPaths should contain theSameElementsAs expPaths
@@ -259,17 +247,19 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private val probeClient = TestProbe()
 
     /** A queue to store child actors whose creation is expected. */
-    private val childActors = new LinkedBlockingQueue[ActorCreationData]
-
-    /** A test child actor factory. */
-    private val childFactory = createChildActorFactory()
+    private val childActors = new LinkedBlockingQueue[ReadOperationCreationData]
 
     /** A counter to generate indices for child actors. */
     private val childActorCount = new AtomicInteger
 
+    /**
+      * Stores the current read operation for the test implementation of the
+      * ''TempReadOperationHolder'' trait.
+      */
+    private var readOperation: Option[TempReadOperation] = None
+
     /** Instance to be tested. */
-    private val manager = new TempFileActorManager(probeDownloadActor.ref, ReadChunkSize,
-      childFactory)
+    private val manager = new TempFileActorManager(probeDownloadActor.ref, createReadOperationHolder())
 
     /**
       * Queries the pending temp paths from the test instance.
@@ -307,7 +297,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return data about a child actor
       */
-    def nextChildActor(): ActorCreationData = {
+    def nextChildActor(): ReadOperationCreationData = {
       val data = childActors.poll(TestTimeout.toSeconds, TimeUnit.SECONDS)
       data should not be null
       data
@@ -348,6 +338,7 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     /**
       * Passes a download completed message to the test instance and returns
       * the result.
+      *
       * @return the result returned by the test instance
       */
     def passDownloadCompleted(): Option[CompletedTempReadOperation] =
@@ -405,14 +396,6 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       expectNoActorMsg(probeDownloadActor)
 
     /**
-      * Checks that no message was sent to the client actor.
-      *
-      * @return this test helper
-      */
-    def expectNoClientMsg(): TempFileManagerTestHelper =
-      expectNoActorMsg(probeClient)
-
-    /**
       * Checks that the specified actor does not receive any more messages.
       *
       * @param actor the actor in question
@@ -426,37 +409,47 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
 
     /**
-      * Creates a child actor factory to be passed to the test instance. The
-      * factory returns a test probe and records the actor creation.
+      * Creates a dummy ''TempReadOperationHolder'' instance to be passed to
+      * the test actor. The holder returns a special stub reader actor and
+      * records the actor creation.
       *
-      * @return the test child actor factory
+      * @return the test ''TempReadOperationHolder''
       */
-    private def createChildActorFactory(): ChildActorFactory = {
-      val factory = mock[ChildActorFactory]
-      when(factory.createChildActor(any())).thenAnswer((invocation: InvocationOnMock) => {
-        val actorIdx = childActorCount.incrementAndGet()
-        val actor = system.actorOf(Props(classOf[SimulatedFileReaderActor], actorIdx))
-        val creationData = ActorCreationData(actorIdx, actor,
-          invocation.getArguments.head.asInstanceOf[Props])
-        childActors offer creationData
-        actor
-      })
-      factory
-    }
-  }
+    private def createReadOperationHolder(): TempReadOperationHolder =
+      new TempReadOperationHolder {
+        override def currentReadOperation: Option[TempReadOperation] = readOperation
 
+        override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] = {
+          readOperation orElse {
+            optPath map { path =>
+              val actorIdx = childActorCount.incrementAndGet()
+              val actor = system.actorOf(Props(classOf[SimulatedFileReaderActor], actorIdx))
+              val creationData = ReadOperationCreationData(actorIdx, actor, path)
+              childActors offer creationData
+              val op = TempReadOperation(actor, path)
+              readOperation = Some(op)
+              op
+            }
+          }
+        }
+
+        override def resetReadOperation(): Unit = {
+          readOperation = None
+        }
+      }
+  }
 }
 
 /**
   * A simple data class storing information about an actor that was created on
   * behalf of the test instance.
   *
-  * @param actorIdx      the index of the test actor
-  * @param actor         the reference to the new child actor
-  * @param creationProps the properties for actor creation
+  * @param actorIdx the index of the test actor
+  * @param actor    the reference to the new child actor
+  * @param path     the path to the file to read
   */
-private case class ActorCreationData(actorIdx: Int, actor: ActorRef,
-                                     creationProps: Props)
+private case class ReadOperationCreationData(actorIdx: Int, actor: ActorRef,
+                                             path: Path)
 
 /**
   * A message class processed by the actors simulating file reader actors.
