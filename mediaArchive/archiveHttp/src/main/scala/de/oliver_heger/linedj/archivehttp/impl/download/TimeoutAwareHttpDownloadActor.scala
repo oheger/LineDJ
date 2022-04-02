@@ -123,7 +123,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
                                     removeFileActor: ActorRef,
                                     downloadIndex: Int,
                                     optTempManager: Option[TempFileActorManager])
-  extends Actor with ChildActorFactory with ActorLogging {
+  extends Actor with ChildActorFactory with ActorLogging with TempReadOperationHolder {
   this: SchedulerSupport =>
 
   import TimeoutAwareHttpDownloadActor._
@@ -159,6 +159,12 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
   private var currentRequest: Option[DownloadRequestData] = None
 
   /**
+    * Stores an ''Option'' with the current operation to read data from a
+    * temporary file.
+    */
+  var readOperation: Option[TempReadOperation] = None
+
+  /**
     * Stores the paths of the temporary files that have been written during
     * this download operation.
     */
@@ -187,10 +193,26 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
   /** Flag whether the end of the download has been reached. */
   private var downloadComplete = false
 
+  override def currentReadOperation: Option[TempReadOperation] = readOperation
+
+  override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] = {
+    readOperation = currentReadOperation orElse {
+      optPath map { path =>
+        val readActor = createAndWatchChildActor(Props(classOf[MediaFileDownloadActor], path,
+          config.downloadReadChunkSize, MediaFileDownloadActor.IdentityTransform))
+        TempReadOperation(readActor, path)
+      }
+    }
+    readOperation
+  }
+
+  override def resetReadOperation(): Unit = {
+    readOperation = None
+  }
+
   override def preStart(): Unit = {
     downloadActorAliveMsg = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
-    // TODO: Correctly create the TempFileActorManager.
-    tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self, null)
+    tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self, this)
     downloadFileActor = createChildDownloadActor(0)
     context watch downloadFileActor
   }

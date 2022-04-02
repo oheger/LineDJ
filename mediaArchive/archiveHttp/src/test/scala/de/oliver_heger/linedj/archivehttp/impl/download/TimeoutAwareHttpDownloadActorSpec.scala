@@ -47,6 +47,9 @@ object TimeoutAwareHttpDownloadActorSpec {
   /** The class of the actor for writing chunks. */
   private val ClsWriteChunkActor = classOf[WriteChunkActor]
 
+  /** The class of the actor for downloading files. */
+  private val ClsMediaFileDownloadActor = classOf[MediaFileDownloadActor]
+
   /** Name of the test archive. */
   private val ArchiveName = "MyTestArchive"
 
@@ -82,6 +85,9 @@ object TimeoutAwareHttpDownloadActorSpec {
 
   /** A test request for a chunk to download. */
   private val TestDownloadRequest = DownloadData(DataChunkSize)
+
+  /** A path to a temporary file to read. */
+  private val TempFilePath = Paths get "someTempFile.mp3"
 
   /**
     * Generates a message with test data. The generated data consists of an
@@ -214,13 +220,43 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     watcher.expectMsgType[Terminated].actor should be(actor)
   }
 
+  /**
+    * Instantiates a test actor instance to be used for a test of the
+    * ''TempReadOperationHolder'' implementation. The holder of this instance
+    * is returned together with a probe for the child read actor and the test
+    * actor instance.
+    *
+    * @return the operation holder, the child reader actor, and the test actor
+    */
+  private def createTestActorForOperationHolderTest(): (TempReadOperationHolder, StoppableTestProbe, ActorRef) = {
+    val probeReader = StoppableTestProbe()
+    val dependencyRef = TestProbe().ref
+    val props = Props(new TimeoutAwareHttpDownloadActor(createConfig(), dependencyRef, TestMediaFileRequest,
+      TransformFunc, mock[TempPathGenerator], dependencyRef, 0, None)
+      with ChildActorFactory with SchedulerSupport {
+      override def createChildActor(p: Props): ActorRef = {
+        p.actorClass() match {
+          case ClsMediaFileDownloadActor =>
+            p.args should contain theSameElementsInOrderAs List(TempFilePath, ReadChunkSize,
+              MediaFileDownloadActor.IdentityTransform)
+            probeReader
+
+          case _ => TestProbe().ref
+        }
+      }
+    })
+
+    val ref = TestActorRef[TimeoutAwareHttpDownloadActor](props)
+    (ref.underlyingActor.tempFileActorManager.operationHolder, probeReader, ref)
+  }
+
   "A TimeoutAwareHttpDownloadActor" should "create a default temp file manager" in {
     val ref = TestActorRef[TimeoutAwareHttpDownloadActor](
       TimeoutAwareHttpDownloadActor(createConfig(), TestProbe().ref, TestMediaFileRequest, TransformFunc,
         mock[TempPathGenerator], TestProbe().ref, DownloadIndex))
 
-    // TODO test operation holder: ref.underlyingActor.tempFileActorManager.readChunkSize should be(ReadChunkSize)
     ref.underlyingActor.tempFileActorManager.downloadActor should be(ref)
+    ref.underlyingActor.tempFileActorManager.operationHolder should be(ref.underlyingActor)
   }
 
   it should "create correct creation properties" in {
@@ -236,6 +272,37 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     classOf[SchedulerSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(config, downloadManager.ref, TestMediaFileRequest, TransformFunc, generator,
       removeActor.ref, DownloadIndex, None))
+  }
+
+  it should "provide a TempReadOperationHolder that creates and manages operations" in {
+    val (holder, probe, _) = createTestActorForOperationHolderTest()
+
+    holder.currentReadOperation shouldBe empty
+    val op = holder.getOrCreateCurrentReadOperation(Some(TempFilePath))
+    op should be(Some(TempReadOperation(probe, TempFilePath)))
+    holder.currentReadOperation should be(op)
+  }
+
+  it should "provide a TempReadOperationHolder that handles an undefined temp path" in {
+    val (holder, _, _) = createTestActorForOperationHolderTest()
+
+    holder.getOrCreateCurrentReadOperation(None) shouldBe empty
+  }
+
+  it should "provide a TempReadOperationHolder that resets the current read operation" in {
+    val (holder, _, _) = createTestActorForOperationHolderTest()
+    holder.getOrCreateCurrentReadOperation(Some(TempFilePath))
+
+    holder.resetReadOperation()
+    holder.currentReadOperation shouldBe empty
+  }
+
+  it should "watch the reader actors created by the TempReadOperationHolder" in {
+    val (holder, probe, actor) = createTestActorForOperationHolderTest()
+    holder.getOrCreateCurrentReadOperation(Some(TempFilePath))
+
+    probe.stop()
+    checkActorStopped(actor)
   }
 
   it should "delegate a data request to the wrapped actor and send the result" in {
