@@ -195,7 +195,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the object representing the read operation
     */
   private def generateReadOperation(fileIdx: Int): TempReadOperation =
-    TempReadOperation(TestProbe().ref, generateTempPath(fileIdx))
+    TempReadOperation(StoppableTestProbe(), generateTempPath(fileIdx))
 
   /**
     * Generates an object representing a completed read operation. The object
@@ -482,7 +482,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val result = generateDataChunk(3)
     val helper = new DownloadActorTestHelper
 
-    helper.sendMessage(result)
+    helper.passDataFromTempFile(result)
       .verifyDownloadResultPropagated(result)
   }
 
@@ -547,7 +547,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     helper.sendMessage(generateWriteResponse(1))
       .passData(generateDataChunk(1))
       .expectTempReaderCompleteMessage(Some(generateCompletedReadOperation(1, requestData)))
-      .sendMessage(DownloadComplete)
+      .passDownloadCompleteFromTempFile()
     expectMsg(generateDataChunk(1, RequestSize))
   }
 
@@ -577,7 +577,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     helper.sendMessage(generateWriteResponse(1))
       .expectTempReaderCompleteMessage(Some(generateCompletedReadOperation(1, requestData)))
       .passDownloadComplete()
-      .sendMessage(DownloadComplete)
+      .passDownloadCompleteFromTempFile()
     expectMsg(DownloadComplete)
   }
 
@@ -587,7 +587,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     val helper = new DownloadActorTestHelper
 
     helper.expectTempReaderCompleteMessage(Some(completedOp))
-      .sendMessage(DownloadComplete)
+      .passDownloadCompleteFromTempFile()
       .expectTempFilesRemoved(List(readOp.path))
   }
 
@@ -598,7 +598,7 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
 
     helper.registerAsWatcher(readOp.reader)
       .expectTempReaderCompleteMessage(Some(completedOp))
-      .sendMessage(DownloadComplete)
+      .passDownloadCompleteFromTempFile()
     checkActorStopped(readOp.reader)
 
     // check that the test actor is still alive
@@ -734,6 +734,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     /** Test probe for the write actor. */
     private val probeWriteActor = StoppableTestProbe()
 
+    /** Test probe for a temp file reader actor. */
+    private val probeReaderActor = TestProbe()
+
     /** A counter for the number of write actors that have been created. */
     private val writeActorCounter = new AtomicInteger
 
@@ -805,13 +808,25 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
     }
 
     /**
-      * Simulates incoming data for the test actor.
+      * Simulates incoming data for the test actor from the download actor.
       *
       * @param data the data object
       * @return this test helper
       */
     def passData(data: DownloadDataResult): DownloadActorTestHelper = {
-      downloadActor.tell(data, probeDownloadActor)
+      downloadActor ! data
+      this
+    }
+
+    /**
+      * Simulates incoming data for the test actor from reading a temporary
+      * file.
+      *
+      * @param data the data object
+      * @return this test helper
+      */
+    def passDataFromTempFile(data: DownloadDataResult): DownloadActorTestHelper = {
+      downloadActor.tell(data, probeReaderActor.ref)
       this
     }
 
@@ -832,7 +847,18 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def passDownloadComplete(): DownloadActorTestHelper = {
-      downloadActor.tell(DownloadComplete, probeDownloadActor)
+      downloadActor ! DownloadComplete
+      this
+    }
+
+    /**
+      * Sends a download complete message to the test actor from the current
+      * file reader actor.
+      *
+      * @return this test helper
+      */
+    def passDownloadCompleteFromTempFile(): DownloadActorTestHelper = {
+      downloadActor.tell(DownloadComplete, probeReaderActor.ref)
       this
     }
 
@@ -1206,6 +1232,9 @@ class TimeoutAwareHttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit
               probe
           }
         }
+
+        override def currentReadOperation: Option[TempReadOperation] =
+          Some(TempReadOperation(probeReaderActor.ref, TempFilePath))
       }))
     }
   }

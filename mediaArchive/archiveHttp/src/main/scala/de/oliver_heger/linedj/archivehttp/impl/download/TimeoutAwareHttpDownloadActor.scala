@@ -224,21 +224,21 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
       }
       downloadManagerActor ! downloadActorAliveMsg
 
-    case res: DownloadDataResult if sender() == downloadFileActor && dataDefined(res) =>
-      handleDataFromDownloadActor(res)
-
-    case res: DownloadDataResult if sender() != downloadFileActor =>
-      // response from a temp file reader actor
+    case res: DownloadDataResult if messageFromReaderActor() =>
       tempFileActorManager downloadResultArrived res
 
-    case DownloadComplete if sender() == downloadFileActor =>
+    case res: DownloadDataResult if dataDefined(res) =>
+      // response from the wrapped download actor
+      handleDataFromDownloadActor(res)
+
+    case DownloadComplete if messageFromReaderActor() =>
+      // a temp file reader actor is done
+      tempFileActorManager.downloadCompletedArrived() foreach handleCompletedReadOperation
+
+    case DownloadComplete =>
       downloadComplete = true
       currentRequest foreach (_.client ! DownloadComplete)
       resetScheduler()
-
-    case DownloadComplete if sender() != downloadFileActor =>
-      // a temp file reader actor is done
-      tempFileActorManager.downloadCompletedArrived() foreach handleCompletedReadOperation
 
     case InactivityTimeout if !downloadComplete && cancellable.isDefined =>
       log.info("Inactivity timeout. Requesting {} bytes of data.", config.timeoutReadSize)
@@ -441,6 +441,15 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     }
     writeFileActor
   }
+
+  /**
+    * Checks whether the sender of the current message is the reader actor for
+    * temporary files.
+    *
+    * @return a flag whether the message is from the reader actor
+    */
+  private def messageFromReaderActor(): Boolean =
+    currentReadOperation.exists(_.reader == sender())
 
   /**
     * Handles a failed download that can be resumed. This function is called if
