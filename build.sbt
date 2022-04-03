@@ -21,12 +21,13 @@ import com.typesafe.sbt.osgi.{OsgiKeys, SbtOsgi}
 
 /** Definition of versions for production dependencies. */
 lazy val VersionAeron = "1.37.0"
-lazy val VersionAkka = "2.6.18"
+lazy val VersionAkka = "2.6.19"
 lazy val VersionAkkaHttp = "10.2.9"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
 lazy val VersionJackson = "2.13.2"
+lazy val VersionJacksonCore = "2.13.2.2"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4"
 lazy val VersionJLayer = "1.0.1.4"
@@ -35,7 +36,7 @@ lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionScala = "2.13.8"
 lazy val VersionScalaz = "7.3.6"
-lazy val VersionSslConfig = "0.6.0"
+lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
@@ -65,7 +66,7 @@ lazy val akkaDependencies = Seq(
 lazy val remotingDependencies = Seq(
   "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
   "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
-  "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
+  "com.fasterxml.jackson.core" % "jackson-databind" % VersionJacksonCore,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
   "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % VersionJackson,
