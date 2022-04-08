@@ -231,4 +231,6 @@ https://openjfx.io/openjfx-docs/#modular[custom JDK+JavaFX image] as described
 in the JavaFX documentation. Here Java's
 https://docs.oracle.com/javase/9/tools/jlink.htm[JLink] tool is used to create
 a custom JDK image that contains the JavaFX modules; so when running the OSGi
-images with this JDK the required package imports are directly available.
+images with this JDK the required package imports are directly available. This
+folder contains the example script link:./javaFxImage.sh[] that demonstrates
+this approach.
