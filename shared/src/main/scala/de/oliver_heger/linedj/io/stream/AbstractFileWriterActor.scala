@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.io.stream
 
 import java.nio.file.{Files, Path}
-
 import akka.actor.{ActorLogging, ActorRef}
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.{FileIO, Keep, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 object AbstractFileWriterActor {
@@ -98,9 +98,8 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
         val (ks, futIO) = source.viaMat(KillSwitches.single)(Keep.right)
           .toMat(sink)(Keep.both)
           .run()
-        val futWrite = futIO map { r =>
-          r.status.get // throws in case of a failed operation
-          resultMsg
+        val futWrite = futIO flatMap { r =>
+          Future.fromTry(r.status.map(_ => resultMsg))
         }
         processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception, target))
     }
