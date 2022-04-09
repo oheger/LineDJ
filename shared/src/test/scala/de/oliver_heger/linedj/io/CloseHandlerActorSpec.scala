@@ -184,7 +184,7 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     private def createTestActor(): TestActorRef[CloseHandlerActor] =
       TestActorRef(Props(classOf[CloseHandlerActor], probeSource.ref,
-        closeActors.map(_.ref).toIterable, initialCondition))
+        closeActors.map(_.ref).toSeq, initialCondition))
   }
 
 }
