@@ -45,7 +45,7 @@ trait SchedulerSupport extends Actor {
     */
   def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver: ActorRef,
                       message: Any): Cancellable =
-    context.system.scheduler.schedule(initialDelay, interval, receiver, message)
+    context.system.scheduler.scheduleAtFixedRate(initialDelay, interval, receiver, message)
 
   /**
     * Schedules a message for being sent once to a receiver after a given delay.
