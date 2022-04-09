@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedIt
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
@@ -739,17 +739,17 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock meta data service
       */
-    private def createMetaDataService(): MetaDataService[AvailableMedia, Map[String, MediaMetaData]] = {
-      val service = mock[MetaDataService[AvailableMedia, Map[String, MediaMetaData]]]
+    private def createMetaDataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] = {
+      val service = mock[MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]]]
       prepareMediaRequest(service, Future.successful(TestMedia))
 
       Mockito.when(service.fetchMetaDataOfMedium(any(classOf[MediumID])))
         .thenAnswer((invocation: InvocationOnMock) => {
           val mid = invocation.getArguments.head.asInstanceOf[MediumID]
-          Kleisli[Future, MessageBus, Map[String, MediaMetaData]] { bus =>
+          Kleisli[Future, MessageBus, Map[MediaFileID, MediaMetaData]] { bus =>
             bus should be(messageBus)
             val files = TestFilesPerMedium(mid)
-            val data = files.map(f => (f.uri, f.metaData)).toMap
+            val data = files.map(f => (MediaFileID(mid, f.uri), f.metaData)).toMap
             Future.successful(data)
           }
         })
@@ -763,7 +763,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param service the mock meta data service
       * @param result  the available media future result to be returned
       */
-    private def prepareMediaRequest(service: MetaDataService[AvailableMedia, Map[String, MediaMetaData]],
+    private def prepareMediaRequest(service: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
                                     result: Future[AvailableMedia]): Unit = {
       val resMedia = Kleisli[Future, MessageBus, AvailableMedia] { bus =>
         bus should be(messageBus)

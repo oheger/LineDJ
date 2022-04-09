@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidationE
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
@@ -103,7 +103,7 @@ object ValidationController {
   * @param converter       the validation item converter
   * @param statusHandler   the handler for the status line
   */
-class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[String, MediaMetaData]],
+class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
                            app: ClientApplication, sync: GUISynchronizer, tableHandler: TableHandler,
                            validationFlow: ValidationFlow[_], converter: ValidationItemConverter,
                            statusHandler: StatusLineHandler) extends WindowListener {
@@ -193,7 +193,7 @@ class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[
     val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
     val graph = source.viaMat(KillSwitches.single)(Keep.right)
       .mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
-      .map(t => t._2.toList.map(e => MediaFile(t._1, e._1, e._2)))
+      .map(t => t._2.toList.map(e => MediaFile(t._1, e._1.uri, e._2)))
       .via(validationFlow)
       .filter(_.result.isFailure)
       .mapConcat(converter.generateTableItems(media, _))
