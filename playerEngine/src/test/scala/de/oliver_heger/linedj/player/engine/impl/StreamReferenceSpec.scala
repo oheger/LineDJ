@@ -16,26 +16,68 @@
 
 package de.oliver_heger.linedj.player.engine.impl
 
-import java.nio.charset.StandardCharsets
-
-import de.oliver_heger.linedj.FileTestHelper
-import org.scalatest.BeforeAndAfter
-import org.scalatest.flatspec.AnyFlatSpec
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.Sink
+import akka.testkit.TestKit
+import akka.util.ByteString
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
+import java.nio.charset.StandardCharsets
+import scala.concurrent.Future
 import scala.io.Source
 
 /**
   * Test class for ''StreamReference''.
   */
-class StreamReferenceSpec extends AnyFlatSpec with BeforeAndAfter with Matchers with FileTestHelper {
+class StreamReferenceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike with BeforeAndAfter
+  with BeforeAndAfterAll with Matchers with FileTestHelper with AsyncTestHelper {
+
+  import system.dispatcher
+
+  def this() = this(ActorSystem("StreamReferenceSpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+    super.afterAll()
+  }
+
   after {
     tearDownTestFile()
   }
 
-  "A StreamReference" should "open the referenced stream" in {
+  /**
+    * Creates a [[StreamReference]] from a file with test data.
+    *
+    * @return the reference
+    */
+  private def createStreamReferenceFromFile(): StreamReference = {
     val path = createDataFile()
-    val ref = StreamReference(path.toUri.toString)
+    StreamReference(path.toUri.toString)
+  }
+
+  /**
+    * Creates a test reference, obtains a source from it, and runs it against
+    * the given sink. The result is returned.
+    *
+    * @param sink      the sink of the stream
+    * @param chunkSize the chunk size to use for the stream
+    * @tparam Mat the materialized type of the sink
+    * @return the materialized value of the sink
+    */
+  private def runStreamWith[Mat](sink: Sink[ByteString, Future[Mat]], chunkSize: Int = 128): Mat = {
+    val ref = createStreamReferenceFromFile()
+
+    futureResult(for {
+      source <- ref.createSource(chunkSize)
+      content <- source.runWith(sink)
+    } yield content)
+  }
+
+  "A StreamReference" should "open the referenced stream" in {
+    val ref = createStreamReferenceFromFile()
 
     val stream = ref.openStream()
     val source = Source.fromInputStream(stream, StandardCharsets.UTF_8.toString)
@@ -43,5 +85,23 @@ class StreamReferenceSpec extends AnyFlatSpec with BeforeAndAfter with Matchers 
     source.close()
 
     data should be(FileTestHelper.TestData)
+  }
+
+  it should "create a Source for the referenced stream" in {
+    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+
+    val data = runStreamWith(sink)
+
+    data.utf8String should be(FileTestHelper.TestData)
+  }
+
+  it should "take the chunk size into account when creating a Source" in {
+    val chunkSize = 17
+    val sink = Sink.fold[List[ByteString], ByteString](List.empty) { (lst, data) => data :: lst }
+
+    val elements = runStreamWith(sink, chunkSize)
+
+    elements.size should be > 2
+    elements.tail.forall(_.length == chunkSize) shouldBe true
   }
 }
