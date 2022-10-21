@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.player.engine
 
 import java.nio.file.Path
-
 import akka.actor.{ActorRef, Props}
+import akka.stream.ActorAttributes
+import akka.stream.scaladsl.Source
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 
 import scala.concurrent.duration._
@@ -107,15 +108,24 @@ case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
                         mediaManagerActor: ActorRef,
                         actorCreator: ActorCreator) {
   /**
-    * Modifies the specified ''Props'' to use the blocking dispatcher if none
+    * Modifies the specified ''Props'' to use the blocking dispatcher if it
     * is specified. Otherwise, the ''Props'' are returned unchanged.
     *
     * @param props the ''Props'' to be modified
     * @return the modified ''Props''
     */
   def applyBlockingDispatcher(props: Props): Props =
-    blockingDispatcherName match {
-      case Some(n) => props withDispatcher n
-      case None => props
-    }
+    blockingDispatcherName.fold(props) { dispatcher => props withDispatcher dispatcher}
+
+  /**
+    * Modifies the specified ''Source'' to use the blocking dispatcher if it
+    * is specified. Otherwise, the same ''Source'' is returned.
+    *
+    * @param source the ''Source'' to be modified
+    * @tparam Out the output type of the ''Source''
+    * @tparam Mat the materialized type of the ''Source''
+    * @return the modified ''Source''
+    */
+  def applyBlockingDispatcher[Out, Mat](source: Source[Out, Mat]): Source[Out, Mat] =
+    blockingDispatcherName.fold(source) { dispatcher => source.addAttributes(ActorAttributes.dispatcher(dispatcher)) }
 }
