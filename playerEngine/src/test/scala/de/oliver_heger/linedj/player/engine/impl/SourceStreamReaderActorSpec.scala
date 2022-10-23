@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -27,11 +26,16 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.BufferDataResult
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
+import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.Promise
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 object SourceStreamReaderActorSpec {
   /** A reference pointing to an audio stream. */
@@ -45,9 +49,6 @@ object SourceStreamReaderActorSpec {
 
   /** The class for the buffer actor. */
   private val ClassBufferActor = classOf[StreamBufferActor]
-
-  /** The class for the m3u reader actor. */
-  private val ClassM3uReaderActor = classOf[M3uReaderActor]
 
   /** A default request message for audio data. */
   private val DataRequest = PlaybackActor.GetAudioData(42)
@@ -71,7 +72,7 @@ object SourceStreamReaderActorSpec {
   * Test class for ''SourceStreamReaderActor''.
   */
 class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
 
   import SourceStreamReaderActorSpec._
 
@@ -97,44 +98,32 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.numberOfChildrenCreated should be(1)
   }
 
-  it should "create a m3u reader actor for a corresponding stream reference" in {
+  it should "resolve a reference to an m3u file" in {
     val helper = new SourceStreamReaderActorTestHelper
     helper.createTestActor(PlaylistStreamRef)
 
-    helper.m3uReaderActor.expectMsg(M3uReaderActor.ResolveAudioStream(PlaylistStreamRef))
-    helper.numberOfChildrenCreated should be(1)
+    helper.verifyM3uResolveOperation(PlaylistStreamRef)
+    helper.numberOfChildrenCreated should be(0)
   }
 
   it should "create a buffer actor when the audio stream is resolved" in {
     val helper = new SourceStreamReaderActorTestHelper
     val actor = helper.createTestActor(PlaylistStreamRef)
 
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
+    helper.setM3uResolveResult(Success(AudioStreamRef))
     actor ! DataRequest
     helper.probeBufferActor.expectMsg(DataRequest)
-    helper.numberOfChildrenCreated should be(2)
+    helper.numberOfChildrenCreated should be(1)
   }
 
-  it should "ignore an AudioStreamResolved message for a wrong stream" in {
+  it should "stop itself if resolving of the audio stream fails" in {
     val helper = new SourceStreamReaderActorTestHelper
     val actor = helper.createTestActor(PlaylistStreamRef)
 
-    actor ! M3uReaderActor.AudioStreamResolved(StreamReference("other"), AudioStreamRef)
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
-    actor ! DataRequest
-    helper.probeBufferActor.expectMsg(DataRequest)
-    helper.numberOfChildrenCreated should be(2)
-  }
-
-  it should "ignore further AudioStreamResolved messages" in {
-    val helper = new SourceStreamReaderActorTestHelper
-    val actor = helper.createTestActor(PlaylistStreamRef)
-
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
-    actor ! DataRequest
-    helper.probeBufferActor.expectMsg(DataRequest)
-    helper.numberOfChildrenCreated should be(2)
+    helper.setM3uResolveResult(Failure(new IllegalStateException("Failure")))
+    val probe = TestProbe()
+    probe watch actor
+    probe.expectTerminated(actor)
   }
 
   it should "park an audio data request until the buffer actor becomes available" in {
@@ -142,7 +131,7 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val actor = helper.createTestActor(PlaylistStreamRef)
 
     actor ! DataRequest
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
+    helper.setM3uResolveResult(Success(AudioStreamRef))
     helper.probeBufferActor.expectMsg(DataRequest)
   }
 
@@ -258,7 +247,9 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     classOf[SourceStreamReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should contain theSameElementsAs List(Config, AudioStreamRef, listener.ref)
+    props.args should have size 4
+    props.args.init should contain theSameElementsAs List(Config, AudioStreamRef, listener.ref)
+    props.args.last shouldBe a[M3uReader]
   }
 
   it should "notify the source listener when an audio stream is passed in" in {
@@ -270,8 +261,8 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
   it should "notify the source listener when the audio stream has been resolved" in {
     val helper = new SourceStreamReaderActorTestHelper
-    val actor = helper.createTestActor(PlaylistStreamRef)
-    actor ! M3uReaderActor.AudioStreamResolved(PlaylistStreamRef, AudioStreamRef)
+    helper.createTestActor(PlaylistStreamRef)
+    helper.setM3uResolveResult(Success(AudioStreamRef))
 
     helper.probeSourceListener.expectMsg(AudioSource(AudioStreamRef.uri, Long.MaxValue, 0, 0))
   }
@@ -297,14 +288,17 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     /** Test probe for the buffer actor. */
     val probeBufferActor: TestProbe = TestProbe()
 
-    /** Test probe for the m3u reader actor. */
-    val m3uReaderActor: TestProbe = TestProbe()
-
     /** Test probe for an audio source listener actor. */
     val probeSourceListener: TestProbe = TestProbe()
 
     /** A counter for the child actors that have been created. */
     private val childCount = new AtomicInteger
+
+    /** The promise for the future returned by the M3uReader mock. */
+    private val m3uPromise = Promise[StreamReference]()
+
+    /** A mock for the object that resolves m3u URIs. */
+    private val m3uReader = createM3uReader()
 
     /**
       * Creates a test actor that operates on the specified reference.
@@ -324,13 +318,51 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     def numberOfChildrenCreated: Int = childCount.get()
 
     /**
+      * Checks whether the M3u reader was invoked to resolve the given stream
+      * reference.
+      *
+      * @param streamRef the expected reference
+      * @return this test helper
+      */
+    def verifyM3uResolveOperation(streamRef: StreamReference): SourceStreamReaderActorTestHelper = {
+      verify(m3uReader, timeout(1000)).resolveAudioStream(argEq(Config), argEq(streamRef))(any(), any())
+      this
+    }
+
+    /**
+      * Sets the result produced by the M3u reader.
+      *
+      * @param result the result
+      * @return this test helper
+      */
+    def setM3uResolveResult(result: Try[StreamReference]): SourceStreamReaderActorTestHelper = {
+      result match {
+        case Failure(exception) => m3uPromise.failure(exception)
+        case Success(value) => m3uPromise.success(value)
+      }
+      this
+    }
+
+    /**
+      * Creates a mock for an ''M3uReader'' and configures it to expect a
+      * resolve operation.
+      *
+      * @return the mock M3u reader
+      */
+    private def createM3uReader(): M3uReader = {
+      val reader = mock[M3uReader]
+      when(reader.resolveAudioStream(any(), any())(any(), any())).thenReturn(m3uPromise.future)
+      reader
+    }
+
+    /**
       * Creates the properties for a test actor.
       *
       * @param streamRef the reference to the stream to be processed
       * @return the properties
       */
     private def createProps(streamRef: StreamReference): Props =
-      Props(new SourceStreamReaderActor(Config, streamRef, probeSourceListener.ref)
+      Props(new SourceStreamReaderActor(Config, streamRef, probeSourceListener.ref, m3uReader)
         with ChildActorFactory {
         /**
           * @inheritdoc This implementation returns corresponding test
@@ -343,10 +375,6 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
             case ClassBufferActor =>
               p.args should contain theSameElementsAs List(Config, AudioStreamRef)
               probeBufferActor.ref
-
-            case ClassM3uReaderActor =>
-              p.args shouldBe empty
-              m3uReaderActor.ref
           }
         }
       })

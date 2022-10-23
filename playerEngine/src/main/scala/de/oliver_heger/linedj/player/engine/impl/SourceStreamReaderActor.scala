@@ -17,20 +17,32 @@
 package de.oliver_heger.linedj.player.engine.impl
 
 import akka.actor.SupervisorStrategy.Escalate
-import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, OneForOneStrategy, PoisonPill, Props, SupervisorStrategy}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.impl.LocalBufferActor.BufferDataResult
 import de.oliver_heger.linedj.player.engine.impl.PlaybackActor.GetAudioData
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
-object SourceStreamReaderActor {
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success}
+
+private object SourceStreamReaderActor {
   /** The extension for m3u URIs. */
   private val ExtM3u = ".m3u"
 
   /** Error message for an unexpected audio data request. */
   private val ErrUnexpectedRequest =
     "[SourceStreamReaderActor] Unexpected request for audio data!"
+
+  /**
+    * A message this actors sends to itself when an audio stream could be
+    * resolved. The m3u data was read, and the final audio stream URL was
+    * discovered.
+    *
+    * @param audioStreamRef the resolved audio stream reference
+    */
+  private case class AudioStreamResolved(audioStreamRef: StreamReference)
 
   /**
     * Returns a flag whether the specified audio stream needs to be resolved
@@ -45,31 +57,33 @@ object SourceStreamReaderActor {
     ref.uri endsWith ExtM3u
 
   private class SourceStreamReaderActorImpl(config: PlayerConfig, streamRef: StreamReference,
-                                            sourceListener: ActorRef)
-    extends SourceStreamReaderActor(config, streamRef, sourceListener) with ChildActorFactory
+                                            sourceListener: ActorRef, m3uReader: M3uReader)
+    extends SourceStreamReaderActor(config, streamRef, sourceListener, m3uReader) with ChildActorFactory
 
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param config    the player configuration
-    * @param streamRef the reference to the audio stream for playback
+    * @param config         the player configuration
+    * @param streamRef      the reference to the audio stream for playback
     * @param sourceListener reference to an actor that is sent an audio source
     *                       message when the final audio stream is available
+    * @param m3uReader      the object to resolve playlist references
     * @return creation properties for a new actor instance
     */
-  def apply(config: PlayerConfig, streamRef: StreamReference, sourceListener: ActorRef): Props =
-    Props(classOf[SourceStreamReaderActorImpl], config, streamRef, sourceListener)
+  def apply(config: PlayerConfig, streamRef: StreamReference, sourceListener: ActorRef,
+            m3uReader: M3uReader = new M3uReader): Props =
+    Props(classOf[SourceStreamReaderActorImpl], config, streamRef, sourceListener, m3uReader)
 }
 
 /**
   * An actor class that reads audio data from an internet radio stream.
   *
   * This actor implements part of the functionality of a data source for
-  * [[PlaybackActor]]. It mainly combines the two actor classes
-  * [[M3uReaderActor]] and [[StreamBufferActor]]. An instance is initialized
+  * [[PlaybackActor]]. It mainly combines resolving of an m3u stream reference
+  * and managing a [[StreamBufferActor]] actor. An instance is initialized
   * with a [[StreamReference]]. If this reference points to a m3u file,
-  * an [[M3uReaderActor]] has to be created to process the file and extract the
+  * an [[M3uReader]] object is used to process the file and extract the
   * actual URI of the audio stream. Otherwise, the reference is considered to
   * already represent the audio stream.
   *
@@ -89,13 +103,14 @@ object SourceStreamReaderActor {
   * An instance of this actor class can only be used for reading a single
   * audio stream. It cannot be reused and has to be closed afterwards.
   *
-  * @param config    the player configuration
-  * @param streamRef the reference to the audio stream for playback
+  * @param config         the player configuration
+  * @param streamRef      the reference to the audio stream for playback
   * @param sourceListener reference to an actor that is sent an audio source
   *                       message when the final audio stream is available
+  * @param m3uReader      the object to resolve playlist references
   */
-class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
-                              sourceListener: ActorRef) extends Actor {
+private class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
+                                      sourceListener: ActorRef, m3uReader: M3uReader) extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
   import SourceStreamReaderActor._
@@ -117,16 +132,26 @@ class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamReference,
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     if (needToResolveAudioStream(streamRef)) {
-      val m3uReader = createChildActor(config.applyBlockingDispatcher(Props[M3uReaderActor]()))
-      m3uReader ! M3uReaderActor.ResolveAudioStream(streamRef)
+      implicit val mat: ActorSystem = context.system
+      implicit val ec: ExecutionContext = context.dispatcher
+      m3uReader.resolveAudioStream(config, streamRef) onComplete { triedReference =>
+        val resultMsg = triedReference match {
+          case Failure(exception) =>
+            log.error("Resolving of stream reference failed.", exception)
+            PoisonPill
+          case Success(value) => AudioStreamResolved(value)
+        }
+        self ! resultMsg
+      }
     } else {
+
       bufferActor = createBufferActor(streamRef)
       sourceListener ! createAudioSourceMsg(streamRef)
     }
   }
 
   override def receive: Receive = {
-    case M3uReaderActor.AudioStreamResolved(m3uRef, ref) if streamRef == m3uRef =>
+    case AudioStreamResolved(ref) =>
       if (bufferActor.isEmpty) {
         bufferActor = createBufferActor(ref)
         sourceListener ! createAudioSourceMsg(ref)
