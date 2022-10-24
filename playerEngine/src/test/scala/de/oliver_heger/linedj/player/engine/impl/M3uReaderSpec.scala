@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -34,6 +34,9 @@ import scala.concurrent.Future
 object M3uReaderSpec {
   /** A test URI of an audio stream. */
   private val AudioStreamUri = "http://aud.io/music.mp3"
+
+  /** A test file name pointing to a playlist which needs to be resolved. */
+  private val PlaylistFile = "playlist.m3u"
 
   /** A reference to the resolved audio stream. */
   private val AudioStreamRef = StreamReference(AudioStreamUri)
@@ -46,8 +49,8 @@ object M3uReaderSpec {
   * Test class for ''M3uReader''.
   */
 class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper
-  with AsyncTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with MockitoSugar
+  with FileTestHelper with AsyncTestHelper {
 
   import M3uReaderSpec._
   import system.dispatcher
@@ -56,7 +59,11 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+  }
+
+  override protected def afterEach(): Unit = {
     tearDownTestFile()
+    super.afterEach()
   }
 
   /**
@@ -78,7 +85,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     * @return a reference to the newly created file
     */
   private def createM3uFile(newline: String, content: String*): StreamReference = {
-    val file = createDataFile(content.mkString(newline))
+    val file = writeFileContent(createPathInDirectory(PlaylistFile), content.mkString(newline))
     StreamReference(file.toUri.toString)
   }
 
@@ -125,6 +132,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val config = mock[PlayerConfig]
     val file = createDataFile(AudioStreamUri)
     val blockingSource = FileIO.fromPath(file)
+    when(ref.uri).thenReturn(PlaylistFile)
     when(ref.createSource(any())(any())).thenReturn(Future.successful(orgSource))
     when(config.applyBlockingDispatcher(orgSource)).thenReturn(blockingSource)
     val reader = new M3uReader()
@@ -132,5 +140,14 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val result = futureResult(reader.resolveAudioStream(config, ref))
 
     result should be(AudioStreamRef)
+  }
+
+  it should "directly return a reference that does not need to be resolved" in {
+    val ref = StreamReference("stream.mp3")
+    val reader = new M3uReader
+
+    val result = futureResult(reader.resolveAudioStream(createConfig(), ref))
+
+    result should be theSameInstanceAs ref
   }
 }

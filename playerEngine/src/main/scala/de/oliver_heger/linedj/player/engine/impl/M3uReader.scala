@@ -21,13 +21,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Framing, Keep, Sink}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.impl.M3uReader.extractUriSink
+import de.oliver_heger.linedj.player.engine.impl.M3uReader.{extractUriSink, needToResolveAudioStream}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object M3uReader {
   /** The default line separator. */
   private val LineSeparator = ByteString("\n")
+
+  /** The extension for m3u URIs. */
+  private val ExtM3u = ".m3u"
 
   /**
     * Returns a sink that extracts the first stream URL referenced from the
@@ -49,10 +52,21 @@ object M3uReader {
     */
   private def splitLines(): Flow[ByteString, ByteString, NotUsed] =
     Framing.delimiter(LineSeparator, 8182, allowTruncation = true)
+
+  /**
+    * Returns a flag whether the specified audio stream needs to be resolved
+    * first before it can be played. This is the case if the stream does not
+    * point to audio data, but to a playlist which references the actual
+    * audio stream.
+    *
+    * @param ref the reference in question
+    * @return '''true''' if this reference needs to be resolved
+    */
+  private def needToResolveAudioStream(ref: StreamReference): Boolean = ref.uri endsWith ExtM3u
 }
 
 /**
-  * An helper class that reads the content of a radio stream URL that ends on
+  * A helper class that reads the content of a radio stream URL that ends on
   * ''.m3u''.
   *
   * Some radio streams have an ''.m3u'' extension; they do not contain MP3 data
@@ -64,9 +78,11 @@ object M3uReader {
   */
 private class M3uReader {
   /**
-    * Tries to resolve the given reference that points to a ''m3u'' file.
-    * Returns a ''Future'' with a reference that points to the actual audio
-    * stream.
+    * Tries to resolve the given reference and return one that points to the
+    * actual audio stream. This function tests whether the passed in reference
+    * refers to a file with the ''m3u'' extension. If this is the case, the
+    * content of the URL is read and the actual stream URL is extracted.
+    * Otherwise, the reference is returned directly.
     *
     * @param config    the ''PlayerConfig''
     * @param reference the reference to resolve
@@ -75,11 +91,14 @@ private class M3uReader {
     * @return a ''Future'' with a reference to the audio stream
     */
   def resolveAudioStream(config: PlayerConfig, reference: StreamReference)
-                        (implicit ec: ExecutionContext, mat: Materializer): Future[StreamReference] = {
-    for {
-      source <- reference.createSource()
-      blockingSource = config.applyBlockingDispatcher(source)
-      streamUri <- blockingSource.runWith(extractUriSink())
-    } yield StreamReference(streamUri)
-  }
+                        (implicit ec: ExecutionContext, mat: Materializer): Future[StreamReference] =
+    if (needToResolveAudioStream(reference)) {
+      for {
+        source <- reference.createSource()
+        blockingSource = config.applyBlockingDispatcher(source)
+        streamUri <- blockingSource.runWith(extractUriSink())
+      } yield StreamReference(streamUri)
+    } else {
+      Future.successful(reference)
+    }
 }
