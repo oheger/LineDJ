@@ -28,9 +28,6 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 private object SourceStreamReaderActor {
-  /** The extension for m3u URIs. */
-  private val ExtM3u = ".m3u"
-
   /** Error message for an unexpected audio data request. */
   private val ErrUnexpectedRequest =
     "[SourceStreamReaderActor] Unexpected request for audio data!"
@@ -43,18 +40,6 @@ private object SourceStreamReaderActor {
     * @param audioStreamRef the resolved audio stream reference
     */
   private case class AudioStreamResolved(audioStreamRef: StreamReference)
-
-  /**
-    * Returns a flag whether the specified audio stream needs to be resolved
-    * first before it can be played. This is the case if the stream does not
-    * point to audio data, but to a playlist which references the actual
-    * audio stream.
-    *
-    * @param ref the reference in question
-    * @return '''true''' if this reference needs to be resolved
-    */
-  private def needToResolveAudioStream(ref: StreamReference): Boolean =
-    ref.uri endsWith ExtM3u
 
   private class SourceStreamReaderActorImpl(config: PlayerConfig, streamRef: StreamReference,
                                             sourceListener: ActorRef, m3uReader: M3uReader)
@@ -131,22 +116,16 @@ private class SourceStreamReaderActor(config: PlayerConfig, streamRef: StreamRef
 
   @scala.throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
-    if (needToResolveAudioStream(streamRef)) {
-      implicit val mat: ActorSystem = context.system
-      implicit val ec: ExecutionContext = context.dispatcher
-      m3uReader.resolveAudioStream(config, streamRef) onComplete { triedReference =>
-        val resultMsg = triedReference match {
-          case Failure(exception) =>
-            log.error("Resolving of stream reference failed.", exception)
-            PoisonPill
-          case Success(value) => AudioStreamResolved(value)
-        }
-        self ! resultMsg
+    implicit val mat: ActorSystem = context.system
+    implicit val ec: ExecutionContext = context.dispatcher
+    m3uReader.resolveAudioStream(config, streamRef) onComplete { triedReference =>
+      val resultMsg = triedReference match {
+        case Failure(exception) =>
+          log.error("Resolving of stream reference failed.", exception)
+          PoisonPill
+        case Success(value) => AudioStreamResolved(value)
       }
-    } else {
-
-      bufferActor = createBufferActor(streamRef)
-      sourceListener ! createAudioSourceMsg(streamRef)
+      self ! resultMsg
     }
   }
 

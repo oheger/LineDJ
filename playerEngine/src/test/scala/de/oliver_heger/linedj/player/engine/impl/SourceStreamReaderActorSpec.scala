@@ -33,7 +33,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -98,12 +98,11 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.numberOfChildrenCreated should be(1)
   }
 
-  it should "resolve a reference to an m3u file" in {
+  it should "resolve all passed in references" in {
     val helper = new SourceStreamReaderActorTestHelper
-    helper.createTestActor(PlaylistStreamRef)
+    helper.createTestActor(AudioStreamRef)
 
-    helper.verifyM3uResolveOperation(PlaylistStreamRef)
-    helper.numberOfChildrenCreated should be(0)
+    helper.verifyM3uResolveOperation(AudioStreamRef)
   }
 
   it should "create a buffer actor when the audio stream is resolved" in {
@@ -345,13 +344,18 @@ class SourceStreamReaderActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     /**
       * Creates a mock for an ''M3uReader'' and configures it to expect a
-      * resolve operation.
+      * resolve operation. If a the reference to be resolved points to a
+      * playlist, the mock returns a promise, and the result can be set later
+      * via ''setM3uResolveResult()''. Otherwise, the mock returns a successful
+      * future with the same reference.
       *
       * @return the mock M3u reader
       */
     private def createM3uReader(): M3uReader = {
       val reader = mock[M3uReader]
-      when(reader.resolveAudioStream(any(), any())(any(), any())).thenReturn(m3uPromise.future)
+      when(reader.resolveAudioStream(any(), argEq(PlaylistStreamRef))(any(), any())).thenReturn(m3uPromise.future)
+      when(reader.resolveAudioStream(any(), argEq(AudioStreamRef))(any(), any()))
+        .thenReturn(Future.successful(AudioStreamRef))
       reader
     }
 
