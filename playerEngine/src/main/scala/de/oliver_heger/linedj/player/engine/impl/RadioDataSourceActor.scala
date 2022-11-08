@@ -115,7 +115,7 @@ object RadioDataSourceActor {
   * a radio stream.
   *
   * This actor class expects messages that identify the radio stream to be
-  * played. For each stream to be played a [[SourceStreamReaderActor]] instance
+  * played. For each stream to be played a [[RadioStreamActor]] instance
   * is created. This actor opens the stream and answers requests for audio
   * data. When another message identifying an audio stream is received the
   * current stream is closed, and playback starts with the new stream. (The
@@ -252,8 +252,7 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
     * @return the new child source reader actor
     */
   private def createSourceReaderActor(r: RadioSource): ActorRef = {
-    val reader = createChildActor(
-      SourceStreamReaderActor(config, StreamReference(r.uri), self))
+    val reader = createChildActor(RadioStreamActor(config, StreamReference(r.uri), self))
     context watch reader
     reader
   }

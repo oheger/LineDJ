@@ -641,8 +641,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param testActor the test actor
       */
     def checkProps(streamUri: String, testActor: ActorRef): Unit = {
-      classOf[SourceStreamReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
-      classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
+      classOf[RadioStreamActor].isAssignableFrom(props.actorClass()) shouldBe true
       props.args should have size 4
       props.args.head should be(Config)
       props.args(1).asInstanceOf[StreamReference].uri should be(streamUri)
