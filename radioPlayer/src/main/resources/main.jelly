@@ -125,7 +125,7 @@
       beanClassName="de.oliver_heger.linedj.radio.RadioController">
       <di:constructor>
         <di:param refName="radioApp_player"/>
-        <di:param refName="radioApp_config"/>
+        <di:param refName="jguiraffe.configuration"/>
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="comp:comboStations"/>

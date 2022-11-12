@@ -196,7 +196,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val ctrl = helper.queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
     ctrl.player should be(helper.player)
-    ctrl.config should be(app.getUserConfiguration)
+    ctrl.config should be(app.getApplicationContext.getConfiguration)
   }
 
   it should "register a listener sink at the radio player" in {

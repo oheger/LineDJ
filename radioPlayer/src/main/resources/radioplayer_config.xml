@@ -23,6 +23,8 @@
   <system config-name="system-config"/>
   <xml config-name="userConfig" fileName="${user.home}/${radioplayer_user_config}"
     config-optional="true" config-forceCreate="true"/>
+  <xml config-name="radioConfig" fileName="${user.home}/.lineDJ-radio-sources.xml"
+    config-optional="true" config-forceCreate="true"/>
   <additional>
     <xml fileName="framework-config.xml"/>
   </additional>
