@@ -15,4 +15,4 @@
  */
 addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.6")
 
-addSbtPlugin("com.github.oheger.sbt" % "sbt-spifly" % "0.3.0")
+addSbtPlugin("com.github.oheger.sbt" % "sbt-spifly" % "0.4.0")
