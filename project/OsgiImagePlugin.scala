@@ -15,7 +15,6 @@
  */
 
 import com.github.oheger.sbt.spifly.SpiFlyKeys
-import com.typesafe.sbt.osgi.OsgiKeys
 import sbt.Keys._
 import sbt.internal.util.ManagedLogger
 import sbt.librarymanagement.{DependencyFilter, ModuleFilter}
@@ -129,8 +128,7 @@ object OsgiImagePlugin extends AutoPlugin {
       sourceImagePaths := Nil,
       osgiImage := {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
-        val projectFiles = (projectArtifactsForTask(SpiFlyKeys.spiFly).value ++
-          projectArtifactsForTask(OsgiKeys.bundle).value)
+        val projectFiles = projectArtifactsForTask(SpiFlyKeys.spiFly).value
           .filter(_.isDefined)
           .map(_.get)
           .distinct
