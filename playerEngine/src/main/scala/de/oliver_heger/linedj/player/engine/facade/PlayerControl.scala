@@ -23,9 +23,9 @@ import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.impl.PlayerFacadeActor.TargetPlaybackActor
+import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.impl.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

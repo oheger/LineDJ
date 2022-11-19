@@ -607,10 +607,8 @@ lazy val playerEngine = (project in file("playerEngine"))
     name := "linedj-player-engine",
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
-      "!de.oliver_heger.linedj.player.engine.impl",
       "de.oliver_heger.linedj.player.engine.*"),
-    OsgiKeys.privatePackage := Seq(
-      "de.oliver_heger.linedj.player.engine.impl.*"),
+    OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn (shared % "compile->compile;test->test")
 
