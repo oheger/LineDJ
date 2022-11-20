@@ -125,7 +125,7 @@ lazy val LineDJ = (project in file("."))
     name := "linedj-parent"
   ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
   reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
-  reorderAlbum, reorderArtist, playerEngine, radioPlayer,
+  reorderAlbum, reorderArtist, playerEngine, radioPlayerEngine, radioPlayer,
   mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
@@ -611,6 +611,22 @@ lazy val playerEngine = (project in file("playerEngine"))
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn (shared % "compile->compile;test->test")
+
+/**
+  * Project for the radio player engine.
+  */
+lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
+  .enablePlugins(SbtSpiFly)
+  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-radio-player-engine",
+    libraryDependencies ++= logDependencies,
+    OsgiKeys.exportPackage := Seq(
+      "de.oliver_heger.linedj.player.engine.radio.*"),
+    OsgiKeys.privatePackage := Seq(),
+    SpiFlyKeys.skipSpiFly := true
+  ) dependsOn (shared % "compile->compile;test->test", playerEngine)
 
 /**
   * Project for the mp3 playback context factory. This is a separate OSGi
