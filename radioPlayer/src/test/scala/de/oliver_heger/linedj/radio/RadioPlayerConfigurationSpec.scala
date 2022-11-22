@@ -24,7 +24,7 @@ import scala.concurrent.duration._
 
 object RadioPlayerConfigurationSpec {
   /** The name of the test configuration file. */
-  private val ConfigFile = ".lineDJ-radioplayer.xml"
+  private val ConfigFile = "test-radio-configuration.xml"
 
   /**
     * Reads the test configuration file.

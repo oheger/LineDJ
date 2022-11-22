@@ -16,14 +16,6 @@
 -->
 <!-- Test configuration file for the radio player application -->
 <configuration>
-<framework>
-<frame>
-<xpos>1203</xpos>
-<ypos>349</ypos>
-<width>487</width>
-<height>218</height>
-</frame>
-</framework>
 <radio>
   <initialDelay>1500</initialDelay>
   <error>
