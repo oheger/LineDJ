@@ -18,13 +18,12 @@ package de.oliver_heger.linedj.player.engine.actors.schedule
 
 import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{PlayerEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.{PlayerEvent, RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
@@ -572,8 +571,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param event the expected ''PlayerEvent''
       * @return this helper
       */
-    def expectReplacementEvent(event: PlayerEvent): RadioSchedulerActorTestHelper = {
-      val eventMsg = eventActorProbe.expectMsgType[PlayerEvent]
+    def expectReplacementEvent(event: RadioEvent): RadioSchedulerActorTestHelper = {
+      val eventMsg = eventActorProbe.expectMsgType[RadioEvent]
       checkCurrentDate(eventMsg.time)
       val eventWithTime = event match {
         case e: RadioSourceReplacementStartEvent =>

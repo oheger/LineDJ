@@ -17,12 +17,11 @@
 package de.oliver_heger.linedj.player.engine.actors
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
-
 import akka.Done
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Sink
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlayerEvent, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -46,8 +45,9 @@ object EventManagerActorSpec {
     *
     * @param queue the queue
     * @return the test sink
+    * @tparam E the type of the events to process
     */
-  private def queuingSink(queue: BlockingQueue[PlayerEvent]): Sink[PlayerEvent, Future[Done]] =
+  private def queuingSink[E](queue: BlockingQueue[E]): Sink[E, Future[Done]] =
     Sink.foreach(e => queue.offer(e))
 
   /**
@@ -55,8 +55,9 @@ object EventManagerActorSpec {
     *
     * @param actor  the test actor
     * @param events the sequence of events to be published
+    * @tparam E the type of the events to publish
     */
-  private def publishEvents(actor: ActorRef, events: PlayerEvent*): Unit = {
+  private def publishEvents[E](actor: ActorRef, events: E*): Unit = {
     events foreach (e => actor ! e)
   }
 }
@@ -79,10 +80,10 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     *
     * @param expected the expected events
     * @param queue    the queue to which received events are added
+    * @tparam E the type of the events to receive
     */
-  private def expectQueuedEvents(expected: List[PlayerEvent], queue: BlockingQueue[PlayerEvent]):
-  Unit = {
-    @tailrec def go(expList: List[PlayerEvent]): Unit = {
+  private def expectQueuedEvents[E <: AnyRef](expected: List[E], queue: BlockingQueue[E]): Unit = {
+    @tailrec def go(expList: List[E]): Unit = {
       expList match {
         case h :: t =>
           val event = queue.poll(QueueTimeout, TimeUnit.SECONDS)
@@ -120,5 +121,19 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     publishEvents(actor, events._2: _*)
     expectQueuedEvents(events._1, queue1)
     expectQueuedEvents(Events, queue2)
+  }
+
+  it should "propagate radio events as well" in {
+    val TestRadioSource = RadioSource("https://www.example.org/radio/test.mp3")
+    val RadioEvents = List(RadioSourceChangedEvent(TestRadioSource), RadioSourceErrorEvent(TestRadioSource),
+      RadioSourceReplacementStartEvent(TestRadioSource, RadioSource("https://www.example.org/radio/other.mp3")),
+      RadioSourceReplacementEndEvent(TestRadioSource))
+    val queue = new LinkedBlockingQueue[RadioEvent]
+    val sink = queuingSink(queue)
+    val actor = system.actorOf(Props[EventManagerActor]())
+
+    actor ! EventManagerActor.RegisterSink(3, sink)
+    publishEvents(actor, RadioEvents: _*)
+    expectQueuedEvents(RadioEvents, queue)
   }
 }

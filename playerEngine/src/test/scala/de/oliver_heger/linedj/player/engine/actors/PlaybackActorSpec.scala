@@ -2,7 +2,6 @@ package de.oliver_heger.linedj.player.engine.actors
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -12,6 +11,7 @@ import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor._
+
 import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException, SourceDataLine}
 import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
@@ -21,6 +21,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.LocalDateTime
 import scala.concurrent.duration._
 
 object PlaybackActorSpec {
@@ -90,7 +91,7 @@ object PlaybackActorSpec {
   */
 class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
-  with EventTestSupport {
+  with EventTestSupport[PlayerEvent] {
 
   import PlaybackActorSpec._
 
@@ -1060,6 +1061,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor receive PlaybackActor.RemovePlaybackContextFactory(factory1)
     actor.underlyingActor.combinedPlaybackContextFactory.subFactories should contain only factory2
   }
+
+  override protected val eventTimeExtractor: PlayerEvent => LocalDateTime = _.time
 }
 
 /**

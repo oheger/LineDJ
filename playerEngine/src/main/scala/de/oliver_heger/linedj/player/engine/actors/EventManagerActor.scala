@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.{Actor, ActorRef}
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import de.oliver_heger.linedj.player.engine.PlayerEvent
+import de.oliver_heger.linedj.player.engine.{PlayerEvent, RadioEvent}
 
 object EventManagerActor {
   /** The buffer size used by the actorRef sources. */
@@ -81,6 +81,18 @@ class EventManagerActor extends Actor {
       listeners = listeners - id
 
     case e: PlayerEvent =>
-      listeners.values foreach (_ ! e)
+      propagateEvent(e)
+
+    case e: RadioEvent =>
+      propagateEvent(e)
+  }
+
+  /**
+    * Sends the given event object to the registered listener sinks.
+    *
+    * @param e the event to propagate
+    */
+  private def propagateEvent(e: AnyRef): Unit = {
+    listeners.values foreach (_ ! e)
   }
 }

@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.player.engine.actors
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -30,6 +29,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.time.LocalDateTime
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -88,7 +88,7 @@ object RadioDataSourceActorSpec {
   */
 class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
-  with EventTestSupport {
+  with EventTestSupport[RadioEvent] {
 
   import RadioDataSourceActorSpec._
 
@@ -602,7 +602,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @tparam T the type of the expected event
       * @return the event
       */
-    def expectPlayerEvent[T <: PlayerEvent](implicit t: ClassTag[T]): T =
+    def expectPlayerEvent[T <: RadioEvent](implicit t: ClassTag[T]): T =
       expectEvent[T](eventManager)
 
     /**
@@ -661,6 +661,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
   }
 
+  override protected val eventTimeExtractor: RadioEvent => LocalDateTime = _.time
 }
 
 /**

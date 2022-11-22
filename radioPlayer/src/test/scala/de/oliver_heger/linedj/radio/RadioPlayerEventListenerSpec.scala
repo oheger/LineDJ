@@ -117,7 +117,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
       * @param event     the event
       * @param optSource the optional player as source
       */
-    def sendEvent(event: PlayerEvent, optSource: Option[RadioPlayer] = None):
+    def sendEvent(event: Any, optSource: Option[RadioPlayer] = None):
     RadioPlayerEventListenerTestHelper = {
       listener receive createRadioPlayerEvent(event, optSource)
       this
@@ -130,7 +130,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
       * @param optSource the optional player as source
       * @return the radio player event
       */
-    def createRadioPlayerEvent(event: PlayerEvent, optSource: Option[RadioPlayer]):
+    def createRadioPlayerEvent(event: Any, optSource: Option[RadioPlayer]):
     RadioPlayerEvent =
       RadioPlayerEvent(event, optSource getOrElse player)
 

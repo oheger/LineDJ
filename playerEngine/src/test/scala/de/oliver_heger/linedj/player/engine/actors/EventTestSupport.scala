@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.player.engine.actors
 import java.time.LocalDateTime
 
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.player.engine.PlayerEvent
 import org.scalatest.matchers.should.Matchers
 
 import scala.reflect.ClassTag
@@ -30,8 +29,11 @@ import scala.reflect.ClassTag
   *
   * This trait offers functionality for expecting events to be passed to a test
   * probe. It is checked whether the event time lies in a reasonable range.
+  *
+  * @tparam EVENT the event type to be handled
   */
-trait EventTestSupport extends TestKit with Matchers {
+trait EventTestSupport[EVENT] {
+  this: TestKit with Matchers =>
   /**
     * Expects that an event is received and checks the event time.
     *
@@ -40,10 +42,17 @@ trait EventTestSupport extends TestKit with Matchers {
     * @tparam T the expected event type
     * @return the received event
     */
-  def expectEvent[T <: PlayerEvent](probe: TestProbe)(implicit t: ClassTag[T]): T = {
+  def expectEvent[T <: EVENT](probe: TestProbe)(implicit t: ClassTag[T]): T = {
     val event = probe.expectMsgType[T]
-    val diff = java.time.Duration.between(event.time, LocalDateTime.now())
+    val diff = java.time.Duration.between(eventTimeExtractor(event), LocalDateTime.now())
     diff.toMillis should be < 250L
     event
   }
+
+  /**
+    * Returns a function to extract the time of an event.
+    *
+    * @return the function to extract the event time
+    */
+  protected def eventTimeExtractor: EVENT => LocalDateTime
 }

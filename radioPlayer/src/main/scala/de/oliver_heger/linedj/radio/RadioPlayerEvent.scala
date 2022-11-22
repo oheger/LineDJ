@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 
 /**
@@ -31,4 +30,4 @@ import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
   * @param event  the wrapped event from the player
   * @param player the player which is the source of the event
   */
-case class RadioPlayerEvent(event: PlayerEvent, player: RadioPlayer)
+case class RadioPlayerEvent(event: Any, player: RadioPlayer)
