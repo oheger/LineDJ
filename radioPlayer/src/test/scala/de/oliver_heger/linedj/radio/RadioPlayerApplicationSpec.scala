@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.radio
 
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.pattern.AskTimeoutException
@@ -29,7 +28,7 @@ import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory}
 import org.apache.commons.configuration.Configuration
 import org.mockito.ArgumentCaptor

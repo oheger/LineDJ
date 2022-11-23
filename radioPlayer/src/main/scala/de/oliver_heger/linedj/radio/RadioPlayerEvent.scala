@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 /**
   * A data class representing an event fired by the radio player.

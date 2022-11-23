@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec

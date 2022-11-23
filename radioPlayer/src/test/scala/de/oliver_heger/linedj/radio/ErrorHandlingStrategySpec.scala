@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.radio
 
-import java.time.LocalDateTime
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
+import java.time.LocalDateTime
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._

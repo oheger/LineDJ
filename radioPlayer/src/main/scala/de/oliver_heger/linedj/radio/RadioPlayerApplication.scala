@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.platform.app.ShutdownHandler.ShutdownCompletionNot
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ShutdownHandler}
 import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
@@ -174,9 +174,9 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * @param player the radio player
     * @return the event listener sink
     */
-  private def createPlayerListenerSink(player: RadioPlayer): Sink[PlayerEvent, _] = {
+  private def createPlayerListenerSink(player: RadioPlayer): Sink[AnyRef, _] = {
     val messageBus = clientApplicationContext.messageBus
-    Sink.foreach[PlayerEvent] { e =>
+    Sink.foreach[AnyRef] { e =>
       messageBus.publish(RadioPlayerEvent(e, player))
     }
   }

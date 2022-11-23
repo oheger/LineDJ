@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
-
-import java.time.LocalDateTime
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
 import akka.actor.Actor
 import akka.pattern.pipe
-import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery,
-IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.actors.schedule.EvaluateIntervalsActor
-.{EvaluateReplacementSources, EvaluateReplacementSourcesResponse, EvaluateSource,
-EvaluateSourceResponse}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery, IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.{EvaluateReplacementSources, EvaluateReplacementSourcesResponse, EvaluateSource, EvaluateSourceResponse}
 
+import java.time.LocalDateTime
 import scala.concurrent.Future
 
 object EvaluateIntervalsActor {

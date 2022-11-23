@@ -17,10 +17,9 @@
 package de.oliver_heger.linedj.radio
 
 import java.util.concurrent.atomic.AtomicInteger
-
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}

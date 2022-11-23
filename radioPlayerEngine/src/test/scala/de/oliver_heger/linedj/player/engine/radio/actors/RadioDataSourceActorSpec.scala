@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors
+package de.oliver_heger.linedj.player.engine.radio.actors
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -24,12 +23,15 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
+import de.oliver_heger.linedj.player.engine.actors._
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.time.LocalDateTime
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 

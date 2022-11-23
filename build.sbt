@@ -626,7 +626,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared % "compile->compile;test->test", playerEngine)
+  ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
 
 /**
   * Project for the mp3 playback context factory. This is a separate OSGi
@@ -674,7 +674,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine)
 
 /**
   * Project for the remote media interface. This project establishes a

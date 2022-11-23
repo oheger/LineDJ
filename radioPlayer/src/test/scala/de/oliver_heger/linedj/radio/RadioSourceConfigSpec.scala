@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import java.time.{LocalDateTime, Month}
-
-import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

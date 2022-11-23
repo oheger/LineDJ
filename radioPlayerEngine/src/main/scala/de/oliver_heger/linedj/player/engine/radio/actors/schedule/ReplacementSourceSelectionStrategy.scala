@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
-import java.time.LocalDateTime
-
-import de.oliver_heger.linedj.player.engine.RadioSource
-import de.oliver_heger.linedj.player.engine.RadioSource.Ranking
+import de.oliver_heger.linedj.player.engine.radio.RadioSource.Ranking
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 
+import java.time.LocalDateTime
 import scala.util.Random
 
 /**

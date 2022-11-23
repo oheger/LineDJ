@@ -21,11 +21,12 @@ import akka.Done
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.stream.scaladsl.Sink
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlayerEvent, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.Future
 
@@ -123,17 +124,14 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectQueuedEvents(Events, queue2)
   }
 
-  it should "propagate radio events as well" in {
-    val TestRadioSource = RadioSource("https://www.example.org/radio/test.mp3")
-    val RadioEvents = List(RadioSourceChangedEvent(TestRadioSource), RadioSourceErrorEvent(TestRadioSource),
-      RadioSourceReplacementStartEvent(TestRadioSource, RadioSource("https://www.example.org/radio/other.mp3")),
-      RadioSourceReplacementEndEvent(TestRadioSource))
-    val queue = new LinkedBlockingQueue[RadioEvent]
+  it should "propagate other events as well" in {
+    val OtherEvents = List("aTestEvent", List(1, 2, 3), new AtomicInteger(42))
+    val queue = new LinkedBlockingQueue[AnyRef]
     val sink = queuingSink(queue)
     val actor = system.actorOf(Props[EventManagerActor]())
 
     actor ! EventManagerActor.RegisterSink(3, sink)
-    publishEvents(actor, RadioEvents: _*)
-    expectQueuedEvents(RadioEvents, queue)
+    publishEvents(actor, OtherEvents: _*)
+    expectQueuedEvents(OtherEvents, queue)
   }
 }

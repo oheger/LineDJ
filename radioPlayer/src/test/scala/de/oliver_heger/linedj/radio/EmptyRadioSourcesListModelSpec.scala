@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors
+package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink

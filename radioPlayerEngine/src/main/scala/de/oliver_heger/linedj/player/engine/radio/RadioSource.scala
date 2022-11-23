@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine
+package de.oliver_heger.linedj.player.engine.radio
 
 object RadioSource {
   /**

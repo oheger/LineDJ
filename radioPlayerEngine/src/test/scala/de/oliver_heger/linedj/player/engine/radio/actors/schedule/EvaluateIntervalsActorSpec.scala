@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
-
-import java.time.{LocalDateTime, Month}
-import java.util.concurrent.atomic.AtomicReference
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import de.oliver_heger.linedj.player.engine.RadioSource
-import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
+import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import java.time.{LocalDateTime, Month}
+import java.util.concurrent.atomic.AtomicReference
 
 object EvaluateIntervalsActorSpec {
   /**

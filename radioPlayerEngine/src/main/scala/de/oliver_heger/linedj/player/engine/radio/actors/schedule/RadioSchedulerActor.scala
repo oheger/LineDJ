@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
-
-import java.time.{Duration, LocalDateTime}
-import java.util.concurrent.TimeUnit
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
-import de.oliver_heger.linedj.player.engine.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
+import java.time.{Duration, LocalDateTime}
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 object RadioSchedulerActor {

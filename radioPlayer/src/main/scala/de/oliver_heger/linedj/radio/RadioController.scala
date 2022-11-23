@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.platform.ui.DurationTransformer
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors
+package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.scaladsl.FileIO
@@ -24,9 +24,9 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Future

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import org.apache.commons.configuration.Configuration
 
 import scala.annotation.tailrec
@@ -312,7 +312,7 @@ object ErrorHandlingStrategy {
   * Because of failing network connections or temporarily unavailable radio
   * sources it is always possible that radio playback causes an error. This is
   * reflected by the radio player in form of
-  * [[de.oliver_heger.linedj.player.engine.RadioSourceErrorEvent]] events.
+  * [[RadioSourceErrorEvent]] events.
   * When such an event occurs it has to be handled accordingly.
   *
   * This strategy class is responsible for handling such events. It is passed

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.radio
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 /**
   * An internally used helper class for creating a [[RadioPlayer]] instance.

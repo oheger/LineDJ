@@ -52,7 +52,7 @@ object PlayerControl {
     *                  standard name is to be used)
     * @return the reference to the line writer actor
     */
-  private[facade] def createLineWriterActor(config: PlayerConfig,
+  def createLineWriterActor(config: PlayerConfig,
                                             actorName: String = LineWriterActorName): ActorRef =
     config.actorCreator(createLineWriterActorProps(config), actorName)
 

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors
+package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Framing, Keep, Sink}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.actors.M3uReader.{extractUriSink, needToResolveAudioStream}
+import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{extractUriSink, needToResolveAudioStream}
 
 import scala.concurrent.{ExecutionContext, Future}
 

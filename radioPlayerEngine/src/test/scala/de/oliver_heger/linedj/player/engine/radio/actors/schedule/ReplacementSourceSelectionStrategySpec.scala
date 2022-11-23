@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
-import java.time.{LocalDateTime, Month}
-
-import de.oliver_heger.linedj.player.engine.RadioSource
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.time.{LocalDateTime, Month}
 
 object ReplacementSourceSelectionStrategySpec {
   /**

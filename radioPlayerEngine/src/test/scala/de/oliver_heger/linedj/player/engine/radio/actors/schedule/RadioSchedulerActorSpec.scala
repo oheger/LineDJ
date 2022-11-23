@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
-import java.time.{Duration, LocalDateTime}
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{PlayerEvent, RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
+import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -35,6 +34,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.{Duration, LocalDateTime}
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import scala.concurrent.duration._
 
 object RadioSchedulerActorSpec {

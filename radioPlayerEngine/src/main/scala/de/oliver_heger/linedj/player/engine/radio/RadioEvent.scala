@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine
+package de.oliver_heger.linedj.player.engine.radio
+
+import de.oliver_heger.linedj.player.engine.AudioSourceFinishedEvent
 
 import java.time.LocalDateTime
 
