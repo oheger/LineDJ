@@ -18,13 +18,14 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.IOResult
-import akka.stream.scaladsl.{Source, StreamConverters}
+import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
+import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito.{timeout, verify, when}
@@ -34,11 +35,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.io.{ByteArrayInputStream, IOException, InputStream}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.annotation.tailrec
-import scala.collection.mutable
+import java.io.{ByteArrayInputStream, InputStream}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -52,146 +50,8 @@ object RadioStreamActorSpec {
   /** Constant for the size of the managed buffer. */
   private val BufferSize = 16384
 
-  /** Constant for the read chunk size. */
-  private val ChunkSize = 4096
-
   /** Test configuration to be used by tests. */
   private val Config = createConfig()
-
-  /**
-    * A case class that represents a read operation on the wrapped input stream.
-    * The data does not matter, only the size is relevant.
-    *
-    * @param requestSize the size of the read request
-    * @param resultSize  the number of bytes returned by the operation
-    * @param at          the time when the operation was executed
-    */
-  private case class ReadOperation(requestSize: Int, resultSize: Int, at: Long)
-
-  /**
-    * A test stream class that can generate an infinite sequence of test data.
-    */
-  private class TestDataGeneratorStream extends InputStream {
-    private val data = new mutable.StringBuilder
-
-    override def read(): Int = {
-      throw new UnsupportedOperationException("Unexpected method call!")
-    }
-
-    /**
-      * @inheritdoc This implementation generates a chunk of data and copies it
-      *             into the provided buffer.
-      */
-    override def read(b: Array[Byte]): Int = {
-      @tailrec def fillBuffer(len: Int): Unit = {
-        if (data.length < len) {
-          data append FileTestHelper.TestData
-          fillBuffer(len)
-        }
-      }
-
-      val len = b.length
-      fillBuffer(len)
-      val bytes = data.substring(0, len).getBytes("utf-8")
-      data.delete(0, len)
-      System.arraycopy(bytes, 0, b, 0, len)
-      len
-    }
-  }
-
-  /**
-    * A stream class that records all read operations executed. The data about
-    * read operations is stored in a queue which can be queried by clients.
-    */
-  private class MonitoringStream extends TestDataGeneratorStream {
-    /** The queue that stores information about read operations. */
-    val readQueue = new LinkedBlockingQueue[ReadOperation]
-
-    /** A flag whether this stream has been closed. */
-    val closed = new AtomicInteger
-
-    /**
-      * Expects a read operation on this stream and returns the corresponding
-      * operation object. This method fails if no read was performed in a
-      * certain timeout.
-      *
-      * @return the ''ReadOperation''
-      */
-    def expectRead(): ReadOperation = {
-      val op = readQueue.poll(3, TimeUnit.SECONDS)
-      if (op == null) throw new AssertionError("No read operation within timeout!")
-      op
-    }
-
-    /**
-      * Expects that no read operation is performed within a certain timeout.
-      */
-    def expectNoRead(): Unit = {
-      val op = readQueue.poll(500, TimeUnit.MILLISECONDS)
-      if (op != null) {
-        throw new AssertionError("Expected no read operation, but was " + op)
-      }
-    }
-
-    /**
-      * Expects a series of read operations until the specified size is
-      * reached.
-      *
-      * @param size the expected size
-      * @return the reverse sequence of read operations
-      */
-    def expectReadsUntil(size: Int): List[ReadOperation] = {
-      @tailrec def go(currentSize: Int, reads: List[ReadOperation]): List[ReadOperation] = {
-        if (currentSize >= size) reads
-        else {
-          val op = expectRead()
-          go(currentSize + op.resultSize, op :: reads)
-        }
-      }
-
-      go(0, Nil)
-    }
-
-    /**
-      * @inheritdoc This implementation adds corresponding ''ReadOperation''
-      *             instances to the queue.
-      */
-    override def read(b: Array[Byte]): Int = {
-      val result = super.read(b)
-      readQueue add ReadOperation(b.length, result, System.nanoTime())
-      result
-    }
-
-    /**
-      * @inheritdoc Records this close operation.
-      */
-    override def close(): Unit = {
-      closed.incrementAndGet()
-      super.close()
-    }
-  }
-
-  /**
-    * A test stream class that throws an exception after some chunks of data
-    * have been read. This is used to test error handling for streams.
-    */
-  private class FailingStream extends TestDataGeneratorStream {
-    /** A counter for the number of generated bytes. */
-    private val bytesCount = new AtomicInteger
-
-    /**
-      * @inheritdoc This implementation throws an exception after a certain
-      *             amount of data has been generated.
-      */
-    override def read(b: Array[Byte]): Int = {
-      bytesCount.addAndGet(b.length)
-      if (bytesCount.get() > 3 * ChunkSize) {
-        throw new IOException("Test exception when reading stream.")
-      }
-
-      super.read(b)
-    }
-  }
 
   /**
     * Creates test configuration.
@@ -201,26 +61,6 @@ object RadioStreamActorSpec {
   private def createConfig(): PlayerConfig =
     PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
       bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
-
-  /**
-    * Generates a sequence of reference test data in the given range.
-    *
-    * @param size       the size of the sequence
-    * @param skipChunks the number of chunks to skip
-    * @return the array with the given range of test data
-    */
-  private def refData(size: Int, skipChunks: Int = 0): Array[Byte] = {
-    val refStream = new TestDataGeneratorStream
-
-    if (skipChunks > 0) {
-      val skipBuf = new Array[Byte](ChunkSize)
-      (1 to skipChunks) foreach (_ => refStream read skipBuf)
-    }
-
-    val refBuf = new Array[Byte](size)
-    refStream read refBuf
-    refBuf
-  }
 }
 
 /**
@@ -250,23 +90,12 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val ref = mock[StreamReference]
     when(ref.uri).thenReturn(uri)
     when(ref.createSource(any())(any())).thenAnswer((invocation: InvocationOnMock) => {
-      val source = createSourceFromStream(stream, invocation.getArgument(0))
+      val source = RadioStreamTestHelper.createSourceFromStream(stream, invocation.getArgument(0))
       Future.successful(source)
     })
 
     ref
   }
-
-  /**
-    * Creates a source for a test stream.
-    *
-    * @param stream   the underlying stream
-    * @param chunkSze the chunk size to read from the stream
-    * @return the source for this stream
-    */
-  private def createSourceFromStream(stream: InputStream = new TestDataGeneratorStream,
-                                     chunkSze: Int = ChunkSize): Source[ByteString, Future[IOResult]] =
-    StreamConverters.fromInputStream(() => stream, chunkSze)
 
   /**
     * Expects that the given actor gets terminated.
@@ -337,10 +166,10 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     val msg1 = expectMsgType[BufferDataResult]
     msg1.data.length should be(ChunkSize)
-    msg1.data.toArray should be(refData(ChunkSize))
+    msg1.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize))
     val msg2 = expectMsgType[BufferDataResult]
     msg2.data.length should be(ChunkSize)
-    msg2.data.toArray should be(refData(ChunkSize, skipChunks = 1))
+    msg2.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize, skipChunks = 1))
   }
 
   it should "fill the buffer again when data has been read" in {
@@ -364,7 +193,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.setM3uResolveResult(Success(createStreamRef()))
 
     val msg = expectMsgType[BufferDataResult]
-    msg.data.toArray should be(refData(ChunkSize))
+    msg.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize))
   }
 
   it should "handle a close request by closing the stream" in {
@@ -404,7 +233,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.setM3uResolveResult(Success(ref))
     awaitCond(sourceRequested.get())
     actor ! CloseRequest
-    promiseSource.success(createSourceFromStream())
+    promiseSource.success(RadioStreamTestHelper.createSourceFromStream())
 
     expectMsg(CloseAck(actor))
   }
