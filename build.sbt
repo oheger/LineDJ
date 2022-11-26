@@ -59,6 +59,12 @@ lazy val akkaDependencies = Seq(
   "org.scala-lang" % "scala-reflect" % VersionScala
 )
 
+/** Dependencies required for using Akka HTTP. */
+lazy val akkaHttpDependencies = Seq(
+  "com.typesafe.akka" %% "akka-http" % VersionAkkaHttp,
+  "com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp,
+)
+
 /**
   * Additional dependencies to drag in all the bundles to enable remote access
   * to actors, including serialization.
@@ -245,8 +251,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "com.typesafe.akka" %% "akka-http" % VersionAkkaHttp,
-    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp,
+    libraryDependencies ++= akkaHttpDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
@@ -622,6 +627,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
   .settings(
     name := "linedj-radio-player-engine",
     libraryDependencies ++= logDependencies,
+    libraryDependencies ++= akkaHttpDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq(),
