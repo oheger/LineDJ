@@ -17,11 +17,12 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
+import akka.http.scaladsl.model.HttpRequest
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Framing, Keep, Sink}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{extractUriSink, needToResolveAudioStream}
+import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{extractUriSink, needToResolveAudioStream, streamRequest}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -63,6 +64,15 @@ object M3uReader {
     * @return '''true''' if this reference needs to be resolved
     */
   private def needToResolveAudioStream(ref: StreamReference): Boolean = ref.uri endsWith ExtM3u
+
+  /**
+    * Return an HTTP request to load the stream referred to by the given
+    * reference.
+    *
+    * @param ref the reference to the stream
+    * @return the HTTP request to load this stream
+    */
+  private def streamRequest(ref: StreamReference): HttpRequest = HttpRequest(uri = ref.uri)
 }
 
 /**
@@ -75,8 +85,10 @@ object M3uReader {
   * audio stream. This is done by simply reading the content of the referenced
   * URL and returning the first line that is not empty or starts with a comment
   * character.
+  *
+  * @param loader the [[HttpStreamLoader]] to use for sending HTTP requests
   */
-private class M3uReader {
+private class M3uReader(loader: HttpStreamLoader) {
   /**
     * Tries to resolve the given reference and return one that points to the
     * actual audio stream. This function tests whether the passed in reference
@@ -94,9 +106,9 @@ private class M3uReader {
                         (implicit ec: ExecutionContext, mat: Materializer): Future[StreamReference] =
     if (needToResolveAudioStream(reference)) {
       for {
-        source <- reference.createSource()
-        blockingSource = config.applyBlockingDispatcher(source)
-        streamUri <- blockingSource.runWith(extractUriSink())
+        response <- loader.sendRequest(streamRequest(reference))
+        source = response.entity.dataBytes
+        streamUri <- source.runWith(extractUriSink())
       } yield StreamReference(streamUri)
     } else {
       Future.successful(reference)

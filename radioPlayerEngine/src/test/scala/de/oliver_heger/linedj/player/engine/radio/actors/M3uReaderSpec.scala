@@ -17,8 +17,10 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.stream.scaladsl.FileIO
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
+import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
+import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
@@ -29,17 +31,21 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
 import scala.concurrent.Future
 
 object M3uReaderSpec {
   /** A test URI of an audio stream. */
   private val AudioStreamUri = "http://aud.io/music.mp3"
 
-  /** A test file name pointing to a playlist which needs to be resolved. */
-  private val PlaylistFile = "playlist.m3u"
+  /** A test URI pointing to a playlist which needs to be resolved. */
+  private val PlaylistUri = "https://www.example.org/music/playlist.m3u"
 
   /** A reference to the resolved audio stream. */
   private val AudioStreamRef = StreamReference(AudioStreamUri)
+
+  /** A reference pointing to a playlist that needs to be resolved. */
+  private val PlaylistStreamRef = StreamReference(PlaylistUri)
 
   /** The default newline character. */
   private val Newline = "\n"
@@ -75,79 +81,82 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     PlayerConfig(mediaManagerActor = mock[ActorRef], actorCreator = mock[ActorCreator])
 
   /**
-    * Creates a test m3u file with the specified content and returns a
-    * reference to it. The content can consist of multiple lines; each provided
-    * string is added as a single line, terminated by the given newline
-    * character.
+    * Creates a mock [[HttpStreamLoader]] that is prepared to handle a request
+    * for the playlist stream reference. It yields a successful response with
+    * the specified content. The content can consist of multiple lines; each
+    * provided string is added as a single line, terminated by the given
+    * newline character.
     *
     * @param newline the newline character
     * @param content the content of the file (as single lines)
-    * @return a reference to the newly created file
+    * @return the mock stream loader
     */
-  private def createM3uFile(newline: String, content: String*): StreamReference = {
-    val file = writeFileContent(createPathInDirectory(PlaylistFile), content.mkString(newline))
-    StreamReference(file.toUri.toString)
+  private def createStreamLoaderMock(newline: String, content: String*): HttpStreamLoader = {
+    val loader = mock[HttpStreamLoader]
+
+    val expRequest = HttpRequest(uri = PlaylistUri)
+    val data = ByteString(content.mkString(newline)).grouped(128)
+    val source = Source(data.toList)
+    val response = HttpResponse(entity = HttpEntity(ContentTypes.`application/octet-stream`, source))
+    when(loader.sendRequest(expRequest)).thenReturn(Future.successful(response))
+
+    loader
   }
 
   /**
     * Tests an invocation of the function to resolve an audio stream.
     *
-    * @param ref the reference to the audio stream
+    * @param loader the mock stream loader to use
     */
-  private def checkResolveAudioStream(ref: StreamReference): Unit = {
-    val reader = new M3uReader()
+  private def checkResolveAudioStream(loader: HttpStreamLoader): Unit = {
+    val reader = new M3uReader(loader)
 
-    val result = futureResult(reader.resolveAudioStream(createConfig(), ref))
+    val result = futureResult(reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
 
     result should be(AudioStreamRef)
   }
 
   "A M3uReaderActor" should "extract the audio stream URI from a simple m3u file" in {
-    checkResolveAudioStream(createM3uFile(Newline, AudioStreamUri))
+    checkResolveAudioStream(createStreamLoaderMock(Newline, AudioStreamUri))
   }
 
   it should "skip comment lines" in {
-    checkResolveAudioStream(createM3uFile(Newline, "# Comment", "#other comment", AudioStreamUri))
+    checkResolveAudioStream(createStreamLoaderMock(Newline, "# Comment", "#other comment", AudioStreamUri))
   }
 
   it should "skip empty lines" in {
-    checkResolveAudioStream(createM3uFile(Newline, "", "#Header", AudioStreamUri))
+    checkResolveAudioStream(createStreamLoaderMock(Newline, "", "#Header", AudioStreamUri))
   }
 
   it should "deal with \\r\\n as line separator" in {
-    checkResolveAudioStream(createM3uFile("\r\n", "# Comment", "", "#other comment", AudioStreamUri))
+    checkResolveAudioStream(createStreamLoaderMock("\r\n", "# Comment", "", "#other comment", AudioStreamUri))
   }
 
   it should "return a failed future if no stream URI is found" in {
-    val ref = createM3uFile(Newline, "#only comments", "", "# and empty lines", "")
-    val reader = new M3uReader()
+    val loader = createStreamLoaderMock(Newline, "#only comments", "", "# and empty lines", "")
+    val reader = new M3uReader(loader)
 
-    expectFailedFuture[NoSuchElementException](reader.resolveAudioStream(createConfig(), ref))
+    expectFailedFuture[NoSuchElementException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
   }
 
-  it should "open the stream on a blocking dispatcher" in {
-    val dummyRef = createM3uFile(Newline, "anotherURI")
-    val orgSource = futureResult(dummyRef.createSource())
-    val ref = mock[StreamReference]
-    val config = mock[PlayerConfig]
-    val file = createDataFile(AudioStreamUri)
-    val blockingSource = FileIO.fromPath(file)
-    when(ref.uri).thenReturn(PlaylistFile)
-    when(ref.createSource(any())(any())).thenReturn(Future.successful(orgSource))
-    when(config.applyBlockingDispatcher(orgSource)).thenReturn(blockingSource)
-    val reader = new M3uReader()
+  it should "handle a failed result from the stream loader" in {
+    val exception = new IOException("Test exception: Could not load stream :-(")
+    val loader = mock[HttpStreamLoader]
+    when(loader.sendRequest(any())).thenReturn(Future.failed(exception))
+    val reader = new M3uReader(loader)
 
-    val result = futureResult(reader.resolveAudioStream(config, ref))
-
-    result should be(AudioStreamRef)
+    val actualException =
+      expectFailedFuture[IOException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+    actualException should be(exception)
   }
 
   it should "directly return a reference that does not need to be resolved" in {
-    val ref = StreamReference("stream.mp3")
-    val reader = new M3uReader
+    val loader = mock[HttpStreamLoader]
+    val reader = new M3uReader(loader)
 
-    val result = futureResult(reader.resolveAudioStream(createConfig(), ref))
+    val result = futureResult(reader.resolveAudioStream(createConfig(), AudioStreamRef))
 
-    result should be theSameInstanceAs ref
+    result should be theSameInstanceAs AudioStreamRef
+    verifyNoInteractions(loader)
   }
 }

@@ -83,10 +83,11 @@ private object RadioStreamActor {
     * @param m3uReader      the object to resolve playlist references
     * @return creation properties for a new actor instance
     */
+    // TODO: Correctly create the M3uReader.
   def apply(config: PlayerConfig,
             streamRef: StreamReference,
             sourceListener: ActorRef,
-            m3uReader: M3uReader = new M3uReader): Props =
+            m3uReader: M3uReader = new M3uReader(null)): Props =
     Props(classOf[RadioStreamActor], config, streamRef, sourceListener, m3uReader)
 }
 
