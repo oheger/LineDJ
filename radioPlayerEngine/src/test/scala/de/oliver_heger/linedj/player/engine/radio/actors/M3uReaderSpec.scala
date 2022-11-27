@@ -23,6 +23,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
+import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.MonitoringStream
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
@@ -49,6 +50,15 @@ object M3uReaderSpec {
 
   /** The default newline character. */
   private val Newline = "\n"
+
+  /**
+    * Generates an ''HttpResponse'' with an entity based on the given source.
+    *
+    * @param source the source with the content of the entity
+    * @return the ''HttpResponse'' with this entity
+    */
+  private def responseWithContent(source: Source[ByteString, Any]): HttpResponse =
+    HttpResponse(entity = HttpEntity(ContentTypes.`application/octet-stream`, source))
 }
 
 /**
@@ -83,24 +93,34 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
   /**
     * Creates a mock [[HttpStreamLoader]] that is prepared to handle a request
     * for the playlist stream reference. It yields a successful response with
-    * the specified content. The content can consist of multiple lines; each
-    * provided string is added as a single line, terminated by the given
-    * newline character.
+    * the specified content.
+    *
+    * @param content the content source for the response
+    * @return the mock stream loader
+    */
+  private def createStreamLoaderMock(content: Source[ByteString, Any]): HttpStreamLoader = {
+    val loader = mock[HttpStreamLoader]
+
+    val expRequest = HttpRequest(uri = PlaylistUri)
+    val response = responseWithContent(content)
+    when(loader.sendRequest(expRequest)).thenReturn(Future.successful(response))
+
+    loader
+  }
+
+  /**
+    * Creates a mock [[HttpStreamLoader]] that is prepared to handle a request
+    * for the playlist stream reference by returning a response with multiple
+    * lines of text with a specific newline character.
     *
     * @param newline the newline character
     * @param content the content of the file (as single lines)
     * @return the mock stream loader
     */
   private def createStreamLoaderMock(newline: String, content: String*): HttpStreamLoader = {
-    val loader = mock[HttpStreamLoader]
-
-    val expRequest = HttpRequest(uri = PlaylistUri)
     val data = ByteString(content.mkString(newline)).grouped(128)
     val source = Source(data.toList)
-    val response = HttpResponse(entity = HttpEntity(ContentTypes.`application/octet-stream`, source))
-    when(loader.sendRequest(expRequest)).thenReturn(Future.successful(response))
-
-    loader
+    createStreamLoaderMock(source)
   }
 
   /**
@@ -158,5 +178,16 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
 
     result should be theSameInstanceAs AudioStreamRef
     verifyNoInteractions(loader)
+  }
+
+  it should "only process streams up to a certain size" in {
+    val stream = new MonitoringStream("# An infinite stream with non m3u data." + Newline)
+    val streamSource = RadioStreamTestHelper.createSourceFromStream(stream = stream, chunkSze = 512)
+    val loader = createStreamLoaderMock(streamSource)
+    val reader = new M3uReader(loader)
+
+    expectFailedFuture[IllegalStateException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+    stream.expectReadsUntil(M3uReader.MaxM3uStreamSize)
+    stream.bytesCount.get() should be < 2L * M3uReader.MaxM3uStreamSize
   }
 }

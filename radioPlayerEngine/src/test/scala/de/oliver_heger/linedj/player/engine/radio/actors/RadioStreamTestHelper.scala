@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.FileTestHelper
 
 import java.io.{IOException, InputStream}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -47,9 +47,12 @@ object RadioStreamTestHelper {
   case class ReadOperation(requestSize: Int, resultSize: Int, at: Long)
 
   /**
-    * A test stream class that can generate an infinite sequence of test data.
+    * A test stream class that can generate an infinite sequence of test data
+    * by concatenating a configurable string again and again.
+    *
+    * @param testData the string used to generate the test data
     */
-  class TestDataGeneratorStream extends InputStream {
+  class TestDataGeneratorStream(testData: String = FileTestHelper.TestData) extends InputStream {
     private val data = new mutable.StringBuilder
 
     override def read(): Int = {
@@ -63,7 +66,7 @@ object RadioStreamTestHelper {
     override def read(b: Array[Byte]): Int = {
       @tailrec def fillBuffer(len: Int): Unit = {
         if (data.length < len) {
-          data append FileTestHelper.TestData
+          data append testData
           fillBuffer(len)
         }
       }
@@ -80,13 +83,18 @@ object RadioStreamTestHelper {
   /**
     * A stream class that records all read operations executed. The data about
     * read operations is stored in a queue which can be queried by clients.
+    *
+    * @param testData the string used to generate the test data
     */
-  class MonitoringStream extends TestDataGeneratorStream {
+  class MonitoringStream(testData: String = FileTestHelper.TestData) extends TestDataGeneratorStream(testData) {
     /** The queue that stores information about read operations. */
     val readQueue = new LinkedBlockingQueue[ReadOperation]
 
     /** A flag whether this stream has been closed. */
     val closed = new AtomicInteger
+
+    /** Stores the number of bytes that have been read from this stream. */
+    val bytesCount = new AtomicLong
 
     /**
       * Expects a read operation on this stream and returns the corresponding
@@ -136,6 +144,7 @@ object RadioStreamTestHelper {
       */
     override def read(b: Array[Byte]): Int = {
       val result = super.read(b)
+      bytesCount.addAndGet(result)
       readQueue add ReadOperation(b.length, result, System.nanoTime())
       result
     }

@@ -17,16 +17,23 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Framing, Keep, Sink}
+import akka.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
 import akka.util.ByteString
+import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{extractUriSink, needToResolveAudioStream, streamRequest}
+import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{MaxM3uStreamSize, extractUriSink, needToResolveAudioStream, streamRequest}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object M3uReader {
+  /**
+    * Constant for the maximum size of m3u streams that are processed by this
+    * class. If a stream is longer, processing fails.
+    */
+  final val MaxM3uStreamSize = 16384
+
   /** The default line separator. */
   private val LineSeparator = ByteString("\n")
 
@@ -107,10 +114,20 @@ private class M3uReader(loader: HttpStreamLoader) {
     if (needToResolveAudioStream(reference)) {
       for {
         response <- loader.sendRequest(streamRequest(reference))
-        source = response.entity.dataBytes
+        source = createM3uSource(response)
         streamUri <- source.runWith(extractUriSink())
       } yield StreamReference(streamUri)
     } else {
       Future.successful(reference)
     }
+
+  /**
+    * Creates a ''Source'' for the stream with m3u data from the given
+    * response.
+    *
+    * @param response the HTTP response for the m3u stream
+    * @return the ''Source'' to read the data of the m3u stream
+    */
+  private def createM3uSource(response: HttpResponse): Source[ByteString, Any] =
+    response.entity.dataBytes.via(new StreamSizeRestrictionStage(MaxM3uStreamSize))
 }
