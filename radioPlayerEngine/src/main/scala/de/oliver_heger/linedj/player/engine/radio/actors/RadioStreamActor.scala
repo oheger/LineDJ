@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
-import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.http.scaladsl.model.HttpRequest
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.util.ByteString
@@ -27,7 +28,7 @@ import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
 import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 private object RadioStreamActor {
@@ -46,7 +47,7 @@ private object RadioStreamActor {
     *
     * @param source the source for the audio stream to manage
     */
-  private case class AudioSourceResolved(source: Source[ByteString, Future[IOResult]])
+  private case class AudioSourceResolved(source: Source[ByteString, Any])
 
   /**
     * A message sent by the managed stream when its initialization is complete.
@@ -76,19 +77,22 @@ private object RadioStreamActor {
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param config         the player configuration
-    * @param streamRef      the reference to the audio stream for playback
-    * @param sourceListener reference to an actor that is sent an audio source
-    *                       message when the final audio stream is available
-    * @param m3uReader      the object to resolve playlist references
+    * @param config          the player configuration
+    * @param streamRef       the reference to the audio stream for playback
+    * @param sourceListener  reference to an actor that is sent an audio source
+    *                        message when the final audio stream is available
+    * @param optM3uReader    the optional object to resolve playlist references;
+    *                        if unspecified, the actor creates its own instance
+    * @param optStreamLoader the optional object for loading radio streams; if
+    *                        unspecified, the actor creates its own instance
     * @return creation properties for a new actor instance
     */
-    // TODO: Correctly create the M3uReader.
   def apply(config: PlayerConfig,
             streamRef: StreamReference,
             sourceListener: ActorRef,
-            m3uReader: M3uReader = new M3uReader(null)): Props =
-    Props(classOf[RadioStreamActor], config, streamRef, sourceListener, m3uReader)
+            optM3uReader: Option[M3uReader] = None,
+            optStreamLoader: Option[HttpStreamLoader] = None): Props =
+    Props(classOf[RadioStreamActor], config, streamRef, sourceListener, optM3uReader, optStreamLoader)
 }
 
 /**
@@ -118,19 +122,27 @@ private object RadioStreamActor {
   * An instance of this actor class can only be used for reading a single
   * audio stream. It cannot be reused and has to be closed afterwards.
   *
-  * @param config         the player configuration
-  * @param streamRef      the reference to the audio stream for playback
-  * @param sourceListener reference to an actor that is sent an audio source
-  *                       message when the final audio stream is available
-  * @param m3uReader      the object to resolve playlist references
+  * @param config          the player configuration
+  * @param streamRef       the reference to the audio stream for playback
+  * @param sourceListener  reference to an actor that is sent an audio source
+  *                        message when the final audio stream is available
+  * @param optM3uReader    the optional object to resolve playlist references
+  * @param optStreamLoader the optional object to load radio streams
   */
 private class RadioStreamActor(config: PlayerConfig,
                                streamRef: StreamReference,
                                sourceListener: ActorRef,
-                               m3uReader: M3uReader) extends Actor with ActorLogging {
+                               optM3uReader: Option[M3uReader],
+                               optStreamLoader: Option[HttpStreamLoader]) extends Actor with ActorLogging {
   private implicit val materializer: Materializer = Materializer(context)
 
   private implicit val ec: ExecutionContext = context.dispatcher
+
+  /**
+    * The object for loading radio streams. The object can either be passed at
+    * construction time or it is created manually.
+    */
+  private var streamLoader: HttpStreamLoader = _
 
   /** Stores a kill switch to terminate the managed stream. */
   private var optKillSwitch: Option[KillSwitch] = None
@@ -147,6 +159,10 @@ private class RadioStreamActor(config: PlayerConfig,
   override def preStart(): Unit = {
     super.preStart()
 
+    implicit val actorSystem: ActorSystem = context.system
+    streamLoader = optStreamLoader getOrElse new HttpStreamLoader
+
+    val m3uReader = optM3uReader getOrElse new M3uReader(streamLoader)
     m3uReader.resolveAudioStream(config, streamRef) onComplete { triedReference =>
       val resultMsg = triedReference match {
         case Failure(exception) =>
@@ -161,8 +177,9 @@ private class RadioStreamActor(config: PlayerConfig,
     case AudioStreamResolved(ref) =>
       log.info("Playing audio stream from {}.", ref.uri)
       sourceListener ! AudioSource(ref.uri, Long.MaxValue, 0, 0)
-      ref.createSource(chunkSize = config.bufferChunkSize) foreach { source =>
-        self ! AudioSourceResolved(source)
+      streamLoader.sendRequest(HttpRequest(uri = ref.uri)) map (_.entity.dataBytes) onComplete {
+        case Success(source) => self ! AudioSourceResolved(source)
+        case Failure(exception) => self ! StreamFailure(exception)
       }
 
     case AudioSourceResolved(source) =>
@@ -226,7 +243,7 @@ private class RadioStreamActor(config: PlayerConfig,
     * @param source the source of the managed audio stream
     * @return a [[KillSwitch]] to terminate the stream
     */
-  private def startStream(source: Source[ByteString, Future[IOResult]]): KillSwitch =
+  private def startStream(source: Source[ByteString, Any]): KillSwitch =
     source.buffer(config.inMemoryBufferSize / config.bufferChunkSize, OverflowStrategy.backpressure)
       .map { data => BufferDataResult(data) }
       .viaMat(KillSwitches.single)(Keep.right)
