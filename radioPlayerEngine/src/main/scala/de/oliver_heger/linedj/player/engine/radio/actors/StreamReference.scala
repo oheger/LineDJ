@@ -16,42 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors
 
-import akka.stream.IOResult
-import akka.stream.scaladsl.{Source, StreamConverters}
-import akka.util.ByteString
-
-import java.io.InputStream
-import java.net.URL
-import scala.concurrent.{ExecutionContext, Future}
-
 /**
-  * A class referencing a stream to be opened. The stream is identified by an
-  * URI. The class offers a method for opening it through the
-  * ''java.net.URL'' class.
+  * A simple data class referencing a radio stream. The stream can either point
+  * to the actual audio data or to an m3u file, containing a playlist that
+  * references the URL of the audio data.
   *
   * @param uri the URI of the referenced stream
   */
-private case class StreamReference(uri: String) {
-  /**
-    * Opens the referenced stream from the URI stored in this class.
-    *
-    * @return the ''InputStream'' referenced by this object
-    * @throws java.io.IOException if an error occurs
-    */
-  @scala.throws[java.io.IOException] def openStream(): InputStream =
-    new URL(uri).openStream()
-
-  /**
-    * Returns a [[Source]] for the content of the URI wrapped by this class.
-    * This function opens an input stream for the URI and wraps it into an
-    * Akka stream source.
-    *
-    * @param chunkSize the chunk size for reading from the stream
-    * @param ec        the execution context
-    * @return a ''Future'' with the source for reading the URI's content
-    */
-  def createSource(chunkSize: Int = 8192)
-                  (implicit ec: ExecutionContext): Future[Source[ByteString, Future[IOResult]]] = Future {
-    StreamConverters.fromInputStream(() => openStream(), chunkSize)
-  }
-}
+private case class StreamReference(uri: String)
