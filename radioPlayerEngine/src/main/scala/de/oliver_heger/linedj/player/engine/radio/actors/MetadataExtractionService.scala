@@ -18,6 +18,26 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.util.ByteString
 import scalaz.State
+import scalaz.State._
+
+import scala.annotation.tailrec
+
+private object MetadataExtractionState {
+  /**
+    * Returns an initial [[MetadataExtractionState]] object with the given size
+    * of audio chunks.
+    *
+    * @param audioChunkSize the chunk size for audio data
+    * @return the initial state object
+    */
+  def initial(audioChunkSize: Int): MetadataExtractionState =
+    MetadataExtractionState(audioChunkSize = audioChunkSize,
+      currentChunkSize = audioChunkSize,
+      bytesReceived = 0,
+      audioChunks = List.empty,
+      metadataChunk = ByteString.empty,
+      inMetadata = false)
+}
 
 /**
   * A data class representing the current state of metadata extraction. An
@@ -31,11 +51,11 @@ import scalaz.State
   * @param inMetadata       flag whether metadata is currently processed
   */
 private case class MetadataExtractionState(audioChunkSize: Int,
-                                   currentChunkSize: Int,
-                                   bytesReceived: Int,
-                                   audioChunks: List[ByteString],
-                                   metadataChunk: ByteString,
-                                   inMetadata: Boolean)
+                                           currentChunkSize: Int,
+                                           bytesReceived: Int,
+                                           audioChunks: List[ByteString],
+                                           metadataChunk: ByteString,
+                                           inMetadata: Boolean)
 
 /**
   * A data class storing the different types of data chunks that have been
@@ -47,7 +67,7 @@ private case class MetadataExtractionState(audioChunkSize: Int,
   * @param metadataChunk an option with the latest chunk of metadata
   */
 private case class ExtractedStreamData(audioChunks: List[ByteString],
-                               metadataChunk: Option[ByteString])
+                                       metadataChunk: Option[ByteString])
 
 /**
   * Interface of a service that allows the extraction of metadata from a radio
@@ -89,5 +109,98 @@ private trait MetadataExtractionService {
     * @param data the data from the stream
     * @return the updated state and the extracted data
     */
-  def handleData(data: ByteString): StateUpdate[ExtractedStreamData]
+  def handleData(data: ByteString): StateUpdate[ExtractedStreamData] = for {
+    _ <- dataReceived(data)
+    next <- extractedData()
+  } yield next
+}
+
+/**
+  * An implementation of [[MetadataExtractionService]] that is used when the
+  * audio stream of an internet radio station supports metadata. It then
+  * handles the separation of metadata from audio data according to the
+  * Shoutcast Metadata Protocol.
+  */
+private object SupportedMetadataExtractionService extends MetadataExtractionService {
+  /**
+    * Updates the state for a new block of stream data that has been received.
+    * Extracts the data that can be extracted at that point of time.
+    *
+    * @param data the data from the stream
+    * @return the updated state
+    */
+  override def dataReceived(data: ByteString): StateUpdate[Unit] = modify { s =>
+    @tailrec
+    def updateState(state: MetadataExtractionState, data: ByteString): MetadataExtractionState =
+      if (state.bytesReceived == state.currentChunkSize) {
+        if (state.inMetadata) {
+          val nextState = state.copy(inMetadata = false, currentChunkSize = state.audioChunkSize, bytesReceived = 0)
+          updateState(nextState, data)
+        } else {
+          val currentMetadataSize = metadataSize(data)
+          val nextState = if (currentMetadataSize > 0)
+            state.copy(inMetadata = true, currentChunkSize = currentMetadataSize, bytesReceived = 0,
+              metadataChunk = ByteString.empty)
+          else state.copy(bytesReceived = 0)
+          updateState(nextState, data.drop(1))
+        }
+      } else {
+
+        val (current, optNext) = splitBlockToChunkSize(state, data)
+        val bytesReceived = state.bytesReceived + current.size
+        val nextState = if (state.inMetadata)
+          state.copy(bytesReceived = bytesReceived, metadataChunk = state.metadataChunk ++ current)
+        else
+          state.copy(bytesReceived = bytesReceived, audioChunks = current :: state.audioChunks)
+        optNext match {
+          case Some(nextBlock) => updateState(nextState, nextBlock)
+          case None => nextState
+        }
+      }
+
+    updateState(s, data)
+  }
+
+  /**
+    * Updates the state by removing the data that has been extracted so far.
+    * The corresponding data is returned, so that it can be processed.
+    *
+    * @return the updated state and the extracted data
+    */
+  override def extractedData(): StateUpdate[ExtractedStreamData] = State { s =>
+    val (extractedMetadata, nextMetadata) =
+      if (!s.inMetadata && !s.metadataChunk.isEmpty || s.inMetadata && s.bytesReceived >= s.currentChunkSize)
+        (Some(s.metadataChunk), ByteString.empty)
+      else (None, s.metadataChunk)
+
+    val extracted = ExtractedStreamData(audioChunks = s.audioChunks.reverse, extractedMetadata)
+    val nextState = s.copy(audioChunks = List.empty, metadataChunk = nextMetadata)
+    (nextState, extracted)
+  }
+
+  /**
+    * Computes the size of a chunk of metadata from the given data. The length
+    * is encoded in the first byte of the data block.
+    *
+    * @param data the block of data
+    * @return the length of the next chunk of metadata
+    */
+  private def metadataSize(data: ByteString): Int = (data(0) & 0xFF) * 16
+
+  /**
+    * Splits the given block of data into a part that fits into the current
+    * remaining chunk size and an optional part of data for the next chunk.
+    * This part is ''None'' if the data fits completely into the current chunk.
+    *
+    * @param state the current state
+    * @param data  the block of data
+    * @return the split data
+    */
+  private def splitBlockToChunkSize(state: MetadataExtractionState, data: ByteString):
+  (ByteString, Option[ByteString]) =
+    if (state.bytesReceived + data.size <= state.currentChunkSize) (data, None)
+    else {
+      val (current, next) = data.splitAt(state.currentChunkSize - state.bytesReceived)
+      (current, Some(next))
+    }
 }

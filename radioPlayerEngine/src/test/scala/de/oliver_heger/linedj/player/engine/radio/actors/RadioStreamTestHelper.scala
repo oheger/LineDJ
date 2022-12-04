@@ -185,13 +185,14 @@ object RadioStreamTestHelper {
     *
     * @param size       the size of the sequence
     * @param skipChunks the number of chunks to skip
+    * @param chunkSize  the size of a single chunk
     * @return the array with the given range of test data
     */
-  def refData(size: Int, skipChunks: Int = 0): Array[Byte] = {
+  def refData(size: Int, skipChunks: Int = 0, chunkSize: Int = ChunkSize): Array[Byte] = {
     val refStream = new TestDataGeneratorStream
 
     if (skipChunks > 0) {
-      val skipBuf = new Array[Byte](ChunkSize)
+      val skipBuf = new Array[Byte](chunkSize)
       (1 to skipChunks) foreach (_ => refStream read skipBuf)
     }
 
