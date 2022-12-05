@@ -204,3 +204,31 @@ private object SupportedMetadataExtractionService extends MetadataExtractionServ
       (current, Some(next))
     }
 }
+
+/**
+  * An implementation of [[MetadataExtractionService]] that is used for radio
+  * stations that do not support metadata in their audio streams. Therefore,
+  * all received data is interpreted as audio data and passed through directly.
+  */
+private object UnsupportedMetadataExtractionService extends MetadataExtractionService {
+  /**
+    * Updates the state for a new block of stream data that has been received.
+    * Extracts the data that can be extracted at that point of time.
+    *
+    * @param data the data from the stream
+    * @return the updated state
+    */
+  override def dataReceived(data: ByteString): StateUpdate[Unit] = modify { s =>
+    s.copy(audioChunks = data :: s.audioChunks)
+  }
+
+  /**
+    * Updates the state by removing the data that has been extracted so far.
+    * The corresponding data is returned, so that it can be processed.
+    *
+    * @return the updated state and the extracted data
+    */
+  override def extractedData(): StateUpdate[ExtractedStreamData] = State { s =>
+    (s.copy(audioChunks = List.empty), ExtractedStreamData(s.audioChunks.reverse, None))
+  }
+}

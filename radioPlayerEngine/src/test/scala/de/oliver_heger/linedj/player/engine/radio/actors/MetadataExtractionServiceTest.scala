@@ -299,4 +299,39 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     extracted.audioChunks should contain theSameElementsInOrderAs List(audioBlock1, audioBlock2)
     extracted.metadataChunk should be(Some(metadata))
   }
+
+  "UnsupportedMetadataExtractionService" should "process a block of data" in {
+    val data = dataBlock(AudioChunkSize + 11)
+
+    val state = modifyState(UnsupportedMetadataExtractionService.dataReceived(data))
+
+    state.inMetadata shouldBe false
+    state.currentChunkSize should be(InitialState.currentChunkSize)
+    state.bytesReceived should be(0)
+    state.metadataChunk shouldBe empty
+    state.audioChunks should contain only data
+  }
+
+  it should "update audio chunks when a new block of data arrives" in {
+    val audioBlock1 = dataBlock(AudioChunkSize)
+    val audioBlock2 = dataBlock(AudioChunkSize, index = 1)
+    val originalState = InitialState.copy(audioChunks = List(audioBlock1))
+
+    val state = modifyState(UnsupportedMetadataExtractionService.dataReceived(audioBlock2), originalState)
+
+    state.audioChunks should contain theSameElementsInOrderAs List(audioBlock2, audioBlock1)
+  }
+
+  it should "extract all available audio data" in {
+    val audioBlock1 = dataBlock(AudioChunkSize)
+    val audioBlock2 = dataBlock(AudioChunkSize, index = 1)
+    val originalState = InitialState.copy(audioChunks = List(audioBlock2, audioBlock1),
+      metadataChunk = ByteString("Some metadata"), bytesReceived = 4711, currentChunkSize = 8080)
+
+    val (state, extracted) = updateState(UnsupportedMetadataExtractionService.extractedData(), originalState)
+
+    state should be(originalState.copy(audioChunks = List.empty))
+    extracted.audioChunks should contain theSameElementsInOrderAs List(audioBlock1, audioBlock2)
+    extracted.metadataChunk shouldBe empty
+  }
 }
