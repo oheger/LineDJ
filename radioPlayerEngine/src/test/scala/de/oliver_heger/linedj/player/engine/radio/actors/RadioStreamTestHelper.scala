@@ -211,4 +211,37 @@ object RadioStreamTestHelper {
   def createSourceFromStream(stream: InputStream = new TestDataGeneratorStream,
                              chunkSze: Int = ChunkSize): Source[ByteString, Future[IOResult]] =
     StreamConverters.fromInputStream(() => stream, chunkSze)
+
+  /**
+    * Generates a byte string with test data in the given range.
+    *
+    * @param blockSize the size of the block
+    * @param index     the start index of this block
+    * @return the byte string with test data in this range
+    */
+  def dataBlock(blockSize: Int, index: Int = 0): ByteString =
+    ByteString(refData(blockSize, skipChunks = index, chunkSize = blockSize))
+
+  /**
+    * Generates a block with metadata by putting a length byte before the given
+    * content. It is not checked whether the length fits to the content.
+    *
+    * @param lengthByte the byte with the encoded block length
+    * @param content    the content of the metadata
+    * @return the resulting block with metadata
+    */
+  def metadataBlock(lengthByte: Byte, content: ByteString): ByteString = {
+    val lengthField = ByteString(Array[Byte](lengthByte))
+    lengthField ++ content
+  }
+
+  /**
+    * Generates a block with metadata for the given content by computing the
+    * encoded size and putting it before the content.
+    *
+    * @param content the content of the metadata
+    * @return the resulting block with metadata
+    */
+  def metadataBlock(content: ByteString): ByteString =
+    metadataBlock((content.size / 16).toByte, content)
 }

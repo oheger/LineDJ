@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.util.ByteString
+import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.dataBlock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -28,16 +29,6 @@ object MetadataExtractionServiceTest {
   private val InitialState = MetadataExtractionState.initial(AudioChunkSize)
 
   /**
-    * Generates a byte string with test data in the given range.
-    *
-    * @param blockSize the size of the block
-    * @param index     the start index of this block
-    * @return the byte string with test data in this range
-    */
-  private def dataBlock(blockSize: Int, index: Int = 0): ByteString =
-    ByteString(RadioStreamTestHelper.refData(blockSize, skipChunks = index, chunkSize = blockSize))
-
-  /**
     * Generates a byte string for the start of a block with metadata. The first
     * byte is a length indicator; then test data with the specified block size
     * is generated.
@@ -46,10 +37,8 @@ object MetadataExtractionServiceTest {
     * @param blockSize  the size of data to generate
     * @return the block with metadata
     */
-  private def metadataBlock(lengthByte: Byte, blockSize: Int, index: Int = 0): ByteString = {
-    val lengthField = ByteString(Array[Byte](lengthByte))
-    lengthField ++ dataBlock(blockSize, index)
-  }
+  private def metadataBlock(lengthByte: Byte, blockSize: Int, index: Int = 0): ByteString =
+    RadioStreamTestHelper.metadataBlock(lengthByte, dataBlock(blockSize, index))
 
   /**
     * Convenience method to execute a ''State'' object to produce the updated
