@@ -124,7 +124,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val sink = Sink.ignore
 
     helper.player.registerEventSink(sink)
-    helper.eventActor.expectMsgType[EventManagerActor.RegisterSink]
+    helper.eventActor.expectMsgType[EventManagerActorOld.RegisterSink]
   }
 
   /**
@@ -196,7 +196,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           lineWriterActor.ref
 
         case "eventManagerActor" =>
-          props.actorClass() should be(classOf[EventManagerActor])
+          props.actorClass() should be(classOf[EventManagerActorOld])
           props.args should have size 0
           eventActor.ref
 

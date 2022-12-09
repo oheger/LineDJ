@@ -25,7 +25,7 @@ import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -125,8 +125,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val regID1 = player registerEventSink sink1
     val regID2 = player registerEventSink sink2
     regID1 should not be regID2
-    helper.probeEventManagerActor.expectMsg(EventManagerActor.RegisterSink(regID1, sink1))
-    helper.probeEventManagerActor.expectMsg(EventManagerActor.RegisterSink(regID2, sink2))
+    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RegisterSink(regID1, sink1))
+    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RegisterSink(regID2, sink2))
   }
 
   it should "support removing event listeners" in {
@@ -135,7 +135,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player removeEventSink SinkID
-    helper.probeEventManagerActor.expectMsg(EventManagerActor.RemoveSink(SinkID))
+    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RemoveSink(SinkID))
   }
 
   it should "allow resetting the engine" in {

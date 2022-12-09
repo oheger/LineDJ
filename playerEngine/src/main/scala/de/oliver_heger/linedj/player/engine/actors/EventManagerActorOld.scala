@@ -21,12 +21,12 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 
-object EventManagerActor {
+object EventManagerActorOld {
   /** The buffer size used by the actorRef sources. */
   private val BufferSize = 8
 
   /**
-    * A message processed by [[EventManagerActor]] telling it to register the
+    * A message processed by [[EventManagerActorOld]] telling it to register the
     * specified sink as event listeners. Incoming events will be propagated to
     * this sink. The numeric ID is used to identify the listener registration,
     * so that the listener can be removed later. The caller is responsible to
@@ -38,7 +38,7 @@ object EventManagerActor {
   case class RegisterSink(listenerID: Int, sink: Sink[_, _])
 
   /**
-    * A message processed by [[EventManagerActor]] telling it to remove the
+    * A message processed by [[EventManagerActorOld]] telling it to remove the
     * sink registration with the specified listener ID. The ID corresponds to
     * the ID used for the registration.
     *
@@ -63,9 +63,9 @@ object EventManagerActor {
   * functionality of Akka streams to handle events, e.g. by declaring filter or
   * mapping rules.
   */
-class EventManagerActor extends Actor {
+class EventManagerActorOld extends Actor {
 
-  import EventManagerActor._
+  import EventManagerActorOld._
   import context.system
 
   /** Stores the registered listeners. */

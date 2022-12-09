@@ -101,7 +101,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player removeEventSink 20160709
-    helper.probeEventActor.expectMsgType[EventManagerActor.RemoveSink]
+    helper.probeEventActor.expectMsgType[EventManagerActorOld.RemoveSink]
   }
 
   it should "support a check for the current radio source with a delay" in {
@@ -254,7 +254,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
           probeSchedulerActor.ref
 
         case "radioEventManagerActor" =>
-          props.actorClass() should be(classOf[EventManagerActor])
+          props.actorClass() should be(classOf[EventManagerActorOld])
           props.args should have size 0
           probeEventActor.ref
 

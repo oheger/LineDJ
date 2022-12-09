@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.Future
 
-object EventManagerActorSpec {
+object EventManagerActorOldSpec {
   /** A timeout when accessing a queue. */
   private val QueueTimeout = 3
 
@@ -66,11 +66,11 @@ object EventManagerActorSpec {
 /**
   * Test class for ''EventManagerActor''.
   */
-class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+class EventManagerActorOldSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
   def this() = this(ActorSystem("EventManagerActorSpec"))
 
-  import EventManagerActorSpec._
+  import EventManagerActorOldSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -100,9 +100,9 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "An EventManagerActor" should "propagate events to a registered sink" in {
     val queue = new LinkedBlockingQueue[PlayerEvent]
     val sink = queuingSink(queue)
-    val actor = system.actorOf(Props[EventManagerActor]())
+    val actor = system.actorOf(Props[EventManagerActorOld]())
 
-    actor ! EventManagerActor.RegisterSink(1, sink)
+    actor ! EventManagerActorOld.RegisterSink(1, sink)
     publishEvents(actor, Events: _*)
     expectQueuedEvents(Events, queue)
   }
@@ -113,12 +113,12 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val sink = queuingSink(queue1)
     val otherSink = queuingSink(queue2)
     val events = Events splitAt 1
-    val actor = system.actorOf(Props[EventManagerActor]())
+    val actor = system.actorOf(Props[EventManagerActorOld]())
 
-    actor ! EventManagerActor.RegisterSink(1, sink)
-    actor ! EventManagerActor.RegisterSink(2, otherSink)
+    actor ! EventManagerActorOld.RegisterSink(1, sink)
+    actor ! EventManagerActorOld.RegisterSink(2, otherSink)
     publishEvents(actor, events._1: _*)
-    actor ! EventManagerActor.RemoveSink(1)
+    actor ! EventManagerActorOld.RemoveSink(1)
     publishEvents(actor, events._2: _*)
     expectQueuedEvents(events._1, queue1)
     expectQueuedEvents(Events, queue2)
@@ -128,9 +128,9 @@ class EventManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val OtherEvents = List("aTestEvent", List(1, 2, 3), new AtomicInteger(42))
     val queue = new LinkedBlockingQueue[AnyRef]
     val sink = queuingSink(queue)
-    val actor = system.actorOf(Props[EventManagerActor]())
+    val actor = system.actorOf(Props[EventManagerActorOld]())
 
-    actor ! EventManagerActor.RegisterSink(3, sink)
+    actor ! EventManagerActorOld.RegisterSink(3, sink)
     publishEvents(actor, OtherEvents: _*)
     expectQueuedEvents(OtherEvents, queue)
   }

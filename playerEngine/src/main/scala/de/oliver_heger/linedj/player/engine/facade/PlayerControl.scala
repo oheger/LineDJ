@@ -25,7 +25,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -157,7 +157,7 @@ trait PlayerControl {
     */
   def registerEventSink(sink: Sink[_, _]): Int = {
     val regId = regIdCounter.incrementAndGet()
-    eventManagerActor ! EventManagerActor.RegisterSink(regId, sink)
+    eventManagerActor ! EventManagerActorOld.RegisterSink(regId, sink)
     regId
   }
 
@@ -168,7 +168,7 @@ trait PlayerControl {
     * @param registrationID the ID of the sink to be removed
     */
   def removeEventSink(registrationID: Int): Unit = {
-    eventManagerActor ! EventManagerActor.RemoveSink(registrationID)
+    eventManagerActor ! EventManagerActorOld.RemoveSink(registrationID)
   }
 
   /**
