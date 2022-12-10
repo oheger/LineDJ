@@ -304,7 +304,7 @@ class ShutdownHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     private def createActorFactory(): ActorFactory = {
       val factory = mock[ActorFactory]
-      when(factory.createActor(any(), argEq(ShutdownHandler.ShutdownActorName)))
+      when(factory.createActor(any[Props](), argEq(ShutdownHandler.ShutdownActorName)))
         .thenReturn(probeShutdownActor.ref)
       factory
     }

@@ -16,28 +16,68 @@
 
 package de.oliver_heger.linedj.platform.comm
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import org.mockito.Mockito._
-import org.scalatest.flatspec.AnyFlatSpec
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.{Actor, ActorSystem, Props}
+import akka.testkit.TestKit
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Test class for ''ActorFactory''.
- */
-class ActorFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An ActorFactory" should "allow creating a new actor" in {
-    val system = mock[ActorSystem]
-    val ref = mock[ActorRef]
+  * Test class for ''ActorFactory''.
+  */
+class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers {
+  def this() = this(ActorSystem("ActorFactorySpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+    super.afterAll()
+  }
+
+  "An ActorFactory" should "allow creating a new classic actor" in {
     val props = Props[DummyActor]()
     val Name = "MyTestActor"
-    when(system.actorOf(props, Name)).thenReturn(ref)
 
     val factory = new ActorFactory(system)
-    factory.createActor(props, Name) should be(ref)
+    val ref = factory.createActor(props, Name)
+
+    ref.path.name should endWith(Name)
+    val message = TestMessage()
+    ref ! message
+    awaitCond(message.flag.get())
+  }
+
+  it should "allow creating a typed actor" in {
+    val Name = "MyTypedTestActor"
+    val behavior = Behaviors.receiveMessage[TestMessage] {
+      case TestMessage(flag) =>
+        flag.set(true)
+        Behaviors.same
+    }
+
+    val factory = new ActorFactory(system)
+    val ref = factory.createActor(behavior, Name)
+
+    ref.path.name should endWith(Name)
+    val message = TestMessage()
+    ref ! message
+    awaitCond(message.flag.get())
   }
 }
 
+/**
+  * A message class used to test whether actors have been created successfully.
+  *
+  * @param flag a flag to be set by an actor
+  */
+case class TestMessage(flag: AtomicBoolean = new AtomicBoolean)
+
 class DummyActor extends Actor {
-  override def receive: Receive = Actor.emptyBehavior
+  override def receive: Receive = {
+    case TestMessage(flag) =>
+      flag.set(true)
+  }
 }
