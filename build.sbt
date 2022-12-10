@@ -51,6 +51,7 @@ lazy val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % VersionAkka,
   "com.typesafe.akka" %% "akka-actor-typed" % VersionAkka,
   "com.typesafe.akka" %% "akka-testkit" % VersionAkka % Test,
+  "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
   "com.typesafe.akka" %% "akka-stream" % VersionAkka,
   "com.typesafe.akka" %% "akka-slf4j" % VersionAkka,
   "com.typesafe.akka" %% "akka-remote" % VersionAkka,
