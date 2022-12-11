@@ -20,20 +20,8 @@ import java.nio.file.Path
 import akka.actor.{ActorRef, Props}
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
-import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 
 import scala.concurrent.duration._
-
-object PlayerConfig {
-  /**
-    * A type definition for a function that is used by the audio player engine
-    * to create actors. This function is invoked in order to create the
-    * several helper actors making up the audio player engine implementation.
-    * The function expects the actor's ''Props'' and an actor name and returns
-    * the reference of the newly created actor.
-    */
-  type ActorCreator = (Props, String) => ActorRef
-}
 
 /**
   * A class collecting configuration options for an audio player.

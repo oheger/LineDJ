@@ -165,7 +165,7 @@ ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
   private def createConfig(mediaManager: ActorRef): PlayerConfig =
     PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
       downloadInProgressNotificationInterval = ReaderAliveInterval,
-      actorCreator = (_, _) => null, mediaManagerActor = mediaManager)
+      actorCreator = null, mediaManagerActor = mediaManager)
 
   /**
    * Convenience method for creating a download test actor which is initialized

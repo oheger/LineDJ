@@ -46,7 +46,7 @@ object RadioDataSourceActorSpec {
   private val Mp3Ext = Some("mp3")
 
   /** A test configuration used when creating the test actor. */
-  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
+  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = null,
     inMemoryBufferSize = 1024)
 
   /** A request for audio data. */

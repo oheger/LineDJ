@@ -21,8 +21,7 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResp
 import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.MonitoringStream
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.mockito.ArgumentMatchers.any

@@ -54,7 +54,7 @@ object PlayerControl {
     */
   def createLineWriterActor(config: PlayerConfig,
                                             actorName: String = LineWriterActorName): ActorRef =
-    config.actorCreator(createLineWriterActorProps(config), actorName)
+    config.actorCreator.createActor(createLineWriterActorProps(config), actorName)
 
   /**
     * Creates the properties for the line writer actor to be used by this audio

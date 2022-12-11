@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.player.engine
 import akka.actor.ActorRef
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
-import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

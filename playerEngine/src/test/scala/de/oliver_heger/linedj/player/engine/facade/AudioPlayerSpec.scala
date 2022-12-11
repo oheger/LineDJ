@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.typed.Behavior
+import akka.actor.{ActorRef, ActorSystem, Props, typed}
 import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
@@ -25,7 +26,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSourcePlaylistInfo, PlayerConfig}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.BeforeAndAfterAll
@@ -180,35 +181,41 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
 
     /**
-      * An actor creator function. This implementation checks the parameters
-      * passed to the several actors and returns test probes.
+      * Creates a stub [[ActorCreator]] for the configuration of the test
+      * player. This implementation checks the parameters passed to actors and
+      * returns test probes for them.
       *
-      * @param props the properties for the new actor
-      * @param name  the actor name
-      * @return an actor reference
+      * @return the stub [[ActorCreator]]
       */
-    private def actorCreatorFunc(props: Props, name: String): ActorRef = {
-      name match {
-        case "lineWriterActor" =>
-          classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
-          props.dispatcher should be(BlockingDispatcherName)
-          props.args should have size 0
-          lineWriterActor.ref
+    private def createActorCreator(): ActorCreator =
+      new ActorCreator {
+        override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
+        typed.ActorRef[T] = {
+          throw new UnsupportedOperationException("Unexpected invocation.")
+        }
 
-        case "eventManagerActor" =>
-          props.actorClass() should be(classOf[EventManagerActorOld])
-          props.args should have size 0
-          eventActor.ref
+        override def createActor(props: Props, name: String): ActorRef =
+          name match {
+            case "lineWriterActor" =>
+              classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
+              props.dispatcher should be(BlockingDispatcherName)
+              props.args should have size 0
+              lineWriterActor.ref
 
-        case "playerFacadeActor" =>
-          classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
-          classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-          classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
-          props.args should be(List(config, eventActor.ref, lineWriterActor.ref,
-            AudioPlayer.AudioPlayerSourceCreator))
-          facadeActor.ref
+            case "eventManagerActor" =>
+              props.actorClass() should be(classOf[EventManagerActorOld])
+              props.args should have size 0
+              eventActor.ref
+
+            case "playerFacadeActor" =>
+              classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
+              classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+              classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
+              props.args should be(List(config, eventActor.ref, lineWriterActor.ref,
+                AudioPlayer.AudioPlayerSourceCreator))
+              facadeActor.ref
+          }
       }
-    }
 
     /**
       * Creates a test audio player configuration.
@@ -216,8 +223,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): PlayerConfig =
-      PlayerConfig(mediaManagerActor = null, actorCreator = actorCreatorFunc,
+      PlayerConfig(mediaManagerActor = null, actorCreator = createActorCreator(),
         blockingDispatcherName = Some(BlockingDispatcherName))
   }
-
 }

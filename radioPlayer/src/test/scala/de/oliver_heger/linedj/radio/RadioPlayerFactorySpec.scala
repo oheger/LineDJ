@@ -63,7 +63,7 @@ class RadioPlayerFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar
     })
     val name = "someActor"
     when(management.createAndRegisterActor(props, name)).thenReturn(mockActor)
-    player.config.actorCreator(props, name) should be(mockActor)
+    player.config.actorCreator.createActor(props, name) should be(mockActor)
     verify(management).createAndRegisterActor(props, name)
   }
 }

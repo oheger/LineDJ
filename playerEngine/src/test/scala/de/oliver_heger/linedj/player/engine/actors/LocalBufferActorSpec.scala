@@ -49,7 +49,7 @@ object LocalBufferActorSpec {
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(bufferFileSize = FileTestHelper.testBytes().length, bufferChunkSize = ChunkSize,
-      actorCreator = (_, _) => null, mediaManagerActor = null)
+      actorCreator = null, mediaManagerActor = null)
 
   /**
     * Generates the name of a test buffer file.

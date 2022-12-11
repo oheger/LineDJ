@@ -39,12 +39,13 @@ object RadioPlayer {
     * @return the new ''RadioPlayer'' instance
     */
   def apply(config: PlayerConfig): RadioPlayer = {
-    val eventActor = config.actorCreator(Props[EventManagerActorOld](), "radioEventManagerActor")
+    val eventActor = config.actorCreator.createActor(Props[EventManagerActorOld](), "radioEventManagerActor")
     val sourceCreator = radioPlayerSourceCreator(eventActor)
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
-    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator),
-      "radioPlayerFacadeActor")
-    val schedulerActor = config.actorCreator(RadioSchedulerActor(eventActor),
+    val facadeActor =
+      config.actorCreator.createActor(PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator),
+        "radioPlayerFacadeActor")
+    val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActor),
       "radioSchedulerActor")
 
     new RadioPlayer(config, facadeActor, schedulerActor, eventActor)

@@ -64,7 +64,7 @@ object RadioStreamActorSpec {
     * @return the configuration
     */
   private def createConfig(): PlayerConfig =
-    PlayerConfig(mediaManagerActor = null, actorCreator = (_, _) => null,
+    PlayerConfig(mediaManagerActor = null, actorCreator = null,
       bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
 }
 

@@ -207,7 +207,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     */
   private def createConfig(): PlayerConfig =
     PlayerConfig(bufferFilePrefix = FilePrefix, bufferFileExtension = FileSuffix,
-      mediaManagerActor = null, actorCreator = (_, _) => null,
+      mediaManagerActor = null, actorCreator = null,
       bufferTempPathParts = List("lineDJTest", "temp"),
       bufferTempPath = Some(createPathInDirectory("bufferTemp")))
 

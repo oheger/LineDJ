@@ -55,8 +55,8 @@ object AudioPlayer {
     */
   def apply(config: PlayerConfig): AudioPlayer = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val eventActor = config.actorCreator(Props[EventManagerActorOld](), "eventManagerActor")
-    val facadeActor = config.actorCreator(PlayerFacadeActor(config, eventActor, lineWriterActor,
+    val eventActor = config.actorCreator.createActor(Props[EventManagerActorOld](), "eventManagerActor")
+    val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActor, lineWriterActor,
       AudioPlayerSourceCreator), "playerFacadeActor")
     new AudioPlayer(facadeActor, eventActor)
   }

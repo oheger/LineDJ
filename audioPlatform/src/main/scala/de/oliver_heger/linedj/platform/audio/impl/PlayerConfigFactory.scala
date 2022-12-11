@@ -17,10 +17,8 @@
 package de.oliver_heger.linedj.platform.audio.impl
 
 import java.nio.file.Paths
-
 import akka.actor.ActorRef
-import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.PlayerConfig.ActorCreator
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
