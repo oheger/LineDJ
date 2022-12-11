@@ -16,10 +16,12 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
+import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -29,6 +31,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.atomic.AtomicReference
 
 /**
   * Test class for ''AudioPlayerFactory''.
@@ -49,37 +53,34 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "create a correct audio player" in {
     val configFactory = mock[PlayerConfigFactory]
+    val clientAppContext = mock[ClientApplicationContext]
     val mediaManager = TestProbe()
     val Prefix = "audio.platform.config"
     val BufSize = 8888
     val appConfig = new PropertiesConfiguration
-    val actorCreations = collection.mutable.Map.empty[String, Props]
+    val refCreator = new AtomicReference[ActorCreator]
     val management = new ActorManagement {
       override def initClientContext(context: ClientApplicationContext): Unit = {}
 
-      override def clientApplicationContext: ClientApplicationContext = null
-
-      /**
-        * @inheritdoc Records this actor creation.
-        */
-      override def createAndRegisterActor(props: Props, name: String): ActorRef = {
-        actorCreations += name -> props
-        TestProbe().ref
-      }
+      override val clientApplicationContext: ClientApplicationContext = clientAppContext
     }
+
+    when(clientAppContext.actorFactory).thenReturn(new ActorFactory(system))
     when(configFactory.createPlayerConfig(eqArg(appConfig), eqArg(Prefix),
       eqArg(mediaManager.ref), any())).thenAnswer((invocation: InvocationOnMock) => {
       val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]
+      refCreator.set(creator)
       PlayerConfig(inMemoryBufferSize = BufSize, mediaManagerActor = mediaManager.ref,
         actorCreator = creator)
     })
     val factory = new AudioPlayerFactory(configFactory)
 
     val player = factory.createAudioPlayer(appConfig, Prefix, mediaManager.ref, management)
+
     player should not be null
-    val facadeProps = actorCreations("playerFacadeActor")
-    val actConfig = facadeProps.args.head.asInstanceOf[PlayerConfig]
-    actConfig.mediaManagerActor should be(mediaManager.ref)
-    actConfig.inMemoryBufferSize should be(BufSize)
+    refCreator.get() match {
+      case c: ManagingActorCreator => c.actorManagement should be(management)
+      case o => fail("Unexpected actor creator: " + o)
+    }
   }
 }

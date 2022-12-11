@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.typed.Behavior
-import akka.actor.{ActorRef, Props, typed}
+import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.Configuration
 
@@ -48,15 +47,7 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
     */
   def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef,
                         management: ActorManagement): AudioPlayer = {
-    val creator = new ActorCreator {
-      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
-      typed.ActorRef[T] = {
-        throw new UnsupportedOperationException("Unexpected invocation.")
-      }
-
-      override def createActor(props: Props, name: String): ActorRef =
-        management.createAndRegisterActor(props, name)
-    }
+    val creator = new ManagingActorCreator(management)
     val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)
     AudioPlayer(config)
   }
