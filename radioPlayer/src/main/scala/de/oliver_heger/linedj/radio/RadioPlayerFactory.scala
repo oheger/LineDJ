@@ -16,12 +16,10 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.{ActorRef, Props}
-import akka.actor.typed
-import akka.actor.typed.Behavior
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
+import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 /**
@@ -50,19 +48,12 @@ private class RadioPlayerFactory {
     * @return the player configuration
     */
   private def createPlayerConfig(actorManagement: ActorManagement): PlayerConfig = {
-    val creator = new ActorCreator {
-      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
-      typed.ActorRef[T] = {
-        throw new UnsupportedOperationException("Unexpected invocation.")
-      }
-
-      override def createActor(props: Props, name: String): ActorRef =
-        actorManagement.createAndRegisterActor(props, name)
-    }
-
-    PlayerConfig(inMemoryBufferSize = 64 * 1024, playbackContextLimit = 8192,
+    val creator = new ManagingActorCreator(actorManagement)
+    PlayerConfig(inMemoryBufferSize = 64 * 1024,
+      playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
-      mediaManagerActor = null, actorCreator = creator)
+      mediaManagerActor = null,
+      actorCreator = creator)
   }
 }

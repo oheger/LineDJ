@@ -16,54 +16,60 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.{Actor, ActorRef, Props}
-import de.oliver_heger.linedj.platform.app.ClientApplication
+import akka.actor.ActorSystem
+import akka.testkit.TestKit
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import org.mockito.ArgumentMatchers.{any, anyString}
+import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
+import de.oliver_heger.linedj.platform.comm.ActorFactory
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
   * Test class for ''RadioPlayerFactory''.
   */
-class RadioPlayerFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  def this() = this(ActorSystem("RadioPlayerFactorySpec"))
+
+  override protected def afterAll(): Unit = {
+    TestKit shutdownActorSystem system
+    super.afterAll()
+  }
+
   /**
-    * Creates a mock ActorManagement object.
-    * @return the mock
+    * Creates a stub ActorManagement object. The object can also be used to
+    * stop all actors that have been created during a test.
+    *
+    * @return the stub
     */
   private def createActorManagement(): ActorManagement = {
-    val management = mock[ActorManagement]
-    when(management.createAndRegisterActor(any(classOf[Props]), anyString()))
-      .thenAnswer((_: InvocationOnMock) => mock[ActorRef])
-    management
+    val context = mock[ClientApplicationContext]
+    when(context.actorFactory).thenReturn(new ActorFactory(system))
+
+    new ActorManagement {
+      override def initClientContext(context: ClientApplicationContext): Unit = {}
+
+      override def clientApplicationContext: ClientApplicationContext = context
+    }
   }
 
   "A RadioPlayerFactory" should "use meaningful configuration settings" in {
     val factory = new RadioPlayerFactory
+    val management = createActorManagement()
+    val player = factory createRadioPlayer management
 
-    val player = factory createRadioPlayer createActorManagement()
     player.config.inMemoryBufferSize should be(65536)
     player.config.bufferChunkSize should be(4096)
     player.config.playbackContextLimit should be(8192)
     player.config.mediaManagerActor should be(null)
     player.config.blockingDispatcherName.get should be(ClientApplication.BlockingDispatcherName)
-  }
-
-  it should "specify a correct actor creation function" in {
-    val management = createActorManagement()
-    val factory = new RadioPlayerFactory
-
-    val player = factory createRadioPlayer management
-    val mockActor = mock[ActorRef]
-    val props = Props(new Actor {
-      override def receive: Receive = Actor.emptyBehavior
-    })
-    val name = "someActor"
-    when(management.createAndRegisterActor(props, name)).thenReturn(mockActor)
-    player.config.actorCreator.createActor(props, name) should be(mockActor)
-    verify(management).createAndRegisterActor(props, name)
+    player.config.actorCreator match {
+      case c: ManagingActorCreator => c.actorManagement should be(management)
+      case o => fail("Unexpected actor creator: " + o)
+    }
   }
 }
