@@ -66,9 +66,37 @@ object EventManagerActor {
   case class Publish[E](event: E) extends EventManagerCommand[E]
 
   /**
+    * Command to request a reference to a publisher actor.
+    *
+    * Although it is possible to publish events via the [[EventManagerActor]]
+    * protocol, it is not always desirable to pass around a reference to this
+    * actor type to clients that just need to publish events. This is due to
+    * the fact that the protocol allows further actions to manipulate the
+    * managed event listeners and even to stop the actor. Therefore, via this
+    * command, a dedicated actor can be requested that only supports publishing
+    * events of the target type to the registered listeners and nothing more.
+    * The lifecycle of this publisher actor is tight to the owning
+    * [[EventManagerActor]].
+    *
+    * @param client the client requesting the publisher actor
+    * @tparam E the event type supported by the actor
+    */
+  case class GetPublisher[E](client: ActorRef[PublisherReference[E]]) extends EventManagerCommand[E]
+
+  /**
     * Command to stop this actor.
     */
   case class Stop[E]() extends EventManagerCommand[E]
+
+  /**
+    * A data class for the message sent in response on a [[GetPublisher]]
+    * request. The contained actor reference can be used to publish events of
+    * the supported type.
+    *
+    * @param publisher the actor to publish events
+    * @tparam E the event type supported by the actor
+    */
+  case class PublisherReference[E](publisher: ActorRef[Publish[E]])
 
   /**
     * Returns the behavior for a new instance that manages event listeners of
@@ -77,35 +105,35 @@ object EventManagerActor {
     * @tparam E the event type supported by this actor
     * @return the behavior of the actor instance
     */
-  def apply[E](): Behavior[EventManagerCommand[E]] = handleCommands(List.empty)
+  def apply[E](): Behavior[EventManagerCommand[E]] = Behaviors.setup[EventManagerCommand[E]] { context =>
+    val publisher: ActorRef[Publish[E]] = context.messageAdapter(event => event)
 
-  /**
-    * The actual implementation of the behavior managing the registered event
-    * listeners as state.
-    *
-    * @param listeners the list with the registered listeners
-    * @tparam E the event type supported by this actor
-    * @return the behavior of this actor
-    */
-  private def handleCommands[E](listeners: List[ActorRef[E]]): Behavior[EventManagerCommand[E]] =
-    Behaviors.receive[EventManagerCommand[E]] {
-      case (ctx, RegisterListener(listener)) =>
-        ctx.watch(listener)
-        handleCommands(listener :: listeners)
+    def handleCommands(listeners: List[ActorRef[E]]): Behavior[EventManagerCommand[E]] =
+      Behaviors.receiveMessage[EventManagerCommand[E]] {
+        case RegisterListener(listener) =>
+          context.watch(listener)
+          handleCommands(listener :: listeners)
 
-      case (_, RemoveListener(listener)) =>
-        handleCommands(listeners.filterNot(_ == listener))
+        case RemoveListener(listener) =>
+          handleCommands(listeners.filterNot(_ == listener))
 
-      case (_, Publish(event)) =>
-        listeners foreach (_ ! event)
-        Behaviors.same
+        case Publish(event) =>
+          listeners foreach (_ ! event)
+          Behaviors.same
 
-      case (ctx, Stop()) =>
-        ctx.log.info("Stopping EventManagerActor {}.", ctx.self.path.name)
-        Behaviors.stopped
-    }.receiveSignal {
-      case (context, Terminated(ref)) =>
-        context.log.info(s"Removing terminated event listener ${ref.path.name}")
-        handleCommands(listeners.filterNot(_ == ref))
-    }
+        case GetPublisher(client) =>
+          client ! PublisherReference(publisher)
+          Behaviors.same
+
+        case Stop() =>
+          context.log.info("Stopping EventManagerActor {}.", context.self.path.name)
+          Behaviors.stopped
+      }.receiveSignal {
+        case (context, Terminated(ref)) =>
+          context.log.info(s"Removing terminated event listener ${ref.path.name}")
+          handleCommands(listeners.filterNot(_ == ref))
+      }
+
+    handleCommands(List.empty)
+  }
 }

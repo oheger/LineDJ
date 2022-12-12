@@ -18,11 +18,15 @@ package de.oliver_heger.linedj.player.engine.actors
 
 import akka.actor.DeadLetter
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
+import akka.util.Timeout
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackProgressEvent, PlayerEvent}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object EventManagerActorSpec {
@@ -42,7 +46,8 @@ object EventManagerActorSpec {
 /**
   * Test class for [[EventManagerActor]].
   */
-class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers {
+class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
+  with AsyncTestHelper {
 
   import EventManagerActorSpec._
 
@@ -109,5 +114,21 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     eventManager ! message
     val deadLetter = deadLetterProbe.expectMessageType[DeadLetter]
     deadLetter.message should be(message)
+  }
+
+  it should "provide an actor to publish events" in {
+    implicit val timeout: Timeout = 3.seconds
+    val eventManager = testKit.spawn(EventManagerActor[PlayerEvent]())
+
+    val futPublisher: Future[EventManagerActor.PublisherReference[PlayerEvent]] =
+      eventManager.ask(ref => EventManagerActor.GetPublisher(ref))
+    val publisher = futureResult(futPublisher).publisher
+
+    val event = progressEvent(28)
+    val probe = testKit.createTestProbe[PlayerEvent]()
+    eventManager ! EventManagerActor.RegisterListener(probe.ref)
+    publisher ! EventManagerActor.Publish(event)
+
+    probe.expectMessage(event)
   }
 }
