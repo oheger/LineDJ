@@ -17,15 +17,17 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.{ActorRef, Props}
+import akka.{actor => classics}
+import akka.actor.Props
+import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.Behaviors
 import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,8 +55,37 @@ object PlayerControl {
     * @return the reference to the line writer actor
     */
   def createLineWriterActor(config: PlayerConfig,
-                                            actorName: String = LineWriterActorName): ActorRef =
+                            actorName: String = LineWriterActorName): classics.ActorRef =
     config.actorCreator.createActor(createLineWriterActorProps(config), actorName)
+
+  /**
+    * Creates actors for managing event listeners. This function is mainly
+    * used in the interim phase when both typed and untyped event listeners are
+    * supported. Therefore, two event manager actors are created and returned.
+    * These actors are connected with each other: an event published via the
+    * typed actor is also received by the classic actor. That way a step-wise
+    * migration to the new event manager implementation can be done.
+    *
+    * @param creator the object to create actors
+    * @param name    the name of the event manager actor
+    * @tparam E the event type
+    * @return a tuple with the classic and the typed event manager actors
+    */
+  def createEventManagerActor[E](creator: ActorCreator, name: String):
+  (classics.ActorRef, ActorRef[EventManagerActor.EventManagerCommand[E]]) = {
+    val eventManagerActorOld = creator.createActor(Props[EventManagerActorOld](), name + "Old")
+    val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))
+
+    val forwardingListenerBehavior = Behaviors.receiveMessage[E] {
+      msg =>
+        eventManagerActorOld ! msg
+        Behaviors.same
+    }
+    val forwardingListener = creator.createActor(forwardingListenerBehavior, "forwardingListener", None)
+    eventManagerActor ! EventManagerActor.RegisterListener(forwardingListener)
+
+    (eventManagerActorOld, eventManagerActor)
+  }
 
   /**
     * Creates the properties for the line writer actor to be used by this audio
@@ -88,10 +119,10 @@ trait PlayerControl {
   import PlayerControl._
 
   /** The actor for generating events. */
-  protected val eventManagerActor: ActorRef
+  protected val eventManagerActor: classics.ActorRef
 
   /** The facade actor for the player engine. */
-  protected val playerFacadeActor: ActorRef
+  protected val playerFacadeActor: classics.ActorRef
 
   /** A counter for generating unique sink registration IDs. */
   private val regIdCounter = new AtomicInteger
@@ -237,7 +268,7 @@ trait PlayerControl {
     * @param timeout the timeout when waiting for answers
     * @return a future for the ''CloseAck'' messages received from the actors
     */
-  protected def closeActors(actors: Seq[ActorRef])
+  protected def closeActors(actors: Seq[classics.ActorRef])
                            (implicit ec: ExecutionContext, timeout: Timeout):
   Future[Seq[CloseAck]] = {
     val actorsToClose = playerFacadeActor :: actors.toList

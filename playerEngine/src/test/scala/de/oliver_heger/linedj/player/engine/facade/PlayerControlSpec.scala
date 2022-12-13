@@ -16,17 +16,19 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.Behavior
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, typed}
 import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -196,6 +198,41 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       case r => fail("Unexpected result: " + r)
     }
     latch.await(1, TimeUnit.SECONDS) shouldBe true
+  }
+
+  it should "create event manager actors" in {
+    val ActorName = "MyTestEventManager"
+    val event = AudioSourceStartedEvent(AudioSource("test", 8192, 0, 0))
+    val testKit = ActorTestKit()
+    try {
+      val creator = new ActorCreator {
+        override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
+        typed.ActorRef[T] = {
+          if (name == ActorName) {
+            optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
+          }
+          testKit.spawn(behavior)
+        }
+
+        override def createActor(props: Props, name: String): ActorRef = {
+          name should be(ActorName + "Old")
+          system.actorOf(props)
+        }
+      }
+
+      val (eventManagerOld, eventManager) = PlayerControl.createEventManagerActor[PlayerEvent](creator, ActorName)
+      val probeListener = testKit.createTestProbe[PlayerEvent]()
+      val queueOldEvents = new LinkedBlockingQueue[PlayerEvent]()
+      val sinkOldEvents = Sink.foreach[PlayerEvent](event => queueOldEvents.offer(event))
+      eventManagerOld ! EventManagerActorOld.RegisterSink(42, sinkOldEvents)
+      eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
+
+      eventManager ! EventManagerActor.Publish(event)
+      probeListener.expectMessage(event)
+      queueOldEvents.poll(3, TimeUnit.SECONDS) should be(event)
+    } finally {
+      testKit.shutdownTestKit()
+    }
   }
 
   /**
