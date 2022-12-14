@@ -121,7 +121,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor]())
   }
 
-  it should "support adding event listeners" in {
+  it should "support adding event listener sinks" in {
     def createSink(): Sink[PlayerEvent, Any] =
       Sink.foreach[PlayerEvent](println)
 
@@ -137,13 +137,33 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RegisterSink(regID2, sink2))
   }
 
-  it should "support removing event listeners" in {
+  it should "support removing event listener sinks" in {
     val SinkID = 20160708
     val helper = new PlayerControlTestHelper
     val player = helper.createPlayerControl()
 
     player removeEventSink SinkID
     helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RemoveSink(SinkID))
+  }
+
+  it should "support adding event listeners" in {
+    val helper = new PlayerControlTestHelper
+    val listener = testKit.createTestProbe[PlayerEvent]()
+    val player = helper.createPlayerControl()
+
+    player addEventListener listener.ref
+
+    helper.probeEventManagerActor.expectMessage(EventManagerActor.RegisterListener(listener.ref))
+  }
+
+  it should "support removing event listeners" in {
+    val helper = new PlayerControlTestHelper
+    val listener = testKit.createTestProbe[PlayerEvent]()
+    val player = helper.createPlayerControl()
+
+    player removeEventListener listener.ref
+
+    helper.probeEventManagerActor.expectMessage(EventManagerActor.RemoveListener(listener.ref))
   }
 
   it should "allow resetting the engine" in {
