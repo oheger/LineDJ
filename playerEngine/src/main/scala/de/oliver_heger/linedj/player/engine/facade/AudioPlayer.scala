@@ -16,12 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.{ActorRef, Props}
+import akka.{actor => classics}
+import akka.actor.Props
+import akka.actor.typed.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{SourceActorCreator, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
@@ -55,10 +57,11 @@ object AudioPlayer {
     */
   def apply(config: PlayerConfig): AudioPlayer = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val eventActor = config.actorCreator.createActor(Props[EventManagerActorOld](), "eventManagerActor")
-    val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActor, lineWriterActor,
+    val (eventActorOld, eventActor) =
+      PlayerControl.createEventManagerActor[PlayerEvent](config.actorCreator, "eventManagerActor")
+    val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActorOld, lineWriterActor,
       AudioPlayerSourceCreator), "playerFacadeActor")
-    new AudioPlayer(facadeActor, eventActor)
+    new AudioPlayer(facadeActor, eventActorOld, eventActor)
   }
 
   /**
@@ -70,7 +73,7 @@ object AudioPlayer {
     * @param config  the audio player configuration
     * @return a map with the actors that have been created
     */
-  private def createSourceActor(factory: ChildActorFactory, config: PlayerConfig): Map[String, ActorRef] = {
+  private def createSourceActor(factory: ChildActorFactory, config: PlayerConfig): Map[String, classics.ActorRef] = {
     val bufMan = BufferFileManager(config)
     val localBufferActor = factory.createChildActor(LocalBufferActor(config, bufMan))
     val sourceReaderActor = factory.createChildActor(Props(classOf[SourceReaderActor], localBufferActor))
@@ -88,12 +91,15 @@ object AudioPlayer {
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
   *
-  * @param playerFacadeActor the player facade actor
-  * @param eventManagerActor the actor for managing event listeners
+  * @param playerFacadeActor    the player facade actor
+  * @param eventManagerActorOld the legacy actor for managing event listeners
+  * @param eventManagerActor    the actor for managing event listeners
   */
-class AudioPlayer private(protected override val playerFacadeActor: ActorRef,
-                          protected override val eventManagerActor: ActorRef)
-  extends PlayerControl {
+class AudioPlayer private(protected override val playerFacadeActor: classics.ActorRef,
+                          protected override val eventManagerActorOld: classics.ActorRef,
+                          protected override val eventManagerActor:
+                          ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
+  extends PlayerControl[PlayerEvent] {
 
   import AudioPlayer._
 

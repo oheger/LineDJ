@@ -16,17 +16,18 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.typed.ActorRef
 import akka.util.Timeout
+import akka.{actor => classics}
 import de.oliver_heger.linedj.io.CloseAck
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.actors.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,16 +40,17 @@ object RadioPlayer {
     * @return the new ''RadioPlayer'' instance
     */
   def apply(config: PlayerConfig): RadioPlayer = {
-    val eventActor = config.actorCreator.createActor(Props[EventManagerActorOld](), "radioEventManagerActor")
-    val sourceCreator = radioPlayerSourceCreator(eventActor)
+    val (eventActorOld, eventActor) =
+      PlayerControl.createEventManagerActor[RadioEvent](config.actorCreator, "radioEventManagerActor")
+    val sourceCreator = radioPlayerSourceCreator(eventActorOld)
     val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
     val facadeActor =
-      config.actorCreator.createActor(PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator),
+      config.actorCreator.createActor(PlayerFacadeActor(config, eventActorOld, lineWriterActor, sourceCreator),
         "radioPlayerFacadeActor")
-    val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActor),
+    val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActorOld),
       "radioSchedulerActor")
 
-    new RadioPlayer(config, facadeActor, schedulerActor, eventActor)
+    new RadioPlayer(config, facadeActor, schedulerActor, eventActorOld, eventActor)
   }
 
   /**
@@ -59,7 +61,7 @@ object RadioPlayer {
     * @param eventActor the event actor
     * @return the function to create the source actor for the radio player
     */
-  private def radioPlayerSourceCreator(eventActor: ActorRef): SourceActorCreator =
+  private def radioPlayerSourceCreator(eventActor: classics.ActorRef): SourceActorCreator =
     (factory, config) => {
       val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)
@@ -80,13 +82,16 @@ object RadioPlayer {
   * @param config            the configuration for this player
   * @param playerFacadeActor reference to the facade actor
   * @param schedulerActor    reference to the scheduler actor
+  * @param eventManagerActorOld reference to the legacy event manager actor
   * @param eventManagerActor reference to the event manager actor
   */
 class RadioPlayer private(val config: PlayerConfig,
-                          override val playerFacadeActor: ActorRef,
-                          schedulerActor: ActorRef,
-                          override protected val eventManagerActor: ActorRef)
-  extends PlayerControl {
+                          override val playerFacadeActor: classics.ActorRef,
+                          schedulerActor: classics.ActorRef,
+                          override protected val eventManagerActorOld: classics.ActorRef,
+                          override protected val eventManagerActor:
+                          ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]])
+  extends PlayerControl[RadioEvent] {
   /**
     * Marks a source as the new current source. This does not change the
     * current playback if any. It just means that the source specified is now
@@ -164,7 +169,7 @@ class RadioPlayer private(val config: PlayerConfig,
     * @param target the target actor
     * @param delay  the delay
     */
-  private def invokeDelayed(msg: Any, target: ActorRef, delay: FiniteDuration): Unit = {
+  private def invokeDelayed(msg: Any, target: classics.ActorRef, delay: FiniteDuration): Unit = {
     playerFacadeActor ! DelayActor.Propagate(msg, target, delay)
   }
 }

@@ -16,12 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
+import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.Behavior
+import akka.actor.typed.{ActorRef, Behavior}
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-import akka.actor.{Actor, ActorRef, ActorSystem, Props, typed}
+import akka.{actor => classics}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
@@ -45,8 +47,12 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("PlayerControlSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
   }
 
   "A PlayerControl" should "allow adding a playback context factory" in {
@@ -127,8 +133,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val regID1 = player registerEventSink sink1
     val regID2 = player registerEventSink sink2
     regID1 should not be regID2
-    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RegisterSink(regID1, sink1))
-    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RegisterSink(regID2, sink2))
+    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RegisterSink(regID1, sink1))
+    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RegisterSink(regID2, sink2))
   }
 
   it should "support removing event listeners" in {
@@ -137,7 +143,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player removeEventSink SinkID
-    helper.probeEventManagerActor.expectMsg(EventManagerActorOld.RemoveSink(SinkID))
+    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RemoveSink(SinkID))
   }
 
   it should "allow resetting the engine" in {
@@ -156,7 +162,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * @param closeCounter a counter for recording close requests
     * @return the list with test actors
     */
-  private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[ActorRef] =
+  private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[classics.ActorRef] =
     (1 to count) map (_ => system.actorOf(Props(new Actor {
       override def receive: Receive = {
         case CloseRequest =>
@@ -207,14 +213,14 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     try {
       val creator = new ActorCreator {
         override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
-        typed.ActorRef[T] = {
+        ActorRef[T] = {
           if (name == ActorName) {
             optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
           }
           testKit.spawn(behavior)
         }
 
-        override def createActor(props: Props, name: String): ActorRef = {
+        override def createActor(props: Props, name: String): classics.ActorRef = {
           name should be(ActorName + "Old")
           system.actorOf(props)
         }
@@ -240,8 +246,12 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * provides a concrete implementation of the trait under test.
     */
   private class PlayerControlTestHelper {
-    /** The test event manager actor. */
-    val probeEventManagerActor: TestProbe = TestProbe()
+    /** The test legacy event manager actor. */
+    val probeEventManagerActorOld: TestProbe = TestProbe()
+
+    /** Test test event manager actor. */
+    val probeEventManagerActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]] =
+      testKit.createTestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]]()
 
     /** Test probe for the player facade actor. */
     val probePlayerFacadeActor: TestProbe = TestProbe()
@@ -252,7 +262,9 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return the test instance
       */
     def createPlayerControl(): PlayerControlImpl =
-      new PlayerControlImpl(probeEventManagerActor.ref, probePlayerFacadeActor.ref)
+      new PlayerControlImpl(eventManagerActorOld = probeEventManagerActorOld.ref,
+        playerFacadeActor = probePlayerFacadeActor.ref,
+        eventManagerActor = probeEventManagerActor.ref)
 
     /**
       * Expects an invocation of the player facade actor with the parameters
@@ -287,13 +299,14 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 /**
   * A test implementation of the trait which wraps the specified actor.
   *
-  * @param eventManagerActor the event manager actor
-  * @param playerFacadeActor the player facade actor
+  * @param eventManagerActorOld the event manager actor
+  * @param playerFacadeActor    the player facade actor
   */
-private class PlayerControlImpl(override val eventManagerActor: ActorRef,
-                                override val playerFacadeActor: ActorRef)
-  extends PlayerControl {
-  override def closeActors(actors: Seq[ActorRef])(implicit ec: ExecutionContext, timeout:
+private class PlayerControlImpl(override val playerFacadeActor: classics.ActorRef,
+                                override val eventManagerActorOld: classics.ActorRef,
+                                override val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
+  extends PlayerControl[PlayerEvent] {
+  override def closeActors(actors: Seq[classics.ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala

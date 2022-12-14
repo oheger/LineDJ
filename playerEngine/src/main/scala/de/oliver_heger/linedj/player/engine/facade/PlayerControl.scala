@@ -113,13 +113,18 @@ object PlayerControl {
   * that are referenced by methods of this trait. That way, functionality
   * using these actors can already be implemented while the concrete logic of
   * creating the required actors is left to concrete implementations.
+  *
+  * @tparam E the type of events supported by this player
   */
-trait PlayerControl {
+trait PlayerControl[E] {
 
   import PlayerControl._
 
-  /** The actor for generating events. */
-  protected val eventManagerActor: classics.ActorRef
+  /** The legacy actor for generating events. */
+  protected val eventManagerActorOld: classics.ActorRef
+
+  /** The actor for managing event listeners. */
+  protected val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[E]]
 
   /** The facade actor for the player engine. */
   protected val playerFacadeActor: classics.ActorRef
@@ -188,7 +193,7 @@ trait PlayerControl {
     */
   def registerEventSink(sink: Sink[_, _]): Int = {
     val regId = regIdCounter.incrementAndGet()
-    eventManagerActor ! EventManagerActorOld.RegisterSink(regId, sink)
+    eventManagerActorOld ! EventManagerActorOld.RegisterSink(regId, sink)
     regId
   }
 
@@ -199,7 +204,7 @@ trait PlayerControl {
     * @param registrationID the ID of the sink to be removed
     */
   def removeEventSink(registrationID: Int): Unit = {
-    eventManagerActor ! EventManagerActorOld.RemoveSink(registrationID)
+    eventManagerActorOld ! EventManagerActorOld.RemoveSink(registrationID)
   }
 
   /**
