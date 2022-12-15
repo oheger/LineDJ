@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
 
+import scala.reflect.ClassTag
+
 /**
   * An actor implementation responsible for the management of event listeners
   * and publishing of events to these listeners.
@@ -96,7 +98,7 @@ object EventManagerActor {
     * @param publisher the actor to publish events
     * @tparam E the event type supported by the actor
     */
-  case class PublisherReference[E](publisher: ActorRef[Publish[E]])
+  case class PublisherReference[E](publisher: ActorRef[E])
 
   /**
     * Returns the behavior for a new instance that manages event listeners of
@@ -105,35 +107,36 @@ object EventManagerActor {
     * @tparam E the event type supported by this actor
     * @return the behavior of the actor instance
     */
-  def apply[E](): Behavior[EventManagerCommand[E]] = Behaviors.setup[EventManagerCommand[E]] { context =>
-    val publisher: ActorRef[Publish[E]] = context.messageAdapter(event => event)
+  def apply[E]()(implicit t: ClassTag[E]): Behavior[EventManagerCommand[E]] = Behaviors.setup[EventManagerCommand[E]] {
+    context =>
+      val publisher: ActorRef[E] = context.messageAdapter(event => Publish(event))
 
-    def handleCommands(listeners: List[ActorRef[E]]): Behavior[EventManagerCommand[E]] =
-      Behaviors.receiveMessage[EventManagerCommand[E]] {
-        case RegisterListener(listener) =>
-          context.watch(listener)
-          handleCommands(listener :: listeners)
+      def handleCommands(listeners: List[ActorRef[E]]): Behavior[EventManagerCommand[E]] =
+        Behaviors.receiveMessage[EventManagerCommand[E]] {
+          case RegisterListener(listener) =>
+            context.watch(listener)
+            handleCommands(listener :: listeners)
 
-        case RemoveListener(listener) =>
-          handleCommands(listeners.filterNot(_ == listener))
+          case RemoveListener(listener) =>
+            handleCommands(listeners.filterNot(_ == listener))
 
-        case Publish(event) =>
-          listeners foreach (_ ! event)
-          Behaviors.same
+          case Publish(event) =>
+            listeners foreach (_ ! event)
+            Behaviors.same
 
-        case GetPublisher(client) =>
-          client ! PublisherReference(publisher)
-          Behaviors.same
+          case GetPublisher(client) =>
+            client ! PublisherReference(publisher)
+            Behaviors.same
 
-        case Stop() =>
-          context.log.info("Stopping EventManagerActor {}.", context.self.path.name)
-          Behaviors.stopped
-      }.receiveSignal {
-        case (context, Terminated(ref)) =>
-          context.log.info(s"Removing terminated event listener ${ref.path.name}")
-          handleCommands(listeners.filterNot(_ == ref))
-      }
+          case Stop() =>
+            context.log.info("Stopping EventManagerActor {}.", context.self.path.name)
+            Behaviors.stopped
+        }.receiveSignal {
+          case (context, Terminated(ref)) =>
+            context.log.info(s"Removing terminated event listener ${ref.path.name}")
+            handleCommands(listeners.filterNot(_ == ref))
+        }
 
-    handleCommands(List.empty)
+      handleCommands(List.empty)
   }
 }

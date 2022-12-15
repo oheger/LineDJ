@@ -31,6 +31,7 @@ import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActo
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 
 object PlayerControl {
   /**
@@ -71,7 +72,7 @@ object PlayerControl {
     * @tparam E the event type
     * @return a tuple with the classic and the typed event manager actors
     */
-  def createEventManagerActor[E](creator: ActorCreator, name: String):
+  def createEventManagerActor[E](creator: ActorCreator, name: String)(implicit t: ClassTag[E]):
   (classics.ActorRef, ActorRef[EventManagerActor.EventManagerCommand[E]]) = {
     val eventManagerActorOld = creator.createActor(Props[EventManagerActorOld](), name + "Old")
     val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))

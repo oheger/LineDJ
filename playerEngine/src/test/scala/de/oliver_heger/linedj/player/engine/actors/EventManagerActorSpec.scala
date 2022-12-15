@@ -127,7 +127,7 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     val event = progressEvent(28)
     val probe = testKit.createTestProbe[PlayerEvent]()
     eventManager ! EventManagerActor.RegisterListener(probe.ref)
-    publisher ! EventManagerActor.Publish(event)
+    publisher ! event
 
     probe.expectMessage(event)
   }
