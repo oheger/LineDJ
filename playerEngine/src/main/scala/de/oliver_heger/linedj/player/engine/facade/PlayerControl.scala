@@ -16,19 +16,20 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import java.util.concurrent.atomic.AtomicInteger
-import akka.{actor => classics}
-import akka.actor.Props
-import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Scheduler}
+import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
+import akka.{actor => classics}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
+import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlaybackContextFactory, PlayerConfig}
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
@@ -86,6 +87,31 @@ object PlayerControl {
     eventManagerActor ! EventManagerActor.RegisterListener(forwardingListener)
 
     (eventManagerActorOld, eventManagerActor)
+  }
+
+  /**
+    * Creates actors for managing event listeners and publishing events. This
+    * function creates the event manager actor and then asks it for the
+    * dedicated actor to publish events. Since this means an asynchronous
+    * request, result is a ''Future''.
+    *
+    * @param creator the object to create actors
+    * @param name    the name of the event manager actor
+    * @param ec      the execution context
+    * @tparam E the event type
+    * @return a tuple with the event manager actor and the publisher actor
+    */
+  def createEventManagerActorWithPublisher[E](creator: ActorCreator, name: String)
+                                             (implicit system: ActorSystem, ec: ExecutionContext, t: ClassTag[E]):
+  Future[(classics.ActorRef, ActorRef[EventManagerActor.EventManagerCommand[E]], ActorRef[E])] = {
+    val (eventManagerActorOld, eventManagerActor) = createEventManagerActor[E](creator, name)
+
+    implicit val askTimeout: Timeout = Timeout(10.seconds)
+    import akka.actor.typed.scaladsl.adapter._
+    implicit val scheduler: Scheduler = system.toTyped.scheduler
+    eventManagerActor.ask[EventManagerActor.PublisherReference[E]] { ref =>
+      EventManagerActor.GetPublisher(ref)
+    } map { publisherRef => (eventManagerActorOld, eventManagerActor, publisherRef.publisher) }
   }
 
   /**

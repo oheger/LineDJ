@@ -28,6 +28,7 @@ import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerConfig, PlayerEvent}
@@ -44,7 +45,7 @@ import scala.util.Failure
   * Test class for ''PlayerControl''.
   */
 class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("PlayerControlSpec"))
 
   /** The test kit for testing typed actors. */
@@ -226,39 +227,59 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     latch.await(1, TimeUnit.SECONDS) shouldBe true
   }
 
+  /**
+    * Creates an [[ActorCreator]] object that can be used for tests of the
+    * creation of the event manager actor.
+    *
+    * @param actorName the expected name of the event manager actor
+    * @return the [[ActorCreator]]
+    */
+  private def createActorCreatorForEventManager(actorName: String): ActorCreator =
+    new ActorCreator {
+      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
+      ActorRef[T] = {
+        if (name == actorName) {
+          optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
+        }
+        testKit.spawn(behavior)
+      }
+
+      override def createActor(props: Props, name: String): classics.ActorRef = {
+        name should be(actorName + "Old")
+        system.actorOf(props)
+      }
+    }
+
   it should "create event manager actors" in {
     val ActorName = "MyTestEventManager"
     val event = AudioSourceStartedEvent(AudioSource("test", 8192, 0, 0))
-    val testKit = ActorTestKit()
-    try {
-      val creator = new ActorCreator {
-        override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
-        ActorRef[T] = {
-          if (name == ActorName) {
-            optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
-          }
-          testKit.spawn(behavior)
-        }
+    val creator = createActorCreatorForEventManager(ActorName)
 
-        override def createActor(props: Props, name: String): classics.ActorRef = {
-          name should be(ActorName + "Old")
-          system.actorOf(props)
-        }
-      }
+    val (eventManagerOld, eventManager) = PlayerControl.createEventManagerActor[PlayerEvent](creator, ActorName)
+    val probeListener = testKit.createTestProbe[PlayerEvent]()
+    val queueOldEvents = new LinkedBlockingQueue[PlayerEvent]()
+    val sinkOldEvents = Sink.foreach[PlayerEvent](event => queueOldEvents.offer(event))
+    eventManagerOld ! EventManagerActorOld.RegisterSink(42, sinkOldEvents)
+    eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
 
-      val (eventManagerOld, eventManager) = PlayerControl.createEventManagerActor[PlayerEvent](creator, ActorName)
-      val probeListener = testKit.createTestProbe[PlayerEvent]()
-      val queueOldEvents = new LinkedBlockingQueue[PlayerEvent]()
-      val sinkOldEvents = Sink.foreach[PlayerEvent](event => queueOldEvents.offer(event))
-      eventManagerOld ! EventManagerActorOld.RegisterSink(42, sinkOldEvents)
-      eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
+    eventManager ! EventManagerActor.Publish(event)
+    probeListener.expectMessage(event)
+    queueOldEvents.poll(3, TimeUnit.SECONDS) should be(event)
+  }
 
-      eventManager ! EventManagerActor.Publish(event)
-      probeListener.expectMessage(event)
-      queueOldEvents.poll(3, TimeUnit.SECONDS) should be(event)
-    } finally {
-      testKit.shutdownTestKit()
-    }
+  it should "create an event publisher actor" in {
+    val ActorName = "MyTestEventManagerWithPublishing"
+    val event = AudioSourceStartedEvent(AudioSource("testPublish", 16384, 0, 0))
+    val creator = createActorCreatorForEventManager(ActorName)
+
+    implicit val ec: ExecutionContext = system.dispatcher
+    val (_, eventManager, eventPublisher) =
+      futureResult(PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](creator, ActorName))
+    val probeListener = testKit.createTestProbe[PlayerEvent]()
+    eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
+
+    eventPublisher ! event
+    probeListener.expectMessage(event)
   }
 
   /**
