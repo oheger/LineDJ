@@ -29,6 +29,7 @@ import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.Success
 
 /**
   * The ''Application'' class for the radio player application.
@@ -95,16 +96,16 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   }
 
   /**
-    * @inheritdoc This implementation creates the radio player and stores it in
-    *             the global bean context.
+    * @inheritdoc This implementation creates the radio player and passes it to
+    *             the controller via the message bus.
     */
-  override def createApplicationContext(): ApplicationContext = {
-    val context = super.createApplicationContext()
-    val playerBean = playerFactory.createRadioPlayer(this)
-    playerBean registerEventSink createPlayerListenerSink(playerBean)
-    initPlayer(playerBean)
-    addBeanDuringApplicationStartup("radioApp_player", playerBean)
-    context
+  override def initGUI(appCtx: ApplicationContext): Unit = {
+    super.initGUI(appCtx)
+
+    val player = playerFactory.createRadioPlayer(this)
+    player registerEventSink createPlayerListenerSink(player)
+    initPlayer(player)
+    clientApplicationContext.messageBus.publish(RadioController.RadioPlayerInitialized(Success(player)))
   }
 
   /**

@@ -89,7 +89,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent AudioSourceStartedEvent(AudioSource.infinite("Test"))
-    verify(helper.controller).player
+    verify(helper.controller).radioPlayer
     verifyNoMoreInteractions(helper.controller)
   }
 
@@ -168,7 +168,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
       */
     private def createController(): RadioController = {
       val ctrl = mock[RadioController]
-      when(ctrl.player).thenReturn(player)
+      when(ctrl.radioPlayer).thenReturn(player)
       ctrl
     }
   }

@@ -63,6 +63,7 @@
       <di:param>
         <di:list>
           <di:element refName="radioPlayerEventListener"/>
+          <di:element refName="radioController"/>
         </di:list>
       </di:param>
     </di:constructor>
@@ -124,7 +125,6 @@
     <di:bean name="radioController"
       beanClassName="de.oliver_heger.linedj.radio.RadioController">
       <di:constructor>
-        <di:param refName="radioApp_player"/>
         <di:param refName="jguiraffe.configuration"/>
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="ACTION_STORE"/>

@@ -43,7 +43,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Promise}
-import scala.util.Random
+import scala.util.{Random, Success}
 
 /**
   * Test class for ''RadioPlayerApplication''.
@@ -62,13 +62,6 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     app.playerFactory should not be null
     app shouldBe a[ApplicationAsyncStartup]
     app.appName should be("radioplayer")
-  }
-
-  it should "create a bean for the radio player" in {
-    val helper = new RadioPlayerApplicationTestHelper
-    val app = helper.activateRadioApp()
-
-    helper.queryBean[RadioPlayer](app, "radioApp_player") should be(helper.player)
   }
 
   it should "add playback context factories arrived after creation to the player" in {
@@ -189,13 +182,24 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.shutDownTest(promise)
   }
 
-  it should "create a correct bean for the radio controller" in {
+  it should "correctly initialize the controller in the Jelly script" in {
     val helper = new RadioPlayerApplicationTestHelper
     val app = helper.activateRadioApp()
 
     val ctrl = helper.queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
-    ctrl.player should be(helper.player)
+
     ctrl.config should be(app.getApplicationContext.getConfiguration)
+    val message = RadioController.RadioPlayerInitialized(Success(helper.player))
+    helper.messageBus.findListenerForMessage(message) should not be empty
+  }
+
+  it should "send a message with the initialized radio player on the message bus" in {
+    val helper = new RadioPlayerApplicationTestHelper
+    helper.activateRadioApp(clearMessageBus = false)
+
+    val playerInitMessage = helper.messageBus.findMessageType[RadioController.RadioPlayerInitialized]
+
+    playerInitMessage.triedRadioPlayer should be(Success(helper.player))
   }
 
   it should "register a listener sink at the radio player" in {
@@ -218,7 +222,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new RadioPlayerApplicationTestHelper
     helper.activateRadioApp(clearMessageBus = false)
 
-    val regMsg = helper.messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
+    val regMsg = helper.messageBus.findMessageType[ShutdownHandler.RegisterShutdownObserver]
     regMsg.observerID should be(helper.app.componentID)
     regMsg.observer should be(helper.app)
   }

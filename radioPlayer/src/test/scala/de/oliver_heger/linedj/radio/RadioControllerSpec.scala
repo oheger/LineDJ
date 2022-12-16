@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import java.util.concurrent.atomic.AtomicInteger
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
@@ -26,19 +25,20 @@ import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
-import net.sf.jguiraffe.gui.builder.window.WindowEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.mockito.ArgumentMatchers.{eq => argEq, _}
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 object RadioControllerSpec {
   /** Prefix for a radio source name. */
@@ -134,13 +134,6 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   import RadioControllerSpec._
 
   /**
-    * Creates a test window event of the specified type.
-    *
-    * @return the test window event
-    */
-  private def event(): WindowEvent = mock[WindowEvent]
-
-  /**
     * Creates a mock source configuration that contains the given number of
     * radio sources. All sources are defined with their name and URI.
     *
@@ -175,7 +168,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     config.addProperty("radio.sources.source.name", RadioSourceName)
     config.addProperty("radio.sources.source.uri", RadioSourceURI)
 
-    val ctrl = new RadioController(helper.player, config, helper.applicationContext,
+    val ctrl = new RadioController(config, helper.applicationContext,
       helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler,
       helper.errorIndicator, helper.errorHandlingStrategy)
     val srcConfig = ctrl.configFactory(config)
@@ -190,14 +183,6 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     helper.verifySourcesAddedToCombo(1, 2, 3, 4).verifySelectedSource(1)
       .verifyNoMoreInteractionWithCombo()
-  }
-
-  it should "hide the error indicator initially" in {
-    val helper = new RadioControllerTestHelper
-    helper.createInitializedController(createSourceConfiguration(1),
-      resetErrorIndicator = false)
-
-    verify(helper.errorIndicator).setVisible(false)
   }
 
   it should "handle missing source configurations correctly" in {
@@ -276,6 +261,8 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "react on changes in the radio sources selection while playback is not active" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
+    helper.sendPlayerInitializedMessage(ctrl)
+    reset(helper.player)
     val src = radioSource(2)
     doReturn(src).when(helper.comboHandler).getData
 
@@ -324,7 +311,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     }).when(helper.comboHandler).addItem(anyInt(), any(), any())
     doReturn(radioSource(3)).when(helper.comboHandler).getData
 
-    ctrl windowOpened event()
+    helper.sendPlayerInitializedMessage(ctrl)
     helper.verifyInitialStartPlayback(radioSource(1))
     verify(helper.player, never()).playSource(argEq(radioSource(2)), anyBoolean(), anyBoolean(), any())
   }
@@ -391,52 +378,15 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     verify(helper.playbackTimeHandler).setText("1:05")
   }
 
-  /**
-    * Helper method for testing that an event is ignored. It is only checked
-    * that the event is not touched.
-    *
-    * @param f a function that invokes a controller method with an event
-    */
-  private def checkIgnoredEvent(f: (RadioController, WindowEvent) => Unit): Unit = {
-    val ev = event()
-    val helper = new RadioControllerTestHelper
-    val ctrl = helper.createController(createSourceConfiguration(0))
-    f(ctrl, ev)
-    verifyNoInteractions(ev)
-  }
-
-  it should "ignore de-iconified events" in {
-    checkIgnoredEvent(_.windowDeiconified(_))
-  }
-
-  it should "ignore closing events" in {
-    checkIgnoredEvent(_.windowClosing(_))
-  }
-
-  it should "ignore closed events" in {
-    checkIgnoredEvent(_.windowClosed(_))
-  }
-
-  it should "ignore activated events" in {
-    checkIgnoredEvent(_.windowActivated(_))
-  }
-
-  it should "ignore deactivated events" in {
-    checkIgnoredEvent(_.windowDeactivated(_))
-  }
-
-  it should "ignore iconified events" in {
-    checkIgnoredEvent(_.windowIconified(_))
-  }
-
   it should "allow stopping playback" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
+    helper.sendPlayerInitializedMessage(ctrl)
 
     ctrl.stopPlayback()
     helper.verifyStopPlayback()
       .verifyAction(StartPlaybackAction, enabled = true)
-      .verifyAction(StopPlaybackAction, enabled = false)
+      .verifyAction(StopPlaybackAction, enabled = false, count = 2)
   }
 
   it should "allow restarting playback" in {
@@ -696,6 +646,18 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     verifyNoInteractions(helper.statusHandler)
   }
 
+  it should "handle a failed initialization of the player" in {
+    val ErrorText = "Player error"
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createController(createSourceConfiguration(0))
+    helper.expectResource("txt_status_error", ErrorText)
+
+    ctrl receive RadioController.RadioPlayerInitialized(Failure(new IllegalStateException("No player")))
+
+    verify(helper.statusHandler).setText(ErrorText)
+    verifyNoInteractions(helper.errorIndicator)
+  }
+
   /**
     * A helper class managing the dependencies of the test object.
     */
@@ -740,7 +702,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     def createController(srcConfig: RadioSourceConfig,
                          configuration: Configuration = new HierarchicalConfiguration):
     RadioController =
-      new RadioController(player, configuration, applicationContext, actionStore, comboHandler,
+      new RadioController(configuration, applicationContext, actionStore, comboHandler,
         statusHandler, playbackTimeHandler, errorIndicator, errorHandlingStrategy, c => {
           c should be(configuration)
           srcConfig
@@ -748,7 +710,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     /**
       * Creates a radio controller test instance and initializes it by sending
-      * it a window opened event.
+      * it a message with the radio player.
       *
       * @param srcConfig           the configuration for the radio sources
       * @param configuration       the configuration
@@ -762,10 +724,10 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     def createInitializedController(srcConfig: RadioSourceConfig,
                                     configuration: Configuration = new HierarchicalConfiguration,
                                     resetErrorIndicator: Boolean = true,
-                                    playbackSrcIdx: Int = -1)
-    : RadioController = {
+                                    playbackSrcIdx: Int = -1): RadioController = {
       val ctrl = createController(srcConfig, configuration)
-      ctrl windowOpened event()
+      sendPlayerInitializedMessage(ctrl)
+      verify(errorIndicator).setVisible(false)
       if (playbackSrcIdx >= 0) {
         ctrl radioSourcePlaybackStarted radioSource(playbackSrcIdx)
       }
@@ -773,6 +735,16 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         reset(errorIndicator)
       }
       ctrl
+    }
+
+    /**
+      * Sends a message to the given controller that the managed radio player
+      * could be initialized successfully.
+      *
+      * @param ctrl the controller
+      */
+    def sendPlayerInitializedMessage(ctrl: RadioController): Unit = {
+      ctrl receive RadioController.RadioPlayerInitialized(Success(player))
     }
 
     /**

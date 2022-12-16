@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.player.engine.radio.{RadioSourceChangedEvent, Radi
 class RadioPlayerEventListener(controller: RadioController) extends
   MessageBusListener {
   override def receive: Receive = {
-    case RadioPlayerEvent(event, radioPlayer) if controller.player == radioPlayer =>
+    case RadioPlayerEvent(event, radioPlayer) if controller.radioPlayer == radioPlayer =>
       event match {
         case RadioSourceChangedEvent(source, _) =>
           controller radioSourcePlaybackStarted source

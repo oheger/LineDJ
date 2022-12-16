@@ -16,21 +16,23 @@
 
 package de.oliver_heger.linedj.radio
 
+import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.DurationTransformer
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
-import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 object RadioController {
   /**
@@ -78,6 +80,19 @@ object RadioController {
 
   /** Resource key for the status text for replacement playback. */
   private val ResKeyStatusPlaybackReplace = "txt_status_replacement"
+
+  /** Resource key for the initialization error message. */
+  private val ResKeyStatusPlayerInitError = "txt_status_error"
+
+  /**
+    * A message to be published on the message bus when the initialization of
+    * the radio player is complete. That way the [[RadioController]] obtains
+    * the initialized player instance. Depending on the result of the
+    * initialization, the controller can then update itself.
+    *
+    * @param triedRadioPlayer a ''Try'' with the [[RadioPlayer]]
+    */
+  case class RadioPlayerInitialized(triedRadioPlayer: Try[RadioPlayer])
 }
 
 /**
@@ -89,7 +104,6 @@ object RadioController {
   * combo box cause the corresponding radio source to be played. It also
   * reacts on actions for starting and stopping playback.
   *
-  * @param player                the radio player to be managed
   * @param config                the current configuration (containing radio sources)
   * @param applicationContext    the application context
   * @param actionStore           the object for accessing actions
@@ -100,26 +114,34 @@ object RadioController {
   * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
   * @param configFactory         the factory for creating a radio source configuration
   */
-class RadioController(val player: RadioPlayer, val config: Configuration,
-                      applicationContext: ApplicationContext, actionStore: ActionStore,
-                      comboSources: ListComponentHandler, statusText: StaticTextHandler,
+class RadioController(val config: Configuration,
+                      applicationContext: ApplicationContext,
+                      actionStore: ActionStore,
+                      comboSources: ListComponentHandler,
+                      statusText: StaticTextHandler,
                       playbackTime: StaticTextHandler,
                       errorIndicator: WidgetHandler,
                       errorHandlingStrategy: ErrorHandlingStrategy,
                       val configFactory: Configuration => RadioSourceConfig)
-  extends WindowListener with FormChangeListener {
+  extends FormChangeListener with MessageBusListener {
 
-  def this(player: RadioPlayer, config: Configuration, applicationContext: ApplicationContext,
-           actionStore: ActionStore, comboSources: ListComponentHandler,
-           statusText: StaticTextHandler, playbackTime: StaticTextHandler,
-           errorIndicator: WidgetHandler, errorHandlingStrategy: ErrorHandlingStrategy) =
-    this(player, config, applicationContext, actionStore, comboSources, statusText, playbackTime,
+  def this(config: Configuration,
+           applicationContext: ApplicationContext,
+           actionStore: ActionStore,
+           comboSources: ListComponentHandler,
+           statusText: StaticTextHandler,
+           playbackTime: StaticTextHandler,
+           errorIndicator: WidgetHandler,
+           errorHandlingStrategy: ErrorHandlingStrategy) =
+    this(config, applicationContext, actionStore, comboSources, statusText, playbackTime,
       errorIndicator, errorHandlingStrategy, RadioSourceConfig.apply)
 
   import RadioController._
 
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
+
+  private var player: RadioPlayer = _
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]
@@ -167,6 +189,14 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   private var playbackActive = false
 
   /**
+    * Returns the [[RadioPlayer]] managed by this controller. Note that result
+    * can be '''null''' if the player has not yet been initialized.
+    *
+    * @return the managed [[RadioPlayer]]
+    */
+  def radioPlayer: RadioPlayer = player
+
+  /**
     * Returns the time (in seconds) when a recovery from an error should be
     * attempted. This value is read from the player configuration.
     *
@@ -188,42 +218,6 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
     * @return number of dysfunctional sources before recovery
     */
   def minFailedSourcesForRecovery: Int = minFailedSourcesForRecoveryField
-
-  override def windowDeiconified(windowEvent: WindowEvent): Unit = {}
-
-  override def windowClosing(windowEvent: WindowEvent): Unit = {}
-
-  override def windowClosed(windowEvent: WindowEvent): Unit = {}
-
-  override def windowActivated(windowEvent: WindowEvent): Unit = {}
-
-  override def windowDeactivated(windowEvent: WindowEvent): Unit = {}
-
-  override def windowIconified(windowEvent: WindowEvent): Unit = {}
-
-  /**
-    * @inheritdoc This implementation reads configuration settings and
-    *             starts playback if radio sources are defined.
-    */
-  override def windowOpened(windowEvent: WindowEvent): Unit = {
-    errorIndicator setVisible false
-    sourcesUpdating = true
-    try {
-      val srcConfig = configFactory(config)
-      errorHandlingConfig = ErrorHandlingStrategy.createConfig(config, srcConfig)
-      errorRecoveryTimeField = config.getLong(KeyRecoveryTime, DefaultRecoveryTime)
-      minFailedSourcesForRecoveryField = config.getInt(KeyRecoveryMinFailures,
-        DefaultMinFailuresForRecovery)
-
-      player.initSourceExclusions(srcConfig.exclusions, srcConfig.ranking)
-      radioSources = updateSourceCombo(srcConfig)
-      enableAction(ActionStartPlayback, enabled = false)
-      enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
-
-      startPlaybackIfPossible(radioSources,
-        config.getInt(KeyInitialDelay, DefaultInitialDelay).millis)
-    } finally sourcesUpdating = false
-  }
 
   /**
     * @inheritdoc The controller is registered at the combo box with radio
@@ -351,8 +345,46 @@ class RadioController(val player: RadioPlayer, val config: Configuration,
   }
 
   /**
+    * Returns the function for handling messages published on the message bus.
+    * Here the message about the initialized radio player is handled. That way,
+    * the application passes the radio player to the controller.
+    *
+    * @return the message handling function
+    */
+  override def receive: Receive = {
+    case RadioPlayerInitialized(triedRadioPlayer) =>
+      triedRadioPlayer match {
+        case Success(value) =>
+          player = value
+          errorIndicator.setVisible(false)
+
+          sourcesUpdating = true
+          try {
+            val srcConfig = configFactory(config)
+            errorHandlingConfig = ErrorHandlingStrategy.createConfig(config, srcConfig)
+            errorRecoveryTimeField = config.getLong(KeyRecoveryTime, DefaultRecoveryTime)
+            minFailedSourcesForRecoveryField = config.getInt(KeyRecoveryMinFailures,
+              DefaultMinFailuresForRecovery)
+
+            player.initSourceExclusions(srcConfig.exclusions, srcConfig.ranking)
+            radioSources = updateSourceCombo(srcConfig)
+            enableAction(ActionStartPlayback, enabled = false)
+            enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
+
+            startPlaybackIfPossible(radioSources,
+              config.getInt(KeyInitialDelay, DefaultInitialDelay).millis)
+          } finally sourcesUpdating = false
+
+        case Failure(exception) =>
+          log.error("Initialization of radio player failed.", exception)
+          statusText.setText(applicationContext.getResourceText(ResKeyStatusPlayerInitError))
+      }
+  }
+
+  /**
     * Determines the radio source to be played. This is either a replacement
     * source or the current source.
+    *
     * @return the radio source to be played
     */
   private def sourceToBePlayed: RadioSource =
