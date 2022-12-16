@@ -146,7 +146,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "not crash on shutdown if there is no radio player" in {
     val helper = new RadioPlayerApplicationTestHelper
-    val clCtx = new ClientApplicationContextImpl(optMessageBus = Some(helper.messageBus))
+    val clCtx = new ClientApplicationContextImpl(messageBus = helper.messageBus)
     helper.app.initClientContext(clCtx)
 
     helper.closePlayer()
@@ -267,7 +267,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @inheritdoc Injects the test message bus in the application context.
       */
     override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
-      new ClientApplicationContextImpl(config, optMessageBus = Some(messageBus))
+      new ClientApplicationContextImpl(config, messageBus = messageBus)
 
     /**
       * Starts up the test application.

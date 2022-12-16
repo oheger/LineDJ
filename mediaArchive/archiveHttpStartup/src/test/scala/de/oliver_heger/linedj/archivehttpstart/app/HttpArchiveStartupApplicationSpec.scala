@@ -1152,13 +1152,11 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       */
     private def createTestClientApplicationContext(): ClientApplicationContext = {
       val testMsgBus = messageBus
-      new ClientApplicationContextImpl {
-        override val actorSystem: ActorSystem = system
-        override val messageBus: MessageBus = testMsgBus
-        override val actorFactory: ActorFactory = StartupTestHelper.this.actorFactory
-        override val managementConfiguration: Configuration = archiveConfig
-        override val mediaFacade: MediaFacade = mockFacade
-      }
+      new ClientApplicationContextImpl(actorSystem = system,
+        messageBus = messageBus,
+        actorFactory = StartupTestHelper.this.actorFactory,
+        managementConfiguration = archiveConfig,
+        mediaFacade = mockFacade)
     }
 
     /**

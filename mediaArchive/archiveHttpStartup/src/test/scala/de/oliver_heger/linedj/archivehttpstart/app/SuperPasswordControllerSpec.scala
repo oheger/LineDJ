@@ -284,9 +284,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     private def createApplication(): HttpArchiveStartupApplication = {
       val app = spy(new HttpArchiveStartupApplication)
-      val clientContext = new ClientApplicationContextImpl(new PropertiesConfiguration, Some(messageBus)) {
-        override val actorSystem: ActorSystem = system
-      }
+      val clientContext = new ClientApplicationContextImpl(messageBus = messageBus, actorSystem = system)
       app.initClientContext(clientContext)
       when(app.getApplicationContext).thenReturn(applicationContext)
       app.activate(mock[ComponentContext])

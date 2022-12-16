@@ -19,31 +19,21 @@ package de.oliver_heger.linedj.platform.app
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
+import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar.mock
 
 /**
   * An implementation of ''ClientApplicationContext'' which stores a bunch of
-  * mock objects.
-  *
-  * @param configuration the configuration for the application
-  * @param optMessageBus an optional message bus object
+  * mock objects per default. It is possible to override some of the mocks when
+  * creating an instance.
   */
-class ClientApplicationContextImpl(configuration: Configuration = new PropertiesConfiguration(),
-                                   optMessageBus: Option[MessageBus] = None)
-  extends ClientApplicationContext with MockitoSugar {
-  override val actorSystem: ActorSystem = mock[ActorSystem]
-
-  override val messageBus: MessageBus = optMessageBus getOrElse mock[MessageBus]
-
-  override val windowManager: WindowManager = new WindowManagerImpl
-
-  override val actorFactory: ActorFactory = mock[ActorFactory]
-
-  override val mediaFacade: MediaFacade = mock[MediaFacade]
-
-  override val mediaIfcConfig: None.type = None
-
-  override val managementConfiguration: Configuration = configuration
-}
+class ClientApplicationContextImpl(override val managementConfiguration: Configuration = new PropertiesConfiguration(),
+                                   override val messageBus: MessageBus = mock[MessageBus],
+                                   override val actorSystem: ActorSystem = mock[ActorSystem],
+                                   override val actorFactory: ActorFactory = mock[ActorFactory],
+                                   override val mediaFacade: MediaFacade = mock[MediaFacade],
+                                   override val windowManager: WindowManager = new WindowManagerImpl,
+                                   override val mediaIfcConfig: Option[MediaIfcConfigData] = None)
+  extends ClientApplicationContext
