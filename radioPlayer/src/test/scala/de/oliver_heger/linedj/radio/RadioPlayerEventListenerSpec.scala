@@ -89,7 +89,8 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent AudioSourceStartedEvent(AudioSource.infinite("Test"))
-    verifyNoInteractions(helper.controller)
+    verify(helper.controller).player
+    verifyNoMoreInteractions(helper.controller)
   }
 
   it should "ignore an event from another player" in {
@@ -106,10 +107,10 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val player: RadioPlayer = mock[RadioPlayer]
 
     /** The mock for the radio controller. */
-    val controller: RadioController = mock[RadioController]
+    val controller: RadioController = createController()
 
     /** The listener to be tested. */
-    val listener = new RadioPlayerEventListener(controller, player)
+    val listener = new RadioPlayerEventListener(controller)
 
     /**
       * Sends a player event to the test listener. The event is correctly
@@ -143,7 +144,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
       * @return this test helper
       */
     def verifyErrorEvent(event: RadioSourceErrorEvent): RadioPlayerEventListenerTestHelper =
-    verifyErrorSource(event.source)
+      verifyErrorSource(event.source)
 
     /**
       * Verifies that the controller was notified about a playback error for the
@@ -157,6 +158,18 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
       verify(controller).playbackError(captor.capture())
       captor.getValue.source should be(source)
       this
+    }
+
+    /**
+      * Creates a mock for the [[RadioController]] that is prepared to return
+      * its associated [[RadioPlayer]].
+      *
+      * @return the prepared mock controller
+      */
+    private def createController(): RadioController = {
+      val ctrl = mock[RadioController]
+      when(ctrl.player).thenReturn(player)
+      ctrl
     }
   }
 }

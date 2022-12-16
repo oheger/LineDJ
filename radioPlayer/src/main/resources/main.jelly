@@ -144,7 +144,6 @@
     beanClassName="de.oliver_heger.linedj.radio.RadioPlayerEventListener">
     <di:constructor>
       <di:param refName="radioController"/>
-      <di:param refName="radioApp_player"/>
     </di:constructor>
   </di:bean>
 
