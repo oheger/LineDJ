@@ -17,12 +17,12 @@
 package de.oliver_heger.linedj.platform
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.MessageBusTestImpl.DirectCallGUISynchronizer
+import de.oliver_heger.linedj.platform.MessageBusTestImpl.{DirectCallGUISynchronizer, castMessage}
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -40,6 +40,18 @@ object MessageBusTestImpl {
     override def asyncInvoke(runnable: Runnable): Unit = syncInvoke(runnable)
   }
 
+  /**
+    * Helper function to cast a message of an unspecific type to a given target
+    * type. This fails with a ''ClassCastException'' if the message has an
+    * unexpected type.
+    *
+    * @param message the message
+    * @param t       the ''ClassTag''
+    * @tparam T the target type of the message
+    * @return the message cast to the target type
+    */
+  private def castMessage[T](message: Any)(implicit t: ClassTag[T]): T =
+    t.runtimeClass.asInstanceOf[Class[T]] cast message
 }
 
 /**
@@ -163,7 +175,23 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     if (m == null) {
       throw new NoSuchElementException("No message received within timeout!")
     }
-    t.runtimeClass.asInstanceOf[Class[T]] cast m
+    castMessage(m)
+  }
+
+  /**
+    * Searches for a message of the given type in the published messages.
+    * Messages of different types are ignored. Returns the first message of the
+    * specified type or fails if no more messages are found.
+    *
+    * @param t the ''ClassTag''
+    * @tparam T the type of the desired message
+    * @return the first message of the given type
+    * @throws NoSuchElementException if no message of this type was found
+    */
+  @tailrec final def findMessageType[T](implicit t: ClassTag[T]): T = {
+    val message = expectMessageType[Any]
+    if (t.runtimeClass.isInstance(message)) castMessage(message)
+    else findMessageType[T]
   }
 
   /**
