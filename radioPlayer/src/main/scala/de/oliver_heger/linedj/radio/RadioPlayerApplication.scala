@@ -19,17 +19,16 @@ package de.oliver_heger.linedj.radio
 import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.ShutdownHandler.ShutdownCompletionNotifier
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ShutdownHandler}
 import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.Success
 
 /**
   * The ''Application'' class for the radio player application.
@@ -49,8 +48,8 @@ import scala.util.Success
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with Identifiable
-  with ShutdownHandler.ShutdownObserver {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with ActorClientSupport
+  with Identifiable with ShutdownHandler.ShutdownObserver {
   def this() = this(new RadioPlayerFactory)
 
   /** The radio player managed by this application. */
@@ -102,10 +101,12 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   override def initGUI(appCtx: ApplicationContext): Unit = {
     super.initGUI(appCtx)
 
-    val player = playerFactory.createRadioPlayer(this)
-    player registerEventSink createPlayerListenerSink(player)
-    initPlayer(player)
-    clientApplicationContext.messageBus.publish(RadioController.RadioPlayerInitialized(Success(player)))
+    playerFactory.createRadioPlayer(this) map { player =>
+      player registerEventSink createPlayerListenerSink(player)
+      initPlayer(player)
+    } onComplete { triedPlayer =>
+      clientApplicationContext.messageBus.publish(RadioController.RadioPlayerInitialized(triedPlayer))
+    }
   }
 
   /**
@@ -158,13 +159,16 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * because playback context factories can arrive at any time.
     *
     * @param p the newly created player object
+    * @return the initialized radio player
     */
-  private def initPlayer(p: RadioPlayer): Unit = {
+  private def initPlayer(p: RadioPlayer): RadioPlayer = {
     this.synchronized {
       pendingPlaybackContextFactories foreach p.addPlaybackContextFactory
       player = Some(p)
     }
+
     pendingPlaybackContextFactories = Nil
+    p
   }
 
   /**

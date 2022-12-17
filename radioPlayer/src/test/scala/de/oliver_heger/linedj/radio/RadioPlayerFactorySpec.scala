@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
@@ -32,7 +33,7 @@ import org.scalatestplus.mockito.MockitoSugar
   * Test class for ''RadioPlayerFactory''.
   */
 class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("RadioPlayerFactorySpec"))
 
   override protected def afterAll(): Unit = {
@@ -60,7 +61,7 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
   "A RadioPlayerFactory" should "use meaningful configuration settings" in {
     val factory = new RadioPlayerFactory
     val management = createActorManagement()
-    val player = factory createRadioPlayer management
+    val player = futureResult(factory createRadioPlayer management)
 
     player.config.inMemoryBufferSize should be(65536)
     player.config.bufferChunkSize should be(4096)

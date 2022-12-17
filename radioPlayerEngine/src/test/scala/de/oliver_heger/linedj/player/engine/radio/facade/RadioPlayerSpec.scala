@@ -24,6 +24,7 @@ import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import akka.{actor => classics}
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
@@ -54,7 +55,7 @@ object RadioPlayerSpec {
   * Test class for ''RadioPlayer''.
   */
 class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
 
   import RadioPlayerSpec._
 
@@ -218,7 +219,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val config: PlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
-    val player: RadioPlayer = RadioPlayer(config)
+    val player: RadioPlayer = futureResult(RadioPlayer(config))
 
     /**
       * Expect a delayed invocation via the delay actor.

@@ -35,11 +35,13 @@ import scala.concurrent.{ExecutionContext, Future}
 object RadioPlayer {
   /**
     * Creates a new radio player instance based on the given configuration.
+    * This is an asynchronous operation; therefore, this function returns a
+    * ''Future''.
     *
     * @param config the player configuration
-    * @return the new ''RadioPlayer'' instance
+    * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
-  def apply(config: PlayerConfig): RadioPlayer = {
+  def apply(config: PlayerConfig): Future[RadioPlayer] = {
     val (eventActorOld, eventActor) =
       PlayerControl.createEventManagerActor[RadioEvent](config.actorCreator, "radioEventManagerActor")
     val sourceCreator = radioPlayerSourceCreator(eventActorOld)
@@ -50,7 +52,7 @@ object RadioPlayer {
     val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActorOld),
       "radioSchedulerActor")
 
-    new RadioPlayer(config, facadeActor, schedulerActor, eventActorOld, eventActor)
+    Future.successful(new RadioPlayer(config, facadeActor, schedulerActor, eventActorOld, eventActor))
   }
 
   /**

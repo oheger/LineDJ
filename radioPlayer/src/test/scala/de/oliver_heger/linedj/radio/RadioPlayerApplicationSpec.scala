@@ -42,8 +42,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Promise}
-import scala.util.{Random, Success}
+import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
+import scala.util.{Failure, Random, Success}
 
 /**
   * Test class for ''RadioPlayerApplication''.
@@ -87,7 +87,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val factories = helper addPlaybackContextFactories 8
     helper.activateRadioApp()
 
-    helper.addedPlaybackContextFactories should contain theSameElementsAs factories
+    helper.checkAddedPlaybackContextFactories(factories)
   }
 
   it should "remove playback context factories before the creation of the player" in {
@@ -97,7 +97,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     part._1 foreach helper.app.removePlaylistContextFactory
     helper.activateRadioApp()
 
-    helper.addedPlaybackContextFactories should contain theSameElementsAs part._2
+    helper.checkAddedPlaybackContextFactories(part._2)
   }
 
   it should "correctly synchronize adding playlist context factories" in {
@@ -135,7 +135,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "close the player on shutdown" in {
     val helper = new RadioPlayerApplicationTestHelper
-    helper.activateRadioApp()
+    helper.activateRadioApp(clearMessageBus = false)
 
     val promise = Promise.successful(Seq.empty[CloseAck])
     helper.shutDownTest(promise)
@@ -155,7 +155,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "wait until the player terminates" in {
     val helper = new RadioPlayerApplicationTestHelper
-    helper.activateRadioApp()
+    helper.activateRadioApp(clearMessageBus = false)
     val timestamp = new AtomicLong
     val promise = Promise[Seq[CloseAck]]()
     val thread = new Thread {
@@ -176,7 +176,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "ignore exceptions when closing the player" in {
     val helper = new RadioPlayerApplicationTestHelper
-    helper.activateRadioApp()
+    helper.activateRadioApp(clearMessageBus = false)
 
     val promise = Promise.failed[Seq[CloseAck]](new AskTimeoutException("Test timeout exception"))
     helper.shutDownTest(promise)
@@ -202,18 +202,29 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     playerInitMessage.triedRadioPlayer should be(Success(helper.player))
   }
 
+  it should "handle a failed creation of the radio player" in {
+    val helper = new RadioPlayerApplicationTestHelper
+    val exception = new IllegalStateException("Test exception: Player creation failed.")
+    helper.prepareFailedPlayerCreation(exception)
+    helper.activateRadioApp(clearMessageBus = false)
+
+    val playerInitMessage = helper.messageBus.findMessageType[RadioController.RadioPlayerInitialized]
+
+    playerInitMessage.triedRadioPlayer should be(Failure(exception))
+  }
+
   it should "register a listener sink at the radio player" in {
     val helper = new RadioPlayerApplicationTestHelper
     helper.activateRadioApp()
 
     val captor = ArgumentCaptor.forClass(classOf[Sink[Any, NotUsed]])
-    verify(helper.player).registerEventSink(captor.capture().asInstanceOf[Sink[_, _]])
+    verify(helper.player, timeout(3000)).registerEventSink(captor.capture().asInstanceOf[Sink[_, _]])
 
     val playerEvent = AudioSourceStartedEvent(AudioSource.infinite("testRadioSource"))
     val source = Source.single[Any](playerEvent)
     val sink = captor.getValue
     source.runWith(sink)
-    val publishedEvent = helper.messageBus.expectMessageType[RadioPlayerEvent]
+    val publishedEvent = helper.messageBus.findMessageType[RadioPlayerEvent]
     publishedEvent.event should be(playerEvent)
     publishedEvent.player should be(helper.player)
   }
@@ -267,7 +278,9 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @inheritdoc Injects the test message bus in the application context.
       */
     override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
-      new ClientApplicationContextImpl(config, messageBus = messageBus)
+      new ClientApplicationContextImpl(managementConfiguration = config,
+        messageBus = messageBus,
+        actorSystem = system)
 
     /**
       * Starts up the test application.
@@ -308,14 +321,28 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
-      * Triggers a test for a shutdown of the application.
+      * Checks whether the expected ''PlaybackContextFactory'' objects have
+      * been added to the radio player. This is a bit tricky, since the player
+      * is created asynchronously.
+      *
+      * @param expected the expected factories
+      */
+    def checkAddedPlaybackContextFactories(expected: Iterable[PlaybackContextFactory]): Unit = {
+      awaitCond(playbackContextFactories.size() == expected.size)
+      addedPlaybackContextFactories should contain theSameElementsAs expected
+    }
+
+    /**
+      * Triggers a test for a shutdown of the application. Note: When invoking
+      * this function, the message bus should not have been cleared before.
       *
       * @param p the promise for the future to be returned by the player
       */
     def shutDownTest(p: Promise[Seq[CloseAck]]): Unit = {
-      val ec = mock[ExecutionContextExecutor]
-      when(app.clientApplicationContext.actorSystem.dispatcher).thenReturn(ec)
-      when(player.close()(ec, Timeout(3.seconds))).thenReturn(p.future)
+      // Wait until initialization of the player is complete.
+      messageBus.findMessageType[RadioController.RadioPlayerInitialized]
+
+      when(player.close()(system.dispatcher, Timeout(3.seconds))).thenReturn(p.future)
       app.triggerShutdown(completionNotifier)
     }
 
@@ -332,6 +359,16 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     def closePlayer(): Unit = {
       app.closePlayer(completionNotifier)
+    }
+
+    /**
+      * Prepares the mock for the player factory to return a failed ''Future''
+      * with the given exception.
+      *
+      * @param exception the exception to return
+      */
+    def prepareFailedPlayerCreation(exception: Throwable): Unit = {
+      initPlayerFactoryMock(playerFactory, Future.failed(exception))
     }
 
     /**
@@ -365,12 +402,23 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createPlayerFactory(playerMock: RadioPlayer): RadioPlayerFactory = {
       val factory = mock[RadioPlayerFactory]
+      initPlayerFactoryMock(factory, Future.successful(playerMock))
+      factory
+    }
+
+    /**
+      * Prepares the mock for the [[RadioPlayerFactory]] for an invocation and
+      * to return a specific result.
+      *
+      * @param factory       the factory mock to be initialized
+      * @param factoryResult the result to be returned by the factory
+      */
+    private def initPlayerFactoryMock(factory: RadioPlayerFactory, factoryResult: Future[RadioPlayer]): Unit = {
       when(factory.createRadioPlayer(any(classOf[ActorManagement])))
         .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments.head should be(app)
-          playerMock
+          factoryResult
         })
-      factory
     }
   }
 

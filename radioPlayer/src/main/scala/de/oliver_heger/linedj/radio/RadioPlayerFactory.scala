@@ -22,6 +22,8 @@ import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
+import scala.concurrent.Future
+
 /**
   * An internally used helper class for creating a [[RadioPlayer]] instance.
   *
@@ -31,12 +33,13 @@ import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 private class RadioPlayerFactory {
   /**
     * Creates a ''RadioPlayer'' instance using the provided ''ActorManagement''
-    * object as actor factory.
+    * object as actor factory. The creation of the player is an asynchronous
+    * operation; therefore, result is a ''Future''.
     *
     * @param actorManagement the ''ActorManagement''
-    * @return the newly created ''RadioPlayer''
+    * @return a ''Future'' with the newly created ''RadioPlayer''
     */
-  def createRadioPlayer(actorManagement: ActorManagement): RadioPlayer =
+  def createRadioPlayer(actorManagement: ActorManagement): Future[RadioPlayer] =
     RadioPlayer(createPlayerConfig(actorManagement))
 
   /**
