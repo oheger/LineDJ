@@ -663,12 +663,4 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private def archiveStarterBean: HttpArchiveStarter =
     getApplicationContext.getBeanContext.getBean(classOf[HttpArchiveStarter])
-
-  /**
-    * Returns the actor system in implicit scope. This is needed by the object
-    * to materialize streams.
-    *
-    * @return the implicit actor system
-    */
-  private implicit def actorSystem: ActorSystem = clientApplicationContext.actorSystem
 }

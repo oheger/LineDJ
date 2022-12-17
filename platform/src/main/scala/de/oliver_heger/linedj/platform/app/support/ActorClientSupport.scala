@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.PlatformComponent
@@ -91,16 +91,24 @@ object ActorClientSupport {
   * provides some implicits to simplify work with such objects:
   *
   *  - It defines an ''ExecutionContext'', so that ''Future'' objects can be
-  * processed without having to care about this context; the '''implicit'''
-  * parameter is resolved automatically.
+  *    processed without having to care about this context; the '''implicit'''
+  *    parameter is resolved automatically.
   *  - Platform components often need to handle results in the UI thread, e.g.
-  * to update UI components. For this purpose, an implicit conversion from a
-  * ''Future'' to a ''UIFuture'' is added. This type offers a method to
-  * invoke a callback in the UI thread when the ''Future'' completes.
+  *    to update UI components. For this purpose, an implicit conversion from a
+  *    ''Future'' to a ''UIFuture'' is added. This type offers a method to
+  *    invoke a callback in the UI thread when the ''Future'' completes.
   */
 trait ActorClientSupport extends PlatformComponent {
   /** Stores the registration ID for the message bus. */
   private var messageBusRegistrationID = 0
+
+  /**
+    * Provides access to the central ''ActorSystem'' in implicit scope. This is
+    * useful for clients that do operations requiring an actor system.
+    *
+    * @return the central ''ActorSystem''
+    */
+  implicit def actorSystem: ActorSystem = clientApplicationContext.actorSystem
 
   /**
     * Provides access to an ''ExecutionContext'' based on the central actor
