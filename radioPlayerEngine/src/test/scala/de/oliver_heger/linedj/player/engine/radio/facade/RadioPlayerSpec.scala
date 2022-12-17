@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.AskTimeoutException
@@ -44,7 +45,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
 
 object RadioPlayerSpec {
   /** The name of the dispatcher for blocking actors. */
@@ -63,6 +64,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
+
+  /** The implicit execution context. */
+  private implicit val ec: ExecutionContext = system.dispatcher
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -215,6 +219,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val probeEventActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[RadioEvent]] =
       testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
 
+    /** Test probe for the event publisher actor. */
+    val probePublisherActor: scaladsl.TestProbe[RadioEvent] = testKit.createTestProbe[RadioEvent]()
+
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()
 
@@ -249,13 +256,20 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       *
       * @return the stub [[ActorCreator]]
       */
-    private def createActorCreator(): ActorCreator =
+    private def createActorCreator(): ActorCreator = {
+      val mockEventManagerBehavior =
+        Behaviors.receiveMessagePartial[EventManagerActor.EventManagerCommand[RadioEvent]] {
+          case EventManagerActor.GetPublisher(client) =>
+            client ! EventManagerActor.PublisherReference(probePublisherActor.ref)
+            Behaviors.same
+        }
+
       new ActorCreator {
         override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] =
           name match {
             case "radioEventManagerActor" =>
               optStopCommand should be(Some(EventManagerActor.Stop[RadioEvent]()))
-              probeEventActor.ref.asInstanceOf[ActorRef[T]]
+              testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior)).asInstanceOf[ActorRef[T]]
 
             case _ => testKit.createTestProbe[T]().ref // helper actors
           }
@@ -292,6 +306,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
               probeFacadeActor.ref
           }
       }
+    }
 
     /**
       * Checks whether a correct function to create the radio source actor has

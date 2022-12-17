@@ -16,13 +16,14 @@
 
 package de.oliver_heger.linedj.radio
 
+import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An internally used helper class for creating a [[RadioPlayer]] instance.
@@ -37,9 +38,12 @@ private class RadioPlayerFactory {
     * operation; therefore, result is a ''Future''.
     *
     * @param actorManagement the ''ActorManagement''
+    * @param system          the ''ActorSystem''
+    * @param ec              the ''ExecutionContext''
     * @return a ''Future'' with the newly created ''RadioPlayer''
     */
-  def createRadioPlayer(actorManagement: ActorManagement): Future[RadioPlayer] =
+  def createRadioPlayer(actorManagement: ActorManagement)
+                       (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] =
     RadioPlayer(createPlayerConfig(actorManagement))
 
   /**

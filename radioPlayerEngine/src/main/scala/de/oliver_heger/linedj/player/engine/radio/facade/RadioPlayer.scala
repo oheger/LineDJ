@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
+import akka.actor.ActorSystem
 import akka.actor.typed.ActorRef
 import akka.util.Timeout
 import akka.{actor => classics}
@@ -39,20 +40,23 @@ object RadioPlayer {
     * ''Future''.
     *
     * @param config the player configuration
+    * @param system the current ''ActorSystem''
+    * @param ec     the ''ExecutionContext''
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
-  def apply(config: PlayerConfig): Future[RadioPlayer] = {
-    val (eventActorOld, eventActor) =
-      PlayerControl.createEventManagerActor[RadioEvent](config.actorCreator, "radioEventManagerActor")
-    val sourceCreator = radioPlayerSourceCreator(eventActorOld)
-    val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
-    val facadeActor =
-      config.actorCreator.createActor(PlayerFacadeActor(config, eventActorOld, lineWriterActor, sourceCreator),
-        "radioPlayerFacadeActor")
-    val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActorOld),
-      "radioSchedulerActor")
+  def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
+    PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
+      "radioEventManagerActor") map { eventActors =>
+      val sourceCreator = radioPlayerSourceCreator(eventActors._1)
+      val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
+      val facadeActor =
+        config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor, sourceCreator),
+          "radioPlayerFacadeActor")
+      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._1),
+        "radioSchedulerActor")
 
-    Future.successful(new RadioPlayer(config, facadeActor, schedulerActor, eventActorOld, eventActor))
+      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, eventActors._2)
+    }
   }
 
   /**
@@ -81,11 +85,11 @@ object RadioPlayer {
   * As this class is a facade of multiple actors, accessing it from multiple
   * threads is safe.
   *
-  * @param config            the configuration for this player
-  * @param playerFacadeActor reference to the facade actor
-  * @param schedulerActor    reference to the scheduler actor
+  * @param config               the configuration for this player
+  * @param playerFacadeActor    reference to the facade actor
+  * @param schedulerActor       reference to the scheduler actor
   * @param eventManagerActorOld reference to the legacy event manager actor
-  * @param eventManagerActor reference to the event manager actor
+  * @param eventManagerActor    reference to the event manager actor
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,

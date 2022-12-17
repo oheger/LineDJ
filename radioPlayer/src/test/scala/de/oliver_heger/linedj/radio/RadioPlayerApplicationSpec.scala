@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.pattern.AskTimeoutException
@@ -41,6 +39,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap, TimeUnit}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 import scala.util.{Failure, Random, Success}
@@ -414,7 +414,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param factoryResult the result to be returned by the factory
       */
     private def initPlayerFactoryMock(factory: RadioPlayerFactory, factoryResult: Future[RadioPlayer]): Unit = {
-      when(factory.createRadioPlayer(any(classOf[ActorManagement])))
+      when(factory.createRadioPlayer(any(classOf[ActorManagement]))(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments.head should be(app)
           factoryResult

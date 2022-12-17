@@ -29,6 +29,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.ExecutionContext
+
 /**
   * Test class for ''RadioPlayerFactory''.
   */
@@ -59,6 +61,7 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
   }
 
   "A RadioPlayerFactory" should "use meaningful configuration settings" in {
+    implicit val ec: ExecutionContext = system.dispatcher
     val factory = new RadioPlayerFactory
     val management = createActorManagement()
     val player = futureResult(factory createRadioPlayer management)
