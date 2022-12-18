@@ -52,7 +52,7 @@ object RadioPlayer {
       val facadeActor =
         config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor, sourceCreator),
           "radioPlayerFacadeActor")
-      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._1),
+      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._3),
         "radioSchedulerActor")
 
       new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, eventActors._2)

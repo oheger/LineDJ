@@ -17,10 +17,11 @@
 package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
+import akka.actor.typed
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
@@ -68,8 +69,8 @@ object RadioSchedulerActor {
     */
   private[schedule] case class CheckSchedule(state: Int)
 
-  private class RadioSchedulerActorImpl(sourceActor: ActorRef)
-    extends RadioSchedulerActor(sourceActor) with ChildActorFactory with SchedulerSupport
+  private class RadioSchedulerActorImpl(eventActor: typed.ActorRef[RadioEvent])
+    extends RadioSchedulerActor(eventActor) with ChildActorFactory with SchedulerSupport
 
   /**
     * Creates a ''Props'' object for the creation of a new
@@ -78,7 +79,7 @@ object RadioSchedulerActor {
     * @param eventActor the actor for generating player events
     * @return properties for creating a new actor instance
     */
-  def apply(eventActor: ActorRef): Props =
+  def apply(eventActor: typed.ActorRef[RadioEvent]): Props =
     Props(classOf[RadioSchedulerActorImpl], eventActor)
 
   /**
@@ -121,14 +122,14 @@ object RadioSchedulerActor {
   * @param eventActor        the actor for generating player events
   * @param selectionStrategy the replacement source selection strategy
   */
-class RadioSchedulerActor(eventActor: ActorRef,
+class RadioSchedulerActor(eventActor: typed.ActorRef[RadioEvent],
                           val selectionStrategy: ReplacementSourceSelectionStrategy) extends
   Actor with ActorLogging {
   me: ChildActorFactory with SchedulerSupport =>
 
   import RadioSchedulerActor._
 
-  def this(sourceActor: ActorRef) = this(sourceActor, new ReplacementSourceSelectionStrategy)
+  def this(eventActor: typed.ActorRef[RadioEvent]) = this(eventActor, new ReplacementSourceSelectionStrategy)
 
   /** The actor for evaluating interval queries. */
   private var evaluateIntervalsActor: ActorRef = _

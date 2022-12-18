@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
@@ -24,9 +25,8 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
-import de.oliver_heger.linedj.player.engine.PlayerEvent
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -97,19 +97,23 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
   def this() = this(ActorSystem("RadioSchedulerActorSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
   }
 
   "A RadioSchedulerActor" should "create a default replacement selection strategy" in {
-    val props = RadioSchedulerActor(TestProbe().ref)
+    val props = RadioSchedulerActor(testKit.createTestProbe().ref)
     val ref = TestActorRef[RadioSchedulerActor](props)
 
     ref.underlyingActor.selectionStrategy should not be null
   }
 
   it should "create correct properties" in {
-    val sourceActorProbe = TestProbe()
+    val sourceActorProbe = testKit.createTestProbe[RadioEvent]()
     val props = RadioSchedulerActor(sourceActorProbe.ref)
 
     props.args should have size 1
@@ -438,16 +442,16 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private class RadioSchedulerActorTestHelper {
     /** Test probe for the event actor. */
-    val eventActorProbe: TestProbe = TestProbe()
+    private val eventActorProbe = testKit.createTestProbe[RadioEvent]()
 
     /** Test probe for the evaluate actor. */
-    val evaluateActorProbe: TestProbe = TestProbe()
+    private val evaluateActorProbe: TestProbe = TestProbe()
 
     /** Mock for the selection strategy. */
     val selectionStrategy: ReplacementSourceSelectionStrategy = mock[ReplacementSourceSelectionStrategy]
 
     /** The queue which tracks scheduler invocations. */
-    val scheduleQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
+    private val scheduleQueue = new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
 
     /** The test actor instance. */
     val actor: TestActorRef[RadioSchedulerActor] = createTestActor()
@@ -573,7 +577,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this helper
       */
     def expectReplacementEvent(event: RadioEvent): RadioSchedulerActorTestHelper = {
-      val eventMsg = eventActorProbe.expectMsgType[RadioEvent]
+      val eventMsg = eventActorProbe.expectMessageType[RadioEvent]
       checkCurrentDate(eventMsg.time)
       val eventWithTime = event match {
         case e: RadioSourceReplacementStartEvent =>
@@ -591,8 +595,10 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return this helper
       */
-    def expectNoReplacementEvent(): RadioSchedulerActorTestHelper =
-      expectNoMsg(eventActorProbe)
+    def expectNoReplacementEvent(): RadioSchedulerActorTestHelper = {
+      eventActorProbe.expectNoMessage(500.millis)
+      this
+    }
 
     /**
       * Helper method for testing that a test probe was not sent a message.

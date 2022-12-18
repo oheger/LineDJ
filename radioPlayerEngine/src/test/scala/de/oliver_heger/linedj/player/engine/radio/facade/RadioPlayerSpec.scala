@@ -287,7 +287,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
               classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
               classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
               props.args should have length 1
-              props.args.head should be(probeEventActorOld.ref)
+              props.args.head should be(probePublisherActor.ref)
               probeSchedulerActor.ref
 
             case "radioEventManagerActorOld" =>
