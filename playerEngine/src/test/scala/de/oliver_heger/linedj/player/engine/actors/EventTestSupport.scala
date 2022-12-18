@@ -50,6 +50,22 @@ trait EventTestSupport[EVENT] {
   }
 
   /**
+    * Expects that an event is received and checks the event time.
+    *
+    * @param probe the probe for the typed event actor
+    * @param t     the class tag
+    * @tparam T the expected event type
+    * @return the received event
+    */
+  def expectEvent[T <: EVENT](probe: akka.actor.testkit.typed.scaladsl.TestProbe[EVENT])
+                             (implicit t: ClassTag[T]): T = {
+    val event = probe.expectMessageType[T]
+    val diff = java.time.Duration.between(eventTimeExtractor(event), LocalDateTime.now())
+    diff.toMillis should be < 250L
+    event
+  }
+
+  /**
     * Returns a function to extract the time of an event.
     *
     * @return the function to extract the event time

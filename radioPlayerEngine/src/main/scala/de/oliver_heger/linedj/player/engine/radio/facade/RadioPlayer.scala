@@ -47,7 +47,7 @@ object RadioPlayer {
   def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
     PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
       "radioEventManagerActor") map { eventActors =>
-      val sourceCreator = radioPlayerSourceCreator(eventActors._1)
+      val sourceCreator = radioPlayerSourceCreator(eventActors._3)
       val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
       val facadeActor =
         config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor, sourceCreator),
@@ -67,7 +67,7 @@ object RadioPlayer {
     * @param eventActor the event actor
     * @return the function to create the source actor for the radio player
     */
-  private def radioPlayerSourceCreator(eventActor: classics.ActorRef): SourceActorCreator =
+  private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent]): SourceActorCreator =
     (factory, config) => {
       val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)

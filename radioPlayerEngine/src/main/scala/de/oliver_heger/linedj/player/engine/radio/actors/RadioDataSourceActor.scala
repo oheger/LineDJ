@@ -18,16 +18,17 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
+import akka.actor.typed
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.{PlaybackActor, PlaybackProtocolViolation}
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
 
-  private class RadioDataSourceActorImpl(config: PlayerConfig, eventManager: ActorRef)
+  private class RadioDataSourceActorImpl(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent])
     extends RadioDataSourceActor(config, eventManager) with ChildActorFactory
 
   /**
@@ -38,7 +39,7 @@ object RadioDataSourceActor {
     * @param eventManager the actor for generating events
     * @return the ''Props'' for creating a new actor instance
     */
-  def apply(config: PlayerConfig, eventManager: ActorRef): Props =
+  def apply(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent]): Props =
     Props(classOf[RadioDataSourceActorImpl], config, eventManager)
 
   /** Error message for an unexpected audio source request. */
@@ -132,7 +133,7 @@ object RadioDataSourceActor {
   * @param config       the audio player configuration
   * @param eventManager the actor for generating events
   */
-class RadioDataSourceActor(config: PlayerConfig, eventManager: ActorRef)
+class RadioDataSourceActor(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent])
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
 

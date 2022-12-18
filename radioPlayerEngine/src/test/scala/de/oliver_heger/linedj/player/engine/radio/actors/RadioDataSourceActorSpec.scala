@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -96,8 +97,12 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   def this() = this(ActorSystem("RadioDataSourceActorSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
     tearDownTestFile()
   }
 
@@ -489,7 +494,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   }
 
   it should "create correct Props" in {
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[RadioEvent]()
     val props = RadioDataSourceActor(Config, eventMan.ref)
 
     classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
@@ -500,7 +505,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   it should "use a correct supervision strategy" in {
     val path = createDataFile()
     val queue = new LinkedBlockingQueue[ActorRef]
-    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, TestProbe().ref)
+    val eventMan = testKit.createTestProbe[RadioEvent]()
+    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, eventMan.ref)
       with ChildActorFactory {
       override def createChildActor(p: Props): ActorRef = {
         val child = super.createChildActor(p)
@@ -547,7 +553,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
 
     /** Test probe for the event manager actor. */
-    private val eventManager = TestProbe()
+    private val eventManager = testKit.createTestProbe[RadioEvent]()
 
     /**
       * Creates a test actor instance.

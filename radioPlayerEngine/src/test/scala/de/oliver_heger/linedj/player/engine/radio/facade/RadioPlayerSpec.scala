@@ -321,7 +321,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config, probeEventActorOld.ref))
+        props.args should be(List(config, probePublisherActor.ref))
         probeSourceActor.ref
       })
 
