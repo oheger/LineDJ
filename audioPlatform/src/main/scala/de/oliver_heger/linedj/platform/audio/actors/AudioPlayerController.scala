@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.audio.impl
-
-import java.time.LocalDateTime
+package de.oliver_heger.linedj.platform.audio.actors
 
 import de.oliver_heger.linedj.platform.audio._
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.NoGroupingMediaIfcExtension
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+
+import java.time.LocalDateTime
 
 /**
   * Controller class that updates an audio player object based on messages
@@ -41,10 +41,10 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
   * @param messageBus      the UI message bus
   * @param playlistService the service for dealing with playlist objects
   */
-private class AudioPlayerController(val player: AudioPlayer,
-                                    val messageBus: MessageBus,
-                                    playlistService: PlaylistService[Playlist, MediaFileID]
-                                    = PlaylistService)
+class AudioPlayerController(val player: AudioPlayer,
+                            val messageBus: MessageBus,
+                            playlistService: PlaylistService[Playlist, MediaFileID]
+                            = PlaylistService)
   extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
   /** Stores the last state change event. */
   private var lastEvent = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)

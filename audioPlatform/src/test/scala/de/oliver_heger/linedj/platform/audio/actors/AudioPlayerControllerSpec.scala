@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.audio.impl
-
-import java.time.{Duration, LocalDateTime}
-import java.util.concurrent.atomic.AtomicReference
+package de.oliver_heger.linedj.platform.audio.actors
 
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
@@ -25,8 +22,8 @@ import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -35,6 +32,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.{Duration, LocalDateTime}
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration._
 
 object AudioPlayerControllerSpec {

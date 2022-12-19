@@ -20,6 +20,7 @@ import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
+import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerController
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors

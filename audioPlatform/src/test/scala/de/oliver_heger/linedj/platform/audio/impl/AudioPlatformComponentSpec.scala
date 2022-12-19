@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.platform.audio.impl
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-
 import akka.actor.{Actor, ActorSystem}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
@@ -25,6 +24,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerController
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.bus.ComponentID
