@@ -70,6 +70,16 @@ object AudioPlayerManagerActor {
     extends AudioPlayerManagementCommand
 
   /**
+    * A message class that publishes a specific message on the message bus
+    * after the [[AudioPlayerController]] has been registered. This is required
+    * to prevent that messages to the controller get lost because it is created
+    * asynchronously.
+    *
+    * @param message the message to be published
+    */
+  case class PublishToController(message: Any) extends AudioPlayerManagementCommand
+
+  /**
     * A message triggering the closing of the managed audio player. When this
     * operation is complete the specified client actor receives a [[CloseAck]]
     * message.
@@ -134,14 +144,19 @@ object AudioPlayerManagerActor {
         context.self ! message
       }
 
-      def controllerCreationPending(factories: List[PlaybackContextFactory], optClose: Option[Close]):
-      Behavior[AudioPlayerManagementCommand] =
+      def controllerCreationPending(factories: List[PlaybackContextFactory],
+                                    messages: List[Any],
+                                    optClose: Option[Close]): Behavior[AudioPlayerManagementCommand] =
         Behaviors.receiveMessagePartial {
           case AddPlaybackContextFactories(newFactories) =>
-            controllerCreationPending(newFactories ::: factories, optClose)
+            controllerCreationPending(newFactories ::: factories, messages, optClose)
 
           case RemovePlaybackContextFactories(removeFactories) =>
-            controllerCreationPending(factories filterNot (factory => removeFactories.contains(factory)), optClose)
+            controllerCreationPending(factories filterNot (factory => removeFactories.contains(factory)),
+              messages, optClose)
+
+          case PublishToController(message) =>
+            controllerCreationPending(factories, message :: messages, optClose)
 
           case ControllerCreated(controller) =>
             optClose match {
@@ -151,6 +166,7 @@ object AudioPlayerManagerActor {
                 }
                 val listenerID = addEventListener(messageBus, controller)
                 val registrationID = registerController(messageBus, controller)
+                messages.reverse.foreach(messageBus.publish)
                 context.log.info("AudioPlayerController was created successfully.")
                 controllerActive(controller.player, registrationID, listenerID)
 
@@ -169,7 +185,7 @@ object AudioPlayerManagerActor {
             }
 
           case close: Close =>
-            controllerCreationPending(factories, Some(close))
+            controllerCreationPending(factories, messages, Some(close))
         }
 
       def controllerActive(player: AudioPlayer, messageBusRegistration: Int, eventListener: Int):
@@ -181,6 +197,10 @@ object AudioPlayerManagerActor {
 
           case RemovePlaybackContextFactories(factories) =>
             factories foreach player.removePlaybackContextFactory
+            Behaviors.same
+
+          case PublishToController(message) =>
+            messageBus publish message
             Behaviors.same
 
           case close: Close =>
@@ -212,7 +232,7 @@ object AudioPlayerManagerActor {
         closePending(close.client)
       }
 
-      controllerCreationPending(Nil, None)
+      controllerCreationPending(Nil, Nil, None)
     }
 
   /**

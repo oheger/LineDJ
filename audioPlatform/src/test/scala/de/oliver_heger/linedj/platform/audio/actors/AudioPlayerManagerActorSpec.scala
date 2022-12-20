@@ -23,9 +23,10 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.{AddPlaybackContextFactories, AudioPlayerManagementCommand, RemovePlaybackContextFactories}
+import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
@@ -34,8 +35,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 object AudioPlayerManagerActorSpec {
@@ -221,6 +222,31 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     ack.result should be(Failure(exception))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
+  }
+
+  it should "publish a message after the audio controller has been registered" in {
+    val message = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
+    val helper = new ManagerActorTestHelper
+
+    helper.controllerCreated()
+      .checkControllerRegistration()
+      .sendCommand(AudioPlayerManagerActor.PublishToController(message))
+
+    helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message)
+  }
+
+  it should "collect messages to be published until the audio controller has been created" in {
+    val message1 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
+    val message2 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial.copy(playlistSeqNo = 42))
+    val helper = new ManagerActorTestHelper
+
+    helper.sendCommand(AudioPlayerManagerActor.PublishToController(message1))
+      .sendCommand(AudioPlayerManagerActor.PublishToController(message2))
+      .controllerCreated()
+
+    helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message1)
+    helper.messageBus.expectMessageType[AudioPlayerStateChangedEvent] should be(message2)
+    helper.messageBus.expectNoMessage(200.millis)
   }
 
   /**

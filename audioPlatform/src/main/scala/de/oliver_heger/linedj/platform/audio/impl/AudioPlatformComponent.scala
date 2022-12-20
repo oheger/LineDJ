@@ -228,7 +228,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     val metaDataResolver = createPlaylistMetaDataResolver()
     metaDataResolverRegistrationID =
       registerService(metaDataResolver, PlaylistMetaDataResolverDependency)
-    clientApplicationContext.messageBus publish metaDataResolver.playerStateChangeRegistration
+    managementActor ! AudioPlayerManagerActor.PublishToController(metaDataResolver.playerStateChangeRegistration)
     playlistMetaDataResolver = Some(metaDataResolver)
   }
 

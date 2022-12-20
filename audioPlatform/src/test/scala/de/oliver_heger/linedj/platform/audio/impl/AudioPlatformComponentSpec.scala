@@ -136,6 +136,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.activate()
+      .verifyMetaDataResolverRegistration()
       .playbackContextFactoryRegistered(factory)
 
     helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(factory)))
@@ -146,6 +147,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.activate()
+      .verifyMetaDataResolverRegistration()
       .playbackContextFactoryRegistered(factory)
       .playbackContextFactoryRemoved(factory)
 
@@ -168,13 +170,16 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .playbackContextFactoryRegistered(fact3)
 
     helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(fact2, fact1)))
+    helper.verifyMetaDataResolverRegistration()
     helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(fact3)))
   }
 
   it should "close the management actor on deactivation" in {
     val helper = new ComponentTestHelper
+    helper.activate()
+      .verifyMetaDataResolverRegistration()
     val latch = new CountDownLatch(1)
-    val thread = new DeactivateThread(helper.activate(), None, latch)
+    val thread = new DeactivateThread(helper, None, latch)
 
     thread.start()
 
@@ -188,6 +193,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.activate()
+      .verifyMetaDataResolverRegistration()
       .deactivate(optTimeout = Some(timeout))
 
     val close = helper.probeManagementActor.expectMessageType[AudioPlayerManagerActor.Close]
@@ -202,8 +208,10 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "wait for the CloseAck from the management actor" in {
     val helper = new ComponentTestHelper
+    helper.activate()
+      .verifyMetaDataResolverRegistration()
     val latch = new CountDownLatch(1)
-    val thread = new DeactivateThread(helper.activate(), Some(1.second), latch)
+    val thread = new DeactivateThread(helper, Some(1.second), latch)
     thread.start()
     val managementActor = helper.probeManagementActor
     val close = managementActor.expectMessageType[AudioPlayerManagerActor.Close]
@@ -359,6 +367,18 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     }
 
     /**
+      * Checks whether the controller manager actor was correctly invoked to
+      * publish the registration for the metadata resolver service.
+      *
+      * @return this test helper
+      */
+    def verifyMetaDataResolverRegistration(): ComponentTestHelper = {
+      val expMsg = AudioPlayerManagerActor.PublishToController(metaDataResolver.playerStateChangeRegistration)
+      probeManagementActor.expectMessage(expMsg)
+      this
+    }
+
+    /**
       * Checks that service registrations are created for the platform
       * services.
       *
@@ -367,8 +387,6 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     def verifyOsgiServiceRegistrations(): ComponentTestHelper = {
       val serviceDependency = messageBus.expectMessageType[RegisterService].service
       serviceDependency should be(AudioPlatformComponent.PlaylistMetaDataResolverDependency)
-      val consumerReg = messageBus.expectMessageType[AudioPlayerStateChangeRegistration]
-      consumerReg should be(metaDataResolver.playerStateChangeRegistration)
       this
     }
 
