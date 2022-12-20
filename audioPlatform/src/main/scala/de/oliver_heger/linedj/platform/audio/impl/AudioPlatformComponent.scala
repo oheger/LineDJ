@@ -16,31 +16,25 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.stream.scaladsl.Sink
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
-import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerController
+import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.AudioPlayerManagementCommand
+import de.oliver_heger.linedj.platform.audio.actors.{AudioPlayerController, AudioPlayerManagerActor}
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, TimeoutException}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future, TimeoutException}
 
 object AudioPlatformComponent {
-  /**
-    * Constant for the service name of the audio player controller. When the
-    * controller has been created and registered at the message bus, a service
-    * registration with this name is created. This allows components that
-    * depend on this service to track its availability.
-    */
-  final val PlayerControllerServiceName = "lineDJ.audioPlayerController"
-
   /**
     * Constant for the service name of the playlist meta data resolver service.
     * A service registration with this name is created when the platform is up
@@ -50,11 +44,9 @@ object AudioPlatformComponent {
   final val PlaylistMetaDataResolverServiceName = "lineDJ.playlistMetaDataResolver"
 
   /**
-    * Constant for the service dependency registered for the audio player
-    * controller. This dependency can be tracked by clients of the controller
-    * to make sure that it is available before they send commands to it.
+    * The name of the actor that manages the lifecycle of the audio player.
     */
-  final val PlayerControllerDependency = ServiceDependency(PlayerControllerServiceName)
+  final val AudioPlayerManagementActorName = "lineDJ.audioPlayerManagementActor"
 
   /**
     * Constant for the service dependency registered for the playlist meta
@@ -143,33 +135,23 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   /** The actors for the media facade. */
   private var mediaFacadeActors: MediaFacadeActors = _
 
-  /**
-    * Stores the managed audio player. Note that no special synchronization is
-    * needed: By this component, the player is exclusively accessed in the OSGi
-    * management thread. It is also passed to the player controller which
-    * operates on the UI thread; but due to the interaction with the message
-    * bus, the player object is safely published.
-    */
-  private var audioPlayer: Option[AudioPlayer] = None
+  /** The actor managing the audio player lifecycle. */
+  private var optManagementActor: Option[ActorRef[AudioPlayerManagementCommand]] = None
 
   /**
     * Stores playback context factories that are added before the
     * creation of the audio player. They have to be stored, so that they can
-    * be added later when the player is created.
+    * be added later when the player is created. Note that no special
+    * synchronization is needed: All access happens in the OSGi management
+    * thread.
     */
   private var playbackContextFactories = List.empty[PlaybackContextFactory]
 
   /** The meta data resolver object. */
   private var playlistMetaDataResolver: Option[PlaylistMetaDataResolver] = None
 
-  /** The message bus listener registration ID for the player controller. */
-  private var playerControllerRegistrationID = 0
-
   /** The message bus listener registration ID for the meta data resolver. */
   private var metaDataResolverRegistrationID = 0
-
-  /** The ID for the event sink registration. */
-  private var sinkRegistrationID = 0
 
   /**
     * Creates a new instance of ''AudioPlatformComponent'' that sets default
@@ -192,17 +174,17 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   /**
     * Notifies this object that a service of type ''PlaybackContextFactory''
     * has been bound. This method is called by the declarative services
-    * runtime. Note that it can be called before or after the creation of the
-    * audio player. This implementation makes sure, that the service is
-    * tracked and eventually passed to the audio player.
+    * runtime. Note that it can be called before or after the activation of
+    * this component. This implementation makes sure, that the service is
+    * tracked and eventually passed to the management actor.
     *
     * @param factory the ''PlaybackContextFactory''
     */
   def addPlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
     log.info("Adding PlaybackContextFactory.")
-    audioPlayer match {
-      case Some(player) =>
-        player addPlaybackContextFactory factory
+    optManagementActor match {
+      case Some(actor) =>
+        actor ! AudioPlayerManagerActor.AddPlaybackContextFactories(List(factory))
       case None =>
         playbackContextFactories = factory :: playbackContextFactories
     }
@@ -211,33 +193,39 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   /**
     * Notifies this object that the specified ''PlaybackContextFactory''
     * service has been removed. This method is called by the declarative
-    * services runtime. Again, this can happen before or after the creation of
-    * the audio player.
+    * services runtime. Again, this can happen before or after the activation
+    * of this component.
     *
     * @param factory the ''PlaybackContextFactory''
     */
   def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
     log.info("Removing PlaybackContextFactory.")
-    audioPlayer match {
-      case Some(player) =>
-        player removePlaybackContextFactory factory
+    optManagementActor match {
+      case Some(actor) =>
+        actor ! AudioPlayerManagerActor.RemovePlaybackContextFactories(List(factory))
       case None =>
         playbackContextFactories = playbackContextFactories filterNot (_ == factory)
     }
   }
 
   /**
-    * @inheritdoc This implementation creates an ''AudioPlayerController''
-    *             and registers it on the message bus.
+    * @inheritdoc This implementation creates the management actor, which in
+    *             turn creates and registers the audio player.
     */
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
 
     log.info("Activating audio platform.")
-    val controller = createPlayerController()
-    audioPlayer = Some(controller.player)
+
+    val managementActor = clientApplicationContext.actorFactory.createActor(
+      AudioPlayerManagerActor(clientApplicationContext.messageBus)(playerControllerCreationFunc),
+      AudioPlayerManagementActorName)
+    if (playbackContextFactories.nonEmpty) {
+      managementActor ! AudioPlayerManagerActor.AddPlaybackContextFactories(playbackContextFactories)
+    }
+    optManagementActor = Some(managementActor)
+
     val metaDataResolver = createPlaylistMetaDataResolver()
-    playerControllerRegistrationID = registerService(controller, PlayerControllerDependency)
     metaDataResolverRegistrationID =
       registerService(metaDataResolver, PlaylistMetaDataResolverDependency)
     clientApplicationContext.messageBus publish metaDataResolver.playerStateChangeRegistration
@@ -251,28 +239,23 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     playlistMetaDataResolver foreach { r =>
       clientApplicationContext.messageBus publish r.playerStateChangeRegistration.unRegistration
     }
-    unregisterService(PlayerControllerDependency, playerControllerRegistrationID)
     unregisterService(PlaylistMetaDataResolverDependency, metaDataResolverRegistrationID)
-    closeAudioPlayer()
+    closeAudioPlayerManagerActor()
     log.info("Audio platform deactivated.")
 
     super.deactivate(componentContext)
   }
 
   /**
-    * Creates an the ''AudioPlayerController'' instance which controls the
-    * platform's audio player instance. The audio player is created as well
-    * using the factory.
+    * The function to create the [[AudioPlayerController]].
     *
-    * @return the ''AudioPlayerController''
+    * @return a ''Future'' with the [[AudioPlayerController]]
     */
-  private[impl] def createPlayerController(): AudioPlayerController = {
+  private def playerControllerCreationFunc(): Future[AudioPlayerController] = {
     val player = playerFactory.createAudioPlayer(clientApplicationContext.managementConfiguration,
       PlayerConfigPrefix, mediaFacadeActors.mediaManager, this)
-    playbackContextFactories foreach player.addPlaybackContextFactory
-    val sink = Sink.foreach[Any](e => clientApplicationContext.messageBus publish e)
-    sinkRegistrationID = player registerEventSink sink
-    new AudioPlayerController(player, clientApplicationContext.messageBus)
+    val controller = new AudioPlayerController(player, clientApplicationContext.messageBus)
+    Future.successful(controller)
   }
 
   /**
@@ -321,16 +304,18 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     * Closes the audio player and waits until all actors involved have been
     * closed.
     */
-  private def closeAudioPlayer(): Unit = {
-    audioPlayer foreach { player =>
-      log.info("Closing audio player.")
-      player removeEventSink sinkRegistrationID
+  private def closeAudioPlayerManagerActor(): Unit = {
+    optManagementActor foreach { actor =>
+      log.info("Closing AudioPlayerManagerActor.")
       val shutdownTimeout = fetchShutdownTimeout()
       implicit val timeout: Timeout = Timeout(shutdownTimeout)
-      implicit val ec: ExecutionContext = clientApplicationContext.actorSystem.dispatcher
-      val futureAcks = player.close()
+      implicit val scheduler: Scheduler = clientApplicationContext.actorSystem.toTyped.scheduler
+      val futureAck = actor.ask[AudioPlayerManagerActor.CloseAck] { ref =>
+        AudioPlayerManagerActor.Close(ref, timeout)
+      }
+
       try {
-        Await.ready(futureAcks, shutdownTimeout)
+        Await.ready(futureAck, shutdownTimeout)
       } catch {
         case _: TimeoutException =>
           log.warn("Timeout when shutting down audio player!")
