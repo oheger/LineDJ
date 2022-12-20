@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.audio.impl
 
 import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
@@ -38,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference
   * Test class for ''AudioPlayerFactory''.
   */
 class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("AudioPlayerFactorySpec"))
 
   override protected def afterAll(): Unit = {
@@ -75,7 +76,7 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     })
     val factory = new AudioPlayerFactory(configFactory)
 
-    val player = factory.createAudioPlayer(appConfig, Prefix, mediaManager.ref, management)
+    val player = futureResult(factory.createAudioPlayer(appConfig, Prefix, mediaManager.ref, management))
 
     player should not be null
     refCreator.get() match {

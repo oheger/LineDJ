@@ -50,18 +50,19 @@ object AudioPlayer {
 
   /**
     * Creates a new instance of ''AudioPlayer'' that is initialized based on
-    * the passed in configuration.
+    * the passed in configuration. This is an asynchronous operation;
+    * therefore, this function returns a ''Future''.
     *
     * @param config the ''PlayerConfig''
-    * @return the newly created ''AudioPlayer''
+    * @return a ''Future'' with the newly created ''AudioPlayer''
     */
-  def apply(config: PlayerConfig): AudioPlayer = {
+  def apply(config: PlayerConfig): Future[AudioPlayer] = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val (eventActorOld, eventActor) =
       PlayerControl.createEventManagerActor[PlayerEvent](config.actorCreator, "eventManagerActor")
     val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActorOld, lineWriterActor,
       AudioPlayerSourceCreator), "playerFacadeActor")
-    new AudioPlayer(facadeActor, eventActorOld, eventActor)
+    Future.successful(new AudioPlayer(facadeActor, eventActorOld, eventActor))
   }
 
   /**

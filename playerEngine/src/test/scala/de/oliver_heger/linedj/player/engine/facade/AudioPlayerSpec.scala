@@ -25,7 +25,7 @@ import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import akka.{actor => classics}
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
@@ -52,7 +52,7 @@ object AudioPlayerSpec {
   * Test class for ''AudioPlayer''.
   */
 class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar with AsyncTestHelper {
 
   import AudioPlayerSpec._
 
@@ -158,7 +158,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val config: PlayerConfig = createPlayerConfig()
 
     /** The test player instance. */
-    val player: AudioPlayer = AudioPlayer(config)
+    val player: AudioPlayer = futureResult(AudioPlayer(config))
 
     /**
       * Expects that the specified message has been sent to the facade actor.

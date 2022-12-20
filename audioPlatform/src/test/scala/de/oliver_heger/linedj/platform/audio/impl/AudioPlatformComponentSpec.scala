@@ -44,6 +44,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Success
 
@@ -348,7 +349,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyMessageBusRegistration(): ComponentTestHelper = {
-      messageBus.currentListeners should have size 1
+      // One listener for ActorClientSupport, one listener for the metadata service.
+      messageBus.currentListeners should have size 2
 
       val regMsg = PlaylistMetaDataRegistration(ComponentID(), null)
       findReceiverFor(regMsg) should not be None
@@ -492,7 +494,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
         }
       }
       when(playerFactory.createAudioPlayer(appConfig, AudioPlatformComponent.PlayerConfigPrefix,
-        mediaManager, component)).thenReturn(audioPlayer)
+        mediaManager, component)).thenReturn(Future.successful(audioPlayer))
       component initClientContext createClientContext()
       component initFacadeActors MediaFacadeActors(mediaManager, metaDataManager)
       component

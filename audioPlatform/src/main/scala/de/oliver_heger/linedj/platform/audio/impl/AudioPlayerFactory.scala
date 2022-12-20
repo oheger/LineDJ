@@ -22,6 +22,8 @@ import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.Configuration
 
+import scala.concurrent.Future
+
 /**
   * An internally used helper class that creates audio player objects.
   *
@@ -37,16 +39,16 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
   def this() = this(new PlayerConfigFactory)
 
   /**
-    * Creates a new audio player instance.
+    * Creates a new audio player instance asynchronously.
     *
     * @param c            the application configuration
     * @param prefix       the prefix for the config settings of the player
     * @param mediaManager the media manager actor
     * @param management   the actor management instance
-    * @return the new audio player instance
+    * @return a ''Future'' with the new audio player instance
     */
   def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef,
-                        management: ActorManagement): AudioPlayer = {
+                        management: ActorManagement): Future[AudioPlayer] = {
     val creator = new ManagingActorCreator(management)
     val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)
     AudioPlayer(config)

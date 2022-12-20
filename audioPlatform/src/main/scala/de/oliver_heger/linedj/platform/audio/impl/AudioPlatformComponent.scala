@@ -20,7 +20,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.AudioPlayerManagementCommand
 import de.oliver_heger.linedj.platform.audio.actors.{AudioPlayerController, AudioPlayerManagerActor}
@@ -125,7 +125,7 @@ object AudioPlatformComponent {
   * @param playerFactory the factory for creating the audio player
   */
 class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory)
-  extends PlatformComponent with ClientContextSupport with ActorManagement {
+  extends PlatformComponent with ClientContextSupport with ActorManagement with ActorClientSupport {
 
   import AudioPlatformComponent._
 
@@ -252,10 +252,10 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     * @return a ''Future'' with the [[AudioPlayerController]]
     */
   private def playerControllerCreationFunc(): Future[AudioPlayerController] = {
-    val player = playerFactory.createAudioPlayer(clientApplicationContext.managementConfiguration,
-      PlayerConfigPrefix, mediaFacadeActors.mediaManager, this)
-    val controller = new AudioPlayerController(player, clientApplicationContext.messageBus)
-    Future.successful(controller)
+    playerFactory.createAudioPlayer(clientApplicationContext.managementConfiguration,
+      PlayerConfigPrefix, mediaFacadeActors.mediaManager, this) map { player =>
+      new AudioPlayerController(player, clientApplicationContext.messageBus)
+    }
   }
 
   /**
