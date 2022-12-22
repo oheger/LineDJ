@@ -16,17 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import akka.{actor => classics}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
+import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.ClassicActorCheckFunc
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
@@ -114,7 +111,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val helper = new RadioPlayerTestHelper
 
     helper.player removeEventSink 20160709
-    helper.probeEventActorOld.expectMsgType[EventManagerActorOld.RemoveSink]
+    helper.actorCreator.probeEventActorOld.expectMsgType[EventManagerActorOld.RemoveSink]
   }
 
   it should "support a check for the current radio source with a delay" in {
@@ -203,6 +200,38 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * instance.
     */
   private class RadioPlayerTestHelper {
+    /**
+      * The function to check the classic actors created during tests.
+      */
+    private val classicCheckFunc: ClassicActorCheckFunc = props => {
+      case "radioLineWriterActor" =>
+        classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
+        props.dispatcher should be(BlockingDispatcherName)
+        props.args should have size 0
+        probeLineWriterActor.ref
+
+      case "radioSchedulerActor" =>
+        classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
+        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+        classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
+        props.args should have length 1
+        props.args.head should be(actorCreator.probePublisherActor.ref)
+        probeSchedulerActor.ref
+
+      case "radioPlayerFacadeActor" =>
+        classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
+        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+        props.args should have size 4
+        props.args.take(3) should contain theSameElementsInOrderAs List(config, actorCreator.probeEventActorOld.ref,
+          probeLineWriterActor.ref)
+        val creator = props.args(3).asInstanceOf[SourceActorCreator]
+        checkSourceActorCreator(creator)
+        probeFacadeActor.ref
+    }
+
+    /** The object for creating test actors. */
+    val actorCreator: ActorCreatorForEventManagerTests[RadioEvent] = createActorCreator()
+
     /** Test probe for the facade actor. */
     val probeFacadeActor: TestProbe = TestProbe()
 
@@ -211,16 +240,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the scheduler actor. */
     val probeSchedulerActor: TestProbe = TestProbe()
-
-    /** Test probe for the legacy event manager actor. */
-    val probeEventActorOld: TestProbe = TestProbe()
-
-    /** Test probe for the event manager actor. */
-    val probeEventActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[RadioEvent]] =
-      testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
-
-    /** Test probe for the event publisher actor. */
-    val probePublisherActor: scaladsl.TestProbe[RadioEvent] = testKit.createTestProbe[RadioEvent]()
 
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()
@@ -256,57 +275,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       *
       * @return the stub [[ActorCreator]]
       */
-    private def createActorCreator(): ActorCreator = {
-      val mockEventManagerBehavior =
-        Behaviors.receiveMessagePartial[EventManagerActor.EventManagerCommand[RadioEvent]] {
-          case EventManagerActor.GetPublisher(client) =>
-            client ! EventManagerActor.PublisherReference(probePublisherActor.ref)
-            Behaviors.same
-        }
-
-      new ActorCreator {
-        override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] =
-          name match {
-            case "radioEventManagerActor" =>
-              optStopCommand should be(Some(EventManagerActor.Stop[RadioEvent]()))
-              testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior)).asInstanceOf[ActorRef[T]]
-
-            case _ => testKit.createTestProbe[T]().ref // helper actors
-          }
-
-        override def createActor(props: Props, name: String): classics.ActorRef =
-          name match {
-            case "radioLineWriterActor" =>
-              classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
-              props.dispatcher should be(BlockingDispatcherName)
-              props.args should have size 0
-              probeLineWriterActor.ref
-
-            case "radioSchedulerActor" =>
-              classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
-              classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-              classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
-              props.args should have length 1
-              props.args.head should be(probePublisherActor.ref)
-              probeSchedulerActor.ref
-
-            case "radioEventManagerActorOld" =>
-              props.actorClass() should be(classOf[EventManagerActorOld])
-              props.args should have size 0
-              probeEventActorOld.ref
-
-            case "radioPlayerFacadeActor" =>
-              classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
-              classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-              props.args should have size 4
-              props.args.take(3) should contain theSameElementsInOrderAs List(config, probeEventActorOld.ref,
-                probeLineWriterActor.ref)
-              val creator = props.args(3).asInstanceOf[SourceActorCreator]
-              checkSourceActorCreator(creator)
-              probeFacadeActor.ref
-          }
-      }
-    }
+    private def createActorCreator(): ActorCreatorForEventManagerTests[RadioEvent] =
+      new ActorCreatorForEventManagerTests[RadioEvent](testKit, "radioEventManagerActor",
+        customClassicChecks = classicCheckFunc) with Matchers
 
     /**
       * Checks whether a correct function to create the radio source actor has
@@ -321,7 +292,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config, probePublisherActor.ref))
+        props.args should be(List(config, actorCreator.probePublisherActor.ref))
         probeSourceActor.ref
       })
 
@@ -336,7 +307,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): PlayerConfig =
-      PlayerConfig(mediaManagerActor = null, actorCreator = createActorCreator(),
+      PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName))
   }
 
