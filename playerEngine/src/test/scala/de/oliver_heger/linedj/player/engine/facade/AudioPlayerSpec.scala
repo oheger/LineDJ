@@ -16,34 +16,29 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.testkit.typed.scaladsl
+import akka.actor.ActorSystem
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.{ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import akka.{actor => classics}
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.ClassicActorCheckFunc
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
 
 object AudioPlayerSpec {
-  /** Type definition for the generic type of the event manager actor. */
-  private type EventActorType = EventManagerActor.EventManagerCommand[PlayerEvent]
-
   /** The name of the dispatcher for blocking actors. */
   private val BlockingDispatcherName = "TheBlockingDispatcher"
 }
@@ -60,6 +55,8 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
+
+  import system.dispatcher
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
@@ -122,7 +119,6 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "correctly implement the close() method" in {
     val helper = new AudioPlayerTestHelper
-    implicit val ec: ExecutionContextExecutor = system.dispatcher
     implicit val timeout: Timeout = Timeout(100.milliseconds)
     intercept[AskTimeoutException] {
       Await.result(helper.player.close(), 1.second)
@@ -135,24 +131,40 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val sink = Sink.ignore
 
     helper.player.registerEventSink(sink)
-    helper.eventActorOld.expectMsgType[EventManagerActorOld.RegisterSink]
+    helper.actorCreator.probeEventActorOld.expectMsgType[EventManagerActorOld.RegisterSink]
   }
 
   /**
     * A test helper class collecting all required dependencies.
     */
   private class AudioPlayerTestHelper {
+    /**
+      * The function to check the classic actors created during tests.
+      */
+    private val classicActorChecks: ClassicActorCheckFunc = props => {
+      case "lineWriterActor" =>
+        classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
+        props.dispatcher should be(BlockingDispatcherName)
+        props.args should have size 0
+        lineWriterActor.ref
+
+      case "playerFacadeActor" =>
+        classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
+        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
+        classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
+        props.args should be(List(config, actorCreator.probeEventActorOld.ref, lineWriterActor.ref,
+          AudioPlayer.AudioPlayerSourceCreator))
+        facadeActor.ref
+    }
+
+    /** The stub implementation for creating actors. */
+    val actorCreator: ActorCreatorForEventManagerTests[PlayerEvent] = createActorCreator()
+
     /** Test probe for the line writer actor. */
     private val lineWriterActor = TestProbe()
 
     /** Test probe for the facade actor. */
     private val facadeActor = TestProbe()
-
-    /** Test probe for the legacy event actor. */
-    val eventActorOld: TestProbe = TestProbe()
-
-    /** Test probe for the event manager actor. */
-    val eventActor: scaladsl.TestProbe[EventActorType] = testKit.createTestProbe[EventActorType]()
 
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()
@@ -200,39 +212,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       *
       * @return the stub [[ActorCreator]]
       */
-    private def createActorCreator(): ActorCreator =
-      new ActorCreator {
-        override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] =
-          name match {
-            case "eventManagerActor" =>
-              optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
-              eventActor.ref.asInstanceOf[ActorRef[T]]
-
-            case _ => testKit.createTestProbe[T]().ref // helper actors
-          }
-
-        override def createActor(props: Props, name: String): classics.ActorRef =
-          name match {
-            case "lineWriterActor" =>
-              classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
-              props.dispatcher should be(BlockingDispatcherName)
-              props.args should have size 0
-              lineWriterActor.ref
-
-            case "eventManagerActorOld" =>
-              props.actorClass() should be(classOf[EventManagerActorOld])
-              props.args should have size 0
-              eventActorOld.ref
-
-            case "playerFacadeActor" =>
-              classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
-              classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-              classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
-              props.args should be(List(config, eventActorOld.ref, lineWriterActor.ref,
-                AudioPlayer.AudioPlayerSourceCreator))
-              facadeActor.ref
-          }
-      }
+    private def createActorCreator(): ActorCreatorForEventManagerTests[PlayerEvent] =
+      new ActorCreatorForEventManagerTests[PlayerEvent](testKit, "eventManagerActor",
+        customClassicChecks = classicActorChecks) with Matchers
 
     /**
       * Creates a test audio player configuration.
@@ -240,7 +222,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): PlayerConfig =
-      PlayerConfig(mediaManagerActor = null, actorCreator = createActorCreator(),
+      PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName))
   }
 }

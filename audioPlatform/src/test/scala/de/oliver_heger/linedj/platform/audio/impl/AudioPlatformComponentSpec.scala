@@ -73,6 +73,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("AudioPlatformComponentSpec"))
 
+  import system.dispatcher
   import AudioPlatformComponentSpec._
 
   /** The test kit for testing typed actors. */

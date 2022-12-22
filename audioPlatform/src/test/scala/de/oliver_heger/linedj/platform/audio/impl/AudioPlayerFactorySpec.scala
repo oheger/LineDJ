@@ -42,6 +42,8 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
   with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
   def this() = this(ActorSystem("AudioPlayerFactorySpec"))
 
+  import system.dispatcher
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
   }

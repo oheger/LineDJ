@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.{actor => classics}
-import akka.actor.Props
+import akka.actor.{ActorSystem, Props}
 import akka.actor.typed.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
@@ -56,13 +56,14 @@ object AudioPlayer {
     * @param config the ''PlayerConfig''
     * @return a ''Future'' with the newly created ''AudioPlayer''
     */
-  def apply(config: PlayerConfig): Future[AudioPlayer] = {
+  def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val (eventActorOld, eventActor) =
-      PlayerControl.createEventManagerActor[PlayerEvent](config.actorCreator, "eventManagerActor")
-    val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActorOld, lineWriterActor,
-      AudioPlayerSourceCreator), "playerFacadeActor")
-    Future.successful(new AudioPlayer(facadeActor, eventActorOld, eventActor))
+    PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorCreator,
+      "eventManagerActor") map { eventActors =>
+      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor,
+        AudioPlayerSourceCreator), "playerFacadeActor")
+      new AudioPlayer(facadeActor, eventActors._1, eventActors._2)
+    }
   }
 
   /**
