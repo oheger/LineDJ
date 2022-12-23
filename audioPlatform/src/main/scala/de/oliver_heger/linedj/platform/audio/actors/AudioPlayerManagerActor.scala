@@ -16,14 +16,13 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.stream.scaladsl.Sink
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -164,11 +163,11 @@ object AudioPlayerManagerActor {
                 factories foreach { factory =>
                   controller.player.addPlaybackContextFactory(factory)
                 }
-                val listenerID = addEventListener(messageBus, controller)
+                val listener = addEventListener(context, messageBus, controller)
                 val registrationID = registerController(messageBus, controller)
                 messages.reverse.foreach(messageBus.publish)
                 context.log.info("AudioPlayerController was created successfully.")
-                controllerActive(controller.player, registrationID, listenerID)
+                controllerActive(controller.player, registrationID, listener)
 
               case Some(close) =>
                 closePlayer(controller.player, close)
@@ -188,7 +187,7 @@ object AudioPlayerManagerActor {
             controllerCreationPending(factories, messages, Some(close))
         }
 
-      def controllerActive(player: AudioPlayer, messageBusRegistration: Int, eventListener: Int):
+      def controllerActive(player: AudioPlayer, messageBusRegistration: Int, eventListener: ActorRef[PlayerEvent]):
       Behavior[AudioPlayerManagementCommand] =
         Behaviors.receiveMessagePartial {
           case AddPlaybackContextFactories(factories) =>
@@ -204,7 +203,7 @@ object AudioPlayerManagerActor {
             Behaviors.same
 
           case close: Close =>
-            player.removeEventSink(eventListener)
+            player.removeEventListener(eventListener)
             messageBus removeListener messageBusRegistration
             messageBus publish UnregisterService(ControllerDependency)
             closePlayer(player, close)
@@ -238,14 +237,23 @@ object AudioPlayerManagerActor {
   /**
     * Adds an event listener to the audio player associated with the given
     * controller that publishes all received events on the message bus.
-    *
+    * @param context the actor context
     * @param messageBus the message bus
     * @param controller the controller
-    * @return the event listener ID
+    * @return the event listener actor ref
     */
-  private def addEventListener(messageBus: MessageBus, controller: AudioPlayerController): Int = {
-    val eventSink = Sink.foreach[Any](messageBus.publish)
-    controller.player.registerEventSink(eventSink)
+  private def addEventListener(context: ActorContext[AudioPlayerManagementCommand],
+                               messageBus: MessageBus,
+                               controller: AudioPlayerController): ActorRef[PlayerEvent] = {
+    val listenerBehavior = Behaviors.receiveMessage[PlayerEvent] {
+      event =>
+        messageBus publish event
+        Behaviors.same
+    }
+    val listener = context.spawn(listenerBehavior, "audioPlayerEventListener")
+
+    controller.player.addEventListener(listener)
+    listener
   }
 
   /**

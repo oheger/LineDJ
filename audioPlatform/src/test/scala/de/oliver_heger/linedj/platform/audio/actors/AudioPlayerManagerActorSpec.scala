@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.platform.audio.actors
 
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
-import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -28,7 +27,6 @@ import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.verification.VerificationMode
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -40,9 +38,6 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 object AudioPlayerManagerActorSpec {
-  /** The registration ID for the event sink. */
-  private val EventSinkRegistrationID = 111
-
   /**
     * The default verification mode for verify calls. ''timeout'' is used here
     * to deal with asynchronous operations.
@@ -131,16 +126,15 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     }
   }
 
-  it should "register an event sink at the audio player" in {
+  it should "register an event actor at the audio player" in {
     val helper = new ManagerActorTestHelper
 
-    val sink = helper.controllerCreated()
+    val eventListener = helper.controllerCreated()
       .checkControllerRegistration()
-      .fetchEventSink()
+      .fetchEventListenerActor()
 
     val event = AudioSourceStartedEvent(AudioSource("test.mp3", 2048, 0, 0))
-    val source = Source.single(event)
-    source.runWith(sink)
+    eventListener ! event
     helper.messageBus.expectMessageType[PlayerEvent] should be(event)
   }
 
@@ -257,7 +251,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     private val playerPromise = Promise[AudioPlayerController]()
 
     /** A mock for the audio player. */
-    private val player = createPlayerMock()
+    private val player = mock[AudioPlayer]
 
     /** A mock for the audio player controller. */
     private val controller = createControllerMock()
@@ -354,13 +348,13 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     }
 
     /**
-      * Obtains the event sink that has been registered at the player.
+      * Obtains the event actor that has been registered at the player.
       *
-      * @return the event sink
+      * @return the event actor
       */
-    def fetchEventSink(): Sink[Any, Any] = {
-      val capture = ArgumentCaptor.forClass(classOf[Sink[Any, Any]])
-      verify(player, DefaultVerificationMode).registerEventSink(capture.capture())
+    def fetchEventListenerActor(): ActorRef[PlayerEvent] = {
+      val capture = ArgumentCaptor.forClass(classOf[ActorRef[PlayerEvent]])
+      verify(player, DefaultVerificationMode).addEventListener(capture.capture())
       capture.getValue
     }
 
@@ -370,7 +364,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @return this test helper
       */
     def verifyEventListenerRemoved(): ManagerActorTestHelper = {
-      verify(player, DefaultVerificationMode).removeEventSink(EventSinkRegistrationID)
+      val listener = fetchEventListenerActor()
+      verify(player, DefaultVerificationMode).removeEventListener(listener)
       this
     }
 
@@ -408,17 +403,6 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       val probe = testKit.createTestProbe()
       probe.expectTerminated(managerActor)
       this
-    }
-
-    /**
-      * Creates a mock for the audio player.
-      *
-      * @return the mock for the audio player
-      */
-    private def createPlayerMock(): AudioPlayer = {
-      val playerMock = mock[AudioPlayer]
-      when(playerMock.registerEventSink(any())).thenReturn(EventSinkRegistrationID)
-      playerMock
     }
 
     /**
