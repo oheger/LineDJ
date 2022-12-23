@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, Props, typed}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -96,8 +96,10 @@ object PlayerFacadeActor {
     */
   case object ResetEngine
 
-  private class PlayerFacadeActorImpl(config: PlayerConfig, eventActor: ActorRef,
-                                      lineWriterActor: ActorRef, sourceCreator: SourceActorCreator)
+  private class PlayerFacadeActorImpl(config: PlayerConfig,
+                                      eventActor: typed.ActorRef[PlayerEvent],
+                                      lineWriterActor: ActorRef,
+                                      sourceCreator: SourceActorCreator)
     extends PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator) with ChildActorFactory
       with CloseSupport
 
@@ -110,8 +112,11 @@ object PlayerFacadeActor {
     * @param sourceCreator   the function to create the source actor(s)
     * @return the ''Props'' to create a new instance
     */
-  def apply(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef, sourceCreator: SourceActorCreator):
-  Props = Props(classOf[PlayerFacadeActorImpl], config, eventActor, lineWriterActor, sourceCreator)
+  def apply(config: PlayerConfig,
+            eventActor: typed.ActorRef[PlayerEvent],
+            lineWriterActor: ActorRef,
+            sourceCreator: SourceActorCreator): Props =
+    Props(classOf[PlayerFacadeActorImpl], config, eventActor, lineWriterActor, sourceCreator)
 }
 
 /**
@@ -149,7 +154,9 @@ object PlayerFacadeActor {
   * @param lineWriterActor the line writer actor
   * @param sourceCreator   the function to create the source actor(s)
   */
-class PlayerFacadeActor(config: PlayerConfig, eventActor: ActorRef, lineWriterActor: ActorRef,
+class PlayerFacadeActor(config: PlayerConfig,
+                        eventActor: typed.ActorRef[PlayerEvent],
+                        lineWriterActor: ActorRef,
                         sourceCreator: SourceActorCreator)
   extends Actor {
   this: ChildActorFactory with CloseSupport =>

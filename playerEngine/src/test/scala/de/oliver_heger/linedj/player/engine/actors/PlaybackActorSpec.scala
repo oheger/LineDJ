@@ -1,9 +1,12 @@
 package de.oliver_heger.linedj.player.engine.actors
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, InputStream}
 import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.actor.testkit.typed.scaladsl
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
@@ -97,8 +100,12 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   def this() = this(ActorSystem("PlaybackActorSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
   }
 
   /**
@@ -121,9 +128,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the ''Props'' object
     */
   private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None, optSource:
-  Option[ActorRef] = None, optEventMan: Option[TestProbe] = None): Props =
+  Option[ActorRef] = None, optEventMan: Option[scaladsl.TestProbe[PlayerEvent]] = None): Props =
     PlaybackActor(Config, fetchActorRef(optSource), fetchActorRef(optLineWriter),
-      optEventMan.getOrElse(TestProbe()).ref)
+      optEventMan.getOrElse(testKit.createTestProbe[PlayerEvent]()).ref)
 
   /**
     * Creates a playback context factory which creates context objects using a
@@ -174,7 +181,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   "A PlaybackActor" should "create a correct Props object" in {
     val probeLine = TestProbe()
-    val probeEvent = TestProbe()
+    val probeEvent = testKit.createTestProbe[PlayerEvent]()
     val props = PlaybackActor(Config, testActor, probeLine.ref, probeEvent.ref)
     val actor = TestActorRef[PlaybackActor](props)
     actor.underlyingActor shouldBe a[PlaybackActor]
@@ -188,7 +195,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "fire an event when an audio source is started" in {
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val source = createSource(1)
     val actor = system.actorOf(propsWithMockLineWriter(optEventMan = Some(eventMan)))
 
@@ -451,7 +458,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param playbackDuration the playback duration of the source
     * @return the audio source that was played and the test actor
     */
-  private def checkPlaybackOfFullSource(sourceSize: Int, optEventMan: Option[TestProbe] = None,
+  private def checkPlaybackOfFullSource(sourceSize: Int,
+                                        optEventMan: Option[scaladsl.TestProbe[PlayerEvent]] = None,
                                         optLineWriter: Option[TestProbe] = None,
                                         playbackDuration: Long = 0):
   (AudioSource, ActorRef) = {
@@ -481,7 +489,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "fire an event when the current source is completed" in {
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val (source, _) = checkPlaybackOfFullSource(PlaybackContextLimit - 10, Some(eventMan))
 
     expectEvent[AudioSourceStartedEvent](eventMan)
@@ -518,7 +526,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "generate playback progress events" in {
     val lineWriter = TestProbe()
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val Chunks = 5
     val SkipTime = 22
     val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
@@ -551,7 +559,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "determine the playback time from the audio format's properties" in {
     val lineWriter = TestProbe()
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val Chunks = 4
     val SkipTime = 42
     val actor = system.actorOf(PlaybackActor(Config.copy(inMemoryBufferSize = 10 * LineChunkSize),
@@ -577,7 +585,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "reset progress counters when playback of a new source starts" in {
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val lineWriter = TestProbe()
     val (_, actor) = checkPlaybackOfFullSource(LineChunkSize, Some(eventMan),
       Some(lineWriter), TimeUnit.SECONDS.toNanos(2))
@@ -701,7 +709,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the mock playback context factory
     */
   private def checkSkipAfterFailedPlaybackContextCreation(ctx: Option[PlaybackContext],
-                                                          evMan: Option[TestProbe] = None):
+                                                          evMan: Option[scaladsl.TestProbe[PlayerEvent]] = None):
   PlaybackContextFactory = {
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
@@ -734,9 +742,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "generate a failure event if no playback context can be created" in {
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     checkSkipAfterFailedPlaybackContextCreation(ctx = None, evMan = Some(eventMan))
-    eventMan.expectMsgType[AudioSourceStartedEvent]
+    eventMan.expectMessageType[AudioSourceStartedEvent]
 
     val event = expectEvent[PlaybackContextCreationFailedEvent](eventMan)
     event.source should be(createSource(1))
@@ -844,7 +852,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle an exception when reading from the audio stream" in {
     val lineWriter = TestProbe()
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val source = createSource(1)
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
@@ -946,7 +954,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "skip the current finite source if no audio data can be read" in {
     val lineWriter = TestProbe()
-    val eventMan = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
     when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0)

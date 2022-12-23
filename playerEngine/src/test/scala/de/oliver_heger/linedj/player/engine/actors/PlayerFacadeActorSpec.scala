@@ -16,9 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
@@ -26,7 +27,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.BeforeAndAfterAll
@@ -135,10 +136,14 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with MockitoSugar {
   def this() = this(ActorSystem("PlayerFacadeActorSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   import PlayerFacadeActorSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
     tearDownTestFile()
   }
 
@@ -155,7 +160,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   "A PlayerFacadeActor" should "create correct creation Props" in {
     val config = createPlayerConfig()
-    val eventActor = TestProbe()
+    val eventActor = testKit.createTestProbe[PlayerEvent]()
     val lineWriter = TestProbe()
     val srcCreator = AudioPlayer.AudioPlayerSourceCreator
 
@@ -371,7 +376,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     */
   private class PlayerFacadeTestHelper {
     /** Test probe for the event manager actor. */
-    private val eventManager = TestProbe()
+    private val eventManager = testKit.createTestProbe[PlayerEvent]()
 
     /** Test probe for the line writer actor. */
     private val lineWriter = TestProbe()

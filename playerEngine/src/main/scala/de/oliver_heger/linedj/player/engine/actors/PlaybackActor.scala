@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import java.io.IOException
-import java.util.concurrent.TimeUnit
-
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor._
-import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -108,7 +107,7 @@ object PlaybackActor {
     * @return a ''Props'' object for creating an instance
     */
   def apply(config: PlayerConfig, dataSource: ActorRef, lineWriter: ActorRef,
-            eventActor: ActorRef): Props =
+            eventActor: typed.ActorRef[PlayerEvent]): Props =
     Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor)
 }
 
@@ -141,7 +140,7 @@ object PlaybackActor {
   * @param eventActor      the actor for event generation
   */
 class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor: ActorRef,
-                    eventActor: ActorRef)
+                    eventActor: typed.ActorRef[PlayerEvent])
   extends Actor with ActorLogging {
   /** The current playback context factory. */
   private var contextFactory = new CombinedPlaybackContextFactory(Nil)

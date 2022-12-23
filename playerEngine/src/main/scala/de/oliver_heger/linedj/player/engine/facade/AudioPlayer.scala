@@ -60,7 +60,7 @@ object AudioPlayer {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorCreator,
       "eventManagerActor") map { eventActors =>
-      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor,
+      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._3, lineWriterActor,
         AudioPlayerSourceCreator), "playerFacadeActor")
       new AudioPlayer(facadeActor, eventActors._1, eventActors._2)
     }

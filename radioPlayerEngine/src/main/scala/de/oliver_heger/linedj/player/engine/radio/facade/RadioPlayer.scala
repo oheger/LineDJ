@@ -17,7 +17,9 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.ActorSystem
-import akka.actor.typed.ActorRef
+import akka.actor.typed.{ActorRef, Scheduler}
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.util.Timeout
 import akka.{actor => classics}
 import de.oliver_heger.linedj.io.CloseAck
@@ -26,11 +28,11 @@ import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActor
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.radio.actors.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object RadioPlayer {
@@ -45,13 +47,24 @@ object RadioPlayer {
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
   def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
-    PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
-      "radioEventManagerActor") map { eventActors =>
+    val typedSystem = system.toTyped
+    implicit val scheduler: Scheduler = typedSystem.scheduler
+    implicit val timeout: Timeout = Timeout(10.seconds)
+
+    for {
+      eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
+        "radioEventManagerActor")
+      converter = config.actorCreator.createActor(RadioEventConverterActor(eventActors._3),
+        "playerEventConverter", Some(RadioEventConverterActor.Stop))
+      playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
+        RadioEventConverterActor.GetPlayerListener(ref)
+      }
+    } yield {
       val sourceCreator = radioPlayerSourceCreator(eventActors._3)
       val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
       val facadeActor =
-        config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._1, lineWriterActor, sourceCreator),
-          "radioPlayerFacadeActor")
+        config.actorCreator.createActor(PlayerFacadeActor(config, playerListener.listener, lineWriterActor,
+          sourceCreator), "radioPlayerFacadeActor")
       val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._3),
         "radioSchedulerActor")
 

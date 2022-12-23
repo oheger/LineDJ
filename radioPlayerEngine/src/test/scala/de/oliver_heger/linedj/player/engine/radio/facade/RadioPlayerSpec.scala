@@ -17,21 +17,23 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
-import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.ClassicActorCheckFunc
+import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.radio.actors.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -222,11 +224,35 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         props.args should have size 4
-        props.args.take(3) should contain theSameElementsInOrderAs List(config, actorCreator.probeEventActorOld.ref,
+        props.args.take(3) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
           probeLineWriterActor.ref)
         val creator = props.args(3).asInstanceOf[SourceActorCreator]
         checkSourceActorCreator(creator)
         probeFacadeActor.ref
+    }
+
+    /** Test probe for the actor converting player to radio events. */
+    private val probePlayerEventActor = testKit.createTestProbe[PlayerEvent]()
+
+    /**
+      * A stub behavior simulating the radio event converter actor. This
+      * behavior supports querying the listener for player events.
+      */
+    private val mockEventConverterBehavior =
+      Behaviors.receiveMessagePartial[RadioEventConverterActor.RadioEventConverterCommand] {
+        case RadioEventConverterActor.GetPlayerListener(client) =>
+          client ! RadioEventConverterActor.PlayerListenerReference(probePlayerEventActor.ref)
+          Behaviors.same
+      }
+
+    /**
+      * The function to check additional typed actors created during tests.
+      */
+    private val checkFunc: ActorCheckFunc = (behavior, optStopCmd) => {
+      case "playerEventConverter" =>
+        optStopCmd should be(Some(RadioEventConverterActor.Stop))
+        checkConverterBehavior(behavior.asInstanceOf[Behavior[RadioEventConverterActor.RadioEventConverterCommand]])
+        testKit.spawn(mockEventConverterBehavior)
     }
 
     /** The object for creating test actors. */
@@ -277,7 +303,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def createActorCreator(): ActorCreatorForEventManagerTests[RadioEvent] =
       new ActorCreatorForEventManagerTests[RadioEvent](testKit, "radioEventManagerActor",
-        customClassicChecks = classicCheckFunc) with Matchers
+        customChecks = checkFunc, customClassicChecks = classicCheckFunc) with Matchers
 
     /**
       * Checks whether a correct function to create the radio source actor has
@@ -309,6 +335,24 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     private def createPlayerConfig(): PlayerConfig =
       PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName))
+
+    /**
+      * Tests whether a correct radio event converter actor is constructed that
+      * forwards converted events to the publisher actor.
+      * @param behavior the behavior of the converter actor
+      */
+    private def checkConverterBehavior(behavior: Behavior[RadioEventConverterActor.RadioEventConverterCommand]):
+    Unit = {
+      val audioSource = AudioSource("https://radio.example.org/stream.mp3", 16384, 0, 0)
+      val radioSource = RadioSource(audioSource.uri)
+      val playerEvent = PlaybackContextCreationFailedEvent(audioSource)
+      val radioEvent = RadioPlaybackContextCreationFailedEvent(radioSource, playerEvent.time)
+      val converter = testKit.spawn(behavior)
+
+      converter ! RadioEventConverterActor.ConvertEvent(playerEvent)
+
+      actorCreator.probePublisherActor.expectMessage(radioEvent)
+    }
   }
 
 }

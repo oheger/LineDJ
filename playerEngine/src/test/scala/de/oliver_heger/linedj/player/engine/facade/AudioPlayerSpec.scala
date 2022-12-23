@@ -152,7 +152,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config, actorCreator.probeEventActorOld.ref, lineWriterActor.ref,
+        props.args should be(List(config, actorCreator.probePublisherActor.ref, lineWriterActor.ref,
           AudioPlayer.AudioPlayerSourceCreator))
         facadeActor.ref
     }

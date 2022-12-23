@@ -17,13 +17,15 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import scala.concurrent.duration._
 
 /**
   * Test class for ''RadioPlayerEventListener''.
@@ -38,11 +40,12 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
   }
 
   it should "delegate playback progress events" in {
-    val PlaybackTime = 20160709223424L
+    val source = RadioSource("testSource")
+    val PlaybackTime = 128.seconds
     val helper = new RadioPlayerEventListenerTestHelper
 
-    helper sendEvent PlaybackProgressEvent(100, PlaybackTime, null)
-    verify(helper.controller).playbackTimeProgress(PlaybackTime)
+    helper sendEvent RadioPlaybackProgressEvent(source, 100, PlaybackTime, null)
+    verify(helper.controller).playbackTimeProgress(PlaybackTime.toSeconds)
   }
 
   it should "delegate radio source error events" in {
@@ -53,7 +56,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
   }
 
   it should "delegate playback context creation failure events" in {
-    val pcEvent = PlaybackContextCreationFailedEvent(AudioSource.infinite("failed"))
+    val pcEvent = RadioPlaybackContextCreationFailedEvent(RadioSource("failed"))
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper.sendEvent(pcEvent)
@@ -61,7 +64,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
   }
 
   it should "delegate playback error events" in {
-    val errEvent = PlaybackErrorEvent(AudioSource.infinite("corrupt"))
+    val errEvent = RadioPlaybackErrorEvent(RadioSource("corrupt"))
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent errEvent
