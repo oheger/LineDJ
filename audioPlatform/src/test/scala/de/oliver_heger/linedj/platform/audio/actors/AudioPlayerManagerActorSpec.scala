@@ -21,12 +21,13 @@ import akka.actor.typed.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.{AddPlaybackContextFactories, AudioPlayerManagementCommand, RemovePlaybackContextFactories}
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddPlaybackContextFactories, PlayerManagementCommand, RemovePlaybackContextFactories}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
 import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.verification.VerificationMode
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -161,7 +162,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       .prepareClosing(closeResult)
       .closePlayer()
 
-    probeClient.expectMessage(AudioPlayerManagerActor.CloseAck(Success(())))
+    probeClient.expectMessage(PlayerManagerActor.CloseAck(Success(())))
     helper.checkActorStopped()
   }
 
@@ -170,12 +171,12 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val closeResult = Future.failed[Seq[CloseAck]](exception)
     val helper = new ManagerActorTestHelper
 
-    val probeClient = helper.controllerCreated()
+    val probeClient =helper.controllerCreated()
       .checkControllerRegistration()
       .prepareClosing(closeResult)
       .closePlayer()
 
-    val ack = probeClient.expectMessageType[AudioPlayerManagerActor.CloseAck]
+    val ack = probeClient.expectMessageType[PlayerManagerActor.CloseAck]
     ack.result should be(Failure(exception))
     helper.checkActorStopped()
   }
@@ -187,7 +188,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       .closePlayer()
     helper.controllerCreated()
 
-    probeClient.expectMessage(AudioPlayerManagerActor.CloseAck(Success(())))
+    probeClient.expectMessage(PlayerManagerActor.CloseAck(Success(())))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
   }
@@ -199,7 +200,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val probeClient = helper.controllerCreationFailed(exception)
       .closePlayer()
 
-    val ack = probeClient.expectMessageType[AudioPlayerManagerActor.CloseAck]
+    val ack = probeClient.expectMessageType[PlayerManagerActor.CloseAck]
     ack.result should be(Failure(exception))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
@@ -212,7 +213,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val probeClient = helper.closePlayer()
     helper.controllerCreationFailed(exception)
 
-    val ack = probeClient.expectMessageType[AudioPlayerManagerActor.CloseAck]
+    val ack = probeClient.expectMessageType[PlayerManagerActor.CloseAck]
     ack.result should be(Failure(exception))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
@@ -224,7 +225,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
 
     helper.controllerCreated()
       .checkControllerRegistration()
-      .sendCommand(AudioPlayerManagerActor.PublishToController(message))
+      .sendCommand(PlayerManagerActor.PublishAfterCreation(message))
 
     helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message)
   }
@@ -234,8 +235,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val message2 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial.copy(playlistSeqNo = 42))
     val helper = new ManagerActorTestHelper
 
-    helper.sendCommand(AudioPlayerManagerActor.PublishToController(message1))
-      .sendCommand(AudioPlayerManagerActor.PublishToController(message2))
+    helper.sendCommand(PlayerManagerActor.PublishAfterCreation(message1))
+      .sendCommand(PlayerManagerActor.PublishAfterCreation(message2))
       .controllerCreated()
 
     helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message1)
@@ -290,7 +291,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @param command the command to send
       * @return this test helper
       */
-    def sendCommand(command: AudioPlayerManagementCommand): ManagerActorTestHelper = {
+    def sendCommand(command: PlayerManagementCommand): ManagerActorTestHelper = {
       managerActor ! command
       this
     }
@@ -331,6 +332,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       val regMsg = messageBus.expectMessageType[RegisterService]
       regMsg.service.serviceName should be("lineDJ.audioPlayerController")
       messageBus.currentListeners should have size 1
+      // Need to wait for event listener registration; otherwise Mockito's stubbing gets messed up.
+      fetchEventListenerActor()
       this
     }
 
@@ -377,8 +380,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @return this test helper
       */
     def prepareClosing(result: Future[Seq[CloseAck]]): ManagerActorTestHelper = {
-      implicit val ec: ExecutionContext = testKit.system.executionContext
-      when(player.close()).thenReturn(result)
+      when(player.close()(any(), any())).thenReturn(result)
       this
     }
 
@@ -388,9 +390,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return the test probe that should receive the ''CloseAck''
       */
-    def closePlayer(): TestProbe[AudioPlayerManagerActor.CloseAck] = {
-      val probe = testKit.createTestProbe[AudioPlayerManagerActor.CloseAck]()
-      managerActor ! AudioPlayerManagerActor.Close(probe.ref, CloseTimeout)
+    def closePlayer(): TestProbe[PlayerManagerActor.CloseAck] = {
+      val probe = testKit.createTestProbe[PlayerManagerActor.CloseAck]()
+      managerActor ! PlayerManagerActor.Close(probe.ref, CloseTimeout)
       probe
     }
 
@@ -418,7 +420,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return the test actor instance
       */
-    private def createManagerActor(): ActorRef[AudioPlayerManagementCommand] = {
+    private def createManagerActor(): ActorRef[PlayerManagementCommand] = {
+      implicit val ec: ExecutionContext = testKit.system.executionContext
       val creator: AudioPlayerManagerActor.ControllerCreationFunc = () => playerPromise.future
       testKit.spawn(AudioPlayerManagerActor(messageBus)(creator))
     }

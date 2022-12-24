@@ -24,8 +24,8 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientApplicationContextImpl}
-import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor
-import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.AudioPlayerManagementCommand
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.bus.ComponentID
@@ -35,7 +35,6 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
@@ -73,8 +72,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
   with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("AudioPlatformComponentSpec"))
 
-  import system.dispatcher
   import AudioPlatformComponentSpec._
+  import system.dispatcher
 
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
@@ -98,7 +97,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val controllerRegistration = helper.skipMessage().messageBus.findMessageType[RegisterService]
     controllerRegistration should be(RegisterService(ServiceDependency("lineDJ.audioPlayerController")))
-    managementActor ! AudioPlayerManagerActor.AddPlaybackContextFactories(List(factory))
+    managementActor ! PlayerManagerActor.AddPlaybackContextFactories(List(factory))
     helper.verifyRegisteredPlaybackContextFactories(factory)
 
     val regMsg = AudioPlayerStateChangeRegistration(ComponentID(), null)
@@ -141,7 +140,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyMetaDataResolverRegistration()
       .playbackContextFactoryRegistered(factory)
 
-    helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(factory)))
+    helper.probeManagementActor.expectMessage(PlayerManagerActor.AddPlaybackContextFactories(List(factory)))
   }
 
   it should "remove an unregistered playback context factory from the management actor" in {
@@ -153,8 +152,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .playbackContextFactoryRegistered(factory)
       .playbackContextFactoryRemoved(factory)
 
-    helper.probeManagementActor.expectMessageType[AudioPlayerManagerActor.AddPlaybackContextFactories]
-    helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.RemovePlaybackContextFactories(List(factory)))
+    helper.probeManagementActor.expectMessageType[PlayerManagerActor.AddPlaybackContextFactories]
+    helper.probeManagementActor.expectMessage(PlayerManagerActor.RemovePlaybackContextFactories(List(factory)))
   }
 
   it should "handle playback context factories before the creation of the player" in {
@@ -171,9 +170,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .activate()
       .playbackContextFactoryRegistered(fact3)
 
-    helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(fact2, fact1)))
+    helper.probeManagementActor.expectMessage(PlayerManagerActor.AddPlaybackContextFactories(List(fact2, fact1)))
     helper.verifyMetaDataResolverRegistration()
-    helper.probeManagementActor.expectMessage(AudioPlayerManagerActor.AddPlaybackContextFactories(List(fact3)))
+    helper.probeManagementActor.expectMessage(PlayerManagerActor.AddPlaybackContextFactories(List(fact3)))
   }
 
   it should "close the management actor on deactivation" in {
@@ -185,9 +184,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     thread.start()
 
-    val close = helper.probeManagementActor.expectMessageType[AudioPlayerManagerActor.Close]
+    val close = helper.probeManagementActor.expectMessageType[PlayerManagerActor.Close]
     close.timeout.duration should be(AudioPlatformComponent.DefaultShutdownTimeout)
-    close.client ! AudioPlayerManagerActor.CloseAck(Success(()))
+    close.client ! PlayerManagerActor.CloseAck(Success(()))
   }
 
   it should "read the timeout from the configuration when closing the management actor" in {
@@ -198,7 +197,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyMetaDataResolverRegistration()
       .deactivate(optTimeout = Some(timeout))
 
-    val close = helper.probeManagementActor.expectMessageType[AudioPlayerManagerActor.Close]
+    val close = helper.probeManagementActor.expectMessageType[PlayerManagerActor.Close]
     close.timeout.duration should be(timeout)
   }
 
@@ -216,10 +215,10 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val thread = new DeactivateThread(helper, Some(1.second), latch)
     thread.start()
     val managementActor = helper.probeManagementActor
-    val close = managementActor.expectMessageType[AudioPlayerManagerActor.Close]
+    val close = managementActor.expectMessageType[PlayerManagerActor.Close]
 
     latch.await(400, TimeUnit.MILLISECONDS) shouldBe false
-    close.client ! AudioPlayerManagerActor.CloseAck(Success(()))
+    close.client ! PlayerManagerActor.CloseAck(Success(()))
     thread.join(1000)
   }
 
@@ -256,9 +255,6 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     * A test helper class managing a test instance and its dependencies.
     */
   private class ComponentTestHelper {
-    /** The ID to be returned for an event sink registration. */
-    private val SinkRegistrationID = 20171030
-
     /** The media manager actor. */
     private val mediaManager = TestProbe().ref
 
@@ -266,7 +262,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private val metaDataManager = TestProbe().ref
 
     /** Mock for the audio player. */
-    private val audioPlayer = createPlayerMock()
+    private val audioPlayer = mock[AudioPlayer]
 
     /** The message bus. */
     val messageBus = new MessageBusTestImpl
@@ -275,8 +271,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private val appConfig = new PropertiesConfiguration
 
     /** The test probe representing the management actor. */
-    val probeManagementActor: scaladsl.TestProbe[AudioPlayerManagementCommand] =
-      testKit.createTestProbe[AudioPlayerManagementCommand]()
+    val probeManagementActor: scaladsl.TestProbe[PlayerManagementCommand] =
+      testKit.createTestProbe[PlayerManagementCommand]()
 
     /** The component to be tested. */
     private val component = createComponent()
@@ -285,7 +281,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private var metaDataResolver: PlaylistMetaDataResolver = _
 
     /** The behavior of the management actor. */
-    private var managementActorBehavior: Behavior[AudioPlayerManagementCommand] = _
+    private var managementActorBehavior: Behavior[PlayerManagementCommand] = _
 
     /**
       * Activates the test component.
@@ -376,7 +372,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyMetaDataResolverRegistration(): ComponentTestHelper = {
-      val expMsg = AudioPlayerManagerActor.PublishToController(metaDataResolver.playerStateChangeRegistration)
+      val expMsg = PlayerManagerActor.PublishAfterCreation(metaDataResolver.playerStateChangeRegistration)
       probeManagementActor.expectMessage(expMsg)
       this
     }
@@ -465,7 +461,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       *
       * @return the reference to the management actor
       */
-    def spawnManagementActor(): ActorRef[AudioPlayerManagementCommand] = {
+    def spawnManagementActor(): ActorRef[PlayerManagementCommand] = {
       managementActorBehavior should not be null
       testKit.spawn(managementActorBehavior)
     }
@@ -522,21 +518,10 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       new ActorFactory(system) {
         override def createActor[T](behavior: Behavior[T], name: String): ActorRef[T] = {
           name should be(AudioPlatformComponent.AudioPlayerManagementActorName)
-          managementActorBehavior = behavior.asInstanceOf[Behavior[AudioPlayerManagementCommand]]
+          managementActorBehavior = behavior.asInstanceOf[Behavior[PlayerManagementCommand]]
           probeManagementActor.ref.asInstanceOf[ActorRef[T]]
         }
       }
-
-    /**
-      * Creates a mock for the audio player.
-      *
-      * @return the mock for the audio player
-      */
-    private def createPlayerMock(): AudioPlayer = {
-      val p = mock[AudioPlayer]
-      when(p.registerEventSink(any())).thenReturn(SinkRegistrationID)
-      p
-    }
   }
 
   /**

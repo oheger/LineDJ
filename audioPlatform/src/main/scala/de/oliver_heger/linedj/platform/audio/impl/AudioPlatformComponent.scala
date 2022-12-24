@@ -22,8 +22,8 @@ import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
-import de.oliver_heger.linedj.platform.audio.actors.AudioPlayerManagerActor.AudioPlayerManagementCommand
-import de.oliver_heger.linedj.platform.audio.actors.{AudioPlayerController, AudioPlayerManagerActor}
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
+import de.oliver_heger.linedj.platform.audio.actors.{AudioPlayerController, AudioPlayerManagerActor, PlayerManagerActor}
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -136,7 +136,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   private var mediaFacadeActors: MediaFacadeActors = _
 
   /** The actor managing the audio player lifecycle. */
-  private var optManagementActor: Option[ActorRef[AudioPlayerManagementCommand]] = None
+  private var optManagementActor: Option[ActorRef[PlayerManagementCommand]] = None
 
   /**
     * Stores playback context factories that are added before the
@@ -184,7 +184,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     log.info("Adding PlaybackContextFactory.")
     optManagementActor match {
       case Some(actor) =>
-        actor ! AudioPlayerManagerActor.AddPlaybackContextFactories(List(factory))
+        actor ! PlayerManagerActor.AddPlaybackContextFactories(List(factory))
       case None =>
         playbackContextFactories = factory :: playbackContextFactories
     }
@@ -202,7 +202,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     log.info("Removing PlaybackContextFactory.")
     optManagementActor match {
       case Some(actor) =>
-        actor ! AudioPlayerManagerActor.RemovePlaybackContextFactories(List(factory))
+        actor ! PlayerManagerActor.RemovePlaybackContextFactories(List(factory))
       case None =>
         playbackContextFactories = playbackContextFactories filterNot (_ == factory)
     }
@@ -221,14 +221,14 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
       AudioPlayerManagerActor(clientApplicationContext.messageBus)(playerControllerCreationFunc),
       AudioPlayerManagementActorName)
     if (playbackContextFactories.nonEmpty) {
-      managementActor ! AudioPlayerManagerActor.AddPlaybackContextFactories(playbackContextFactories)
+      managementActor ! PlayerManagerActor.AddPlaybackContextFactories(playbackContextFactories)
     }
     optManagementActor = Some(managementActor)
 
     val metaDataResolver = createPlaylistMetaDataResolver()
     metaDataResolverRegistrationID =
       registerService(metaDataResolver, PlaylistMetaDataResolverDependency)
-    managementActor ! AudioPlayerManagerActor.PublishToController(metaDataResolver.playerStateChangeRegistration)
+    managementActor ! PlayerManagerActor.PublishAfterCreation(metaDataResolver.playerStateChangeRegistration)
     playlistMetaDataResolver = Some(metaDataResolver)
   }
 
@@ -310,8 +310,8 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
       val shutdownTimeout = fetchShutdownTimeout()
       implicit val timeout: Timeout = Timeout(shutdownTimeout)
       implicit val scheduler: Scheduler = clientApplicationContext.actorSystem.toTyped.scheduler
-      val futureAck = actor.ask[AudioPlayerManagerActor.CloseAck] { ref =>
-        AudioPlayerManagerActor.Close(ref, timeout)
+      val futureAck = actor.ask[PlayerManagerActor.CloseAck] { ref =>
+        PlayerManagerActor.Close(ref, timeout)
       }
 
       try {

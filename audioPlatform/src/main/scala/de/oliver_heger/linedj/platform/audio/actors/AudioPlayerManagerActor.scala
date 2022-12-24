@@ -16,16 +16,14 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
+import akka.actor.typed.Behavior
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{PlayerCreationFunc, PlayerManagementCommand}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
-import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 /**
   * An actor implementation that manages the asynchronous creation and
@@ -41,219 +39,52 @@ import scala.util.{Failure, Success, Try}
   */
 object AudioPlayerManagerActor {
   /**
-    * Type definition of a function that can create an [[AudioPlayer]] instance
-    * asynchronously.
+    * Type definition of a function that can create an
+    * [[AudioPlayerController]] instance asynchronously.
     */
   type ControllerCreationFunc = () => Future[AudioPlayerController]
-
-  /**
-    * The base trait for commands handled by this actor.
-    */
-  sealed trait AudioPlayerManagementCommand
-
-  /**
-    * A message class that adds the given [[PlaybackContextFactory]] instances
-    * to the managed audio player.
-    *
-    * @param factories the [[PlaybackContextFactory]] objects to add
-    */
-  case class AddPlaybackContextFactories(factories: List[PlaybackContextFactory]) extends AudioPlayerManagementCommand
-
-  /**
-    * A message class that removes the given [[PlaybackContextFactory]]
-    * instances from the managed audio player.
-    *
-    * @param factories the [[PlaybackContextFactory]] objects to remove
-    */
-  case class RemovePlaybackContextFactories(factories: List[PlaybackContextFactory])
-    extends AudioPlayerManagementCommand
-
-  /**
-    * A message class that publishes a specific message on the message bus
-    * after the [[AudioPlayerController]] has been registered. This is required
-    * to prevent that messages to the controller get lost because it is created
-    * asynchronously.
-    *
-    * @param message the message to be published
-    */
-  case class PublishToController(message: Any) extends AudioPlayerManagementCommand
-
-  /**
-    * A message triggering the closing of the managed audio player. When this
-    * operation is complete the specified client actor receives a [[CloseAck]]
-    * message.
-    *
-    * @param client  the client to be notified when close is complete
-    * @param timeout the timeout for the operation
-    */
-  case class Close(client: ActorRef[CloseAck],
-                   timeout: Timeout) extends AudioPlayerManagementCommand
-
-  /**
-    * An internal message the actor sends to itself when the player controller
-    * could be created successfully.
-    *
-    * @param controller the reference to the controller
-    */
-  private case class ControllerCreated(controller: AudioPlayerController) extends AudioPlayerManagementCommand
-
-  /**
-    * An internal message the actor sends to itself when the creation of the
-    * player controller fails.
-    *
-    * @param cause the cause of the failure
-    */
-  private case class ControllerCreationFailed(cause: Throwable) extends AudioPlayerManagementCommand
-
-  /**
-    * An internal message the actor sends to itself when the player has been
-    * closed.
-    *
-    * @param result the result of the close operation
-    */
-  private case class PlayerClosed(result: Try[Unit]) extends AudioPlayerManagementCommand
-
-  /**
-    * A message sent by this actor as an acknowledge when the audio player has
-    * been closed.
-    *
-    * @param result the result of the close operation
-    */
-  case class CloseAck(result: Try[Unit])
 
   /** The dependency for the controller registration. */
   private val ControllerDependency = ServiceDependency("lineDJ.audioPlayerController")
 
   /**
+    * An internal data class to represent the state of the managed audio player.
+    *
+    * @param controller             the [[AudioPlayerController]]
+    * @param messageBusRegistration the message bus registration ID
+    */
+  private case class AudioPlayerState(controller: AudioPlayerController,
+                                      messageBusRegistration: Int)
+
+  /**
     * Returns the behavior of an actor instance to manage an audio player.
     *
     * @param messageBus the central message bus
-    * @param creator    the function to create the audio player
+    * @param creator    the function to create the audio player controller
+    * @param ec         the execution context
     * @return the behavior to create an actor instance
     */
-  def apply(messageBus: MessageBus)(creator: ControllerCreationFunc): Behavior[AudioPlayerManagementCommand] =
-    Behaviors.setup[AudioPlayerManagementCommand] { context =>
-      implicit val ec: ExecutionContext = context.system.executionContext
-
-      creator() onComplete { result =>
-        val message = result match {
-          case Success(controller) => ControllerCreated(controller)
-          case Failure(exception) => ControllerCreationFailed(exception)
-        }
-        context.self ! message
-      }
-
-      def controllerCreationPending(factories: List[PlaybackContextFactory],
-                                    messages: List[Any],
-                                    optClose: Option[Close]): Behavior[AudioPlayerManagementCommand] =
-        Behaviors.receiveMessagePartial {
-          case AddPlaybackContextFactories(newFactories) =>
-            controllerCreationPending(newFactories ::: factories, messages, optClose)
-
-          case RemovePlaybackContextFactories(removeFactories) =>
-            controllerCreationPending(factories filterNot (factory => removeFactories.contains(factory)),
-              messages, optClose)
-
-          case PublishToController(message) =>
-            controllerCreationPending(factories, message :: messages, optClose)
-
-          case ControllerCreated(controller) =>
-            optClose match {
-              case None =>
-                factories foreach { factory =>
-                  controller.player.addPlaybackContextFactory(factory)
-                }
-                val listener = addEventListener(context, messageBus, controller)
-                val registrationID = registerController(messageBus, controller)
-                messages.reverse.foreach(messageBus.publish)
-                context.log.info("AudioPlayerController was created successfully.")
-                controllerActive(controller.player, registrationID, listener)
-
-              case Some(close) =>
-                closePlayer(controller.player, close)
-            }
-
-          case ControllerCreationFailed(cause) =>
-            context.log.error("Creation of AudioPlayerController failed.", cause)
-            optClose match {
-              case None =>
-                playerFailure(cause)
-              case Some(close) =>
-                close.client ! CloseAck(Failure(cause))
-                Behaviors.stopped
-            }
-
-          case close: Close =>
-            controllerCreationPending(factories, messages, Some(close))
-        }
-
-      def controllerActive(player: AudioPlayer, messageBusRegistration: Int, eventListener: ActorRef[PlayerEvent]):
-      Behavior[AudioPlayerManagementCommand] =
-        Behaviors.receiveMessagePartial {
-          case AddPlaybackContextFactories(factories) =>
-            factories foreach player.addPlaybackContextFactory
-            Behaviors.same
-
-          case RemovePlaybackContextFactories(factories) =>
-            factories foreach player.removePlaybackContextFactory
-            Behaviors.same
-
-          case PublishToController(message) =>
-            messageBus publish message
-            Behaviors.same
-
-          case close: Close =>
-            player.removeEventListener(eventListener)
-            messageBus removeListener messageBusRegistration
-            messageBus publish UnregisterService(ControllerDependency)
-            closePlayer(player, close)
-        }
-
-      def closePending(client: ActorRef[CloseAck]): Behavior[AudioPlayerManagementCommand] =
-        Behaviors.receiveMessagePartial {
-          case PlayerClosed(result) =>
-            client ! CloseAck(result)
-            Behaviors.stopped
-        }
-
-      def playerFailure(cause: Throwable): Behavior[AudioPlayerManagementCommand] =
-        Behaviors.receiveMessagePartial {
-          case Close(client, _) =>
-            client ! CloseAck(Failure(cause))
-            Behaviors.stopped
-        }
-
-      def closePlayer(player: AudioPlayer, close: Close): Behavior[AudioPlayerManagementCommand] = {
-        implicit val timeout: Timeout = close.timeout
-        player.close() map (_ => ()) onComplete { result =>
-          context.self ! PlayerClosed(result)
-        }
-        closePending(close.client)
-      }
-
-      controllerCreationPending(Nil, Nil, None)
+  def apply(messageBus: MessageBus)(creator: ControllerCreationFunc)
+           (implicit ec: ExecutionContext): Behavior[PlayerManagementCommand] = {
+    val stateCreator: PlayerCreationFunc[AudioPlayerState] = () => {
+      creator() map (ctrl => AudioPlayerState(ctrl, 0))
     }
 
-  /**
-    * Adds an event listener to the audio player associated with the given
-    * controller that publishes all received events on the message bus.
-    * @param context the actor context
-    * @param messageBus the message bus
-    * @param controller the controller
-    * @return the event listener actor ref
-    */
-  private def addEventListener(context: ActorContext[AudioPlayerManagementCommand],
-                               messageBus: MessageBus,
-                               controller: AudioPlayerController): ActorRef[PlayerEvent] = {
-    val listenerBehavior = Behaviors.receiveMessage[PlayerEvent] {
-      event =>
-        messageBus publish event
-        Behaviors.same
-    }
-    val listener = context.spawn(listenerBehavior, "audioPlayerEventListener")
+    val manager = new PlayerManagerActor[AudioPlayerState, PlayerEvent] {
+      override protected def getPlayer(state: AudioPlayerState): PlayerControl[PlayerEvent] =
+        state.controller.player
 
-    controller.player.addEventListener(listener)
-    listener
+      override protected def onInit(state: AudioPlayerState): AudioPlayerState = {
+        val regID = registerController(messageBus, state.controller)
+        state.copy(messageBusRegistration = regID)
+      }
+
+      override protected def onClose(state: AudioPlayerState): Unit = {
+        messageBus removeListener state.messageBusRegistration
+        messageBus publish UnregisterService(ControllerDependency)
+      }
+    }
+    manager.behavior(messageBus)(stateCreator)
   }
 
   /**
