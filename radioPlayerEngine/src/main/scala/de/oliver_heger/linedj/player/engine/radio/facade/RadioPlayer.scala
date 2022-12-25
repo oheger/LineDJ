@@ -54,21 +54,21 @@ object RadioPlayer {
     for {
       eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
         "radioEventManagerActor")
-      converter = config.actorCreator.createActor(RadioEventConverterActor(eventActors._3),
+      converter = config.actorCreator.createActor(RadioEventConverterActor(eventActors._2),
         "playerEventConverter", Some(RadioEventConverterActor.Stop))
       playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
         RadioEventConverterActor.GetPlayerListener(ref)
       }
     } yield {
-      val sourceCreator = radioPlayerSourceCreator(eventActors._3)
+      val sourceCreator = radioPlayerSourceCreator(eventActors._2)
       val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
       val facadeActor =
         config.actorCreator.createActor(PlayerFacadeActor(config, playerListener.listener, lineWriterActor,
           sourceCreator), "radioPlayerFacadeActor")
-      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._3),
+      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._2),
         "radioSchedulerActor")
 
-      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._2)
+      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1)
     }
   }
 

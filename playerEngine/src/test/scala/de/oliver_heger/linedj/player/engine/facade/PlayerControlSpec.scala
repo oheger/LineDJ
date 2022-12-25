@@ -19,24 +19,22 @@ package de.oliver_heger.linedj.player.engine.facade
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.{ActorRef, Behavior}
-
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-import akka.{actor => classics}
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
-import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
+import akka.{actor => classics}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, EventManagerActorOld, LineWriterActor, PlaybackActor, PlayerFacadeActor}
-import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Failure
@@ -225,34 +223,19 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       }
     }
 
-  it should "create event manager actors" in {
-    val ActorName = "MyTestEventManager"
-    val event = AudioSourceStartedEvent(AudioSource("test", 8192, 0, 0))
-    val creator = createActorCreatorForEventManager(ActorName)
-
-    val (eventManagerOld, eventManager) = PlayerControl.createEventManagerActor[PlayerEvent](creator, ActorName)
-    val probeListener = testKit.createTestProbe[PlayerEvent]()
-    val queueOldEvents = new LinkedBlockingQueue[PlayerEvent]()
-    val sinkOldEvents = Sink.foreach[PlayerEvent](event => queueOldEvents.offer(event))
-    eventManagerOld ! EventManagerActorOld.RegisterSink(42, sinkOldEvents)
-    eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
-
-    eventManager ! EventManagerActor.Publish(event)
-    probeListener.expectMessage(event)
-    queueOldEvents.poll(3, TimeUnit.SECONDS) should be(event)
-  }
-
   it should "create an event publisher actor" in {
     val ActorName = "MyTestEventManagerWithPublishing"
     val event = AudioSourceStartedEvent(AudioSource("testPublish", 16384, 0, 0))
     val creator = createActorCreatorForEventManager(ActorName)
 
     implicit val ec: ExecutionContext = system.dispatcher
-    val (_, eventManager, eventPublisher) =
+    val (eventManager, eventPublisher) =
       futureResult(PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](creator, ActorName))
     val probeListener = testKit.createTestProbe[PlayerEvent]()
     eventManager ! EventManagerActor.RegisterListener(probeListener.ref)
 
+    eventManager ! EventManagerActor.Publish(event)
+    probeListener.expectMessage(event)
     eventPublisher ! event
     probeListener.expectMessage(event)
   }

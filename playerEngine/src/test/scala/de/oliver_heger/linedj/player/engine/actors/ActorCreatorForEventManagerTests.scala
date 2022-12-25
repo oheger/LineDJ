@@ -95,9 +95,6 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
   /** Test probe for the event publisher actor. */
   val probePublisherActor: scaladsl.TestProbe[EVENT] = testKit.createTestProbe[EVENT]()
 
-  /** The name to be used for the legacy event actor. */
-  private val legacyEventManagerName = eventActorName + "Old"
-
   /**
     * A stub behavior simulating the event manager actor that can handle the
     * [[EventManagerActor.GetPublisher]] message to return the corresponding
@@ -121,25 +118,15 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
       testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior))
   }
 
-  /**
-    * Check function for the legacy event manager actor.
-    */
-  private val classicEventManagerCheck: ClassicActorCheckFunc = props => {
-    case `legacyEventManagerName` =>
-      props.actorClass() should be(classOf[EventManagerActorOld])
-      props.args should have size 0
-      probeEventActorOld.ref
-  }
-
   override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] = {
     val checkFunc = customChecks(behavior, optStopCommand) orElse eventManagerCheck(behavior, optStopCommand)
-    val ref = if (checkFunc.isDefinedAt(name)) checkFunc(name)
-    else testKit.createTestProbe[T]().ref
+    checkFunc.isDefinedAt(name) shouldBe true
+    val ref = checkFunc(name)
     ref.asInstanceOf[ActorRef[T]]
   }
 
   override def createActor(props: Props, name: String): classics.ActorRef = {
-    val checkFunc = customClassicChecks(props) orElse classicEventManagerCheck(props)
+    val checkFunc = customClassicChecks(props)
     checkFunc.isDefinedAt(name) shouldBe true
     checkFunc(name)
   }

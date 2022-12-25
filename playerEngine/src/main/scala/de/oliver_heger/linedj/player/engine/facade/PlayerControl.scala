@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
@@ -59,35 +58,6 @@ object PlayerControl {
     config.actorCreator.createActor(createLineWriterActorProps(config), actorName)
 
   /**
-    * Creates actors for managing event listeners. This function is mainly
-    * used in the interim phase when both typed and untyped event listeners are
-    * supported. Therefore, two event manager actors are created and returned.
-    * These actors are connected with each other: an event published via the
-    * typed actor is also received by the classic actor. That way a step-wise
-    * migration to the new event manager implementation can be done.
-    *
-    * @param creator the object to create actors
-    * @param name    the name of the event manager actor
-    * @tparam E the event type
-    * @return a tuple with the classic and the typed event manager actors
-    */
-  def createEventManagerActor[E](creator: ActorCreator, name: String)(implicit t: ClassTag[E]):
-  (classics.ActorRef, ActorRef[EventManagerActor.EventManagerCommand[E]]) = {
-    val eventManagerActorOld = creator.createActor(Props[EventManagerActorOld](), name + "Old")
-    val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))
-
-    val forwardingListenerBehavior = Behaviors.receiveMessage[E] {
-      msg =>
-        eventManagerActorOld ! msg
-        Behaviors.same
-    }
-    val forwardingListener = creator.createActor(forwardingListenerBehavior, "forwardingListener", None)
-    eventManagerActor ! EventManagerActor.RegisterListener(forwardingListener)
-
-    (eventManagerActorOld, eventManagerActor)
-  }
-
-  /**
     * Creates actors for managing event listeners and publishing events. This
     * function creates the event manager actor and then asks it for the
     * dedicated actor to publish events. Since this means an asynchronous
@@ -101,15 +71,15 @@ object PlayerControl {
     */
   def createEventManagerActorWithPublisher[E](creator: ActorCreator, name: String)
                                              (implicit system: ActorSystem, ec: ExecutionContext, t: ClassTag[E]):
-  Future[(classics.ActorRef, ActorRef[EventManagerActor.EventManagerCommand[E]], ActorRef[E])] = {
-    val (eventManagerActorOld, eventManagerActor) = createEventManagerActor[E](creator, name)
+  Future[(ActorRef[EventManagerActor.EventManagerCommand[E]], ActorRef[E])] = {
+    val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))
 
     implicit val askTimeout: Timeout = Timeout(10.seconds)
     import akka.actor.typed.scaladsl.adapter._
     implicit val scheduler: Scheduler = system.toTyped.scheduler
     eventManagerActor.ask[EventManagerActor.PublisherReference[E]] { ref =>
       EventManagerActor.GetPublisher(ref)
-    } map { publisherRef => (eventManagerActorOld, eventManagerActor, publisherRef.publisher) }
+    } map { publisherRef => (eventManagerActor, publisherRef.publisher) }
   }
 
   /**
