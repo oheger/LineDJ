@@ -176,6 +176,15 @@ trait PlayerManagerActor[STATE, EVENT] {
   protected def onInit(state: STATE): STATE = state
 
   /**
+    * Callback that gets invoked if the creation function returns a failure. A
+    * concrete implementation can perform some corresponding action. This base
+    * implementation is empty.
+    *
+    * @param cause the cause of the failure
+    */
+  protected def onInitFailure(cause: Throwable): Unit = {}
+
+  /**
     * Callback that gets invoked when the player is closed. A concrete
     * implementation has to do the necessary clean up here based on the state
     * provided.
@@ -233,6 +242,7 @@ trait PlayerManagerActor[STATE, EVENT] {
 
       case (context, PlayerCreationFailed(cause)) =>
         context.log.error("Creation of player failed.", cause)
+        onInitFailure(cause)
         optClose match {
           case None =>
             playerFailure(cause)

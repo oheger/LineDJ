@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.radio.{RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio._
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -89,18 +89,8 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
   }
 
   it should "ignore other events" in {
+    val event = AudioSourceStartedEvent(AudioSource.infinite("Test"))
     val helper = new RadioPlayerEventListenerTestHelper
-
-    helper sendEvent AudioSourceStartedEvent(AudioSource.infinite("Test"))
-    verify(helper.controller).radioPlayer
-    verifyNoMoreInteractions(helper.controller)
-  }
-
-  it should "ignore an event from another player" in {
-    val otherPlayer = mock[RadioPlayer]
-    val helper = new RadioPlayerEventListenerTestHelper
-    val event = helper.createRadioPlayerEvent(RadioSourceChangedEvent(RadioSource("?")), Some
-    (otherPlayer))
 
     helper.listener.receive.isDefinedAt(event) shouldBe false
   }
@@ -116,28 +106,14 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val listener = new RadioPlayerEventListener(controller)
 
     /**
-      * Sends a player event to the test listener. The event is correctly
-      * wrapped, and an optional source can be specified.
+      * Sends a player event to the test listener.
       *
-      * @param event     the event
-      * @param optSource the optional player as source
+      * @param event the event
       */
-    def sendEvent(event: Any, optSource: Option[RadioPlayer] = None):
-    RadioPlayerEventListenerTestHelper = {
-      listener receive createRadioPlayerEvent(event, optSource)
+    def sendEvent(event: Any): RadioPlayerEventListenerTestHelper = {
+      listener receive event
       this
     }
-
-    /**
-      * Creates the ''RadioPlayerEvent'' to be sent to the listener.
-      *
-      * @param event     the wrapped player event
-      * @param optSource the optional player as source
-      * @return the radio player event
-      */
-    def createRadioPlayerEvent(event: Any, optSource: Option[RadioPlayer]):
-    RadioPlayerEvent =
-      RadioPlayerEvent(event, optSource getOrElse player)
 
     /**
       * Verifies whether the controller received the specified error event

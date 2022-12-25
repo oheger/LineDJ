@@ -16,19 +16,22 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.stream.scaladsl.Sink
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.ShutdownHandler.ShutdownCompletionNotifier
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ShutdownHandler}
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.osgi.service.component.ComponentContext
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future, Promise, TimeoutException}
 
 /**
   * The ''Application'' class for the radio player application.
@@ -38,22 +41,30 @@ import scala.concurrent.duration._
   * ''PlaybackContextFactory''. Such services are needed by the audio player
   * engine for creating correct audio streams.
   *
-  * On startup, a bean for the radio player is created using the internal
-  * ''RadioPlayerFactory'' helper class. The player object needs to be
-  * initialized with the ''PlaybackContextFactory'' services registered in the
-  * system. However, as such services can arrive (and disappear again) at any
-  * time - even before the player is created -, the logic here is a bit tricky
-  * and also requires proper synchronization.
+  * On startup, an [[RadioPlayerManagerActor]] is created that is responsible
+  * for the asynchronous creation and initialization of the radio player.
+  * [[PlaybackContextFactory]] services are managed by this actor as well. When
+  * the player has been created (using the internal [[RadioPlayerFactory]]
+  * helper class, it is passed to the [[RadioController]] via a message on the
+  * message bus.
   *
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
   ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with ActorClientSupport
-  with Identifiable with ShutdownHandler.ShutdownObserver {
+  with Identifiable {
   def this() = this(new RadioPlayerFactory)
 
-  /** The radio player managed by this application. */
-  private var player: Option[RadioPlayer] = None
+  /**
+    * A promise that gets completed when the UI of the application is active.
+    * The promise is taken into account by the function that creates the radio
+    * player. This is rather a hack to prevent the function from completing
+    * before the UI; this would cause the message with the initialized radio
+    * player to get lost. A cleaner solution would be to have an analogous
+    * setup as for the audio player with a controller registered on the message
+    * bus and an OSGi service dependency.
+    */
+  private val promiseUI = Promise[Unit]()
 
   /**
     * A list for storing playback context factories that arrive before the
@@ -61,36 +72,36 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     */
   private var pendingPlaybackContextFactories = List.empty[PlaybackContextFactory]
 
+  /** The reference to the actor managing the client. */
+  private var optManagerActor: Option[ActorRef[PlayerManagementCommand]] = None
+
   /**
-    * Adds a ''PlaybackContextFactory'' service to this application. This
-    * factory has to be passed to the radio player. This method is called by
-    * the declarative services runtime.
+    * Adds a ''PlaybackContextFactory'' service to this application. If the
+    * management actor has already been created, the factory is passed to this
+    * actor. Otherwise, it is stored until the creation of this actor. Note
+    * that no special synchronization is necessary; all access to this field
+    * happens in the OSGi management thread.
     *
     * @param factory the factory service to be added
     */
   def addPlaylistContextFactory(factory: PlaybackContextFactory): Unit = {
-    this.synchronized {
-      player match {
-        case Some(p) => p addPlaybackContextFactory factory
-        case None => pendingPlaybackContextFactories = factory :: pendingPlaybackContextFactories
-      }
+    optManagerActor match {
+      case Some(actor) => actor ! PlayerManagerActor.AddPlaybackContextFactories(List(factory))
+      case None => pendingPlaybackContextFactories = factory :: pendingPlaybackContextFactories
     }
   }
 
   /**
     * Removes a ''PlaybackContextFactory'' service from this application. This
-    * operation is delegated to the radio player. This method is called by the
-    * declarative services runtime.
+    * operation is delegated to the management actor if it is already
+    * available. This method is called by the declarative services runtime.
     *
     * @param factory the factory service to be removed
     */
   def removePlaylistContextFactory(factory: PlaybackContextFactory): Unit = {
-    this.synchronized {
-      player match {
-        case Some(p) => p removePlaybackContextFactory factory
-        case None =>
-          pendingPlaybackContextFactories = pendingPlaybackContextFactories filterNot (_ == factory)
-      }
+    optManagerActor match {
+      case Some(actor) => actor ! PlayerManagerActor.RemovePlaybackContextFactories(List(factory))
+      case None => pendingPlaybackContextFactories = pendingPlaybackContextFactories filterNot (_ == factory)
     }
   }
 
@@ -100,13 +111,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     */
   override def initGUI(appCtx: ApplicationContext): Unit = {
     super.initGUI(appCtx)
-
-    playerFactory.createRadioPlayer(this) map { player =>
-      player registerEventSink createPlayerListenerSink(player)
-      initPlayer(player)
-    } onComplete { triedPlayer =>
-      clientApplicationContext.messageBus.publish(RadioController.RadioPlayerInitialized(triedPlayer))
-    }
+    promiseUI.success(())
   }
 
   /**
@@ -115,74 +120,50 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   override def activate(compContext: ComponentContext): Unit = {
     super.activate(compContext)
 
-    clientApplicationContext.messageBus.publish(ShutdownHandler.RegisterShutdownObserver(componentID, this))
+    val managerBehavior = RadioPlayerManagerActor(clientApplicationContext.messageBus)(createPlayer)
+    val managerActor = clientApplicationContext.actorFactory.createActor(managerBehavior, "radioPlayerManagerActor")
+    managerActor ! PlayerManagerActor.AddPlaybackContextFactories(pendingPlaybackContextFactories)
+    optManagerActor = Some(managerActor)
   }
 
   /**
     * @inheritdoc This implementation closes the player.
     */
   override def deactivate(componentContext: ComponentContext): Unit = {
+    closePlayer()
     super.deactivate(componentContext)
   }
 
   /**
-    * @inheritdoc Triggers the shutdown of the radio player application.
+    * Closes the manager actor and waits for its termination.
     */
-  override def triggerShutdown(completionNotifier: ShutdownHandler.ShutdownCompletionNotifier): Unit = {
-    closePlayer(completionNotifier)
-  }
+  private[radio] def closePlayer(): Unit = {
+    val shutdownTimeout = 3.seconds
+    optManagerActor.foreach { actor =>
+      implicit val timeout: Timeout = Timeout(shutdownTimeout)
+      implicit val scheduler: Scheduler = clientApplicationContext.actorSystem.toTyped.scheduler
+      val futureAck = actor.ask[PlayerManagerActor.CloseAck] { ref =>
+        PlayerManagerActor.Close(ref, timeout)
+      }
 
-  /**
-    * Closes the radio player and waits for its termination.
-    *
-    * @param completionNotifier the notifier for a completed shutdown
-    */
-  private[radio] def closePlayer(completionNotifier: ShutdownCompletionNotifier): Unit = {
-    val optPlayer = this.synchronized(player)
-    optPlayer.foreach { p =>
-      p.stopPlayback()
-      val f = p.close()(clientApplicationContext.actorSystem.dispatcher, Timeout(3.seconds))
       try {
-        log.info("Waiting for player to close.")
-        Await.result(f, 3.seconds)
+        Await.ready(futureAck, shutdownTimeout)
       } catch {
-        case e: Exception =>
-          log.warn("Error when closing player!", e)
+        case _: TimeoutException =>
+          log.warn("Timeout when shutting down audio player!")
       }
     }
-
-    completionNotifier.shutdownComplete()
   }
 
   /**
-    * Initializes the radio player. This has to be done in a synchronized block
-    * because playback context factories can arrive at any time.
+    * Creates the [[RadioPlayer]] asynchronously. Note that the resulting
+    * ''Future'' will not be completed before the UI has been initialized.
     *
-    * @param p the newly created player object
-    * @return the initialized radio player
+    * @return a ''Future'' with the [[RadioPlayer]].
     */
-  private def initPlayer(p: RadioPlayer): RadioPlayer = {
-    this.synchronized {
-      pendingPlaybackContextFactories foreach p.addPlaybackContextFactory
-      player = Some(p)
-    }
-
-    pendingPlaybackContextFactories = Nil
-    p
-  }
-
-  /**
-    * Creates a sink for listening for radio player events. All received events
-    * are wrapped in [[RadioPlayerEvent]] objects and published on the message
-    * bus.
-    *
-    * @param player the radio player
-    * @return the event listener sink
-    */
-  private def createPlayerListenerSink(player: RadioPlayer): Sink[AnyRef, _] = {
-    val messageBus = clientApplicationContext.messageBus
-    Sink.foreach[AnyRef] { e =>
-      messageBus.publish(RadioPlayerEvent(e, player))
-    }
-  }
+  private def createPlayer(): Future[RadioPlayer] =
+    for {
+      player <- playerFactory.createRadioPlayer(this)
+      _ <- promiseUI.future
+    } yield player
 }

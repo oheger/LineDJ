@@ -32,24 +32,20 @@ import de.oliver_heger.linedj.player.engine.radio._
 class RadioPlayerEventListener(controller: RadioController) extends
   MessageBusListener {
   override def receive: Receive = {
-    case RadioPlayerEvent(event, radioPlayer) if controller.radioPlayer == radioPlayer =>
-      event match {
-        case RadioSourceChangedEvent(source, _) =>
-          controller radioSourcePlaybackStarted source
-        case RadioSourceReplacementStartEvent(_, replacementSource, _) =>
-          controller.replacementSourceStarts(replacementSource)
-        case RadioSourceReplacementEndEvent(_, _) =>
-          controller.replacementSourceEnds()
-        case RadioPlaybackProgressEvent(_, _, time, _) =>
-          controller playbackTimeProgress time.toSeconds
-        case ev: RadioSourceErrorEvent =>
-          controller playbackError ev
-        case RadioPlaybackContextCreationFailedEvent(_, _) =>
-          controller.playbackContextCreationFailed()
-        case RadioPlaybackErrorEvent(_, _) =>
-          // handle like a failed context created
-          controller.playbackContextCreationFailed()
-        case _ => // ignore other events
-      }
+    case RadioSourceChangedEvent(source, _) =>
+      controller radioSourcePlaybackStarted source
+    case RadioSourceReplacementStartEvent(_, replacementSource, _) =>
+      controller.replacementSourceStarts(replacementSource)
+    case RadioSourceReplacementEndEvent(_, _) =>
+      controller.replacementSourceEnds()
+    case RadioPlaybackProgressEvent(_, _, time, _) =>
+      controller playbackTimeProgress time.toSeconds
+    case ev: RadioSourceErrorEvent =>
+      controller playbackError ev
+    case RadioPlaybackContextCreationFailedEvent(_, _) =>
+      controller.playbackContextCreationFailed()
+    case RadioPlaybackErrorEvent(_, _) =>
+      // handle like a failed context created
+      controller.playbackContextCreationFailed()
   }
 }
