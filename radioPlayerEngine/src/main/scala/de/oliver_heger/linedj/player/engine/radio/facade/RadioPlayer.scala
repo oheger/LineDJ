@@ -68,7 +68,7 @@ object RadioPlayer {
       val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._3),
         "radioSchedulerActor")
 
-      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, eventActors._2)
+      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._2)
     }
   }
 
@@ -98,16 +98,14 @@ object RadioPlayer {
   * As this class is a facade of multiple actors, accessing it from multiple
   * threads is safe.
   *
-  * @param config               the configuration for this player
-  * @param playerFacadeActor    reference to the facade actor
-  * @param schedulerActor       reference to the scheduler actor
-  * @param eventManagerActorOld reference to the legacy event manager actor
-  * @param eventManagerActor    reference to the event manager actor
+  * @param config            the configuration for this player
+  * @param playerFacadeActor reference to the facade actor
+  * @param schedulerActor    reference to the scheduler actor
+  * @param eventManagerActor reference to the event manager actor
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,
                           schedulerActor: classics.ActorRef,
-                          override protected val eventManagerActorOld: classics.ActorRef,
                           override protected val eventManagerActor:
                           ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]])
   extends PlayerControl[RadioEvent] {

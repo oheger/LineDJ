@@ -62,7 +62,7 @@ object AudioPlayer {
       "eventManagerActor") map { eventActors =>
       val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._3, lineWriterActor,
         AudioPlayerSourceCreator), "playerFacadeActor")
-      new AudioPlayer(facadeActor, eventActors._1, eventActors._2)
+      new AudioPlayer(facadeActor, eventActors._2)
     }
   }
 
@@ -94,11 +94,9 @@ object AudioPlayer {
   * It offers an interface for controlling playback.
   *
   * @param playerFacadeActor    the player facade actor
-  * @param eventManagerActorOld the legacy actor for managing event listeners
   * @param eventManagerActor    the actor for managing event listeners
   */
 class AudioPlayer private(protected override val playerFacadeActor: classics.ActorRef,
-                          protected override val eventManagerActorOld: classics.ActorRef,
                           protected override val eventManagerActor:
                           ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
   extends PlayerControl[PlayerEvent] {

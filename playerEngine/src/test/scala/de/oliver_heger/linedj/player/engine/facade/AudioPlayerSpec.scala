@@ -17,9 +17,8 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import akka.pattern.AskTimeoutException
-import akka.stream.scaladsl.Sink
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
@@ -127,11 +126,16 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   it should "pass the event actor to the super class" in {
+    val probeListener = testKit.createTestProbe[PlayerEvent]()
     val helper = new AudioPlayerTestHelper
-    val sink = Sink.ignore
 
-    helper.player.registerEventSink(sink)
-    helper.actorCreator.probeEventActorOld.expectMsgType[EventManagerActorOld.RegisterSink]
+    helper.player.addEventListener(probeListener.ref)
+
+    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds) {
+      case EventManagerActor.RegisterListener(listener) if listener == probeListener.ref =>
+        FishingOutcomes.complete
+      case _ => FishingOutcomes.continueAndIgnore
+    }
   }
 
   /**

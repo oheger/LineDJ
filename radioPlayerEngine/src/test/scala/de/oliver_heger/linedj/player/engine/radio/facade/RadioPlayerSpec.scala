@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{ActorSystem, Props}
@@ -110,10 +110,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   it should "pass the event actor to the super class" in {
+    val probeListener = testKit.createTestProbe[RadioEvent]()
     val helper = new RadioPlayerTestHelper
 
-    helper.player removeEventSink 20160709
-    helper.actorCreator.probeEventActorOld.expectMsgType[EventManagerActorOld.RemoveSink]
+    helper.player removeEventListener probeListener.ref
+
+    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds) {
+      case EventManagerActor.RemoveListener(listener) if listener == probeListener.ref =>
+        FishingOutcomes.complete
+      case _ => FishingOutcomes.continueAndIgnore
+    }
   }
 
   it should "support a check for the current radio source with a delay" in {

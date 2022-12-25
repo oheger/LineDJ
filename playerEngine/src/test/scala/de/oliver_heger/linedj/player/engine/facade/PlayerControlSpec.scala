@@ -122,31 +122,6 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor]())
   }
 
-  it should "support adding event listener sinks" in {
-    def createSink(): Sink[PlayerEvent, Any] =
-      Sink.foreach[PlayerEvent](println)
-
-    val helper = new PlayerControlTestHelper
-    val player = helper.createPlayerControl()
-    val sink1 = createSink()
-    val sink2 = createSink()
-
-    val regID1 = player registerEventSink sink1
-    val regID2 = player registerEventSink sink2
-    regID1 should not be regID2
-    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RegisterSink(regID1, sink1))
-    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RegisterSink(regID2, sink2))
-  }
-
-  it should "support removing event listener sinks" in {
-    val SinkID = 20160708
-    val helper = new PlayerControlTestHelper
-    val player = helper.createPlayerControl()
-
-    player removeEventSink SinkID
-    helper.probeEventManagerActorOld.expectMsg(EventManagerActorOld.RemoveSink(SinkID))
-  }
-
   it should "support adding event listeners" in {
     val helper = new PlayerControlTestHelper
     val listener = testKit.createTestProbe[PlayerEvent]()
@@ -287,9 +262,6 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * provides a concrete implementation of the trait under test.
     */
   private class PlayerControlTestHelper {
-    /** The test legacy event manager actor. */
-    val probeEventManagerActorOld: TestProbe = TestProbe()
-
     /** Test test event manager actor. */
     val probeEventManagerActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]] =
       testKit.createTestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]]()
@@ -303,8 +275,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return the test instance
       */
     def createPlayerControl(): PlayerControlImpl =
-      new PlayerControlImpl(eventManagerActorOld = probeEventManagerActorOld.ref,
-        playerFacadeActor = probePlayerFacadeActor.ref,
+      new PlayerControlImpl(playerFacadeActor = probePlayerFacadeActor.ref,
         eventManagerActor = probeEventManagerActor.ref)
 
     /**
@@ -340,11 +311,10 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 /**
   * A test implementation of the trait which wraps the specified actor.
   *
-  * @param eventManagerActorOld the event manager actor
-  * @param playerFacadeActor    the player facade actor
+  * @param playerFacadeActor the player facade actor
+  * @param eventManagerActor the event manager actor
   */
 private class PlayerControlImpl(override val playerFacadeActor: classics.ActorRef,
-                                override val eventManagerActorOld: classics.ActorRef,
                                 override val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
   extends PlayerControl[PlayerEvent] {
   override def closeActors(actors: Seq[classics.ActorRef])(implicit ec: ExecutionContext, timeout:
