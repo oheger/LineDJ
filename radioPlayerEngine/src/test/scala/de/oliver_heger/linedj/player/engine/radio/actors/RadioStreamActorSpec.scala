@@ -17,8 +17,11 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.{ActorRef, ActorSystem}
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
+import akka.stream.scaladsl.Source
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
@@ -251,6 +254,45 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     expectTermination(actor)
   }
 
+  it should "handle a radio stream with metadata" in {
+    val AudioChunkSize = 128
+    val ChunkCount = 256
+    val ChunksToRead = 5
+    // Length indicator + 16 data bytes
+    val metadataBlock = ByteString(1, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ,78 ,79, 80)
+    val chunks = (0 until ChunkCount) map { idx =>
+      RadioStreamTestHelper.dataBlock(AudioChunkSize, idx) ++ metadataBlock
+    }
+    val entitySource = Source(chunks)
+    val response = HttpResponse(headers = List(RawHeader("icy-metaint", AudioChunkSize.toString)),
+      entity = HttpEntity(ContentTypes.`application/octet-stream`, entitySource))
+    val expectedData = ByteString(RadioStreamTestHelper.refData(ChunksToRead * AudioChunkSize))
+    val helper = new StreamActorTestHelper
+    helper.initStreamLoaderResponse(Success(response))
+
+    val actor = helper.createTestActor(AudioStreamRef)
+    val audioData = (1 to ChunksToRead).foldLeft[ByteString](ByteString.empty) { (data, _) =>
+      actor ! PlaybackActor.GetAudioData(AudioChunkSize)
+      data ++ expectMsgType[BufferDataResult].data
+    }
+
+    audioData.utf8String should be(expectedData.utf8String)
+  }
+
+  it should "handle a radio stream with an invalid audio chunk size header" in {
+    val entitySource = RadioStreamTestHelper.createSourceFromStream()
+    val response = HttpResponse(headers = List(RawHeader("icy-metaint", "invalid header value")),
+      entity = HttpEntity(ContentTypes.`application/octet-stream`, entitySource))
+    val helper = new StreamActorTestHelper
+    helper.initStreamLoaderResponse(Success(response))
+
+    val actor = helper.createTestActor(AudioStreamRef)
+    actor ! PlaybackActor.GetAudioData(RadioStreamTestHelper.ChunkSize)
+    val data = expectMsgType[BufferDataResult].data
+
+    data should be(RadioStreamTestHelper.refData(RadioStreamTestHelper.ChunkSize))
+  }
+
   /**
     * A test helper class that manages a test actor instance and its
     * dependencies.
@@ -364,7 +406,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return the mock stream loader
       */
     private def createHttpLoader(): HttpStreamLoader = {
-      val expectedRequest = HttpRequest(uri = AudioStreamUri)
+      val expectedRequest = HttpRequest(uri = AudioStreamUri, headers = List(RawHeader("Icy-MetaData", "1")))
       val loader = mock[HttpStreamLoader]
       when(loader.sendRequest(expectedRequest)).thenAnswer((_: InvocationOnMock) => {
         audioStreamRequested.set(true)

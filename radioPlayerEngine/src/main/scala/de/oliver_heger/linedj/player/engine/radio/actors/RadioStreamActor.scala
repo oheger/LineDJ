@@ -18,9 +18,10 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream._
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, GraphDSL, RunnableGraph, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
@@ -29,7 +30,7 @@ import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 private object RadioStreamActor {
   /**
@@ -42,12 +43,13 @@ private object RadioStreamActor {
   private case class AudioStreamResolved(audioStreamRef: StreamReference)
 
   /**
-    * A message this actor sends to itself when the source for the audio
-    * stream becomes available. Then the audio stream can be started.
+    * A message this actor sends to itself when the response for the GET
+    * request to the audio stream becomes available. Then the audio stream can
+    * be started.
     *
-    * @param source the source for the audio stream to manage
+    * @param response the response for the stream request
     */
-  private case class AudioSourceResolved(source: Source[ByteString, Any])
+  private case class AudioStreamResponse(response: HttpResponse)
 
   /**
     * A message sent by the managed stream when its initialization is complete.
@@ -72,6 +74,21 @@ private object RadioStreamActor {
     * last chunk of data and requesting the next one.
     */
   private case object Ack
+
+  /**
+    * The headers to be added to requests for a radio stream. Here the header
+    * asking for metadata is included. If the response contains a corresponding
+    * header with the audio data chunk size, the stream actually supports
+    * metadata.
+    */
+  private val RadioStreamRequestHeaders = List(RawHeader("Icy-MetaData", "1"))
+
+  /**
+    * The name of the header defining the size of audio chunks if the metadata
+    * protocol is supported. If this header is found in the response for a
+    * request to a radio stream, metadata extraction is applied.
+    */
+  private val AudioChunkSizeHeader = "icy-metaint"
 
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
@@ -177,14 +194,14 @@ private class RadioStreamActor(config: PlayerConfig,
     case AudioStreamResolved(ref) =>
       log.info("Playing audio stream from {}.", ref.uri)
       sourceListener ! AudioSource(ref.uri, Long.MaxValue, 0, 0)
-      streamLoader.sendRequest(HttpRequest(uri = ref.uri)) map (_.entity.dataBytes) onComplete {
-        case Success(source) => self ! AudioSourceResolved(source)
+      streamLoader.sendRequest(createRadioStreamRequest(ref)) onComplete {
+        case Success(source) => self ! AudioStreamResponse(source)
         case Failure(exception) => self ! StreamFailure(exception)
       }
 
-    case AudioSourceResolved(source) =>
-      log.info("Source of the audio stream has been resolved.")
-      optKillSwitch = Some(startStream(source))
+    case AudioStreamResponse(response) =>
+      log.info("Response of the audio stream has arrived.")
+      optKillSwitch = Some(startStream(response))
 
     case StreamInitialized =>
       log.info("Audio stream has been initialized.")
@@ -212,6 +229,16 @@ private class RadioStreamActor(config: PlayerConfig,
   }
 
   /**
+    * Returns the request to query the radio stream represented by the passed
+    * in reference.
+    *
+    * @param ref the reference to the radio stream
+    * @return the HTTP request to load this stream
+    */
+  private def createRadioStreamRequest(ref: StreamReference): HttpRequest =
+    HttpRequest(uri = ref.uri, headers = RadioStreamRequestHeaders)
+
+  /**
     * A receive function that becomes active when the actor receives a close
     * request. It waits for the stream to terminate to send the close ack to
     * the client. Also, the case is handled that the audio stream has not yet
@@ -237,19 +264,71 @@ private class RadioStreamActor(config: PlayerConfig,
 
   /**
     * Starts the managed audio stream for the given source. Data is read from
-    * the source, and the buffer is filled. This actor (acting as sink of the
-    * stream) gets notified when data is available.
+    * the response entity, and the buffer is filled. This actor (acting as sink
+    * of the stream) gets notified when data is available. If metadata is
+    * supported, it is extracted.
     *
-    * @param source the source of the managed audio stream
+    * @param streamResponse the response for the stream request
     * @return a [[KillSwitch]] to terminate the stream
     */
-  private def startStream(source: Source[ByteString, Any]): KillSwitch =
-    source.buffer(config.inMemoryBufferSize / config.bufferChunkSize, OverflowStrategy.backpressure)
-      .map { data => BufferDataResult(data) }
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(createStreamSink())(Keep.left)
-      .withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
-      .run()
+  private def startStream(streamResponse: HttpResponse): KillSwitch = {
+    val optChunkSize = extractChunkSizeHeader(streamResponse)
+    optChunkSize match {
+      case Some(value) => log.info("Metadata is supported with chunk size {}.", value)
+      case None => log.info("No support for metadata.")
+    }
+
+    val source = createStreamSource(streamResponse)
+    val killSwitch = KillSwitches.shared("stopRadioStream")
+    val mapBufferData = Flow[ByteString].map { data => BufferDataResult(data) }
+    val sinkMeta = Sink.foreach[ByteString] { meta => println(s"*** Metadata: '${meta.utf8String}'") }
+
+    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(createStreamSink()) {
+      implicit builder =>
+        sinkAudio =>
+          import GraphDSL.Implicits._
+
+          val ks = builder.add(killSwitch.flow[ByteString])
+          val extractionStage = builder.add(MetadataExtractionStage(optChunkSize))
+
+          source ~> ks ~> extractionStage.in
+          extractionStage.out0 ~> mapBufferData ~> sinkAudio
+          extractionStage.out1 ~> sinkMeta
+          ClosedShape
+    }).withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+    graph.run()
+
+    killSwitch
+  }
+
+  /**
+    * Extracts the header with the audio chunk size from the given response. If
+    * this header is present and valid, metadata is supported.
+    *
+    * @param streamResponse the response for the stream request
+    * @return the optional audio chunk size
+    */
+  private def extractChunkSizeHeader(streamResponse: HttpResponse): Option[Int] =
+    streamResponse.headers.find(_.name() == AudioChunkSizeHeader).flatMap { header =>
+      Try {
+        header.value().toInt
+      }.recoverWith {
+        case e =>
+          log.error(e, s"Invalid $AudioChunkSizeHeader header: '${header.value()}'.")
+          Failure(e)
+      }.toOption
+    }
+
+  /**
+    * Creates the ''Source'' for the managed stream. It is obtained from the
+    * response entity applying some buffering.
+    *
+    * @param streamResponse the response for the stream request
+    * @return the ''Source'' of the managed stream
+    */
+  private def createStreamSource(streamResponse: HttpResponse): Source[ByteString, Any] =
+    streamResponse.entity.dataBytes
+      .buffer(config.inMemoryBufferSize / config.bufferChunkSize, OverflowStrategy.backpressure)
 
   /**
     * Creates the ''Sink'' for the managed stream. This is the actor itself
