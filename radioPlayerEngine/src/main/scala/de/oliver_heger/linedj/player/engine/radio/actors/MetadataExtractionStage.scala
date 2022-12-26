@@ -69,16 +69,14 @@ private class MetadataExtractionStage private(extractionService: MetadataExtract
       })
 
       setHandler(outAudio, new OutHandler {
-        override def onPull(): Unit = {}
+        override def onPull(): Unit = {
+          pull(in)
+        }
       })
 
       setHandler(outMeta, new OutHandler {
         override def onPull(): Unit = {}
       })
-
-      override def preStart(): Unit = {
-        pull(in)
-      }
 
       /**
         * Handles a chunk of data received from upstream with the help of the
@@ -94,12 +92,13 @@ private class MetadataExtractionStage private(extractionService: MetadataExtract
 
         if (extracted.audioChunks.nonEmpty) {
           emitMultiple(outAudio, extracted.audioChunks)
+        } else {
+          pull(in)
         }
+
         extracted.metadataChunk foreach {
           push(outMeta, _)
         }
-
-        pull(in)
       }
     }
 }

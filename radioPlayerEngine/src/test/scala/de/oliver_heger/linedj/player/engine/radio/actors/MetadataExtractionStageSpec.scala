@@ -93,7 +93,14 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     (futureResult(futAudio), futureResult(futMeta))
   }
 
-  "MetadataExtractionStage" should "handle a radio stream that supports metadata" in {
+  /**
+    * Tests whether a stream with metadata can be processed by
+    * [[MetadataExtractionStage]] based on the chunk size in which audio data
+    * is delivered.
+    *
+    * @param streamChunkSize the chunk size of the stream
+    */
+  private def checkStreamWithMetadata(streamChunkSize: Int): Unit = {
     val ChunkCount = 16
     val audioData = (0 until ChunkCount).map(RadioStreamTestHelper.dataBlock(AudioChunkSize, _))
     val metadata = (1 to ChunkCount).map { idx =>
@@ -101,7 +108,7 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     }
     val dataChunks = audioData.zip(metadata)
       .foldLeft(ByteString.empty) { (d, t) => d ++ t._1 ++ t._2 }
-      .grouped(100)
+      .grouped(streamChunkSize)
     val expectedAudioData = ByteString(RadioStreamTestHelper.refData(ChunkCount * AudioChunkSize))
     val expectedMetadata = (1 to ChunkCount).map(generateMetadata)
       .foldLeft(ByteString.empty) { (aggregate, chunk) => aggregate ++ ByteString(chunk) }
@@ -110,6 +117,14 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
 
     extractedAudioData should be(expectedAudioData)
     extractedMetadata should be(expectedMetadata)
+  }
+
+  "MetadataExtractionStage" should "handle a radio stream that supports metadata" in {
+    checkStreamWithMetadata(100)
+  }
+
+  it should "handle a chunks containing only metadata" in {
+    checkStreamWithMetadata(10)
   }
 
   it should "handle a radio stream that does not support metadata" in {
