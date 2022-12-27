@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio
 
 import de.oliver_heger.linedj.player.engine.AudioSourceFinishedEvent
+import de.oliver_heger.linedj.player.engine.radio.CurrentMetadata.extractStreamTitle
 
 import java.time.LocalDateTime
 import scala.concurrent.duration.FiniteDuration
@@ -135,3 +136,63 @@ case class RadioPlaybackContextCreationFailedEvent(source: RadioSource,
   */
 case class RadioPlaybackErrorEvent(source: RadioSource,
                                    override val time: LocalDateTime = LocalDateTime.now()) extends RadioEvent
+
+/**
+  * A trait to represent metadata extracted from a radio stream.
+  *
+  * A subclass of this trait is contained in a [[RadioMetadataEvent]]. The
+  * different classes are used to distinguish between actual metadata and the
+  * state that a specific stream does not support metadata.
+  */
+sealed trait RadioMetadata
+
+/**
+  * A concrete subtype of radio metadata indicating that the current radio
+  * source does not support metadata.
+  */
+case object MetadataNotSupported extends RadioMetadata
+
+object CurrentMetadata {
+  /** Regular expression to extract the StreamTitle field from metadata. */
+  private val RegStreamTitle = "StreamTitle='([^']*)'".r
+
+  /**
+    * Tries to extract the ''StreamTitle'' field from the given metadata
+    * string.
+    *
+    * @param data the metadata
+    * @return an ''Option'' with the extracted ''StreamTitle'' field
+    */
+  private def extractStreamTitle(data: String): Option[String] =
+    RegStreamTitle.findFirstMatchIn(data).map(_.group(1))
+}
+
+/**
+  * A concrete subtype of radio metadata containing actual metadata about what
+  * is currently. This could be for instance information about the current
+  * song.
+  *
+  * @param data the full content of the metadata
+  */
+case class CurrentMetadata(data: String) extends RadioMetadata {
+  /**
+    * Tries to parse the information about the current title (i.e. the
+    * ''StreamTitle'' field from the metadata. If it is found, the content of
+    * this field is returned. Otherwise, this function returns the full
+    * metadata content.
+    *
+    * @return the title part of the metadata
+    */
+  def title: String = extractStreamTitle(data) getOrElse data
+}
+
+/**
+  * A player event indicating a change of the metadata for the current radio
+  * source. If metadata is supported, this can be used to display the current
+  * title and artist in the radio player UI.
+  *
+  * @param metadata the [[RadioMetadata]]
+  * @param time     the time when this event was generated
+  */
+case class RadioMetadataEvent(metadata: RadioMetadata,
+                              override val time: LocalDateTime = LocalDateTime.now()) extends RadioEvent
