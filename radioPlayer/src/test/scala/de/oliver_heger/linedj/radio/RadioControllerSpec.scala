@@ -234,12 +234,12 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val config = new HierarchicalConfiguration
     val Delay = 1.second
     config.addProperty("radio.initialDelay", Delay.toMillis)
-    helper.createInitializedController(createSourceConfiguration(1), config)
+    helper.createInitializedController(createSourceConfiguration(1), mainConfig = config)
 
     helper.verifyInitialStartPlayback(radioSource(1), delay = Delay)
   }
 
-  it should "store the current source in the configuration after startup" in {
+  it should "store the current source in the user configuration after startup" in {
     val helper = new RadioControllerTestHelper
     val srcConfig = createSourceConfiguration(1)
     val config = new HierarchicalConfiguration
@@ -419,7 +419,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val srcConfig = createSourceConfiguration(4)
     val helper = new RadioControllerTestHelper
     val (answer, _) = helper.expectErrorStrategyCall()
-    val ctrl = helper.createInitializedController(srcConfig, playerConfig,
+    val ctrl = helper.createInitializedController(srcConfig, mainConfig = playerConfig,
       playbackSrcIdx = 1)
 
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
@@ -501,7 +501,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "recover from an error after the configured time" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(8),
-      createRecoveryConfiguration(), playbackSrcIdx = 7)
+      mainConfig = createRecoveryConfiguration(), playbackSrcIdx = 7)
     helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources, radioSource(7)), 1)
 
     ctrl playbackTimeProgress RecoveryTime
@@ -516,7 +516,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "not change the source on recovery if it is already played" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(4),
-      createRecoveryConfiguration(), playbackSrcIdx = 1)
+      mainConfig = createRecoveryConfiguration(), playbackSrcIdx = 1)
     helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources + 1,
       radioSource(1)), 1)
 
@@ -695,25 +695,29 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     /**
       * Creates a test instance of a radio controller.
       *
-      * @param srcConfig     the configuration for the radio sources
-      * @param configuration the configuration
+      * @param srcConfig  the configuration for the radio sources
+      * @param userConfig the user configuration
+      * @param mainConfig the main configuration of the application
       * @return the test instance
       */
     def createController(srcConfig: RadioSourceConfig,
-                         configuration: Configuration = new HierarchicalConfiguration):
-    RadioController =
-      new RadioController(configuration, applicationContext, actionStore, comboHandler,
+                         userConfig: Configuration = new HierarchicalConfiguration,
+                         mainConfig: Configuration = new HierarchicalConfiguration()): RadioController = {
+      when(applicationContext.getConfiguration).thenReturn(mainConfig)
+      new RadioController(userConfig, applicationContext, actionStore, comboHandler,
         statusHandler, playbackTimeHandler, errorIndicator, errorHandlingStrategy, c => {
-          c should be(configuration)
+          c should be(mainConfig)
           srcConfig
         })
+    }
 
     /**
       * Creates a radio controller test instance and initializes it by sending
       * it a message with the radio player.
       *
       * @param srcConfig           the configuration for the radio sources
-      * @param configuration       the configuration
+      * @param userConfig          the user configuration
+      * @param mainConfig          the main configuration of the application
       * @param resetErrorIndicator flag whether the error indicator mock
       *                            should be reset (the indicator is hidden
       *                            at initialization time)
@@ -722,10 +726,11 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @return the test instance
       */
     def createInitializedController(srcConfig: RadioSourceConfig,
-                                    configuration: Configuration = new HierarchicalConfiguration,
+                                    userConfig: Configuration = new HierarchicalConfiguration,
+                                    mainConfig: Configuration = new HierarchicalConfiguration,
                                     resetErrorIndicator: Boolean = true,
                                     playbackSrcIdx: Int = -1): RadioController = {
-      val ctrl = createController(srcConfig, configuration)
+      val ctrl = createController(srcConfig, userConfig, mainConfig)
       sendPlayerInitializedMessage(ctrl)
       verify(errorIndicator).setVisible(false)
       if (playbackSrcIdx >= 0) {

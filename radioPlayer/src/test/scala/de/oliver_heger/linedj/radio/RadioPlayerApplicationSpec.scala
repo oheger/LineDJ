@@ -189,7 +189,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val ctrl = helper.queryBean[RadioController](app.getMainWindowBeanContext, "radioController")
 
-    ctrl.config should be(app.getApplicationContext.getConfiguration)
+    ctrl.userConfig should be(app.getUserConfiguration)
     val message = RadioController.RadioPlayerInitialized(Success(helper.player))
     helper.messageBus.findListenerForMessage(message) should not be empty
   }

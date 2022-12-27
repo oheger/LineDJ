@@ -106,11 +106,16 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   }
 
   /**
-    * @inheritdoc This implementation creates the radio player and passes it to
-    *             the controller via the message bus.
+    * @inheritdoc This implementation stores the user configuration as a bean,
+    *             so that it can be accessed by  the controller. It also
+    *             completes the UI promise to indicate that the UI is now
+    *             available.
     */
   override def initGUI(appCtx: ApplicationContext): Unit = {
+    addBeanDuringApplicationStartup("radioApp_config", getUserConfiguration)
+
     super.initGUI(appCtx)
+
     promiseUI.success(())
   }
 

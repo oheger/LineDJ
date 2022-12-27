@@ -104,7 +104,7 @@ object RadioController {
   * combo box cause the corresponding radio source to be played. It also
   * reacts on actions for starting and stopping playback.
   *
-  * @param config                the current configuration (containing radio sources)
+  * @param userConfig            the current user configuration
   * @param applicationContext    the application context
   * @param actionStore           the object for accessing actions
   * @param comboSources          the combo box with the radio sources
@@ -114,7 +114,7 @@ object RadioController {
   * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
   * @param configFactory         the factory for creating a radio source configuration
   */
-class RadioController(val config: Configuration,
+class RadioController(val userConfig: Configuration,
                       applicationContext: ApplicationContext,
                       actionStore: ActionStore,
                       comboSources: ListComponentHandler,
@@ -359,6 +359,7 @@ class RadioController(val config: Configuration,
           errorIndicator.setVisible(false)
 
           sourcesUpdating = true
+          val config = applicationContext.getConfiguration
           try {
             val srcConfig = configFactory(config)
             errorHandlingConfig = ErrorHandlingStrategy.createConfig(config, srcConfig)
@@ -508,7 +509,7 @@ class RadioController(val config: Configuration,
     */
   private def storeCurrentSource(src: (String, RadioSource)): Unit = {
     currentSource = src._2
-    config.setProperty(KeyCurrentSource, src._1)
+    userConfig.setProperty(KeyCurrentSource, src._1)
   }
 
   /**
@@ -522,7 +523,7 @@ class RadioController(val config: Configuration,
     */
   private def readCurrentSourceFromConfig(sources: Seq[(String, RadioSource)]): Option[(String,
     RadioSource)] = {
-    Option(config.getString(KeyCurrentSource)) flatMap { name =>
+    Option(userConfig.getString(KeyCurrentSource)) flatMap { name =>
       sources find (_._1 == name)
     }
   }
