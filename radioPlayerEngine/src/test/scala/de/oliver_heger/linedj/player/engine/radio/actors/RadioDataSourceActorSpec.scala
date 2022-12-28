@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors
 
+import akka.actor.typed
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -126,7 +127,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val actor = helper.createTestActor()
 
     actor ! RadioSource(uri)
-    helper.expectChildCreation().checkProps(uri, actor)
+    helper.expectAndCheckChildCreation(uri, actor)
   }
 
   it should "return EoF when asked for data before a source is created" in {
@@ -344,11 +345,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val actor = helper.createTestActor()
 
     actor ! RadioSource(uri1)
-    val childCreation1 = helper.expectChildCreation()
-    childCreation1.checkProps(uri1, actor)
+    val childCreation1 = helper.expectAndCheckChildCreation(uri1, actor)
     actor ! RadioSource(uri2)
-    val childCreation2 = helper.expectChildCreation()
-    childCreation2.checkProps(uri2, actor)
+    val childCreation2 = helper.expectAndCheckChildCreation(uri2, actor)
     childCreation1.probe.expectMsg(CloseRequest)
 
     actor ! PlaybackActor.GetAudioSource
@@ -586,6 +585,20 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     }
 
     /**
+      * Expects that a child has been created by the test actor and checks the
+      * properties used for this child.
+      *
+      * @param expUri       the expected stream URI
+      * @param expTestActor the expected test actor
+      * @return the data object about the child creation
+      */
+    def expectAndCheckChildCreation(expUri: String, expTestActor: ActorRef): ChildActorCreation = {
+      val creation = expectChildCreation()
+      creation.checkProps(expUri, expTestActor, eventManager.ref)
+      creation
+    }
+
+    /**
       * Expects a request for an audio source and answers it with the specified
       * source.
       *
@@ -643,19 +656,22 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     */
   private case class ChildActorCreation(props: Props, probe: TestProbe) {
     /**
-      * Checks the properties against the specified stream URI.
+      * Checks the properties against the specified stream URI and
+      * dependencies.
       *
-      * @param streamUri the expected URI of the stream reference
-      * @param testActor the test actor
+      * @param streamUri  the expected URI of the stream reference
+      * @param testActor  the test actor
+      * @param eventActor the event actor
       */
-    def checkProps(streamUri: String, testActor: ActorRef): Unit = {
+    def checkProps(streamUri: String, testActor: ActorRef, eventActor: typed.ActorRef[RadioEvent]): Unit = {
       classOf[RadioStreamActor].isAssignableFrom(props.actorClass()) shouldBe true
-      props.args should have size 5
+      props.args should have size 6
       props.args.head should be(Config)
       props.args(1).asInstanceOf[StreamReference].uri should be(streamUri)
       props.args(2) should be(testActor)
-      props.args(3) should be(None)
+      props.args(3) should be(eventActor)
       props.args(4) should be(None)
+      props.args(5) should be(None)
     }
 
     /**

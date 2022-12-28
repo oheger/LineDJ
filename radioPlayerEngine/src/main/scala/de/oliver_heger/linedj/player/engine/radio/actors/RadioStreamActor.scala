@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.NotUsed
+import akka.actor.typed
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
@@ -26,6 +27,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent}
 import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
@@ -98,6 +100,7 @@ private object RadioStreamActor {
     * @param streamRef       the reference to the audio stream for playback
     * @param sourceListener  reference to an actor that is sent an audio source
     *                        message when the final audio stream is available
+    * @param eventActor      the actor to publish radio events
     * @param optM3uReader    the optional object to resolve playlist references;
     *                        if unspecified, the actor creates its own instance
     * @param optStreamLoader the optional object for loading radio streams; if
@@ -107,9 +110,10 @@ private object RadioStreamActor {
   def apply(config: PlayerConfig,
             streamRef: StreamReference,
             sourceListener: ActorRef,
+            eventActor: typed.ActorRef[RadioEvent],
             optM3uReader: Option[M3uReader] = None,
             optStreamLoader: Option[HttpStreamLoader] = None): Props =
-    Props(classOf[RadioStreamActor], config, streamRef, sourceListener, optM3uReader, optStreamLoader)
+    Props(classOf[RadioStreamActor], config, streamRef, sourceListener, eventActor, optM3uReader, optStreamLoader)
 }
 
 /**
@@ -131,7 +135,9 @@ private object RadioStreamActor {
   * It is sometimes necessary to know the actual URL of the audio stream that
   * is played. Therefore, this actor sends an ''AudioSource'' message to a
   * listener actor passed to the constructor when the final audio stream is
-  * determined.
+  * determined. In addition, if supported by the radio stream, metadata is
+  * extracted and converted to radio metadata events, which are sent to the
+  * provided event publisher actor.
   *
   * Supervision is implemented by delegating to the parent actor. When this
   * actor terminates, the managed stream is terminated as well.
@@ -143,12 +149,14 @@ private object RadioStreamActor {
   * @param streamRef       the reference to the audio stream for playback
   * @param sourceListener  reference to an actor that is sent an audio source
   *                        message when the final audio stream is available
+  * @param eventActor      the actor to publish radio events
   * @param optM3uReader    the optional object to resolve playlist references
   * @param optStreamLoader the optional object to load radio streams
   */
 private class RadioStreamActor(config: PlayerConfig,
                                streamRef: StreamReference,
                                sourceListener: ActorRef,
+                               eventActor: typed.ActorRef[RadioEvent],
                                optM3uReader: Option[M3uReader],
                                optStreamLoader: Option[HttpStreamLoader]) extends Actor with ActorLogging {
   private implicit val materializer: Materializer = Materializer(context)
@@ -266,7 +274,8 @@ private class RadioStreamActor(config: PlayerConfig,
     * Starts the managed audio stream for the given source. Data is read from
     * the response entity, and the buffer is filled. This actor (acting as sink
     * of the stream) gets notified when data is available. If metadata is
-    * supported, it is extracted.
+    * supported, it is extracted and published via events using the event
+    * actor.
     *
     * @param streamResponse the response for the stream request
     * @return a [[KillSwitch]] to terminate the stream
@@ -274,14 +283,20 @@ private class RadioStreamActor(config: PlayerConfig,
   private def startStream(streamResponse: HttpResponse): KillSwitch = {
     val optChunkSize = extractChunkSizeHeader(streamResponse)
     optChunkSize match {
-      case Some(value) => log.info("Metadata is supported with chunk size {}.", value)
-      case None => log.info("No support for metadata.")
+      case Some(value) =>
+        log.info("Metadata is supported with chunk size {}.", value)
+      case None =>
+        log.info("No support for metadata.")
+        eventActor ! RadioMetadataEvent(MetadataNotSupported)
     }
 
     val source = createStreamSource(streamResponse)
     val killSwitch = KillSwitches.shared("stopRadioStream")
     val mapBufferData = Flow[ByteString].map { data => BufferDataResult(data) }
-    val sinkMeta = Sink.foreach[ByteString] { meta => println(s"*** Metadata: '${meta.utf8String}'") }
+    val sinkMeta = Sink.foreach[ByteString] { meta =>
+      val data = CurrentMetadata(meta.utf8String)
+      eventActor ! RadioMetadataEvent(data)
+    }
 
     val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(createStreamSink()) {
       implicit builder =>

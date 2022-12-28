@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
@@ -26,6 +27,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadata, RadioMetadataEvent}
 import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
@@ -37,6 +39,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.{ByteArrayInputStream, InputStream}
+import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Future, Promise}
@@ -78,8 +81,12 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("RadioStreamActorSpec"))
 
+  /** The test kit for typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
     super.afterAll()
   }
 
@@ -122,7 +129,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   it should "create its own M3uReader if necessary" in {
     val probeListener = TestProbe()
-    system.actorOf(RadioStreamActor(Config, StreamReference(AudioStreamUri), probeListener.ref))
+    val probeEventActor = testKit.createTestProbe[RadioEvent]()
+    system.actorOf(RadioStreamActor(Config, StreamReference(AudioStreamUri), probeListener.ref, probeEventActor.ref))
 
     probeListener.expectMsg(AudioSource(AudioStreamUri, Long.MaxValue, 0, 0))
   }
@@ -258,8 +266,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val AudioChunkSize = 128
     val ChunkCount = 256
     val ChunksToRead = 5
-    // Length indicator + 16 data bytes
-    val metadataBlock = ByteString(1, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ,78 ,79, 80)
+    val MetadataContent = "0123456789ABCDEF"
+    val metadataBlock = RadioStreamTestHelper.metadataBlock(ByteString(MetadataContent))
     val chunks = (0 until ChunkCount) map { idx =>
       RadioStreamTestHelper.dataBlock(AudioChunkSize, idx) ++ metadataBlock
     }
@@ -277,6 +285,9 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     }
 
     audioData.utf8String should be(expectedData.utf8String)
+
+    val expMetadata = CurrentMetadata(MetadataContent)
+    helper.expectMetadataEvent(expMetadata)
   }
 
   it should "handle a radio stream with an invalid audio chunk size header" in {
@@ -291,6 +302,16 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val data = expectMsgType[BufferDataResult].data
 
     data should be(RadioStreamTestHelper.refData(RadioStreamTestHelper.ChunkSize))
+  }
+
+  it should "generate a MetadataNotSupported event if the stream does not support metadata" in {
+    val stream = new MonitoringStream
+    val helper = new StreamActorTestHelper
+    helper.initRadioStream(stream)
+
+    helper.createTestActor(AudioStreamRef)
+
+    helper.expectMetadataEvent(MetadataNotSupported)
   }
 
   /**
@@ -319,8 +340,12 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     /** A mock for the object that loads streams via HTTP. */
     private val httpLoader = createHttpLoader()
 
+    /** Test probe for the event publisher actor. */
+    private val probeEventActor = testKit.createTestProbe[RadioEvent]()
+
     def createTestActor(streamRef: StreamReference): ActorRef = {
-      val props = RadioStreamActor(Config, streamRef, probeSourceListener.ref, Some(m3uReader), Some(httpLoader))
+      val props = RadioStreamActor(Config, streamRef, probeSourceListener.ref, probeEventActor.ref, Some(m3uReader),
+        Some(httpLoader))
       system.actorOf(props)
     }
 
@@ -377,6 +402,19 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     def waitForStreamLoaderRequest(): Unit = {
       awaitCond(audioStreamRequested.get())
+    }
+
+    /**
+      * Checks whether a metadata event with the expected content was passed to
+      * the event actor.
+      *
+      * @param metadata the expected metadata
+      */
+    def expectMetadataEvent(metadata: RadioMetadata): Unit = {
+      val metadataEvent = probeEventActor.expectMessageType[RadioMetadataEvent]
+      metadataEvent.metadata should be(metadata)
+      val timeDelta = Duration.between(metadataEvent.time, LocalDateTime.now())
+      timeDelta.toSeconds should be < 5L
     }
 
     /**

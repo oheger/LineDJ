@@ -255,7 +255,7 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: typed.ActorRef[Ra
     * @return the new child source reader actor
     */
   private def createSourceReaderActor(r: RadioSource): ActorRef = {
-    val reader = createChildActor(RadioStreamActor(config, StreamReference(r.uri), self))
+    val reader = createChildActor(RadioStreamActor(config, StreamReference(r.uri), self, eventManager))
     context watch reader
     reader
   }
