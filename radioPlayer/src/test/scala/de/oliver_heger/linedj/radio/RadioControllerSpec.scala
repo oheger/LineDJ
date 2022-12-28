@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioMetadataEvent, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
@@ -170,7 +170,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val ctrl = new RadioController(config, helper.applicationContext,
       helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler,
-      helper.errorIndicator, helper.errorHandlingStrategy)
+      helper.metadataTextHandler, helper.errorIndicator, helper.errorHandlingStrategy)
     val srcConfig = ctrl.configFactory(config)
     srcConfig.sources should have size 1
     srcConfig.sources.head._1 should be(RadioSourceName)
@@ -658,6 +658,26 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     verifyNoInteractions(helper.errorIndicator)
   }
 
+  it should "handle an event about unsupported metadata" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(5))
+
+    ctrl.metadataChanged(RadioMetadataEvent(MetadataNotSupported))
+
+    verify(helper.metadataTextHandler).setText("")
+  }
+
+  it should "handle an event about updated metadata" in {
+    val MetadataContent = "Test song from Test Artist"
+    val metadata = CurrentMetadata(s"StreamTitle='$MetadataContent';")
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl.metadataChanged(RadioMetadataEvent(metadata))
+
+    verify(helper.metadataTextHandler).setText(MetadataContent)
+  }
+
   /**
     * A helper class managing the dependencies of the test object.
     */
@@ -679,6 +699,9 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     /** Mock for the handler for the playback time. */
     val playbackTimeHandler: StaticTextHandler = mock[StaticTextHandler]
+
+    /** Mock for the handler for the metadata. */
+    val metadataTextHandler: StaticTextHandler = mock[StaticTextHandler]
 
     /** Mock for the error indicator control. */
     val errorIndicator: WidgetHandler = mock[WidgetHandler]
@@ -705,7 +728,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
                          mainConfig: Configuration = new HierarchicalConfiguration()): RadioController = {
       when(applicationContext.getConfiguration).thenReturn(mainConfig)
       new RadioController(userConfig, applicationContext, actionStore, comboHandler,
-        statusHandler, playbackTimeHandler, errorIndicator, errorHandlingStrategy, c => {
+        statusHandler, playbackTimeHandler, metadataTextHandler, errorIndicator, errorHandlingStrategy, c => {
           c should be(mainConfig)
           srcConfig
         })

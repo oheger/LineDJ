@@ -20,7 +20,7 @@ import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.DurationTransformer
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioMetadataEvent, RadioSource, RadioSourceErrorEvent}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -84,6 +84,9 @@ object RadioController {
   /** Resource key for the initialization error message. */
   private val ResKeyStatusPlayerInitError = "txt_status_error"
 
+  /** Text to be displayed if the radio station does not support metadata. */
+  private val UnsupportedMetadataText = ""
+
   /**
     * A message to be published on the message bus when the initialization of
     * the radio player is complete. That way the [[RadioController]] obtains
@@ -110,6 +113,7 @@ object RadioController {
   * @param comboSources          the combo box with the radio sources
   * @param statusText            handler for the status line
   * @param playbackTime          handler for the field with the playback time
+  * @param metadataText          handler for the field to display metadata
   * @param errorIndicator        handler to the field that displays error state
   * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
   * @param configFactory         the factory for creating a radio source configuration
@@ -120,6 +124,7 @@ class RadioController(val userConfig: Configuration,
                       comboSources: ListComponentHandler,
                       statusText: StaticTextHandler,
                       playbackTime: StaticTextHandler,
+                      metadataText: StaticTextHandler,
                       errorIndicator: WidgetHandler,
                       errorHandlingStrategy: ErrorHandlingStrategy,
                       val configFactory: Configuration => RadioSourceConfig)
@@ -131,9 +136,10 @@ class RadioController(val userConfig: Configuration,
            comboSources: ListComponentHandler,
            statusText: StaticTextHandler,
            playbackTime: StaticTextHandler,
+           metadataText: StaticTextHandler,
            errorIndicator: WidgetHandler,
            errorHandlingStrategy: ErrorHandlingStrategy) =
-    this(config, applicationContext, actionStore, comboSources, statusText, playbackTime,
+    this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
       errorIndicator, errorHandlingStrategy, RadioSourceConfig.apply)
 
   import RadioController._
@@ -286,6 +292,23 @@ class RadioController(val userConfig: Configuration,
     if (shouldRecover(time)) {
       recoverFromError()
     }
+  }
+
+  /**
+    * Notifies this controller about a metadata event. This causes the field
+    * that displays metadata about the current song to be updated. This method
+    * must be called in the event thread.
+    *
+    * @param event the event about updated metadata
+    */
+  def metadataChanged(event: RadioMetadataEvent): Unit = {
+    val data = event.metadata match {
+      case MetadataNotSupported => UnsupportedMetadataText
+      case c: CurrentMetadata =>
+        log.info("Radio stream metadata: \"{}\".", c.data)
+        c.title
+    }
+    metadataText setText data
   }
 
   /**

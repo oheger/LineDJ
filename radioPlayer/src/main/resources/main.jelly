@@ -92,7 +92,7 @@
     <f:panel>
       <f:borderconstr name="CENTER"/>
       <f:percentlayout columns="8dlu end/preferred 3dlu full/preferred(5cm)/100 8dlu"
-         rows="6dlu preferred 6dlu"/>
+         rows="6dlu preferred 4dlu preferred 6dlu"/>
       <f:label textres="lab_station">
         <f:percentconstr col="1" row="1"/>
       </f:label>
@@ -100,6 +100,10 @@
       <f:combo name="comboStations" modelRef="radioSourcesModel" editable="false">
         <f:percentconstr col="3" row="1"/>
       </f:combo>
+
+      <f:statictext name="metadataText" alignment="left">
+        <f:percentconstr col="1" row="3" spanx="3" colconstr="center/preferred"/>
+      </f:statictext>
     </f:panel>
 
     <!-- Statusline -->
@@ -131,6 +135,7 @@
         <di:param refName="comp:comboStations"/>
         <di:param refName="comp:statusLine"/>
         <di:param refName="comp:playbackTime"/>
+        <di:param refName="comp:metadataText"/>
         <di:param refName="widget:errorIndicator"/>
         <di:param refName="errorHandlingStrategy"/>
       </di:constructor>
