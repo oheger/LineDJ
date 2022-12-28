@@ -88,6 +88,14 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     verify(helper.controller).replacementSourceEnds()
   }
 
+  it should "delegate metadata events" in {
+    val metadataEvent = RadioMetadataEvent(MetadataNotSupported)
+    val helper = new RadioPlayerEventListenerTestHelper
+
+    helper sendEvent metadataEvent
+    verify(helper.controller).metadataChanged(metadataEvent)
+  }
+
   it should "ignore other events" in {
     val event = AudioSourceStartedEvent(AudioSource.infinite("Test"))
     val helper = new RadioPlayerEventListenerTestHelper

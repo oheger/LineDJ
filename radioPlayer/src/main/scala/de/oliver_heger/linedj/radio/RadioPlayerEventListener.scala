@@ -47,5 +47,7 @@ class RadioPlayerEventListener(controller: RadioController) extends
     case RadioPlaybackErrorEvent(_, _) =>
       // handle like a failed context created
       controller.playbackContextCreationFailed()
+    case metadataEvent: RadioMetadataEvent =>
+      controller.metadataChanged(metadataEvent)
   }
 }
