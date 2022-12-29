@@ -51,24 +51,6 @@ object RadioController {
   /** Configuration key for the current source. */
   private val KeyCurrentSource = ConfigKeyPrefix + "current"
 
-  /** Configuration key for the initial delay. */
-  private val KeyInitialDelay = ConfigKeyPrefix + "initialDelay"
-
-  /** Configuration key prefix for error recovery keys. */
-  private val RecoveryKeyPrefix = ConfigKeyPrefix + "error.recovery."
-
-  /** Configuration key for the error recovery time. */
-  private val KeyRecoveryTime = RecoveryKeyPrefix + "time"
-
-  /** Configuration key for the minimum failed sources before recovery. */
-  private val KeyRecoveryMinFailures = RecoveryKeyPrefix + "minFailedSources"
-
-  /** Default time interval for error recovery (in seconds). */
-  private val DefaultRecoveryTime = 600L
-
-  /** Default minimum number of dysfunctional sources before recovery. */
-  private val DefaultMinFailuresForRecovery = 1
-
   /** The name of the start playback action. */
   private val ActionStartPlayback = "startPlaybackAction"
 
@@ -116,7 +98,7 @@ object RadioController {
   * @param metadataText          handler for the field to display metadata
   * @param errorIndicator        handler to the field that displays error state
   * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
-  * @param configFactory         the factory for creating a radio source configuration
+  * @param playerConfig          the configuration for the radio player
   */
 class RadioController(val userConfig: Configuration,
                       applicationContext: ApplicationContext,
@@ -127,7 +109,7 @@ class RadioController(val userConfig: Configuration,
                       metadataText: StaticTextHandler,
                       errorIndicator: WidgetHandler,
                       errorHandlingStrategy: ErrorHandlingStrategy,
-                      val configFactory: Configuration => RadioSourceConfig)
+                      val playerConfig: RadioPlayerConfig)
   extends FormChangeListener with MessageBusListener {
 
   def this(config: Configuration,
@@ -140,7 +122,7 @@ class RadioController(val userConfig: Configuration,
            errorIndicator: WidgetHandler,
            errorHandlingStrategy: ErrorHandlingStrategy) =
     this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
-      errorIndicator, errorHandlingStrategy, RadioSourceConfig.apply)
+      errorIndicator, errorHandlingStrategy, RadioPlayerConfig(applicationContext.getConfiguration))
 
   import RadioController._
 
@@ -151,9 +133,6 @@ class RadioController(val userConfig: Configuration,
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]
-
-  /** The configuration for the error handling strategy. */
-  private var errorHandlingConfig: ErrorHandlingStrategy.Config = _
 
   /** Stores the current radio source. */
   private var currentSource: RadioSource = _
@@ -174,18 +153,6 @@ class RadioController(val userConfig: Configuration,
   private var errorState = ErrorHandlingStrategy.NoError
 
   /**
-    * The time (in seconds) when a recovery from an error should be
-    * attempted. This value is read from the player configuration.
-    */
-  private var errorRecoveryTimeField = DefaultRecoveryTime
-
-  /**
-    * The minimum number of sources that must be marked as dysfunctional before
-    * a recovery from an error is attempted.
-    */
-  private var minFailedSourcesForRecoveryField = DefaultMinFailuresForRecovery
-
-  /**
     * A flag that indicates that radio sources are currently updated. In this
     * mode change events from the combo box have to be ignored.
     */
@@ -201,29 +168,6 @@ class RadioController(val userConfig: Configuration,
     * @return the managed [[RadioPlayer]]
     */
   def radioPlayer: RadioPlayer = player
-
-  /**
-    * Returns the time (in seconds) when a recovery from an error should be
-    * attempted. This value is read from the player configuration.
-    *
-    * @return the recovery time
-    */
-  def errorRecoveryTime: Long = errorRecoveryTimeField
-
-  /**
-    * Returns the minimum number of sources that must be marked as
-    * dysfunctional before a recovery from an error is attempted. Switching
-    * back to the original source makes only sense if there was a general
-    * network problem which is now fixed. Then we expect that multiple sources
-    * have been marked as dysfunctional. If there are only a few sources
-    * affected, this may indicate a (more permanent) problem with these
-    * sources, e.g. an incorrect URL. In this case, switching back to such a
-    * source is likely to fail again; and we should not interrupt playback
-    * every time the recovery interval is reached.
-    *
-    * @return number of dysfunctional sources before recovery
-    */
-  def minFailedSourcesForRecovery: Int = minFailedSourcesForRecoveryField
 
   /**
     * @inheritdoc The controller is registered at the combo box with radio
@@ -322,7 +266,7 @@ class RadioController(val userConfig: Configuration,
     log.warn("Received playback error event {}!", error)
     if (playbackSource != null) {
       errorIndicator setVisible true
-      val (action, nextState) = errorHandlingStrategy.handleError(errorHandlingConfig,
+      val (action, nextState) = errorHandlingStrategy.handleError(playerConfig,
         errorState, error, currentSource)
       action(player)
       errorState = nextState
@@ -382,21 +326,13 @@ class RadioController(val userConfig: Configuration,
           errorIndicator.setVisible(false)
 
           sourcesUpdating = true
-          val config = applicationContext.getConfiguration
           try {
-            val srcConfig = configFactory(config)
-            errorHandlingConfig = ErrorHandlingStrategy.createConfig(config, srcConfig)
-            errorRecoveryTimeField = config.getLong(KeyRecoveryTime, DefaultRecoveryTime)
-            minFailedSourcesForRecoveryField = config.getInt(KeyRecoveryMinFailures,
-              DefaultMinFailuresForRecovery)
-
-            player.initSourceExclusions(srcConfig.exclusions, srcConfig.ranking)
-            radioSources = updateSourceCombo(srcConfig)
+            player.initSourceExclusions(playerConfig.sourceConfig.exclusions, playerConfig.sourceConfig.ranking)
+            radioSources = updateSourceCombo(playerConfig.sourceConfig)
             enableAction(ActionStartPlayback, enabled = false)
             enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
 
-            startPlaybackIfPossible(radioSources,
-              config.getInt(KeyInitialDelay, DefaultInitialDelay).millis)
+            startPlaybackIfPossible(radioSources, playerConfig.initialDelay.millis)
           } finally sourcesUpdating = false
 
         case Failure(exception) =>
@@ -464,8 +400,8 @@ class RadioController(val userConfig: Configuration,
     */
   private def shouldRecover(time: Long): Boolean =
     ErrorHandlingStrategy.NoError != errorState &&
-      time >= errorRecoveryTime &&
-      errorState.numberOfErrorSources >= minFailedSourcesForRecovery
+      time >= playerConfig.errorConfig.recoveryTime &&
+      errorState.numberOfErrorSources >= playerConfig.errorConfig.recoverMinFailedSources
 
   /**
     * Recovers from error state. The error state is reset; if necessary, the

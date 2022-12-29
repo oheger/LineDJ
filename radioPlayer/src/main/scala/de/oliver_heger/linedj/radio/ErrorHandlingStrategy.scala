@@ -16,11 +16,9 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import org.apache.commons.configuration.Configuration
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 object ErrorHandlingStrategy {
@@ -36,100 +34,6 @@ object ErrorHandlingStrategy {
     */
   final val NoError: State = State(replacementErrorList = Set.empty, retryMillis = 0,
     errorList = Set.empty, activeSource = None)
-
-  /**
-    * The default value for the ''retryInterval'' configuration property (in
-    * milliseconds).
-    */
-  final val DefaultRetryInterval = 1000
-
-  /** Minimum value for the retry interval (in milliseconds). */
-  final val MinimumRetryInterval = 10
-
-  /**
-    * The default value for the ''retryIncrement'' configuration property. This
-    * value causes a pretty fast increment of retry intervals.
-    */
-  final val DefaultRetryIncrement = 2.0
-
-  /** Minimum retry increment factor. */
-  final val MinimumRetryIncrement = 1.1
-
-  /**
-    * The default value for the ''maxRetries'' configuration property.
-    */
-  final val DefaultMaxRetries = 5
-
-  /**
-    * The common prefix for all configuration keys.
-    */
-  private val KeyPrefix = "radio.error."
-
-  /** Configuration key for the (minimum) retry interval. */
-  private val KeyInterval = KeyPrefix + "retryInterval"
-
-  /** Configuration key for the retry interval increment factor. */
-  private val KeyIncrement = KeyPrefix + "retryIncrement"
-
-  /** Configuration key for the maximum number of retries for a failing source. */
-  private val KeyMaxRetries = KeyPrefix + "maxRetries"
-
-  /**
-    * A trait defining the configuration options used by
-    * [[ErrorHandlingStrategy]].
-    *
-    * An object implementing this trait has to be passed to the strategy.
-    * Instances can be created using the ''createConfig()'' method of the
-    * companion object.
-    */
-  trait Config {
-    /**
-      * The retry interval in milliseconds. When an error occurs the strategy
-      * will pause at least for this interval and then retry. For multiple
-      * errors in series, the interval can be increased with the
-      * ''retryIncrementFactor''.
-      */
-    val retryInterval: FiniteDuration
-
-    /**
-      * A factor for incrementing the retry interval if there are multiple
-      * errors from the same radio source. This typically indicates a more
-      * permanent problem with this source. Therefore, it does not make sense
-      * to retry it directly, but make the pauses between two attempts longer
-      * and longer, until a configurable maximum is reached. This factor must
-      * be greater than 1.
-      */
-    val retryIncrementFactor: Double
-
-    /**
-      * Defines the maximum number of retries for a failing radio source
-      * before the player switches to another source. Note that this
-      * setting also determines the maximum interval between two retries.
-      */
-    val maxRetries: Int
-
-    /**
-      * The maximum retry interval based on the minimum interval and the
-      * maximum number of retries.
-      */
-    lazy val maxRetryInterval: Long = calcMaxRetry(maxRetries, retryInterval.toMillis)
-
-    /**
-      * Returns the configuration for the available radio sources.
-      */
-    val sourcesConfig: RadioSourceConfig
-
-    /**
-      * Calculates the maximum retry interval based on the allowed number of
-      * retries.
-      *
-      * @param count the current counter
-      * @return the maximum retry interval
-      */
-    @tailrec private def calcMaxRetry(count: Int, value: Long): Long =
-    if (count == 0) value
-    else calcMaxRetry(count - 1, math.round(retryIncrementFactor * value))
-  }
 
   /**
     * A class representing the current error state.
@@ -176,73 +80,50 @@ object ErrorHandlingStrategy {
   }
 
   /**
-    * Creates a ''Config'' object for the error handling strategy. The required
-    * settings are read from the ''Configuration'' object. Information about
-    * the radio sources available is required, too.
-    *
-    * @param playerConfig the configuration of the player application
-    * @param sourceConfig the configuration for the radio sources
-    * @return the configuration for the error handling strategy
-    */
-  def createConfig(playerConfig: Configuration, sourceConfig: RadioSourceConfig): Config = {
-    val interval = math.max(MinimumRetryInterval,
-      playerConfig.getInt(KeyInterval, DefaultRetryInterval)).millis
-    val increment = math.max(MinimumRetryIncrement,
-      playerConfig.getDouble(KeyIncrement, DefaultRetryIncrement))
-    val maxRetryCount = playerConfig.getInt(KeyMaxRetries, DefaultMaxRetries)
-    new Config {
-      override val retryInterval: FiniteDuration = interval
-      override val retryIncrementFactor: Double = increment
-      override val maxRetries: Int = maxRetryCount
-      override val sourcesConfig: RadioSourceConfig = sourceConfig
-    }
-  }
-
-  /**
     * Handles an error while playing the current radio source.
     *
-    * @param config     the configuration settings for the strategy
+    * @param config     the configuration settings for the radio player
     * @param previous   the previous error state
     * @param error      the current error event
     * @param ctrlSource the current source provided by the controller
     * @return an action to update the player and the follow-up error state
     */
-  private def handleErrorCurrent(config: Config, previous: State, error: RadioSourceErrorEvent,
+  private def handleErrorCurrent(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent,
                                  ctrlSource: RadioSource): (PlayerAction, State) = {
     val currentSource = previous.activeSource getOrElse ctrlSource
-    val retry = math.max(previous.retryMillis, config.retryInterval.toMillis)
-    if (retry > config.maxRetryInterval) {
+    val retry = math.max(previous.retryMillis, config.errorConfig.retryInterval.toMillis)
+    if (retry > config.errorConfig.maxRetryInterval) {
       val nextErrorList = previous.errorList + currentSource
       selectReplacementSource(config, nextErrorList, error) match {
         case Some(src) =>
-          val action = switchSourceAction(src, config.retryInterval)
+          val action = switchSourceAction(src, config.errorConfig.retryInterval)
           (action, previous.copy(retryMillis = 0, errorList = nextErrorList,
             activeSource = Some(src)))
 
         case None =>
-          (switchSourceAction(ctrlSource, config.maxRetryInterval.millis),
+          (switchSourceAction(ctrlSource, config.errorConfig.maxRetryInterval.millis),
             previous.copy(activeSource = Some(ctrlSource)))
       }
     } else {
 
       val action = switchSourceAction(currentSource, retry.millis)
-      (action, previous.copy(retryMillis = math.round(retry * config.retryIncrementFactor)))
+      (action, previous.copy(retryMillis = math.round(retry * config.errorConfig.retryIncrementFactor)))
     }
   }
 
   /**
     * Handles an error while playing a replacement source.
     *
-    * @param config   the configuration setting for the strategy
+    * @param config   the configuration setting for the player
     * @param previous the previous error state
     * @param error    the current error event
     * @return an action to update the player and the follow-up error state
     */
-  private def handleErrorReplacement(config: Config, previous: State, error: RadioSourceErrorEvent):
+  private def handleErrorReplacement(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent):
   (PlayerAction, State) = {
     val failedSources = previous.replacementErrorList + error.source
     val action: PlayerAction = p => p.checkCurrentSource(failedSources ++ previous.errorList,
-      config.retryInterval)
+      config.errorConfig.retryInterval)
     (action, previous.copy(replacementErrorList = failedSources))
   }
 
@@ -256,21 +137,21 @@ object ErrorHandlingStrategy {
     * source to select one of them. If there are no more sources left to
     * choose from, result is ''None''.
     *
-    * @param config    the configuration settings for the strategy
+    * @param config    the configuration settings for the player
     * @param errorList the set of sources to be excluded
     * @param error     the current error event
     * @return an option with the selected source
     */
-  private def selectReplacementSource(config: Config, errorList: Set[RadioSource],
+  private def selectReplacementSource(config: RadioPlayerConfig, errorList: Set[RadioSource],
                                       error: RadioSourceErrorEvent): Option[RadioSource] = {
     def dysfunctional(e: (String, RadioSource)): Boolean =
       errorList contains e._2
 
-    val nextCandidates = config.sourcesConfig.sources dropWhile dysfunctional
+    val nextCandidates = config.sourceConfig.sources dropWhile dysfunctional
     val nextSource = nextCandidates.headOption map { e =>
-      val ranking = config.sourcesConfig.ranking(e._2)
+      val ranking = config.sourceConfig.ranking(e._2)
       val rankedCandidates = nextCandidates.takeWhile(t =>
-        config.sourcesConfig.ranking(t._2) == ranking) filterNot dysfunctional
+        config.sourceConfig.ranking(t._2) == ranking) filterNot dysfunctional
       val idx = (error.time.getNano / 1000) % (rankedCandidates.size + 1)
       (e :: rankedCandidates.toList).drop(idx).head._2
     }
@@ -354,13 +235,13 @@ class ErrorHandlingStrategy {
     * transformed to a new state, and an action is returned how to update the
     * radio player.
     *
-    * @param config        the configuration settings for the strategy
+    * @param config        the configuration settings for the player
     * @param previous      the previous error state
     * @param error         the current error event
     * @param currentSource the current source selected for playback
     * @return an action to update the player and the follow-up error state
     */
-  def handleError(config: Config, previous: State, error: RadioSourceErrorEvent,
+  def handleError(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent,
                   currentSource: RadioSource): (PlayerAction, State) =
   if (isActiveSource(previous, error, currentSource)) handleErrorCurrent(config, previous, error, currentSource)
   else handleErrorReplacement(config, previous, error)

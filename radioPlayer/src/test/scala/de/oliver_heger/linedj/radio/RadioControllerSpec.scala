@@ -26,7 +26,7 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration, XMLConfiguration}
 import org.mockito.ArgumentMatchers.{eq => argEq, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -162,19 +162,19 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     config
   }
 
-  "A RadioController" should "create a default source config factory" in {
+  "A RadioController" should "create the configuration from the application context" in {
+    val config = new XMLConfiguration("test-radio-configuration.xml")
     val helper = new RadioControllerTestHelper
-    val config = new HierarchicalConfiguration
-    config.addProperty("radio.sources.source.name", RadioSourceName)
-    config.addProperty("radio.sources.source.uri", RadioSourceURI)
+    when(helper.applicationContext.getConfiguration).thenReturn(config)
 
     val ctrl = new RadioController(config, helper.applicationContext,
       helper.actionStore, helper.comboHandler, helper.statusHandler, helper.playbackTimeHandler,
       helper.metadataTextHandler, helper.errorIndicator, helper.errorHandlingStrategy)
-    val srcConfig = ctrl.configFactory(config)
-    srcConfig.sources should have size 1
-    srcConfig.sources.head._1 should be(RadioSourceName)
-    srcConfig.sources.head._2.uri should be(RadioSourceURI)
+
+    val playerConfig = ctrl.playerConfig
+    playerConfig.errorConfig.retryInterval.toMillis should be(1000)
+    playerConfig.sourceConfig.sources should have size 11
+    playerConfig.initialDelay should be(1500)
   }
 
   it should "add radio sources to the combo box" in {
@@ -414,17 +414,16 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "pass a correct configuration to the error handling strategy" in {
-    val playerConfig = new PropertiesConfiguration
-    playerConfig.addProperty("radio.error.maxRetries", 10)
+    val mainConfig = new HierarchicalConfiguration
+    mainConfig.addProperty("radio.error.maxRetries", 10)
     val srcConfig = createSourceConfiguration(4)
     val helper = new RadioControllerTestHelper
     val (answer, _) = helper.expectErrorStrategyCall()
-    val ctrl = helper.createInitializedController(srcConfig, mainConfig = playerConfig,
-      playbackSrcIdx = 1)
+    val ctrl = helper.createInitializedController(srcConfig, playbackSrcIdx = 1, mainConfig = mainConfig)
 
     ctrl playbackError RadioSourceErrorEvent(radioSource(1))
-    answer.config.sourcesConfig should be(srcConfig)
-    answer.config.maxRetries should be(10)
+    answer.config.sourceConfig should be(srcConfig)
+    answer.config.errorConfig.maxRetries should be(10)
   }
 
   it should "invoke the error handling strategy correctly" in {
@@ -554,14 +553,6 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     ctrl playbackTimeProgress RecoveryTime
     helper.verifyNoRecovery()
-  }
-
-  it should "use default values for recovery settings" in {
-    val helper = new RadioControllerTestHelper
-    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
-
-    ctrl.errorRecoveryTime should be(600)
-    ctrl.minFailedSourcesForRecovery should be(1)
   }
 
   it should "handle an event about a failed playback context creation" in {
@@ -726,12 +717,9 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     def createController(srcConfig: RadioSourceConfig,
                          userConfig: Configuration = new HierarchicalConfiguration,
                          mainConfig: Configuration = new HierarchicalConfiguration()): RadioController = {
-      when(applicationContext.getConfiguration).thenReturn(mainConfig)
+      val playerConfig = RadioPlayerConfig(mainConfig).copy(sourceConfig = srcConfig)
       new RadioController(userConfig, applicationContext, actionStore, comboHandler,
-        statusHandler, playbackTimeHandler, metadataTextHandler, errorIndicator, errorHandlingStrategy, c => {
-          c should be(mainConfig)
-          srcConfig
-        })
+        statusHandler, playbackTimeHandler, metadataTextHandler, errorIndicator, errorHandlingStrategy, playerConfig)
     }
 
     /**
@@ -933,7 +921,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         counter.incrementAndGet()
       }
       val answer = new ErrorStrategyAnswer(action, nextState)
-      when(errorHandlingStrategy.handleError(any[ErrorHandlingStrategy.Config],
+      when(errorHandlingStrategy.handleError(any[RadioPlayerConfig],
         any[ErrorHandlingStrategy.State], any[RadioSourceErrorEvent], any[RadioSource]))
         .thenAnswer(answer)
       (answer, counter)
@@ -1057,7 +1045,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
                                     state: ErrorHandlingStrategy.State)
     extends Answer[(ErrorHandlingStrategy.PlayerAction, ErrorHandlingStrategy.State)] {
     /** The config passed to the strategy. */
-    var config: ErrorHandlingStrategy.Config = _
+    var config: RadioPlayerConfig = _
 
     /** The previous state passed to the strategy. */
     var previousState: ErrorHandlingStrategy.State = _
@@ -1069,7 +1057,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     var currentSource: RadioSource = _
 
     override def answer(invocation: InvocationOnMock): (PlayerAction, State) = {
-      config = invocation.getArguments.head.asInstanceOf[ErrorHandlingStrategy.Config]
+      config = invocation.getArguments.head.asInstanceOf[RadioPlayerConfig]
       previousState = invocation.getArguments()(1).asInstanceOf[ErrorHandlingStrategy.State]
       errorSource = invocation.getArguments()(2).asInstanceOf[RadioSourceErrorEvent].source
       currentSource = invocation.getArguments()(3).asInstanceOf[RadioSource]

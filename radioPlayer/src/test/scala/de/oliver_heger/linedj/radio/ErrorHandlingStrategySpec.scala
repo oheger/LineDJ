@@ -18,16 +18,14 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
-
-import java.time.LocalDateTime
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
-import org.mockito.{ArgumentCaptor, Mockito}
-import org.mockito.Mockito._
 import org.mockito.ArgumentMatchers.{any, anyBoolean}
+import org.mockito.Mockito._
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.LocalDateTime
 import scala.concurrent.duration._
 
 object ErrorHandlingStrategySpec {
@@ -52,8 +50,9 @@ object ErrorHandlingStrategySpec {
     MaxRetry + 1) * RetryInterval)
 
   /** The config for the handling strategy. */
-  private val StrategyConfig = ErrorHandlingStrategy.createConfig(createPlayerConfig(),
-    createSourceConfig())
+  private val StrategyConfig = RadioPlayerConfig(errorConfig = createErrorConfig(),
+    sourceConfig = createSourceConfig(),
+    initialDelay = 0)
 
   /** The default current source played by the player. */
   private val CurrentSource = radioSource(1)
@@ -65,7 +64,7 @@ object ErrorHandlingStrategySpec {
     * @return the test radio source
     */
   private def radioSource(idx: Int): RadioSource =
-  RadioSource("source" + idx)
+    RadioSource("source" + idx)
 
   /**
     * Creates an error event for the radio source with the given index.
@@ -74,21 +73,20 @@ object ErrorHandlingStrategySpec {
     * @return the error event
     */
   private def errorEvent(idx: Int): RadioSourceErrorEvent =
-  RadioSourceErrorEvent(radioSource(idx),
-    time = LocalDateTime.now().withNano(0))
+    RadioSourceErrorEvent(radioSource(idx),
+      time = LocalDateTime.now().withNano(0))
 
   /**
     * Creates a configuration with the retry settings.
     *
-    * @return the configuration
+    * @return the cerror onfiguration
     */
-  private def createPlayerConfig(): Configuration = {
-    val config = new PropertiesConfiguration
-    config.addProperty("radio.error.retryInterval", RetryInterval)
-    config.addProperty("radio.error.retryIncrement", RetryIncrement)
-    config.addProperty("radio.error.maxRetries", MaxRetry)
-    config
-  }
+  private def createErrorConfig(): ErrorHandlingConfig =
+    ErrorHandlingConfig(retryInterval = RetryInterval.millis,
+      retryIncrementFactor = RetryIncrement,
+      maxRetries = MaxRetry,
+      recoveryTime = 1000,
+      recoverMinFailedSources = 1)
 
   /**
     * Creates a mock configuration for radio sources. This object only
@@ -243,52 +241,26 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
   it should "handle the case that all sources are dysfunctional" in {
     val errEvent = errorEvent(SourceCount)
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime,
-      errorList = StrategyConfig.sourcesConfig.sources.map(_._2).toSet,
+      errorList = StrategyConfig.sourceConfig.sources.map(_._2).toSet,
       activeSource = Some(errEvent.source))
     val strategy = new ErrorHandlingStrategy
 
     val (action, next) = strategy.handleError(StrategyConfig, state, errEvent,
       CurrentSource)
     verify(checkPlayerAction(action)).playSource(CurrentSource, makeCurrent = true,
-      delay = StrategyConfig.maxRetryInterval.millis)
+      delay = StrategyConfig.errorConfig.maxRetryInterval.millis)
     next.activeSource.get should be(CurrentSource)
-  }
-
-  it should "set meaningful default configuration options" in {
-    val playerConfig = new HierarchicalConfiguration
-    val config = ErrorHandlingStrategy.createConfig(playerConfig, RadioSourceConfig(playerConfig))
-
-    config.retryInterval should be(1000.millis)
-    config.retryIncrementFactor should be(2.0)
-    config.maxRetries should be(5)
-  }
-
-  it should "correct a retry interval that is too small" in {
-    val playerConfig = new HierarchicalConfiguration
-    playerConfig.addProperty("radio.error.retryInterval", 9)
-
-    val config = ErrorHandlingStrategy.createConfig(playerConfig, RadioSourceConfig(playerConfig))
-    config.retryInterval should be(10.millis)
-  }
-
-  it should "correct an increment factor that is too small" in {
-    val playerConfig = new HierarchicalConfiguration
-    playerConfig.addProperty("radio.error.retryIncrement", 1)
-
-    val config = ErrorHandlingStrategy.createConfig(playerConfig, RadioSourceConfig(playerConfig))
-    config.retryIncrementFactor should be(1.1)
   }
 
   it should "select different replacement sources per ranking" in {
     val errorSource = radioSource(2)
     val strategy = new ErrorHandlingStrategy
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime)
-    val rankingStrategyConfig = ErrorHandlingStrategy.createConfig(createPlayerConfig(),
-      addRanking(StrategyConfig.sourcesConfig))
+    val rankingStrategyConfig = StrategyConfig.copy(sourceConfig = addRanking(StrategyConfig.sourceConfig))
 
     // Generates an error event with a deterministic time
     def timedErrorEvent(idx: Int): RadioSourceErrorEvent =
-    RadioSourceErrorEvent(errorSource, LocalDateTime.now().withNano(idx * 1000))
+      RadioSourceErrorEvent(errorSource, LocalDateTime.now().withNano(idx * 1000))
 
     // Fetches the replacement source from the action
     def replacementSource(action: ErrorHandlingStrategy.PlayerAction): RadioSource = {
