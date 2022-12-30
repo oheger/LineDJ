@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.player.ui
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.platform.ui.DurationTransformer
+import de.oliver_heger.linedj.platform.ui.TextTimeFunctions.TextTimeFunc
+import de.oliver_heger.linedj.platform.ui.{DurationTransformer, TextTimeFunctions}
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
@@ -25,14 +26,14 @@ import scala.concurrent.duration._
 
 object CurrentSongController {
   /** Common prefix for all configuration keys. */
-  val ConfigPrefix = "audio.ui."
+  final val ConfigPrefix = "audio.ui."
 
   /**
     * Configuration property for the maximum size of fields in the UI. If a
     * text to be displayed exceeds this value, it is "rotated"; i.e. it is
     * scrolled through the field, so that the full content can be seen.
     */
-  val PropMaxFieldSize: String = ConfigPrefix + "maxFieldSize"
+  final val PropMaxFieldSize: String = ConfigPrefix + "maxFieldSize"
 
   /**
     * Configuration property defining the speed for scrolling in UI fields. The
@@ -40,13 +41,7 @@ object CurrentSongController {
     * time. A value of 1 means that for each second 1 letter is scrolled; 2
     * means that every 2 seconds one letter is scrolled, etc.
     */
-  val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
-
-  /**
-    * A separator string used in rotated texts. The separator is inserted
-    * between one value and the start of the next one.
-    */
-  val RotationSeparator = " * "
+  final val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
 
   /** Constant for an empty/undefined field. */
   private val Empty = ""
@@ -61,12 +56,6 @@ object CurrentSongController {
   private type PlaylistUpdateFunc = CurrentSongData => String
 
   /**
-    * A function to calculate the value of a field if there is a change in the
-    * playback time.
-    */
-  private type TimeUpdateFunc = Long => String
-
-  /**
     * Generates the text to be displayed for the album. Here also the track
     * number is embedded if it is defined.
     *
@@ -76,33 +65,6 @@ object CurrentSongController {
   private def generateAlbumValue(data: CurrentSongData): String = {
     val track = data.song.metaData.trackNumber.map(t => s" ($t)").getOrElse(Empty)
     s"${data.song.album}$track"
-  }
-
-  /**
-    * Returns the function to update the time field if there is a change in
-    * the playback time. The update is based on the data of the current song.
-    *
-    * @param data the current song
-    * @return the function to update the time field
-    */
-  private def updateTimeFieldFunc(data: CurrentSongData): TimeUpdateFunc =
-    time => s"${DurationTransformer.formatDuration(time.seconds.toMillis)} / ${data.sDuration}"
-
-  /**
-    * Returns a function to rotate a UI field based on the playback time.
-    *
-    * @param text   the text to be rotated
-    * @param maxLen the maximum field length
-    * @param speed  the rotation speed
-    * @return the rotation function
-    */
-  private def rotateFunc(text: String, maxLen: Int, speed: Int): TimeUpdateFunc = {
-    val rotateText = text + RotationSeparator + text
-    val textLength = text.length + RotationSeparator.length
-    time => {
-      val ofs = (time.toInt / speed) % textLength
-      rotateText.substring(ofs, ofs + maxLen)
-    }
   }
 
   /**
@@ -176,7 +138,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * The functions to be executed when a playback progress event arrives
     * indicating a change in the playback time.
     */
-  private var timeUpdateFunctions = Map.empty[StaticTextHandler, TimeUpdateFunc]
+  private var timeUpdateFunctions = Map.empty[StaticTextHandler, TextTimeFunc]
 
   /**
     * Stores the latest current song. This is used to find out whether there is
@@ -213,7 +175,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param event the playback progress event
     */
   def playlistProgress(event: PlaybackProgressEvent): Unit = {
-    timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime))
+    timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime.seconds))
     calcPlaybackProgress(event) foreach updateProgress
   }
 
@@ -262,12 +224,12 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     */
   private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Int,
                                         texts: Map[StaticTextHandler, String]):
-  Map[StaticTextHandler, TimeUpdateFunc] = {
+  Map[StaticTextHandler, TextTimeFunc] = {
     val rotates = texts.filter(e => e._2.length >= maxLen)
-      .foldLeft(Map.empty[StaticTextHandler, TimeUpdateFunc]) { (m, e) =>
-        m + (e._1 -> rotateFunc(e._2, maxLen, speed))
+      .foldLeft(Map.empty[StaticTextHandler, TextTimeFunc]) { (m, e) =>
+        m + (e._1 -> TextTimeFunctions.rotateText(e._2, maxLen, scale = 1.0 / speed))
       }
-    rotates + (txtTime -> updateTimeFieldFunc(data))
+    rotates + (txtTime -> TextTimeFunctions.withSuffix(" / " + data.sDuration)(TextTimeFunctions.formattedTime()))
   }
 
   /**

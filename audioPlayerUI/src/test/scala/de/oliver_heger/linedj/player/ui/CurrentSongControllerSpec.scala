@@ -97,7 +97,7 @@ object CurrentSongControllerSpec {
     * @return the rotated text
     */
   private def rotate(s: String, by: Int): String =
-    (s + CurrentSongController.RotationSeparator + s).substring(by, MaxFieldSize + by)
+    (s + " * " + s).substring(by, MaxFieldSize + by)
 }
 
 /**
@@ -203,7 +203,7 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistDataChanged(Some(Index))
-        .triggerPlaylistDataChanged(Some(Index))
+      .triggerPlaylistDataChanged(Some(Index))
       .verifyTitle()
   }
 
@@ -251,7 +251,7 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
 
   it should "handle larger offsets when rotating" in {
     val Offset = 12
-    val Time = (Title.length + CurrentSongController.RotationSeparator.length) * 5 + Offset
+    val Time = (Title.length + 3) * 5 + Offset
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
 
     helper.triggerPlaylistChanged()
@@ -264,8 +264,8 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       speed = Some(2)))
 
     helper.triggerPlaylistChanged()
-      .sendProgress(timeOfs = 3, posOfs = 0)
-      .verifyTitle(rotate(Title, 1))
+      .sendProgress(timeOfs = 4, posOfs = 0)
+      .verifyTitle(rotate(Title, 2))
   }
 
   it should "update the progress bar correctly" in {
