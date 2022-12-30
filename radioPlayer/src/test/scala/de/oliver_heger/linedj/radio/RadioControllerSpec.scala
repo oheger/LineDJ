@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioMetadataEvent, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
@@ -26,7 +26,7 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration, XMLConfiguration}
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, XMLConfiguration}
 import org.mockito.ArgumentMatchers.{eq => argEq, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -62,8 +62,8 @@ object RadioControllerSpec {
   /** A list with the names of the actions managed by the controller. */
   private val ActionNames = List(StartPlaybackAction, StopPlaybackAction)
 
-  /** The recovery time in the player configuration (in seconds). */
-  private val RecoveryTime = 300L
+  /** The recovery time in the player configuration. */
+  private val RecoveryTime = 300.seconds
 
   /** The minimum number of failed sources to recover from. */
   private val MinFailedSources = 3
@@ -106,7 +106,7 @@ object RadioControllerSpec {
     */
   private def createRecoveryConfiguration(): Configuration = {
     val config = new HierarchicalConfiguration
-    config.addProperty("radio.error.recovery.time", RecoveryTime)
+    config.addProperty("radio.error.recovery.time", RecoveryTime.toSeconds)
     config.addProperty("radio.error.recovery.minFailedSources", MinFailedSources)
     config
   }
@@ -374,7 +374,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1))
 
-    ctrl playbackTimeProgress 65
+    ctrl playbackTimeProgress 65.seconds
     verify(helper.playbackTimeHandler).setText("1:05")
   }
 
@@ -540,7 +540,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.injectErrorState(ctrl, createStateWithErrorSources(MinFailedSources,
       radioSource(1)), 1)
 
-    ctrl playbackTimeProgress RecoveryTime - 1
+    ctrl playbackTimeProgress RecoveryTime - 1.second
     helper.verifyNoRecovery()
   }
 

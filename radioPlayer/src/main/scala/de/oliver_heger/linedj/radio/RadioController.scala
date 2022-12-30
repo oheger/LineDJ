@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
-import de.oliver_heger.linedj.platform.ui.DurationTransformer
+import de.oliver_heger.linedj.platform.ui.TextTimeFunctions
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioMetadataEvent, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio._
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -129,6 +129,10 @@ class RadioController(val userConfig: Configuration,
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
+  /** The function to generate the playback time text. */
+  private val playbackTimeFunc = TextTimeFunctions.formattedTime()
+
+  /** The player managed by this controller. */
   private var player: RadioPlayer = _
 
   /** Stores the currently available radio sources. */
@@ -231,8 +235,8 @@ class RadioController(val userConfig: Configuration,
     *
     * @param time the updated playback time
     */
-  def playbackTimeProgress(time: Long): Unit = {
-    playbackTime setText DurationTransformer.formatDuration(time * 1000)
+  def playbackTimeProgress(time: FiniteDuration): Unit = {
+    playbackTime setText playbackTimeFunc(time)
     if (shouldRecover(time)) {
       recoverFromError()
     }
@@ -395,12 +399,12 @@ class RadioController(val userConfig: Configuration,
   /**
     * Checks whether a recovery from error state is currently possible.
     *
-    * @param time the playback time of the current source (in seconds)
+    * @param time the playback time of the current source
     * @return a flag whether recovery should be done now
     */
-  private def shouldRecover(time: Long): Boolean =
+  private def shouldRecover(time: FiniteDuration): Boolean =
     ErrorHandlingStrategy.NoError != errorState &&
-      time >= playerConfig.errorConfig.recoveryTime &&
+      time.toSeconds >= playerConfig.errorConfig.recoveryTime &&
       errorState.numberOfErrorSources >= playerConfig.errorConfig.recoverMinFailedSources
 
   /**

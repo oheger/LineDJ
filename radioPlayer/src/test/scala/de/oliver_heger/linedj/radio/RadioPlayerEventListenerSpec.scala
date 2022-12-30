@@ -45,7 +45,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent RadioPlaybackProgressEvent(source, 100, PlaybackTime, null)
-    verify(helper.controller).playbackTimeProgress(PlaybackTime.toSeconds)
+    verify(helper.controller).playbackTimeProgress(PlaybackTime)
   }
 
   it should "delegate radio source error events" in {

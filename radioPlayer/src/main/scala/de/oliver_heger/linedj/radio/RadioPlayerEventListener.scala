@@ -39,7 +39,7 @@ class RadioPlayerEventListener(controller: RadioController) extends
     case RadioSourceReplacementEndEvent(_, _) =>
       controller.replacementSourceEnds()
     case RadioPlaybackProgressEvent(_, _, time, _) =>
-      controller playbackTimeProgress time.toSeconds
+      controller playbackTimeProgress time
     case ev: RadioSourceErrorEvent =>
       controller playbackError ev
     case RadioPlaybackContextCreationFailedEvent(_, _) =>

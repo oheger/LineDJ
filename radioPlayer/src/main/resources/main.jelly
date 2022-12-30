@@ -119,7 +119,7 @@
                     alignment="left">
         <f:borderconstr name="CENTER"/>
       </f:statictext>
-      <f:statictext name="playbackTime" text="00:00:00"
+      <f:statictext name="playbackTime" text=""
                     alignment="right">
         <f:borderconstr name="EAST"/>
       </f:statictext>
