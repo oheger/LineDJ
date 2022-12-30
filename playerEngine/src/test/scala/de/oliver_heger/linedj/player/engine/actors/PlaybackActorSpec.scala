@@ -544,7 +544,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       TimeUnit.MILLISECONDS.toNanos(250))
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be((Chunks - 1) * LineChunkSize)
-    event.playbackTime should be(SkipTime + 1)
+    event.playbackTime.toSeconds should be(SkipTime + 1)
     event.currentSource should be(source)
 
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 8)))
@@ -552,7 +552,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       TimeUnit.MILLISECONDS.toNanos(2250))
     val event2 = expectEvent[PlaybackProgressEvent](eventMan)
     event2.bytesProcessed should be((Chunks + 1) * LineChunkSize)
-    event2.playbackTime should be(SkipTime + 3)
+    event2.playbackTime.toSeconds should be(SkipTime + 3)
     event2.currentSource should be(source)
     expectMsgType[GetAudioData]
   }
@@ -581,7 +581,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       TimeUnit.SECONDS.toNanos(2))
     expectMsgType[GetAudioData]
     val event = expectEvent[PlaybackProgressEvent](eventMan)
-    event.playbackTime should be(1)
+    event.playbackTime.toSeconds should be(1)
   }
 
   it should "reset progress counters when playback of a new source starts" in {
@@ -602,7 +602,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectEvent[AudioSourceStartedEvent](eventMan)
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be(LineChunkSize)
-    event.playbackTime should be(1)
+    event.playbackTime.toSeconds should be(1)
     event.currentSource should be(source)
   }
 

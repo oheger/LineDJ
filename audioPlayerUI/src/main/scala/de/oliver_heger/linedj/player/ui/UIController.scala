@@ -26,6 +26,9 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+
 object UIController {
   /** Name of the group that contains all player-related actions. */
   val PlayerActionGroup = "PlayerActions"
@@ -50,7 +53,7 @@ object UIController {
     * defined. This is overridden as soon as a real progress event is received.
     */
   private val InitialProgressEvent =
-    PlaybackProgressEvent(bytesProcessed = 0, playbackTime = 0,
+    PlaybackProgressEvent(bytesProcessed = 0, playbackTime = FiniteDuration(0, TimeUnit.SECONDS),
       currentSource = AudioSource("", 1, 0, 0))
 
   /**

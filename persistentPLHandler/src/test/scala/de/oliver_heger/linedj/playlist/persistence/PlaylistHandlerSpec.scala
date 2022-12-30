@@ -208,7 +208,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   }
 
   it should "forward a playback progress event to the state writer actor" in {
-    val event = PlaybackProgressEvent(20171217, 214158, AudioSource("uri", 1000, 0, 0))
+    val event = PlaybackProgressEvent(20171217, 214158.seconds, AudioSource("uri", 1000, 0, 0))
     val helper = new HandlerTestHelper
 
     helper.activate()

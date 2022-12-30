@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.scaladsl.AskPattern._
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContextCreationFailedEvent, PlaybackErrorEvent, PlaybackProgressEvent, PlayerEvent}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource}
-import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
+import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine._
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
@@ -44,11 +44,11 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
 
   "RadioEventConverterActor" should "convert a playback progress event" in {
     val playerEvent = PlaybackProgressEvent(bytesProcessed = 20221221203108L,
-      playbackTime = 90 * 60,
+      playbackTime = 90 * 60.seconds,
       currentSource = TestAudioSource)
     val radioEvent = RadioPlaybackProgressEvent(source = TestRadioSource,
       bytesProcessed = playerEvent.bytesProcessed,
-      playbackTime = playerEvent.playbackTime.seconds,
+      playbackTime = playerEvent.playbackTime,
       time = playerEvent.time)
     val helper = new ConverterActorTestHelper
 

@@ -40,7 +40,8 @@ object EventManagerActorSpec {
     * @return the test event with this index
     */
   private def progressEvent(index: Int): PlaybackProgressEvent =
-    PlaybackProgressEvent(bytesProcessed = index * 1024, playbackTime = index * 1000, currentSource = TestAudioSource)
+    PlaybackProgressEvent(bytesProcessed = index * 1024, playbackTime = index * 1000.seconds,
+      currentSource = TestAudioSource)
 }
 
 /**

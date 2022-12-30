@@ -18,10 +18,8 @@ package de.oliver_heger.linedj.player.engine.radio.actors
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackContextCreationFailedEvent, PlaybackErrorEvent, PlaybackProgressEvent, PlayerEvent}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource}
-
-import scala.concurrent.duration._
+import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine._
 
 /**
   * An actor implementation that converts events from the audio player to the
@@ -109,7 +107,7 @@ object RadioEventConverterActor {
   private def convertEvent(playerEvent: PlayerEvent): Option[RadioEvent] =
     playerEvent match {
       case PlaybackProgressEvent(bytesProcessed, playbackTime, currentSource, time) =>
-        Some(RadioPlaybackProgressEvent(convertSource(currentSource), bytesProcessed, playbackTime.seconds, time))
+        Some(RadioPlaybackProgressEvent(convertSource(currentSource), bytesProcessed, playbackTime, time))
 
       case PlaybackContextCreationFailedEvent(source, time) =>
         Some(RadioPlaybackContextCreationFailedEvent(convertSource(source), time))

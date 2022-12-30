@@ -29,6 +29,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 /**
@@ -163,11 +164,11 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   /**
     * Creates a progress event with the given time offset.
     *
-    * @param time the time offset
+    * @param time the time offset (in seconds)
     * @return the progress event
     */
   private def createProgressEvent(time: Long): PlaybackProgressEvent =
-    PlaybackProgressEvent(playbackTime = time, bytesProcessed = 1,
+    PlaybackProgressEvent(playbackTime = time.seconds, bytesProcessed = 1,
       currentSource = AudioSource("test", 20180105, 0, 0))
 
   "A PreviousSongTask" should "move to the previous song if progress is under threshold" in {

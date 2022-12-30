@@ -76,7 +76,7 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     * @return the progress event
     */
   private def createProgressEvent(posOfs: Long, timeOfs: Long): PlaybackProgressEvent =
-    PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs,
+    PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs.seconds,
       currentSource = TestAudioSource, time = TimeStamp)
 }
 

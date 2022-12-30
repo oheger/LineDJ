@@ -22,8 +22,6 @@ import de.oliver_heger.linedj.platform.ui.{DurationTransformer, TextTimeFunction
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
-import scala.concurrent.duration._
-
 object CurrentSongController {
   /** Common prefix for all configuration keys. */
   final val ConfigPrefix = "audio.ui."
@@ -175,7 +173,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param event the playback progress event
     */
   def playlistProgress(event: PlaybackProgressEvent): Unit = {
-    timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime.seconds))
+    timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime))
     calcPlaybackProgress(event) foreach updateProgress
   }
 
@@ -252,7 +250,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
   private def calcPlaybackProgress(event: PlaybackProgressEvent): Option[Int] = for {
     s <- currentSong
     d <- s.song.metaData.duration
-  } yield scala.math.round(100 * event.playbackTime.seconds.toMillis.toFloat / d)
+  } yield scala.math.round(100 * event.playbackTime.toMillis.toFloat / d)
 
   /**
     * Updates the progress bar control.

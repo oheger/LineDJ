@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.player.engine.actors.PlaybackActor._
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.{AudioFormat, AudioSystem, LineUnavailableException}
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -345,7 +346,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     if (playbackNanos >= NanosPerSecond) {
       playbackSeconds += playbackNanos / NanosPerSecond
       playbackNanos = playbackNanos % NanosPerSecond
-      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds,
+      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds.seconds,
         currentSource.get)
     }
   }

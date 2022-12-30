@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import java.util
-import java.util.Collections
-
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
@@ -29,6 +26,10 @@ import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util
+import java.util.Collections
+import scala.concurrent.duration._
 
 object CurrentSongControllerSpec {
   /** Title of the test song. */
@@ -371,7 +372,7 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       */
     def sendProgress(posOfs: Long, timeOfs: Long, source: AudioSource = TestSource):
     ControllerTestHelper = {
-      val event = PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs,
+      val event = PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs.seconds,
         currentSource = source)
       controller playlistProgress event
       this

@@ -34,6 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 object UIControllerSpec {
@@ -67,11 +68,11 @@ object UIControllerSpec {
     * Creates a test playback progress event.
     *
     * @param pos  the position offset
-    * @param time the time offset
+    * @param time the time offset (in seconds)
     * @return the event
     */
   private def createProgressEvent(pos: Long, time: Long): PlaybackProgressEvent = {
-    PlaybackProgressEvent(bytesProcessed = pos, playbackTime = time,
+    PlaybackProgressEvent(bytesProcessed = pos, playbackTime = time.seconds,
       currentSource = AudioSource("test", 123456, 0, 0))
   }
 }
@@ -142,7 +143,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
     val event = helper.lastProgressEvent
     event.currentSource.length should be > 0L
     event.bytesProcessed should be(0)
-    event.playbackTime should be(0)
+    event.playbackTime should be(0.seconds)
   }
 
   it should "enable actions if playback is active" in {

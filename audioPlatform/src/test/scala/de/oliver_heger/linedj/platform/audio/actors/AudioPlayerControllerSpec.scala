@@ -533,7 +533,7 @@ class AudioPlayerControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       event.currentSource.skip should be(posOfs)
       event.currentSource.skipTime should be(timeOfs)
       event.bytesProcessed should be(posOfs)
-      event.playbackTime should be(timeOfs)
+      event.playbackTime.toSeconds should be(timeOfs)
       checkCurrentTime(event.time)
       this
     }

@@ -95,7 +95,7 @@ class PlaylistStateWriterActor(private[persistence]
         playerState, writeConfig))
 
     case PlaybackProgressEvent(ofs, time, _, _) =>
-      updateStateAndHandleMessages(updateService.handlePlaybackProgress(ofs, time, writeConfig))
+      updateStateAndHandleMessages(updateService.handlePlaybackProgress(ofs, time.toSeconds, writeConfig))
 
     case FileWritten(path, _) =>
       updateStateAndHandleMessages(updateService.handleFileWritten(path, writeConfig))

@@ -104,7 +104,7 @@ class PreviousSongTask(controller: UIController, config: AudioPlayerConfig,
     * @return an option for the updated playlist
     */
   private def nextPlaylist(currentPlaylist: Playlist): Option[Playlist] =
-    if (controller.lastProgressEvent.playbackTime < config.skipBackwardsThreshold) {
+    if (controller.lastProgressEvent.playbackTime.toSeconds < config.skipBackwardsThreshold) {
       playlistService.currentIndex(currentPlaylist) flatMap { index =>
         if (index > 0) playlistService.setCurrentSong(currentPlaylist, index - 1)
         else Some(currentPlaylist)

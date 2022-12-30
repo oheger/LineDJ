@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEve
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 import java.time.LocalDateTime
+import scala.concurrent.duration._
 
 /**
   * Controller class that updates an audio player object based on messages
@@ -215,7 +216,7 @@ class AudioPlayerController(val player: AudioPlayer,
   private def createProgressEvent(fileID: MediaFileID, posOfs: Long, timeOfs: Long)
   : PlaybackProgressEvent = {
     val source = AudioSource(fileID.uri, AudioSource.UnknownLength, posOfs, timeOfs)
-    val event = PlaybackProgressEvent(posOfs, timeOfs, source)
+    val event = PlaybackProgressEvent(posOfs, timeOfs.seconds, source)
     event
   }
 
