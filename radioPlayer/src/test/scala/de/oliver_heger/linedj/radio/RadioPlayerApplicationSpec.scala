@@ -321,8 +321,8 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param expected the expected factories
       */
     def checkAddedPlaybackContextFactories(expected: Iterable[PlaybackContextFactory]): Unit = {
-      awaitCond(playbackContextFactories.size() == expected.size)
-      addedPlaybackContextFactories should contain theSameElementsAs expected
+      val expectedSet = expected.toSet
+      awaitCond(addedPlaybackContextFactories == expectedSet)
     }
 
     /**
