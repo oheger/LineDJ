@@ -162,7 +162,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * Stores the time it takes to play a chunk of audio data if this can be
     * determined.
     */
-  private var chunkPlaybackTime: Option[Long] = None
+  private var chunkPlaybackTime: Option[FiniteDuration] = None
 
   /** An actor which triggered a close request. */
   private var closingActor: ActorRef = _
@@ -340,9 +340,9 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * @param length   the length of the current chunk
     * @param duration the playback duration of the current chunk
     */
-  private def updatePlaybackProgress(length: Int, duration: Long): Unit = {
+  private def updatePlaybackProgress(length: Int, duration: FiniteDuration): Unit = {
     bytesPlayed += length
-    playbackNanos += chunkPlaybackTime getOrElse duration
+    playbackNanos += (chunkPlaybackTime getOrElse duration).toNanos
     if (playbackNanos >= NanosPerSecond) {
       playbackSeconds += playbackNanos / NanosPerSecond
       playbackNanos = playbackNanos % NanosPerSecond
@@ -422,7 +422,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
                     val data = ByteString(audioChunk.slice(offset, offset + dataLen))
                     lineWriterActor ! WriteAudioData(ctx.line, data)
                   } else {
-                    self ! LineWriterActor.AudioDataWritten(len, 0)
+                    self ! LineWriterActor.AudioDataWritten(len, 0.nanos)
                   }
                   audioPlaybackPending = true
                 } else {
@@ -594,11 +594,11 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     * @param format the audio format
     * @return an option with the playback duration of an audio chunk
     */
-  private def calculateChunkPlaybackTime(format: AudioFormat): Option[Long] =
+  private def calculateChunkPlaybackTime(format: AudioFormat): Option[FiniteDuration] =
     if (format.getFrameRate != AudioSystem.NOT_SPECIFIED && format.getFrameSize !=
       AudioSystem.NOT_SPECIFIED)
       Some(math.round(TimeUnit.SECONDS.toNanos(1) * audioChunk.length / format.getFrameSize /
-        format.getFrameRate))
+        format.getFrameRate).nanos)
     else None
 
   /**

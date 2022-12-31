@@ -32,6 +32,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.concurrent.duration._
+
 /**
   * Test class for ''LineWriterActor''.
   */
@@ -79,8 +81,8 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     actor ! WriteAudioData(line, data)
     val written = expectMsgType[AudioDataWritten]
     val endTime = System.nanoTime()
-    val duration = endTime - startTime
+    val duration = (endTime - startTime).nanos
     written.duration should be <= duration
-    written.duration should be >= TimeUnit.MILLISECONDS.toNanos(45)
+    written.duration should be >= 45.millis
   }
 }

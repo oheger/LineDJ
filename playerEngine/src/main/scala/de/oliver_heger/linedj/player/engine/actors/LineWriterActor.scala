@@ -19,7 +19,9 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.Actor
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, DrainLine, LineDrained, WriteAudioData}
+
 import javax.sound.sampled.SourceDataLine
+import scala.concurrent.duration._
 
 /**
  * Companion object for ''LineWriterActor''.
@@ -60,7 +62,7 @@ object LineWriterActor {
     * @param chunkLength the length of the data chunk that has been written
     * @param duration the (approximated) duration of the chunk of data
     */
-  case class AudioDataWritten(chunkLength: Int, duration: Long)
+  case class AudioDataWritten(chunkLength: Int, duration: FiniteDuration)
 
   /**
     * A message sent by [[LineWriterActor]] after a drain operation has been
@@ -90,7 +92,7 @@ class LineWriterActor extends Actor {
     case WriteAudioData(line, data) =>
       val startTime = System.nanoTime()
       line.write(data.toArray, 0, data.length)
-      sender() ! AudioDataWritten(data.length, System.nanoTime() - startTime)
+      sender() ! AudioDataWritten(data.length, (System.nanoTime() - startTime).nanos)
 
     case DrainLine(line) =>
       line.drain()
