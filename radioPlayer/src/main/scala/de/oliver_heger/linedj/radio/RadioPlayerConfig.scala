@@ -114,6 +114,18 @@ object RadioPlayerConfig {
     */
   final val DefaultInitialDelay = 5000
 
+  /**
+    * The default maximum text length of metadata that can be displayed in the
+    * UI.
+    */
+  final val DefaultMetadataMaxLen = 50
+
+  /**
+    * The default scale factor for metadata rotation. This is applied when the
+    * metadata text exceeds the configured maximum length.
+    */
+  final val DefaultMetadataRotateScale = 1.0
+
   /** Default time interval for error recovery (in seconds). */
   final val DefaultRecoveryTime = 600L
 
@@ -127,6 +139,19 @@ object RadioPlayerConfig {
 
   /** Configuration key for the initial delay. */
   private val KeyInitialDelay = KeyPrefix + "initialDelay"
+
+  /**
+    * Configuration key for the maximum length of metadata that can be
+    * displayed directly in the UI. If the metadata exceeds this length, it is
+    * rotated.
+    */
+  private val KeyMetaMaxLen = KeyPrefix + "metadataMaxLen"
+
+  /**
+    * Configuration key for the scale factor when rotating the metadata text.
+    * This factor determines the speed of the rotation.
+    */
+  private val KeyMetaRotateScale = KeyPrefix + "metadataRotateScale"
 
   /** The common prefix for keys related to error handling. */
   private val ErrorKeyPrefix = KeyPrefix + "error."
@@ -160,7 +185,11 @@ object RadioPlayerConfig {
     val sourceConfig = RadioSourceConfig(config)
     val errorConfig = readErrorConfig(config)
 
-    new RadioPlayerConfig(sourceConfig, errorConfig, config.getInt(KeyInitialDelay, DefaultInitialDelay))
+    new RadioPlayerConfig(sourceConfig = sourceConfig,
+      errorConfig = errorConfig,
+      initialDelay = config.getInt(KeyInitialDelay, DefaultInitialDelay),
+      metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
+      metaRotateScale = config.getDouble(KeyMetaRotateScale, DefaultMetadataRotateScale))
   }
 
   /**
@@ -188,7 +217,12 @@ object RadioPlayerConfig {
   * @param sourceConfig the configuration of radio sources
   * @param errorConfig  the error handling configuration
   * @param initialDelay the delay before starting playback
+  * @param metaMaxLen      the maximum length of metadata before rotation of
+  *                        the text is needed
+  * @param metaRotateScale the scale factor for rotation of metadata
   */
 case class RadioPlayerConfig(sourceConfig: RadioSourceConfig,
                              errorConfig: ErrorHandlingConfig,
-                             initialDelay: Int)
+                             initialDelay: Int,
+                             metaMaxLen: Int,
+                             metaRotateScale: Double)

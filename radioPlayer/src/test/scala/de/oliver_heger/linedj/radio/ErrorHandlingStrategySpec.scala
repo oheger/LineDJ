@@ -52,7 +52,9 @@ object ErrorHandlingStrategySpec {
   /** The config for the handling strategy. */
   private val StrategyConfig = RadioPlayerConfig(errorConfig = createErrorConfig(),
     sourceConfig = createSourceConfig(),
-    initialDelay = 0)
+    initialDelay = 0,
+    metaMaxLen = 70,
+    metaRotateScale = 0.9)
 
   /** The default current source played by the player. */
   private val CurrentSource = radioSource(1)

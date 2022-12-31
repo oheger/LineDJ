@@ -18,6 +18,8 @@
 <configuration>
 <radio>
   <initialDelay>1500</initialDelay>
+  <metadataMaxLen>44</metadataMaxLen>
+  <metadataRotateScale>0.5</metadataRotateScale>
   <error>
     <retryInterval>1000</retryInterval>
     <retryIncrement>2</retryIncrement>
