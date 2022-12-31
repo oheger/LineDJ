@@ -293,6 +293,18 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     config getString "radio.current" should be(sourceName(2))
   }
 
+  it should "reset the current metadata after changing the current source" in {
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(2))
+    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("some stale data")))
+    val src = radioSource(2)
+    doReturn(src).when(helper.comboHandler).getData
+
+    ctrl elementChanged mock[FormChangeEvent]
+
+    verify(helper.metadataTextHandler).setText("")
+  }
+
   it should "handle an empty selection in the sources combo box" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createController(createSourceConfiguration(0))
@@ -652,6 +664,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "handle an event about unsupported metadata" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(5))
+    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("some data")))
 
     ctrl.metadataChanged(RadioMetadataEvent(MetadataNotSupported))
 
@@ -667,6 +680,48 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ctrl.metadataChanged(RadioMetadataEvent(metadata))
 
     verify(helper.metadataTextHandler).setText(MetadataContent)
+  }
+
+  it should "correctly rotate metadata text" in {
+    val MetadataContent = "0123456789ABCDEF"
+    val mainConfig = new HierarchicalConfiguration
+    mainConfig.addProperty("radio.metadataMaxLen", "10")
+    mainConfig.addProperty("radio.metadataRotateScale", 2.0)
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1), mainConfig = mainConfig)
+
+    ctrl.playbackTimeProgress(10.seconds)
+    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata(MetadataContent)))
+    verify(helper.metadataTextHandler).setText("0123456789")
+
+    ctrl.playbackTimeProgress(11.seconds)
+    verify(helper.metadataTextHandler).setText("23456789AB")
+  }
+
+  it should "not update metadata if the same event arrives again" in {
+    val metadata = CurrentMetadata("This is some metadata")
+    val helper = new RadioControllerTestHelper
+    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
+
+    ctrl.metadataChanged(RadioMetadataEvent(metadata))
+    ctrl.metadataChanged(RadioMetadataEvent(metadata))
+
+    verify(helper.metadataTextHandler, times(1)).setText(metadata.title)
+  }
+
+  it should "reset the playback time when switching to another source" in {
+    val mainConfig = new HierarchicalConfiguration
+    mainConfig.addProperty("radio.metadataMaxLen", "10")
+    val helper = new RadioControllerTestHelper
+    doReturn(radioSource(2)).when(helper.comboHandler).getData
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4), mainConfig = mainConfig)
+    ctrl.playbackTimeProgress(10.seconds)
+
+    ctrl.elementChanged(mock[FormChangeEvent])
+    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("0123456789ABCDEF")))
+    ctrl.playbackTimeProgress(3.seconds)
+
+    verify(helper.metadataTextHandler).setText("3456789ABC")
   }
 
   /**

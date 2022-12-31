@@ -30,6 +30,7 @@ import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
+import java.util.concurrent.TimeUnit
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -68,6 +69,12 @@ object RadioController {
 
   /** Text to be displayed if the radio station does not support metadata. */
   private val UnsupportedMetadataText = ""
+
+  /**
+    * A zero duration representing the playback time when switching to another
+    * radio source.
+    */
+  private val InitialPlaybackDuration = FiniteDuration(0, TimeUnit.SECONDS)
 
   /**
     * A message to be published on the message bus when the initialization of
@@ -156,6 +163,23 @@ class RadioController(val userConfig: Configuration,
   /** Stores the current error state. */
   private var errorState = ErrorHandlingStrategy.NoError
 
+  /** Stores the last received metadata text. */
+  private var lastMetadataText = UnsupportedMetadataText
+
+  /**
+    * Stores the last playback duration from a playback progress event. This is
+    * needed to correctly rotate metadata: here a new metadata text should be
+    * displayed initially with offset 0, no matter what the current playback
+    * duration is.
+    */
+  private var lastPlaybackDuration = InitialPlaybackDuration
+
+  /**
+    * A function to update the field with the current metadata based on elapsed
+    * playback time.
+    */
+  private var metadataTimeFunc = generateMetadataTimeFunc(UnsupportedMetadataText)
+
   /**
     * A flag that indicates that radio sources are currently updated. In this
     * mode change events from the combo box have to be ignored.
@@ -182,6 +206,10 @@ class RadioController(val userConfig: Configuration,
     if (!sourcesUpdating) {
       val source = comboSources.getData.asInstanceOf[RadioSource]
       if (source != null) {
+        lastPlaybackDuration = InitialPlaybackDuration
+        metadataTimeFunc = generateMetadataTimeFunc(UnsupportedMetadataText)
+        metadataText.setText(UnsupportedMetadataText)
+
         if (playbackActive)
           player.playSource(source, makeCurrent = true)
         else {
@@ -237,6 +265,9 @@ class RadioController(val userConfig: Configuration,
     */
   def playbackTimeProgress(time: FiniteDuration): Unit = {
     playbackTime setText playbackTimeFunc(time)
+    lastPlaybackDuration = time
+    metadataText.setText(metadataTimeFunc(time))
+
     if (shouldRecover(time)) {
       recoverFromError()
     }
@@ -256,7 +287,12 @@ class RadioController(val userConfig: Configuration,
         log.info("Radio stream metadata: \"{}\".", c.data)
         c.title
     }
-    metadataText setText data
+
+    if (data != lastMetadataText) {
+      lastMetadataText = data
+      metadataTimeFunc = generateMetadataTimeFunc(data)
+      metadataText setText metadataTimeFunc(lastPlaybackDuration)
+    }
   }
 
   /**
@@ -511,4 +547,18 @@ class RadioController(val userConfig: Configuration,
     enableAction(ActionStartPlayback, !isPlaying)
     enableAction(ActionStopPlayback, isPlaying)
   }
+
+  /**
+    * Returns a function to update the metadata field when a playback progress
+    * event occurs. If the metadata text length exceeds a configurable
+    * threshold, the text is rotated.
+    *
+    * @param text the current metadata text
+    * @return the function to update the text based on playback time
+    */
+  private def generateMetadataTimeFunc(text: String): TextTimeFunctions.TextTimeFunc =
+    TextTimeFunctions.rotateText(text = text,
+      maxLen = playerConfig.metaMaxLen,
+      scale = playerConfig.metaRotateScale,
+      relativeTo = lastPlaybackDuration)
 }
