@@ -75,6 +75,10 @@ import scala.concurrent.duration._
   *                                               in this interval to prevent
   *                                               that the server terminates a
   *                                               download that takes too long
+  * @param timeProgressThreshold a threshold when to send playback progress
+  *                              events; a new event is sent only if the
+  *                              accumulated playback time since the last event
+  *                              exceeds this duration
   * @param blockingDispatcherName an optional name of a dispatcher for actors
   *                               that do blocking calls; if defined, such
   *                               actors are deployed on this dispatcher
@@ -92,6 +96,7 @@ case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
                         bufferTempPathParts: Seq[String] = List(".lineDJ", "temp"),
                         downloadInProgressNotificationDelay: FiniteDuration = 2.minutes,
                         downloadInProgressNotificationInterval: FiniteDuration = 3.minutes,
+                        timeProgressThreshold: FiniteDuration = 1.second,
                         blockingDispatcherName: Option[String] = None,
                         mediaManagerActor: ActorRef,
                         actorCreator: ActorCreator) {
