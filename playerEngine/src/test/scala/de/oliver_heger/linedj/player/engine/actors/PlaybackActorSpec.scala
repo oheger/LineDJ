@@ -539,16 +539,43 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectEvent[AudioSourceStartedEvent](eventMan)
     gatherPlaybackData(actor, lineWriter, line, Chunks * LineChunkSize, 250.millis)
     val event = expectEvent[PlaybackProgressEvent](eventMan)
-    event.bytesProcessed should be((Chunks - 1) * LineChunkSize)
-    event.playbackTime.toSeconds should be(SkipTime + 1)
+    event.bytesProcessed should be(LineChunkSize)
+    event.playbackTime.toSeconds should be(SkipTime)
     event.currentSource should be(source)
 
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 8)))
     gatherPlaybackData(actor, lineWriter, line, LineChunkSize, 2250.millis)
     val event2 = expectEvent[PlaybackProgressEvent](eventMan)
-    event2.bytesProcessed should be((Chunks + 1) * LineChunkSize)
-    event2.playbackTime.toSeconds should be(SkipTime + 3)
+    event2.bytesProcessed should be(Chunks * LineChunkSize)
+    event2.playbackTime.toSeconds should be(SkipTime + 1)
     event2.currentSource should be(source)
+    expectMsgType[GetAudioData]
+  }
+
+  it should "not generate playback progress events below the threshold" in {
+    val lineWriter = TestProbe()
+    val eventMan = testKit.createTestProbe[PlayerEvent]()
+    val config = Config.copy(inMemoryBufferSize = 10 * LineChunkSize, playbackContextLimit = 1,
+      timeProgressThreshold = 500.millis)
+    val actor = system.actorOf(PlaybackActor(config,
+      testActor, lineWriter.ref, eventMan.ref))
+    val line = installMockPlaybackContextFactory(actor)
+    val source = createSource(1)
+
+    actor ! StartPlayback
+    expectMsg(GetAudioSource)
+    actor ! source
+    sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 1)))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize, 100.millis)
+    expectEvent[AudioSourceStartedEvent](eventMan)
+
+    sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 2)))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize, 400.millis)
+    expectEvent[PlaybackProgressEvent](eventMan)
+
+    sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 3)))
+    gatherPlaybackData(actor, lineWriter, line, LineChunkSize, 499.millis)
+    eventMan.expectNoMessage(1.second)
     expectMsgType[GetAudioData]
   }
 

@@ -185,11 +185,11 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /** The number of bytes that have been played so far. */
   private var bytesPlayed = 0L
 
-  /** The current remainder of nano seconds for the playback time. */
-  private var playbackNanos = 0L
+  /** The accumulated playback duration for the current source. */
+  private var playbackDuration = 0.seconds
 
-  /** The current playback time in seconds for the current source. */
-  private var playbackSeconds = 0L
+  /** The playback duration reported by the last playback progress event. */
+  private var lastPlaybackEventDuration = 0.seconds
 
   /** A flag whether a request for audio data is pending. */
   private var audioDataPending = false
@@ -218,8 +218,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
         skipStreamPosition = 0
         bytesProcessed = 0
         bytesPlayed = 0
-        playbackNanos = 0
-        playbackSeconds = src.skipTime
+        playbackDuration = src.skipTime.seconds
+        lastPlaybackEventDuration = 0.seconds
         requestAudioDataIfPossible()
       } else {
         sender() ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
@@ -342,12 +342,10 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
     */
   private def updatePlaybackProgress(length: Int, duration: FiniteDuration): Unit = {
     bytesPlayed += length
-    playbackNanos += (chunkPlaybackTime getOrElse duration).toNanos
-    if (playbackNanos >= NanosPerSecond) {
-      playbackSeconds += playbackNanos / NanosPerSecond
-      playbackNanos = playbackNanos % NanosPerSecond
-      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackSeconds.seconds,
-        currentSource.get)
+    playbackDuration += (chunkPlaybackTime getOrElse duration)
+    if (playbackDuration - lastPlaybackEventDuration >= config.timeProgressThreshold) {
+      lastPlaybackEventDuration = playbackDuration
+      eventActor ! PlaybackProgressEvent(bytesPlayed, playbackDuration, currentSource.get)
     }
   }
 
@@ -574,7 +572,7 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
           chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
           if (chunkPlaybackTime.isDefined) {
             // time will be updated while reaching skip position
-            playbackSeconds = 0
+            playbackDuration = 0.seconds
           }
         case None =>
           log.warning("Could not create playback context for {}!", source.uri)
