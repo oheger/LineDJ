@@ -46,7 +46,7 @@ named _audio.ui_ as shown in the following fragment:
 <audio>
   <ui>
     <maxFieldSize>25</maxFieldSize>
-    <rotationSpeed>1</rotationSpeed>
+    <rotationSpeed>2.5</rotationSpeed>
     <skipBackwardsThreshold>7</skipBackwardsThreshold>
     <autoStartPlayback>closed</autoStartPlayback>
   </ui>
@@ -55,11 +55,11 @@ named _audio.ui_ as shown in the following fragment:
 
 The properties have the following meaning:
 
+[cols="2,1,3",options="header"]
 |===
-|Setting |Type |Description 
-
+|Setting |Type |Description
 |maxFieldSize |Int |Defines the maximum size of a field in the details view. If the value of a field exceeds this limit, the field only shows a substring which is rotated (i.e. it scrolls). 
-|rotationSpeed |Int |This property defines the speed for rotation, which is used for fields in the UI exceeding their maximum size. In this case, the portion of the value displayed is changed with the playback progress of the current song. A value of `1` in this property means, that the value is rotated for every second of elapsed playback time. With a value of `2` it changes only for every second second of elapsed playback time and so on. 
+|rotationSpeed |Int |This property defines the speed for rotation, which is used for fields in the UI exceeding their maximum size. In this case, the portion of the value displayed is changed with the playback progress of the current song. A value of `1` in this property means, that the text is rotated for every second of elapsed playback time. With a value of `2` it rotates by 2 characters per second of elapsed playback time (one character every 500 milliseconds) and so on. Since updates of the playback time are reported every 100 milliseconds, a rotation speed of 10.0 is maximum.
 |skipBackwardsThreshold |Int |This value is a threshold in seconds and determines the behavior of the move backwards action. The action checks the playback time of the current song: If it is below this threshold, playback moves to the previous song in the playlist. Otherwise, the current song is played again from the beginning. 
 |autoStartPlayback |String |A value that determines whether playback should start directly when there is a change in the playlist. This is especially useful at application startup, so that the player starts playing without the need to press the start button. The string can have the following values: _never_ (which is also the default) disables this feature; _always_ starts playback automatically as soon as a playlist becomes available; _closed_ starts playback when a playlist becomes available that has been closed (i.e. is completed, so no songs can be added any more). Invalid strings are mapped to _never_. 
 |===

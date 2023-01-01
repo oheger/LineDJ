@@ -211,4 +211,15 @@ player engine relies on some audio codecs being installed in the system. As
 those are started dynamically during startup of the OSGi container, it may
 take some time until they are available. This setting has to be adapted to the
 current machine; on fast computers, there should not be a big delay.
+| metadataMaxLen | The maximum length of a text that can be displayed directly
+in the field for metadata. Longer texts are shortened and rotated.
+| metadataRotateSpeed | If metadata exceeds the length configured via the
+`metadataMaxLen` property, the text is rotated, so that all characters are
+eventually visible. The rotation speed is based on the playback time with an
+additional factor specified by this property. It basically means the number of
+characters that are rotated per second. A value of `2.0` for instance means two
+characters - one every 500 milliseconds. Note that rotation depends on the
+update of current playback time. Here an update occurs every 100 milliseconds;
+therefore, one rotation step every 100 milliseconds is also the limit for the
+rotation speed.
 |====
