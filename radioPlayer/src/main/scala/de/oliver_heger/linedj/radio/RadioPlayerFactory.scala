@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
 /**
   * An internally used helper class for creating a [[RadioPlayer]] instance.
@@ -59,6 +60,7 @@ private class RadioPlayerFactory {
     PlayerConfig(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
       bufferChunkSize = 4096,
+      timeProgressThreshold = 100.millis,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
       mediaManagerActor = null,
       actorCreator = creator)

@@ -30,6 +30,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 /**
   * Test class for ''RadioPlayerFactory''.
@@ -70,6 +71,7 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     player.config.bufferChunkSize should be(4096)
     player.config.playbackContextLimit should be(8192)
     player.config.mediaManagerActor should be(null)
+    player.config.timeProgressThreshold should be(100.millis)
     player.config.blockingDispatcherName.get should be(ClientApplication.BlockingDispatcherName)
     player.config.actorCreator match {
       case c: ManagingActorCreator => c.actorManagement should be(management)

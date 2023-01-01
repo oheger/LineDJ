@@ -149,9 +149,13 @@ object RadioPlayerConfig {
 
   /**
     * Configuration key for the scale factor when rotating the metadata text.
-    * This factor determines the speed of the rotation.
+    * This factor determines the speed of the rotation. It is a double value
+    * that is interpreted as the number of scroll steps per second. For
+    * instance, a value of 4.0 means that every 250 milliseconds the text is
+    * scrolled by one character. Note that 10.0 is maximum, since only 10
+    * playback progress events arrive per second.
     */
-  private val KeyMetaRotateScale = KeyPrefix + "metadataRotateScale"
+  private val KeyMetaRotateSpeed = KeyPrefix + "metadataRotateSpeed"
 
   /** The common prefix for keys related to error handling. */
   private val ErrorKeyPrefix = KeyPrefix + "error."
@@ -189,7 +193,7 @@ object RadioPlayerConfig {
       errorConfig = errorConfig,
       initialDelay = config.getInt(KeyInitialDelay, DefaultInitialDelay),
       metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
-      metaRotateScale = config.getDouble(KeyMetaRotateScale, DefaultMetadataRotateScale))
+      metaRotateSpeed = config.getDouble(KeyMetaRotateSpeed, DefaultMetadataRotateScale))
   }
 
   /**
@@ -214,15 +218,15 @@ object RadioPlayerConfig {
   * A data class storing the full configuration of the radio player
   * application.
   *
-  * @param sourceConfig the configuration of radio sources
-  * @param errorConfig  the error handling configuration
-  * @param initialDelay the delay before starting playback
+  * @param sourceConfig    the configuration of radio sources
+  * @param errorConfig     the error handling configuration
+  * @param initialDelay    the delay before starting playback
   * @param metaMaxLen      the maximum length of metadata before rotation of
   *                        the text is needed
-  * @param metaRotateScale the scale factor for rotation of metadata
+  * @param metaRotateSpeed the scale factor for rotation of metadata
   */
 case class RadioPlayerConfig(sourceConfig: RadioSourceConfig,
                              errorConfig: ErrorHandlingConfig,
                              initialDelay: Int,
                              metaMaxLen: Int,
-                             metaRotateScale: Double)
+                             metaRotateSpeed: Double)

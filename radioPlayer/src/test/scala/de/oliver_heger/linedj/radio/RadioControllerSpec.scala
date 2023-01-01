@@ -686,7 +686,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val MetadataContent = "0123456789ABCDEF"
     val mainConfig = new HierarchicalConfiguration
     mainConfig.addProperty("radio.metadataMaxLen", "10")
-    mainConfig.addProperty("radio.metadataRotateScale", 2.0)
+    mainConfig.addProperty("radio.metadataRotateSpeed", 4.0)
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1), mainConfig = mainConfig)
 
@@ -694,8 +694,11 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata(MetadataContent)))
     verify(helper.metadataTextHandler).setText("0123456789")
 
+    ctrl.playbackTimeProgress(10.seconds + 250.millis)
+    verify(helper.metadataTextHandler).setText("123456789A")
+
     ctrl.playbackTimeProgress(11.seconds)
-    verify(helper.metadataTextHandler).setText("23456789AB")
+    verify(helper.metadataTextHandler).setText("456789ABCD")
   }
 
   it should "not update metadata if the same event arrives again" in {

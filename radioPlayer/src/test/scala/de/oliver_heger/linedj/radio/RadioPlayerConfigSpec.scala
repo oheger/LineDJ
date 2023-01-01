@@ -100,7 +100,7 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
 
     config.initialDelay should be(1500)
     config.metaMaxLen should be(44)
-    config.metaRotateScale should be(0.5)
+    config.metaRotateSpeed should be(0.5)
   }
 
   it should "apply defaults for unspecified configuration settings" in {
@@ -115,6 +115,6 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
     config.errorConfig.recoverMinFailedSources should be(RadioPlayerConfig.DefaultMinFailuresForRecovery)
     config.initialDelay should be(RadioPlayerConfig.DefaultInitialDelay)
     config.metaMaxLen should be(RadioPlayerConfig.DefaultMetadataMaxLen)
-    config.metaRotateScale should be(RadioPlayerConfig.DefaultMetadataRotateScale)
+    config.metaRotateSpeed should be(RadioPlayerConfig.DefaultMetadataRotateScale)
   }
 }

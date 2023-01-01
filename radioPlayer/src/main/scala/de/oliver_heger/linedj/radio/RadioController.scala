@@ -559,6 +559,6 @@ class RadioController(val userConfig: Configuration,
   private def generateMetadataTimeFunc(text: String): TextTimeFunctions.TextTimeFunc =
     TextTimeFunctions.rotateText(text = text,
       maxLen = playerConfig.metaMaxLen,
-      scale = playerConfig.metaRotateScale,
+      scale = playerConfig.metaRotateSpeed,
       relativeTo = lastPlaybackDuration)
 }

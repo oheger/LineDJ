@@ -54,7 +54,7 @@ object ErrorHandlingStrategySpec {
     sourceConfig = createSourceConfig(),
     initialDelay = 0,
     metaMaxLen = 70,
-    metaRotateScale = 0.9)
+    metaRotateSpeed = 0.9)
 
   /** The default current source played by the player. */
   private val CurrentSource = radioSource(1)
