@@ -265,8 +265,8 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       speed = Some(2)))
 
     helper.triggerPlaylistChanged()
-      .sendProgress(timeOfs = 4, posOfs = 0)
-      .verifyTitle(rotate(Title, 2))
+      .sendProgress(timeOfs = 2, posOfs = 0)
+      .verifyTitle(rotate(Title, 4))
   }
 
   it should "update the progress bar correctly" in {

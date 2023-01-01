@@ -151,6 +151,7 @@ private class PlayerConfigFactory {
       downloadInProgressNotificationInterval =
         c.getInt(p + PropDownloadProgressNotificationInterval,
           DefDownloadProgressNotificationInterval.toSeconds.toInt).seconds,
+      timeProgressThreshold = 100.millis,
       blockingDispatcherName = Option(c.getString(p + PropBlockingDispatcherName)),
       mediaManagerActor = mediaManager,
       actorCreator = actorCreator)

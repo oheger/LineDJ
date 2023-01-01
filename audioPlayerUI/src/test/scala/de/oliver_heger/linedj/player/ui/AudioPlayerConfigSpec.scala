@@ -26,7 +26,7 @@ import org.scalatest.matchers.should.Matchers
 class AudioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   "An AudioPlayerConfig" should "provide access to all properties" in {
     val MaxFieldSize = 42
-    val RotationSpeed = 3
+    val RotationSpeed = 3.5
     val SkipBackwardsThreshold = 8
     val c = new PropertiesConfiguration
     c.addProperty(AudioPlayerConfig.PropMaxFieldSize, MaxFieldSize)

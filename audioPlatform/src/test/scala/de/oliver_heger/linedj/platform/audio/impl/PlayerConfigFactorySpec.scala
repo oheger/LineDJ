@@ -132,6 +132,7 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.downloadInProgressNotificationDelay should be(DefDownloadProgressNotificationDelay)
     conf.downloadInProgressNotificationInterval should be(DefDownloadProgressNotificationInterval)
     conf.blockingDispatcherName shouldBe empty
+    conf.timeProgressThreshold should be(100.millis)
   }
 
   it should "store the management actor and the actor creator" in {

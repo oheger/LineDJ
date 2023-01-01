@@ -38,9 +38,11 @@ object AudioPlayerConfig {
 
   /**
     * Configuration property defining the speed for scrolling in UI fields. The
-    * property value is an integer interpreted as divisor for the playback
-    * time. A value of 1 means that for each second 1 letter is scrolled; 2
-    * means that every 2 seconds one letter is scrolled, etc.
+    * property value is a double interpreted as factor for the playback time. A
+    * value of 1 means that for each second 1 letter is scrolled; 2 means that
+    * every second two letters are scrolled (one every 500 millis), etc. A
+    * change of the playback time is reported every 100 millis; so a factor of
+    * 10 is the maximum.
     */
   val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
 
@@ -67,7 +69,7 @@ object AudioPlayerConfig {
     * Default value for the ''rotationSpeed'' property. Per default, the
     * scrolling speed is one character per playback second.
     */
-  val DefRotationSpeed = 1
+  val DefRotationSpeed = 1.0
 
   /**
     * Default value for the ''skipBackwardsThreshold'' property.
@@ -144,7 +146,7 @@ object AudioPlayerConfig {
     */
   def apply(config: Configuration): AudioPlayerConfig =
     AudioPlayerConfig(config.getInt(PropMaxFieldSize, Integer.MAX_VALUE),
-      config.getInt(PropRotationSpeed, DefRotationSpeed),
+      config.getDouble(PropRotationSpeed, DefRotationSpeed),
       config.getInt(PropSkipBackwardsThreshold, DefSkipBackwardsThreshold),
       mapAutoStartMode(config))
 
@@ -177,5 +179,7 @@ object AudioPlayerConfig {
   * @param skipBackwardsThreshold threshold for skipping backwards
   * @param autoStartMode          the auto start playback mode
   */
-case class AudioPlayerConfig(maxUIFieldSize: Int, rotationSpeed: Int,
-                             skipBackwardsThreshold: Int, autoStartMode: AutoStartMode)
+case class AudioPlayerConfig(maxUIFieldSize: Int,
+                             rotationSpeed: Double,
+                             skipBackwardsThreshold: Int,
+                             autoStartMode: AutoStartMode)

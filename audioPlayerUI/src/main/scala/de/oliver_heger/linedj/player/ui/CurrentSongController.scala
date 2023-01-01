@@ -23,24 +23,6 @@ import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
 object CurrentSongController {
-  /** Common prefix for all configuration keys. */
-  final val ConfigPrefix = "audio.ui."
-
-  /**
-    * Configuration property for the maximum size of fields in the UI. If a
-    * text to be displayed exceeds this value, it is "rotated"; i.e. it is
-    * scrolled through the field, so that the full content can be seen.
-    */
-  final val PropMaxFieldSize: String = ConfigPrefix + "maxFieldSize"
-
-  /**
-    * Configuration property defining the speed for scrolling in UI fields. The
-    * property value is an integer interpreted as divisor for the playback
-    * time. A value of 1 means that for each second 1 letter is scrolled; 2
-    * means that every 2 seconds one letter is scrolled, etc.
-    */
-  final val PropRotationSpeed: String = ConfigPrefix + "rotationSpeed"
-
   /** Constant for an empty/undefined field. */
   private val Empty = ""
 
@@ -205,8 +187,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     val values = fieldValues(playlistUpdateFunctions, data)
     values foreach (e => e._1 setText e._2)
     updateProgress(0)
-    timeUpdateFunctions = createTimeUpdateFunctions(data,
-      config.maxUIFieldSize, config.rotationSpeed, values)
+    timeUpdateFunctions = createTimeUpdateFunctions(data, config.maxUIFieldSize, config.rotationSpeed, values)
   }
 
   /**
@@ -220,12 +201,12 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param texts  the map with current texts
     * @return the map with time update functions
     */
-  private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Int,
+  private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Double,
                                         texts: Map[StaticTextHandler, String]):
   Map[StaticTextHandler, TextTimeFunc] = {
     val rotates = texts.filter(e => e._2.length >= maxLen)
       .foldLeft(Map.empty[StaticTextHandler, TextTimeFunc]) { (m, e) =>
-        m + (e._1 -> TextTimeFunctions.rotateText(e._2, maxLen, scale = 1.0 / speed))
+        m + (e._1 -> TextTimeFunctions.rotateText(e._2, maxLen, scale = speed))
       }
     rotates + (txtTime -> TextTimeFunctions.withSuffix(" / " + data.sDuration)(TextTimeFunctions.formattedTime()))
   }
