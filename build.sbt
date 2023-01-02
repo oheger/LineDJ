@@ -20,14 +20,14 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
-lazy val VersionAeron = "1.39.0"
+lazy val VersionAeron = "1.40.0"
 lazy val VersionAkka = "2.6.20"
 lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
-lazy val VersionJackson = "2.13.4"
-lazy val VersionJacksonCore = "2.13.4.2"
+lazy val VersionJackson = "2.14.0"
+lazy val VersionJacksonCore = "2.14.0"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
@@ -35,7 +35,7 @@ lazy val VersionLog4j = "2.19.0"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionScala = "2.13.10"
-lazy val VersionScalaz = "7.3.6"
+lazy val VersionScalaz = "7.3.7"
 lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
