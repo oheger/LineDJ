@@ -153,6 +153,17 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     esr.checksumMapping(mid1) should be(esr.checksumMapping(mid2))
   }
 
+  it should "generate the same checksum for medium IDs with relative paths" in {
+    val mid = createMediumID(Medium1)
+    val midRelative = mid.copy(mediumDescriptionPath = Some(Paths.get(Medium1, "playlist.settings").toString))
+    val mediaMap2 = Map(midRelative -> createContentList(mid).reverse)
+
+    val esr1 = ScanResultEnhancer enhance createScanResult(createMediaFileMap())
+    val esr2 = ScanResultEnhancer enhance createScanResult(mediaMap2)
+
+    esr1.checksumMapping(mid) should be(esr2.checksumMapping(midRelative))
+  }
+
   it should "use file sizes for checksum generation" in {
     val mid1 = createMediumID(Medium1)
     val mid2 = createMediumIDForPath(testDirectory).copy(mediumDescriptionPath = None)

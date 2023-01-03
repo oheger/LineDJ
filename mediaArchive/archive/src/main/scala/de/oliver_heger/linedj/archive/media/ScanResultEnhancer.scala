@@ -66,12 +66,10 @@ private object ScanResultEnhancer {
                                      checksumMapping: Map[MediumID, MediumChecksum],
                                      mid: MediumID,
                                      files: List[FileData]): Map[MediumID, MediumChecksum] = {
-    val relativeFileUris = mid.mediumDescriptionPath match {
-      case Some(desc) =>
-        val mediumPath = (Paths get desc).getParent
-        generateUris(mediumPath, files)
-      case None => generateUris(result.root, files)
-    }
+    val mediumRoot = mid.mediumDescriptionPath map { path =>
+      result.root.resolve(Paths.get(path).getParent)
+    } getOrElse result.root
+    val relativeFileUris = generateUris(mediumRoot, files)
     val checksum = calculateChecksum(relativeFileUris)
     checksumMapping + (mid -> checksum)
   }
