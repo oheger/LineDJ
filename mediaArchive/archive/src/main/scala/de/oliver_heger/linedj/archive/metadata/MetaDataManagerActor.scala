@@ -147,11 +147,11 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       processorActors = actorMap
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
-      persistenceManager ! esr
       val mediaFiles = esr.scanResult.mediaFiles map { e =>
         e._1 -> e._2.map(f => converter.pathToUri(f.path))
       }
       metaDataUnionActor ! MediaContribution(mediaFiles)
+      persistenceManager ! esr
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
       sendAckIfPossible(esr)
 
