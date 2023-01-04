@@ -154,7 +154,7 @@ case object MetadataNotSupported extends RadioMetadata
 
 object CurrentMetadata {
   /** Regular expression to extract the StreamTitle field from metadata. */
-  private val RegStreamTitle = "StreamTitle='([^']*)'".r
+  private val RegStreamTitle = "StreamTitle='(.*?)';".r
 
   /**
     * Tries to extract the ''StreamTitle'' field from the given metadata

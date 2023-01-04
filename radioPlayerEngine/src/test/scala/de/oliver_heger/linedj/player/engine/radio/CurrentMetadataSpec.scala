@@ -37,4 +37,12 @@ class CurrentMetadataSpec extends AnyFlatSpec with Matchers {
 
     metadata.title should be(title)
   }
+
+  it should "handle a single quote in the StreamTitle field" in {
+    val title = "I'd do anything for love"
+    val data = s"foo='bar';StreamTitle='$title';baz='some more data';"
+    val metadata = CurrentMetadata(data)
+
+    metadata.title should be(title)
+  }
 }
