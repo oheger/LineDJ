@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -65,8 +66,9 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   it should "support exclusions for radio sources" in {
     val srcConfig = loadConfig().sourceConfig
 
-    srcConfig.exclusions.size should be(srcConfig.sources.size)
-    srcConfig.exclusions.values.exists(_.nonEmpty) shouldBe true
+    srcConfig.sources.map(_._2).exists { source =>
+      srcConfig.exclusions(source).nonEmpty
+    }
   }
 
   it should "support an error configuration" in {
@@ -107,7 +109,7 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
     val config = RadioPlayerConfig(new HierarchicalConfiguration)
 
     config.sourceConfig.sources shouldBe empty
-    config.sourceConfig.exclusions shouldBe empty
+    config.sourceConfig.exclusions(RadioSource("someRadioSource")) shouldBe empty
     config.errorConfig.retryInterval should be(RadioPlayerConfig.DefaultRetryInterval.millis)
     config.errorConfig.retryIncrementFactor should be(RadioPlayerConfig.DefaultRetryIncrement)
     config.errorConfig.maxRetries should be(RadioPlayerConfig.DefaultMaxRetries)

@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.radio.ErrorHandlingStrategy.{PlayerAction, State}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
@@ -343,7 +343,10 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val srcConfig = createSourceConfiguration(2)
     val exclusions = Map(radioSource(1) -> List(IntervalQueries.hours(0, 8)),
       radioSource(2) -> List(IntervalQueries.hours(9, 12)))
-    when(srcConfig.exclusions).thenReturn(exclusions)
+    when(srcConfig.exclusions(any())).thenAnswer((invocation: InvocationOnMock) => {
+      val source = invocation.getArgument[RadioSource](0)
+      exclusions(source)
+    })
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(srcConfig)
@@ -360,7 +363,6 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     srcConfig.sources foreach { e =>
       exclusionQueries(e._2) should be(exclusions(e._2))
     }
-    exclusionQueries(RadioSource("unknownSource")) shouldBe empty
   }
 
   it should "update the status text when the current source is played" in {

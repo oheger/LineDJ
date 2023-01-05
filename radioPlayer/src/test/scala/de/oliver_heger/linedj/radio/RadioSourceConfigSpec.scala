@@ -204,8 +204,9 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     val config = createSourceConfiguration(2)
 
     val sourceConfig = RadioSourceConfig(config)
-    sourceConfig.exclusions should have size 2
-    sourceConfig.exclusions.values.forall(_.isEmpty) shouldBe true
+    sourceConfig.sources foreach { src =>
+      sourceConfig.exclusions(src._2) shouldBe empty
+    }
   }
 
   it should "process a minutes exclusion" in {

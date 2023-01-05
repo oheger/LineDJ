@@ -368,9 +368,8 @@ class RadioController(val userConfig: Configuration,
           sourcesUpdating = true
           try {
             val sources = playerConfig.sourceConfig.sources.map(_._2).toSet
-            val queryFunc: RadioSource.ExclusionQueryFunc =
-              playerConfig.sourceConfig.exclusions.getOrElse(_, Seq.empty)
-            player.initSourceExclusions(sources, queryFunc, playerConfig.sourceConfig.ranking)
+            player.initSourceExclusions(sources, playerConfig.sourceConfig.exclusions,
+              playerConfig.sourceConfig.ranking)
             radioSources = updateSourceCombo(playerConfig.sourceConfig)
             enableAction(ActionStartPlayback, enabled = false)
             enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)

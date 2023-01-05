@@ -81,7 +81,7 @@ object RadioSourceConfig {
   def apply(config: Configuration): RadioSourceConfig = {
     val srcData = readSourcesFromConfig(config)
     val sources = srcData map (t => (t._1, t._2))
-    val exclusions = srcData map(t => (t._2, t._4))
+    val exclusions = srcData map (t => (t._2, t._4))
     val ranking = srcData.map(t => (t._2, t._3)).toMap
     RadioSourceConfigImpl(sources, exclusions.toMap, ranking)
   }
@@ -132,8 +132,8 @@ object RadioSourceConfig {
     */
   private def compareSources(t1: (String, RadioSource, Int, Seq[_]),
                              t2: (String, RadioSource, Int, Seq[_])): Boolean =
-  if (t1._3 != t2._3) t1._3 > t2._3
-  else t1._1 < t2._1
+    if (t1._3 != t2._3) t1._3 > t2._3
+    else t1._1 < t2._1
 
   /**
     * Tries to parse an interval query from an exclusion element in the
@@ -206,19 +206,19 @@ object RadioSourceConfig {
     * Internal implementation of the radio source config trait as a plain case
     * class.
     *
-    * @param sources    the list with sources
-    * @param exclusions the map with exclusions
-    * @param rankingMap a map with source rankings
+    * @param sources       the list with sources
+    * @param exclusionsMap the map with exclusions
+    * @param rankingMap    a map with source rankings
     */
   private case class RadioSourceConfigImpl(override val sources: Seq[(String, RadioSource)],
-                                           override val exclusions: Map[RadioSource,
-                                             Seq[IntervalQuery]],
+                                           exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
                                            rankingMap: Map[RadioSource, Int])
     extends RadioSourceConfig {
     override def ranking(source: RadioSource): Int =
       rankingMap.getOrElse(source, DefaultRanking)
-  }
 
+    override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
+  }
 }
 
 /**
@@ -271,14 +271,15 @@ trait RadioSourceConfig {
   def sources: Seq[(String, RadioSource)]
 
   /**
-    * Returns a map with information about exclusions for radio sources. This
-    * map defines time intervals in which specific sources should not be
-    * played. If a radio source is not contained in the map, this means that
-    * there are no exclusions defined for it.
+    * Returns exclusions for specific radio sources. This function returns a
+    * collection of interval queries defining time intervals in which the given
+    * source should not be played. An empty sequence means that there are no
+    * exclusions defined for this source.
     *
-    * @return a map with exclusions for radio sources
+    * @param source the source in question
+    * @return a sequence with exclusions for a this radio source
     */
-  def exclusions: Map[RadioSource, Seq[IntervalQuery]]
+  def exclusions(source: RadioSource): Seq[IntervalQuery]
 
   /**
     * Returns a ranking for the specified radio source. The ranking is an
