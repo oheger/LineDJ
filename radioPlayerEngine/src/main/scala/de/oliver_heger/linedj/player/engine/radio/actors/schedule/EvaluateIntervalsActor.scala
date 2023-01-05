@@ -32,9 +32,9 @@ object EvaluateIntervalsActor {
     * A message to be processed by [[EvaluateIntervalsActor]] telling it to
     * evaluate the queries for a single source.
     *
-    * @param source  the radio source
-    * @param refDate the reference date for query evaluation
-    * @param queries a sequence with the interval queries of this source
+    * @param source     the radio source
+    * @param refDate    the reference date for query evaluation
+    * @param queries    a sequence with the interval queries of this source
     * @param stateCount an internal counter; this is used to detect outdated
     *                   messages that are received after state changes
     * @param exclusions a set with radio sources to be excluded
@@ -62,11 +62,15 @@ object EvaluateIntervalsActor {
     * reference date (which can be obtained from the passed in response for
     * the [[EvaluateSource]] message for the current source).
     *
-    * @param sources               a map with all sources and their interval queries
-    * @param currentSourceResponse results of the processing of the current source
+    * @param sources               a set with all sources
+    * @param exclusionQueries      the function to obtain interval queries for
+    *                              sources
+    * @param currentSourceResponse results of the processing of the current
+    *                              source
     */
-  private[schedule] case class EvaluateReplacementSources(sources: Map[RadioSource,
-    Seq[IntervalQuery]], currentSourceResponse: EvaluateSourceResponse)
+  private[schedule] case class EvaluateReplacementSources(sources: Set[RadioSource],
+                                                          exclusionQueries: RadioSource.ExclusionQueryFunc,
+                                                          currentSourceResponse: EvaluateSourceResponse)
 
   /**
     * A response message sent by [[EvaluateIntervalsActor]] in reaction on an
@@ -108,11 +112,11 @@ class EvaluateIntervalsActor extends Actor {
 
     case req: EvaluateReplacementSources =>
       val sr = req.currentSourceResponse.request
-      Future.sequence(req.sources.toList filterNot { t =>
-        t._1 == sr.source || sr.exclusions.contains(t._1)
-      } map { t =>
-        evaluateQueries(t._2, sr.refDate)
-          .map(r => (t._1, r))
+      Future.sequence(req.sources.toList filterNot { src =>
+        src == sr.source || sr.exclusions.contains(src)
+      } map { src =>
+        evaluateQueries(req.exclusionQueries(src), sr.refDate)
+          .map(r => (src, r))
       }) map { seq =>
         EvaluateReplacementSourcesResponse(seq, req)
       } pipeTo sender()

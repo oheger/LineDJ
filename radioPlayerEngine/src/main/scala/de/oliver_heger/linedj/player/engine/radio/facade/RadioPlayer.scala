@@ -27,7 +27,6 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
@@ -123,17 +122,20 @@ class RadioPlayer private(val config: PlayerConfig,
   }
 
   /**
-    * Initializes information about exclusion intervals for radio sources. If
-    * this information is set, the radio player keeps track when a source
-    * should not be played. It can then automatically switch to a replacement
-    * source until the exclusion interval for the current source is over.
+    * Initializes information about radio sources and their exclusion
+    * intervals. If this information is set, the radio player keeps track when
+    * a source should not be played. It can then automatically switch to a
+    * replacement source until the exclusion interval for the current source is
+    * over.
     *
-    * @param exclusions a map with information about exclusion intervals
-    * @param rankingF   the ranking function for the sources
+    * @param sources     the set with all available radio sources
+    * @param exclusionsF the function to obtain exclusions for a source
+    * @param rankingF    the ranking function for the sources
     */
-  def initSourceExclusions(exclusions: Map[RadioSource, Seq[IntervalQuery]],
+  def initSourceExclusions(sources: Set[RadioSource],
+                           exclusionsF: RadioSource.ExclusionQueryFunc,
                            rankingF: RadioSource.Ranking): Unit = {
-    schedulerActor ! RadioSchedulerActor.RadioSourceData(exclusions, rankingF)
+    schedulerActor ! RadioSchedulerActor.RadioSourceData(sources, exclusionsF, rankingF)
   }
 
   /**

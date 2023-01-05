@@ -100,13 +100,12 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "support exclusions for radio sources" in {
     val helper = new RadioPlayerTestHelper
-    val exclusions = Map(RadioSource("1") -> List(IntervalQueries.hours(1, 2)),
-      RadioSource("2") -> List(IntervalQueries.hours(4, 5)))
+    val sources = Set(RadioSource("1"), RadioSource("2"))
+    val exclusions: RadioSource.ExclusionQueryFunc = _ => List(IntervalQueries.hours(1, 2))
     val ranking: RadioSource.Ranking = src => src.uri.length
 
-    helper.player.initSourceExclusions(exclusions, ranking)
-    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(exclusions,
-      ranking))
+    helper.player.initSourceExclusions(sources, exclusions, ranking)
+    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(sources, exclusions, ranking))
   }
 
   it should "pass the event actor to the super class" in {
@@ -345,6 +344,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /**
       * Tests whether a correct radio event converter actor is constructed that
       * forwards converted events to the publisher actor.
+      *
       * @param behavior the behavior of the converter actor
       */
     private def checkConverterBehavior(behavior: Behavior[RadioEventConverterActor.RadioEventConverterCommand]):

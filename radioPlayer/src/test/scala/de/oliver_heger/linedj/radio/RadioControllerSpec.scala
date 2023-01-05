@@ -189,7 +189,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
-    verify(helper.player).initSourceExclusions(any(), any())
+    verify(helper.player).initSourceExclusions(any(), any(), any())
     helper.verifySourcesAddedToCombo()
       .verifyNoMoreInteractionWithCombo()
       .verifyNoMorePlayerInteraction()
@@ -347,11 +347,20 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(srcConfig)
+    val captExclusions = ArgumentCaptor.forClass(classOf[RadioSource.ExclusionQueryFunc])
     val captRanking = ArgumentCaptor.forClass(classOf[RadioSource.Ranking])
-    verify(helper.player).initSourceExclusions(argEq(exclusions), captRanking.capture())
+    verify(helper.player)
+      .initSourceExclusions(argEq(exclusions.keySet), captExclusions.capture(), captRanking.capture())
+
     val ranking = captRanking.getValue
     ranking(radioSource(2)) should be(2)
     ranking(radioSource(8)) should be(8)
+
+    val exclusionQueries = captExclusions.getValue
+    srcConfig.sources foreach { e =>
+      exclusionQueries(e._2) should be(exclusions(e._2))
+    }
+    exclusionQueries(RadioSource("unknownSource")) shouldBe empty
   }
 
   it should "update the status text when the current source is played" in {

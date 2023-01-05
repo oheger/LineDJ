@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
+import de.oliver_heger.linedj.player.engine.radio.RadioSource.Ranking
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
@@ -66,7 +67,7 @@ object RadioSchedulerActorSpec {
   private def replacementResponse(resp: EvaluateIntervalsActor.EvaluateSourceResponse):
   EvaluateIntervalsActor.EvaluateReplacementSourcesResponse =
     EvaluateIntervalsActor.EvaluateReplacementSourcesResponse(ReplacementResults,
-      EvaluateIntervalsActor.EvaluateReplacementSources(RadioSourceQueries, resp))
+      EvaluateIntervalsActor.EvaluateReplacementSources(RadioSourceQueries.keySet, sourceQueries, resp))
 
   /**
     * Creates the map with radio sources and their associated queries.
@@ -77,6 +78,27 @@ object RadioSchedulerActorSpec {
     Map(radioSource(1) -> List(hours(1, 2)),
       radioSource(2) -> List(hours(2, 3)),
       radioSource(3) -> List(hours(4, 5)))
+
+  /**
+    * The function to obtain interval queries for specific sources.
+    *
+    * @param source the source in question
+    * @return the interval queries for this source
+    */
+  private def sourceQueries(source: RadioSource): Seq[IntervalQuery] =
+    RadioSourceQueries.getOrElse(source, Seq.empty)
+
+  /**
+    * Returns a [[RadioSchedulerActor.RadioSourceData]] object based on the
+    * given parameters.
+    *
+    * @param sourceQueriesMap the map with sources and exclusion queries
+    * @param ranking          the ranking function
+    * @return the object with information about sources
+    */
+  private def createSourceData(sourceQueriesMap: Map[RadioSource, Seq[IntervalQuery]],
+                               ranking: Ranking = RadioSource.NoRanking): RadioSchedulerActor.RadioSourceData =
+    RadioSchedulerActor.RadioSourceData(sourceQueriesMap.keySet, sourceQueries, ranking)
 
   /**
     * Creates a list representing results of a replacement source evaluation.
@@ -176,7 +198,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val request1 = helper.expectSourceEvaluation()
 
     val updatedQueries = RadioSourceQueries + (radioSource(4) -> List(hours(21, 22)))
-    helper receive RadioSchedulerActor.RadioSourceData(updatedQueries)
+    helper receive createSourceData(updatedQueries)
     val request2 = helper.expectSourceEvaluation()
     request1.stateCount should not be request2.stateCount
   }
@@ -473,7 +495,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     def sendSourceData(r: RadioSource.Ranking = RadioSource.NoRanking):
     RadioSchedulerActorTestHelper = {
-      receive(RadioSchedulerActor.RadioSourceData(RadioSourceQueries, r))
+      receive(createSourceData(RadioSourceQueries, r))
       this
     }
 
@@ -557,7 +579,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     def expectReplacementEvaluation(expSrcResp: EvaluateIntervalsActor.EvaluateSourceResponse):
     EvaluateIntervalsActor.EvaluateReplacementSources = {
       val msg = evaluateActorProbe.expectMsgType[EvaluateReplacementSources]
-      msg.sources should be(RadioSourceQueries)
+      msg.sources should be(RadioSourceQueries.keySet)
       msg.currentSourceResponse should be(expSrcResp)
       msg
     }

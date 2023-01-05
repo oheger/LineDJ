@@ -47,13 +47,14 @@ object EvaluateIntervalsActorSpec {
     * @param exclusions a set with sources to be excluded
     * @return the request message
     */
-  private def createMultiSourcesRequest(date: LocalDateTime, srcMap: Map[RadioSource,
-    List[IntervalQuery]], exclusions: Set[RadioSource] = Set.empty):
-  EvaluateReplacementSources =
-  EvaluateIntervalsActor.EvaluateReplacementSources(srcMap,
-    EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
-      EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty,
-        exclusions = exclusions)))
+  private def createMultiSourcesRequest(date: LocalDateTime, srcMap: Map[RadioSource, List[IntervalQuery]],
+                                        exclusions: Set[RadioSource] = Set.empty): EvaluateReplacementSources = {
+    val queryFunc: RadioSource.ExclusionQueryFunc = source => srcMap.getOrElse(source, Seq.empty)
+    EvaluateIntervalsActor.EvaluateReplacementSources(srcMap.keySet, queryFunc,
+      EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
+        EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty,
+          exclusions = exclusions)))
+  }
 }
 
 /**

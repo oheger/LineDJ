@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
-import akka.actor.typed
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, typed}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQuery}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSourcesResponse
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 
 import java.time.{Duration, LocalDateTime}
@@ -34,15 +33,17 @@ object RadioSchedulerActor {
   private val MaximumFutureDelay = Duration ofDays 1
 
   /**
-    * A message processed by [[RadioSchedulerActor]] that defines the exclusion
-    * intervals for radio sources. The contained map associates the radio
-    * sources with a a sequence of queries defining when this source should not
-    * be played.
+    * A message processed by [[RadioSchedulerActor]] that defines the available
+    * radio sources. The message contains the sources themselves and additional
+    * information such as exclusion intervals and the ranking for sources.
     *
-    * @param sourceQueries a map with information about radio sources
-    * @param rankingFunc   an optional ranking function for sources
+    * @param sources          a set with all available radio sources
+    * @param sourceExclusions a function to get the exclusion queries for a
+    *                         source
+    * @param rankingFunc      an optional ranking function for sources
     */
-  case class RadioSourceData(sourceQueries: Map[RadioSource, Seq[IntervalQuery]],
+  case class RadioSourceData(sources: Set[RadioSource],
+                             sourceExclusions: RadioSource.ExclusionQueryFunc,
                              rankingFunc: RadioSource.Ranking = RadioSource.NoRanking)
 
   /**
@@ -134,11 +135,14 @@ class RadioSchedulerActor(eventActor: typed.ActorRef[RadioEvent],
   /** The actor for evaluating interval queries. */
   private var evaluateIntervalsActor: ActorRef = _
 
+  /** Stores the set with available radio sources. */
+  private var radioSources = Set.empty[RadioSource]
+
   /**
     * Stores information about radio sources and the interval queries defining
     * their exclusion intervals.
     */
-  private var radioSourceQueries = Map.empty[RadioSource, Seq[IntervalQuery]]
+  private var radioSourceQueries = RadioSource.NoExclusions
 
   /**
     * Stores the current ranking function for radio sources. This is needed by
@@ -175,10 +179,11 @@ class RadioSchedulerActor(eventActor: typed.ActorRef[RadioEvent],
   }
 
   override def receive: Receive = {
-    case RadioSourceData(data, r) =>
+    case RadioSourceData(sources, exclusions, ranking) =>
       stateChanged()
-      radioSourceQueries = data
-      rankingFunc = r
+      radioSources = sources
+      radioSourceQueries = exclusions
+      rankingFunc = ranking
       currentSource foreach (src => triggerSourceEval(src))
 
     case src: RadioSource =>
@@ -205,7 +210,8 @@ class RadioSchedulerActor(eventActor: typed.ActorRef[RadioEvent],
 
         case Inside(_) =>
           log.info("Current source should not be played. Searching a replacement.")
-          evaluateIntervalsActor ! EvaluateIntervalsActor.EvaluateReplacementSources(radioSourceQueries, resp)
+          evaluateIntervalsActor ! EvaluateIntervalsActor.EvaluateReplacementSources(radioSources,
+            radioSourceQueries, resp)
       }
 
     case resp: EvaluateIntervalsActor.EvaluateReplacementSourcesResponse if validState(resp
@@ -263,7 +269,7 @@ class RadioSchedulerActor(eventActor: typed.ActorRef[RadioEvent],
     */
   private def triggerSourceEval(src: RadioSource,
                                 exclusions: Set[RadioSource] = Set.empty): Unit = {
-    val queries = radioSourceQueries.getOrElse(src, List.empty)
+    val queries = radioSourceQueries(src)
     if (queries.nonEmpty) {
       evaluateIntervalsActor ! EvaluateIntervalsActor.EvaluateSource(src, LocalDateTime.now(),
         queries, stateCounter, exclusions)
