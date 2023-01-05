@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.radio
 
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+
 object RadioSource {
   /**
     * A ranking function for radio sources.
@@ -32,11 +34,24 @@ object RadioSource {
   type Ranking = RadioSource => Int
 
   /**
+    * Alias for a function that returns a sequence of [[IntervalQuery]]s for a
+    * given [[RadioSource]]. This function can be used to check whether a
+    * specific source can be played at a given point in time.
+    */
+  type ExclusionQueryFunc = RadioSource => Seq[IntervalQuery]
+
+  /**
     * A dummy ranking function that assigns the same numeric value - zero - to
     * all radio sources. This is useful if all sources should be treated the
     * same way and there is no prioritization.
     */
-  val NoRanking: Ranking = _ => 0
+  final val NoRanking: Ranking = _ => 0
+
+  /**
+    * A dummy function for source exclusions that always returns an empty
+    * sequence with interval queries.
+    */
+  final val NoExclusions: ExclusionQueryFunc = _ => Seq.empty
 }
 
 /**

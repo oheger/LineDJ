@@ -30,4 +30,12 @@ class RadioSourceSpec extends AnyFlatSpec with Matchers {
     RadioSource.NoRanking(source1) should be(0)
     RadioSource.NoRanking(source2) should be(0)
   }
+
+  it should "provide a dummy exclusion function" in {
+    val source1 = RadioSource("source1")
+    val source2 = RadioSource("source2")
+
+    RadioSource.NoExclusions(source1) shouldBe empty
+    RadioSource.NoExclusions(source2) shouldBe empty
+  }
 }
