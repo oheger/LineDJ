@@ -65,7 +65,7 @@ object RadioSourceConfigSpec {
     * @return the tuple with the source name, the source, and the ranking
     */
   private def sourceWithRanking(idx: Int, ranking: Int): (String, RadioSource, Int) =
-  (sourceName(idx), radioSource(idx), ranking)
+    (sourceName(idx), radioSource(idx), ranking)
 
   /**
     * Creates a configuration that contains the given number of radio sources.
@@ -103,6 +103,23 @@ object RadioSourceConfigSpec {
   }
 
   /**
+    * Generates the key for a specific source in the configuration.
+    *
+    * @param srcIdx the index of the source
+    * @return the key for this source
+    */
+  private def sourceKey(srcIdx: Int): String = s"radio.sources.source($srcIdx)."
+
+  /**
+    * Generates the key part for an exclusion with an optional index.
+    *
+    * @param exclIdx the index
+    * @return the key part for an exclusion
+    */
+  private def exclusionKey(exclIdx: Option[Int]): String =
+    s"exclusions.exclusion${exclIdx.map(i => s"($i)").getOrElse("")}"
+
+  /**
     * Generates the key for an exclusion for a radio source.
     *
     * @param srcIdx  the index of the source
@@ -110,9 +127,51 @@ object RadioSourceConfigSpec {
     * @param exclIdx an optional index for the index of the exclusion element
     * @return the full key
     */
-  private def exclusionKey(srcIdx: Int, suffix: String, exclIdx: Option[Int] = None): String =
-    s"radio.sources.source($srcIdx).exclusions.exclusion${exclIdx.map(i => s"($i)").getOrElse("")
-    }.$suffix"
+  private def inlineExclusionKey(srcIdx: Int, suffix: String, exclIdx: Option[Int] = None): String =
+    s"${sourceKey(srcIdx)}${exclusionKey(exclIdx)}.$suffix"
+
+  /**
+    * Returns an initialized builder for a source configuration that already
+    * contains the given number of sources.
+    *
+    * @param srcCount the number of sources to include
+    * @return the builder for the configuration
+    */
+  private def buildSourceConfiguration(srcCount: Int): SourceConfigBuilder =
+    new SourceConfigBuilder(createSourceConfiguration(srcCount))
+
+  /**
+    * A helper class for constructing a configuration instance from which a
+    * [[RadioSourceConfig]] can be read.
+    *
+    * @param config the underlying hierarchical configuration
+    */
+  private class SourceConfigBuilder(val config: HierarchicalConfiguration) {
+    /**
+      * Adds a property for an inline exclusion to a source.
+      *
+      * @param srcIdx  the index of the source
+      * @param suffix  the suffix of the exclusion key
+      * @param value   the value of the property
+      * @param exclIdx an optional index of the exclusion element
+      * @return a reference to this builder
+      */
+    def withSourceExclusion(srcIdx: Int, suffix: String, value: Any, exclIdx: Option[Int] = None):
+    SourceConfigBuilder =
+      addProperty(inlineExclusionKey(srcIdx, suffix, exclIdx), value)
+
+    /**
+      * Helper function to add a property to the managed configuration.
+      *
+      * @param key   the property key
+      * @param value the property value
+      * @return a reference to this builder
+      */
+    private def addProperty(key: String, value: Any): SourceConfigBuilder = {
+      config.addProperty(key, value)
+      this
+    }
+  }
 }
 
 /**
@@ -211,9 +270,10 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "process a minutes exclusion" in {
-    val config = createSourceConfiguration(4)
-    config.addProperty(exclusionKey(2, "minutes[@from]"), "22")
-    config.addProperty(exclusionKey(2, "minutes[@to]"), 25)
+    val config = buildSourceConfiguration(4)
+      .withSourceExclusion(2, "minutes[@from]", "22")
+      .withSourceExclusion(2, "minutes[@to]", 25)
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     val exclusions = sourceConfig.exclusions(radioSource(3))
@@ -225,55 +285,61 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "drop an undefined exclusion" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "unsupported"), "1")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "unsupported", "1")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "drop a minute exclusion with an invalid from" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "61")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), 52)
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "minutes[@from]", "61")
+      .withSourceExclusion(0, "minutes[@to]", 52)
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "drop a minute exclusion with an invalid to" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "55")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), "-1")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "minutes[@from]", "55")
+      .withSourceExclusion(0, "minutes[@to]", "-1")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "ignore a minute exclusion with from >= to" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "58")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), "58")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "minutes[@from]", "58")
+      .withSourceExclusion(0, "minutes[@to]", "58")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "ignore a minute exclusion with a non-string parameter" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "noNumber")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), "58")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "minutes[@from]", "noNumber")
+      .withSourceExclusion(0, "minutes[@to]", "58")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "combine multiple interval queries" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "14")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), "20")
-    config.addProperty(exclusionKey(0, "hours[@from]"), "21")
-    config.addProperty(exclusionKey(0, "hours[@to]"), "23")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "minutes[@from]", "14")
+      .withSourceExclusion(0, "minutes[@to]", "20")
+      .withSourceExclusion(0, "hours[@from]", "21")
+      .withSourceExclusion(0, "hours[@to]", "23")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     val exclusions = sourceConfig.exclusions(radioSource(1))
@@ -285,17 +351,19 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "ignore an hours exclusion with invalid values" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "hours[@from]"), "21")
-    config.addProperty(exclusionKey(0, "hours[@to]"), "25")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "hours[@from]", "21")
+      .withSourceExclusion(0, "hours[@to]", "25")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "parse a days-of-week query" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "days.day"), Array("MONDAY", "WEDNESDAY", "SATURDAY"))
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "days.day", Array("MONDAY", "WEDNESDAY", "SATURDAY"))
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     val exclusions = sourceConfig.exclusions(radioSource(1))
@@ -313,19 +381,21 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "ignore a days-of-week query with an invalid day" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "days.day"), Array("TUESDAY", "FRIDAY", "unknown day"))
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "days.day", Array("TUESDAY", "FRIDAY", "unknown day"))
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
   }
 
   it should "create cyclic interval queries" in {
-    val config = createSourceConfiguration(1)
-    config.addProperty(exclusionKey(0, "days.day"),
-      Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
-    config.addProperty(exclusionKey(0, "hours[@from]"), "21")
-    config.addProperty(exclusionKey(0, "hours[@to]"), "23")
+    val config = buildSourceConfiguration(1)
+      .withSourceExclusion(0, "days.day",
+        Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
+      .withSourceExclusion(0, "hours[@from]", "21")
+      .withSourceExclusion(0, "hours[@to]", "23")
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     val exclusions = sourceConfig.exclusions(radioSource(1))
@@ -335,16 +405,17 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "support multiple exclusion per radio source" in {
-    val config = createSourceConfiguration(2)
-    config.addProperty(exclusionKey(0, "days.day"),
-      Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
-    config.addProperty(exclusionKey(0, "hours[@from]"), "6")
-    config.addProperty(exclusionKey(0, "hours[@to]"), "20")
-    config.addProperty(exclusionKey(0, "minutes[@from]"), "27")
-    config.addProperty(exclusionKey(0, "minutes[@to]"), "30")
-    config.addProperty(exclusionKey(0, "days.day", Some(-1)), "SATURDAY")
-    config.addProperty(exclusionKey(0, "hours[@from]", Some(1)), "9")
-    config.addProperty(exclusionKey(0, "hours[@to]", Some(1)), "12")
+    val config = buildSourceConfiguration(2)
+      .withSourceExclusion(0, "days.day",
+        Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
+      .withSourceExclusion(0, "hours[@from]", "6")
+      .withSourceExclusion(0, "hours[@to]", "20")
+      .withSourceExclusion(0, "minutes[@from]", "27")
+      .withSourceExclusion(0, "minutes[@to]", "30")
+      .withSourceExclusion(0, "days.day", "SATURDAY", Some(-1))
+      .withSourceExclusion(0, "hours[@from]", "9", Some(1))
+      .withSourceExclusion(0, "hours[@to]", "12", Some(1))
+      .config
 
     val sourceConfig = RadioSourceConfig(config)
     val exclusions = sourceConfig.exclusions(radioSource(1))
