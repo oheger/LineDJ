@@ -27,7 +27,7 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.Configuration
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
 
 import java.util.concurrent.TimeUnit
@@ -129,7 +129,8 @@ class RadioController(val userConfig: Configuration,
            errorIndicator: WidgetHandler,
            errorHandlingStrategy: ErrorHandlingStrategy) =
     this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
-      errorIndicator, errorHandlingStrategy, RadioPlayerConfig(applicationContext.getConfiguration))
+      errorIndicator, errorHandlingStrategy,
+      RadioPlayerConfig(applicationContext.getConfiguration.asInstanceOf[HierarchicalConfiguration]))
 
   import RadioController._
 

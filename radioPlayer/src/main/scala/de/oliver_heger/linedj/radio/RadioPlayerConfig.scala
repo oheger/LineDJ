@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import org.apache.commons.configuration.Configuration
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -185,7 +185,7 @@ object RadioPlayerConfig {
     * @param config the configuration
     * @return the [[RadioPlayerConfig]] instance
     */
-  def apply(config: Configuration): RadioPlayerConfig = {
+  def apply(config: HierarchicalConfiguration): RadioPlayerConfig = {
     val sourceConfig = RadioSourceConfig(config)
     val errorConfig = readErrorConfig(config)
 

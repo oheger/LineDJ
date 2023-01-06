@@ -26,7 +26,7 @@ import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, XMLConfiguration}
+import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
 import org.mockito.ArgumentMatchers.{eq => argEq, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -104,7 +104,7 @@ object RadioControllerSpec {
     *
     * @return the configuration
     */
-  private def createRecoveryConfiguration(): Configuration = {
+  private def createRecoveryConfiguration(): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
     config.addProperty("radio.error.recovery.time", RecoveryTime.toSeconds)
     config.addProperty("radio.error.recovery.minFailedSources", MinFailedSources)
@@ -784,8 +784,8 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @return the test instance
       */
     def createController(srcConfig: RadioSourceConfig,
-                         userConfig: Configuration = new HierarchicalConfiguration,
-                         mainConfig: Configuration = new HierarchicalConfiguration()): RadioController = {
+                         userConfig: HierarchicalConfiguration = new HierarchicalConfiguration,
+                         mainConfig: HierarchicalConfiguration = new HierarchicalConfiguration()): RadioController = {
       val playerConfig = RadioPlayerConfig(mainConfig).copy(sourceConfig = srcConfig)
       new RadioController(userConfig, applicationContext, actionStore, comboHandler,
         statusHandler, playbackTimeHandler, metadataTextHandler, errorIndicator, errorHandlingStrategy, playerConfig)
@@ -806,8 +806,8 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @return the test instance
       */
     def createInitializedController(srcConfig: RadioSourceConfig,
-                                    userConfig: Configuration = new HierarchicalConfiguration,
-                                    mainConfig: Configuration = new HierarchicalConfiguration,
+                                    userConfig: HierarchicalConfiguration = new HierarchicalConfiguration,
+                                    mainConfig: HierarchicalConfiguration = new HierarchicalConfiguration,
                                     resetErrorIndicator: Boolean = true,
                                     playbackSrcIdx: Int = -1): RadioController = {
       val ctrl = createController(srcConfig, userConfig, mainConfig)

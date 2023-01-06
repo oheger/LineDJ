@@ -78,7 +78,7 @@ object RadioSourceConfig {
     * @param config the ''Configuration''
     * @return the new ''RadioSourceConfig''
     */
-  def apply(config: Configuration): RadioSourceConfig = {
+  def apply(config: HierarchicalConfiguration): RadioSourceConfig = {
     val srcData = readSourcesFromConfig(config)
     val sources = srcData map (t => (t._1, t._2))
     val exclusions = srcData map (t => (t._2, t._4))
@@ -89,12 +89,13 @@ object RadioSourceConfig {
   /**
     * Reads the defined radio sources from the configuration.
     *
+    * @param config the configuration to be processed
     * @return a sequence with the extracted radio sources: the name, the source
     *         itself, the ranking, and the associated interval queries
     */
-  private def readSourcesFromConfig(config: Configuration): Seq[(String, RadioSource, Int,
-    Seq[IntervalQuery])] = {
-    val srcConfigs = config.asInstanceOf[HierarchicalConfiguration].configurationsAt(KeySources)
+  private def readSourcesFromConfig(config: HierarchicalConfiguration):
+  Seq[(String, RadioSource, Int, Seq[IntervalQuery])] = {
+    val srcConfigs = config.configurationsAt(KeySources)
     import scala.jdk.CollectionConverters._
     val sources = srcConfigs.asScala filter { c =>
       c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)

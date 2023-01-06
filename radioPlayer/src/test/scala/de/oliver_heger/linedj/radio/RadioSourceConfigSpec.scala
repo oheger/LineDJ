@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.radio
 
-import java.time.{LocalDateTime, Month}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.time.{LocalDateTime, Month}
 
 object RadioSourceConfigSpec {
   /** Prefix for a radio source name. */
@@ -74,7 +75,7 @@ object RadioSourceConfigSpec {
     * @param count the number of radio sources
     * @return the configuration defining the number of radio sources
     */
-  private def createSourceConfiguration(count: Int): Configuration = {
+  private def createSourceConfiguration(count: Int): HierarchicalConfiguration = {
     val sources = (1 to count) map (i => (sourceName(i), radioSource(i), -1))
     createSourceConfiguration(sources)
   }
@@ -88,7 +89,7 @@ object RadioSourceConfigSpec {
     * @param sources a list with the sources to be contained (with ranking)
     * @return the configuration with these radio sources
     */
-  private def createSourceConfiguration(sources: Seq[(String, RadioSource, Int)]): Configuration = {
+  private def createSourceConfiguration(sources: Seq[(String, RadioSource, Int)]): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
     sources foreach { t =>
       config.addProperty("radio.sources.source(-1).name", t._1)
