@@ -23,6 +23,8 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
 
+import scala.jdk.CollectionConverters._
+
 /**
   * Companion object for ''RadioSourceConfig''.
   *
@@ -33,10 +35,13 @@ object RadioSourceConfig {
     * Constant for a default value ranking. This ranking is assigned to a
     * radio source if no explicit value is specified in the configuration.
     */
-  val DefaultRanking = 0
+  final val DefaultRanking = 0
+
+  /** The key for the top-level radio section in the configuration. */
+  private val KeyRadio = "radio"
 
   /** Configuration key for the radio sources. */
-  private val KeySources = "radio.sources.source"
+  private val KeySources = KeyRadio + ".sources.source"
 
   /** Configuration key for the name of a radio source. */
   private val KeySourceName = "name"
@@ -52,6 +57,12 @@ object RadioSourceConfig {
 
   /** Configuration key for the exclusions of a radio source. */
   private val KeyExclusions = "exclusions.exclusion"
+
+  /** Configuration key for the attribute defining an exclusion name. */
+  private val KeyAttrName = "[@name]"
+
+  /** The key for the exclusion references of a source. */
+  private val KeyExclusionRef = "exclusions.exclusion-ref" + KeyAttrName
 
   /** The key for the from attribute for interval queries. */
   private val KeyAttrFrom = "[@from]"
@@ -95,32 +106,66 @@ object RadioSourceConfig {
     */
   private def readSourcesFromConfig(config: HierarchicalConfiguration):
   Seq[(String, RadioSource, Int, Seq[IntervalQuery])] = {
+    val namedExclusions = if (config.getMaxIndex(KeyRadio) < 0) Map.empty[String, IntervalQuery]
+    else
+      readExclusions(config.configurationAt(KeyRadio))
+        .filter(_._2.isDefined)
+        .map(t => (t._2.get, t._1))
+        .toMap
+
     val srcConfigs = config.configurationsAt(KeySources)
     import scala.jdk.CollectionConverters._
     val sources = srcConfigs.asScala filter { c =>
       c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
     } map { c =>
-      (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString
-      (KeySourceExtension))), c.getInt(KeySourceRanking, DefaultRanking), readExclusions(c))
+      (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString(KeySourceExtension))),
+        c.getInt(KeySourceRanking, DefaultRanking),
+        readExclusionsForSource(c, namedExclusions))
     }
+
     sources.sortWith(compareSources).toSeq
   }
 
   /**
-    * Parses the exclusions definition for a radio source declaration.
+    * Parses the exclusions definition from the given configuration. The
+    * configuration can either point to a specific radio source or to the
+    * global section with named exclusions.
     *
     * @param config the sub configuration for the current source
-    * @return a sequence with all extracted interval queries
+    * @return a sequence with all extracted interval queries and their optional
+    *         names
     */
-  private def readExclusions(config: HierarchicalConfiguration): Seq[IntervalQuery] = {
+  private def readExclusions(config: HierarchicalConfiguration): Seq[(IntervalQuery, Option[String])] = {
     val exConfigs = config configurationsAt KeyExclusions
-    import scala.jdk.CollectionConverters._
-    exConfigs.asScala.foldLeft(List.empty[IntervalQuery]) { (q, c) =>
+    exConfigs.asScala.foldLeft(List.empty[(IntervalQuery, Option[String])]) { (q, c) =>
       parseIntervalQuery(c) match {
-        case Some(query) => IntervalQueries.cyclic(query) :: q
+        case Some(query) =>
+          val exclusionName = Option(c.getString(KeyAttrName))
+          (IntervalQueries.cyclic(query), exclusionName) :: q
         case None => q
       }
     }
+  }
+
+  /**
+    * Reads the exclusions for the current source as defined by the provided
+    * configuration.
+    *
+    * @param config          the configuration (for the current source)
+    * @param namedExclusions the map with named exclusions
+    * @return the sequence with exclusions for this source
+    */
+  private def readExclusionsForSource(config: HierarchicalConfiguration,
+                                      namedExclusions: Map[String, IntervalQuery]): Seq[IntervalQuery] = {
+    val inlineExclusions = readExclusions(config).map(_._1)
+
+    val referencedExclusions = config.getList(KeyExclusionRef).asScala
+      .map(_.toString)
+      .map(namedExclusions.get)
+      .filter(_.isDefined)
+      .map(_.get)
+
+    inlineExclusions ++ referencedExclusions
   }
 
   /**
@@ -232,12 +277,29 @@ object RadioSourceConfig {
   *
   * An exclusion is an interval in which a radio source should not be played;
   * for instance, a station might send commercials for each half or full hour.
-  * Then an ''interval query'' can be defined excluding these times.
+  * Then [[IntervalQuery]] instances can be defined excluding these times. Such
+  * exclusions can be declared inline together with source declarations or in a
+  * separate section with a name; they can then be shared by multiple sources.
   *
   * Below is an example configuration for radio sources showing all supported
   * elements:
   *
   * {{{
+  * <exclusions>
+  *   <exclusion name="fullHourAds">
+  *     <days>
+  *       <day>MONDAY</day>
+  *       <day>TUESDAY</day>
+  *       <day>WEDNESDAY</day>
+  *       <day>THURSDAY</day>
+  *       <day>FRIDAY</day>
+  *       <day>SATURDAY</day>
+  *     </days>
+  *     <hours from="6" to="20"/>
+  *     <minutes from="57" to="60"/>
+  *   </exclusion>
+  * </exclusions>
+  *
   * <sources>
   *   <source>
   *     <name>HR 1</name>
@@ -256,6 +318,7 @@ object RadioSourceConfig {
   *         <hours from="6" to="20"/>
   *         <minutes from="25" to="30"/>
   *       </exclusion>
+  *       <exclusion-ref name="fullHourAdds"/>
   *     </exclusions>
   *   </source>
   * </sources>

@@ -161,6 +161,36 @@ object RadioSourceConfigSpec {
       addProperty(inlineExclusionKey(srcIdx, suffix, exclIdx), value)
 
     /**
+      * Adds a property to reference an exclusion by name to a source.
+      *
+      * @param srcIdx the index of the source
+      * @param name   the name of the referenced exclusion
+      * @return a reference to this builder
+      */
+    def withExclusionReference(srcIdx: Int, name: String): SourceConfigBuilder =
+      addProperty(s"${sourceKey(srcIdx)}exclusions.exclusion-ref[@name]", name)
+
+    /**
+      * Adds a named exclusion to the managed configuration.
+      *
+      * @param name the name of the exclusion
+      * @return a reference to this builder
+      */
+    def withExclusion(name: String): SourceConfigBuilder =
+      addProperty("radio.exclusions.exclusion(-1)[@name]", name)
+
+    /**
+      * Adds a property to an exclusion defined by its index.
+      *
+      * @param exclIdx the index of the exclusion
+      * @param suffix  the suffix of the exclusion key
+      * @param value   the value of the property
+      * @return a reference to this builder
+      */
+    def withExclusionProperty(exclIdx: Int, suffix: String, value: Any): SourceConfigBuilder =
+      addProperty(s"radio.${exclusionKey(Some(exclIdx))}.$suffix", value)
+
+    /**
       * Helper function to add a property to the managed configuration.
       *
       * @param key   the property key
@@ -189,8 +219,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     * @param date  the reference date
     * @param start the start time
     */
-  private def assertBefore(query: IntervalQuery, date: LocalDateTime, start: LocalDateTime): Unit
-  = {
+  private def assertBefore(query: IntervalQuery, date: LocalDateTime, start: LocalDateTime): Unit = {
     query(date) match {
       case Before(d) => d.value should be(start)
       case r => fail("Unexpected result: " + r)
@@ -205,8 +234,7 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     * @param date  the reference date
     * @param until the until time
     */
-  private def assertInside(query: IntervalQuery, date: LocalDateTime, until: LocalDateTime): Unit
-  = {
+  private def assertInside(query: IntervalQuery, date: LocalDateTime, until: LocalDateTime): Unit = {
     query(date) match {
       case Inside(d) => d.value should be(until)
       case r => fail("Unexpected result: " + r)
@@ -424,6 +452,70 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 30, 6, 27))
     assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 22, 0),
       LocalDateTime.of(2016, Month.JULY, 2, 9, 0))
+  }
+
+  it should "reference an exclusion by name" in {
+    val ExclusionName = "half_hour"
+    val config = buildSourceConfiguration(4)
+      .withExclusion(ExclusionName)
+      .withExclusionProperty(0, "minutes[@from]", "22")
+      .withExclusionProperty(0, "minutes[@to]", 25)
+      .withExclusionReference(2, ExclusionName)
+      .config
+
+    val sourceConfig = RadioSourceConfig(config)
+    val exclusions = sourceConfig.exclusions(radioSource(3))
+    exclusions should have size 1
+    assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 19, 21),
+      LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
+    assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
+      LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
+  }
+
+  it should "combine inline exclusions with referenced ones" in {
+    val ExclusionName = "saturday"
+    val config = buildSourceConfiguration(2)
+      .withSourceExclusion(0, "days.day",
+        Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
+      .withSourceExclusion(0, "hours[@from]", "6")
+      .withSourceExclusion(0, "hours[@to]", "20")
+      .withSourceExclusion(0, "minutes[@from]", "27")
+      .withSourceExclusion(0, "minutes[@to]", "30")
+      .withExclusion(ExclusionName)
+      .withExclusionProperty(0, "days.day", "SATURDAY")
+      .withExclusionProperty(0, "hours[@from]", "9")
+      .withExclusionProperty(0, "hours[@to]", "12")
+      .withExclusionReference(0, ExclusionName)
+      .config
+
+    val sourceConfig = RadioSourceConfig(config)
+    val exclusions = sourceConfig.exclusions(radioSource(1))
+    exclusions should have size 2
+    assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 21, 59),
+      LocalDateTime.of(2016, Month.JUNE, 30, 6, 27))
+    assertBefore(exclusions(1), LocalDateTime.of(2016, Month.JUNE, 29, 22, 0),
+      LocalDateTime.of(2016, Month.JULY, 2, 9, 0))
+  }
+
+  it should "ignore a reference to an invalid exclusion" in {
+    val ExclusionName = "half_hour"
+    val config = buildSourceConfiguration(4)
+      .withExclusion("invalid")
+      .withExclusionProperty(0, "minutes[@from]", 57)
+      .withExclusionProperty(0, "minutes[@to]", 62)
+      .withExclusion(ExclusionName)
+      .withExclusionProperty(1, "minutes[@from]", "22")
+      .withExclusionProperty(1, "minutes[@to]", 25)
+      .withExclusionReference(2, ExclusionName)
+      .config
+
+    val sourceConfig = RadioSourceConfig(config)
+    val exclusions = sourceConfig.exclusions(radioSource(3))
+    exclusions should have size 1
+    assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 19, 21),
+      LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
+    assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
+      LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
   }
 
   it should "return correct rankings for sources" in {
