@@ -55,14 +55,23 @@ object RadioSourceConfig {
   /** Configuration key for the extension of a radio source. */
   private val KeySourceExtension = "extension"
 
+  /** The name of the section defining exclusions. */
+  private val KeyExclusionsSection = "exclusions."
+
   /** Configuration key for the exclusions of a radio source. */
-  private val KeyExclusions = "exclusions.exclusion"
+  private val KeyExclusions = KeyExclusionsSection + "exclusion"
+
+  /** Configuration key for the exclusion set declarations. */
+  private val KeyExclusionSets = KeyRadio + ".exclusion-sets.exclusion-set"
 
   /** Configuration key for the attribute defining an exclusion name. */
   private val KeyAttrName = "[@name]"
 
   /** The key for the exclusion references of a source. */
-  private val KeyExclusionRef = "exclusions.exclusion-ref" + KeyAttrName
+  private val KeyExclusionRef = KeyExclusionsSection + "exclusion-ref" + KeyAttrName
+
+  /** The key for the exclusion set references of a source. */
+  private val KeyExclusionSetRef = KeyExclusionsSection + "exclusion-set-ref" + KeyAttrName
 
   /** The key for the from attribute for interval queries. */
   private val KeyAttrFrom = "[@from]"
@@ -106,12 +115,8 @@ object RadioSourceConfig {
     */
   private def readSourcesFromConfig(config: HierarchicalConfiguration):
   Seq[(String, RadioSource, Int, Seq[IntervalQuery])] = {
-    val namedExclusions = if (config.getMaxIndex(KeyRadio) < 0) Map.empty[String, IntervalQuery]
-    else
-      readExclusions(config.configurationAt(KeyRadio))
-        .filter(_._2.isDefined)
-        .map(t => (t._2.get, t._1))
-        .toMap
+    val namedExclusions = readNamedExclusions(config)
+    val exclusionSets = readExclusionSets(config, namedExclusions)
 
     val srcConfigs = config.configurationsAt(KeySources)
     import scala.jdk.CollectionConverters._
@@ -120,10 +125,41 @@ object RadioSourceConfig {
     } map { c =>
       (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString(KeySourceExtension))),
         c.getInt(KeySourceRanking, DefaultRanking),
-        readExclusionsForSource(c, namedExclusions))
+        readExclusionsSection(c, namedExclusions, exclusionSets))
     }
 
     sources.sortWith(compareSources).toSeq
+  }
+
+  /**
+    * Parses the section with named exclusions.
+    *
+    * @param config the configuration
+    * @return a map with named exclusion queries
+    */
+  private def readNamedExclusions(config: HierarchicalConfiguration): Map[String, IntervalQuery] =
+    if (config.getMaxIndex(KeyRadio) < 0) Map.empty
+    else readExclusions(config.configurationAt(KeyRadio))
+      .filter(_._2.isDefined)
+      .map(t => (t._2.get, t._1))
+      .toMap
+
+  /**
+    * Reads the global section with exclusion sets. The queries in these sets
+    * can then be referenced from source declarations.
+    *
+    * @param config          the radio configuration
+    * @param namedExclusions the map with named exclusion queries
+    * @return a map with exclusion sets and their queries
+    */
+  private def readExclusionSets(config: HierarchicalConfiguration, namedExclusions: Map[String, IntervalQuery]):
+  Map[String, Seq[IntervalQuery]] = {
+    val setConfigs = config configurationsAt KeyExclusionSets
+    setConfigs.asScala.filter(_.containsKey(KeyAttrName)).map { c =>
+      val name = c.getString(KeyAttrName)
+      val exclusions = readExclusionsSection(c, namedExclusions, Map.empty)
+      (name, exclusions)
+    }.toMap
   }
 
   /**
@@ -148,25 +184,41 @@ object RadioSourceConfig {
   }
 
   /**
-    * Reads the exclusions for the current source as defined by the provided
-    * configuration.
+    * Reads a section with exclusions which can be either for a source or for
+    * an exclusion set.
     *
-    * @param config          the configuration (for the current source)
+    * @param config          the configuration containing the section
     * @param namedExclusions the map with named exclusions
+    * @param exclusionSets   the map with exclusion sets
     * @return the sequence with exclusions for this source
     */
-  private def readExclusionsForSource(config: HierarchicalConfiguration,
-                                      namedExclusions: Map[String, IntervalQuery]): Seq[IntervalQuery] = {
+  private def readExclusionsSection(config: HierarchicalConfiguration,
+                                    namedExclusions: Map[String, IntervalQuery],
+                                    exclusionSets: Map[String, Seq[IntervalQuery]]): Seq[IntervalQuery] = {
     val inlineExclusions = readExclusions(config).map(_._1)
+    val referencedExclusions = readReferences(config, KeyExclusionRef, namedExclusions)
+    val referencedExclusionSets = readReferences(config, KeyExclusionSetRef, exclusionSets).flatten
 
-    val referencedExclusions = config.getList(KeyExclusionRef).asScala
-      .map(_.toString)
-      .map(namedExclusions.get)
-      .filter(_.isDefined)
-      .map(_.get)
-
-    inlineExclusions ++ referencedExclusions
+    inlineExclusions ++ referencedExclusions ++ referencedExclusionSets
   }
+
+  /**
+    * Reads reference elements from the given configuration and resolves them
+    * using the provided map. This is used to process references to named
+    * queries or exclusion sets.
+    *
+    * @param config the configuration
+    * @param key    the key of the reference elements
+    * @param refMap the map to resolve the references
+    * @tparam T the value type of the map
+    * @return a sequence with the resolved elements
+    */
+  private def readReferences[T](config: HierarchicalConfiguration, key: String, refMap: Map[String, T]): Seq[T] =
+    config.getList(key).asScala
+      .map(_.toString)
+      .map(refMap.get)
+      .filter(_.isDefined)
+      .map(_.get).toSeq
 
   /**
     * Compares two elements from the sequence of radio source data. This is
@@ -300,6 +352,25 @@ object RadioSourceConfig {
   *   </exclusion>
   * </exclusions>
   *
+  * <exclusion-sets>
+  *   <exclusion-set name="adsOnWorkDays">
+  *     <exclusions>
+  *       <exclusion>
+  *         <days>
+  *           <day>MONDAY</day>
+  *           <day>TUESDAY</day>
+  *           <day>WEDNESDAY</day>
+  *           <day>THURSDAY</day>
+  *           <day>FRIDAY</day>
+  *         </days>
+  *         <hours from="6" to="20"/>
+  *         <minutes from="25" to="30"/>
+  *       </exclusion>
+  *       <exclusion-ref name="fullHourAds"/>
+  *     </exclusions>
+  *   </exclusion-set>
+  * </exclusion-sets>
+  *
   * <sources>
   *   <source>
   *     <name>HR 1</name>
@@ -315,10 +386,10 @@ object RadioSourceConfig {
   *           <day>THURSDAY</day>
   *           <day>FRIDAY</day>
   *         </days>
-  *         <hours from="6" to="20"/>
-  *         <minutes from="25" to="30"/>
+  *         <hours from="0" to="6"/>
+  *         <minutes from="15" to="17"/>
   *       </exclusion>
-  *       <exclusion-ref name="fullHourAdds"/>
+  *       <exclusion-set-ref name="adsOnWorkDays"/>
   *     </exclusions>
   *   </source>
   * </sources>
