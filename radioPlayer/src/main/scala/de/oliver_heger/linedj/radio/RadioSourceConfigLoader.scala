@@ -26,11 +26,81 @@ import org.apache.logging.log4j.LogManager
 import scala.jdk.CollectionConverters._
 
 /**
-  * Companion object for ''RadioSourceConfig''.
+  * A module allowing to construct [[RadioSourceConfig]] instances from the
+  * configuration of the radio player application.
   *
-  * This object allows the creation of ''RadioSourceConfig'' instances.
+  * The configuration format covers all the data required for radio sources.
+  * This is of course the declaration of the sources themselves with their
+  * stream URIs and rankings. In addition, exclusions can be defined for all
+  * sources. This can happen together with the source declaration.
+  * Alternatively, single exclusion queries or whole sets of exclusion queries
+  * can be defined globally and assigned a name. These names can then be
+  * referenced from source declarations. That way queries can be shared between
+  * multiple sources.
+  *
+  * Below is an example configuration for radio sources showing all supported
+  * elements:
+  *
+  * {{{
+  * <exclusions>
+  *   <exclusion name="fullHourAds">
+  *     <days>
+  *       <day>MONDAY</day>
+  *       <day>TUESDAY</day>
+  *       <day>WEDNESDAY</day>
+  *       <day>THURSDAY</day>
+  *       <day>FRIDAY</day>
+  *       <day>SATURDAY</day>
+  *     </days>
+  *     <hours from="6" to="20"/>
+  *     <minutes from="57" to="60"/>
+  *   </exclusion>
+  * </exclusions>
+  *
+  * <exclusion-sets>
+  *   <exclusion-set name="adsOnWorkDays">
+  *     <exclusions>
+  *       <exclusion>
+  *         <days>
+  *           <day>MONDAY</day>
+  *           <day>TUESDAY</day>
+  *           <day>WEDNESDAY</day>
+  *           <day>THURSDAY</day>
+  *           <day>FRIDAY</day>
+  *         </days>
+  *         <hours from="6" to="20"/>
+  *         <minutes from="25" to="30"/>
+  *       </exclusion>
+  *       <exclusion-ref name="fullHourAds"/>
+  *     </exclusions>
+  *   </exclusion-set>
+  * </exclusion-sets>
+  *
+  * <sources>
+  *   <source>
+  *     <name>HR 1</name>
+  *     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
+  *     <ranking>42</ranking>
+  *     <extension>mp3</extension>
+  *     <exclusions>
+  *       <exclusion>
+  *         <days>
+  *           <day>MONDAY</day>
+  *           <day>TUESDAY</day>
+  *           <day>WEDNESDAY</day>
+  *           <day>THURSDAY</day>
+  *           <day>FRIDAY</day>
+  *         </days>
+  *         <hours from="0" to="6"/>
+  *         <minutes from="15" to="17"/>
+  *       </exclusion>
+  *       <exclusion-set-ref name="adsOnWorkDays"/>
+  *     </exclusions>
+  *   </source>
+  * </sources>
+  * }}}
   */
-object RadioSourceConfig {
+object RadioSourceConfigLoader {
   /**
     * Constant for a default value ranking. This ranking is assigned to a
     * radio source if no explicit value is specified in the configuration.
@@ -89,7 +159,7 @@ object RadioSourceConfig {
   private val KeyIntervalDays = "days.day"
 
   /** The logger. */
-  private val log = LogManager.getLogger(classOf[RadioSourceConfig])
+  private val log = LogManager.getLogger(getClass)
 
   /**
     * Creates a new instance of ''RadioSourceConfig'' with the content of the
@@ -98,7 +168,7 @@ object RadioSourceConfig {
     * @param config the ''Configuration''
     * @return the new ''RadioSourceConfig''
     */
-  def apply(config: HierarchicalConfiguration): RadioSourceConfig = {
+  def load(config: HierarchicalConfiguration): RadioSourceConfig = {
     val srcData = readSourcesFromConfig(config)
     val sources = srcData map (t => (t._1, t._2))
     val exclusions = srcData map (t => (t._2, t._4))
@@ -322,78 +392,13 @@ object RadioSourceConfig {
 /**
   * A trait allowing access to configuration information about radio sources.
   *
-  * Instances of this class are created from the current configuration of the
-  * radio player application. They contain all information available about
-  * radio sources, i.e. the source declarations (including name and URI) plus
+  * Instances of this class contain all information available about radio
+  * sources, i.e. the source declarations (including name and URI) plus
   * optional exclusions for each source.
   *
   * An exclusion is an interval in which a radio source should not be played;
   * for instance, a station might send commercials for each half or full hour.
-  * Then [[IntervalQuery]] instances can be defined excluding these times. Such
-  * exclusions can be declared inline together with source declarations or in a
-  * separate section with a name; they can then be shared by multiple sources.
-  *
-  * Below is an example configuration for radio sources showing all supported
-  * elements:
-  *
-  * {{{
-  * <exclusions>
-  *   <exclusion name="fullHourAds">
-  *     <days>
-  *       <day>MONDAY</day>
-  *       <day>TUESDAY</day>
-  *       <day>WEDNESDAY</day>
-  *       <day>THURSDAY</day>
-  *       <day>FRIDAY</day>
-  *       <day>SATURDAY</day>
-  *     </days>
-  *     <hours from="6" to="20"/>
-  *     <minutes from="57" to="60"/>
-  *   </exclusion>
-  * </exclusions>
-  *
-  * <exclusion-sets>
-  *   <exclusion-set name="adsOnWorkDays">
-  *     <exclusions>
-  *       <exclusion>
-  *         <days>
-  *           <day>MONDAY</day>
-  *           <day>TUESDAY</day>
-  *           <day>WEDNESDAY</day>
-  *           <day>THURSDAY</day>
-  *           <day>FRIDAY</day>
-  *         </days>
-  *         <hours from="6" to="20"/>
-  *         <minutes from="25" to="30"/>
-  *       </exclusion>
-  *       <exclusion-ref name="fullHourAds"/>
-  *     </exclusions>
-  *   </exclusion-set>
-  * </exclusion-sets>
-  *
-  * <sources>
-  *   <source>
-  *     <name>HR 1</name>
-  *     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
-  *     <ranking>42</ranking>
-  *     <extension>mp3</extension>
-  *     <exclusions>
-  *       <exclusion>
-  *         <days>
-  *           <day>MONDAY</day>
-  *           <day>TUESDAY</day>
-  *           <day>WEDNESDAY</day>
-  *           <day>THURSDAY</day>
-  *           <day>FRIDAY</day>
-  *         </days>
-  *         <hours from="0" to="6"/>
-  *         <minutes from="15" to="17"/>
-  *       </exclusion>
-  *       <exclusion-set-ref name="adsOnWorkDays"/>
-  *     </exclusions>
-  *   </source>
-  * </sources>
-  * }}}
+  * Then [[IntervalQuery]] instances can be defined excluding these times.
   */
 trait RadioSourceConfig {
   /**

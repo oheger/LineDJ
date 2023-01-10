@@ -188,7 +188,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "handle missing source configurations correctly" in {
     val helper = new RadioControllerTestHelper
 
-    helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
+    helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
     verify(helper.player).initSourceExclusions(any(), any(), any())
     helper.verifySourcesAddedToCombo()
       .verifyNoMoreInteractionWithCombo()
@@ -197,7 +197,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "disable playback actions if there are no sources" in {
     val helper = new RadioControllerTestHelper
-    helper.createInitializedController(RadioSourceConfig(new HierarchicalConfiguration))
+    helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
 
     helper.verifyAction(StartPlaybackAction, enabled = false)
       .verifyAction(StopPlaybackAction, enabled = false)

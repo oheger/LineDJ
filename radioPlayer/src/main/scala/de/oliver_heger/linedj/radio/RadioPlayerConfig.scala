@@ -186,7 +186,7 @@ object RadioPlayerConfig {
     * @return the [[RadioPlayerConfig]] instance
     */
   def apply(config: HierarchicalConfiguration): RadioPlayerConfig = {
-    val sourceConfig = RadioSourceConfig(config)
+    val sourceConfig = RadioSourceConfigLoader.load(config)
     val errorConfig = readErrorConfig(config)
 
     new RadioPlayerConfig(sourceConfig = sourceConfig,
