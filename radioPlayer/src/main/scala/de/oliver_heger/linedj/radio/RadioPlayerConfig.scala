@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
+import de.oliver_heger.linedj.player.engine.radio.RadioSourceConfig
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.annotation.tailrec

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig, RadioSourceErrorEvent}
 import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.mockito.{ArgumentCaptor, Mockito}

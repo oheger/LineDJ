@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.radio
 import java.time.DayOfWeek
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
 
@@ -387,46 +387,4 @@ object RadioSourceConfigLoader {
 
     override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
   }
-}
-
-/**
-  * A trait allowing access to configuration information about radio sources.
-  *
-  * Instances of this class contain all information available about radio
-  * sources, i.e. the source declarations (including name and URI) plus
-  * optional exclusions for each source.
-  *
-  * An exclusion is an interval in which a radio source should not be played;
-  * for instance, a station might send commercials for each half or full hour.
-  * Then [[IntervalQuery]] instances can be defined excluding these times.
-  */
-trait RadioSourceConfig {
-  /**
-    * Returns a list with all available radio sources. A source is described
-    * by a tuple: The first element is a human-readable name of the source,
-    * the second element is the ''RadioSource'' object itself.
-    *
-    * @return a sequence with all available radio sources
-    */
-  def sources: Seq[(String, RadioSource)]
-
-  /**
-    * Returns exclusions for specific radio sources. This function returns a
-    * collection of interval queries defining time intervals in which the given
-    * source should not be played. An empty sequence means that there are no
-    * exclusions defined for this source.
-    *
-    * @param source the source in question
-    * @return a sequence with exclusions for a this radio source
-    */
-  def exclusions(source: RadioSource): Seq[IntervalQuery]
-
-  /**
-    * Returns a ranking for the specified radio source. The ranking is an
-    * arbitrary numeric value which is read from the configuration.
-    *
-    * @param source the source to be ranked
-    * @return the ranking for this source
-    */
-  def ranking(source: RadioSource): Int
 }
