@@ -374,11 +374,11 @@ object RadioSourceConfigLoader {
     * Internal implementation of the radio source config trait as a plain case
     * class.
     *
-    * @param sources       the list with sources
+    * @param namedSources  the list with sources
     * @param exclusionsMap the map with exclusions
     * @param rankingMap    a map with source rankings
     */
-  private case class RadioSourceConfigImpl(override val sources: Seq[(String, RadioSource)],
+  private case class RadioSourceConfigImpl(override val namedSources: Seq[(String, RadioSource)],
                                            exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
                                            rankingMap: Map[RadioSource, Int])
     extends RadioSourceConfig {

@@ -289,7 +289,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.load(config)
     val expSrcList = (1 to Count) map (i => (sourceName(i), radioSource(i)))
-    sourceConfig.sources should be(expSrcList)
+    sourceConfig.namedSources should be(expSrcList)
   }
 
   it should "ignore incomplete source definitions" in {
@@ -299,9 +299,9 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     config.addProperty("radio.sources.source(-1).uri", "someURI")
 
     val sourceConfig = RadioSourceConfigLoader.load(config)
-    sourceConfig.sources should have size 2
-    sourceConfig.sources.head._1 should be(sourceName(1))
-    sourceConfig.sources(1)._1 should be(sourceName(2))
+    sourceConfig.namedSources should have size 2
+    sourceConfig.namedSources.head._1 should be(sourceName(1))
+    sourceConfig.namedSources(1)._1 should be(sourceName(2))
   }
 
   it should "order radio sources by name" in {
@@ -312,7 +312,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     val config = createSourceConfiguration(sources map (t => (t._1, t._2, -1)))
 
     val sourceConfig = RadioSourceConfigLoader.load(config)
-    sourceConfig.sources should be(sourcesSorted)
+    sourceConfig.namedSources should be(sourcesSorted)
   }
 
   it should "order radio sources by ranking" in {
@@ -327,14 +327,14 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     val config = createSourceConfiguration(sources)
 
     val sourceConfig = RadioSourceConfigLoader.load(config)
-    sourceConfig.sources should be(sourcesSorted)
+    sourceConfig.namedSources should be(sourcesSorted)
   }
 
   it should "return a map with all sources and empty lists if no exclusions are defined" in {
     val config = createSourceConfiguration(2)
 
     val sourceConfig = RadioSourceConfigLoader.load(config)
-    sourceConfig.sources foreach { src =>
+    sourceConfig.namedSources foreach { src =>
       sourceConfig.exclusions(src._2) shouldBe empty
     }
   }

@@ -52,21 +52,21 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   "A radio player configuration" should "contain radio sources" in {
     val srcConfig = loadConfig().sourceConfig
 
-    srcConfig.sources.size should be > 2
+    srcConfig.namedSources.size should be > 2
   }
 
   it should "order radio sources by their ranking" in {
     val srcConfig = loadConfig().sourceConfig
 
-    val firstSource = srcConfig.sources.head._2
-    val lastSource = srcConfig.sources.last._2
+    val firstSource = srcConfig.namedSources.head._2
+    val lastSource = srcConfig.namedSources.last._2
     srcConfig.ranking(firstSource) should be > srcConfig.ranking(lastSource)
   }
 
   it should "support exclusions for radio sources" in {
     val srcConfig = loadConfig().sourceConfig
 
-    srcConfig.sources.map(_._2).exists { source =>
+    srcConfig.namedSources.map(_._2).exists { source =>
       srcConfig.exclusions(source).nonEmpty
     }
   }
@@ -108,7 +108,7 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   it should "apply defaults for unspecified configuration settings" in {
     val config = RadioPlayerConfig(new HierarchicalConfiguration)
 
-    config.sourceConfig.sources shouldBe empty
+    config.sourceConfig.namedSources shouldBe empty
     config.sourceConfig.exclusions(RadioSource("someRadioSource")) shouldBe empty
     config.errorConfig.retryInterval should be(RadioPlayerConfig.DefaultRetryInterval.millis)
     config.errorConfig.retryIncrementFactor should be(RadioPlayerConfig.DefaultRetryIncrement)

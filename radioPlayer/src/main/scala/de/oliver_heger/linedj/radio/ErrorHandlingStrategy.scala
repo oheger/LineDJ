@@ -147,7 +147,7 @@ object ErrorHandlingStrategy {
     def dysfunctional(e: (String, RadioSource)): Boolean =
       errorList contains e._2
 
-    val nextCandidates = config.sourceConfig.sources dropWhile dysfunctional
+    val nextCandidates = config.sourceConfig.namedSources dropWhile dysfunctional
     val nextSource = nextCandidates.headOption map { e =>
       val ranking = config.sourceConfig.ranking(e._2)
       val rankedCandidates = nextCandidates.takeWhile(t =>

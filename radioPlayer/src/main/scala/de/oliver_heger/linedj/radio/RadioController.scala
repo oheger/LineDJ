@@ -368,7 +368,7 @@ class RadioController(val userConfig: Configuration,
 
           sourcesUpdating = true
           try {
-            val sources = playerConfig.sourceConfig.sources.map(_._2).toSet
+            val sources = playerConfig.sourceConfig.namedSources.map(_._2).toSet
             player.initSourceExclusions(sources, playerConfig.sourceConfig.exclusions,
               playerConfig.sourceConfig.ranking)
             radioSources = updateSourceCombo(playerConfig.sourceConfig)
@@ -416,7 +416,7 @@ class RadioController(val userConfig: Configuration,
     */
   private def updateSourceCombo(srcConfig: RadioSourceConfig): Seq[(String, RadioSource)] = {
     clearSourceCombo()
-    val sources = srcConfig.sources
+    val sources = srcConfig.namedSources
     sources.zipWithIndex foreach { t => comboSources.addItem(t._2, t._1._1, t._1._2) }
     sources
   }

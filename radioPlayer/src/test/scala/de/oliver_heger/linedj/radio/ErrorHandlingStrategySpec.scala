@@ -103,7 +103,7 @@ object ErrorHandlingStrategySpec {
       when(config.ranking(src)).thenReturn(SourceCount - i)
       (src.uri, src)
     }
-    when(config.sources).thenReturn(sources)
+    when(config.namedSources).thenReturn(sources)
     config
   }
 
@@ -243,7 +243,7 @@ class ErrorHandlingStrategySpec extends AnyFlatSpec with Matchers with MockitoSu
   it should "handle the case that all sources are dysfunctional" in {
     val errEvent = errorEvent(SourceCount)
     val state = ErrorHandlingStrategy.NoError.copy(retryMillis = ExceededRetryTime,
-      errorList = StrategyConfig.sourceConfig.sources.map(_._2).toSet,
+      errorList = StrategyConfig.sourceConfig.namedSources.map(_._2).toSet,
       activeSource = Some(errEvent.source))
     val strategy = new ErrorHandlingStrategy
 

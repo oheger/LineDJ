@@ -153,7 +153,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     */
   private def createSourceConfiguration(sources: Seq[(String, RadioSource)]): RadioSourceConfig = {
     val config = mock[RadioSourceConfig]
-    when(config.sources).thenReturn(sources)
+    when(config.namedSources).thenReturn(sources)
     when(config.ranking(any(classOf[RadioSource]))).thenAnswer((invocation: InvocationOnMock) => {
       val src = invocation.getArguments.head.asInstanceOf[RadioSource]
       val index = src.uri.substring(RadioSourceURI.length)
@@ -173,7 +173,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val playerConfig = ctrl.playerConfig
     playerConfig.errorConfig.retryInterval.toMillis should be(1000)
-    playerConfig.sourceConfig.sources should have size 11
+    playerConfig.sourceConfig.namedSources should have size 11
     playerConfig.initialDelay should be(1500)
   }
 
@@ -360,7 +360,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ranking(radioSource(8)) should be(8)
 
     val exclusionQueries = captExclusions.getValue
-    srcConfig.sources foreach { e =>
+    srcConfig.namedSources foreach { e =>
       exclusionQueries(e._2) should be(exclusions(e._2))
     }
   }
@@ -453,12 +453,12 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val srcConfig = createSourceConfiguration(8)
     val helper = new RadioControllerTestHelper
     val (answer, _) = helper.expectErrorStrategyCall()
-    val error = RadioSourceErrorEvent(srcConfig.sources(2)._2)
+    val error = RadioSourceErrorEvent(srcConfig.namedSources(2)._2)
     val ctrl = helper.createInitializedController(srcConfig, playbackSrcIdx = 2)
 
     ctrl playbackError error
     answer.errorSource should be(error.source)
-    answer.currentSource should be(srcConfig.sources.head._2)
+    answer.currentSource should be(srcConfig.namedSources.head._2)
     answer.previousState should be(ErrorHandlingStrategy.NoError)
   }
 

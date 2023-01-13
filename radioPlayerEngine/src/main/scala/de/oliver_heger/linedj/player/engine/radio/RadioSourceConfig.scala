@@ -18,6 +18,23 @@ package de.oliver_heger.linedj.player.engine.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 
+object RadioSourceConfig {
+  /** Constant for a default ranking value. */
+  final val DefaultRanking = 0
+
+  /**
+    * Constant for an empty [[RadioSourceConfig]] instance. This configuration
+    * contains no sources, and all functions are implemented as dummies.
+    */
+  final val Empty = new RadioSourceConfig {
+    override val namedSources: Seq[(String, RadioSource)] = Seq.empty
+
+    override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
+
+    override def ranking(source: RadioSource): Int = DefaultRanking
+  }
+}
+
 /**
   * A trait allowing access to configuration information about radio sources.
   *
@@ -31,13 +48,20 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
   */
 trait RadioSourceConfig {
   /**
-    * Returns a list with all available radio sources. A source is described
-    * by a tuple: The first element is a human-readable name of the source,
-    * the second element is the ''RadioSource'' object itself.
+    * Returns a list with all available radio sources and their names. In the
+    * returned tuples, the first element is a human-readable name of the
+    * source, the second element is the ''RadioSource'' object itself.
+    *
+    * @return a sequence with all available radio sources and their names
+    */
+  def namedSources: Seq[(String, RadioSource)]
+
+  /**
+    * Returns a list with all available radio sources.
     *
     * @return a sequence with all available radio sources
     */
-  def sources: Seq[(String, RadioSource)]
+  def sources: Seq[RadioSource] = namedSources map (_._2)
 
   /**
     * Returns exclusions for specific radio sources. This function returns a
