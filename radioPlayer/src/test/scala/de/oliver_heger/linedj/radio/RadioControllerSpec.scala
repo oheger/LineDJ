@@ -28,10 +28,10 @@ import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
 import org.mockito.ArgumentMatchers.{eq => argEq, _}
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -189,7 +189,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
-    verify(helper.player).initSourceExclusions(any(), any(), any())
+    verify(helper.player).initSourceExclusions(any())
     helper.verifySourcesAddedToCombo()
       .verifyNoMoreInteractionWithCombo()
       .verifyNoMorePlayerInteraction()
@@ -350,19 +350,8 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
 
     helper.createInitializedController(srcConfig)
-    val captExclusions = ArgumentCaptor.forClass(classOf[RadioSource.ExclusionQueryFunc])
-    val captRanking = ArgumentCaptor.forClass(classOf[RadioSource.Ranking])
-    verify(helper.player)
-      .initSourceExclusions(argEq(exclusions.keySet), captExclusions.capture(), captRanking.capture())
 
-    val ranking = captRanking.getValue
-    ranking(radioSource(2)) should be(2)
-    ranking(radioSource(8)) should be(8)
-
-    val exclusionQueries = captExclusions.getValue
-    srcConfig.namedSources foreach { e =>
-      exclusionQueries(e._2) should be(exclusions(e._2))
-    }
+    verify(helper.player).initSourceExclusions(srcConfig)
   }
 
   it should "update the status text when the current source is played" in {

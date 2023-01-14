@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioSource, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.ArgumentMatchers.any
@@ -99,13 +99,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   }
 
   it should "support exclusions for radio sources" in {
+    val sourcesConfig = mock[RadioSourceConfig]
     val helper = new RadioPlayerTestHelper
-    val sources = Set(RadioSource("1"), RadioSource("2"))
-    val exclusions: RadioSource.ExclusionQueryFunc = _ => List(IntervalQueries.hours(1, 2))
-    val ranking: RadioSource.Ranking = src => src.uri.length
 
-    helper.player.initSourceExclusions(sources, exclusions, ranking)
-    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(sources, exclusions, ranking))
+    helper.player.initSourceExclusions(sourcesConfig)
+    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(sourcesConfig))
   }
 
   it should "pass the event actor to the super class" in {

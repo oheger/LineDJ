@@ -25,10 +25,11 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries._
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.radio.RadioSource.Ranking
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -43,8 +44,8 @@ object RadioSchedulerActorSpec {
   /** A dummy message for tests that no message was sent to a test actor. */
   private val NoMessage = "NoMessageTest"
 
-  /** The map with information about interval queries for radio sources. */
-  private val RadioSourceQueries = createSourceQueriesMap()
+  /** The configuration with information about radio sources. */
+  private val TestRadioSourcesConfig = createSourceConfig(createDefaultSourceQueries())
 
   /** The sequence with results for replacement sources. */
   private val ReplacementResults = createReplacementResults()
@@ -67,38 +68,48 @@ object RadioSchedulerActorSpec {
   private def replacementResponse(resp: EvaluateIntervalsActor.EvaluateSourceResponse):
   EvaluateIntervalsActor.EvaluateReplacementSourcesResponse =
     EvaluateIntervalsActor.EvaluateReplacementSourcesResponse(ReplacementResults,
-      EvaluateIntervalsActor.EvaluateReplacementSources(RadioSourceQueries.keySet, sourceQueries, resp))
+      EvaluateIntervalsActor.EvaluateReplacementSources(TestRadioSourcesConfig, resp))
 
   /**
-    * Creates the map with radio sources and their associated queries.
+    * Creates the config with radio sources and their associated queries.
     *
-    * @return the map with sources and queries
+    * @param queryMap the map with sources and their exclusions
+    * @return the config about radio sources
     */
-  private def createSourceQueriesMap(): Map[RadioSource, Seq[IntervalQuery]] =
+  private def createSourceConfig(queryMap: Map[RadioSource, Seq[IntervalQuery]]): RadioSourceConfig = {
+    val namedSourcesList = queryMap.keys.map { src => (src.uri, src) }.toSeq
+
+    new RadioSourceConfig {
+      override val namedSources: Seq[(String, RadioSource)] = namedSourcesList
+
+      override def exclusions(source: RadioSource): Seq[IntervalQuery] =
+        queryMap.getOrElse(source, Seq.empty)
+
+      override def ranking(source: RadioSource): Int =
+        source.uri.substring(source.uri.lastIndexOf('_') + 1).toInt
+    }
+  }
+
+  /**
+    * Creates a map with some radio sources and test exclusion queries to be
+    * used by test cases.
+    *
+    * @return the map with sources and their exclusion queries
+    */
+  private def createDefaultSourceQueries(): Map[RadioSource, Seq[IntervalQuery]] =
     Map(radioSource(1) -> List(hours(1, 2)),
       radioSource(2) -> List(hours(2, 3)),
       radioSource(3) -> List(hours(4, 5)))
 
   /**
-    * The function to obtain interval queries for specific sources.
-    *
-    * @param source the source in question
-    * @return the interval queries for this source
-    */
-  private def sourceQueries(source: RadioSource): Seq[IntervalQuery] =
-    RadioSourceQueries.getOrElse(source, Seq.empty)
-
-  /**
     * Returns a [[RadioSchedulerActor.RadioSourceData]] object based on the
-    * given parameters.
+    * given configuration.
     *
-    * @param sourceQueriesMap the map with sources and exclusion queries
-    * @param ranking          the ranking function
+    * @param config the configuration for radio sources
     * @return the object with information about sources
     */
-  private def createSourceData(sourceQueriesMap: Map[RadioSource, Seq[IntervalQuery]],
-                               ranking: Ranking = RadioSource.NoRanking): RadioSchedulerActor.RadioSourceData =
-    RadioSchedulerActor.RadioSourceData(sourceQueriesMap.keySet, sourceQueries, ranking)
+  private def createSourceData(config: RadioSourceConfig): RadioSchedulerActor.RadioSourceData =
+    RadioSchedulerActor.RadioSourceData(config)
 
   /**
     * Creates a list representing results of a replacement source evaluation.
@@ -152,7 +163,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper receive src
     val request = helper.expectNoReplacementEvent().expectSourceEvaluationForNow()
     request.source should be(src)
-    request.queries should be(RadioSourceQueries(src))
+    request.queries should be(TestRadioSourcesConfig.exclusions(src))
   }
 
   it should "directly set a source without interval queries" in {
@@ -197,8 +208,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.expectNoSourceEvaluation().sendSourceData()
     val request1 = helper.expectSourceEvaluation()
 
-    val updatedQueries = RadioSourceQueries + (radioSource(4) -> List(hours(21, 22)))
-    helper receive createSourceData(updatedQueries)
+    val updatedQueries = createDefaultSourceQueries() + (radioSource(4) -> List(hours(21, 22)))
+    helper receive createSourceData(createSourceConfig(updatedQueries))
     val request2 = helper.expectSourceEvaluation()
     request1.stateCount should not be request2.stateCount
   }
@@ -212,7 +223,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper receive RadioSchedulerActor.CheckSchedule(eval.stateCount)
     val eval2 = helper.expectSourceEvaluationForNow()
     eval2.source should be(src)
-    eval2.queries should be(RadioSourceQueries(src))
+    eval2.queries should be(TestRadioSourcesConfig.exclusions(src))
     eval2.stateCount should be(eval.stateCount)
     eval.exclusions shouldBe empty
   }
@@ -227,7 +238,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper receive RadioSchedulerActor.CheckCurrentSource(exclusions)
     val eval2 = helper.expectSourceEvaluationForNow()
     eval2.source should be(src)
-    eval2.queries should be(RadioSourceQueries(src))
+    eval2.queries should be(TestRadioSourcesConfig.exclusions(src))
     eval2.stateCount should not be eval.stateCount
     eval2.exclusions should be(exclusions)
   }
@@ -383,8 +394,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val orgSrc = radioSource(2)
     val replSrc = radioSource(3)
     val resp = helper.handleSourceEvaluation(orgSrc, Inside(new LazyDate(until)))
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
-      RadioSource.NoRanking))
+    when(helper.selectionStrategy.findReplacementSource(eqArg(ReplacementResults), eqArg(until), any()))
       .thenReturn(Some(ReplacementSourceSelection(replSrc, untilRepl)))
 
     helper.expectReplacementEvaluation(resp)
@@ -404,8 +414,8 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val until = LocalDateTime.now() plusMinutes 5
     val source = radioSource(2)
     val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)))
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
-      RadioSource.NoRanking)).thenReturn(None)
+    when(helper.selectionStrategy.findReplacementSource(eqArg(ReplacementResults), eqArg(until), any()))
+      .thenReturn(None)
 
     helper receive replacementResponse(resp)
     helper.expectNoReplacementEvent()
@@ -416,14 +426,18 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new RadioSchedulerActorTestHelper
     val until = LocalDateTime.now() plusHours 2
     val source = radioSource(3)
-    val ranking: RadioSource.Ranking = s => s.uri.length
-    val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)),
-      r = ranking)
-    when(helper.selectionStrategy.findReplacementSource(ReplacementResults, until,
-      ranking)).thenReturn(None)
+    val resp = helper.handleSourceEvaluation(source, Inside(new LazyDate(until)), config = TestRadioSourcesConfig)
+    when(helper.selectionStrategy.findReplacementSource(any(), any(), any())).thenReturn(None)
 
     helper receive replacementResponse(resp)
-    verify(helper.selectionStrategy).findReplacementSource(ReplacementResults, until, ranking)
+
+    val captor = ArgumentCaptor.forClass(classOf[RadioSource => Int])
+    verify(helper.selectionStrategy).findReplacementSource(eqArg(ReplacementResults), eqArg(until), captor.capture())
+    val ranking = captor.getValue
+    TestRadioSourcesConfig.sources foreach { src =>
+      println("Testing src: " + src)
+      ranking(src) should be(TestRadioSourcesConfig.ranking(src))
+    }
   }
 
   it should "ignore outdated replacement source messages" in {
@@ -490,12 +504,11 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /**
       * Sends a message with data about radio sources to the test actor.
       *
-      * @param r an optional ranking function
+      * @param config the configuration for the radio sources
       * @return this helper
       */
-    def sendSourceData(r: RadioSource.Ranking = RadioSource.NoRanking):
-    RadioSchedulerActorTestHelper = {
-      receive(createSourceData(RadioSourceQueries, r))
+    def sendSourceData(config: RadioSourceConfig = TestRadioSourcesConfig): RadioSchedulerActorTestHelper = {
+      receive(createSourceData(config))
       this
     }
 
@@ -535,13 +548,13 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param source     the source
       * @param result     the result of the source evaluation
       * @param sendSource flag whether the source should be sent to the actor
-      * @param r          an optional ranking function
+      * @param config     the configuration for the radio sources
       * @return the response message
       */
     def handleSourceEvaluation(source: RadioSource, result: IntervalQueryResult, sendSource: Boolean = true,
-                               r: RadioSource.Ranking = RadioSource.NoRanking):
+                               config: RadioSourceConfig = TestRadioSourcesConfig):
     EvaluateIntervalsActor.EvaluateSourceResponse = {
-      sendSourceData(r)
+      sendSourceData(config)
       if (sendSource) {
         receive(source)
       }
@@ -579,7 +592,7 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     def expectReplacementEvaluation(expSrcResp: EvaluateIntervalsActor.EvaluateSourceResponse):
     EvaluateIntervalsActor.EvaluateReplacementSources = {
       val msg = evaluateActorProbe.expectMsgType[EvaluateReplacementSources]
-      msg.sources should be(RadioSourceQueries.keySet)
+      msg.config should be(TestRadioSourcesConfig)
       msg.currentSourceResponse should be(expSrcResp)
       msg
     }

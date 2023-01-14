@@ -20,7 +20,7 @@ import akka.actor.Actor
 import akka.pattern.pipe
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.{EvaluateReplacementSources, EvaluateReplacementSourcesResponse, EvaluateSource, EvaluateSourceResponse}
 
 import java.time.LocalDateTime
@@ -62,14 +62,11 @@ object EvaluateIntervalsActor {
     * reference date (which can be obtained from the passed in response for
     * the [[EvaluateSource]] message for the current source).
     *
-    * @param sources               a set with all sources
-    * @param exclusionQueries      the function to obtain interval queries for
-    *                              sources
+    * @param config                the radio sources configuration
     * @param currentSourceResponse results of the processing of the current
     *                              source
     */
-  private[schedule] case class EvaluateReplacementSources(sources: Set[RadioSource],
-                                                          exclusionQueries: RadioSource.ExclusionQueryFunc,
+  private[schedule] case class EvaluateReplacementSources(config: RadioSourceConfig,
                                                           currentSourceResponse: EvaluateSourceResponse)
 
   /**
@@ -112,10 +109,10 @@ class EvaluateIntervalsActor extends Actor {
 
     case req: EvaluateReplacementSources =>
       val sr = req.currentSourceResponse.request
-      Future.sequence(req.sources.toList filterNot { src =>
+      Future.sequence(req.config.sources filterNot { src =>
         src == sr.source || sr.exclusions.contains(src)
       } map { src =>
-        evaluateQueries(req.exclusionQueries(src), sr.refDate)
+        evaluateQueries(req.config.exclusions(src), sr.refDate)
           .map(r => (src, r))
       }) map { seq =>
         EvaluateReplacementSourcesResponse(seq, req)

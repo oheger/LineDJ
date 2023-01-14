@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceConfig}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -128,14 +128,10 @@ class RadioPlayer private(val config: PlayerConfig,
     * replacement source until the exclusion interval for the current source is
     * over.
     *
-    * @param sources     the set with all available radio sources
-    * @param exclusionsF the function to obtain exclusions for a source
-    * @param rankingF    the ranking function for the sources
+    * @param config the configuration about radio sources
     */
-  def initSourceExclusions(sources: Set[RadioSource],
-                           exclusionsF: RadioSource.ExclusionQueryFunc,
-                           rankingF: RadioSource.Ranking): Unit = {
-    schedulerActor ! RadioSchedulerActor.RadioSourceData(sources, exclusionsF, rankingF)
+  def initSourceExclusions(config: RadioSourceConfig): Unit = {
+    schedulerActor ! RadioSchedulerActor.RadioSourceData(config)
   }
 
   /**

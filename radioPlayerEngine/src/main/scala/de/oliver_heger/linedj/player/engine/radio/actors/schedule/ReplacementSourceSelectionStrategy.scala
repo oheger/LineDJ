@@ -70,7 +70,7 @@ class ReplacementSourceSelectionStrategy {
     */
   def findReplacementSource(replacements: Seq[(RadioSource, IntervalQueryResult)],
                             untilDate: LocalDateTime,
-                            rankingFunc: RadioSource.Ranking):
+                            rankingFunc: RadioSource => Int):
   Option[ReplacementSourceSelection] = {
     val srcSorted = replacements.sortWith((e1, e2) => IntervalQueries.ShortestInside(e1._2, e2._2))
     val fullReplacements = findFullReplacementSources(srcSorted, untilDate)

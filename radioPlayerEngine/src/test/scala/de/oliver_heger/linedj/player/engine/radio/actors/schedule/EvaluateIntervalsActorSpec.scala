@@ -20,7 +20,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -49,8 +49,16 @@ object EvaluateIntervalsActorSpec {
     */
   private def createMultiSourcesRequest(date: LocalDateTime, srcMap: Map[RadioSource, List[IntervalQuery]],
                                         exclusions: Set[RadioSource] = Set.empty): EvaluateReplacementSources = {
-    val queryFunc: RadioSource.ExclusionQueryFunc = source => srcMap.getOrElse(source, Seq.empty)
-    EvaluateIntervalsActor.EvaluateReplacementSources(srcMap.keySet, queryFunc,
+    val sourcesConfig = new RadioSourceConfig {
+      override def namedSources: Seq[(String, RadioSource)] = srcMap.keys.map { src =>
+        (src.uri, src)
+      }.toSeq
+
+      override def exclusions(source: RadioSource): Seq[IntervalQuery] = srcMap(source)
+
+      override def ranking(source: RadioSource): Int = RadioSourceConfig.DefaultRanking
+    }
+    EvaluateIntervalsActor.EvaluateReplacementSources(sourcesConfig,
       EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
         EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty,
           exclusions = exclusions)))
