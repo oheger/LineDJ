@@ -20,8 +20,9 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -30,15 +31,6 @@ import java.time.{LocalDateTime, Month}
 import java.util.concurrent.atomic.AtomicReference
 
 object EvaluateIntervalsActorSpec {
-  /**
-    * Generates a test radio source.
-    *
-    * @param idx an index
-    * @return the test source with this index
-    */
-  private def radioSource(idx: Int): RadioSource =
-    RadioSource(uri = "testRadioSource" + idx)
-
   /**
     * Generates a request message for multiple sources.
     *
@@ -49,15 +41,7 @@ object EvaluateIntervalsActorSpec {
     */
   private def createMultiSourcesRequest(date: LocalDateTime, srcMap: Map[RadioSource, List[IntervalQuery]],
                                         exclusions: Set[RadioSource] = Set.empty): EvaluateReplacementSources = {
-    val sourcesConfig = new RadioSourceConfig {
-      override def namedSources: Seq[(String, RadioSource)] = srcMap.keys.map { src =>
-        (src.uri, src)
-      }.toSeq
-
-      override def exclusions(source: RadioSource): Seq[IntervalQuery] = srcMap(source)
-
-      override def ranking(source: RadioSource): Int = RadioSourceConfig.DefaultRanking
-    }
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(srcMap)
     EvaluateIntervalsActor.EvaluateReplacementSources(sourcesConfig,
       EvaluateIntervalsActor.EvaluateSourceResponse(Inside(new LazyDate(LocalDateTime.now())),
         EvaluateIntervalsActor.EvaluateSource(radioSource(0), date, List.empty,

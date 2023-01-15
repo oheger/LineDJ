@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -45,19 +46,11 @@ object RadioSchedulerActorSpec {
   private val NoMessage = "NoMessageTest"
 
   /** The configuration with information about radio sources. */
-  private val TestRadioSourcesConfig = createSourceConfig(createDefaultSourceQueries())
+  private val TestRadioSourcesConfig =
+    RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
 
   /** The sequence with results for replacement sources. */
   private val ReplacementResults = createReplacementResults()
-
-  /**
-    * Creates a test radio source object.
-    *
-    * @param idx the index of the radio source
-    * @return the test radio source with this index
-    */
-  private def radioSource(idx: Int): RadioSource =
-    RadioSource("TestRadioSource_" + idx)
 
   /**
     * Creates a message for a response of an evaluation of replacement sources.
@@ -69,37 +62,6 @@ object RadioSchedulerActorSpec {
   EvaluateIntervalsActor.EvaluateReplacementSourcesResponse =
     EvaluateIntervalsActor.EvaluateReplacementSourcesResponse(ReplacementResults,
       EvaluateIntervalsActor.EvaluateReplacementSources(TestRadioSourcesConfig, resp))
-
-  /**
-    * Creates the config with radio sources and their associated queries.
-    *
-    * @param queryMap the map with sources and their exclusions
-    * @return the config about radio sources
-    */
-  private def createSourceConfig(queryMap: Map[RadioSource, Seq[IntervalQuery]]): RadioSourceConfig = {
-    val namedSourcesList = queryMap.keys.map { src => (src.uri, src) }.toSeq
-
-    new RadioSourceConfig {
-      override val namedSources: Seq[(String, RadioSource)] = namedSourcesList
-
-      override def exclusions(source: RadioSource): Seq[IntervalQuery] =
-        queryMap.getOrElse(source, Seq.empty)
-
-      override def ranking(source: RadioSource): Int =
-        source.uri.substring(source.uri.lastIndexOf('_') + 1).toInt
-    }
-  }
-
-  /**
-    * Creates a map with some radio sources and test exclusion queries to be
-    * used by test cases.
-    *
-    * @return the map with sources and their exclusion queries
-    */
-  private def createDefaultSourceQueries(): Map[RadioSource, Seq[IntervalQuery]] =
-    Map(radioSource(1) -> List(hours(1, 2)),
-      radioSource(2) -> List(hours(2, 3)),
-      radioSource(3) -> List(hours(4, 5)))
 
   /**
     * Returns a [[RadioSchedulerActor.RadioSourceData]] object based on the
@@ -208,8 +170,9 @@ class RadioSchedulerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     helper.expectNoSourceEvaluation().sendSourceData()
     val request1 = helper.expectSourceEvaluation()
 
-    val updatedQueries = createDefaultSourceQueries() + (radioSource(4) -> List(hours(21, 22)))
-    helper receive createSourceData(createSourceConfig(updatedQueries))
+    val updatedQueries = RadioSourceConfigTestHelper.TestSourcesQueryMap +
+      (radioSource(4) -> List(hours(21, 22)))
+    helper receive createSourceData(RadioSourceConfigTestHelper.createSourceConfig(updatedQueries))
     val request2 = helper.expectSourceEvaluation()
     request1.stateCount should not be request2.stateCount
   }

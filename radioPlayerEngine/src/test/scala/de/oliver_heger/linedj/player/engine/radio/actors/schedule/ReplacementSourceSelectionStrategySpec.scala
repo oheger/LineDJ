@@ -19,29 +19,16 @@ package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{LocalDateTime, Month}
 
-object ReplacementSourceSelectionStrategySpec {
-  /**
-    * Creates a radio source to be used in tests.
-    *
-    * @param idx the index of the source
-    * @return the radio source with this index
-    */
-  private def radioSource(idx: Int): RadioSource =
-    RadioSource("TestRadioSource_" + idx)
-}
-
 /**
   * Test class for ''ReplacementSourceSelectionStrategy''.
   */
 class ReplacementSourceSelectionStrategySpec extends AnyFlatSpec with Matchers {
-
-  import ReplacementSourceSelectionStrategySpec._
-
   "A strategy" should "return a best fitting replacement source" in {
     val until = LocalDateTime.of(2016, Month.JUNE, 24, 20, 30)
     val bestFittingResult = After(identity[LocalDateTime])
