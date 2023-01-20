@@ -42,6 +42,12 @@ object ReplacementSourceSelectionService {
 /**
   * A trait defining a service that selects a replacement source from a given
   * set of sources.
+  *
+  * The selection is done based on the exclusion intervals defined for radio
+  * sources; sources not allowed to be played currently are avoided as far as
+  * possible. In addition, a set of sources to exclude can be provided. This
+  * can be used to model different exclusion criteria not based on concrete
+  * time intervals.
   */
 trait ReplacementSourceSelectionService {
   /**
@@ -49,6 +55,7 @@ trait ReplacementSourceSelectionService {
     *
     * @param sourcesConfig   the configuration with the available sources
     * @param rankedSources   a map grouping radio sources by their ranking
+    * @param excludedSources a set with sources to ignore
     * @param untilDate       the date until when the replacement is needed
     * @param evaluateService the service to evaluate interval queries
     * @param system          the actor system
@@ -56,6 +63,7 @@ trait ReplacementSourceSelectionService {
     */
   def selectReplacementSource(sourcesConfig: RadioSourceConfig,
                               rankedSources: SortedMap[Int, Seq[RadioSource]],
+                              excludedSources: Set[RadioSource],
                               untilDate: LocalDateTime,
                               evaluateService: EvaluateIntervalsService)
                              (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]]
@@ -79,6 +87,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
 
   override def selectReplacementSource(sourcesConfig: RadioSourceConfig,
                                        rankedSources: SortedMap[Int, Seq[RadioSource]],
+                                       excludedSources: Set[RadioSource],
                                        untilDate: LocalDateTime,
                                        evaluateService: EvaluateIntervalsService)
                                       (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]] = {
@@ -87,6 +96,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     // Look for full replacement sources.
     val futFullReplacement = runSelectionStream(sourcesConfig,
       rankedSources,
+      excludedSources,
       untilDate,
       evaluateService) { (source, queryResult) =>
       (queryResult match {
@@ -107,6 +117,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
       optReplacement.map(replacement => Future.successful(Some(replacement))) getOrElse {
         runSelectionStream(sourcesConfig,
           rankedSources,
+          excludedSources,
           untilDate,
           evaluateService) { (source, queryResult) =>
           queryResult match {
@@ -126,6 +137,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     *
     * @param sourcesConfig   the configuration of radio sources
     * @param rankedSources   a map with radio sources ordered by their ranking
+    * @param excludedSources a set with sources to ignore
     * @param untilDate       the until date when to play the source
     * @param evaluateService the service to evaluate interval queries
     * @param resultFunc      the function to generate result objects
@@ -134,6 +146,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     */
   private def runSelectionStream(sourcesConfig: RadioSourceConfig,
                                  rankedSources: SortedMap[Int, Seq[RadioSource]],
+                                 excludedSources: Set[RadioSource],
                                  untilDate: LocalDateTime,
                                  evaluateService: EvaluateIntervalsService)
                                 (resultFunc: (RadioSource, IntervalQueryResult) => Option[SelectedReplacementSource])
@@ -141,7 +154,8 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     import system.dispatcher
     val streamSource = Source(rankedSources.values.toSeq)
     val sink = Sink.headOption[SelectedReplacementSource]
-    streamSource.mapConcat(sources => random.shuffle(sources))
+    streamSource.map(sources => sources filterNot excludedSources.contains)
+      .mapConcat(sources => random.shuffle(sources))
       .mapAsync(4) { src =>
         evaluateService.evaluateIntervals(sourcesConfig.exclusions(src), untilDate) map {
           (src, _)

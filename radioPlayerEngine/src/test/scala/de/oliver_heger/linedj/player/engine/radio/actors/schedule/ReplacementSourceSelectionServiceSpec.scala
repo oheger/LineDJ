@@ -177,6 +177,20 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
     checkFullReplacementIsPreferred(Before(new LazyDate(ReferenceDate)))
   }
 
+  it should "allow the exclusion of specific sources" in {
+    val queryResult = After(_ => ReferenceDate)
+    val helper = new SelectionServiceTestHelper
+    val excludedSource = helper.createSourceWithQueries(1, queryResult)
+    val remainingSource = helper.createSourceWithQueries(2, queryResult)
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(Map(excludedSource, remainingSource))
+    val rankedSources = TreeMap(0 -> List(excludedSource._1),
+      1 -> List(remainingSource._1))
+
+    val result = helper.callSelectionService(sourcesConfig, rankedSources, Set(excludedSource._1))
+
+    result should be(Some(SelectedReplacementSource(remainingSource._1, ReferenceDate)))
+  }
+
   /**
     * A test helper class managing the dependencies of the test service.
     */
@@ -204,13 +218,15 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
     /**
       * Invokes the selection service under test with the given parameters.
       *
-      * @param sourcesConfig the configuration with radio sources
-      * @param rankedSources the sources ordered by their rankings
+      * @param sourcesConfig   the configuration with radio sources
+      * @param rankedSources   the sources ordered by their rankings
+      * @param excludedSources the set of sources to exclude
       * @return the result returned by the selection service
       */
     def callSelectionService(sourcesConfig: RadioSourceConfig,
-                             rankedSources: SortedMap[Int, Seq[RadioSource]]): Option[SelectedReplacementSource] =
+                             rankedSources: SortedMap[Int, Seq[RadioSource]],
+                             excludedSources: Set[RadioSource] = Set.empty): Option[SelectedReplacementSource] =
       futureResult(ReplacementSourceSelectionServiceImpl.selectReplacementSource(sourcesConfig, rankedSources,
-        ReferenceDate, evaluateService))
+        excludedSources, ReferenceDate, evaluateService))
   }
 }
