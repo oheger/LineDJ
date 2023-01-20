@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.SelectedReplacementSource
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 
 import java.time.LocalDateTime
@@ -37,6 +37,19 @@ object ReplacementSourceSelectionService {
     * @param untilDate the date until which this source can be played
     */
   case class SelectedReplacementSource(source: RadioSource, untilDate: LocalDateTime)
+
+  /**
+    * A case class representing the result of a replacement source selection
+    * process. If a source could be selected, it is contained in this object.
+    * In addition, the object includes a sequence number. This is used to deal
+    * with race conditions caused by stale results of asynchronous selection
+    * processes arriving at unexpected times.
+    *
+    * @param selectedSource an ''Option'' with the selected source
+    * @param seqNo          the sequence number
+    */
+  case class ReplacementSourceSelectionResult(selectedSource: Option[SelectedReplacementSource],
+                                              seqNo: Int)
 }
 
 /**
@@ -57,16 +70,18 @@ trait ReplacementSourceSelectionService {
     * @param rankedSources   a map grouping radio sources by their ranking
     * @param excludedSources a set with sources to ignore
     * @param untilDate       the date until when the replacement is needed
+    * @param seqNo           a sequence number
     * @param evaluateService the service to evaluate interval queries
     * @param system          the actor system
-    * @return an ''Option'' with the result of the selection process
+    * @return a ''Future'' with the result of the selection process
     */
   def selectReplacementSource(sourcesConfig: RadioSourceConfig,
                               rankedSources: SortedMap[Int, Seq[RadioSource]],
                               excludedSources: Set[RadioSource],
                               untilDate: LocalDateTime,
+                              seqNo: Int,
                               evaluateService: EvaluateIntervalsService)
-                             (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]]
+                             (implicit system: ActorSystem): Future[ReplacementSourceSelectionResult]
 }
 
 /**
@@ -89,8 +104,9 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
                                        rankedSources: SortedMap[Int, Seq[RadioSource]],
                                        excludedSources: Set[RadioSource],
                                        untilDate: LocalDateTime,
+                                       seqNo: Int,
                                        evaluateService: EvaluateIntervalsService)
-                                      (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]] = {
+                                      (implicit system: ActorSystem): Future[ReplacementSourceSelectionResult] = {
     import system.dispatcher
 
     // Look for full replacement sources.
@@ -127,7 +143,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
           }
         }
       }
-    }
+    } map { optSelectedSource => ReplacementSourceSelectionResult(optSelectedSource, seqNo) }
   }
 
   /**

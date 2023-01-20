@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.SelectedReplacementSource
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -37,6 +37,9 @@ import scala.concurrent.Future
 object ReplacementSourceSelectionServiceSpec {
   /** A reference date used for interval queries. */
   private val ReferenceDate = LocalDateTime.of(2023, Month.JANUARY, 16, 21, 57, 59)
+
+  /** The sequence number used by tests. */
+  private val SeqNo = 42
 
   /**
     * Convenience function to create a sorted map from a single radio source.
@@ -225,8 +228,11 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
       */
     def callSelectionService(sourcesConfig: RadioSourceConfig,
                              rankedSources: SortedMap[Int, Seq[RadioSource]],
-                             excludedSources: Set[RadioSource] = Set.empty): Option[SelectedReplacementSource] =
-      futureResult(ReplacementSourceSelectionServiceImpl.selectReplacementSource(sourcesConfig, rankedSources,
-        excludedSources, ReferenceDate, evaluateService))
+                             excludedSources: Set[RadioSource] = Set.empty): Option[SelectedReplacementSource] = {
+      val result = futureResult(ReplacementSourceSelectionServiceImpl.selectReplacementSource(sourcesConfig,
+        rankedSources, excludedSources, ReferenceDate, SeqNo, evaluateService))
+      result.seqNo should be(SeqNo)
+      result.selectedSource
+    }
   }
 }
