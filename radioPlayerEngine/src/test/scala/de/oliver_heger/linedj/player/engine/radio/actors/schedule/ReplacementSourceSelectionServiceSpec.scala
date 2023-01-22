@@ -21,8 +21,9 @@ import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.SelectedReplacementSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -214,7 +215,8 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
     def createSourceWithQueries(idx: Int, queryResult: IntervalQueryResult): (RadioSource, Seq[IntervalQuery]) = {
       val source = radioSource(idx)
       val queries = mock[Seq[IntervalQuery]]
-      when(evaluateService.evaluateIntervals(queries, ReferenceDate)).thenReturn(Future.successful(queryResult))
+      when(evaluateService.evaluateIntervals(queries, ReferenceDate, 0))
+        .thenReturn(Future.successful(EvaluateIntervalsResponse(queryResult, 0)))
       source -> queries
     }
 

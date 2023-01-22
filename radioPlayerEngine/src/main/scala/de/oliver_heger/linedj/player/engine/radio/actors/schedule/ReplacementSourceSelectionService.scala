@@ -173,8 +173,8 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     streamSource.map(sources => sources filterNot excludedSources.contains)
       .mapConcat(sources => random.shuffle(sources))
       .mapAsync(4) { src =>
-        evaluateService.evaluateIntervals(sourcesConfig.exclusions(src), untilDate) map {
-          (src, _)
+        evaluateService.evaluateIntervals(sourcesConfig.exclusions(src), untilDate, 0) map { response =>
+          (src, response.result)
         }
       }.map { t => resultFunc(t._1, t._2) }
       .filter(_.isDefined)

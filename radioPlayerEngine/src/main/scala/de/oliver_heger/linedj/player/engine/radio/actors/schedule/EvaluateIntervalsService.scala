@@ -18,9 +18,23 @@ package de.oliver_heger.linedj.player.engine.radio.actors.schedule
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery, IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
 
 import java.time.LocalDateTime
 import scala.concurrent.{ExecutionContext, Future}
+
+object EvaluateIntervalsService {
+  /**
+    * A data class describing the response of [[EvaluateIntervalsService]] for
+    * a request to evaluate a sequence of interval queries. In addition to the
+    * actual result, the sequence number passed to the request is contained,
+    * too. Thus it is possible to detect stale responses.
+    *
+    * @param result the result of the evaluation
+    * @param seqNo  the sequence number that was part of the request
+    */
+  case class EvaluateIntervalsResponse(result: IntervalQueryResult, seqNo: Int)
+}
 
 /**
   * A trait defining a service that provides the efficient evaluation of
@@ -38,23 +52,25 @@ trait EvaluateIntervalsService {
     *
     * @param queries the queries to be evaluated
     * @param refDate the reference date
+    * @param seqNo   a sequence number to be copied to the result
     * @param ec      the execution context
     * @return a ''Future'' with the result of the evaluation
     */
-  def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime)
-                       (implicit ec: ExecutionContext): Future[IntervalQueryResult]
+  def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime, seqNo: Int)
+                       (implicit ec: ExecutionContext): Future[EvaluateIntervalsResponse]
 }
 
 /**
   * A default implementation of the [[EvaluateIntervalsService]] trait.
   */
 object EvaluateIntervalsServiceImpl extends EvaluateIntervalsService {
-  override def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime)
-                                (implicit ec: ExecutionContext): Future[IntervalQueryResult] =
+  override def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime, seqNo: Int)
+                                (implicit ec: ExecutionContext): Future[EvaluateIntervalsResponse] =
     Future.sequence(queries map (q => Future {
       q(refDate)
     })) map { results =>
-      IntervalQueries.selectResult(results,
+      val evalResult = IntervalQueries.selectResult(results,
         IntervalQueries.LongestInsideSelector) getOrElse IntervalQueries.BeforeForEver
+      EvaluateIntervalsResponse(evalResult, seqNo)
     }
 }

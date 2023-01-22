@@ -21,6 +21,7 @@ import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
+import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -45,21 +46,23 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
   "EvaluateIntervalsServiceImpl" should "handle an empty sequence of interval queries" in {
     val date = LocalDateTime.of(2023, Month.JANUARY, 15, 21, 35)
     val queries = List.empty[IntervalQuery]
+    val SeqNo = 1
 
-    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, date))
+    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, date, SeqNo))
 
-    result should be(IntervalQueries.BeforeForEver)
+    result should be(EvaluateIntervalsResponse(IntervalQueries.BeforeForEver, SeqNo))
   }
 
   it should "correctly evaluate the provided queries" in {
     val date = LocalDateTime.of(2023, Month.JANUARY, 15, 21, 39)
     val queries = List(IntervalQueries.hours(10, 12), IntervalQueries.hours(23, 24),
       IntervalQueries.hours(19, 22), IntervalQueries.hours(21, 23))
+    val SeqNo = 42
 
-    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, date))
+    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, date, SeqNo))
 
     result match {
-      case Inside(until) =>
+      case EvaluateIntervalsResponse(Inside(until), seqNo) if seqNo == SeqNo =>
         until.value should be(LocalDateTime.of(2023, Month.JANUARY, 15, 23, 0))
       case r => fail("Unexpected result: " + r)
     }
@@ -68,6 +71,7 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
   it should "evaluate interval queries in different threads" in {
     val threadNamesRef = new AtomicReference(Set.empty[String])
     val refDate = LocalDateTime.of(2023, Month.JANUARY, 15, 22, 0)
+    val SeqNo = 111
 
     /*
       * Creates a fake interval query that determines from which thread it is
@@ -91,10 +95,10 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
 
     val queries = (1 to 32) map (_ => createQuery())
 
-    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, refDate))
+    val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, refDate, SeqNo))
 
     result match {
-      case Inside(until) =>
+      case EvaluateIntervalsResponse(Inside(until), SeqNo) =>
         until.value.getMinute should be > 1
       case r => fail("Unexpected result: " + r)
     }
