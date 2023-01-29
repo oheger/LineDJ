@@ -22,7 +22,7 @@ import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.ClassicActorCheckFunc
+import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
@@ -156,9 +156,16 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config, actorCreator.probePublisherActor.ref, lineWriterActor.ref,
-          AudioPlayer.AudioPlayerSourceCreator))
+        props.args should be(List(config, actorCreator.probePublisherActor.ref, scheduleActor.ref,
+          lineWriterActor.ref, AudioPlayer.AudioPlayerSourceCreator))
         facadeActor.ref
+    }
+
+    /** The function to check the typed actors created during tests. */
+    private val typedActorChecks: ActorCheckFunc = (_, optStop) => {
+      case "schedulerActor" =>
+        optStop should be(Some(ScheduledInvocationActor.Stop))
+        scheduleActor.ref
     }
 
     /** The stub implementation for creating actors. */
@@ -169,6 +176,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the facade actor. */
     private val facadeActor = TestProbe()
+
+    /** Test probe for the scheduler actor. */
+    private val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()
@@ -218,7 +228,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def createActorCreator(): ActorCreatorForEventManagerTests[PlayerEvent] =
       new ActorCreatorForEventManagerTests[PlayerEvent](testKit, "eventManagerActor",
-        customClassicChecks = classicActorChecks) with Matchers
+        customClassicChecks = classicActorChecks, customChecks = typedActorChecks) with Matchers
 
     /**
       * Creates a test audio player configuration.

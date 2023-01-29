@@ -83,6 +83,17 @@ object PlayerControl {
   }
 
   /**
+    * Creates the [[ScheduledInvocationActor]] used by this player.
+    *
+    * @param creator the object to create actors
+    * @param name    the name of the scheduler actor
+    * @return the reference to the newly created actor
+    */
+  def createSchedulerActor(creator: ActorCreator, name: String):
+  ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand] =
+    creator.createActor(ScheduledInvocationActor(), name, Some(ScheduledInvocationActor.Stop))
+
+  /**
     * Creates the properties for the line writer actor to be used by this audio
     * player.
     *

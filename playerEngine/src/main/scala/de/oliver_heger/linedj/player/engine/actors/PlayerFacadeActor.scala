@@ -98,25 +98,29 @@ object PlayerFacadeActor {
 
   private class PlayerFacadeActorImpl(config: PlayerConfig,
                                       eventActor: typed.ActorRef[PlayerEvent],
+                                      scheduleActor:
+                                      typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                       lineWriterActor: ActorRef,
                                       sourceCreator: SourceActorCreator)
-    extends PlayerFacadeActor(config, eventActor, lineWriterActor, sourceCreator) with ChildActorFactory
-      with CloseSupport
+    extends PlayerFacadeActor(config, eventActor, scheduleActor, lineWriterActor, sourceCreator)
+      with ChildActorFactory with CloseSupport
 
   /**
     * Returns a ''Props'' object for creating a new actor instance.
     *
     * @param config          the configuration for the player engine
     * @param eventActor      the event manager actor
+    * @param scheduleActor   the actor for scheduled invocations
     * @param lineWriterActor the line writer actor
     * @param sourceCreator   the function to create the source actor(s)
     * @return the ''Props'' to create a new instance
     */
   def apply(config: PlayerConfig,
             eventActor: typed.ActorRef[PlayerEvent],
+            scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
             lineWriterActor: ActorRef,
             sourceCreator: SourceActorCreator): Props =
-    Props(classOf[PlayerFacadeActorImpl], config, eventActor, lineWriterActor, sourceCreator)
+    Props(classOf[PlayerFacadeActorImpl], config, eventActor, scheduleActor, lineWriterActor, sourceCreator)
 }
 
 /**
@@ -151,11 +155,13 @@ object PlayerFacadeActor {
   *
   * @param config          the configuration for the player engine
   * @param eventActor      the event manager actor
+  * @param scheduleActor   the actor for scheduled invocations
   * @param lineWriterActor the line writer actor
   * @param sourceCreator   the function to create the source actor(s)
   */
 class PlayerFacadeActor(config: PlayerConfig,
                         eventActor: typed.ActorRef[PlayerEvent],
+                        scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                         lineWriterActor: ActorRef,
                         sourceCreator: SourceActorCreator)
   extends Actor {
@@ -188,7 +194,7 @@ class PlayerFacadeActor(config: PlayerConfig,
   private var closed = false
 
   override def preStart(): Unit = {
-    delayActor = createChildActor(DelayActor())
+    delayActor = createChildActor(DelayActor(scheduleActor))
     createDynamicChildren()
   }
 

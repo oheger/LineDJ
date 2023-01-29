@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.utils.SchedulerSupport
 
 import scala.concurrent.duration._
 
@@ -74,21 +73,21 @@ object DelayActor {
   /**
     * An internal data class for keeping track on pending scheduled
     * invocations. Instances of this class are stored by the actor so that it
-    * can react accordingly when it is notified by the scheduler.
+    * can react accordingly when it is notified by the scheduler. The main
+    * purpose of this class is to detect stale notifications from the scheduler
+    * actor; this is achieved using a sequence number.
     *
-    * @param cancellable the object to cancel a scheduled message
     * @param seqNo       the current sequence number
     */
-  private case class DelayData(cancellable: Cancellable, seqNo: Int)
-
-  private class DelayActorImpl extends DelayActor with SchedulerSupport
+  private case class DelayData(seqNo: Int) extends AnyVal
 
   /**
     * Creates a ''Props'' object for creating an actor instance.
-    *
+    * @param schedulerActor the actor for doing scheduled invocations
     * @return creation ''Props'' for a new actor instance
     */
-  def apply(): Props = Props[DelayActorImpl]()
+  def apply(schedulerActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand]): Props =
+    Props(classOf[DelayActor], schedulerActor)
 }
 
 /**
@@ -106,6 +105,7 @@ object DelayActor {
   * message to be sent to the target, and a delay. If the delay is less than or
   * equal to 0, the message is sent immediately. Otherwise, a one-time
   * scheduler task is created to send the message after the specified delay.
+  * The latter is done using [[ScheduledInvocationActor]].
   *
   * Note that for the use cases needed for the audio player engine it is not
   * necessary to preserve the original sender of the message; so the message is
@@ -120,9 +120,8 @@ object DelayActor {
   * single message to be processed by this actor. In this case, the first
   * target actor is considered the relevant one.
   */
-class DelayActor extends Actor with ActorLogging {
-  this: SchedulerSupport =>
-
+class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand])
+  extends Actor with ActorLogging {
   import DelayActor._
 
   /** A map for the pending scheduled invocations. */
@@ -133,7 +132,7 @@ class DelayActor extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case p: Propagate =>
-      pendingSchedules.remove(p.target) foreach (_.cancellable.cancel())
+      pendingSchedules.remove(p.target)
       if (p.delay > NoDelay) {
         pendingSchedules += p.target -> scheduleInvocation(p)
       } else {
@@ -143,14 +142,13 @@ class DelayActor extends Actor with ActorLogging {
     case DelayedInvocation(prop, seqNo) =>
       log.debug("Received delayed invocation.")
       pendingSchedules.remove(prop.target) match {
-        case Some(DelayData(_, seq)) if seqNo == seq =>
+        case Some(DelayData(seq)) if seqNo == seq =>
           log.debug("Propagating: {}.", prop)
           propagate(prop)
         case _ => // outdated or unexpected
       }
 
     case CloseRequest =>
-      pendingSchedules foreach (e => e._2.cancellable.cancel())
       pendingSchedules.clear()
       sender() ! CloseAck(self)
   }
@@ -166,8 +164,10 @@ class DelayActor extends Actor with ActorLogging {
     log.debug("Scheduling invocation for {}.", p)
     val currentCount = sequenceCounter
     sequenceCounter += 1
-    DelayData(scheduleMessageOnce(p.delay, self,
-      DelayedInvocation(p, currentCount)), currentCount)
+    val scheduleMessage = DelayedInvocation(p, currentCount)
+    schedulerActor ! ScheduledInvocationActor.ClassicInvocationCommand(p.delay, self, scheduleMessage)
+
+    DelayData(currentCount)
   }
 
   /**

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
+import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -161,14 +162,15 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "A PlayerFacadeActor" should "create correct creation Props" in {
     val config = createPlayerConfig()
     val eventActor = testKit.createTestProbe[PlayerEvent]()
+    val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
     val lineWriter = TestProbe()
     val srcCreator = AudioPlayer.AudioPlayerSourceCreator
 
-    val props = PlayerFacadeActor(config, eventActor.ref, lineWriter.ref, srcCreator)
+    val props = PlayerFacadeActor(config, eventActor.ref, scheduleActor.ref, lineWriter.ref, srcCreator)
     classOf[PlayerFacadeActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(config, eventActor.ref, lineWriter.ref, srcCreator))
+    props.args should be(List(config, eventActor.ref, scheduleActor.ref, lineWriter.ref, srcCreator))
   }
 
   it should "create correct child actors immediately" in {
@@ -182,7 +184,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val creations = helper.expectActorCreations(TotalChildrenCount)
 
     val cdDelay = findActorCreation[DelayActor](creations)
-    cdDelay.props.args shouldBe empty
+    cdDelay.props.args should contain only helper.scheduler.ref
   }
 
   it should "dispatch a message to the download actor" in {
@@ -378,6 +380,10 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /** Test probe for the event manager actor. */
     private val eventManager = testKit.createTestProbe[PlayerEvent]()
 
+    /** Test probe for the scheduler actor. */
+    val scheduler: scaladsl.TestProbe[ScheduledInvocationActor.ScheduledInvocationCommand] =
+      testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
     /** Test probe for the line writer actor. */
     private val lineWriter = TestProbe()
 
@@ -560,7 +566,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return the test actor reference
       */
     private def createTestActor(): ActorRef = {
-      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, lineWriter.ref,
+      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, scheduler.ref, lineWriter.ref,
         AudioPlayer.AudioPlayerSourceCreator) with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           val probe = TestProbe()

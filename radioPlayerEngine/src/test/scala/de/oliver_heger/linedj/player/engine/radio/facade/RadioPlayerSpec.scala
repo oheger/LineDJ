@@ -29,7 +29,6 @@ import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTe
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioSource, RadioSourceConfig}
@@ -226,16 +225,20 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "radioPlayerFacadeActor" =>
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should have size 4
-        props.args.take(3) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
-          probeLineWriterActor.ref)
-        val creator = props.args(3).asInstanceOf[SourceActorCreator]
+        props.args should have size 5
+        props.args.take(4) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
+          probeSchedulerInvocationActor.ref, probeLineWriterActor.ref)
+        val creator = props.args(4).asInstanceOf[SourceActorCreator]
         checkSourceActorCreator(creator)
         probeFacadeActor.ref
     }
 
     /** Test probe for the actor converting player to radio events. */
     private val probePlayerEventActor = testKit.createTestProbe[PlayerEvent]()
+
+    /** Test probe for the scheduler invocation actor. */
+    private val probeSchedulerInvocationActor =
+      testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
     /**
       * A stub behavior simulating the radio event converter actor. This
@@ -256,6 +259,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         optStopCmd should be(Some(RadioEventConverterActor.Stop))
         checkConverterBehavior(behavior.asInstanceOf[Behavior[RadioEventConverterActor.RadioEventConverterCommand]])
         testKit.spawn(mockEventConverterBehavior)
+
+      case "radioSchedulerInvocationActor" =>
+        optStopCmd should be(Some(ScheduledInvocationActor.Stop))
+        probeSchedulerInvocationActor.ref
     }
 
     /** The object for creating test actors. */

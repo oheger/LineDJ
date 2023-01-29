@@ -58,10 +58,11 @@ object AudioPlayer {
     */
   def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
+    val schedulerActor = PlayerControl.createSchedulerActor(config.actorCreator, "schedulerActor")
     PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorCreator,
       "eventManagerActor") map { eventActors =>
-      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._2, lineWriterActor,
-        AudioPlayerSourceCreator), "playerFacadeActor")
+      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
+        lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
       new AudioPlayer(facadeActor, eventActors._1)
     }
   }
