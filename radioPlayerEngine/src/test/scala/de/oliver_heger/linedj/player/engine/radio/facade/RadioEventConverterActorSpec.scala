@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.scaladsl.AskPattern._
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.radio._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 

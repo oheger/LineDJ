@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.radio._
 
 /**
   * An actor implementation that converts events from the audio player to the
@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.player.engine._
   * radio player that generate audio player events. The relevant events are
   * then mapped to radio events.
   */
-object RadioEventConverterActor {
+private object RadioEventConverterActor {
   /**
     * The base trait for the commands supported by this actor implementation.
     */
