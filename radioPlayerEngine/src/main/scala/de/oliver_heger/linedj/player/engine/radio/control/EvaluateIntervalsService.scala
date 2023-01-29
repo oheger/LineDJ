@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuery, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
+import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 
 import java.time.LocalDateTime
 import scala.concurrent.{ExecutionContext, Future}

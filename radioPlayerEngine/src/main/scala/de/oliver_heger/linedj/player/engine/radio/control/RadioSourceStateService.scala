@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceStateService._
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
+import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
+import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import scalaz.State
 import scalaz.State._

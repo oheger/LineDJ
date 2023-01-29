@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes._
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.SelectedReplacementSource
+import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.SelectedReplacementSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

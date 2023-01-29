@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries.hours
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsService.EvaluateIntervalsResponse
+import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
+import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceStateService.{EvalFunc, PlayCurrentSource, RadioSourceState, ScheduleSourceEvaluation, StartReplacementSource, StateAction, TriggerEvaluation, TriggerReplacementSelection}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -33,8 +33,8 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.{LocalDateTime, Month}
 import scala.collection.immutable.TreeMap
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 object RadioSourceStateServiceSpec {
   /**
@@ -73,7 +73,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
   import RadioSourceStateServiceSpec._
 
   "RadioSourceStateServiceImpl" should "define a correct initial state" in {
-    import RadioSourceStateServiceImpl.InitialState._
+    import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateServiceImpl.InitialState._
     sourcesConfig should be(RadioSourceConfig.Empty)
     rankedSources shouldBe empty
     currentSource shouldBe empty

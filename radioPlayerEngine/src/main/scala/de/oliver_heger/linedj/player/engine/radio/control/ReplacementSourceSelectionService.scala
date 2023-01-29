@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
+import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
 import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
 
 import java.time.LocalDateTime

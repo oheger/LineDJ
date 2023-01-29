@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors.schedule
+package de.oliver_heger.linedj.player.engine.radio.control
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries.hours
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery

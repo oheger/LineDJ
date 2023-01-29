@@ -22,7 +22,8 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Insi
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.EvaluateIntervalsActor.EvaluateReplacementSources
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSourceConfigTestHelper.radioSource
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
