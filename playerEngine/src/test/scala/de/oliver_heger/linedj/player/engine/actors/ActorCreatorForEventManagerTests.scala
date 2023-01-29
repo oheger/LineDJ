@@ -21,7 +21,6 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.{ActorSystem, Props}
-import akka.testkit.TestProbe
 import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc, EmptyCheckFunc, EmptyClassicActorCheckFunc}
@@ -84,9 +83,6 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
                                              (implicit system: ActorSystem)
   extends ActorCreator {
   this: Matchers =>
-
-  /** Test probe for the legacy event manager actor. */
-  val probeEventActorOld: TestProbe = TestProbe()
 
   /** Test probe for the event manager actor. */
   val probeEventActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[EVENT]] =
