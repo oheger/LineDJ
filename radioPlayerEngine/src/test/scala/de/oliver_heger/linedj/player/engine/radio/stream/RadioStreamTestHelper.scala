@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.stream.IOResult
 import akka.stream.scaladsl.{Source, StreamConverters}
@@ -22,8 +22,8 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 
 import java.io.{IOException, InputStream}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.Future

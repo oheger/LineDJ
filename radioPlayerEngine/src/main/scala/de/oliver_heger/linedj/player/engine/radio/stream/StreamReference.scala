@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 /**
   * A simple data class referencing a radio stream. The stream can either point

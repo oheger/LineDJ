@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.NotUsed
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
@@ -23,7 +23,7 @@ import akka.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.actors.M3uReader.{MaxM3uStreamSize, extractUriSink, needToResolveAudioStream, streamRequest}
+import de.oliver_heger.linedj.player.engine.radio.stream.M3uReader.{MaxM3uStreamSize, extractUriSink, needToResolveAudioStream, streamRequest}
 
 import scala.concurrent.{ExecutionContext, Future}
 

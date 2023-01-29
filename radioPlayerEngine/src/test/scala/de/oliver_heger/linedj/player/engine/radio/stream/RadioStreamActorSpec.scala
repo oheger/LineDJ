@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{ActorRef, ActorSystem}
@@ -27,8 +27,8 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadata, RadioMetadataEvent}
-import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
+import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito.{timeout, verify, when}
@@ -344,7 +344,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     private val probeEventActor = testKit.createTestProbe[RadioEvent]()
 
     def createTestActor(streamRef: StreamReference): ActorRef = {
-      val props = RadioStreamActor(Config, streamRef, probeSourceListener.ref, probeEventActor.ref, Some(m3uReader),
+      val props = stream.RadioStreamActor(Config, streamRef, probeSourceListener.ref, probeEventActor.ref, Some(m3uReader),
         Some(httpLoader))
       system.actorOf(props)
     }

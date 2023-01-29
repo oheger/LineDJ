@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamTestHelper.dataBlock
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.dataBlock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

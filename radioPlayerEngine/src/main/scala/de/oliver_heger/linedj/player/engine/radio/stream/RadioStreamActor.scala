@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.NotUsed
-import akka.actor.typed
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props, typed}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream._
@@ -27,8 +26,8 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent}
-import de.oliver_heger.linedj.player.engine.radio.actors.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
 import scala.concurrent.ExecutionContext

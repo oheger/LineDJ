@@ -27,8 +27,9 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.radio.actors.{RadioDataSourceActor, RadioEventConverterActor}
+import de.oliver_heger.linedj.player.engine.radio.actors.RadioEventConverterActor
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceConfig}
 
 import scala.concurrent.duration._

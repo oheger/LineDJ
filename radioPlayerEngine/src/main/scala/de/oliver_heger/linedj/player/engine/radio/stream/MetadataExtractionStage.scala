@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.stream.{Attributes, FanOutShape2, Inlet, Outlet}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import akka.stream.{Attributes, FanOutShape2, Inlet, Outlet}
 import akka.util.ByteString
 
 private object MetadataExtractionStage {

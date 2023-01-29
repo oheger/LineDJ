@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio.actors
+package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -36,7 +36,7 @@ private object HttpStreamLoader {
     * @param redirectUri the URI found in the ''Location'' header
     * @return the resulting URI to redirect to
     */
-  private[actors] def constructRedirectUri(requestUri: Uri, redirectUri: Uri): Uri =
+  private[stream] def constructRedirectUri(requestUri: Uri, redirectUri: Uri): Uri =
     if (redirectUri.isAbsolute) redirectUri
     else redirectUri.withAuthority(requestUri.authority).withScheme(requestUri.scheme)
 
