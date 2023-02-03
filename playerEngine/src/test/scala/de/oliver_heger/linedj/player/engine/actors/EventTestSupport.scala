@@ -16,11 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import java.time.LocalDateTime
-
-import akka.testkit.{TestKit, TestProbe}
+import akka.actor.testkit.typed.scaladsl.TestProbe
 import org.scalatest.matchers.should.Matchers
 
+import java.time.LocalDateTime
 import scala.reflect.ClassTag
 
 /**
@@ -33,21 +32,7 @@ import scala.reflect.ClassTag
   * @tparam EVENT the event type to be handled
   */
 trait EventTestSupport[EVENT] {
-  this: TestKit with Matchers =>
-  /**
-    * Expects that an event is received and checks the event time.
-    *
-    * @param probe the probe for the event actor
-    * @param t     the class tag
-    * @tparam T the expected event type
-    * @return the received event
-    */
-  def expectEvent[T <: EVENT](probe: TestProbe)(implicit t: ClassTag[T]): T = {
-    val event = probe.expectMsgType[T]
-    val diff = java.time.Duration.between(eventTimeExtractor(event), LocalDateTime.now())
-    diff.toMillis should be < 250L
-    event
-  }
+  this: Matchers =>
 
   /**
     * Expects that an event is received and checks the event time.
@@ -57,12 +42,24 @@ trait EventTestSupport[EVENT] {
     * @tparam T the expected event type
     * @return the received event
     */
-  def expectEvent[T <: EVENT](probe: akka.actor.testkit.typed.scaladsl.TestProbe[EVENT])
+  def expectEvent[T <: EVENT](probe: TestProbe[EVENT])
                              (implicit t: ClassTag[T]): T = {
     val event = probe.expectMessageType[T]
-    val diff = java.time.Duration.between(eventTimeExtractor(event), LocalDateTime.now())
-    diff.toMillis should be < 250L
+    assertCurrentTime(eventTimeExtractor(event))
     event
+  }
+
+  /**
+    * Checks whether the given time is close to the current system time. This
+    * function can be used to check invocations with time values that should be
+    * the current time.
+    *
+    * @param time        the time to check
+    * @param deltaMillis the accepted difference to the system time (in millis)
+    */
+  def assertCurrentTime(time: LocalDateTime, deltaMillis: Long = 250): Unit = {
+    val diff = java.time.Duration.between(time, LocalDateTime.now())
+    diff.toMillis should be < 250L
   }
 
   /**
