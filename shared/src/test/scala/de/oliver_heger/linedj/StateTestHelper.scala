@@ -104,7 +104,7 @@ trait StateTestHelper[ServiceState, UpdateService] {
     * @tparam A the type of the additional data
     * @return the ''State'' object
     */
-  private def createState[A](state: ServiceState, data: A): State[ServiceState, A] =
+  protected def createState[A](state: ServiceState, data: A): State[ServiceState, A] =
     State { s =>
       stateQueue offer s
       (state, data)
