@@ -215,7 +215,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     private val eventActor = testKit.createTestProbe[RadioEvent]()
 
     /** The actor to be tested. */
-    private val stateActor = testKit.spawn(RadioSourceStateActor(updateService, evalService, replaceService,
+    private val stateActor = testKit.spawn(RadioSourceStateActor.behavior(updateService, evalService, replaceService,
       scheduleActor.ref, playbackActor.ref, eventActor.ref))
 
     /**

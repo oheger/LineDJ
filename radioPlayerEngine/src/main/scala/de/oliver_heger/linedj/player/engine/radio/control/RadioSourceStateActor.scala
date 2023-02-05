@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext
   * [[RadioSourceStateService.StateAction]] responses. These may lead to
   * further messages being sent to other helper actors.
   */
-private object RadioSourceStateActor {
+object RadioSourceStateActor {
   /**
     * The base trait of the command hierarchy supported by this actor.
     */
@@ -104,29 +104,46 @@ private object RadioSourceStateActor {
                                   eventActor: ActorRef[RadioEvent])
 
   /**
-    * Returns the behavior to create an instance of this actor implementation.
-    * The function expects a number of parameters for the dependencies used by
-    * this actor.
-    *
-    * @param stateService   the service managing the radio source state
-    * @param evalService    the service to evaluate radio sources
-    * @param replaceService the service to select a replacement source
-    * @param scheduleActor  the actor for scheduled invocations
-    * @param playbackActor  the actor for playing radio sources
-    * @param eventActor     the actor for publishing events
-    * @return the behavior for a new actor instance
+    * A trait that defines a factory function for creating a ''Behavior'' for a
+    * new actor instance.
     */
-  def apply(stateService: RadioSourceStateService,
-            evalService: EvaluateIntervalsService,
-            replaceService: ReplacementSourceSelectionService,
-            scheduleActor: ActorRef[ScheduledInvocationCommand],
-            playbackActor: ActorRef[RadioControlActor.SwitchToSource],
-            eventActor: ActorRef[RadioEvent]):
-  Behavior[RadioSourceStateCommand] = Behaviors.setup[RadioSourceStateCommand] { context =>
-    val dependencies = Dependencies(context, stateService, evalService, replaceService,
-      scheduleActor, playbackActor, eventActor)
-    handle(dependencies, RadioSourceStateServiceImpl.InitialState)
+  trait Factory {
+    /**
+      * Returns the behavior to create an instance of this actor implementation.
+      * The function expects a number of parameters for the dependencies used by
+      * this actor.
+      *
+      * @param stateService   the service managing the radio source state
+      * @param evalService    the service to evaluate radio sources
+      * @param replaceService the service to select a replacement source
+      * @param scheduleActor  the actor for scheduled invocations
+      * @param playbackActor  the actor for playing radio sources
+      * @param eventActor     the actor for publishing events
+      * @return the behavior for a new actor instance
+      */
+    def apply(stateService: RadioSourceStateService,
+              evalService: EvaluateIntervalsService,
+              replaceService: ReplacementSourceSelectionService,
+              scheduleActor: ActorRef[ScheduledInvocationCommand],
+              playbackActor: ActorRef[RadioControlActor.SwitchToSource],
+              eventActor: ActorRef[RadioEvent]): Behavior[RadioSourceStateCommand]
   }
+
+  /**
+    * A default [[Factory]] instance that can be used to create new actor
+    * instances.
+    */
+  final val behavior: Factory = (stateService: RadioSourceStateService,
+                                 evalService: EvaluateIntervalsService,
+                                 replaceService: ReplacementSourceSelectionService,
+                                 scheduleActor: ActorRef[ScheduledInvocationCommand],
+                                 playbackActor: ActorRef[RadioControlActor.SwitchToSource],
+                                 eventActor: ActorRef[RadioEvent]) =>
+    Behaviors.setup[RadioSourceStateCommand] { context =>
+      val dependencies = Dependencies(context, stateService, evalService, replaceService,
+        scheduleActor, playbackActor, eventActor)
+      handle(dependencies, RadioSourceStateServiceImpl.InitialState)
+    }
 
   /**
     * The main message handling function of this actor.
