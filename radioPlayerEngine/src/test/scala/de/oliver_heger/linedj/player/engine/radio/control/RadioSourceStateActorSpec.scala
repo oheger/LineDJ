@@ -209,7 +209,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     private val scheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()
 
     /** Test probe for the actor to play a specific source. */
-    private val playbackActor = testKit.createTestProbe[RadioControlActor.SwitchToSource]()
+    private val playbackActor = testKit.createTestProbe[RadioControlProtocol.SwitchToSource]()
 
     /** Test probe for the event actor. */
     private val eventActor = testKit.createTestProbe[RadioEvent]()
@@ -281,7 +281,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @return this test helper
       */
     def expectSwitchToSource(source: RadioSource): StateActorTestHelper = {
-      playbackActor.expectMessage(RadioControlActor.SwitchToSource(source))
+      playbackActor.expectMessage(RadioControlProtocol.SwitchToSource(source))
       this
     }
 

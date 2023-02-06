@@ -42,17 +42,6 @@ object RadioControlActor {
   final val SourceStateActorName = "radioSourceStateActor"
 
   /**
-    * A message class indicating that playback should switch to another source.
-    * This message is sent by internal services when they determine that the
-    * currently played source needs to be changed according to the defined
-    * constraints. It does not represent a source selection on behalf of the
-    * user.
-    *
-    * @param source the source to be played
-    */
-  private[control] case class SwitchToSource(source: RadioSource)
-
-  /**
     * The base trait for the commands supported by this actor implementation.
     */
   sealed trait RadioControlCommand

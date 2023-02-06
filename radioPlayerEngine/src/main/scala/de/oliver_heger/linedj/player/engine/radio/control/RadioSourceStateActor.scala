@@ -100,7 +100,7 @@ object RadioSourceStateActor {
                                   evalService: EvaluateIntervalsService,
                                   replaceService: ReplacementSourceSelectionService,
                                   scheduleActor: ActorRef[ScheduledInvocationCommand],
-                                  playbackActor: ActorRef[RadioControlActor.SwitchToSource],
+                                  playbackActor: ActorRef[RadioControlProtocol.SwitchToSource],
                                   eventActor: ActorRef[RadioEvent])
 
   /**
@@ -125,7 +125,7 @@ object RadioSourceStateActor {
               evalService: EvaluateIntervalsService,
               replaceService: ReplacementSourceSelectionService,
               scheduleActor: ActorRef[ScheduledInvocationCommand],
-              playbackActor: ActorRef[RadioControlActor.SwitchToSource],
+              playbackActor: ActorRef[RadioControlProtocol.SwitchToSource],
               eventActor: ActorRef[RadioEvent]): Behavior[RadioSourceStateCommand]
   }
 
@@ -137,7 +137,7 @@ object RadioSourceStateActor {
                                  evalService: EvaluateIntervalsService,
                                  replaceService: ReplacementSourceSelectionService,
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
-                                 playbackActor: ActorRef[RadioControlActor.SwitchToSource],
+                                 playbackActor: ActorRef[RadioControlProtocol.SwitchToSource],
                                  eventActor: ActorRef[RadioEvent]) =>
     Behaviors.setup[RadioSourceStateCommand] { context =>
       val dependencies = Dependencies(context, stateService, evalService, replaceService,
@@ -212,11 +212,11 @@ object RadioSourceStateActor {
         optReplacementSource foreach { replacement =>
           dependencies.eventActor ! RadioSourceReplacementEndEvent(replacement)
         }
-        dependencies.playbackActor ! RadioControlActor.SwitchToSource(currentSource)
+        dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(currentSource)
 
       case RadioSourceStateService.StartReplacementSource(currentSource, replacementSource) =>
         dependencies.eventActor ! RadioSourceReplacementStartEvent(currentSource, replacementSource)
-        dependencies.playbackActor ! RadioControlActor.SwitchToSource(replacementSource)
+        dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(replacementSource)
 
       case RadioSourceStateService.TriggerEvaluation(evalFunc) =>
         evalFunc(dependencies.evalService, LocalDateTime.now(), ec) foreach { response =>

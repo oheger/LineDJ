@@ -124,7 +124,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        evalService: EvaluateIntervalsService,
        replaceService: ReplacementSourceSelectionService,
        scheduleActor: ActorRef[ScheduledInvocationCommand],
-       _: ActorRef[RadioControlActor.SwitchToSource],
+       _: ActorRef[RadioControlProtocol.SwitchToSource],
        eventActor: ActorRef[RadioEvent]) => {
         stateService should be(RadioSourceStateServiceImpl)
         evalService should be(EvaluateIntervalsServiceImpl)
