@@ -71,7 +71,7 @@ object RadioPlayer {
       val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._2),
         "radioSchedulerActor")
 
-      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1)
+      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, factoryActor)
     }
   }
 
@@ -101,16 +101,20 @@ object RadioPlayer {
   * As this class is a facade of multiple actors, accessing it from multiple
   * threads is safe.
   *
-  * @param config            the configuration for this player
-  * @param playerFacadeActor reference to the facade actor
-  * @param schedulerActor    reference to the scheduler actor
-  * @param eventManagerActor reference to the event manager actor
+  * @param config                      the configuration for this player
+  * @param playerFacadeActor           reference to the facade actor
+  * @param schedulerActor              reference to the scheduler actor
+  * @param eventManagerActor           reference to the event manager actor
+  * @param playbackContextFactoryActor the actor to create playback context
+  *                                    objects
   */
 class RadioPlayer private(val config: PlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,
                           schedulerActor: classics.ActorRef,
                           override protected val eventManagerActor:
-                          ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]])
+                          ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                          override protected val playbackContextFactoryActor:
+                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends PlayerControl[RadioEvent] {
   /**
     * Marks a source as the new current source. This does not change the

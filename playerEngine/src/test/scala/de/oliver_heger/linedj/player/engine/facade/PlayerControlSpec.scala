@@ -26,7 +26,7 @@ import akka.util.Timeout
 import akka.{actor => classics}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -60,7 +60,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player addPlaybackContextFactory factory
-    helper.probePlayerFacadeActor.expectMsg(PlaybackActor.AddPlaybackContextFactory(factory))
+    helper.probeFactoryActor.expectMessage(PlaybackContextFactoryActor.AddPlaybackContextFactory(factory))
   }
 
   it should "allow removing a playback context factory" in {
@@ -69,7 +69,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val player = helper.createPlayerControl()
 
     player removePlaybackContextFactory factory
-    helper.probePlayerFacadeActor.expectMsg(PlaybackActor.RemovePlaybackContextFactory(factory))
+    helper.probeFactoryActor.expectMessage(PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory))
   }
 
   it should "allow starting playback" in {
@@ -249,6 +249,10 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val probeEventManagerActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]] =
       testKit.createTestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]]()
 
+    /** Test test playback context factory manager actor. */
+    val probeFactoryActor: scaladsl.TestProbe[PlaybackContextFactoryActor.PlaybackContextCommand] =
+      testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
+
     /** Test probe for the player facade actor. */
     val probePlayerFacadeActor: TestProbe = TestProbe()
 
@@ -259,7 +263,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       */
     def createPlayerControl(): PlayerControlImpl =
       new PlayerControlImpl(playerFacadeActor = probePlayerFacadeActor.ref,
-        eventManagerActor = probeEventManagerActor.ref)
+        eventManagerActor = probeEventManagerActor.ref,
+        playbackContextFactoryActor = probeFactoryActor.ref)
 
     /**
       * Expects an invocation of the player facade actor with the parameters
@@ -296,9 +301,13 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   *
   * @param playerFacadeActor the player facade actor
   * @param eventManagerActor the event manager actor
+  * @param playbackContextFactoryActor the factory actor
   */
 private class PlayerControlImpl(override val playerFacadeActor: classics.ActorRef,
-                                override val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
+                                override val eventManagerActor:
+                                ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
+                                override val playbackContextFactoryActor:
+                                ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends PlayerControl[PlayerEvent] {
   override def closeActors(actors: Seq[classics.ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)

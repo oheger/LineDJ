@@ -140,6 +140,9 @@ trait PlayerControl[E] {
   /** The actor for managing event listeners. */
   protected val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[E]]
 
+  /** The actor managing the playback context factories. */
+  protected val playbackContextFactoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand]
+
   /** The facade actor for the player engine. */
   protected val playerFacadeActor: classics.ActorRef
 
@@ -151,7 +154,7 @@ trait PlayerControl[E] {
     * @param factory the ''PlaybackContextFactory'' to be added
     */
   def addPlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playerFacadeActor ! PlaybackActor.AddPlaybackContextFactory(factory)
+    playbackContextFactoryActor ! PlaybackContextFactoryActor.AddPlaybackContextFactory(factory)
   }
 
   /**
@@ -161,7 +164,7 @@ trait PlayerControl[E] {
     * @param factory the ''PlaybackContextFactory'' to be removed
     */
   def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit = {
-    playerFacadeActor ! PlaybackActor.RemovePlaybackContextFactory(factory)
+    playbackContextFactoryActor ! PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory)
   }
 
   /**

@@ -65,7 +65,7 @@ object AudioPlayer {
       "eventManagerActor") map { eventActors =>
       val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
-      new AudioPlayer(facadeActor, eventActors._1)
+      new AudioPlayer(facadeActor, eventActors._1, factoryActor)
     }
   }
 
@@ -96,12 +96,16 @@ object AudioPlayer {
   * This class sets up all required actors for playing a list of audio files.
   * It offers an interface for controlling playback.
   *
-  * @param playerFacadeActor the player facade actor
-  * @param eventManagerActor the actor for managing event listeners
+  * @param playerFacadeActor           the player facade actor
+  * @param eventManagerActor           the actor for managing event listeners
+  * @param playbackContextFactoryActor the actor managing playback context
+  *                                    factories
   */
 class AudioPlayer private(protected override val playerFacadeActor: classics.ActorRef,
                           protected override val eventManagerActor:
-                          ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]])
+                          ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
+                          protected override val playbackContextFactoryActor:
+                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends PlayerControl[PlayerEvent] {
 
   import AudioPlayer._
