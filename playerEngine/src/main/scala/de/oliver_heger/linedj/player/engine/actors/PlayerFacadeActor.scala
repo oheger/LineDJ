@@ -19,9 +19,8 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.{Actor, ActorRef, Props, typed}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
-import de.oliver_heger.linedj.player.engine.actors.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 
 import scala.concurrent.duration._
@@ -190,12 +189,6 @@ class PlayerFacadeActor(config: PlayerConfig,
   /** A buffer for messages that arrive during an engine reset. */
   private var messagesDuringReset = List.empty[Dispatch]
 
-  /**
-    * Stores the current set of playback context factories. They have to be
-    * passed to newly created playback actors.
-    */
-  private var playbackContextFactories = List.empty[AddPlaybackContextFactory]
-
   /** Flag whether this actor has been closed. */
   private var closed = false
 
@@ -213,15 +206,6 @@ class PlayerFacadeActor(config: PlayerConfig,
 
     case p: DelayActor.Propagate =>
       delayActor ! p
-
-    case addMsg: AddPlaybackContextFactory =>
-      playbackActor ! addMsg
-      playbackContextFactories = addMsg :: playbackContextFactories
-
-    case removeMsg: RemovePlaybackContextFactory =>
-      playbackActor ! removeMsg
-      playbackContextFactories =
-        playbackContextFactories filterNot (_.factory == removeMsg.factory)
 
     case ResetEngine =>
       messagesDuringReset = List.empty
@@ -283,7 +267,6 @@ class PlayerFacadeActor(config: PlayerConfig,
     sourceReaderActors = sourceCreator(this, config)
     playbackActor = createChildActor(PlaybackActor(config, sourceReaderActors(KeySourceActor), lineWriterActor,
       eventActor, factoryActor))
-    playbackContextFactories foreach (playbackActor ! _)
   }
 
   /**

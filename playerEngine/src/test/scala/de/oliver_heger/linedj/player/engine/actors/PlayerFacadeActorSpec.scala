@@ -18,24 +18,22 @@ package de.oliver_heger.linedj.player.engine.actors
 
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerConfig, PlayerEvent}
-import de.oliver_heger.linedj.player.engine.actors.PlaybackActor.{AddPlaybackContextFactory, RemovePlaybackContextFactory}
+import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -336,44 +334,6 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .sendCloseCompleted()
       .expectNoActorCreation()
     helper.closeNotifyActor should be(testActor)
-  }
-
-  it should "forward an AddPlaybackContextFactory message to the playback actor" in {
-    val helper = new PlayerFacadeTestHelper
-    val creations = helper.expectActorCreations(TotalChildrenCount)
-    val msg = AddPlaybackContextFactory(mock[PlaybackContextFactory])
-
-    helper.post(msg)
-    findProbeFor[PlaybackActor](creations).expectMsg(msg)
-  }
-
-  it should "forward a RemovePlaybackContextFactory message to the playback actor" in {
-    val helper = new PlayerFacadeTestHelper
-    val creations = helper.expectActorCreations(TotalChildrenCount)
-    val msg = RemovePlaybackContextFactory(mock[PlaybackContextFactory])
-
-    helper.post(msg)
-    findProbeFor[PlaybackActor](creations).expectMsg(msg)
-  }
-
-  it should "pass playback context factories to a new playback actor instance" in {
-    val fact1, fact2, fact3 = mock[PlaybackContextFactory]
-    val helper = new PlayerFacadeTestHelper
-    helper.post(AddPlaybackContextFactory(fact1))
-      .post(AddPlaybackContextFactory(fact2))
-      .post(AddPlaybackContextFactory(fact3))
-      .post(RemovePlaybackContextFactory(fact2))
-      .resetEngine().awaitChildrenCloseRequest()
-      .sendCloseCompleted().awaitCloseComplete()
-
-    val creations = helper.expectActorCreations(DynamicChildrenCount)
-    val probePlayback = findProbeFor[PlaybackActor](creations)
-    val factories = Set(probePlayback.expectMsgType[AddPlaybackContextFactory].factory,
-      probePlayback.expectMsgType[AddPlaybackContextFactory].factory)
-    factories should contain only(fact1, fact3)
-    val msg = testMsg()
-    probePlayback.ref ! msg
-    probePlayback.expectMsg(msg)
   }
 
   /**
