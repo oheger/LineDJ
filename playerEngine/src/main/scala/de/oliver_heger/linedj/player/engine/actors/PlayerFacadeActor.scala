@@ -100,9 +100,10 @@ object PlayerFacadeActor {
                                       eventActor: typed.ActorRef[PlayerEvent],
                                       scheduleActor:
                                       typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                                      factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                                       lineWriterActor: ActorRef,
                                       sourceCreator: SourceActorCreator)
-    extends PlayerFacadeActor(config, eventActor, scheduleActor, lineWriterActor, sourceCreator)
+    extends PlayerFacadeActor(config, eventActor, scheduleActor, factoryActor, lineWriterActor, sourceCreator)
       with ChildActorFactory with CloseSupport
 
   /**
@@ -111,6 +112,7 @@ object PlayerFacadeActor {
     * @param config          the configuration for the player engine
     * @param eventActor      the event manager actor
     * @param scheduleActor   the actor for scheduled invocations
+    * @param factoryActor    the actor for creating a playback context
     * @param lineWriterActor the line writer actor
     * @param sourceCreator   the function to create the source actor(s)
     * @return the ''Props'' to create a new instance
@@ -118,9 +120,11 @@ object PlayerFacadeActor {
   def apply(config: PlayerConfig,
             eventActor: typed.ActorRef[PlayerEvent],
             scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+            factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
             lineWriterActor: ActorRef,
             sourceCreator: SourceActorCreator): Props =
-    Props(classOf[PlayerFacadeActorImpl], config, eventActor, scheduleActor, lineWriterActor, sourceCreator)
+    Props(classOf[PlayerFacadeActorImpl], config, eventActor, scheduleActor, factoryActor, lineWriterActor,
+      sourceCreator)
 }
 
 /**
@@ -156,12 +160,14 @@ object PlayerFacadeActor {
   * @param config          the configuration for the player engine
   * @param eventActor      the event manager actor
   * @param scheduleActor   the actor for scheduled invocations
+  * @param factoryActor    the actor for creating a playback context
   * @param lineWriterActor the line writer actor
   * @param sourceCreator   the function to create the source actor(s)
   */
 class PlayerFacadeActor(config: PlayerConfig,
                         eventActor: typed.ActorRef[PlayerEvent],
                         scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                        factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                         lineWriterActor: ActorRef,
                         sourceCreator: SourceActorCreator)
   extends Actor {
@@ -276,7 +282,7 @@ class PlayerFacadeActor(config: PlayerConfig,
   private def createDynamicChildren(): Unit = {
     sourceReaderActors = sourceCreator(this, config)
     playbackActor = createChildActor(PlaybackActor(config, sourceReaderActors(KeySourceActor), lineWriterActor,
-      eventActor))
+      eventActor, factoryActor))
     playbackContextFactories foreach (playbackActor ! _)
   }
 

@@ -163,14 +163,17 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val config = createPlayerConfig()
     val eventActor = testKit.createTestProbe[PlayerEvent]()
     val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+    val factoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
     val lineWriter = TestProbe()
     val srcCreator = AudioPlayer.AudioPlayerSourceCreator
 
-    val props = PlayerFacadeActor(config, eventActor.ref, scheduleActor.ref, lineWriter.ref, srcCreator)
+    val props = PlayerFacadeActor(config, eventActor.ref, scheduleActor.ref, factoryActor.ref, lineWriter.ref,
+      srcCreator)
     classOf[PlayerFacadeActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should be(List(config, eventActor.ref, scheduleActor.ref, lineWriter.ref, srcCreator))
+    props.args should be(List(config, eventActor.ref, scheduleActor.ref, factoryActor.ref, lineWriter.ref,
+      srcCreator))
   }
 
   it should "create correct child actors immediately" in {
@@ -380,6 +383,9 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /** Test probe for the event manager actor. */
     private val eventManager = testKit.createTestProbe[PlayerEvent]()
 
+    /** Test probe for the playback context factory actor. */
+    private val factoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
+
     /** Test probe for the scheduler actor. */
     val scheduler: scaladsl.TestProbe[ScheduledInvocationActor.ScheduledInvocationCommand] =
       testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
@@ -474,7 +480,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         cdBuffer.testProbe.ref, cdSrcReader.testProbe.ref)
 
       cdPlayback.props.args should contain theSameElementsAs List(config,
-        cdSrcReader.testProbe.ref, lineWriter.ref, eventManager.ref)
+        cdSrcReader.testProbe.ref, lineWriter.ref, eventManager.ref, factoryActor.ref)
       this
     }
 
@@ -566,8 +572,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return the test actor reference
       */
     private def createTestActor(): ActorRef = {
-      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, scheduler.ref, lineWriter.ref,
-        AudioPlayer.AudioPlayerSourceCreator) with ChildActorFactory with CloseSupport {
+      system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, scheduler.ref, factoryActor.ref,
+        lineWriter.ref, AudioPlayer.AudioPlayerSourceCreator) with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           val probe = TestProbe()
           actorCreationQueue offer ActorCreationData(p, probe)

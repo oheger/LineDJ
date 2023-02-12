@@ -225,10 +225,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "radioPlayerFacadeActor" =>
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should have size 5
-        props.args.take(4) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
-          probeSchedulerInvocationActor.ref, probeLineWriterActor.ref)
-        val creator = props.args(4).asInstanceOf[SourceActorCreator]
+        props.args should have size 6
+        props.args.take(5) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
+          probeSchedulerInvocationActor.ref, probeFactoryActor.ref, probeLineWriterActor.ref)
+        val creator = props.args(5).asInstanceOf[SourceActorCreator]
         checkSourceActorCreator(creator)
         probeFacadeActor.ref
     }
@@ -239,6 +239,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** Test probe for the scheduler invocation actor. */
     private val probeSchedulerInvocationActor =
       testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Test probe for the playback context factory actor. */
+    private val probeFactoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
     /**
       * A stub behavior simulating the radio event converter actor. This
@@ -263,6 +266,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "radioSchedulerInvocationActor" =>
         optStopCmd should be(Some(ScheduledInvocationActor.Stop))
         probeSchedulerInvocationActor.ref
+
+      case "radioPlaybackContextFactoryActor" =>
+        optStopCmd should be(Some(PlaybackContextFactoryActor.Stop))
+        probeFactoryActor.ref
     }
 
     /** The object for creating test actors. */

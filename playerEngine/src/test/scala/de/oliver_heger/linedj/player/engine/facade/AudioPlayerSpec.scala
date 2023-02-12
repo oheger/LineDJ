@@ -157,7 +157,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         classOf[CloseSupport] isAssignableFrom props.actorClass() shouldBe true
         props.args should be(List(config, actorCreator.probePublisherActor.ref, scheduleActor.ref,
-          lineWriterActor.ref, AudioPlayer.AudioPlayerSourceCreator))
+          factoryActor.ref, lineWriterActor.ref, AudioPlayer.AudioPlayerSourceCreator))
         facadeActor.ref
     }
 
@@ -166,6 +166,10 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "schedulerActor" =>
         optStop should be(Some(ScheduledInvocationActor.Stop))
         scheduleActor.ref
+
+      case "playbackContextFactoryActor" =>
+        optStop should be(Some(PlaybackContextFactoryActor.Stop))
+        factoryActor.ref
     }
 
     /** The stub implementation for creating actors. */
@@ -179,6 +183,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** Test probe for the scheduler actor. */
     private val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Test probe for the playback context factory actor. */
+    private val factoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
     /** The test player configuration. */
     val config: PlayerConfig = createPlayerConfig()

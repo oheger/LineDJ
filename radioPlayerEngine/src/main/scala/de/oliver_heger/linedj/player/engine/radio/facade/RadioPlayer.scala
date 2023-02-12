@@ -63,9 +63,11 @@ object RadioPlayer {
       val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(config.actorCreator,
         "radioSchedulerInvocationActor")
+      val factoryActor = PlayerControl.createPlaybackContextFactoryActor(config.actorCreator,
+        "radioPlaybackContextFactoryActor")
       val facadeActor =
         config.actorCreator.createActor(PlayerFacadeActor(config, playerListener.listener, scheduledInvocationActor,
-          lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
+          factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
       val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._2),
         "radioSchedulerActor")
 

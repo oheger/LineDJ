@@ -94,6 +94,17 @@ object PlayerControl {
     creator.createActor(ScheduledInvocationActor(), name, Some(ScheduledInvocationActor.Stop))
 
   /**
+    * Creates the [[PlaybackContextFactoryActor]] used by this player.
+    *
+    * @param creator the object to create actors
+    * @param name    the name of the factory actor
+    * @return the reference to the newly created actor
+    */
+  def createPlaybackContextFactoryActor(creator: ActorCreator, name: String):
+  ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand] =
+    creator.createActor(PlaybackContextFactoryActor(), name, Some(PlaybackContextFactoryActor.Stop))
+
+  /**
     * Creates the properties for the line writer actor to be used by this audio
     * player.
     *

@@ -34,9 +34,6 @@ import scala.util.{Failure, Success, Try}
   * Companion object of ''PlaybackActor''.
   */
 object PlaybackActor {
-  /** The number of nanoseconds per second. */
-  private val NanosPerSecond = TimeUnit.SECONDS.toNanos(1)
-
   /**
     * A message sent by ''PlaybackActor'' to request new audio data.
     *
@@ -101,15 +98,19 @@ object PlaybackActor {
   /**
     * Creates a ''Props'' object for creating an instance of this actor class.
     *
-    * @param config     the configuration of the player engine
-    * @param dataSource the actor which provides the data to be played
-    * @param lineWriter the actor that passes audio data to a line
-    * @param eventActor the actor for event generation
+    * @param config       the configuration of the player engine
+    * @param dataSource   the actor which provides the data to be played
+    * @param lineWriter   the actor that passes audio data to a line
+    * @param eventActor   the actor for event generation
+    * @param factoryActor the actor for creating a playback context
     * @return a ''Props'' object for creating an instance
     */
-  def apply(config: PlayerConfig, dataSource: ActorRef, lineWriter: ActorRef,
-            eventActor: typed.ActorRef[PlayerEvent]): Props =
-    Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor)
+  def apply(config: PlayerConfig,
+            dataSource: ActorRef,
+            lineWriter: ActorRef,
+            eventActor: typed.ActorRef[PlayerEvent],
+            factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand]): Props =
+    Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor, factoryActor)
 }
 
 /**
@@ -124,7 +125,9 @@ object PlaybackActor {
   * current source. This is a dynamic input stream that is filled from streamed
   * audio data; this actor keeps requesting new chunks of audio data until the
   * stream is filled up to a configurable amount of data. If this amount is
-  * reached, a [[PlaybackContext]] can be created, and playback can start.
+  * reached, a [[PlaybackContext]] can be created, and playback can start. For
+  * the creation of a [[PlaybackContext]] a [[PlaybackContextFactoryActor]] is
+  * used.
   *
   * During playback, chunks of bytes are read from the stream of the
   * ''PlaybackContext'' and sent to a [[LineWriterActor]]. This is done until
@@ -139,13 +142,14 @@ object PlaybackActor {
   * @param dataSource      the actor which provides the data to be played
   * @param lineWriterActor the actor which passes audio data to a line
   * @param eventActor      the actor for event generation
+  * @param factoryActor    the actor to create the playback context
   */
-class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor: ActorRef,
-                    eventActor: typed.ActorRef[PlayerEvent])
+class PlaybackActor(config: PlayerConfig,
+                    dataSource: ActorRef,
+                    lineWriterActor: ActorRef,
+                    eventActor: typed.ActorRef[PlayerEvent],
+                    factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends Actor with ActorLogging {
-  /** The current playback context factory. */
-  private var contextFactory = new CombinedPlaybackContextFactory(Nil)
-
   /** The current audio source. */
   private var currentSource: Option[AudioSource] = None
 
@@ -200,12 +204,8 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   /** A flag whether playback is currently enabled. */
   private var playbackEnabled = false
 
-  /**
-    * Returns the ''CombinedPlaybackContextFactory'' used by this actor.
-    *
-    * @return the ''CombinedPlaybackContextFactory''
-    */
-  def combinedPlaybackContextFactory: CombinedPlaybackContextFactory = contextFactory
+  /** A flag whether a playback context is currently created. */
+  private var playbackContextCreationPending = false
 
   override def receive: Receive = {
     case src: AudioSource =>
@@ -257,10 +257,29 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
       playback()
 
     case AddPlaybackContextFactory(factory) =>
-      contextFactory = combinedPlaybackContextFactory addSubFactory factory
+      factoryActor ! PlaybackContextFactoryActor.AddPlaybackContextFactory(factory)
 
     case RemovePlaybackContextFactory(factory) =>
-      contextFactory = combinedPlaybackContextFactory removeSubFactory factory
+      factoryActor ! PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory)
+
+    case PlaybackContextFactoryActor.CreatePlaybackContextResult(optContext) =>
+      playbackContextCreationPending = false
+      playbackContext = initLine(optContext)
+      playbackContext match {
+        case Some(ctx) =>
+          audioChunk = createChunkBuffer(ctx)
+          chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
+          if (chunkPlaybackTime.isDefined) {
+            // time will be updated while reaching skip position
+            playbackDuration = 0.seconds
+          }
+          playbackAudioDataIfPossible()
+        case None =>
+          val source = currentSource.get
+          log.warning("Could not create playback context for {}!", source.uri)
+          val event = PlaybackContextCreationFailedEvent(source)
+          playbackError(event)
+      }
 
     case StartPlayback =>
       playbackEnabled = true
@@ -555,32 +574,20 @@ class PlaybackActor(config: PlayerConfig, dataSource: ActorRef, lineWriterActor:
   }
 
   /**
-    * Creates a new playback context if this is currently possible.
+    * Creates a new playback context if this is currently possible. The
+    * creation is done asynchronously by delegating to the factory actor.
     *
     * @param audioSource the current audio source
     * @return an option for the new playback context
     */
   private def createPlaybackContext(audioSource: => AudioSource): Option[PlaybackContext] = {
     lazy val source = audioSource
-    if (audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0) {
+    if (!playbackContextCreationPending && audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0) {
       log.info("Creating playback context for {}.", source.uri)
-      playbackContext = initLine(contextFactory.createPlaybackContext(audioDataStream,
-        source.uri))
-      playbackContext match {
-        case Some(ctx) =>
-          audioChunk = createChunkBuffer(ctx)
-          chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
-          if (chunkPlaybackTime.isDefined) {
-            // time will be updated while reaching skip position
-            playbackDuration = 0.seconds
-          }
-        case None =>
-          log.warning("Could not create playback context for {}!", source.uri)
-          val event = PlaybackContextCreationFailedEvent(source)
-          playbackError(event)
-      }
-      playbackContext
-    } else None
+      factoryActor ! PlaybackContextFactoryActor.CreatePlaybackContext(audioDataStream, source.uri, self)
+      playbackContextCreationPending = true
+    }
+    None
   }
 
   /**
