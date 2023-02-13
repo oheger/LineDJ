@@ -54,24 +54,6 @@ object PlaybackActor {
   case object GetAudioSource
 
   /**
-    * A message received by ''PlaybackActor'' telling it to add a new sub
-    * ''PlaybackContextFactory''. By sending messages of this type the
-    * context factories available can be initialized.
-    *
-    * @param factory the factory to be added
-    */
-  case class AddPlaybackContextFactory(factory: PlaybackContextFactory)
-
-  /**
-    * A message received by ''PlaybackActor'' telling it to remove the
-    * specified ''PlaybackContextFactory''. This message should be sent when a
-    * playback context factory becomes unavailable.
-    *
-    * @param factory the factory to be removed
-    */
-  case class RemovePlaybackContextFactory(factory: PlaybackContextFactory)
-
-  /**
     * A message received by ''PlaybackActor'' telling it to start or resume
     * playback. This message enables playback. If all criteria are fulfilled
     * (e.g. sufficient data is available, a playback context can be created),
@@ -255,12 +237,6 @@ class PlaybackActor(config: PlayerConfig,
     case LineWriterActor.LineDrained =>
       sourceCompleted()
       playback()
-
-    case AddPlaybackContextFactory(factory) =>
-      factoryActor ! PlaybackContextFactoryActor.AddPlaybackContextFactory(factory)
-
-    case RemovePlaybackContextFactory(factory) =>
-      factoryActor ! PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory)
 
     case PlaybackContextFactoryActor.CreatePlaybackContextResult(optContext) =>
       playbackContextCreationPending = false
