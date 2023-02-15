@@ -26,8 +26,8 @@ lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
-lazy val VersionJackson = "2.14.0"
-lazy val VersionJacksonCore = "2.14.0"
+lazy val VersionJackson = "2.14.2"
+lazy val VersionJacksonCore = "2.14.2"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
@@ -41,8 +41,8 @@ lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
 lazy val VersionSlf4j = "2.0.6"
-lazy val VersionScalaTest = "3.2.14"
-lazy val VersionScalaTestMockito = "3.2.14.0"
+lazy val VersionScalaTest = "3.2.15"
+lazy val VersionScalaTestMockito = "3.2.15.0"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 ThisBuild / version := "1.0-SNAPSHOT"
