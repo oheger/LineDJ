@@ -40,6 +40,7 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
+lazy val VersionSlf4j = "2.0.6"
 lazy val VersionScalaTest = "3.2.14"
 lazy val VersionScalaTestMockito = "3.2.14.0"
 
@@ -85,7 +86,8 @@ lazy val remotingDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
-  "org.scalatestplus" %% "mockito-4-6" % VersionScalaTestMockito % Test
+  "org.scalatestplus" %% "mockito-4-6" % VersionScalaTestMockito % Test,
+  "org.slf4j" % "slf4j-simple" % VersionSlf4j % Test
 )
 
 lazy val osName = System.getProperty("os.name")
