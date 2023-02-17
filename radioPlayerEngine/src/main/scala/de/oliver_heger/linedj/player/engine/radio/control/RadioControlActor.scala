@@ -20,7 +20,7 @@ import akka.{actor => classic}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 
 /**
   * Implementation of an actor that controls the radio source to be played.
@@ -100,22 +100,27 @@ object RadioControlActor {
       * this actor depends on. In addition, it is possible (mainly for testing
       * purposes) to provide factories for creating child actors.
       *
-      * @param eventActor         the actor for publishing events
-      * @param facadeActor        the player facade actor
-      * @param scheduleActor      the actor for scheduled invocations
-      * @param evalService        the service to evaluate interval queries
-      * @param replacementService the service to select a replacement source
-      * @param stateService       the service to manage the source state
-      * @param stateActorFactory  factory to create the state management actor
-      * @param playActorFactory   factory to create the playback state actor
+      * @param config                the configuration of the player
+      * @param eventActor            the actor for publishing events
+      * @param facadeActor           the player facade actor
+      * @param scheduleActor         the actor for scheduled invocations
+      * @param optEvalService        the optional service to evaluate interval
+      *                              queries (None for default)
+      * @param optReplacementService the optional service to select a
+      *                              replacement source (None for default)
+      * @param optStateService       the optional service to manage the source
+      *                              state (None for default)
+      * @param stateActorFactory     factory to create the state management actor
+      * @param playActorFactory      factory to create the playback state actor
       * @return the behavior for a new actor instance
       */
-    def apply(eventActor: ActorRef[RadioEvent],
+    def apply(config: RadioPlayerConfig,
+              eventActor: ActorRef[RadioEvent],
               facadeActor: classic.ActorRef,
               scheduleActor: ActorRef[ScheduledInvocationCommand],
-              evalService: EvaluateIntervalsService = EvaluateIntervalsServiceImpl,
-              replacementService: ReplacementSourceSelectionService = ReplacementSourceSelectionServiceImpl,
-              stateService: RadioSourceStateService = RadioSourceStateServiceImpl,
+              optEvalService: Option[EvaluateIntervalsService] = None,
+              optReplacementService: Option[ReplacementSourceSelectionService] = None,
+              optStateService: Option[RadioSourceStateService] = None,
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
               playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior):
     Behavior[RadioControlCommand]
@@ -125,12 +130,13 @@ object RadioControlActor {
     * A default [[Factory]] instance that can be used to create new actor
     * instances.
     */
-  final val behavior: Factory = (eventActor: ActorRef[RadioEvent],
+  final val behavior: Factory = (config: RadioPlayerConfig,
+                                 eventActor: ActorRef[RadioEvent],
                                  facadeActor: classic.ActorRef,
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
-                                 evalService: EvaluateIntervalsService,
-                                 replacementService: ReplacementSourceSelectionService,
-                                 stateService: RadioSourceStateService,
+                                 optEvalService: Option[EvaluateIntervalsService],
+                                 optReplacementService: Option[ReplacementSourceSelectionService],
+                                 optStateService: Option[RadioSourceStateService],
                                  stateActorFactory: RadioSourceStateActor.Factory,
                                  playActorFactory: PlaybackStateActor.Factory) =>
     Behaviors.setup { context =>
@@ -138,6 +144,9 @@ object RadioControlActor {
         SwitchToSource(msg.source)
       }
 
+      val evalService = optEvalService getOrElse EvaluateIntervalsServiceImpl
+      val replacementService = optReplacementService getOrElse ReplacementSourceSelectionServiceImpl
+      val stateService = optStateService getOrElse new RadioSourceStateServiceImpl(config)
       val sourceStateActor = context.spawn(stateActorFactory(stateService, evalService, replacementService,
         scheduleActor, switchSourceAdapter, eventActor), SourceStateActorName)
       val playStateActor = context.spawn(playActorFactory(facadeActor), PlayStateActorName)

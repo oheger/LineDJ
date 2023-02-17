@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Insi
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioPlayerConfig, RadioSource, RadioSourceConfig}
 import scalaz.State
 import scalaz.State._
 
@@ -31,20 +31,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object RadioSourceStateService {
-  /**
-    * Constant for the maximum delay until another evaluation of the current
-    * radio source has to be done.
-    */
-  final val MaximumEvaluationDelay = 1.hour
-
-  /**
-    * Constant for a delay until to perform the next evaluation of the current
-    * source if no replacement source could be found. In this case, playback of
-    * the current source continues, but another attempt to find a replacement
-    * is done a bit later.
-    */
-  final val NoReplacementEvaluationDelay = 1.minute
-
   /**
     * A trait describing an action that needs to be performed after an update
     * of the radio sources state. Concrete implementations describe how the
@@ -230,10 +216,7 @@ trait RadioSourceStateService {
   def readActions(): StateUpdate[List[StateAction]]
 }
 
-/**
-  * The default implementation of [[RadioSourceStateService]].
-  */
-object RadioSourceStateServiceImpl extends RadioSourceStateService {
+object RadioSourceStateServiceImpl {
   /** Constant for the initial radio source state. */
   final val InitialState: RadioSourceState = RadioSourceState(sourcesConfig = RadioSourceConfig.Empty,
     rankedSources = SortedMap.empty,
@@ -248,80 +231,6 @@ object RadioSourceStateServiceImpl extends RadioSourceStateService {
     * has to be reverted.
     */
   private val RankingOrdering = implicitly[Ordering[Int]].reverse
-
-  override def initSourcesConfig(sourcesConfig: RadioSourceConfig): StateUpdate[Unit] = modify { s =>
-    val rankedSources = sourcesConfig.sources.groupBy(sourcesConfig.ranking)
-    val nextActions = addTriggerEvaluationAction(s, sourcesConfig)
-
-    s.copy(sourcesConfig = sourcesConfig,
-      rankedSources = TreeMap(rankedSources.toIndexedSeq: _*)(RankingOrdering),
-      actions = nextActions,
-      seqNo = s.seqNo + 1)
-  }
-
-  override def evaluateCurrentSource(seqNo: Int): StateUpdate[Unit] = modify { s =>
-    if (seqNo == s.seqNo) {
-      s.copy(actions = addTriggerEvaluationAction(s, s.sourcesConfig))
-    } else s
-  }
-
-  override def evaluationResultArrived(response: EvaluateIntervalsResponse, refTime: LocalDateTime):
-  StateUpdate[Unit] = modify { s =>
-    if (response.seqNo == s.seqNo) {
-      response.result match {
-        case Before(start) =>
-          val delay = durationBetween(refTime, start.value)
-          updateCurrentSourceActive(s, delay)
-
-        case Inside(until) =>
-          val nextActions = addActionForSource(s) { source =>
-            val replaceFunc: ReplaceFunc = (replaceService, evalService, system) =>
-              replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, Set(source),
-                until.value, s.seqNo, evalService)(system)
-            TriggerReplacementSelection(replaceFunc)
-          }
-          s.copy(actions = nextActions)
-
-        case _ =>
-          updateCurrentSourceActive(s, MaximumEvaluationDelay)
-      }
-    } else s
-  }
-
-  override def replacementResultArrived(result: ReplacementSourceSelectionResult, refTime: LocalDateTime):
-  StateUpdate[Unit] = modify { s =>
-    if (result.seqNo == s.seqNo) {
-      val nextSeq = s.seqNo + 1
-      result.selectedSource match {
-        case Some(replacement) =>
-          val delay = durationBetween(refTime, replacement.untilDate)
-          val actions = if (s.replacementSource contains replacement.source) s.actions
-          else addActionForSource(s) {
-            StartReplacementSource(_, replacement.source)
-          }
-          s.copy(replacementSource = Some(replacement.source), seqNo = nextSeq,
-            actions = ScheduleSourceEvaluation(delay, nextSeq) :: actions)
-
-        case None =>
-          s.copy(actions = ScheduleSourceEvaluation(NoReplacementEvaluationDelay, nextSeq) :: s.actions,
-            replacementSource = None, seqNo = nextSeq)
-      }
-    } else s
-  }
-
-  override def setCurrentSource(source: RadioSource): StateUpdate[Unit] = modify { s =>
-    val nextSeq = s.seqNo + 1
-    val evalFunc: EvalFunc = (service, time, ec) =>
-      service.evaluateIntervals(s.sourcesConfig.exclusions(source), time, nextSeq)(ec)
-    val actionsWithTrigger = TriggerEvaluation(evalFunc) :: s.actions
-    val nextActions = if (s.currentSource.contains(source) && s.replacementSource.isEmpty) actionsWithTrigger
-    else PlayCurrentSource(source, s.replacementSource) :: actionsWithTrigger
-    s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = nextActions)
-  }
-
-  override def readActions(): StateUpdate[List[StateAction]] = State { s =>
-    (s.copy(actions = List.empty), s.actions.reverse)
-  }
 
   /**
     * Returns an updated list of actions that contains a new action to evaluate
@@ -387,4 +296,88 @@ object RadioSourceStateServiceImpl extends RadioSourceStateService {
     */
   private def durationBetween(startTime: LocalDateTime, endTime: LocalDateTime): FiniteDuration =
     java.time.Duration.between(startTime, endTime).toSeconds.seconds
+}
+
+/**
+  * The default implementation of [[RadioSourceStateService]].
+  *
+  * @param config the [[RadioPlayerConfig]]
+  */
+class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSourceStateService {
+
+  import RadioSourceStateServiceImpl._
+
+  override def initSourcesConfig(sourcesConfig: RadioSourceConfig): StateUpdate[Unit] = modify { s =>
+    val rankedSources = sourcesConfig.sources.groupBy(sourcesConfig.ranking)
+    val nextActions = addTriggerEvaluationAction(s, sourcesConfig)
+
+    s.copy(sourcesConfig = sourcesConfig,
+      rankedSources = TreeMap(rankedSources.toIndexedSeq: _*)(RankingOrdering),
+      actions = nextActions,
+      seqNo = s.seqNo + 1)
+  }
+
+  override def evaluateCurrentSource(seqNo: Int): StateUpdate[Unit] = modify { s =>
+    if (seqNo == s.seqNo) {
+      s.copy(actions = addTriggerEvaluationAction(s, s.sourcesConfig))
+    } else s
+  }
+
+  override def evaluationResultArrived(response: EvaluateIntervalsResponse, refTime: LocalDateTime):
+  StateUpdate[Unit] = modify { s =>
+    if (response.seqNo == s.seqNo) {
+      response.result match {
+        case Before(start) =>
+          val delay = durationBetween(refTime, start.value)
+          updateCurrentSourceActive(s, delay)
+
+        case Inside(until) =>
+          val nextActions = addActionForSource(s) { source =>
+            val replaceFunc: ReplaceFunc = (replaceService, evalService, system) =>
+              replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, Set(source),
+                until.value, s.seqNo, evalService)(system)
+            TriggerReplacementSelection(replaceFunc)
+          }
+          s.copy(actions = nextActions)
+
+        case _ =>
+          updateCurrentSourceActive(s, config.maximumEvalDelay)
+      }
+    } else s
+  }
+
+  override def replacementResultArrived(result: ReplacementSourceSelectionResult, refTime: LocalDateTime):
+  StateUpdate[Unit] = modify { s =>
+    if (result.seqNo == s.seqNo) {
+      val nextSeq = s.seqNo + 1
+      result.selectedSource match {
+        case Some(replacement) =>
+          val delay = durationBetween(refTime, replacement.untilDate)
+          val actions = if (s.replacementSource contains replacement.source) s.actions
+          else addActionForSource(s) {
+            StartReplacementSource(_, replacement.source)
+          }
+          s.copy(replacementSource = Some(replacement.source), seqNo = nextSeq,
+            actions = ScheduleSourceEvaluation(delay, nextSeq) :: actions)
+
+        case None =>
+          s.copy(actions = ScheduleSourceEvaluation(config.retryFailedReplacement, nextSeq) :: s.actions,
+            replacementSource = None, seqNo = nextSeq)
+      }
+    } else s
+  }
+
+  override def setCurrentSource(source: RadioSource): StateUpdate[Unit] = modify { s =>
+    val nextSeq = s.seqNo + 1
+    val evalFunc: EvalFunc = (service, time, ec) =>
+      service.evaluateIntervals(s.sourcesConfig.exclusions(source), time, nextSeq)(ec)
+    val actionsWithTrigger = TriggerEvaluation(evalFunc) :: s.actions
+    val nextActions = if (s.currentSource.contains(source) && s.replacementSource.isEmpty) actionsWithTrigger
+    else PlayCurrentSource(source, s.replacementSource) :: actionsWithTrigger
+    s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = nextActions)
+  }
+
+  override def readActions(): StateUpdate[List[StateAction]] = State { s =>
+    (s.copy(actions = List.empty), s.actions.reverse)
+  }
 }

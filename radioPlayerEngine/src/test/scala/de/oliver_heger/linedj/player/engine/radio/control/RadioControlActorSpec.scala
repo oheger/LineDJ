@@ -20,9 +20,10 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.{actor => classic}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -82,6 +83,10 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     * dependencies.
     */
   private class ControlActorTestHelper {
+    /** A test configuration used by the control actor. */
+    private val config = RadioPlayerConfig(playerConfig = PlayerConfig(mediaManagerActor = mock[classic.ActorRef],
+      actorCreator = mock[ActorCreator]))
+
     /** Test probe for the schedule invocation actor. */
     private val probeScheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()
 
@@ -179,7 +184,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         playActorFactory = createPlayActorFactory(),
         eventActor = probeEventActor.ref,
         facadeActor = mockFacadeActor,
-        scheduleActor = probeScheduleActor.ref))
+        scheduleActor = probeScheduleActor.ref,
+        config = config))
     }
 
     /**
@@ -196,7 +202,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        scheduleActor: ActorRef[ScheduledInvocationCommand],
        playActor: ActorRef[RadioControlProtocol.SwitchToSource],
        eventActor: ActorRef[RadioEvent]) => {
-        stateService should be(RadioSourceStateServiceImpl)
+        stateService shouldBe a[RadioSourceStateServiceImpl]
+        stateService.asInstanceOf[RadioSourceStateServiceImpl].config should be(config)
         evalService should be(EvaluateIntervalsServiceImpl)
         replaceService should be(ReplacementSourceSelectionServiceImpl)
         scheduleActor should be(probeScheduleActor.ref)

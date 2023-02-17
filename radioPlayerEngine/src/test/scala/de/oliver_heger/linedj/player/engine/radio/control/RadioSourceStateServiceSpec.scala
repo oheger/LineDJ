@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries.hours
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
@@ -25,7 +26,7 @@ import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsServi
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.{ReplacementSourceSelectionResult, SelectedReplacementSource}
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioPlayerConfig, RadioSource, RadioSourceConfig}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -37,6 +38,9 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object RadioSourceStateServiceSpec {
+  /** The configuration used by the service under test. */
+  private val TestConfig = createRadioPlayerConfig()
+
   /**
     * Convenience method to execute a ''State'' object to produce the updated
     * state and an additional result.
@@ -62,6 +66,18 @@ object RadioSourceStateServiceSpec {
                           oldState: RadioSourceState = RadioSourceStateServiceImpl.InitialState): RadioSourceState = {
     val (next, _) = updateState(s, oldState)
     next
+  }
+
+  /**
+    * Creates the test configuration for the radio player.
+    *
+    * @return the radio player test configuration
+    */
+  private def createRadioPlayerConfig(): RadioPlayerConfig = {
+    val playerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
+    RadioPlayerConfig(playerConfig = playerConfig,
+      maximumEvalDelay = 33.minutes,
+      retryFailedReplacement = 111.seconds)
   }
 }
 
@@ -89,7 +105,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       RadioSourceConfigTestHelper.rankBySourceIndex(src) % 3
     val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(sourcesMap, rankingFunc)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.initSourcesConfig(sourcesConfig))
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.initSourcesConfig(sourcesConfig))
 
     nextState.seqNo should be(1)
     nextState.sourcesConfig should be(sourcesConfig)
@@ -129,7 +146,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val currentSource = sourcesConfig.sources(1)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource), seqNo = SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.initSourcesConfig(sourcesConfig), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.initSourcesConfig(sourcesConfig), state)
 
     nextState.rankedSources.keySet should contain theSameElementsInOrderAs List(3, 2, 1)
     nextState.actions should have size 1
@@ -148,7 +166,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
       seqNo = SeqNo, sourcesConfig = sourcesConfig)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluateCurrentSource(SeqNo), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluateCurrentSource(SeqNo), state)
 
     nextState.seqNo should be(SeqNo)
     nextState.actions should have size 1
@@ -167,7 +186,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
       seqNo = SeqNo, sourcesConfig = sourcesConfig)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluateCurrentSource(SeqNo - 1), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluateCurrentSource(SeqNo - 1), state)
 
     nextState should be(state)
   }
@@ -180,9 +200,10 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(radioSource(1)),
       seqNo = SeqNo, actions = List(ExistingAction))
-    val expectedAction = ScheduleSourceEvaluation(RadioSourceStateService.MaximumEvaluationDelay, SeqNo)
+    val expectedAction = ScheduleSourceEvaluation(TestConfig.maximumEvalDelay, SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState.seqNo should be(SeqNo)
     nextState.actions should contain theSameElementsInOrderAs List(expectedAction, ExistingAction)
@@ -199,7 +220,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       seqNo = SeqNo, actions = List(ExistingAction))
     val expectedAction = ScheduleSourceEvaluation(10.minutes, SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState.seqNo should be(SeqNo)
     nextState.actions should contain theSameElementsInOrderAs List(expectedAction, ExistingAction)
@@ -220,7 +242,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       actions = List(ExistingAction),
       seqNo = SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState.seqNo should be(SeqNo)
     nextState.actions should have size 2
@@ -248,7 +271,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val state = RadioSourceStateServiceImpl.InitialState.copy(seqNo = SeqNo,
       currentSource = Some(radioSource(4)))
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState should be(state)
   }
@@ -263,10 +287,11 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val replacementSource = radioSource(11)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
       seqNo = SeqNo, actions = List(ExistingAction), replacementSource = Some(replacementSource))
-    val expectedScheduleAction = ScheduleSourceEvaluation(RadioSourceStateService.MaximumEvaluationDelay, SeqNo + 1)
+    val expectedScheduleAction = ScheduleSourceEvaluation(TestConfig.maximumEvalDelay, SeqNo + 1)
     val expectedReplaceAction = PlayCurrentSource(currentSource, Some(replacementSource))
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.actions should contain theSameElementsAs List(expectedScheduleAction, expectedReplaceAction,
@@ -287,7 +312,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val expectedScheduleAction = ScheduleSourceEvaluation(10.minutes, SeqNo + 1)
     val expectedReplaceAction = PlayCurrentSource(currentSource, Some(replacementSource))
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.evaluationResultArrived(evalResponse, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.actions should contain theSameElementsAs List(expectedScheduleAction, expectedReplaceAction,
@@ -308,7 +334,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val expectedScheduleAction = ScheduleSourceEvaluation(3.minutes, SeqNo + 1)
     val expectedReplaceAction = StartReplacementSource(currentSource, replacementSource)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.replacementResultArrived(result, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.replacementResultArrived(result, refTime), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.currentSource should be(Some(currentSource))
@@ -326,9 +353,10 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val result = ReplacementSourceSelectionResult(None, SeqNo)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
       seqNo = SeqNo, actions = List(ExistingAction), replacementSource = Some(replacementSource))
-    val expectedScheduleAction = ScheduleSourceEvaluation(RadioSourceStateService.NoReplacementEvaluationDelay, SeqNo + 1)
+    val expectedScheduleAction = ScheduleSourceEvaluation(TestConfig.retryFailedReplacement, SeqNo + 1)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.replacementResultArrived(result, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.replacementResultArrived(result, refTime), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.currentSource should be(Some(currentSource))
@@ -349,7 +377,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       seqNo = SeqNo, actions = List(ExistingAction), replacementSource = Some(replacementSource))
     val expectedScheduleAction = ScheduleSourceEvaluation(1.minute, SeqNo + 1)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.replacementResultArrived(result, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.replacementResultArrived(result, refTime), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.currentSource should be(Some(currentSource))
@@ -367,7 +396,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       SeqNo - 1)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource), seqNo = SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.replacementResultArrived(result, refTime), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.replacementResultArrived(result, refTime), state)
 
     nextState should be(state)
   }
@@ -384,7 +414,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       sourcesConfig = sourcesConfig)
     val expectedPlayAction = PlayCurrentSource(newSource, Some(replacementSource))
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.setCurrentSource(newSource), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.setCurrentSource(newSource), state)
 
     nextState.seqNo should be(SeqNo + 1)
     nextState.currentSource should be(Some(newSource))
@@ -406,7 +437,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(source),
       sourcesConfig = sourcesConfig, seqNo = SeqNo)
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.setCurrentSource(source), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.setCurrentSource(source), state)
 
     nextState.actions.find(_.isInstanceOf[PlayCurrentSource]) shouldBe empty
   }
@@ -420,7 +452,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       sourcesConfig = sourcesConfig, replacementSource = Some(replacementSource), seqNo = SeqNo)
     val expPlayAction = PlayCurrentSource(source, Some(replacementSource))
 
-    val nextState = modifyState(RadioSourceStateServiceImpl.setCurrentSource(source), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.setCurrentSource(source), state)
 
     nextState.actions should contain(expPlayAction)
   }
@@ -436,7 +469,8 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
       seqNo = 71)
     val expNextState = state.copy(actions = List.empty)
 
-    val (nextState, actions) = updateState(RadioSourceStateServiceImpl.readActions(), state)
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val (nextState, actions) = updateState(service.readActions(), state)
 
     nextState should be(expNextState)
     actions should contain theSameElementsInOrderAs List(action3, action2, action1)
