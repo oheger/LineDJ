@@ -106,6 +106,8 @@ class EvaluateIntervalsActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     def createQuery(): IntervalQuery = _ => {
       val threadName = Thread.currentThread().getName
+      Thread.sleep(50)
+
       var done = false
       var threadCount = 0
       do {
