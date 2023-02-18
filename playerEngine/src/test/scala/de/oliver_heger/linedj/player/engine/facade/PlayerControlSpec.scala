@@ -18,12 +18,12 @@ package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.typed.{ActorRef, Behavior, Props}
+import akka.actor.{Actor, ActorSystem}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import akka.{actor => classics}
+import akka.{actor => classic}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, PlayerFacadeActor}
@@ -117,7 +117,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   it should "create Props for the line writer when no blocking dispatcher is defined" in {
     val config = PlayerConfig(mediaManagerActor = null, actorCreator = null)
 
-    PlayerControl createLineWriterActorProps config should be(Props[LineWriterActor]())
+    PlayerControl createLineWriterActorProps config should be(classic.Props[LineWriterActor]())
   }
 
   it should "support adding event listeners" in {
@@ -156,8 +156,8 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * @param closeCounter a counter for recording close requests
     * @return the list with test actors
     */
-  private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[classics.ActorRef] =
-    (1 to count) map (_ => system.actorOf(Props(new Actor {
+  private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[classic.ActorRef] =
+    (1 to count) map (_ => system.actorOf(classic.Props(new Actor {
       override def receive: Receive = {
         case CloseRequest =>
           closeCounter.incrementAndGet()
@@ -209,15 +209,16 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     */
   private def createActorCreatorForEventManager(actorName: String): ActorCreator =
     new ActorCreator {
-      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]):
+      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T], props: Props):
       ActorRef[T] = {
         if (name == actorName) {
           optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
         }
+        props should be(Props.empty)
         testKit.spawn(behavior)
       }
 
-      override def createActor(props: Props, name: String): classics.ActorRef = {
+      override def createActor(props: classic.Props, name: String): classic.ActorRef = {
         name should be(actorName + "Old")
         system.actorOf(props)
       }
@@ -303,13 +304,13 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   * @param eventManagerActor the event manager actor
   * @param playbackContextFactoryActor the factory actor
   */
-private class PlayerControlImpl(override val playerFacadeActor: classics.ActorRef,
+private class PlayerControlImpl(override val playerFacadeActor: classic.ActorRef,
                                 override val eventManagerActor:
                                 ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
                                 override val playbackContextFactoryActor:
                                 ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends PlayerControl[PlayerEvent] {
-  override def closeActors(actors: Seq[classics.ActorRef])(implicit ec: ExecutionContext, timeout:
+  override def closeActors(actors: Seq[classic.ActorRef])(implicit ec: ExecutionContext, timeout:
   Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala

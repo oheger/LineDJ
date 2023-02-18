@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.Props
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.{actor => classics}
+import akka.actor.typed.{ActorRef, Behavior, Props}
+import akka.{actor => classic}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.player.engine.ActorCreator
@@ -45,8 +44,11 @@ class ManagingActorCreator(val actorManagement: ActorManagement) extends ActorCr
     * @tparam T the type of messages processed by the actor
     * @return the reference to the newly created actor
     */
-  override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] = {
-    val ref = actorManagement.clientApplicationContext.actorFactory.createActor(behavior, name)
+  override def createActor[T](behavior: Behavior[T],
+                              name: String,
+                              optStopCommand: Option[T],
+                              props: Props): ActorRef[T] = {
+    val ref = actorManagement.clientApplicationContext.actorFactory.createActor(behavior, name, props)
     optStopCommand foreach { command =>
       val stopper: ActorStopper = () => ref ! command
       actorManagement.registerActor(name, stopper)
@@ -62,6 +64,6 @@ class ManagingActorCreator(val actorManagement: ActorManagement) extends ActorCr
     * @param name  the name to use for this actor
     * @return the reference to the newly created actor
     */
-  override def createActor(props: Props, name: String): classics.ActorRef =
+  override def createActor(props: classic.Props, name: String): classic.ActorRef =
     actorManagement.createAndRegisterActor(props, name)
 }

@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.{ActorSystem, Props}
-import akka.{actor => classics}
+import akka.actor.typed.{ActorRef, Behavior, Props}
+import akka.actor.ActorSystem
+import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc, EmptyCheckFunc, EmptyClassicActorCheckFunc}
 import org.scalatest.matchers.should.Matchers
@@ -39,20 +39,20 @@ object ActorCreatorForEventManagerTests {
   /**
     * Alias for a function that checks the creation parameters of a typed actor
     * and returns a corresponding (stub) actor reference. The function is
-    * passed the affected actor's behavior and its optional stop command. The
-    * resulting ''PartialFunction'' can then doe arbitrary checks based the
-    * actor name.
+    * passed the affected actor's behavior, its optional stop command, and
+    * additional ''Props''. The resulting ''PartialFunction'' can then do
+    * arbitrary checks based the actor name.
     */
-  type ActorCheckFunc = (Behavior[_], Option[_]) => PartialFunction[String, ActorRef[_]]
+  type ActorCheckFunc = (Behavior[_], Option[_], Props) => PartialFunction[String, ActorRef[_]]
 
   /**
     * Alias for a function that checks the creation parameters of a classic
     * actor and returns a corresponding (stub) actor reference.
     */
-  type ClassicActorCheckFunc = Props => PartialFunction[String, classics.ActorRef]
+  type ClassicActorCheckFunc = classic.Props => PartialFunction[String, classic.ActorRef]
 
   /** A check function that does not contain any checks. */
-  final val EmptyCheckFunc: ActorCheckFunc = (_, _) => PartialFunction.empty
+  final val EmptyCheckFunc: ActorCheckFunc = (_, _, _) => PartialFunction.empty
 
   /** A check function for classic actors that does not contain any checks. */
   final val EmptyClassicActorCheckFunc: ClassicActorCheckFunc = _ => PartialFunction.empty
@@ -108,20 +108,25 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
     * behavior that can be queried for the publisher actor and is additionally
     * monitored by a test probe.
     */
-  private val eventManagerCheck: ActorCheckFunc = (_, optStopCommand) => {
+  private val eventManagerCheck: ActorCheckFunc = (_, optStopCommand, props) => {
     case `eventActorName` =>
       optStopCommand should be(Some(EventManagerActor.Stop[EVENT]()))
+      props should be(Props.empty)
       testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior))
   }
 
-  override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T] = {
-    val checkFunc = customChecks(behavior, optStopCommand) orElse eventManagerCheck(behavior, optStopCommand)
+  override def createActor[T](behavior: Behavior[T],
+                              name: String,
+                              optStopCommand: Option[T],
+                              props: Props): ActorRef[T] = {
+    val checkFunc = customChecks(behavior, optStopCommand, props)
+      .orElse(eventManagerCheck(behavior, optStopCommand, props))
     checkFunc.isDefinedAt(name) shouldBe true
     val ref = checkFunc(name)
     ref.asInstanceOf[ActorRef[T]]
   }
 
-  override def createActor(props: Props, name: String): classics.ActorRef = {
+  override def createActor(props: classic.Props, name: String): classic.ActorRef = {
     val checkFunc = customClassicChecks(props)
     checkFunc.isDefinedAt(name) shouldBe true
     checkFunc(name)

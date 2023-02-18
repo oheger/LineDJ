@@ -16,9 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import akka.actor.Props
-import akka.{actor => classics}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.{actor => classic}
+import akka.actor.typed.{ActorRef, Behavior, Props}
 
 /**
   * Definition of a trait that allows the player engine to create actors
@@ -39,10 +38,14 @@ trait ActorCreator {
     * @param behavior       the behavior for the new actor
     * @param name           the name to use for this actor
     * @param optStopCommand an optional command to stop the actor
+    * @param props          additional properties for the new actor
     * @tparam T the type of messages processed by the actor
     * @return the reference to the newly created actor
     */
-  def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T]): ActorRef[T]
+  def createActor[T](behavior: Behavior[T],
+                     name: String,
+                     optStopCommand: Option[T],
+                     props: Props = Props.empty): ActorRef[T]
 
   /**
     * Creates a classic actor based on the given ''Props'' with the specified
@@ -52,5 +55,5 @@ trait ActorCreator {
     * @param name  the name to use for this actor
     * @return the reference to the newly created actor
     */
-  def createActor(props: Props, name: String): classics.ActorRef
+  def createActor(props: classic.Props, name: String): classic.ActorRef
 }

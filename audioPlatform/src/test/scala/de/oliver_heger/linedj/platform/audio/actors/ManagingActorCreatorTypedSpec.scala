@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.actors
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.typed.Props
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
@@ -46,7 +47,7 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val context = mock[ClientApplicationContext]
     when(management.clientApplicationContext).thenReturn(context)
     when(context.actorFactory).thenReturn(factory)
-    when(factory.createActor(behavior, ActorName)).thenReturn(probe.ref)
+    when(factory.createActor(behavior, ActorName, Props.empty)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(management)
     val actorRef = creator.createActor(behavior, ActorName, None)
@@ -59,16 +60,17 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val ActorName = "MyTestTypedActor"
     val behavior = EventManagerActor[PlayerEvent]()
     val stopCommand = EventManagerActor.Stop[PlayerEvent]()
+    val props = mock[Props]
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
     val context = mock[ClientApplicationContext]
     when(management.clientApplicationContext).thenReturn(context)
     when(context.actorFactory).thenReturn(factory)
-    when(factory.createActor(behavior, ActorName)).thenReturn(probe.ref)
+    when(factory.createActor(behavior, ActorName, props)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(management)
-    val actorRef = creator.createActor(behavior, ActorName, Some(stopCommand))
+    val actorRef = creator.createActor(behavior, ActorName, Some(stopCommand), props)
 
     actorRef should be(probe.ref)
 

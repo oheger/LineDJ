@@ -257,7 +257,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /**
       * The function to check additional typed actors created during tests.
       */
-    private val checkFunc: ActorCheckFunc = (behavior, optStopCmd) => {
+    private val checkFunc: ActorCheckFunc = (behavior, optStopCmd, _) => {
       case "playerEventConverter" =>
         optStopCmd should be(Some(RadioEventConverterActor.Stop))
         checkConverterBehavior(behavior.asInstanceOf[Behavior[RadioEventConverterActor.RadioEventConverterCommand]])

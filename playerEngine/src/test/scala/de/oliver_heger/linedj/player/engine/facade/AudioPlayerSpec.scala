@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.ActorSystem
 import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
+import akka.actor.typed.Props
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -162,12 +163,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
 
     /** The function to check the typed actors created during tests. */
-    private val typedActorChecks: ActorCheckFunc = (_, optStop) => {
+    private val typedActorChecks: ActorCheckFunc = (_, optStop, props) => {
       case "schedulerActor" =>
+        props should be(Props.empty)
         optStop should be(Some(ScheduledInvocationActor.Stop))
         scheduleActor.ref
 
       case "playbackContextFactoryActor" =>
+        props should be(Props.empty)
         optStop should be(Some(PlaybackContextFactoryActor.Stop))
         factoryActor.ref
     }
