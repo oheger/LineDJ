@@ -50,9 +50,10 @@ class ActorFactory(val actorSystem: ActorSystem) {
     *
     * @param behavior the ''Behavior'' of the new actor
     * @param name     the name of the actor
+    * @param props    additional properties for the new actor
     * @tparam T the type of messages processed by the actor
     * @return the reference to the newly created actor
     */
-  def createActor[T](behavior: Behavior[T], name: String): typed.ActorRef[T] =
-    spawner.spawn(behavior, Option(name))
+  def createActor[T](behavior: Behavior[T], name: String, props: typed.Props = typed.Props.empty): typed.ActorRef[T] =
+    spawner.spawn(behavior, Option(name), props)
 }

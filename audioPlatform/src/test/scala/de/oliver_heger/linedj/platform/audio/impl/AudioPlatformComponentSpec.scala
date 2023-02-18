@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.audio.impl
 
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.actor.{Actor, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -516,8 +516,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createActorFactory(): ActorFactory =
       new ActorFactory(system) {
-        override def createActor[T](behavior: Behavior[T], name: String): ActorRef[T] = {
+        override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] = {
           name should be(AudioPlatformComponent.AudioPlayerManagementActorName)
+          props should be(Props.empty)
           managementActorBehavior = behavior.asInstanceOf[Behavior[PlayerManagementCommand]]
           probeManagementActor.ref.asInstanceOf[ActorRef[T]]
         }

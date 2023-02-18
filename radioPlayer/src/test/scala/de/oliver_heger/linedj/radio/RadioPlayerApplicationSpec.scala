@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.pattern.AskTimeoutException
 import akka.testkit.TestKit
 import akka.util.Timeout
@@ -412,8 +412,8 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     private def createActorFactory(): ActorFactory =
       new ActorFactory(system) {
-        override def createActor[T](behavior: Behavior[T], name: String): ActorRef[T] =
-          super.createActor(behavior, name + actorNameCounter.incrementAndGet())
+        override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] =
+          super.createActor(behavior, name + actorNameCounter.incrementAndGet(), props)
       }
   }
 }
