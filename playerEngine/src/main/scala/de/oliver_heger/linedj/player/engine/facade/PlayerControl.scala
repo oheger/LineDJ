@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.player.engine.facade
 
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorRef, Scheduler}
-import akka.actor.{ActorSystem, Props}
+import akka.actor.typed.{ActorRef, Props, Scheduler}
+import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
 import akka.{actor => classics}
@@ -54,8 +54,8 @@ object PlayerControl {
     * @return the reference to the line writer actor
     */
   def createLineWriterActor(config: PlayerConfig,
-                            actorName: String = LineWriterActorName): classics.ActorRef =
-    config.actorCreator.createActor(createLineWriterActorProps(config), actorName)
+                            actorName: String = LineWriterActorName): ActorRef[LineWriterActor.LineWriterCommand] =
+    config.actorCreator.createActor(LineWriterActor(), actorName, None, createLineWriterActorProps(config))
 
   /**
     * Creates actors for managing event listeners and publishing events. This
@@ -112,7 +112,7 @@ object PlayerControl {
     * @return creation properties for the line writer actor
     */
   private[facade] def createLineWriterActorProps(config: PlayerConfig): Props =
-    config applyBlockingDispatcher Props[LineWriterActor]()
+    config applyBlockingDispatcher Props.empty
 }
 
 /**

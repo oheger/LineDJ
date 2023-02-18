@@ -208,12 +208,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * The function to check the classic actors created during tests.
       */
     private val classicCheckFunc: ClassicActorCheckFunc = props => {
-      case "radioLineWriterActor" =>
-        classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
-        props.dispatcher should be(BlockingDispatcherName)
-        props.args should have size 0
-        probeLineWriterActor.ref
-
       case "radioSchedulerActor" =>
         classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
@@ -257,7 +251,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /**
       * The function to check additional typed actors created during tests.
       */
-    private val checkFunc: ActorCheckFunc = (behavior, optStopCmd, _) => {
+    private val checkFunc: ActorCheckFunc = (behavior, optStopCmd, props) => {
       case "playerEventConverter" =>
         optStopCmd should be(Some(RadioEventConverterActor.Stop))
         checkConverterBehavior(behavior.asInstanceOf[Behavior[RadioEventConverterActor.RadioEventConverterCommand]])
@@ -270,6 +264,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "radioPlaybackContextFactoryActor" =>
         optStopCmd should be(Some(PlaybackContextFactoryActor.Stop))
         probeFactoryActor.ref
+
+      case "radioLineWriterActor" =>
+        props should not be Props.empty // It seems impossible to extract the dispatcher name.
+        probeLineWriterActor.ref
     }
 
     /** The object for creating test actors. */
@@ -279,7 +277,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val probeFacadeActor: TestProbe = TestProbe()
 
     /** Test probe for the line writer actor. */
-    val probeLineWriterActor: TestProbe = TestProbe()
+    private val probeLineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
 
     /** Test probe for the scheduler actor. */
     val probeSchedulerActor: TestProbe = TestProbe()

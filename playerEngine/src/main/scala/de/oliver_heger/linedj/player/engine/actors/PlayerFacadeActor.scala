@@ -100,7 +100,7 @@ object PlayerFacadeActor {
                                       scheduleActor:
                                       typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                       factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                                      lineWriterActor: ActorRef,
+                                      lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
                                       sourceCreator: SourceActorCreator)
     extends PlayerFacadeActor(config, eventActor, scheduleActor, factoryActor, lineWriterActor, sourceCreator)
       with ChildActorFactory with CloseSupport
@@ -120,7 +120,7 @@ object PlayerFacadeActor {
             eventActor: typed.ActorRef[PlayerEvent],
             scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
             factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-            lineWriterActor: ActorRef,
+            lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
             sourceCreator: SourceActorCreator): Props =
     Props(classOf[PlayerFacadeActorImpl], config, eventActor, scheduleActor, factoryActor, lineWriterActor,
       sourceCreator)
@@ -167,7 +167,7 @@ class PlayerFacadeActor(config: PlayerConfig,
                         eventActor: typed.ActorRef[PlayerEvent],
                         scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                         factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                        lineWriterActor: ActorRef,
+                        lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
                         sourceCreator: SourceActorCreator)
   extends Actor {
   this: ChildActorFactory with CloseSupport =>

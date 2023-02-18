@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.player.engine
 
 import java.nio.file.Path
-import akka.actor.{ActorRef, Props}
+import akka.actor.ActorRef
+import akka.actor.typed.Props
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
 
@@ -108,7 +109,7 @@ case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
     * @return the modified ''Props''
     */
   def applyBlockingDispatcher(props: Props): Props =
-    blockingDispatcherName.fold(props) { dispatcher => props withDispatcher dispatcher}
+    blockingDispatcherName.fold(props) { dispatcher => props withDispatcherFromConfig dispatcher}
 
   /**
     * Modifies the specified ''Source'' to use the blocking dispatcher if it

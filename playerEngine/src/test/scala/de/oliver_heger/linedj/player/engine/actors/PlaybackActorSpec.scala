@@ -3,6 +3,8 @@ package de.oliver_heger.linedj.player.engine.actors
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.typed
+import akka.actor.testkit.typed.scaladsl.{TestProbe => TypedTestProbe}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
@@ -119,19 +121,20 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * Creates a ''Props'' object for creating a ''PlaybackActor''. Some
     * dependencies can be provided optionally.
     *
-    * @param optLineWriter the optional line writer actor
+    * @param lineWriter the optional line writer actor
     * @param optSource     the optional source actor
     * @param optEventMan   the optional event manager actor test probe
     * @param factories     playback context factories to be added
     * @return the ''Props'' object
     */
-  private def propsWithMockLineWriter(optLineWriter: Option[ActorRef] = None,
+  private def propsWithMockLineWriter(lineWriter: typed.ActorRef[LineWriterActor.LineWriterCommand] =
+                                      testKit.createTestProbe[LineWriterActor.LineWriterCommand]().ref,
                                       optSource: Option[ActorRef] = None,
                                       optEventMan: Option[scaladsl.TestProbe[PlayerEvent]] = None,
                                       factories: Iterable[PlaybackContextFactory] = Nil): Props = {
     val factoryActor = testKit.spawn(PlaybackContextFactoryActor())
     factories foreach { factory => factoryActor ! PlaybackContextFactoryActor.AddPlaybackContextFactory(factory) }
-    PlaybackActor(Config, fetchActorRef(optSource), fetchActorRef(optLineWriter),
+    PlaybackActor(Config, fetchActorRef(optSource), lineWriter,
       optEventMan.getOrElse(testKit.createTestProbe[PlayerEvent]()).ref, factoryActor)
   }
 
@@ -183,7 +186,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   "A PlaybackActor" should "create a correct Props object" in {
-    val probeLine = TestProbe()
+    val probeLine = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val probeEvent = testKit.createTestProbe[PlayerEvent]()
     val probeFactory = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
     val props = PlaybackActor(Config, testActor, probeLine.ref, probeEvent.ref, probeFactory.ref)
@@ -291,8 +294,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         createPlaybackContextFromMock(None, None, None, invocation)
       })
 
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(TestProbe().ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(factories = List(factory)))
     val audioSource = createSource(1)
     actor ! audioSource
     actor ! StartPlayback
@@ -348,50 +350,47 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "pass data to the line writer actor" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize)))
 
-    val writeMsg = lineWriter.expectMsgType[WriteAudioData]
+    val writeMsg = lineWriter.expectMessageType[WriteAudioData]
     writeMsg.line should be(line)
     writeMsg.data.toArray should be(dataArray(LineChunkSize, increment = 1))
     expectMsgType[GetAudioData]
   }
 
   it should "request new audio data only if at least a chunk fits into the buffer" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize + LineChunkSize - 2)))
 
-    lineWriter.expectMsgType[WriteAudioData]
+    lineWriter.expectMessageType[WriteAudioData]
     // make sure that no GetAudioData request is sent
     actor ! createSource(2)
     expectMsgType[PlaybackProtocolViolation]
   }
 
   it should "not send a data request if the buffer is full" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(1)
     val request = expectMsgType[PlaybackActor.GetAudioData]
 
     actor ! bufferResult(dataArray(request.length))
-    lineWriter.expectMsgType[WriteAudioData]
+    lineWriter.expectMessageType[WriteAudioData]
     expectMsgType[PlaybackActor.GetAudioData].length should be > 0
   }
 
@@ -405,10 +404,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "send only a single audio data chunk at a time" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -416,7 +414,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize)),
       bufferResult(dataArray(16, increment = 1)))
 
-    lineWriter.expectMsgType[WriteAudioData]
+    lineWriter.expectMessageType[WriteAudioData]
     lineWriter.expectNoMessage(1.seconds)
   }
 
@@ -431,18 +429,20 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param chunkDuration the duration to be set for a chunk of written data
     * @return an array with the received audio data
     */
-  private def gatherPlaybackData(playbackActor: ActorRef, lineWriter: TestProbe, expLine:
-  SourceDataLine, length: Int, chunkDuration: FiniteDuration = 0.nanos): Array[Byte] = {
+  private def gatherPlaybackData(playbackActor: ActorRef,
+                                 lineWriter: TypedTestProbe[LineWriterActor.LineWriterCommand],
+                                 expLine: SourceDataLine,
+                                 length: Int,
+                                 chunkDuration: FiniteDuration = 0.nanos): Array[Byte] = {
     val stream = new ByteArrayOutputStream(length)
     var currentLength = 0
 
     while (currentLength < length) {
-      val playMsg = lineWriter.expectMsgType[WriteAudioData]
+      val playMsg = lineWriter.expectMessageType[WriteAudioData]
       playMsg.line should be(expLine)
       stream.write(playMsg.data.toArray, 0, playMsg.data.length)
       currentLength += playMsg.data.length
-      playbackActor.tell(LineWriterActor.AudioDataWritten(playMsg.data.length, chunkDuration),
-        lineWriter.ref)
+      playMsg.replyTo ! LineWriterActor.AudioDataWritten(playMsg.data.length, chunkDuration)
     }
     stream.toByteArray
   }
@@ -459,11 +459,14 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param chunkDuration the duration to be set for a chunk of written data
     * @return an array with the received audio data
     */
-  private def gatherPlaybackDataWithLineDrain(playbackActor: ActorRef, lineWriter: TestProbe, line:
-  SourceDataLine, sourceSize: Int, chunkDuration: FiniteDuration = 0.nanos): Array[Byte] = {
+  private def gatherPlaybackDataWithLineDrain(playbackActor: ActorRef,
+                                              lineWriter: TypedTestProbe[LineWriterActor.LineWriterCommand],
+                                              line: SourceDataLine,
+                                              sourceSize: Int,
+                                              chunkDuration: FiniteDuration = 0.nanos): Array[Byte] = {
     val data = gatherPlaybackData(playbackActor, lineWriter, line, sourceSize, chunkDuration)
-    lineWriter.expectMsg(LineWriterActor.DrainLine(line))
-    playbackActor.tell(LineWriterActor.LineDrained, lineWriter.ref)
+    lineWriter.expectMessage(LineWriterActor.DrainLine(line, playbackActor))
+    playbackActor ! LineWriterActor.LineDrained
     data
   }
 
@@ -478,12 +481,13 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     */
   private def checkPlaybackOfFullSource(sourceSize: Int,
                                         optEventMan: Option[scaladsl.TestProbe[PlayerEvent]] = None,
-                                        optLineWriter: Option[TestProbe] = None,
+                                        optLineWriter: Option[TypedTestProbe[LineWriterActor.LineWriterCommand]]
+                                        = None,
                                         playbackDuration: FiniteDuration = 0.nanos):
   (AudioSource, ActorRef) = {
-    val lineWriter = optLineWriter getOrElse TestProbe()
+    val lineWriter = optLineWriter getOrElse testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optEventMan = optEventMan, factories = List(factory)))
 
     actor ! StartPlayback
@@ -516,10 +520,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle a source with no data" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -530,10 +533,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "not play audio data if the in-memory buffer is almost empty" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -545,7 +547,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "generate playback progress events" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
     val factoryActor = testKit.spawn(PlaybackContextFactoryActor())
     val Chunks = 5
@@ -578,7 +580,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "not generate playback progress events below the threshold" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
     val factoryActor = testKit.spawn(PlaybackContextFactoryActor())
     val config = Config.copy(inMemoryBufferSize = 10 * LineChunkSize, playbackContextLimit = 1,
@@ -606,7 +608,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "determine the playback time from the audio format's properties" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
     val factoryActor = testKit.spawn(PlaybackContextFactoryActor())
     val Chunks = 4
@@ -634,7 +636,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "reset progress counters when playback of a new source starts" in {
     val eventMan = testKit.createTestProbe[PlayerEvent]()
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (_, actor) = checkPlaybackOfFullSource(LineChunkSize, Some(eventMan), Some(lineWriter), 2.seconds)
     expectEvent[AudioSourceStartedEvent](eventMan)
     expectEvent[PlaybackProgressEvent](eventMan)
@@ -643,9 +645,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     actor ! source
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 12)), BufferDataComplete)
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 1.second),
-      lineWriter.ref)
+    val writeMsg = lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
+    writeMsg.replyTo ! LineWriterActor.AudioDataWritten(LineChunkSize, 1.second)
     expectEvent[AudioSourceStartedEvent](eventMan)
     val event = expectEvent[PlaybackProgressEvent](eventMan)
     event.bytesProcessed should be(LineChunkSize)
@@ -664,10 +665,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "skip a chunk according to the source's skip property" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
     val SkipSize = LineChunkSize
 
     actor ! StartPlayback
@@ -682,13 +682,13 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "skip a chunk partially according to the source's skip property" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val srcActor = system.actorOf(Props(classOf[SimulatedSourceActor],
       List(createSource(1, skipBytes = 7)),
       List(bufferResult(dataArray(8)),
         bufferResult(dataArray(AudioBufferSize, offset = 8)), BufferDataComplete)))
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optSource = Some(srcActor), factories = List(factory)))
     actor ! StartPlayback
 
@@ -702,26 +702,25 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param src the source to be used
     */
   private def checkSkipOfCurrentSource(src: AudioSource): Unit = {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, line) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! src
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize)),
       bufferResult(dataArray(PlaybackContextLimit, increment = 1)))
-    val playMsg = lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    val playMsg = lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
     playMsg.line should be(line)
     playMsg.data.toArray should be(dataArray(LineChunkSize, increment = 1))
 
     actor ! SkipSource
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 3)), BufferDataComplete)
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
+    expectMsgType[PlaybackProtocolViolation]
   }
 
   it should "allow skipping playback of the current source" in {
@@ -733,17 +732,18 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle an EoF message for an infinite source" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(lineWriter = lineWriter.ref,
       factories = List(factory)))
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! AudioSource.infinite("src://infinite")
 
     sendAudioData(actor, bufferResult(dataArray(PlaybackContextLimit + 1)))
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
     expectMsgType[GetAudioData]
+    expectMsgType[PlaybackProtocolViolation]
     actor ! BufferDataComplete
     expectMsg(GetAudioSource)
     actor ! createSource(1)
@@ -764,8 +764,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
       .thenReturn(ctx)
-    val lineWriter = TestProbe()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optEventMan = evMan, factories = List(mockContextFactory)))
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -775,8 +775,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       BufferDataComplete)
 
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(1, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    actor ! LineWriterActor.AudioDataWritten(1, 0.nanos)
+    expectMsgType[PlaybackProtocolViolation]
     mockContextFactory
   }
 
@@ -803,9 +803,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val mockContextFactory = mock[PlaybackContextFactory]
     when(mockContextFactory.createPlaybackContext(any(classOf[InputStream]), anyString()))
       .thenReturn(None)
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optEventMan = Some(eventMan), factories = List(mockContextFactory)))
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -831,10 +831,9 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "allow stopping playback" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val contextFactory = mockPlaybackContextFactory()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -842,16 +841,15 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! StopPlayback
     sendAudioData(actor, bufferResult(dataArray(PlaybackContextLimit)))
     expectMsgType[GetAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(1, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    actor ! LineWriterActor.AudioDataWritten(1, 0.nanos)
+    expectMsgType[PlaybackProtocolViolation]
     verify(contextFactory).createPlaybackContext(any(classOf[InputStream]), anyString())
   }
 
   it should "allow skipping a source even if playback is not enabled" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -862,8 +860,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! SkipSource
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize, increment = 2)), BufferDataComplete)
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(1, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    actor ! LineWriterActor.AudioDataWritten(1, 0.nanos)
+    expectMsgType[PlaybackProtocolViolation]
   }
 
   /**
@@ -883,28 +881,27 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "close the playback context when a source is complete" in {
     val line = mock[SourceDataLine]
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! createSource(25)
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize)), BufferDataComplete)
     gatherPlaybackData(actor, lineWriter, line, LineChunkSize)
-    lineWriter.expectMsg(LineWriterActor.DrainLine(line))
+    lineWriter.expectMessage(LineWriterActor.DrainLine(line, actor))
     val drainTime = System.nanoTime()
-    actor.tell(LineWriterActor.LineDrained, lineWriter.ref)
+    actor ! LineWriterActor.LineDrained
     expectMsg(GetAudioSource)
 
     assertPlaybackContextClosed(line, streamFactory) should be > drainTime
   }
 
   it should "handle an exception when reading from the audio stream" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
     val source = createSource(1)
     val streamFactory = mock[SimulatedAudioStreamFactory]
@@ -913,7 +910,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .thenThrow(new ArrayIndexOutOfBoundsException).thenReturn(LineChunkSize)
     when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optEventMan = Some(eventMan), factories = List(contextFactory)))
 
     actor ! StartPlayback
@@ -921,8 +918,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! source
     expectEvent[AudioSourceStartedEvent](eventMan)
     sendAudioData(actor, bufferResult(dataArray(PlaybackContextLimit)))
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize, increment = 1)), BufferDataComplete)
     lineWriter.expectNoMessage(100.millis)
     expectMsg(GetAudioSource)
@@ -931,7 +928,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   }
 
   it should "handle an exception of the audio stream when it already has been completed" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val source = createSource(1)
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
@@ -939,28 +936,26 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .thenThrow(new ArrayIndexOutOfBoundsException)
     when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! source
     sendAudioData(actor, bufferResult(dataArray(LineChunkSize)), BufferDataComplete)
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
     lineWriter.expectNoMessage(100.millis)
     expectMsg(GetAudioSource)
   }
 
   it should "ignore empty read results for infinite sources" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
     when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0, 32)
     when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -969,46 +964,44 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       bufferResult(dataArray(32, increment = 1)))
     verify(audioStream, timeout(1000).atLeast(1)).read(any(classOf[Array[Byte]]))
     sendAudioData(actor, bufferResult(dataArray(32, increment = 2)))
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
     expectMsgType[GetAudioData]
   }
 
   it should "not terminate an infinite source on a smaller read result" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val (factory, _) = createMockPlaybackContextFactoryWithLine()
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(factory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(factory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! AudioSource.infinite("src://infinite.org")
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize)))
     expectMsgType[GetAudioData]
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize - 1, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize - 1, 0.nanos)
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
   }
 
   it should "flush the in-memory buffer if playback hangs" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
     when(audioStream.read(any(classOf[Array[Byte]]))).thenReturn(0, 32)
     when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! AudioSource.infinite("infiniteURI")
     sendAudioData(actor, bufferResult(dataArray(AudioBufferSize)),
       bufferResult(dataArray(AudioBufferSize, increment = 1)))
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
   }
 
   it should "skip the current finite source if no audio data can be read" in {
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val eventMan = testKit.createTestProbe[PlayerEvent]()
     val streamFactory = mock[SimulatedAudioStreamFactory]
     val audioStream = mock[InputStream]
@@ -1016,7 +1009,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     when(streamFactory.createAudioStream(any(classOf[InputStream]))).thenReturn(audioStream)
     val source = createSource(1)
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref,
       optEventMan = Some(eventMan), factories = List(contextFactory)))
 
     actor ! StartPlayback
@@ -1026,8 +1019,8 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       bufferResult(dataArray(AudioBufferSize, increment = 1)),
       bufferResult(dataArray(AudioBufferSize, increment = 2)), BufferDataComplete)
     expectMsg(GetAudioSource)
-    actor.tell(LineWriterActor.AudioDataWritten(1, 0.nanos), lineWriter.ref)
-    lineWriter.expectMsgType[PlaybackProtocolViolation]
+    actor ! LineWriterActor.AudioDataWritten(1, 0.nanos)
+    expectMsgType[PlaybackProtocolViolation]
     expectEvent[AudioSourceStartedEvent](eventMan)
     expectEvent[PlaybackErrorEvent](eventMan).source should be(source)
     expectEvent[AudioSourceFinishedEvent](eventMan).source should be(source)
@@ -1069,12 +1062,11 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle a close request if a playback context is active" in {
     val line = mock[SourceDataLine]
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory),
       optLine = Some(line))
-    val actor = system.actorOf(propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
-      factories = List(contextFactory)))
+    val actor = system.actorOf(propsWithMockLineWriter(lineWriter = lineWriter.ref, factories = List(contextFactory)))
 
     actor ! StartPlayback
     expectMsg(GetAudioSource)
@@ -1090,10 +1082,10 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle a close request while audio data is currently played" in {
     val line = mock[SourceDataLine]
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val streamFactory = new SimulatedAudioStreamFactory
     val contextFactory = mockPlaybackContextFactory(optStreamFactory = Some(streamFactory), optLine = Some(line))
-    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(optLineWriter = Some(lineWriter.ref),
+    val actor = TestActorRef[PlaybackActor](propsWithMockLineWriter(lineWriter = lineWriter.ref,
       factories = List(contextFactory)))
 
     actor ! StartPlayback
@@ -1101,12 +1093,12 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! createSource(1)
     sendAudioData(actor, bufferResult(dataArray(PlaybackContextLimit)))
     expectMsgType[GetAudioData]
-    lineWriter.expectMsgType[LineWriterActor.WriteAudioData]
+    lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
 
     actor ! CloseRequest
     actor receive createSource(4)
     verify(line, never()).close()
-    actor.tell(LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos), lineWriter.ref)
+    actor ! LineWriterActor.AudioDataWritten(LineChunkSize, 0.nanos)
     expectMsg(CloseAck(actor))
     assertPlaybackContextClosed(line, streamFactory)
   }

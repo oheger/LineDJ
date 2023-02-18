@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.player.engine.actors.LineWriterActor
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -41,7 +40,7 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
 
   "ManagingActorCreator" should "create and register a classic actor" in {
     val ActorName = "MyLineWriterActor"
-    val props = Props[LineWriterActor]()
+    val props = Props[TestActorImpl]()
     val management = mock[ActorManagement]
     val probe = TestProbe()
     when(management.createAndRegisterActor(props, ActorName)).thenReturn(probe.ref)
@@ -51,4 +50,12 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
 
     actorRef should be(probe.ref)
   }
+}
+
+/**
+  * A test actor implementation that can be used to test the creation of
+  * classic actors.
+  */
+private class TestActorImpl extends Actor {
+  override def receive: Receive = Actor.emptyBehavior
 }

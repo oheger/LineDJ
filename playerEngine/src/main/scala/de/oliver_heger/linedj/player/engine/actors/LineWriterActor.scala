@@ -16,40 +16,61 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.Actor
+import akka.actor.typed.Behavior
+import akka.actor.typed.scaladsl.Behaviors
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, DrainLine, LineDrained, WriteAudioData}
+import akka.{actor => classic}
 
 import javax.sound.sampled.SourceDataLine
 import scala.concurrent.duration._
 
 /**
- * Companion object for ''LineWriterActor''.
- */
+  * An actor that writes chunks of audio data into a ''SourceDataLine'' object.
+  *
+  * This actor is used to actually pass audio data to the Java sound system.
+  * It accepts ''WriteAudioData'' messages for the audio data to be written
+  * which contain both the data to be written and the line which receives this
+  * data. Note that writing data into a ''SourceDataLine'' is a blocking
+  * operation! Unfortunately, the events sent by the line object are not
+  * reliable; in contrast to the documentation, no STOP event is generated when
+  * all data has been consumed by the line.
+  *
+  * When all data has been written the actor answers with an
+  * ''AudioDataWritten'' message.
+  */
 object LineWriterActor {
+  /**
+    * The base trait for the commands supported by this actor.
+    */
+  sealed trait LineWriterCommand
 
   /**
-    * A message which triggers the playback of audio data.
+    * A command which triggers the playback of audio data.
     *
     * This message causes the ''LineWriterActor'' actor to write the
     * specified data into the given line.
     *
-    * @param line   the line
-    * @param data   the data to be written
+    * @param line    the line
+    * @param data    the data to be written
+    * @param replyTo the actor to receive the response
     */
-  case class WriteAudioData(line: SourceDataLine, data: ByteString)
+  case class WriteAudioData(line: SourceDataLine,
+                            data: ByteString,
+                            replyTo: classic.ActorRef) extends LineWriterCommand
 
   /**
-    * A message that tells a [[LineWriterActor]] to invoke the ''drain()''
+    * A command that tells a [[LineWriterActor]] to invoke the ''drain()''
     * method on the specified data line.
     *
     * This message is called at the end of the playback of an audio source
     * before the line is closed. It makes sure that even the very end of the
     * source gets played.
     *
-    * @param line the line
+    * @param line     the line
+    * @param replayTo the actor to receive the response
     */
-  case class DrainLine(line: SourceDataLine)
+  case class DrainLine(line: SourceDataLine,
+                       replayTo: classic.ActorRef) extends LineWriterCommand
 
   /**
     * A message sent by ''LineWriterActor'' when a chunk of audio data has been
@@ -60,7 +81,7 @@ object LineWriterActor {
     * chunk that just have been written is provided.
     *
     * @param chunkLength the length of the data chunk that has been written
-    * @param duration the (approximated) duration of the chunk of data
+    * @param duration    the (approximated) duration of the chunk of data
     */
   case class AudioDataWritten(chunkLength: Int, duration: FiniteDuration)
 
@@ -71,31 +92,23 @@ object LineWriterActor {
     * line.
     */
   case object LineDrained
-}
 
-/**
- * An actor that writes chunks of audio data into a ''SourceDataLine'' object.
- *
- * This actor is used to actually pass audio data to the Java sound system.
- * It accepts ''WriteAudioData'' messages for the audio data to be written
- * which contain both the data to be written and the line which receives this
- * data. Note that writing data into a ''SourceDataLine'' is a blocking
- * operation! Unfortunately, the events sent by the line object are not
- * reliable; in contrast to the documentation, no STOP event is generated when
- * all data has been consumed by the line.
- *
- * When all data has been written the actor answers with an
- * ''AudioDataWritten'' message.
- */
-class LineWriterActor extends Actor {
-  override def receive: Receive = {
-    case WriteAudioData(line, data) =>
-      val startTime = System.nanoTime()
-      line.write(data.toArray, 0, data.length)
-      sender() ! AudioDataWritten(data.length, (System.nanoTime() - startTime).nanos)
+  /**
+    * Returns a ''Behavior'' to create a new actor instance.
+    *
+    * @return the behavior for the new actor instance
+    */
+  def apply(): Behavior[LineWriterCommand] =
+    Behaviors.receiveMessage {
+      case WriteAudioData(line, data, replyTo) =>
+        val startTime = System.nanoTime()
+        line.write(data.toArray, 0, data.length)
+        replyTo ! AudioDataWritten(data.length, (System.nanoTime() - startTime).nanos)
+        Behaviors.same
 
-    case DrainLine(line) =>
-      line.drain()
-      sender() ! LineDrained
-  }
+      case DrainLine(line, replayTo) =>
+        line.drain()
+        replayTo ! LineDrained
+        Behaviors.same
+    }
 }

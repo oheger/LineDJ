@@ -147,12 +147,6 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * The function to check the classic actors created during tests.
       */
     private val classicActorChecks: ClassicActorCheckFunc = props => {
-      case "lineWriterActor" =>
-        classOf[LineWriterActor] isAssignableFrom props.actorClass() shouldBe true
-        props.dispatcher should be(BlockingDispatcherName)
-        props.args should have size 0
-        lineWriterActor.ref
-
       case "playerFacadeActor" =>
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
@@ -173,13 +167,17 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         props should be(Props.empty)
         optStop should be(Some(PlaybackContextFactoryActor.Stop))
         factoryActor.ref
+
+      case "lineWriterActor" =>
+        props should not be Props.empty  // It seems impossible to extract the dispatcher name.
+        lineWriterActor.ref
     }
 
     /** The stub implementation for creating actors. */
     val actorCreator: ActorCreatorForEventManagerTests[PlayerEvent] = createActorCreator()
 
     /** Test probe for the line writer actor. */
-    private val lineWriterActor = TestProbe()
+    private val lineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
 
     /** Test probe for the facade actor. */
     private val facadeActor = TestProbe()

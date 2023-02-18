@@ -89,7 +89,7 @@ object PlaybackActor {
     */
   def apply(config: PlayerConfig,
             dataSource: ActorRef,
-            lineWriter: ActorRef,
+            lineWriter: typed.ActorRef[LineWriterActor.LineWriterCommand],
             eventActor: typed.ActorRef[PlayerEvent],
             factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand]): Props =
     Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor, factoryActor)
@@ -128,7 +128,7 @@ object PlaybackActor {
   */
 class PlaybackActor(config: PlayerConfig,
                     dataSource: ActorRef,
-                    lineWriterActor: ActorRef,
+                    lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
                     eventActor: typed.ActorRef[PlayerEvent],
                     factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
   extends Actor with ActorLogging {
@@ -413,7 +413,7 @@ class PlaybackActor(config: PlayerConfig,
                   val dataLen = len - offset
                   if (dataLen > 0) {
                     val data = ByteString(audioChunk.slice(offset, offset + dataLen))
-                    lineWriterActor ! WriteAudioData(ctx.line, data)
+                    lineWriterActor ! WriteAudioData(ctx.line, data, self)
                   } else {
                     self ! LineWriterActor.AudioDataWritten(len, 0.nanos)
                   }
@@ -444,7 +444,7 @@ class PlaybackActor(config: PlayerConfig,
     log.info("Empty read.")
     if (!currentSourceIsInfinite) {
       if (audioDataStream.completed) {
-        lineWriterActor ! LineWriterActor.DrainLine(ctx.line)
+        lineWriterActor ! LineWriterActor.DrainLine(ctx.line, self)
       } else {
         playbackError(PlaybackErrorEvent(currentSource.get))
       }

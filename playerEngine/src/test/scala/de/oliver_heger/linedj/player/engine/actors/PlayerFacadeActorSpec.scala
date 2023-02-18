@@ -162,7 +162,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val eventActor = testKit.createTestProbe[PlayerEvent]()
     val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
     val factoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
-    val lineWriter = TestProbe()
+    val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
     val srcCreator = AudioPlayer.AudioPlayerSourceCreator
 
     val props = PlayerFacadeActor(config, eventActor.ref, scheduleActor.ref, factoryActor.ref, lineWriter.ref,
@@ -351,7 +351,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
     /** Test probe for the line writer actor. */
-    private val lineWriter = TestProbe()
+    private val lineWriter = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
 
     /** The configuration for the player. */
     val config: PlayerConfig = createPlayerConfig()

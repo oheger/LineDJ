@@ -16,14 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import java.util.concurrent.TimeUnit
-
-import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.actor.ActorSystem
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
-import javax.sound.sampled.SourceDataLine
 import org.mockito.ArgumentMatchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -32,6 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import javax.sound.sampled.SourceDataLine
 import scala.concurrent.duration._
 
 /**
@@ -42,7 +41,11 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   def this() = this(ActorSystem("LineWriterActorSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit = {
+    testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
   }
 
@@ -50,20 +53,24 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
-    val actor = system.actorOf(Props[LineWriterActor]())
+    val probe = TestProbe()
+    val actor = testKit.spawn(LineWriterActor())
 
-    actor ! WriteAudioData(line, data)
-    val written = expectMsgType[AudioDataWritten]
+    actor ! WriteAudioData(line, data, probe.ref)
+
+    val written = probe.expectMsgType[AudioDataWritten]
     written.chunkLength should be(data.length)
     verify(line).write(dataArray, 0, dataArray.length)
   }
 
   it should "handle a DrainLine message" in {
     val line = mock[SourceDataLine]
-    val actor = system.actorOf(Props[LineWriterActor]())
+    val probe = TestProbe()
+    val actor = testKit.spawn(LineWriterActor())
 
-    actor ! LineWriterActor.DrainLine(line)
-    expectMsg(LineWriterActor.LineDrained)
+    actor ! LineWriterActor.DrainLine(line, probe.ref)
+
+    probe.expectMsg(LineWriterActor.LineDrained)
     verify(line).drain()
   }
 
@@ -71,15 +78,17 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
-    val actor = system.actorOf(Props[LineWriterActor]())
+    val probe = TestProbe()
+    val actor = testKit.spawn(LineWriterActor())
     when(line.write(argEq(dataArray), anyInt(), anyInt())).thenAnswer((_: InvocationOnMock) => {
       Thread.sleep(50)
       dataArray.length
     })
 
     val startTime = System.nanoTime()
-    actor ! WriteAudioData(line, data)
-    val written = expectMsgType[AudioDataWritten]
+    actor ! WriteAudioData(line, data, probe.ref)
+    val written = probe.expectMsgType[AudioDataWritten]
+
     val endTime = System.nanoTime()
     val duration = (endTime - startTime).nanos
     written.duration should be <= duration
