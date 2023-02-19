@@ -50,7 +50,7 @@ object ErrorHandlingStrategySpec {
     MaxRetry + 1) * RetryInterval)
 
   /** The config for the handling strategy. */
-  private val StrategyConfig = RadioPlayerConfig(errorConfig = createErrorConfig(),
+  private val StrategyConfig = RadioPlayerClientConfig(errorConfig = createErrorConfig(),
     sourceConfig = createSourceConfig(),
     initialDelay = 0,
     metaMaxLen = 70,

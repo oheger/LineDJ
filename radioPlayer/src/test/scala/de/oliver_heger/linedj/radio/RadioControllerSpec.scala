@@ -775,7 +775,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     def createController(srcConfig: RadioSourceConfig,
                          userConfig: HierarchicalConfiguration = new HierarchicalConfiguration,
                          mainConfig: HierarchicalConfiguration = new HierarchicalConfiguration()): RadioController = {
-      val playerConfig = RadioPlayerConfig(mainConfig).copy(sourceConfig = srcConfig)
+      val playerConfig = RadioPlayerClientConfig(mainConfig).copy(sourceConfig = srcConfig)
       new RadioController(userConfig, applicationContext, actionStore, comboHandler,
         statusHandler, playbackTimeHandler, metadataTextHandler, errorIndicator, errorHandlingStrategy, playerConfig)
     }
@@ -979,7 +979,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         counter.incrementAndGet()
       }
       val answer = new ErrorStrategyAnswer(action, nextState)
-      when(errorHandlingStrategy.handleError(any[RadioPlayerConfig],
+      when(errorHandlingStrategy.handleError(any[RadioPlayerClientConfig],
         any[ErrorHandlingStrategy.State], any[RadioSourceErrorEvent], any[RadioSource]))
         .thenAnswer(answer)
       (answer, counter)
@@ -1103,7 +1103,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
                                     state: ErrorHandlingStrategy.State)
     extends Answer[(ErrorHandlingStrategy.PlayerAction, ErrorHandlingStrategy.State)] {
     /** The config passed to the strategy. */
-    var config: RadioPlayerConfig = _
+    var config: RadioPlayerClientConfig = _
 
     /** The previous state passed to the strategy. */
     var previousState: ErrorHandlingStrategy.State = _
@@ -1115,7 +1115,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     var currentSource: RadioSource = _
 
     override def answer(invocation: InvocationOnMock): (PlayerAction, State) = {
-      config = invocation.getArguments.head.asInstanceOf[RadioPlayerConfig]
+      config = invocation.getArguments.head.asInstanceOf[RadioPlayerClientConfig]
       previousState = invocation.getArguments()(1).asInstanceOf[ErrorHandlingStrategy.State]
       errorSource = invocation.getArguments()(2).asInstanceOf[RadioSourceErrorEvent].source
       currentSource = invocation.getArguments()(3).asInstanceOf[RadioSource]

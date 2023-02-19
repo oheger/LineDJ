@@ -88,7 +88,7 @@ object ErrorHandlingStrategy {
     * @param ctrlSource the current source provided by the controller
     * @return an action to update the player and the follow-up error state
     */
-  private def handleErrorCurrent(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent,
+  private def handleErrorCurrent(config: RadioPlayerClientConfig, previous: State, error: RadioSourceErrorEvent,
                                  ctrlSource: RadioSource): (PlayerAction, State) = {
     val currentSource = previous.activeSource getOrElse ctrlSource
     val retry = math.max(previous.retryMillis, config.errorConfig.retryInterval.toMillis)
@@ -119,7 +119,7 @@ object ErrorHandlingStrategy {
     * @param error    the current error event
     * @return an action to update the player and the follow-up error state
     */
-  private def handleErrorReplacement(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent):
+  private def handleErrorReplacement(config: RadioPlayerClientConfig, previous: State, error: RadioSourceErrorEvent):
   (PlayerAction, State) = {
     val failedSources = previous.replacementErrorList + error.source
     val action: PlayerAction = p => p.checkCurrentSource(failedSources ++ previous.errorList,
@@ -142,7 +142,7 @@ object ErrorHandlingStrategy {
     * @param error     the current error event
     * @return an option with the selected source
     */
-  private def selectReplacementSource(config: RadioPlayerConfig, errorList: Set[RadioSource],
+  private def selectReplacementSource(config: RadioPlayerClientConfig, errorList: Set[RadioSource],
                                       error: RadioSourceErrorEvent): Option[RadioSource] = {
     def dysfunctional(e: (String, RadioSource)): Boolean =
       errorList contains e._2
@@ -241,7 +241,7 @@ class ErrorHandlingStrategy {
     * @param currentSource the current source selected for playback
     * @return an action to update the player and the follow-up error state
     */
-  def handleError(config: RadioPlayerConfig, previous: State, error: RadioSourceErrorEvent,
+  def handleError(config: RadioPlayerClientConfig, previous: State, error: RadioSourceErrorEvent,
                   currentSource: RadioSource): (PlayerAction, State) =
   if (isActiveSource(previous, error, currentSource)) handleErrorCurrent(config, previous, error, currentSource)
   else handleErrorReplacement(config, previous, error)

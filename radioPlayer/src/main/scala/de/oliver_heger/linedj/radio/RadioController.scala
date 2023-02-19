@@ -116,7 +116,7 @@ class RadioController(val userConfig: Configuration,
                       metadataText: StaticTextHandler,
                       errorIndicator: WidgetHandler,
                       errorHandlingStrategy: ErrorHandlingStrategy,
-                      val playerConfig: RadioPlayerConfig)
+                      val playerConfig: RadioPlayerClientConfig)
   extends FormChangeListener with MessageBusListener {
 
   def this(config: Configuration,
@@ -130,7 +130,7 @@ class RadioController(val userConfig: Configuration,
            errorHandlingStrategy: ErrorHandlingStrategy) =
     this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
       errorIndicator, errorHandlingStrategy,
-      RadioPlayerConfig(applicationContext.getConfiguration.asInstanceOf[HierarchicalConfiguration]))
+      RadioPlayerClientConfig(applicationContext.getConfiguration.asInstanceOf[HierarchicalConfiguration]))
 
   import RadioController._
 

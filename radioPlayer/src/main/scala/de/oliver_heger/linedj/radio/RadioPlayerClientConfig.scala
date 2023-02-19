@@ -81,7 +81,7 @@ case class ErrorHandlingConfig(retryInterval: FiniteDuration,
     else calcMaxRetry(count - 1, math.round(retryIncrementFactor * value))
 }
 
-object RadioPlayerConfig {
+object RadioPlayerClientConfig {
   /**
     * The default value for the ''retryInterval'' configuration property (in
     * milliseconds).
@@ -180,17 +180,17 @@ object RadioPlayerConfig {
   private val KeyRecoveryMinFailures = RecoveryKeyPrefix + "minFailedSources"
 
   /**
-    * Creates a [[RadioPlayerConfig]] instance from the passed in configuration
+    * Creates a [[RadioPlayerClientConfig]] instance from the passed in configuration
     * object.
     *
     * @param config the configuration
-    * @return the [[RadioPlayerConfig]] instance
+    * @return the [[RadioPlayerClientConfig]] instance
     */
-  def apply(config: HierarchicalConfiguration): RadioPlayerConfig = {
+  def apply(config: HierarchicalConfiguration): RadioPlayerClientConfig = {
     val sourceConfig = RadioSourceConfigLoader.load(config)
     val errorConfig = readErrorConfig(config)
 
-    new RadioPlayerConfig(sourceConfig = sourceConfig,
+    new RadioPlayerClientConfig(sourceConfig = sourceConfig,
       errorConfig = errorConfig,
       initialDelay = config.getInt(KeyInitialDelay, DefaultInitialDelay),
       metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
@@ -226,8 +226,8 @@ object RadioPlayerConfig {
   *                        the text is needed
   * @param metaRotateSpeed the scale factor for rotation of metadata
   */
-case class RadioPlayerConfig(sourceConfig: RadioSourceConfig,
-                             errorConfig: ErrorHandlingConfig,
-                             initialDelay: Int,
-                             metaMaxLen: Int,
-                             metaRotateSpeed: Double)
+case class RadioPlayerClientConfig(sourceConfig: RadioSourceConfig,
+                                   errorConfig: ErrorHandlingConfig,
+                                   initialDelay: Int,
+                                   metaMaxLen: Int,
+                                   metaRotateSpeed: Double)

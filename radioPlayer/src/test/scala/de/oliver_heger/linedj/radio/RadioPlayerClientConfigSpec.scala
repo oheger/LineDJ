@@ -23,7 +23,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-object RadioPlayerConfigSpec {
+object RadioPlayerClientConfigSpec {
   /** The name of the test configuration file. */
   private val ConfigFile = "test-radio-configuration.xml"
 
@@ -35,19 +35,19 @@ object RadioPlayerConfigSpec {
   private def readConfigurationFile(): HierarchicalConfiguration = new XMLConfiguration(ConfigFile)
 
   /**
-    * Loads a [[RadioPlayerConfig]] from the test configuration file.
+    * Loads a [[RadioPlayerClientConfig]] from the test configuration file.
     *
     * @return the configuration created from the file
     */
-  private def loadConfig(): RadioPlayerConfig = RadioPlayerConfig(readConfigurationFile())
+  private def loadConfig(): RadioPlayerClientConfig = RadioPlayerClientConfig(readConfigurationFile())
 }
 
 /**
-  * Test class for [[RadioPlayerConfig]].
+  * Test class for [[RadioPlayerClientConfig]].
   */
-class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
+class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
 
-  import RadioPlayerConfigSpec._
+  import RadioPlayerClientConfigSpec._
 
   "A radio player configuration" should "contain radio sources" in {
     val srcConfig = loadConfig().sourceConfig
@@ -85,7 +85,7 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
     val playerConfig = new HierarchicalConfiguration
     playerConfig.addProperty("radio.error.retryInterval", 9)
 
-    val config = RadioPlayerConfig(playerConfig)
+    val config = RadioPlayerClientConfig(playerConfig)
     config.errorConfig.retryInterval should be(10.millis)
   }
 
@@ -93,7 +93,7 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
     val playerConfig = new HierarchicalConfiguration
     playerConfig.addProperty("radio.error.retryIncrement", 1)
 
-    val config = RadioPlayerConfig(playerConfig)
+    val config = RadioPlayerClientConfig(playerConfig)
     config.errorConfig.retryIncrementFactor should be(1.1)
   }
 
@@ -106,17 +106,17 @@ class RadioPlayerConfigSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "apply defaults for unspecified configuration settings" in {
-    val config = RadioPlayerConfig(new HierarchicalConfiguration)
+    val config = RadioPlayerClientConfig(new HierarchicalConfiguration)
 
     config.sourceConfig.namedSources shouldBe empty
     config.sourceConfig.exclusions(RadioSource("someRadioSource")) shouldBe empty
-    config.errorConfig.retryInterval should be(RadioPlayerConfig.DefaultRetryInterval.millis)
-    config.errorConfig.retryIncrementFactor should be(RadioPlayerConfig.DefaultRetryIncrement)
-    config.errorConfig.maxRetries should be(RadioPlayerConfig.DefaultMaxRetries)
-    config.errorConfig.recoveryTime should be(RadioPlayerConfig.DefaultRecoveryTime)
-    config.errorConfig.recoverMinFailedSources should be(RadioPlayerConfig.DefaultMinFailuresForRecovery)
-    config.initialDelay should be(RadioPlayerConfig.DefaultInitialDelay)
-    config.metaMaxLen should be(RadioPlayerConfig.DefaultMetadataMaxLen)
-    config.metaRotateSpeed should be(RadioPlayerConfig.DefaultMetadataRotateScale)
+    config.errorConfig.retryInterval should be(RadioPlayerClientConfig.DefaultRetryInterval.millis)
+    config.errorConfig.retryIncrementFactor should be(RadioPlayerClientConfig.DefaultRetryIncrement)
+    config.errorConfig.maxRetries should be(RadioPlayerClientConfig.DefaultMaxRetries)
+    config.errorConfig.recoveryTime should be(RadioPlayerClientConfig.DefaultRecoveryTime)
+    config.errorConfig.recoverMinFailedSources should be(RadioPlayerClientConfig.DefaultMinFailuresForRecovery)
+    config.initialDelay should be(RadioPlayerClientConfig.DefaultInitialDelay)
+    config.metaMaxLen should be(RadioPlayerClientConfig.DefaultMetadataMaxLen)
+    config.metaRotateSpeed should be(RadioPlayerClientConfig.DefaultMetadataRotateScale)
   }
 }
