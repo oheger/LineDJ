@@ -109,9 +109,6 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     private val probeFactoryActor: TypedTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand] =
       testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
-    /** The expected configuration, enriched by this creator. */
-    private val config: PlayerConfig = TestPlayerConfig.copy(actorCreator = this)
-
     /** Stores the line writer actor created via the factory. */
     var lineWriterActor: ActorRef[LineWriterActor.LineWriterCommand] = _
 
@@ -125,7 +122,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     def callPlaybackFactory(factory: ErrorStateActor.PlaybackActorsFactory):
     ErrorStateActor.PlaybackActorsFactoryResult =
       factory.createPlaybackActors(ActorNamePrefix, probePlayerEventActor.ref, probeRadioEventActor.ref,
-        probeFactoryActor.ref, config)
+        probeFactoryActor.ref, TestPlayerConfig, this)
 
     override def createActor[T](behavior: Behavior[T],
                                 name: String,
@@ -140,13 +137,13 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     override def createActor(props: classic.Props, name: String): classic.ActorRef = {
       name match {
         case s"${ActorNamePrefix}SourceActor" =>
-          val expProps = RadioDataSourceActor(config, probeRadioEventActor.ref)
+          val expProps = RadioDataSourceActor(TestPlayerConfig, probeRadioEventActor.ref)
           props should be(expProps)
           probeSourceActor.ref
 
         case s"${ActorNamePrefix}PlaybackActor" =>
           props.args should have size 5
-          val expProps = PlaybackActor(config, probeSourceActor.ref, lineWriterActor,
+          val expProps = PlaybackActor(TestPlayerConfig, probeSourceActor.ref, lineWriterActor,
             probePlayerEventActor.ref, probeFactoryActor.ref)
           props should be(expProps)
           probePlayActor.ref

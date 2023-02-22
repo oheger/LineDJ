@@ -22,7 +22,7 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.RadioEvent
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig, PlayerEvent}
 
 import scala.concurrent.duration._
 
@@ -61,7 +61,9 @@ object ErrorStateActor {
     /**
       * Returns an object with the actors required for playing audio data. This
       * function creates a dummy line writer actor, a source actor, and a
-      * playback actor and connects them.
+      * playback actor and connects them. Note that for this purpose a
+      * dedicated [[ActorCreator]] is used, not the one contained in the
+      * [[PlayerConfig]].
       *
       * @param namePrefix       the prefix for generating actor names
       * @param playerEventActor the event actor for player events
@@ -74,7 +76,8 @@ object ErrorStateActor {
                              playerEventActor: ActorRef[PlayerEvent],
                              radioEventActor: ActorRef[RadioEvent],
                              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                             config: PlayerConfig): PlaybackActorsFactoryResult
+                             config: PlayerConfig,
+                             creator: ActorCreator): PlaybackActorsFactoryResult
   }
 
   /**
@@ -87,11 +90,12 @@ object ErrorStateActor {
                                       playerEventActor: ActorRef[PlayerEvent],
                                       radioEventActor: ActorRef[RadioEvent],
                                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                                      config: PlayerConfig): PlaybackActorsFactoryResult = {
-      val lineWriter = config.actorCreator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
-      val sourceActor = config.actorCreator.createActor(RadioDataSourceActor(config, radioEventActor),
+                                      config: PlayerConfig,
+                                      creator: ActorCreator): PlaybackActorsFactoryResult = {
+      val lineWriter = creator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
+      val sourceActor = creator.createActor(RadioDataSourceActor(config, radioEventActor),
         namePrefix + "SourceActor")
-      val playActor = config.actorCreator.createActor(PlaybackActor(config, sourceActor, lineWriter,
+      val playActor = creator.createActor(PlaybackActor(config, sourceActor, lineWriter,
         playerEventActor, factoryActor), namePrefix + "PlaybackActor")
       PlaybackActorsFactoryResult(sourceActor, playActor)
     }
