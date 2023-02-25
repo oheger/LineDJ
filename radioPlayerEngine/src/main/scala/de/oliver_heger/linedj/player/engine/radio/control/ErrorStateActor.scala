@@ -21,11 +21,12 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.{actor => classic}
 import de.oliver_heger.linedj.io.CloseSupportTyped
-import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor}
+import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine._
 
+import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 
 /**
@@ -102,6 +103,18 @@ object ErrorStateActor {
       PlaybackActorsFactoryResult(sourceActor, playActor)
     }
   }
+
+  /**
+    * The base command trait of an internal actor that periodically checks the
+    * error state of a specific radio source.
+    */
+  private[control] sealed trait CheckRadioSourceCommand
+
+  /**
+    * A command for the radio source check actor telling it to run a check of
+    * the associated radio source now.
+    */
+  private[control] case object RunRadioSourceCheck extends CheckRadioSourceCommand
 
   /**
     * A message processed by the radio source check actor that indicates that
@@ -234,6 +247,59 @@ object ErrorStateActor {
     }
 
   /**
+    * The base command trait of an internal actor that handles interaction with
+    * a [[ScheduledInvocationActor]] to trigger checks for radio sources in
+    * error state.
+    */
+  private[control] sealed trait ScheduleCheckCommand
+
+  /**
+    * A command for the check scheduler actor that tells it to schedule a check
+    * for the given actor after a specific delay.
+    *
+    * @param checkActor the actor to execute the check
+    * @param delay      the delay
+    */
+  private[control] case class AddScheduledCheck(checkActor: ActorRef[CheckRadioSourceCommand],
+                                                delay: FiniteDuration) extends ScheduleCheckCommand
+
+  /**
+    * An internal command for the check scheduler actor that tells it to
+    * trigger the given actor to run a check now.
+    */
+  private case class TriggerCheck(checkActor: ActorRef[CheckRadioSourceCommand]) extends ScheduleCheckCommand
+
+  /**
+    * An internal command for the check scheduler actor that indicates that the
+    * actor doing the current check has died. In this case, processing can
+    * continue with the next pending check if any.
+    *
+    * @param checkActor the actor that died
+    */
+  private case class CheckActorDied(checkActor: ActorRef[CheckRadioSourceCommand]) extends ScheduleCheckCommand
+
+  /**
+    * A trait defining a factory for the ''Behavior'' of an internal actor
+    * that implements scheduling logic to check radio sources in error state
+    * periodically. The actor uses [[ScheduledInvocationActor]] to receive
+    * messages periodically. It makes sure that only a single check is ongoing
+    * at a specific point in time. The actor executing the check must then
+    * either schedule another check or stop itself.
+    */
+  private[control] trait CheckSchedulerActorFactory {
+    def apply(scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand]):
+    Behavior[ScheduleCheckCommand]
+  }
+
+  /**
+    * A default [[CheckSchedulerActorFactory]] implementation for creating the
+    * ''Behavior'' for an instance of the check scheduler actor.
+    */
+  private[control] val checkSchedulerBehavior: CheckSchedulerActorFactory =
+    (scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand]) =>
+      handleSchedulerCommands(scheduleActor, None, Queue.empty)
+
+  /**
     * Returns the behavior for a dummy line writer actor. This behavior just
     * simulates writing, so that playback progress events are generated.
     *
@@ -295,4 +361,83 @@ object ErrorStateActor {
       case _: RadioPlaybackContextCreationFailedEvent => true
       case _ => false
     }
+
+  /**
+    * The message handler function of the check scheduler actor.
+    *
+    * @param scheduleActor the actor for scheduled invocations
+    * @param inProgress    an option with the check currently in progress
+    * @param pending       a queue with pending checks
+    * @return the behavior of this actor
+    */
+  private def handleSchedulerCommands(scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                                      inProgress: Option[ActorRef[CheckRadioSourceCommand]],
+                                      pending: Queue[ActorRef[CheckRadioSourceCommand]]):
+  Behavior[ScheduleCheckCommand] = Behaviors.receive {
+    case (ctx, AddScheduledCheck(checkActor, delay)) =>
+      val command = ScheduledInvocationActor.typedInvocationCommand(delay, ctx.self, TriggerCheck(checkActor))
+      scheduleActor ! command
+      updateForCheckCompleted(ctx, scheduleActor, inProgress, pending, checkActor)
+
+    case (ctx, TriggerCheck(checkActor)) =>
+      inProgress match {
+        case Some(_) =>
+          handleSchedulerCommands(scheduleActor, inProgress, pending :+ checkActor)
+        case None =>
+          triggerSourceCheck(ctx, scheduleActor, checkActor, pending)
+      }
+
+    case (ctx, CheckActorDied(checkActor)) =>
+      updateForCheckCompleted(ctx, scheduleActor, inProgress, pending, checkActor)
+  }
+
+  /**
+    * Invokes the given receiver actor to trigger a check on its associated
+    * radio source. The state of the check scheduler actor is updated, so this
+    * becomes the current check.
+    *
+    * @param context       the actor context
+    * @param scheduleActor the scheduled invocation actor
+    * @param receiver      the actor to do the next check
+    * @param pending       the queue of pending checks
+    * @return the updated behavior
+    */
+  private def triggerSourceCheck(context: ActorContext[ScheduleCheckCommand],
+                                 scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                                 receiver: ActorRef[CheckRadioSourceCommand],
+                                 pending: Queue[ActorRef[CheckRadioSourceCommand]]):
+  Behavior[ScheduleCheckCommand] = {
+    receiver ! RunRadioSourceCheck
+    context.watchWith(receiver, CheckActorDied(receiver))
+    handleSchedulerCommands(scheduleActor, Some(receiver), pending)
+  }
+
+  /**
+    * Updates the state of the check scheduler actor for a potentially
+    * completed check. If the given actor is the current one, the check is
+    * considered done and the next one can start if available.
+    *
+    * @param context       the actor context
+    * @param scheduleActor the scheduled invocation actor
+    * @param inProgress    an option with the check currently in progress
+    * @param checkActor    the affected check actor
+    * @param pending       the queue of pending checks
+    * @return the updated behavior
+    */
+  private def updateForCheckCompleted(context: ActorContext[ScheduleCheckCommand],
+                                      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                                      inProgress: Option[ActorRef[CheckRadioSourceCommand]],
+                                      pending: Queue[ActorRef[CheckRadioSourceCommand]],
+                                      checkActor: ActorRef[CheckRadioSourceCommand]):
+  Behavior[ScheduleCheckCommand] =
+    if (inProgress.contains(checkActor)) {
+      context.unwatch(checkActor)
+
+      pending.dequeueOption match {
+        case Some((nextActor, nextQueue)) =>
+          triggerSourceCheck(context, scheduleActor, nextActor, nextQueue)
+        case None =>
+          handleSchedulerCommands(scheduleActor, None, pending)
+      }
+    } else Behaviors.same
 }

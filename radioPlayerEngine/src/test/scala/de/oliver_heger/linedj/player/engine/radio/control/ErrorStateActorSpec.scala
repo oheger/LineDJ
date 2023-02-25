@@ -24,7 +24,7 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
 import akka.{actor => classic}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor}
+import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlaybackContextCreationFailedEvent, PlaybackErrorEvent, PlaybackProgressEvent, PlayerConfig, PlayerEvent}
@@ -244,6 +244,58 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
   it should "handle a RadioPlaybackErrorEvent" in {
     checkErrorRadioEvent(RadioPlaybackErrorEvent(TestRadioSource))
+  }
+
+  "Check scheduler actor" should "schedule check commands for radio sources" in {
+    val helper = new CheckSchedulerTestHelper
+
+    val probe = helper.handleSchedule()
+
+    probe.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+  }
+
+  it should "only trigger one check at a given time" in {
+    val helper = new CheckSchedulerTestHelper
+    helper.handleSchedule()
+
+    val probe = helper.handleSchedule()
+
+    probe.expectNoMessage(200.millis)
+  }
+
+  it should "continue with the next pending check if the current one is rescheduled" in {
+    val helper = new CheckSchedulerTestHelper
+    val probe1 = helper.handleSchedule()
+    val probe2 = helper.handleSchedule()
+    val probe3 = helper.handleSchedule()
+
+    helper.send(ErrorStateActor.AddScheduledCheck(probe1.ref, 3.minutes))
+
+    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    helper.send(ErrorStateActor.AddScheduledCheck(probe2.ref, 20.seconds))
+
+    probe3.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+  }
+
+  it should "reset the current check when it is complete" in {
+    val helper = new CheckSchedulerTestHelper
+    val probe1 = helper.handleSchedule()
+    helper.send(ErrorStateActor.AddScheduledCheck(probe1.ref, 10.seconds))
+      .expectScheduledInvocation(10.seconds)
+
+    val probe2 = helper.handleSchedule()
+
+    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+  }
+
+  it should "handle the termination of the current check actor" in {
+    val helper = new CheckSchedulerTestHelper
+    val probe1 = helper.handleSchedule()
+
+    probe1.stop()
+
+    val probe2 = helper.handleSchedule()
+    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
   }
 
   /**
@@ -488,6 +540,59 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     private def fetchFactoryParameter[T](ref: AtomicReference[T]): T = {
       awaitCond(ref.get() != null)
       ref.get()
+    }
+  }
+
+  /**
+    * A test helper class for tests of the check scheduler actor.
+    */
+  private class CheckSchedulerTestHelper {
+    /** Test probe for the scheduled invocation actor. */
+    private val probeScheduler = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** The check scheduler actor to be tested. */
+    private val checkScheduler = testKit.spawn(ErrorStateActor.checkSchedulerBehavior(probeScheduler.ref))
+
+    /**
+      * Sends a command to the scheduler actor under test.
+      *
+      * @param command the command to be sent
+      * @return this test helper
+      */
+    def send(command: ErrorStateActor.ScheduleCheckCommand): CheckSchedulerTestHelper = {
+      checkScheduler ! command
+      this
+    }
+
+    /**
+      * Expects that a scheduled invocation command was issued with the given
+      * properties.
+      *
+      * @param delay the delay
+      * @return the invocation
+      */
+    def expectScheduledInvocation(delay: FiniteDuration): ScheduledInvocationActor.TypedActorInvocation = {
+      val scheduleMsg = probeScheduler.expectMessageType[ScheduledInvocationActor.TypedInvocationCommand]
+      scheduleMsg.delay should be(delay)
+      scheduleMsg.invocation.receiver should be(checkScheduler)
+      scheduleMsg.invocation
+    }
+
+    /**
+      * Simulates a complete schedule for a newly created test probe. A command
+      * to add a schedule for this probe is sent to the test actor, as well as
+      * the answer from the scheduled invocation actor. Returns the test probe.
+      *
+      * @return the test probe simulating a check actor
+      */
+    def handleSchedule(): TypedTestProbe[ErrorStateActor.CheckRadioSourceCommand] = {
+      val delay = 90.seconds
+      val probe = testKit.createTestProbe[ErrorStateActor.CheckRadioSourceCommand]()
+      send(ErrorStateActor.AddScheduledCheck(probe.ref, delay))
+
+      val invocation = expectScheduledInvocation(delay)
+      invocation.receiver ! invocation.message
+      probe
     }
   }
 }
