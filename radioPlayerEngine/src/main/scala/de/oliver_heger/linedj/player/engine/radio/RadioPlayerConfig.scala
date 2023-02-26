@@ -32,14 +32,29 @@ import scala.concurrent.duration._
   * The settings defined here remain constant over the life-time of a radio
   * player.
   *
-  * @param playerConfig           the configuration for the audio player
-  * @param maximumEvalDelay       the maximum delay after which a new
-  *                               evaluation of the current radio source takes
-  *                               place; even if no restrictions were found
-  * @param retryFailedReplacement an interval after which another attempt to
-  *                               find a replacement source is made if no such
-  *                               source could be found
+  * @param playerConfig               the configuration for the audio player
+  * @param maximumEvalDelay           the maximum delay after which a new
+  *                                   evaluation of the current radio source
+  *                                   takes place; even if no restrictions were
+  *                                   found
+  * @param retryFailedReplacement     an interval after which another attempt
+  *                                   to find a replacement source is made if
+  *                                   no such source could be found
+  * @param retryFailedSource          the initial delay until to retry a source
+  *                                   whose playback failed
+  * @param retryFailedSourceIncrement a factor to increment the delay until the
+  *                                   next check for a failed source
+  * @param maxRetryFailedSource       the maximum delay until to retry a source
+  *                                   whose playback failed
+  * @param sourceCheckTimeout         a timeout for retrying a failed source;
+  *                                   if the check lasts longer than this
+  *                                   value, the source is considered still in
+  *                                   error state
   */
 case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              maximumEvalDelay: FiniteDuration = 1.hour,
-                             retryFailedReplacement: FiniteDuration = 1.minute)
+                             retryFailedReplacement: FiniteDuration = 1.minute,
+                             retryFailedSource: FiniteDuration = 5.seconds,
+                             retryFailedSourceIncrement: Double = 2.0,
+                             maxRetryFailedSource: FiniteDuration = 6.hours,
+                             sourceCheckTimeout: FiniteDuration = 60.seconds)
