@@ -251,7 +251,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     val probe = helper.handleSchedule()
 
-    probe.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    probe.expectMessage(helper.runCheckCommand)
   }
 
   it should "only trigger one check at a given time" in {
@@ -271,10 +271,10 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     helper.send(ErrorStateActor.AddScheduledCheck(probe1.ref, 3.minutes))
 
-    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    probe2.expectMessage(helper.runCheckCommand)
     helper.send(ErrorStateActor.AddScheduledCheck(probe2.ref, 20.seconds))
 
-    probe3.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    probe3.expectMessage(helper.runCheckCommand)
   }
 
   it should "reset the current check when it is complete" in {
@@ -285,7 +285,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     val probe2 = helper.handleSchedule()
 
-    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    probe2.expectMessage(helper.runCheckCommand)
   }
 
   it should "handle the termination of the current check actor" in {
@@ -295,7 +295,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     probe1.stop()
 
     val probe2 = helper.handleSchedule()
-    probe2.expectMessage(ErrorStateActor.RunRadioSourceCheck)
+    probe2.expectMessage(helper.runCheckCommand)
   }
 
   /**
@@ -594,5 +594,14 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       invocation.receiver ! invocation.message
       probe
     }
+
+    /**
+      * Returns the command to run a check on the current radio source as
+      * expected by the actor under test.
+      *
+      * @return the expected command to check the current source
+      */
+    def runCheckCommand: ErrorStateActor.RunRadioSourceCheck =
+      ErrorStateActor.RunRadioSourceCheck(probeScheduler.ref)
   }
 }

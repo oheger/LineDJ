@@ -112,9 +112,15 @@ object ErrorStateActor {
 
   /**
     * A command for the radio source check actor telling it to run a check of
-    * the associated radio source now.
+    * the associated radio source now. The command includes a reference to the
+    * scheduled invocation actor, which is needed to implement a proper timeout
+    * handling.
+    *
+    * @param scheduleActor the scheduled invocation actor
     */
-  private[control] case object RunRadioSourceCheck extends CheckRadioSourceCommand
+  private[control] case class RunRadioSourceCheck(scheduleActor:
+                                                  ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand])
+    extends CheckRadioSourceCommand
 
   /**
     * A message processed by the radio source check actor that indicates that
@@ -407,7 +413,7 @@ object ErrorStateActor {
                                  receiver: ActorRef[CheckRadioSourceCommand],
                                  pending: Queue[ActorRef[CheckRadioSourceCommand]]):
   Behavior[ScheduleCheckCommand] = {
-    receiver ! RunRadioSourceCheck
+    receiver ! RunRadioSourceCheck(scheduleActor)
     context.watchWith(receiver, CheckActorDied(receiver))
     handleSchedulerCommands(scheduleActor, Some(receiver), pending)
   }
