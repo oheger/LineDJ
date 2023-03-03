@@ -20,10 +20,11 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.{actor => classic}
+import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.CloseSupportTyped
 import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlayerConfig, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine._
 
 import scala.collection.immutable.Queue
@@ -126,7 +127,84 @@ object ErrorStateActor {
     * A message processed by the radio source check actor that indicates that
     * the radio source in question is now functional again.
     */
-  private[control] case class RadioSourceCheckSuccessful()
+  private[control] case class RadioSourceCheckSuccessful() extends CheckRadioSourceCommand
+
+  /**
+    * A message processed by the radio source check actor that is generated
+    * when the check playback actor stops. This does not necessarily mean a
+    * failed test, since the actor always stops itself at the end.
+    */
+  private case object CheckPlaybackActorStopped extends CheckRadioSourceCommand
+
+  /**
+    * A command for the radio source check actor telling it that the timeout
+    * for the current check has been reached. If the check is still ongoing, it
+    * should be terminated now and considered as failed.
+    *
+    * @param checkPlaybackActor the actor that checks playback
+    * @param count              the number of checks already done; this is used
+    *                           to detect outdated timeout messages
+    */
+  private case class RadioSourceCheckTimeout(checkPlaybackActor: ActorRef[CheckPlaybackCommand],
+                                             count: Int) extends CheckRadioSourceCommand
+
+  /**
+    * A trait defining a factory function for creating an internal actor
+    * instance that checks the error state of a specific radio source
+    * periodically. This is done by attempting a playback of this source using
+    * a check playback actor. According to the [[RadioPlayerConfig]], the check
+    * intervals are incremented if the failure persists, and another check is
+    * scheduled accordingly. If a check was successful, the actor stops itself.
+    * This is the signal that the radio source is valid again.
+    */
+  private[control] trait CheckSourceActorFactory {
+    /**
+      * Returns a ''Behavior'' of a new actor instance to check the error state
+      * of a specific radio source.
+      *
+      * @param config               the radio player configuration
+      * @param source               the affected radio source
+      * @param namePrefix           a prefix to generate names for child actors
+      * @param factoryActor         the actor managing playback context
+      *                             factories
+      * @param scheduler            the scheduler actor
+      * @param checkPlaybackFactory the factory to create a check playback
+      *                             actor
+      * @param optSpawner           an optional [[Spawner]]
+      * @return the ''Behavior'' for the new instance
+      */
+    def apply(config: RadioPlayerConfig,
+              source: RadioSource,
+              namePrefix: String,
+              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              scheduler: ActorRef[ScheduleCheckCommand],
+              checkPlaybackFactory: CheckPlaybackActorFactory = checkPlaybackBehavior,
+              optSpawner: Option[Spawner] = None): Behavior[CheckRadioSourceCommand]
+  }
+
+  /**
+    * A default [[CheckSourceActorFactory]] implementation that can be used to
+    * create instances of the check radio source actor.
+    */
+  private[control] val checkSourceBehavior = new CheckSourceActorFactory {
+    override def apply(config: RadioPlayerConfig,
+                       source: RadioSource,
+                       namePrefix: String,
+                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                       scheduler: ActorRef[ScheduleCheckCommand],
+                       checkPlaybackFactory: CheckPlaybackActorFactory,
+                       optSpawner: Option[Spawner]): Behavior[CheckRadioSourceCommand] = {
+      val ctx = RadioSourceCheckContext(config = config,
+        source = source,
+        namePrefix = namePrefix,
+        factoryActor = factoryActor,
+        scheduler = scheduler,
+        checkPlaybackFactory = checkPlaybackFactory,
+        optSpawner = optSpawner,
+        retryDelay = config.retryFailedSource)
+      handleRadioSourceCheckCommand(ctx)
+    }
+  }
 
   /**
     * The base command trait of an internal actor that checks whether playback
@@ -446,4 +524,106 @@ object ErrorStateActor {
           handleSchedulerCommands(scheduleActor, None, pending)
       }
     } else Behaviors.same
+
+  /**
+    * An internal data class holding all the information required for a check
+    * of a specific radio source.
+    *
+    * @param config               the radio player configuration
+    * @param source               the affected radio source
+    * @param namePrefix           a prefix to generate names for child actors
+    * @param factoryActor         the actor managing playback context
+    *                             factories
+    * @param scheduler            the scheduler actor
+    * @param checkPlaybackFactory the factory to create a check playback
+    *                             actor
+    * @param optSpawner           an optional [[Spawner]]
+    * @param retryDelay           the delay for the next retry
+    * @param count                a counter for the checks
+    * @param success              flag whether the current check is successful
+    */
+  private case class RadioSourceCheckContext(config: RadioPlayerConfig,
+                                             source: RadioSource,
+                                             namePrefix: String,
+                                             factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                             scheduler: ActorRef[ScheduleCheckCommand],
+                                             checkPlaybackFactory: CheckPlaybackActorFactory,
+                                             optSpawner: Option[Spawner],
+                                             retryDelay: FiniteDuration,
+                                             count: Int = 1,
+                                             success: Boolean = false) {
+    /**
+      * Creates and prepares an actor to check the playback of the source
+      * associated with this check context.
+      *
+      * @param actorContext the context of the owning actor
+      * @return the check playback actor
+      */
+    def triggerRadioSourceCheck(actorContext: ActorContext[CheckRadioSourceCommand]):
+    ActorRef[CheckPlaybackCommand] = {
+      val spawner: Spawner = optSpawner getOrElse actorContext
+      val playbackNamePrefix = s"${namePrefix}_${count}_"
+      val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, factoryActor,
+        config.playerConfig)
+      val checkPlaybackActor = spawner.spawn(checkPlaybackBehavior, Some(playbackNamePrefix + "check"))
+      actorContext.watchWith(checkPlaybackActor, CheckPlaybackActorStopped)
+      checkPlaybackActor
+    }
+
+    /**
+      * Returns an updated context after a check failed. Some properties are
+      * updated to handle an upcoming test.
+      *
+      * @return the updated context
+      */
+    def contextForRetry(): RadioSourceCheckContext = {
+      val nextDelayMillis = math.min(math.round(retryDelay.toMillis * config.retryFailedSourceIncrement),
+        config.maxRetryFailedSource.toMillis)
+      copy(retryDelay = nextDelayMillis.millis, count = count + 1)
+    }
+  }
+
+  /**
+    * The message handler function of the check radio source actor.
+    *
+    * @param checkContext the context for checking a radio source
+    * @return the updated behavior of this actor
+    */
+  private def handleRadioSourceCheckCommand(checkContext: RadioSourceCheckContext): Behavior[CheckRadioSourceCommand] =
+    Behaviors.setup { context =>
+      checkContext.scheduler ! AddScheduledCheck(context.self, checkContext.config.retryFailedSource)
+
+      def handle(state: RadioSourceCheckContext): Behavior[CheckRadioSourceCommand] =
+        Behaviors.receiveMessage {
+          case RunRadioSourceCheck(scheduleActor) =>
+            val checkActor = state.triggerRadioSourceCheck(context)
+            val timeoutCmd = ScheduledInvocationActor.typedInvocationCommand(checkContext.config.sourceCheckTimeout,
+              context.self, RadioSourceCheckTimeout(checkActor, state.count))
+            scheduleActor ! timeoutCmd
+            Behaviors.same
+
+          case RadioSourceCheckSuccessful() =>
+            context.log.info("Check for source {} was successful. Waiting for completion.", state.source)
+            handle(state.copy(success = true))
+
+          case CheckPlaybackActorStopped if !state.success =>
+            val nextCheckContext = state.contextForRetry()
+            state.scheduler ! AddScheduledCheck(context.self, nextCheckContext.retryDelay)
+            context.log.info("Check for source {} failed. Rescheduling after {}.",
+              state.source, nextCheckContext.retryDelay)
+            handle(nextCheckContext)
+
+          case CheckPlaybackActorStopped =>
+            context.log.info("Check for source {} completed successfully.", state.source)
+            Behaviors.stopped
+
+          case RadioSourceCheckTimeout(checkActor, count) =>
+            if (!state.success && count == state.count) {
+              checkActor ! CheckTimeout
+            }
+            Behaviors.same
+        }
+
+      handle(checkContext)
+    }
 }

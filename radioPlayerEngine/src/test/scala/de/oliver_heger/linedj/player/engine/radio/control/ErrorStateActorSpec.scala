@@ -23,16 +23,17 @@ import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.ByteString
 import akka.{actor => classic}
+import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioPlayerConfig, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlaybackContextCreationFailedEvent, PlaybackErrorEvent, PlaybackProgressEvent, PlayerConfig, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.duration._
 
 object ErrorStateActorSpec {
@@ -42,8 +43,18 @@ object ErrorStateActorSpec {
   /** A test player configuration. */
   private val TestPlayerConfig = PlayerConfig(actorCreator = null, mediaManagerActor = null)
 
+  /** A test radio player configuration. */
+  private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
+    retryFailedSource = 11.seconds,
+    retryFailedSourceIncrement = 2.5,
+    maxRetryFailedSource = 30.seconds,
+    sourceCheckTimeout = 44.seconds)
+
   /** A radio source used by tests */
   private val TestRadioSource = RadioSource("http://radio.example.org/music.mp3")
+
+  /** A counter for generating unique actor names. */
+  private val counter = new AtomicInteger
 }
 
 /**
@@ -296,6 +307,93 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     val probe2 = helper.handleSchedule()
     probe2.expectMessage(helper.runCheckCommand)
+  }
+
+  "Check radio source actor" should "execute a successful test" in {
+    val helper = new CheckSourceTestHelper
+
+    helper.triggerCheck()
+      .expectPlaybackNamePrefix(helper.namePrefix + "_1_")
+      .expectCheckPlaybackActorName(helper.namePrefix + "_1_check")
+      .send(ErrorStateActor.RadioSourceCheckSuccessful())
+      .stopCheckPlaybackActor()
+      .expectActorStopped()
+  }
+
+  it should "use a default spawner" in {
+    val helper = new CheckSourceTestHelper(provideSpawner = false)
+
+    helper.triggerCheck()
+
+    val probe = testKit.createDeadLetterProbe()
+    helper.triggerCheck()
+    probe.expectNoMessage(200.millis)
+  }
+
+  it should "reschedule a check if the current one failed" in {
+    val helper = new CheckSourceTestHelper
+
+    helper.triggerCheck()
+      .stopCheckPlaybackActor()
+      .expectSchedule(27500.millis)
+      .triggerCheck()
+      .expectPlaybackNamePrefix(helper.namePrefix + "_2_")
+  }
+
+  it should "take the maximum retry delay into account" in {
+    val helper = new CheckSourceTestHelper
+
+    helper.triggerCheck()
+      .stopCheckPlaybackActor()
+      .expectSchedule(27500.millis)
+      .triggerCheck()
+      .stopCheckPlaybackActor()
+      .expectSchedule(TestRadioConfig.maxRetryFailedSource)
+  }
+
+  it should "handle timeouts correctly" in {
+    val helper = new CheckSourceTestHelper
+
+    helper.triggerCheck()
+      .expectTimeoutSchedule()
+      .sendCheckTimeout()
+      .expectPlaybackActorTimeout()
+  }
+
+  it should "not stop itself before the current check actor is stopped" in {
+    val helper = new CheckSourceTestHelper
+    helper.triggerCheck()
+      .expectTimeoutSchedule()
+      .send(ErrorStateActor.RadioSourceCheckSuccessful())
+
+    val probe = testKit.createDeadLetterProbe()
+    helper.sendCheckTimeout()
+
+    probe.expectNoMessage(200.millis)
+  }
+
+  it should "not send a timeout to the check playback actor if the check is already successful" in {
+    val helper = new CheckSourceTestHelper
+
+    helper.triggerCheck()
+      .expectTimeoutSchedule()
+      .send(ErrorStateActor.RadioSourceCheckSuccessful())
+      .sendCheckTimeout()
+      .expectNoPlaybackActorMessage()
+  }
+
+  it should "ignore a timeout for a previous check" in {
+    val helper = new CheckSourceTestHelper
+    helper.triggerCheck()
+      .expectTimeoutSchedule()
+      .stopCheckPlaybackActor()
+      .triggerCheck()
+
+    val probe = testKit.createDeadLetterProbe()
+    helper.sendCheckTimeout()
+      .expectNoPlaybackActorMessage()
+
+    probe.expectNoMessage(100.millis)
   }
 
   /**
@@ -603,5 +701,248 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       */
     def runCheckCommand: ErrorStateActor.RunRadioSourceCheck =
       ErrorStateActor.RunRadioSourceCheck(probeScheduler.ref)
+  }
+
+  /**
+    * A helper class for tests of the check source actor.
+    *
+    * @param provideSpawner flag whether an own [[Spawner]] implementation
+    *                       should be provided
+    */
+  private class CheckSourceTestHelper(provideSpawner: Boolean = true) extends Spawner {
+    /** Stores a unique actor name prefix for this test. */
+    val namePrefix: String = ActorNamePrefix + counter.incrementAndGet()
+
+    /** Test probe for the check scheduler actor. */
+    private val probeScheduler = testKit.createTestProbe[ErrorStateActor.ScheduleCheckCommand]()
+
+    /** Test probe for the actor managing playback context factories. */
+    private val probePlaybackContextActor =
+      testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
+
+    /** Test probe for the scheduled invocation actor. */
+    private val probeScheduledInvocation =
+      testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /**
+      * Stores a test probe for the check playback actor. The dummy factory for
+      * the check playback actor creates a new probe every time it is called.
+      */
+    private val refProbeCheckPlaybackActor = new AtomicReference[TypedTestProbe[ErrorStateActor.CheckPlaybackCommand]]
+
+    /**
+      * Stores the behavior for the playback actor. This is used by the
+      * [[Spawner]] implementation to inject a test probe.
+      */
+    private val refCheckPlaybackBehavior = new AtomicReference[Behavior[ErrorStateActor.CheckPlaybackCommand]]
+
+    /** Stores the name prefix passed to the check playback factory. */
+    private val refNamePrefix = new AtomicReference[String]
+
+    /** Stores the name of the check playback actor. */
+    private val refCheckPlaybackActorName = new AtomicReference[String]
+
+    /** Stores the scheduled invocation for the check timeout. */
+    private val refTimeoutMessage = new AtomicReference[ScheduledInvocationActor.TypedActorInvocation]
+
+    /** The actor to be tested. */
+    private val checkActor = createCheckActor()
+
+    /**
+      * Sends the given command to the actor under test.
+      *
+      * @param command the command
+      * @return this test helper
+      */
+    def send(command: ErrorStateActor.CheckRadioSourceCommand): CheckSourceTestHelper = {
+      checkActor ! command
+      this
+    }
+
+    /**
+      * Sends a command to the test actor that triggers a new check.
+      *
+      * @return this test helper
+      */
+    def triggerCheck(): CheckSourceTestHelper = {
+      send(ErrorStateActor.RunRadioSourceCheck(probeScheduledInvocation.ref))
+    }
+
+    /**
+      * Tests the name prefix used when creating a check playback actor.
+      *
+      * @param expPrefix the expected prefix
+      * @return this test helper
+      */
+    def expectPlaybackNamePrefix(expPrefix: String): CheckSourceTestHelper = {
+      awaitCond(refNamePrefix.get() == expPrefix)
+      this
+    }
+
+    /**
+      * Tests the name of the check playback actor.
+      *
+      * @param expName the expected name
+      * @return this test helper
+      */
+    def expectCheckPlaybackActorName(expName: String): CheckSourceTestHelper = {
+      awaitCond(refCheckPlaybackActorName.get() == expName)
+      this
+    }
+
+    /**
+      * Expects that the scheduler actor was invoked to reschedule a check.
+      *
+      * @param delay the expected delay
+      * @return this test helper
+      */
+    def expectSchedule(delay: FiniteDuration): CheckSourceTestHelper =
+      expectAddSchedule(checkActor, delay)
+
+    /**
+      * Tests whether the actor under test stopped itself.
+      */
+    def expectActorStopped(): Unit = {
+      checkStopped(checkActor)
+    }
+
+    /**
+      * Stops the current actor to check for playback. This means that the
+      * current check fails.
+      *
+      * @return this test helper
+      */
+    def stopCheckPlaybackActor(): CheckSourceTestHelper = {
+      probeCheckPlaybackActor.stop()
+      refProbeCheckPlaybackActor set null
+      this
+    }
+
+    /**
+      * Expects that a timeout message has been sent to the check playback
+      * actor.
+      *
+      * @return this test helper
+      */
+    def expectPlaybackActorTimeout(): CheckSourceTestHelper = {
+      probeCheckPlaybackActor.expectMessage(ErrorStateActor.CheckTimeout)
+      this
+    }
+
+    /**
+      * Expects that no message has been sent to the check playback actor.
+      *
+      * @return this test helper
+      */
+    def expectNoPlaybackActorMessage(): CheckSourceTestHelper = {
+      probeCheckPlaybackActor.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Expects that a message has been sent to the scheduled invocation actor
+      * to trigger a check timeout signal. The message is stored, so that it
+      * can be simulated later.
+      *
+      * @return this test helper
+      */
+    def expectTimeoutSchedule(): CheckSourceTestHelper = {
+      val invocation = probeScheduledInvocation.expectMessageType[ScheduledInvocationActor.TypedInvocationCommand]
+      invocation.delay should be(TestRadioConfig.sourceCheckTimeout)
+      refTimeoutMessage set invocation.invocation
+      this
+    }
+
+    /**
+      * Simulates the scheduled invocation of the check timeout message.
+      *
+      * @return this test helper
+      */
+    def sendCheckTimeout(): CheckSourceTestHelper = {
+      val invocation = refTimeoutMessage.get()
+      invocation should not be null
+      invocation.receiver ! invocation.message
+      this
+    }
+
+    /**
+      * @inheritdoc This implementation checks the behavior and returns a test
+      *             probe.
+      */
+    override def spawn[T](behavior: Behavior[T], optName: Option[String], props: Props): ActorRef[T] = {
+      behavior should be(refCheckPlaybackBehavior.get())
+      optName foreach refCheckPlaybackActorName.set
+      refProbeCheckPlaybackActor.get().ref.asInstanceOf[ActorRef[T]]
+    }
+
+    /**
+      * Checks whether an [[ErrorStateActor.AddScheduledCheck]] command is
+      * passed to the scheduler actor.
+      *
+      * @param checkActor the check actor
+      * @param delay      the delay
+      * @return this test helper
+      */
+    private def expectAddSchedule(checkActor: ActorRef[ErrorStateActor.CheckRadioSourceCommand],
+                                  delay: FiniteDuration): CheckSourceTestHelper = {
+      probeScheduler.expectMessage(ErrorStateActor.AddScheduledCheck(checkActor, delay))
+      this
+    }
+
+    /**
+      * Returns the (dynamic) test probe for the current check playback actor.
+      *
+      * @return the probe for the current check playback actor
+      */
+    private def probeCheckPlaybackActor: TypedTestProbe[ErrorStateActor.CheckPlaybackCommand] = {
+      awaitCond(refProbeCheckPlaybackActor.get() != null)
+      refProbeCheckPlaybackActor.get()
+    }
+
+    /**
+      * Creates the actor to be tested. Also tests the schedule of the initial
+      * source check.
+      *
+      * @return the test check radio source actor
+      */
+    private def createCheckActor(): ActorRef[ErrorStateActor.CheckRadioSourceCommand] = {
+      val behavior = ErrorStateActor.checkSourceBehavior(TestRadioConfig,
+        TestRadioSource,
+        namePrefix,
+        probePlaybackContextActor.ref,
+        probeScheduler.ref,
+        createCheckPlaybackActorFactory(),
+        optSpawner = if (provideSpawner) Some(this) else None)
+      val actor = testKit.spawn(behavior)
+
+      expectAddSchedule(actor, TestRadioConfig.retryFailedSource)
+      actor
+    }
+
+    /**
+      * Returns a dummy factory for creating a check playback actor that checks
+      * the passed in parameters and returns a test probe.
+      *
+      * @return the dummy factory for a check playback actor
+      */
+    private def createCheckPlaybackActorFactory(): ErrorStateActor.CheckPlaybackActorFactory =
+      (receiver: ActorRef[ErrorStateActor.RadioSourceCheckSuccessful],
+       radioSource: RadioSource,
+       namePrefix: String,
+       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       config: PlayerConfig,
+       _: ErrorStateActor.PlaybackActorsFactory) => {
+        receiver should be(checkActor)
+        radioSource should be(TestRadioSource)
+        factoryActor should be(probePlaybackContextActor.ref)
+        config should be(TestPlayerConfig)
+        refNamePrefix set namePrefix
+
+        refProbeCheckPlaybackActor set testKit.createTestProbe[ErrorStateActor.CheckPlaybackCommand]()
+        val behavior = Behaviors.monitor[ErrorStateActor.CheckPlaybackCommand](refProbeCheckPlaybackActor.get().ref,
+          Behaviors.ignore)
+        refCheckPlaybackBehavior set behavior
+        behavior
+      }
   }
 }
