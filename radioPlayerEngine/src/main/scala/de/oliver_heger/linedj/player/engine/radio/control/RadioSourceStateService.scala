@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside}
+import de.oliver_heger.linedj.player.engine.interval.LazyDate
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
@@ -118,6 +119,7 @@ object RadioSourceStateService {
     * @param currentSource     an ''Option'' with the currently played source
     * @param replacementSource an ''Option'' with a replacement source that is
     *                          currently active
+    * @param disabledSources   a set with sources that are currently disabled
     * @param actions           the actions to trigger after an update
     * @param seqNo             the current sequence number of the state
     */
@@ -125,6 +127,7 @@ object RadioSourceStateService {
                               rankedSources: SortedMap[Int, Seq[RadioSource]],
                               currentSource: Option[RadioSource],
                               replacementSource: Option[RadioSource],
+                              disabledSources: Set[RadioSource],
                               actions: List[StateAction],
                               seqNo: Int)
 
@@ -208,6 +211,26 @@ trait RadioSourceStateService {
   def setCurrentSource(source: RadioSource): StateUpdate[Unit]
 
   /**
+    * Updates the state for a radio source that must not be played currently.
+    * As long as this source remains in this state, it is ignored when
+    * searching for a replacement source. If it is the current source, a
+    * replacement source selection is triggered immediately.
+    *
+    * @param source the source to be disabled
+    * @return the updated state
+    */
+  def disableSource(source: RadioSource): StateUpdate[Unit]
+
+  /**
+    * Updates the state for a radio source that can now be played again. This
+    * may cause a re-evaluation of the source to be played.
+    *
+    * @param source the source to be enabled
+    * @return the updated state
+    */
+  def enableSource(source: RadioSource): StateUpdate[Unit]
+
+  /**
     * Updates the state by resetting the current list of actions and returns
     * them. A caller should then process the actions.
     *
@@ -222,6 +245,7 @@ object RadioSourceStateServiceImpl {
     rankedSources = SortedMap.empty,
     currentSource = None,
     replacementSource = None,
+    disabledSources = Set.empty,
     actions = List.empty,
     seqNo = 0)
 
@@ -239,13 +263,18 @@ object RadioSourceStateServiceImpl {
     *
     * @param state         the current [[RadioSourceState]]
     * @param sourcesConfig the configuration of radio sources
+    * @param radioConfig   the configuration of the radio player
     * @return the updated list with actions
     */
-  private def addTriggerEvaluationAction(state: RadioSourceState, sourcesConfig: RadioSourceConfig):
-  List[RadioSourceStateService.StateAction] =
+  private def addTriggerEvaluationAction(state: RadioSourceState,
+                                         sourcesConfig: RadioSourceConfig,
+                                         radioConfig: RadioPlayerConfig): List[RadioSourceStateService.StateAction] =
     addActionForSource(state) { source =>
       val evalFunc: EvalFunc = (service, time, ec) =>
-        service.evaluateIntervals(sourcesConfig.exclusions(source), time, state.seqNo)(ec)
+        if (state.disabledSources.contains(source)) {
+          val until = new LazyDate(time.plusSeconds(radioConfig.maximumEvalDelay.toSeconds))
+          Future.successful(EvaluateIntervalsResponse(Inside(until), state.seqNo))
+        } else service.evaluateIntervals(sourcesConfig.exclusions(source), time, state.seqNo)(ec)
       TriggerEvaluation(evalFunc)
     }
 
@@ -309,7 +338,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
 
   override def initSourcesConfig(sourcesConfig: RadioSourceConfig): StateUpdate[Unit] = modify { s =>
     val rankedSources = sourcesConfig.sources.groupBy(sourcesConfig.ranking)
-    val nextActions = addTriggerEvaluationAction(s, sourcesConfig)
+    val nextActions = addTriggerEvaluationAction(s, sourcesConfig, config)
 
     s.copy(sourcesConfig = sourcesConfig,
       rankedSources = TreeMap(rankedSources.toIndexedSeq: _*)(RankingOrdering),
@@ -319,7 +348,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
 
   override def evaluateCurrentSource(seqNo: Int): StateUpdate[Unit] = modify { s =>
     if (seqNo == s.seqNo) {
-      s.copy(actions = addTriggerEvaluationAction(s, s.sourcesConfig))
+      s.copy(actions = addTriggerEvaluationAction(s, s.sourcesConfig, config))
     } else s
   }
 
@@ -334,7 +363,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
         case Inside(until) =>
           val nextActions = addActionForSource(s) { source =>
             val replaceFunc: ReplaceFunc = (replaceService, evalService, system) =>
-              replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, Set(source),
+              replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, s.disabledSources + source,
                 until.value, s.seqNo, evalService)(system)
             TriggerReplacementSelection(replaceFunc)
           }
@@ -375,6 +404,24 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
     val nextActions = if (s.currentSource.contains(source) && s.replacementSource.isEmpty) actionsWithTrigger
     else PlayCurrentSource(source, s.replacementSource) :: actionsWithTrigger
     s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = nextActions)
+  }
+
+  override def disableSource(source: RadioSource): StateUpdate[Unit] = modify { s =>
+    val stateWithDisabledSource = s.copy(disabledSources = s.disabledSources + source, seqNo = s.seqNo + 1)
+    if (s.currentSource.contains(source) || s.replacementSource.contains(source)) {
+      val nextActions = addTriggerEvaluationAction(stateWithDisabledSource, s.sourcesConfig, config)
+      stateWithDisabledSource.copy(actions = nextActions)
+    } else stateWithDisabledSource
+  }
+
+  override def enableSource(source: RadioSource): StateUpdate[Unit] = modify { s =>
+    val stateWithEnabledSource = s.copy(disabledSources = s.disabledSources - source, seqNo = s.seqNo + 1)
+    if (s.currentSource.contains(source) || s.replacementSource.exists { replacement =>
+      s.sourcesConfig.ranking(source) > s.sourcesConfig.ranking(replacement)
+    }) {
+      val nextActions = addTriggerEvaluationAction(stateWithEnabledSource, s.sourcesConfig, config)
+      stateWithEnabledSource.copy(actions = nextActions)
+    } else stateWithEnabledSource
   }
 
   override def readActions(): StateUpdate[List[StateAction]] = State { s =>

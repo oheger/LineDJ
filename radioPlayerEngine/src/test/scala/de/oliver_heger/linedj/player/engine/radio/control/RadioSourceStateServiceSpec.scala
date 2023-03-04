@@ -94,6 +94,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     rankedSources shouldBe empty
     currentSource shouldBe empty
     replacementSource shouldBe empty
+    disabledSources shouldBe empty
     actions shouldBe empty
     seqNo should be(0)
   }
@@ -236,9 +237,12 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo)
     val currentSource = radioSource(5)
     val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val disabledSource1 = radioSource(111)
+    val disabledSource2 = radioSource(222)
     val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
       rankedSources = TreeMap(10 -> List(radioSource(1))),
       sourcesConfig = sourcesConfig,
+      disabledSources = Set(disabledSource1, disabledSource2),
       actions = List(ExistingAction),
       seqNo = SeqNo)
 
@@ -254,8 +258,12 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
         val replaceService = mock[ReplacementSourceSelectionService]
         val actorSystem = mock[ActorSystem]
         val replaceResult = mock[ReplacementSourceSelectionResult]
-        when(replaceService.selectReplacementSource(sourcesConfig, state.rankedSources, Set(currentSource),
-          insideTime, SeqNo, evalService)(actorSystem)).thenReturn(Future.successful(replaceResult))
+        when(replaceService.selectReplacementSource(sourcesConfig,
+          state.rankedSources,
+          Set(currentSource, disabledSource1, disabledSource2),
+          insideTime,
+          SeqNo,
+          evalService)(actorSystem)).thenReturn(Future.successful(replaceResult))
         futureResult(replaceFunc(replaceService, evalService, actorSystem)) should be(replaceResult)
 
       case a => fail("Unexpected action: " + a)
@@ -456,6 +464,151 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val nextState = modifyState(service.setCurrentSource(source), state)
 
     nextState.actions should contain(expPlayAction)
+  }
+
+  it should "support disabling a source" in {
+    val source1 = radioSource(42)
+    val source2 = radioSource(84)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val update = for {
+      _ <- service.disableSource(source1)
+      _ <- service.disableSource(source2)
+    } yield ()
+    val nextState = modifyState(update)
+
+    nextState.disabledSources should contain theSameElementsAs Set(source1, source2)
+    nextState.actions shouldBe empty
+    nextState.seqNo should be(2)
+  }
+
+  it should "support enabling a source again" in {
+    val source1 = radioSource(42)
+    val source2 = radioSource(84)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val update = for {
+      _ <- service.disableSource(source1)
+      _ <- service.disableSource(source2)
+      _ <- service.enableSource(source1)
+    } yield ()
+    val nextState = modifyState(update)
+
+    nextState.disabledSources should contain only source2
+    nextState.actions shouldBe empty
+    nextState.seqNo should be(3)
+  }
+
+  it should "support disabling the current source" in {
+    val SeqNo = 83
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val currentSource = sourcesConfig.sources(1)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource), seqNo = SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.disableSource(currentSource), state)
+
+    nextState.actions should have size 1
+    nextState.actions.head match {
+      case TriggerEvaluation(evalFunc) =>
+        val evalService = mock[EvaluateIntervalsService]
+        val refDate = LocalDateTime.of(2023, Month.MARCH, 3, 21, 36, 20)
+        val expUntilDate = refDate.plusSeconds(TestConfig.maximumEvalDelay.toSeconds)
+        val ec = mock[ExecutionContext]
+        val evalResult = futureResult(evalFunc(evalService, refDate, ec))
+        evalResult.seqNo should be(state.seqNo + 1)
+        evalResult.result match {
+          case Inside(until) =>
+            until.value should be(expUntilDate)
+          case res => fail("Unexpected evaluation result: " + res)
+        }
+
+      case a => fail("Unexpected action: " + a)
+    }
+  }
+
+  it should "support disabling the currently played replacement source" in {
+    val SeqNo = 89
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val currentSource = sourcesConfig.sources.head
+    val replacementSource = sourcesConfig.sources(1)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
+      replacementSource = Some(replacementSource), sourcesConfig = sourcesConfig, seqNo = SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.disableSource(replacementSource), state)
+
+    nextState.actions should have size 1
+    nextState.actions.head match {
+      case TriggerEvaluation(evalFunc) =>
+        checkEvalFunc(sourcesConfig, currentSource, evalFunc, SeqNo + 1)
+
+      case a => fail("Unexpected action: " + a)
+    }
+  }
+
+  it should "support enabling the current source" in {
+    val SeqNo = 91
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val currentSource = radioSource(1)
+    val replacementSource = radioSource(2)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
+      replacementSource = Some(replacementSource),
+      sourcesConfig = sourcesConfig,
+      disabledSources = Set(currentSource),
+      seqNo = SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.enableSource(currentSource), state)
+
+    nextState.actions should have size 1
+    nextState.actions.head match {
+      case TriggerEvaluation(evalFunc) =>
+        checkEvalFunc(sourcesConfig, currentSource, evalFunc, SeqNo + 1)
+
+      case a => fail("Unexpected action: " + a)
+    }
+  }
+
+  it should "support enabling a replacement source with higher ranking than the current one" in {
+    val SeqNo = 91
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val currentSource = radioSource(1)
+    val replacementSource = radioSource(2)
+    val enabledSource = radioSource(3)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(currentSource),
+      replacementSource = Some(replacementSource),
+      sourcesConfig = sourcesConfig,
+      disabledSources = Set(enabledSource),
+      seqNo = SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.enableSource(enabledSource), state)
+
+    nextState.actions should have size 1
+    nextState.actions.head match {
+      case TriggerEvaluation(evalFunc) =>
+        checkEvalFunc(sourcesConfig, currentSource, evalFunc, SeqNo + 1)
+
+      case a => fail("Unexpected action: " + a)
+    }
+  }
+
+  it should "not trigger a re-evaluation when a source with an equal ranking is enabled" in {
+    val SeqNo = 97
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap,
+      rankingF = _ => 42)
+    val enabledSource = radioSource(3)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(radioSource(1)),
+      replacementSource = Some(radioSource(2)),
+      sourcesConfig = sourcesConfig,
+      disabledSources = Set(enabledSource),
+      seqNo = SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.enableSource(enabledSource), state)
+
+    nextState.actions shouldBe empty
   }
 
   it should "support reading the current actions" in {
