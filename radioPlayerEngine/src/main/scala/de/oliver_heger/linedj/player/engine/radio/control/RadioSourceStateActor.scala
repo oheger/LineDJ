@@ -58,6 +58,22 @@ object RadioSourceStateActor {
   case class RadioSourceSelected(radioSource: RadioSource) extends RadioSourceStateCommand
 
   /**
+    * A command that indicates that a specific radio source is now disabled.
+    * This means that it won't be played (as the current or a replacement
+    * source) as long as it remains in this state.
+    *
+    * @param radioSource the disabled radio source
+    */
+  case class RadioSourceDisabled(radioSource: RadioSource) extends RadioSourceStateCommand
+
+  /**
+    * A command that indicates that a specific radio is no longer disabled.
+    *
+    * @param radioSource the affected radio source
+    */
+  case class RadioSourceEnabled(radioSource: RadioSource) extends RadioSourceStateCommand
+
+  /**
     * An internal command this actor pipes to itself when the result of a
     * source evaluation becomes available.
     *
@@ -163,6 +179,12 @@ object RadioSourceStateActor {
 
       case RadioSourceSelected(radioSource) =>
         applyUpdate(dependencies.stateService.setCurrentSource(radioSource))
+
+      case RadioSourceDisabled(radioSource) =>
+        applyUpdate(dependencies.stateService.disableSource(radioSource))
+
+      case RadioSourceEnabled(radioSource) =>
+        applyUpdate(dependencies.stateService.enableSource(radioSource))
 
       case EvaluationResultArrived(result) =>
         applyUpdate(dependencies.stateService.evaluationResultArrived(result, LocalDateTime.now()))

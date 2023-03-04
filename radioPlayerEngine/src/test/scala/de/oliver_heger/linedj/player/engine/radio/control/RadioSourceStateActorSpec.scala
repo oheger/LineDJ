@@ -95,6 +95,30 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .expectStateUpdates(states)
   }
 
+  it should "set a source as disabled" in {
+    val source = radioSource(11)
+    val states = testStates(2)
+    val helper = new StateActorTestHelper
+
+    helper.stub((), states.head) { service =>
+      service.disableSource(source)
+    }.stubReadActions(states(1))
+      .sendCommand(RadioSourceStateActor.RadioSourceDisabled(source))
+      .expectStateUpdates(states)
+  }
+
+  it should "set a source as enabled" in {
+    val source = radioSource(22)
+    val states = testStates(2)
+    val helper = new StateActorTestHelper
+
+    helper.stub((), states.head) { service =>
+      service.enableSource(source)
+    }.stubReadActions(states(1))
+      .sendCommand(RadioSourceStateActor.RadioSourceEnabled(source))
+      .expectStateUpdates(states)
+  }
+
   it should "handle a state action to switch to another source" in {
     val source = radioSource(2)
     val states = testStates(2)
