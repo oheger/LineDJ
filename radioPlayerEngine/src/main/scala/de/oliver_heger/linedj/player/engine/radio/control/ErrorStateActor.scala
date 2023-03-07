@@ -22,7 +22,7 @@ import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.CloseSupportTyped
-import de.oliver_heger.linedj.player.engine.actors.{LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlayerConfig, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine._
@@ -46,6 +46,110 @@ import scala.concurrent.duration._
   * can be created, and audio data is actually processed.
   */
 object ErrorStateActor {
+  /**
+    * A prefix that is used to generate names for child actors. It is appended
+    * by a counter that is incremented for each source in error state.
+    */
+  final val ActorNamePrefix = "errorSource_"
+
+  private val SchedulerActorName = "radioErrorStateSchedulerActor"
+
+  /**
+    * The base trait for the commands supported by the error state actor.
+    */
+  sealed trait ErrorStateCommand
+
+  /**
+    * A command for the error state actor telling it to send information about
+    * sources in error state to the given receiver.
+    *
+    * @param receiver the actor to receive the response
+    */
+  case class GetSourcesInErrorState(receiver: ActorRef[SourcesInErrorState]) extends ErrorStateCommand
+
+  /**
+    * An internal command for the error state actor telling it to process the
+    * given [[RadioEvent]]. If this is an error event, another radio source may
+    * have to be added to the error state.
+    *
+    * @param event the event
+    */
+  private case class HandleEvent(event: RadioEvent) extends ErrorStateCommand
+
+  /**
+    * An internal command for the error state actor that reports that the given
+    * radio source has been checked successfully. It can therefore be removed
+    * again from the error state.
+    *
+    * @param source the affected radio source
+    */
+  private case class SourceAvailableAgain(source: RadioSource) extends ErrorStateCommand
+
+  /**
+    * A message with information about the radio sources that are currently in
+    * error state. A message of this type is sent in response of a
+    * [[GetSourcesInErrorState]] command.
+    *
+    * @param errorSources a set with sources in error state
+    */
+  case class SourcesInErrorState(errorSources: Set[RadioSource])
+
+  /**
+    * A trait defining a factory function for creating new instances of the
+    * error state actor.
+    */
+  trait Factory {
+    /**
+      * Returns the ''Behavior'' to create a new instance of the error state
+      * actor.
+      *
+      * @param config                   the config for the radio player
+      * @param enabledStateActor        the actor that manages the enabled
+      *                                 state of radio sources
+      * @param factoryActor             the actor managing playback context
+      *                                 factories
+      * @param scheduledInvocationActor the actor for scheduled invocations
+      * @param eventActor               the event manager actor
+      * @param schedulerFactory         the factory to create a scheduler actor
+      * @param checkSourceActorFactory  the factory to create a source check
+      *                                 actor
+      * @param optSpawner               an optional ''Spawner''
+      * @return the ''Behavior'' for the new actor instance
+      */
+    def apply(config: RadioPlayerConfig,
+              enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              scheduledInvocationActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+              eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+              schedulerFactory: CheckSchedulerActorFactory = checkSchedulerBehavior,
+              checkSourceActorFactory: CheckSourceActorFactory = checkSourceBehavior,
+              optSpawner: Option[Spawner] = None): Behavior[ErrorStateCommand]
+  }
+
+  /**
+    * A default [[Factory]] implementation to create instances of the error
+    * state actor.
+    */
+  final val errorStateBehavior: Factory = (config: RadioPlayerConfig,
+                                           enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+                                           factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                           scheduledInvocationActor: ActorRef[
+                                             ScheduledInvocationActor.ScheduledInvocationCommand],
+                                           eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                                           schedulerFactory: CheckSchedulerActorFactory,
+                                           checkSourceActorFactory: CheckSourceActorFactory,
+                                           optSpawner: Option[Spawner]) => {
+    val context = ErrorStateContext(config,
+      enabledStateActor,
+      factoryActor,
+      scheduledInvocationActor,
+      eventActor,
+      schedulerFactory,
+      checkSourceActorFactory,
+      optSpawner)
+    handleErrorStateCommand(context)
+  }
+
   /**
     * An internal data class to hold the actors required for playing audio
     * data.
@@ -447,6 +551,22 @@ object ErrorStateActor {
     }
 
   /**
+    * Checks whether the given event indicates an error when playing a radio
+    * source. If so, the affected [[RadioSource]] is returned. Otherwise,
+    * result is ''None''.
+    *
+    * @param event the event
+    * @return an ''Option'' with the source affected by an error
+    */
+  private def extractErrorSource(event: RadioEvent): Option[RadioSource] =
+    event match {
+      case RadioPlaybackErrorEvent(source, _) => Some(source)
+      case RadioPlaybackContextCreationFailedEvent(source, _) => Some(source)
+      case RadioSourceErrorEvent(source, _) => Some(source)
+      case _ => None
+    }
+
+  /**
     * The message handler function of the check scheduler actor.
     *
     * @param scheduleActor the actor for scheduled invocations
@@ -561,7 +681,7 @@ object ErrorStateActor {
       */
     def triggerRadioSourceCheck(actorContext: ActorContext[CheckRadioSourceCommand]):
     ActorRef[CheckPlaybackCommand] = {
-      val spawner: Spawner = optSpawner getOrElse actorContext
+      val spawner = getSpawner(optSpawner, actorContext)
       val playbackNamePrefix = s"${namePrefix}_${count}_"
       val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, factoryActor,
         config.playerConfig)
@@ -626,4 +746,117 @@ object ErrorStateActor {
 
       handle(checkContext)
     }
+
+  /**
+    * An internal data class collecting all the relevant information for
+    * handling messages related to the error state. This includes the required
+    * dependencies and the error state itself.
+    *
+    * @param config                   the config for the radio player
+    * @param enabledStateActor        the actor that manages the enabled
+    *                                 state of radio sources
+    * @param factoryActor             the actor managing playback context
+    *                                 factories
+    * @param scheduledInvocationActor the actor for scheduled invocations
+    * @param eventActor               the event manager actor
+    * @param schedulerFactory         the factory to create a scheduler actor
+    * @param checkSourceActorFactory  the factory to create a source check
+    *                                 actor
+    * @param optSpawner               an optional ''Spawner''
+    * @param errorSources             the current sources in error state
+    * @param count                    a counter for error sources to generate
+    *                                 unique actor names
+    */
+  private case class ErrorStateContext(config: RadioPlayerConfig,
+                                       enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+                                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                       scheduledInvocationActor: ActorRef[
+                                         ScheduledInvocationActor.ScheduledInvocationCommand],
+                                       eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                                       schedulerFactory: CheckSchedulerActorFactory,
+                                       checkSourceActorFactory: CheckSourceActorFactory,
+                                       optSpawner: Option[Spawner],
+                                       errorSources: Set[RadioSource] = Set.empty,
+                                       count: Int = 0) {
+    /**
+      * Processes a radio source that caused an error and returns an updated
+      * context object.
+      *
+      * @param errorSource  the error source
+      * @param actorContext the context of the owning actor
+      * @param scheduler    the scheduler actor
+      * @return the updated state
+      */
+    def handleErrorSource(errorSource: RadioSource,
+                          actorContext: ActorContext[ErrorStateCommand],
+                          scheduler: ActorRef[ScheduleCheckCommand]): ErrorStateContext = {
+      if (errorSources contains errorSource) this
+      else {
+        actorContext.log.info("Adding {} to error state.", errorSource)
+        val index = count + 1
+        val childNamePrefix = ActorNamePrefix + index
+        val checkBehavior = checkSourceActorFactory(config,
+          errorSource,
+          childNamePrefix,
+          factoryActor,
+          scheduler)
+        val checkActor = getSpawner(optSpawner, actorContext).spawn(checkBehavior, Some(childNamePrefix))
+
+        actorContext.watchWith(checkActor, SourceAvailableAgain(errorSource))
+        enabledStateActor ! RadioControlProtocol.DisableSource(errorSource)
+
+        copy(count = index, errorSources = errorSources + errorSource)
+      }
+    }
+  }
+
+  /**
+    * The message handling function for the error state actor.
+    *
+    * @param initialStateContext the context for handling error state messages
+    * @return the updated behavior
+    */
+  private def handleErrorStateCommand(initialStateContext: ErrorStateContext): Behavior[ErrorStateCommand] =
+    Behaviors.setup[ErrorStateCommand] { context =>
+      val eventListener = context.messageAdapter[RadioEvent](HandleEvent.apply)
+      initialStateContext.eventActor ! EventManagerActor.RegisterListener(eventListener)
+
+      val schedulerBehavior = initialStateContext.schedulerFactory(initialStateContext.scheduledInvocationActor)
+      val scheduler = getSpawner(initialStateContext.optSpawner, context)
+        .spawn(schedulerBehavior, Some(SchedulerActorName))
+
+      def handle(stateContext: ErrorStateContext): Behavior[ErrorStateCommand] =
+        Behaviors.receiveMessage {
+          case GetSourcesInErrorState(receiver) =>
+            receiver ! SourcesInErrorState(stateContext.errorSources)
+            Behaviors.same
+
+          case HandleEvent(event) =>
+            extractErrorSource(event) match {
+              case Some(errorSource) =>
+                handle(stateContext.handleErrorSource(errorSource, context, scheduler))
+              case None =>
+                Behaviors.same
+            }
+
+          case SourceAvailableAgain(source) =>
+            context.log.info("Removing {} from error state.", source)
+            stateContext.enabledStateActor ! RadioControlProtocol.EnableSource(source)
+            handle(stateContext.copy(errorSources = stateContext.errorSources - source))
+        }
+
+      handle(initialStateContext)
+    }
+
+  /**
+    * Obtain a [[Spawner]] either from the ''Option'' if it is defined or
+    * create one based on the given actor context.
+    *
+    * @param optSpawner the ''Option'' with the [[Spawner]]
+    * @param context    the actor context
+    * @tparam T the type of the actor context
+    * @return the [[Spawner]]
+    */
+  private def getSpawner[T](optSpawner: Option[Spawner], context: ActorContext[T]): Spawner =
+    optSpawner getOrElse context
 }
