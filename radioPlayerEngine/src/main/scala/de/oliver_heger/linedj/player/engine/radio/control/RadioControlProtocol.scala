@@ -44,4 +44,26 @@ private object RadioControlProtocol {
     * @param source the source to be played
     */
   case class SwitchToSource(source: RadioSource)
+
+  /**
+    * The base trait for commands that update the enabled state of specific
+    * radio sources. The subcommands allow disabling or enabling a source.
+    */
+  sealed trait SourceEnabledStateCommand
+
+  /**
+    * A command class that indicates that the given radio source should be
+    * disabled.
+    *
+    * @param source the radio source to disable
+    */
+  case class DisableSource(source: RadioSource) extends SourceEnabledStateCommand
+
+  /**
+    * A command class that indicates that the given radio source should be
+    * enabled.
+    *
+    * @param source the radio source to enable
+    */
+  case class EnableSource(source: RadioSource) extends SourceEnabledStateCommand
 }
