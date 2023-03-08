@@ -20,10 +20,12 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.{actor => classic}
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
+import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -78,6 +80,22 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       .checkPlaybackStateCommand(PlaybackStateActor.StopPlayback)
   }
 
+  it should "handle a command to disable a source" in {
+    val source = radioSource(7)
+    val helper = new ControlActorTestHelper
+
+    helper.sendEnabledStateCommand(RadioControlProtocol.DisableSource(source))
+      .checkSourceStateCommand(RadioSourceStateActor.RadioSourceDisabled(source))
+  }
+
+  it should "handle a command to enable a source" in {
+    val source = radioSource(11)
+    val helper = new ControlActorTestHelper
+
+    helper.sendEnabledStateCommand(RadioControlProtocol.EnableSource(source))
+      .checkSourceStateCommand(RadioSourceStateActor.RadioSourceEnabled(source))
+  }
+
   /**
     * A test helper class managing a control actor under test and its
     * dependencies.
@@ -90,8 +108,14 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     /** Test probe for the schedule invocation actor. */
     private val probeScheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()
 
+    /** Test probe for the playback context factory actor. */
+    private val probeFactoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
+
     /** Test probe for the actor for publishing events. */
     private val probeEventActor = testKit.createTestProbe[RadioEvent]()
+
+    /** Test probe for the event manager actor. */
+    private val probeEventManagerActor = testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
 
     /** Test probe for the radio source state actor. */
     private val probeStateActor = testKit.createTestProbe[RadioSourceStateActor.RadioSourceStateCommand]()
@@ -99,14 +123,17 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     /** Test probe for the playback state actor. */
     private val probePlayActor = testKit.createTestProbe[PlaybackStateActor.PlaybackStateCommand]()
 
+    /** Test probe for the error state actor. */
+    private val probeErrorStateActor = testKit.createTestProbe[ErrorStateActor.ErrorStateCommand]()
+
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
 
-    /** A queue to wait for the creation of the play actor. */
-    private val playActorCreationQueue = new ArrayBlockingQueue[ActorRef[RadioControlProtocol.SwitchToSource]](1)
+    /** The reference to the playback actor. */
+    private val playActor = new DynamicActorRef[RadioControlProtocol.SwitchToSource]
 
-    /** Stores the reference to the playback actor. */
-    private var playActorField: ActorRef[RadioControlProtocol.SwitchToSource] = _
+    /** The reference to the actor managing the source enabled state. */
+    private val enabledStateActor = new DynamicActorRef[RadioControlProtocol.SourceEnabledStateCommand]
 
     /** The actor instance under test. */
     private val controlActor = createControlActor()
@@ -150,7 +177,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @return this test helper
       */
     def sendSwitchToSourceCommand(source: RadioSource): ControlActorTestHelper = {
-      fetchPlayActor() ! RadioControlProtocol.SwitchToSource(source)
+      playActor.ref ! RadioControlProtocol.SwitchToSource(source)
       this
     }
 
@@ -175,6 +202,18 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     }
 
     /**
+      * Sends a command to change the enabled state for a specific radio
+      * source.
+      *
+      * @param command the command to be sent
+      * @return this test helper
+      */
+    def sendEnabledStateCommand(command: RadioControlProtocol.SourceEnabledStateCommand): ControlActorTestHelper = {
+      enabledStateActor.ref ! command
+      this
+    }
+
+    /**
       * Creates a test control actor instance.
       *
       * @return the actor to be tested
@@ -182,9 +221,12 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     private def createControlActor(): ActorRef[RadioControlActor.RadioControlCommand] = {
       testKit.spawn(RadioControlActor.behavior(stateActorFactory = createStateActorFactory(),
         playActorFactory = createPlayActorFactory(),
+        errorActorFactory = createErrorStateActorFactory(),
         eventActor = probeEventActor.ref,
+        eventManagerActor = probeEventManagerActor.ref,
         facadeActor = mockFacadeActor,
         scheduleActor = probeScheduleActor.ref,
+        factoryActor = probeFactoryActor.ref,
         config = config))
     }
 
@@ -200,7 +242,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        evalService: EvaluateIntervalsService,
        replaceService: ReplacementSourceSelectionService,
        scheduleActor: ActorRef[ScheduledInvocationCommand],
-       playActor: ActorRef[RadioControlProtocol.SwitchToSource],
+       playActorRef: ActorRef[RadioControlProtocol.SwitchToSource],
        eventActor: ActorRef[RadioEvent]) => {
         stateService shouldBe a[RadioSourceStateServiceImpl]
         stateService.asInstanceOf[RadioSourceStateServiceImpl].config should be(config)
@@ -208,7 +250,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         replaceService should be(ReplacementSourceSelectionServiceImpl)
         scheduleActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventActor.ref)
-        playActorCreationQueue offer playActor
+        playActor.actorCreated(playActorRef)
         Behaviors.monitor(probeStateActor.ref, Behaviors.ignore)
       }
 
@@ -225,18 +267,52 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       }
 
     /**
-      * Obtains the reference to the play actor. Since actor creation is
-      * asynchronous, this is a bit tricky. A blocking queue is used to obtain
-      * the reference in a safe way.
+      * Creates a factory to create an error state actor which checks the
+      * creation parameters and delegates to a test probe.
       *
-      * @return the reference to the play actor
+      * @return the factory for the error state actor
       */
-    private def fetchPlayActor(): ActorRef[RadioControlProtocol.SwitchToSource] = {
-      if (playActorField == null) {
-        playActorField = playActorCreationQueue.poll(3, TimeUnit.SECONDS)
-        playActorField should not be null
+    private def createErrorStateActorFactory(): ErrorStateActor.Factory =
+      (radioConfig: RadioPlayerConfig,
+       enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       scheduledInvocationActor: ActorRef[ScheduledInvocationCommand],
+       eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+       _: ErrorStateActor.CheckSchedulerActorFactory,
+       _: ErrorStateActor.CheckSourceActorFactory,
+       optSpawner: Option[Spawner]) => {
+        radioConfig should be(config)
+        factoryActor should be(probeFactoryActor.ref)
+        scheduledInvocationActor should be(probeScheduleActor.ref)
+        eventActor should be(probeEventManagerActor.ref)
+        optSpawner shouldBe empty
+
+        enabledStateActor.actorCreated(enabledActor)
+        Behaviors.monitor(probeErrorStateActor.ref, Behaviors.ignore)
       }
-      playActorField
+  }
+
+  /**
+    * A helper class that manages an actor reference created asynchronously. It
+    * ensures safe access to the reference from the test thread.
+    *
+    * @tparam T the type of the actor reference
+    */
+  private class DynamicActorRef[T] {
+    private val actorCreationQueue = new ArrayBlockingQueue[ActorRef[T]](1)
+
+    private var actorField: ActorRef[T] = _
+
+    def actorCreated(actorRef: ActorRef[T]): Unit = {
+      actorCreationQueue offer actorRef
+    }
+
+    def ref: ActorRef[T] = {
+      if (actorField == null) {
+        actorField = actorCreationQueue.poll(3, TimeUnit.SECONDS)
+        actorField should not be null
+      }
+      actorField
     }
   }
 }

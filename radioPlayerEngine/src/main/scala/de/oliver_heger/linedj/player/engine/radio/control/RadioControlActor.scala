@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import akka.{actor => classic}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 
@@ -44,6 +45,9 @@ object RadioControlActor {
 
   /** The name of the child actor managing the playback state. */
   final val PlayStateActorName = "radioPlaybackStateActor"
+
+  /** The name of the child actor managing the error state. */
+  final val ErrorStateActorName = "radioErrorStateActor"
 
   /**
     * The base trait for the commands supported by this actor implementation.
@@ -90,6 +94,22 @@ object RadioControlActor {
   private case class SwitchToSource(source: RadioSource) extends RadioControlCommand
 
   /**
+    * An internal command indicating that the given radio source has been
+    * disabled.
+    *
+    * @param source the affected source
+    */
+  private case class SourceDisabled(source: RadioSource) extends RadioControlCommand
+
+  /**
+    * An internal command indicating that the given radio source has been
+    * enabled.
+    *
+    * @param source the affected source
+    */
+  private case class SourceEnabled(source: RadioSource) extends RadioControlCommand
+
+  /**
     * A trait that defines a factory function for creating a ''Behavior'' for a
     * new actor instance.
     */
@@ -102,8 +122,11 @@ object RadioControlActor {
       *
       * @param config                the configuration of the player
       * @param eventActor            the actor for publishing events
+      * @param eventManagerActor     the actor managing event listeners
       * @param facadeActor           the player facade actor
       * @param scheduleActor         the actor for scheduled invocations
+      * @param factoryActor          the actor managing playback context
+      *                              factories
       * @param optEvalService        the optional service to evaluate interval
       *                              queries (None for default)
       * @param optReplacementService the optional service to select a
@@ -116,13 +139,16 @@ object RadioControlActor {
       */
     def apply(config: RadioPlayerConfig,
               eventActor: ActorRef[RadioEvent],
+              eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
               facadeActor: classic.ActorRef,
               scheduleActor: ActorRef[ScheduledInvocationCommand],
+              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
               optEvalService: Option[EvaluateIntervalsService] = None,
               optReplacementService: Option[ReplacementSourceSelectionService] = None,
               optStateService: Option[RadioSourceStateService] = None,
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
-              playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior):
+              playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior,
+              errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior):
     Behavior[RadioControlCommand]
   }
 
@@ -132,16 +158,26 @@ object RadioControlActor {
     */
   final val behavior: Factory = (config: RadioPlayerConfig,
                                  eventActor: ActorRef[RadioEvent],
+                                 eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                                  facadeActor: classic.ActorRef,
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
+                                 factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                                  optEvalService: Option[EvaluateIntervalsService],
                                  optReplacementService: Option[ReplacementSourceSelectionService],
                                  optStateService: Option[RadioSourceStateService],
                                  stateActorFactory: RadioSourceStateActor.Factory,
-                                 playActorFactory: PlaybackStateActor.Factory) =>
+                                 playActorFactory: PlaybackStateActor.Factory,
+                                 errorActorFactory: ErrorStateActor.Factory) =>
     Behaviors.setup { context =>
       val switchSourceAdapter = context.messageAdapter[RadioControlProtocol.SwitchToSource] { msg =>
         SwitchToSource(msg.source)
+      }
+
+      val enabledStateAdapter = context.messageAdapter[RadioControlProtocol.SourceEnabledStateCommand] {
+        case RadioControlProtocol.DisableSource(source) =>
+          SourceDisabled(source)
+        case RadioControlProtocol.EnableSource(source) =>
+          SourceEnabled(source)
       }
 
       val evalService = optEvalService getOrElse EvaluateIntervalsServiceImpl
@@ -150,6 +186,11 @@ object RadioControlActor {
       val sourceStateActor = context.spawn(stateActorFactory(stateService, evalService, replacementService,
         scheduleActor, switchSourceAdapter, eventActor), SourceStateActorName)
       val playStateActor = context.spawn(playActorFactory(facadeActor), PlayStateActorName)
+      context.spawn(errorActorFactory(config,
+        enabledStateAdapter,
+        factoryActor,
+        scheduleActor,
+        eventManagerActor), ErrorStateActorName)
 
       handle(sourceStateActor, playStateActor)
     }
@@ -170,6 +211,14 @@ object RadioControlActor {
 
     case SelectRadioSource(source) =>
       sourceStateActor ! RadioSourceStateActor.RadioSourceSelected(source)
+      Behaviors.same
+
+    case SourceDisabled(source) =>
+      sourceStateActor ! RadioSourceStateActor.RadioSourceDisabled(source)
+      Behaviors.same
+
+    case SourceEnabled(source) =>
+      sourceStateActor ! RadioSourceStateActor.RadioSourceEnabled(source)
       Behaviors.same
 
     case StartPlayback =>
