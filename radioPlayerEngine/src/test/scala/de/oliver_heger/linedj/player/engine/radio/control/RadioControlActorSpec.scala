@@ -104,6 +104,13 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       .checkErrorStateCommand(ErrorStateActor.GetSourcesInErrorState(probe.ref))
   }
 
+  it should "handle a Stop command" in {
+    val helper = new ControlActorTestHelper
+
+    helper.sendCommand(RadioControlActor.Stop)
+      .checkControlActorStopped()
+  }
+
   /**
     * A test helper class managing a control actor under test and its
     * dependencies.
@@ -239,6 +246,14 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     def checkErrorStateCommand(command: ErrorStateActor.ErrorStateCommand): ControlActorTestHelper = {
       expectErrorStateCommand() should be(command)
       this
+    }
+
+    /**
+      * Checks whether the actor under test has been stopped.
+      */
+    def checkControlActorStopped(): Unit = {
+      val probe = testKit.createDeadLetterProbe()
+      probe.expectTerminated(controlActor)
     }
 
     /**

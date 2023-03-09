@@ -94,6 +94,11 @@ object RadioControlActor {
     extends RadioControlCommand
 
   /**
+    * A command telling this actor to stop itself.
+    */
+  case object Stop extends RadioControlCommand
+
+  /**
     * An internal command indicating that playback should change to the
     * provided radio source. This can be the current source or a replacement
     * source.
@@ -247,5 +252,8 @@ object RadioControlActor {
     case GetSourcesInErrorState(receiver) =>
       errorStateActor ! ErrorStateActor.GetSourcesInErrorState(receiver)
       Behaviors.same
+
+    case Stop =>
+      Behaviors.stopped
   }
 }
