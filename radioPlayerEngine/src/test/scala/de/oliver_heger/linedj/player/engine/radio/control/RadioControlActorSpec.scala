@@ -96,6 +96,14 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       .checkSourceStateCommand(RadioSourceStateActor.RadioSourceEnabled(source))
   }
 
+  it should "handle a command to query the sources in error state" in {
+    val probe = testKit.createTestProbe[ErrorStateActor.SourcesInErrorState]()
+    val helper = new ControlActorTestHelper
+
+    helper.sendCommand(RadioControlActor.GetSourcesInErrorState(probe.ref))
+      .checkErrorStateCommand(ErrorStateActor.GetSourcesInErrorState(probe.ref))
+  }
+
   /**
     * A test helper class managing a control actor under test and its
     * dependencies.
@@ -210,6 +218,26 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       */
     def sendEnabledStateCommand(command: RadioControlProtocol.SourceEnabledStateCommand): ControlActorTestHelper = {
       enabledStateActor.ref ! command
+      this
+    }
+
+    /**
+      * Expects that a message was passed to the error state actor and returns
+      * this message.
+      *
+      * @return the message passed to the error state actor
+      */
+    def expectErrorStateCommand(): ErrorStateActor.ErrorStateCommand =
+      probeErrorStateActor.expectMessageType[ErrorStateActor.ErrorStateCommand]
+
+    /**
+      * Tests that the given command was passed to the error state actor.
+      *
+      * @param command the expected command
+      * @return this test helper
+      */
+    def checkErrorStateCommand(command: ErrorStateActor.ErrorStateCommand): ControlActorTestHelper = {
+      expectErrorStateCommand() should be(command)
       this
     }
 

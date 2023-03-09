@@ -85,6 +85,15 @@ object RadioControlActor {
   case object StopPlayback extends RadioControlCommand
 
   /**
+    * A command to request the current set of radio sources whose playback
+    * failed for some reason.
+    *
+    * @param receiver the actor to send the response to
+    */
+  case class GetSourcesInErrorState(receiver: ActorRef[ErrorStateActor.SourcesInErrorState])
+    extends RadioControlCommand
+
+  /**
     * An internal command indicating that playback should change to the
     * provided radio source. This can be the current source or a replacement
     * source.
@@ -186,13 +195,13 @@ object RadioControlActor {
       val sourceStateActor = context.spawn(stateActorFactory(stateService, evalService, replacementService,
         scheduleActor, switchSourceAdapter, eventActor), SourceStateActorName)
       val playStateActor = context.spawn(playActorFactory(facadeActor), PlayStateActorName)
-      context.spawn(errorActorFactory(config,
+      val errorStateActor = context.spawn(errorActorFactory(config,
         enabledStateAdapter,
         factoryActor,
         scheduleActor,
         eventManagerActor), ErrorStateActorName)
 
-      handle(sourceStateActor, playStateActor)
+      handle(sourceStateActor, playStateActor, errorStateActor)
     }
 
   /**
@@ -200,10 +209,12 @@ object RadioControlActor {
     *
     * @param sourceStateActor the source state management actor
     * @param playStateActor   the playback state management actor
+    * @param errorStateActor  the actor managing the error state
     * @return the updated behavior
     */
   private def handle(sourceStateActor: ActorRef[RadioSourceStateActor.RadioSourceStateCommand],
-                     playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand]):
+                     playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
+                     errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand]):
   Behavior[RadioControlCommand] = Behaviors.receiveMessage {
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
@@ -231,6 +242,10 @@ object RadioControlActor {
 
     case SwitchToSource(source) =>
       playStateActor ! PlaybackStateActor.PlaybackSource(source)
+      Behaviors.same
+
+    case GetSourcesInErrorState(receiver) =>
+      errorStateActor ! ErrorStateActor.GetSourcesInErrorState(receiver)
       Behaviors.same
   }
 }
