@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,19 +51,21 @@ private class RadioPlayerFactory {
   /**
     * Creates the configuration for the new player instance. This
     * implementation uses some hard-coded values which are appropriate for
-    * playback of internet radio.
+    * playback of internet radio. For the properties specific to the radio
+    * player, the default values are used.
     *
     * @param actorManagement the ''ActorManagement''
     * @return the player configuration
     */
-  private def createPlayerConfig(actorManagement: ActorManagement): PlayerConfig = {
+  private def createPlayerConfig(actorManagement: ActorManagement): RadioPlayerConfig = {
     val creator = new ManagingActorCreator(actorManagement)
-    PlayerConfig(inMemoryBufferSize = 64 * 1024,
+    val playerConfig = PlayerConfig(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       timeProgressThreshold = 100.millis,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
       mediaManagerActor = null,
       actorCreator = creator)
+    RadioPlayerConfig(playerConfig)
   }
 }

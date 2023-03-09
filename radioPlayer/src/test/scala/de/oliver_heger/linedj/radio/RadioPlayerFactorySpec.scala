@@ -67,13 +67,14 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     val management = createActorManagement()
     val player = futureResult(factory createRadioPlayer management)
 
-    player.config.inMemoryBufferSize should be(65536)
-    player.config.bufferChunkSize should be(4096)
-    player.config.playbackContextLimit should be(8192)
-    player.config.mediaManagerActor should be(null)
-    player.config.timeProgressThreshold should be(100.millis)
-    player.config.blockingDispatcherName.get should be(ClientApplication.BlockingDispatcherName)
-    player.config.actorCreator match {
+    val playerConfig = player.config.playerConfig
+    playerConfig.inMemoryBufferSize should be(65536)
+    playerConfig.bufferChunkSize should be(4096)
+    playerConfig.playbackContextLimit should be(8192)
+    playerConfig.mediaManagerActor should be(null)
+    playerConfig.timeProgressThreshold should be(100.millis)
+    playerConfig.blockingDispatcherName.get should be(ClientApplication.BlockingDispatcherName)
+    playerConfig.actorCreator match {
       case c: ManagingActorCreator => c.actorManagement should be(management)
       case o => fail("Unexpected actor creator: " + o)
     }

@@ -23,13 +23,12 @@ import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.util.Timeout
 import akka.{actor => classics}
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,35 +39,35 @@ object RadioPlayer {
     * This is an asynchronous operation; therefore, this function returns a
     * ''Future''.
     *
-    * @param config the player configuration
+    * @param config the radio player configuration
     * @param system the current ''ActorSystem''
     * @param ec     the ''ExecutionContext''
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
-  def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
+  def apply(config: RadioPlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
+    val creator = config.playerConfig.actorCreator
 
     for {
-      eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](config.actorCreator,
-        "radioEventManagerActor")
-      converter = config.actorCreator.createActor(RadioEventConverterActor(eventActors._2),
+      eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](creator, "radioEventManagerActor")
+      converter = creator.createActor(RadioEventConverterActor(eventActors._2),
         "playerEventConverter", Some(RadioEventConverterActor.Stop))
       playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
         RadioEventConverterActor.GetPlayerListener(ref)
       }
     } yield {
       val sourceCreator = radioPlayerSourceCreator(eventActors._2)
-      val lineWriterActor = PlayerControl.createLineWriterActor(config, "radioLineWriterActor")
-      val scheduledInvocationActor = PlayerControl.createSchedulerActor(config.actorCreator,
+      val lineWriterActor = PlayerControl.createLineWriterActor(config.playerConfig, "radioLineWriterActor")
+      val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator,
         "radioSchedulerInvocationActor")
-      val factoryActor = PlayerControl.createPlaybackContextFactoryActor(config.actorCreator,
+      val factoryActor = PlayerControl.createPlaybackContextFactoryActor(creator,
         "radioPlaybackContextFactoryActor")
       val facadeActor =
-        config.actorCreator.createActor(PlayerFacadeActor(config, playerListener.listener, scheduledInvocationActor,
+        creator.createActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
-      val schedulerActor = config.actorCreator.createActor(RadioSchedulerActor(eventActors._2),
+      val schedulerActor = creator.createActor(RadioSchedulerActor(eventActors._2),
         "radioSchedulerActor")
 
       new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, factoryActor)
@@ -108,7 +107,7 @@ object RadioPlayer {
   * @param playbackContextFactoryActor the actor to create playback context
   *                                    objects
   */
-class RadioPlayer private(val config: PlayerConfig,
+class RadioPlayer private(val config: RadioPlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,
                           schedulerActor: classics.ActorRef,
                           override protected val eventManagerActor:

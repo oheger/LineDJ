@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActor
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
@@ -220,7 +220,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         props.args should have size 6
-        props.args.take(5) should contain theSameElementsInOrderAs List(config, probePlayerEventActor.ref,
+        props.args.take(5) should contain theSameElementsInOrderAs List(config.playerConfig, probePlayerEventActor.ref,
           probeSchedulerInvocationActor.ref, probeFactoryActor.ref, probeLineWriterActor.ref)
         val creator = props.args(5).asInstanceOf[SourceActorCreator]
         checkSourceActorCreator(creator)
@@ -283,7 +283,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val probeSchedulerActor: TestProbe = TestProbe()
 
     /** The test player configuration. */
-    val config: PlayerConfig = createPlayerConfig()
+    val config: RadioPlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
     val player: RadioPlayer = futureResult(RadioPlayer(config))
@@ -333,23 +333,24 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config, actorCreator.probePublisherActor.ref))
+        props.args should be(List(config.playerConfig, actorCreator.probePublisherActor.ref))
         probeSourceActor.ref
       })
 
-      val actors = creator(factory, config)
+      val actors = creator(factory, config.playerConfig)
       actors should have size 1
       actors(PlayerFacadeActor.KeySourceActor) should be(probeSourceActor.ref)
     }
 
     /**
-      * Creates a test audio player configuration.
+      * Creates a test radio player configuration.
       *
       * @return the test configuration
       */
-    private def createPlayerConfig(): PlayerConfig =
-      PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
-        blockingDispatcherName = Some(BlockingDispatcherName))
+    private def createPlayerConfig(): RadioPlayerConfig = {
+      RadioPlayerConfig(PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
+        blockingDispatcherName = Some(BlockingDispatcherName)))
+    }
 
     /**
       * Tests whether a correct radio event converter actor is constructed that
