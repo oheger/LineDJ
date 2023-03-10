@@ -103,6 +103,10 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
         Behaviors.same
     }
 
+  /** The actor reference for the event manager actor. */
+  val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[EVENT]] =
+    testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior))
+
   /**
     * Check function for the event manager actor. The function returns a stub
     * behavior that can be queried for the publisher actor and is additionally
@@ -112,7 +116,7 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
     case `eventActorName` =>
       optStopCommand should be(Some(EventManagerActor.Stop[EVENT]()))
       props should be(Props.empty)
-      testKit.spawn(Behaviors.monitor(probeEventActor.ref, mockEventManagerBehavior))
+      eventManagerActor
   }
 
   override def createActor[T](behavior: Behavior[T],
