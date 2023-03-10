@@ -17,9 +17,10 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
+import akka.actor.typed
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -32,6 +33,7 @@ import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.radio.control.{ErrorStateActor, EvaluateIntervalsService, PlaybackStateActor, RadioControlActor, RadioSourceStateActor, RadioSourceStateService, ReplacementSourceSelectionService}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.ArgumentMatchers.any
@@ -199,6 +201,40 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.expectDelayed(expMsg)
   }
 
+  it should "support setting the configuration for radio sources" in {
+    val sourcesConfig = mock[RadioSourceConfig]
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.initRadioSourceConfig(sourcesConfig)
+
+    helper.expectControlCommand(RadioControlActor.InitRadioSourceConfig(sourcesConfig))
+  }
+
+  it should "support switching to another radio source" in {
+    val source = RadioSource("newCurrentSource")
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.switchToRadioSource(source)
+
+    helper.expectControlCommand(RadioControlActor.SelectRadioSource(source))
+  }
+
+  it should "support starting radio playback" in {
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.startRadioPlayback()
+
+    helper.expectControlCommand(RadioControlActor.StartPlayback)
+  }
+
+  it should "support stopping radio playback" in {
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.stopRadioPlayback()
+
+    helper.expectControlCommand(RadioControlActor.StopPlayback)
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
@@ -268,6 +304,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       case "radioLineWriterActor" =>
         props should not be Props.empty // It seems impossible to extract the dispatcher name.
         probeLineWriterActor.ref
+
+      case "radioControlActor" =>
+        behavior should be(controlBehavior)
+        optStopCmd should be(Some(RadioControlActor.Stop))
+        probeControlActor.ref
     }
 
     /** The object for creating test actors. */
@@ -279,6 +320,13 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** Test probe for the line writer actor. */
     private val probeLineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
 
+    /** Test probe for the control actor. */
+    private val probeControlActor = testKit.createTestProbe[RadioControlActor.RadioControlCommand]()
+
+    /** The behavior used for the control actor. */
+    private val controlBehavior = Behaviors.monitor[RadioControlActor.RadioControlCommand](probeControlActor.ref,
+      Behaviors.ignore)
+
     /** Test probe for the scheduler actor. */
     val probeSchedulerActor: TestProbe = TestProbe()
 
@@ -286,7 +334,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val config: RadioPlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
-    val player: RadioPlayer = futureResult(RadioPlayer(config))
+    val player: RadioPlayer = futureResult(RadioPlayer(config, createControlActorFactory()))
 
     /**
       * Expect a delayed invocation via the delay actor.
@@ -307,6 +355,15 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     def expectDelayed(prop: DelayActor.Propagate): Unit = {
       probeFacadeActor.expectMsg(prop)
+    }
+
+    /**
+      * Expects that the given command was sent to the control actor.
+      *
+      * @param command the expected command
+      */
+    def expectControlCommand(command: RadioControlActor.RadioControlCommand): Unit = {
+      probeControlActor.expectMessage(command)
     }
 
     /**
@@ -341,6 +398,38 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       actors should have size 1
       actors(PlayerFacadeActor.KeySourceActor) should be(probeSourceActor.ref)
     }
+
+    /**
+      * Creates a stub factory for the control actor that checks the parameters
+      * and returns a mock behavior.
+      *
+      * @return the factory for the control actor
+      */
+    private def createControlActorFactory(): RadioControlActor.Factory =
+      (radioConfig: RadioPlayerConfig,
+       eventActor: typed.ActorRef[RadioEvent],
+       eventManagerActor: typed.ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+       facadeActor: ActorRef,
+       scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+       factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       optEvalService: Option[EvaluateIntervalsService],
+       optReplacementService: Option[ReplacementSourceSelectionService],
+       optStateService: Option[RadioSourceStateService],
+       _: RadioSourceStateActor.Factory,
+       _: PlaybackStateActor.Factory,
+       _: ErrorStateActor.Factory) => {
+        radioConfig should be(config)
+        eventActor should be(actorCreator.probePublisherActor.ref)
+        eventManagerActor should be(actorCreator.eventManagerActor)
+        facadeActor should be(probeFacadeActor.ref)
+        scheduleActor should be(probeSchedulerInvocationActor.ref)
+        factoryActor should be(probeFactoryActor.ref)
+        optEvalService shouldBe empty
+        optReplacementService shouldBe empty
+        optStateService shouldBe empty
+
+        controlBehavior
+      }
 
     /**
       * Creates a test radio player configuration.

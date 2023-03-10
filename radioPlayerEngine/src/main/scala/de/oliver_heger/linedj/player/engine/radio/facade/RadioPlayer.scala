@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActor
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
 
@@ -39,12 +40,15 @@ object RadioPlayer {
     * This is an asynchronous operation; therefore, this function returns a
     * ''Future''.
     *
-    * @param config the radio player configuration
-    * @param system the current ''ActorSystem''
-    * @param ec     the ''ExecutionContext''
+    * @param config              the radio player configuration
+    * @param controlActorFactory factory for creating the control actor
+    * @param system              the current ''ActorSystem''
+    * @param ec                  the ''ExecutionContext''
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
-  def apply(config: RadioPlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
+  def apply(config: RadioPlayerConfig,
+            controlActorFactory: RadioControlActor.Factory = RadioControlActor.behavior)
+           (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
@@ -69,8 +73,12 @@ object RadioPlayer {
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
       val schedulerActor = creator.createActor(RadioSchedulerActor(eventActors._2),
         "radioSchedulerActor")
+      val controlBehavior = controlActorFactory(config, eventActors._2, eventActors._1, facadeActor,
+        scheduledInvocationActor, factoryActor)
+      val controlActor = creator.createActor(controlBehavior, "radioControlActor",
+        Some(RadioControlActor.Stop))
 
-      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, factoryActor)
+      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, factoryActor, controlActor)
     }
   }
 
@@ -106,6 +114,7 @@ object RadioPlayer {
   * @param eventManagerActor           reference to the event manager actor
   * @param playbackContextFactoryActor the actor to create playback context
   *                                    objects
+  * @param controlActor                reference to the control actor
   */
 class RadioPlayer private(val config: RadioPlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,
@@ -113,7 +122,8 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                           override protected val eventManagerActor:
                           ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                           override protected val playbackContextFactoryActor:
-                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
+                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                          controlActor: ActorRef[RadioControlActor.RadioControlCommand])
   extends PlayerControl[RadioEvent] {
   /**
     * Marks a source as the new current source. This does not change the
@@ -178,6 +188,41 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     val curMsg = if (makeCurrent) (source, schedulerActor) :: startMsg else startMsg
     val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, playerFacadeActor) :: curMsg else curMsg
     playerFacadeActor ! DelayActor.Propagate(resetMsg, delay)
+  }
+
+  /**
+    * Updates the configuration for radio sources. This determines when
+    * specific sources can or cannot be played.
+    *
+    * @param config the configuration for radio sources
+    */
+  def initRadioSourceConfig(config: RadioSourceConfig): Unit = {
+    controlActor ! RadioControlActor.InitRadioSourceConfig(config)
+  }
+
+  /**
+    * Starts radio playback, provided that a source has been selected.
+    */
+  def startRadioPlayback(): Unit = {
+    controlActor ! RadioControlActor.StartPlayback
+  }
+
+  /**
+    * Stops radio playback if it is currently ongoing.
+    */
+  def stopRadioPlayback(): Unit = {
+    controlActor ! RadioControlActor.StopPlayback
+  }
+
+  /**
+    * Sets the given [[RadioSource]] as the new current source. If possible,
+    * this source is played directly; otherwise, a replacement source is
+    * selected.
+    *
+    * @param source the new current [[RadioSource]]
+    */
+  def switchToRadioSource(source: RadioSource): Unit = {
+    controlActor ! RadioControlActor.SelectRadioSource(source)
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
