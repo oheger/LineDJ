@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.radio.RadioSourceConfig
+import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
 import scala.annotation.tailrec
@@ -196,6 +197,16 @@ object RadioPlayerClientConfig {
       metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
       metaRotateSpeed = config.getDouble(KeyMetaRotateSpeed, DefaultMetadataRotateScale))
   }
+
+  /**
+    * Creates a [[RadioPlayerClientConfig]] instance from the configuration
+    * associated with the given [[ApplicationContext]].
+    *
+    * @param context the application context
+    * @return the [[RadioPlayerClientConfig]] instance
+    */
+  def apply(context: ApplicationContext): RadioPlayerClientConfig =
+    apply(context.getConfiguration.asInstanceOf[HierarchicalConfiguration])
 
   /**
     * Creates an [[ErrorHandlingConfig]] instance from the given configuration.

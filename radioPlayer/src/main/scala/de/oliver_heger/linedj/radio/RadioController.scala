@@ -19,15 +19,15 @@ package de.oliver_heger.linedj.radio
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.TextTimeFunctions
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioMetadataEvent, RadioSource, RadioSourceConfig, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio._
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
 import java.util.concurrent.TimeUnit
@@ -129,8 +129,7 @@ class RadioController(val userConfig: Configuration,
            errorIndicator: WidgetHandler,
            errorHandlingStrategy: ErrorHandlingStrategy) =
     this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
-      errorIndicator, errorHandlingStrategy,
-      RadioPlayerClientConfig(applicationContext.getConfiguration.asInstanceOf[HierarchicalConfiguration]))
+      errorIndicator, errorHandlingStrategy, RadioPlayerClientConfig(applicationContext))
 
   import RadioController._
 
