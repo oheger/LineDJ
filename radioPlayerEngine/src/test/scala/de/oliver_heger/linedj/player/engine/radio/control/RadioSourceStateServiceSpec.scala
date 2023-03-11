@@ -228,6 +228,42 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     nextState.actions should contain theSameElementsInOrderAs List(expectedAction, ExistingAction)
   }
 
+  it should "handle an evaluation result of type Before with a date in the far future" in {
+    val SeqNo = 33
+    val ExistingAction = mock[RadioSourceStateService.StateAction]
+    val refTime = LocalDateTime.of(2023, Month.MARCH, 11, 21, 9, 12)
+    val beforeTime = LocalDateTime.of(3089, Month.OCTOBER, 31, 19, 30, 58)
+    val evalResult = Before(new LazyDate(beforeTime))
+    val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(radioSource(1)),
+      seqNo = SeqNo, actions = List(ExistingAction))
+    val expectedAction = ScheduleSourceEvaluation(TestConfig.maximumEvalDelay, SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
+
+    nextState.seqNo should be(SeqNo)
+    nextState.actions should contain theSameElementsInOrderAs List(expectedAction, ExistingAction)
+  }
+
+  it should "limit the delay for the next evaluation to the configured maximum" in {
+    val SeqNo = 33
+    val ExistingAction = mock[RadioSourceStateService.StateAction]
+    val refTime = LocalDateTime.of(2023, Month.JANUARY, 23, 22, 8, 11)
+    val beforeTime = refTime.plusMinutes(TestConfig.maximumEvalDelay.toMinutes + 10)
+    val evalResult = Before(new LazyDate(beforeTime))
+    val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(radioSource(1)),
+      seqNo = SeqNo, actions = List(ExistingAction))
+    val expectedAction = ScheduleSourceEvaluation(TestConfig.maximumEvalDelay, SeqNo)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.evaluationResultArrived(evalResponse, refTime), state)
+
+    nextState.seqNo should be(SeqNo)
+    nextState.actions should contain theSameElementsInOrderAs List(expectedAction, ExistingAction)
+  }
+
   it should "handle an evaluation result of type Inside" in {
     val SeqNo = 37
     val ExistingAction = mock[RadioSourceStateService.StateAction]

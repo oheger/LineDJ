@@ -30,6 +30,7 @@ import java.time.LocalDateTime
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 object RadioSourceStateService {
   /**
@@ -283,11 +284,14 @@ object RadioSourceStateServiceImpl {
     * In this case, a future check has to be scheduled. If there is an active
     * replacement source, it has to be canceled now.
     *
+    * @param config         the current configuration of the radio player
     * @param state          the current state
     * @param nextCheckDelay the delay until the next source evaluation
     * @return the updated state
     */
-  private def updateCurrentSourceActive(state: RadioSourceState, nextCheckDelay: FiniteDuration): RadioSourceState = {
+  private def updateCurrentSourceActive(config: RadioPlayerConfig,
+                                        state: RadioSourceState,
+                                        nextCheckDelay: FiniteDuration): RadioSourceState = {
     val (actions, nextSeq) = state.replacementSource match {
       case optReplacement@Some(_) =>
         (addActionForSource(state) {
@@ -296,7 +300,7 @@ object RadioSourceStateServiceImpl {
       case None =>
         (state.actions, state.seqNo)
     }
-    state.copy(actions = ScheduleSourceEvaluation(nextCheckDelay, nextSeq) :: actions,
+    state.copy(actions = createScheduledEvaluation(config, nextCheckDelay, nextSeq) :: actions,
       replacementSource = None, seqNo = nextSeq)
   }
 
@@ -316,15 +320,17 @@ object RadioSourceStateServiceImpl {
     } getOrElse state.actions
 
   /**
-    * Calculates the duration between the given times (with second
-    * granularity).
+    * Creates a [[ScheduleSourceEvaluation]] object from the given parameters
+    * applying the configured maximum delay.
     *
-    * @param startTime the start time
-    * @param endTime   the end time
-    * @return the duration between these times
+    * @param config the current configuration of the radio player
+    * @param delay  the delay
+    * @param seqNo  the sequence number
+    * @return the [[ScheduleSourceEvaluation]] instance
     */
-  private def durationBetween(startTime: LocalDateTime, endTime: LocalDateTime): FiniteDuration =
-    java.time.Duration.between(startTime, endTime).toSeconds.seconds
+  private def createScheduledEvaluation(config: RadioPlayerConfig, delay: FiniteDuration, seqNo: Int):
+  ScheduleSourceEvaluation =
+    ScheduleSourceEvaluation(delay.min(config.maximumEvalDelay), seqNo)
 }
 
 /**
@@ -358,7 +364,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
       response.result match {
         case Before(start) =>
           val delay = durationBetween(refTime, start.value)
-          updateCurrentSourceActive(s, delay)
+          updateCurrentSourceActive(config, s, delay)
 
         case Inside(until) =>
           val nextActions = addActionForSource(s) { source =>
@@ -370,7 +376,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
           s.copy(actions = nextActions)
 
         case _ =>
-          updateCurrentSourceActive(s, config.maximumEvalDelay)
+          updateCurrentSourceActive(config, s, config.maximumEvalDelay)
       }
     } else s
   }
@@ -387,7 +393,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
             StartReplacementSource(_, replacement.source)
           }
           s.copy(replacementSource = Some(replacement.source), seqNo = nextSeq,
-            actions = ScheduleSourceEvaluation(delay, nextSeq) :: actions)
+            actions = createScheduledEvaluation(config, delay, nextSeq) :: actions)
 
         case None =>
           s.copy(actions = ScheduleSourceEvaluation(config.retryFailedReplacement, nextSeq) :: s.actions,
@@ -427,4 +433,18 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
   override def readActions(): StateUpdate[List[StateAction]] = State { s =>
     (s.copy(actions = List.empty), s.actions.reverse)
   }
+
+  /**
+    * Calculates the duration between the given times (with second
+    * granularity).
+    *
+    * @param startTime the start time
+    * @param endTime   the end time
+    * @return the duration between these times
+    */
+  private def durationBetween(startTime: LocalDateTime, endTime: LocalDateTime): FiniteDuration =
+    Try {
+      // This can fail if the time delta is too big; the Duration class supports only about 292 years.
+      java.time.Duration.between(startTime, endTime).toSeconds.seconds
+    } getOrElse config.maximumEvalDelay
 }
