@@ -211,12 +211,7 @@ class RadioController(val userConfig: Configuration,
         metadataTimeFunc = generateMetadataTimeFunc(UnsupportedMetadataText)
         metadataText.setText(UnsupportedMetadataText)
 
-        if (playbackActive)
-          player.playSource(source, makeCurrent = true)
-        else {
-          player.makeToCurrentSource(source)
-        }
-
+        player.switchToRadioSource(source)
         val nextSource = radioSources find (t => t._2 == source)
         nextSource foreach storeCurrentSource
         resetErrorState()
@@ -229,7 +224,7 @@ class RadioController(val userConfig: Configuration,
     * the start playback action.
     */
   def startPlayback(): Unit = {
-    player.playSource(sourceToBePlayed, makeCurrent = false)
+    player.startRadioPlayback()
     enablePlaybackActions(isPlaying = true)
     playbackActive = true
   }
@@ -239,7 +234,7 @@ class RadioController(val userConfig: Configuration,
     * the stop playback action.
     */
   def stopPlayback(): Unit = {
-    player.stopPlayback()
+    player.stopRadioPlayback()
     enablePlaybackActions(isPlaying = false)
     playbackActive = false
   }
@@ -368,7 +363,7 @@ class RadioController(val userConfig: Configuration,
 
           sourcesUpdating = true
           try {
-            player.initSourceExclusions(playerConfig.sourceConfig)
+            player.initRadioSourceConfig(playerConfig.sourceConfig)
             radioSources = updateSourceCombo(playerConfig.sourceConfig)
             enableAction(ActionStartPlayback, enabled = false)
             enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
@@ -383,28 +378,13 @@ class RadioController(val userConfig: Configuration,
   }
 
   /**
-    * Determines the radio source to be played. This is either a replacement
-    * source or the current source.
-    *
-    * @return the radio source to be played
-    */
-  private def sourceToBePlayed: RadioSource =
-    replacementSource getOrElse currentSource
-
-  /**
     * Updates the playback status and the UI when there is a change in the
-    * source that is played related to replacement sources. If playback is
-    * active, the new source needs to be played immediately; otherwise, only
-    * the status line has to be updated.
+    * source that is played related to replacement sources.
     *
     * @param source the source which is currently played
     */
   private def updatePlayback(source: RadioSource): Unit = {
-    if (playbackActive) {
-      startPlayback()
-    } else {
-      statusText setText generateStatusText(source)
-    }
+    statusText setText generateStatusText(source)
   }
 
   /**
@@ -494,7 +474,8 @@ class RadioController(val userConfig: Configuration,
                                       delay: FiniteDuration): Unit = {
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
-      player.playSource(s._2, makeCurrent = true, resetEngine = false, delay = delay)
+      player.switchToRadioSource(s._2)
+      player.startRadioPlayback()
       comboSources setData s._2
       storeCurrentSource(s)
       playbackActive = true
