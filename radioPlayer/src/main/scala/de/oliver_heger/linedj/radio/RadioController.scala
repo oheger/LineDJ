@@ -19,14 +19,12 @@ package de.oliver_heger.linedj.radio
 import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.TextTimeFunctions
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
-import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
-import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
@@ -58,15 +56,6 @@ object RadioController {
   /** The name of the stop playback action. */
   private val ActionStopPlayback = "stopPlaybackAction"
 
-  /** Resource key for the status text for normal playback. */
-  private val ResKeyStatusPlaybackNormal = "txt_status_playback"
-
-  /** Resource key for the status text for replacement playback. */
-  private val ResKeyStatusPlaybackReplace = "txt_status_replacement"
-
-  /** Resource key for the initialization error message. */
-  private val ResKeyStatusPlayerInitError = "txt_status_error"
-
   /** Text to be displayed if the radio station does not support metadata. */
   private val UnsupportedMetadataText = ""
 
@@ -96,26 +85,20 @@ object RadioController {
   * combo box cause the corresponding radio source to be played. It also
   * reacts on actions for starting and stopping playback.
   *
-  * @param userConfig            the current user configuration
-  * @param applicationContext    the application context
-  * @param actionStore           the object for accessing actions
-  * @param comboSources          the combo box with the radio sources
-  * @param statusText            handler for the status line
-  * @param playbackTime          handler for the field with the playback time
-  * @param metadataText          handler for the field to display metadata
-  * @param errorIndicator        handler to the field that displays error state
-  * @param errorHandlingStrategy the ''ErrorHandlingStrategy''
-  * @param playerConfig          the configuration for the radio player
+  * @param userConfig           the current user configuration
+  * @param applicationContext   the application context
+  * @param actionStore          the object for accessing actions
+  * @param comboSources         the combo box with the radio sources
+  * @param metadataText         handler for the field to display metadata
+  * @param statusLineController the controller for the status line
+  * @param playerConfig         the configuration for the radio player
   */
 class RadioController(val userConfig: Configuration,
                       applicationContext: ApplicationContext,
                       actionStore: ActionStore,
                       comboSources: ListComponentHandler,
-                      statusText: StaticTextHandler,
-                      playbackTime: StaticTextHandler,
                       metadataText: StaticTextHandler,
-                      errorIndicator: WidgetHandler,
-                      errorHandlingStrategy: ErrorHandlingStrategy,
+                      statusLineController: RadioStatusLineController,
                       val playerConfig: RadioPlayerClientConfig)
   extends FormChangeListener with MessageBusListener {
 
@@ -123,21 +106,15 @@ class RadioController(val userConfig: Configuration,
            applicationContext: ApplicationContext,
            actionStore: ActionStore,
            comboSources: ListComponentHandler,
-           statusText: StaticTextHandler,
-           playbackTime: StaticTextHandler,
            metadataText: StaticTextHandler,
-           errorIndicator: WidgetHandler,
-           errorHandlingStrategy: ErrorHandlingStrategy) =
-    this(config, applicationContext, actionStore, comboSources, statusText, playbackTime, metadataText,
-      errorIndicator, errorHandlingStrategy, RadioPlayerClientConfig(applicationContext))
+           statusLineController: RadioStatusLineController) =
+    this(config, applicationContext, actionStore, comboSources, metadataText, statusLineController,
+      RadioPlayerClientConfig(applicationContext))
 
   import RadioController._
 
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
-
-  /** The function to generate the playback time text. */
-  private val playbackTimeFunc = TextTimeFunctions.formattedTime()
 
   /** The player managed by this controller. */
   private var player: RadioPlayer = _
@@ -147,21 +124,6 @@ class RadioController(val userConfig: Configuration,
 
   /** Stores the current radio source. */
   private var currentSource: RadioSource = _
-
-  /**
-    * The source that is currently played. This is not necessary the current
-    * source, e.g. if a replacement source is currently active.
-    */
-  private var playbackSource: RadioSource = _
-
-  /**
-    * Stores a replacement source for the current source. This field is defined
-    * while the current source is in a forbidden timeslot.
-    */
-  private var replacementSource: Option[RadioSource] = None
-
-  /** Stores the current error state. */
-  private var errorState = ErrorHandlingStrategy.NoError
 
   /** Stores the last received metadata text. */
   private var lastMetadataText = UnsupportedMetadataText
@@ -190,14 +152,6 @@ class RadioController(val userConfig: Configuration,
   private var playbackActive = false
 
   /**
-    * Returns the [[RadioPlayer]] managed by this controller. Note that result
-    * can be '''null''' if the player has not yet been initialized.
-    *
-    * @return the managed [[RadioPlayer]]
-    */
-  def radioPlayer: RadioPlayer = player
-
-  /**
     * @inheritdoc The controller is registered at the combo box with radio
     *             sources. This implementation switches to the currently
     *             selected radio source.
@@ -210,10 +164,10 @@ class RadioController(val userConfig: Configuration,
         metadataTimeFunc = generateMetadataTimeFunc(UnsupportedMetadataText)
         metadataText.setText(UnsupportedMetadataText)
 
+        statusLineController.updateCurrentSource(source)
         player.switchToRadioSource(source)
         val nextSource = radioSources find (t => t._2 == source)
         nextSource foreach storeCurrentSource
-        resetErrorState()
       }
     }
   }
@@ -239,19 +193,6 @@ class RadioController(val userConfig: Configuration,
   }
 
   /**
-    * Notifies this controller that playback of the specified radio source has
-    * just started. This method is typically invoked in reaction of a player
-    * event. The controller updates the UI. It must be called in the event
-    * thread.
-    *
-    * @param src the source that is played
-    */
-  def radioSourcePlaybackStarted(src: RadioSource): Unit = {
-    statusText setText generateStatusText(src)
-    playbackSource = currentSource
-  }
-
-  /**
     * Notifies this controller about a change of the playback time for the
     * current radio source. This method is invoked when a corresponding event
     * from the player is received. It must be called in the event thread.
@@ -259,13 +200,8 @@ class RadioController(val userConfig: Configuration,
     * @param time the updated playback time
     */
   def playbackTimeProgress(time: FiniteDuration): Unit = {
-    playbackTime setText playbackTimeFunc(time)
     lastPlaybackDuration = time
     metadataText.setText(metadataTimeFunc(time))
-
-    if (shouldRecover(time)) {
-      recoverFromError()
-    }
   }
 
   /**
@@ -291,62 +227,6 @@ class RadioController(val userConfig: Configuration,
   }
 
   /**
-    * Notifies this controller that there was an error when playing a radio
-    * source. This will trigger an invocation of the error handling
-    * strategy. It must be invoked in the event thread.
-    *
-    * @param error the error event
-    */
-  def playbackError(error: RadioSourceErrorEvent): Unit = {
-    log.warn("Received playback error event {}!", error)
-    if (playbackSource != null) {
-      errorIndicator setVisible true
-      val (action, nextState) = errorHandlingStrategy.handleError(playerConfig,
-        errorState, error, currentSource)
-      action(player)
-      errorState = nextState
-      playbackSource = null
-    }
-  }
-
-  /**
-    * Notifies this controller that there was an error when creating the
-    * playback context for the current source. This has to be handled in the
-    * same way as a playback error. Note that both errors may occur for the
-    * same source; only one should be handled. This method must be invoked in
-    * the event thread.
-    */
-  def playbackContextCreationFailed(): Unit = {
-    log.warn("Playback context creation failed!")
-    if (playbackSource != null) {
-      playbackError(RadioSourceErrorEvent(playbackSource))
-    }
-  }
-
-  /**
-    * Notifies this controller that the current source now enters a forbidden
-    * timeslot, in which a replacement source has to be played. If playback is
-    * enabled, the replacement source has to be played now; otherwise, it is
-    * just recorded if playback starts later.
-    *
-    * @param replacement the replacement source
-    */
-  def replacementSourceStarts(replacement: RadioSource): Unit = {
-    replacementSource = Some(replacement)
-    updatePlayback(replacement)
-  }
-
-  /**
-    * Notifies this controller that a forbidden timeslot for the current source
-    * is over. So it can be played again, if playback is active. The
-    * replacement source can be removed.
-    */
-  def replacementSourceEnds(): Unit = {
-    replacementSource = None
-    updatePlayback(currentSource)
-  }
-
-  /**
     * Returns the function for handling messages published on the message bus.
     * Here the message about the initialized radio player is handled. That way,
     * the application passes the radio player to the controller.
@@ -358,7 +238,6 @@ class RadioController(val userConfig: Configuration,
       triedRadioPlayer match {
         case Success(value) =>
           player = value
-          errorIndicator.setVisible(false)
 
           sourcesUpdating = true
           try {
@@ -372,18 +251,8 @@ class RadioController(val userConfig: Configuration,
 
         case Failure(exception) =>
           log.error("Initialization of radio player failed.", exception)
-          statusText.setText(applicationContext.getResourceText(ResKeyStatusPlayerInitError))
+          statusLineController.playerInitializationFailed()
       }
-  }
-
-  /**
-    * Updates the playback status and the UI when there is a change in the
-    * source that is played related to replacement sources.
-    *
-    * @param source the source which is currently played
-    */
-  private def updatePlayback(source: RadioSource): Unit = {
-    statusText setText generateStatusText(source)
   }
 
   /**
@@ -413,55 +282,6 @@ class RadioController(val userConfig: Configuration,
   }
 
   /**
-    * Checks whether a recovery from error state is currently possible.
-    *
-    * @param time the playback time of the current source
-    * @return a flag whether recovery should be done now
-    */
-  private def shouldRecover(time: FiniteDuration): Boolean =
-    ErrorHandlingStrategy.NoError != errorState &&
-      time.toSeconds >= playerConfig.errorConfig.recoveryTime &&
-      errorState.numberOfErrorSources >= playerConfig.errorConfig.recoverMinFailedSources
-
-  /**
-    * Recovers from error state. The error state is reset; if necessary, the
-    * player switches again to the current radio source.
-    */
-  private def recoverFromError(): Unit = {
-    log.info("Trying to recover from error.")
-    if (errorState.isAlternativeSourcePlaying(currentSource)) {
-      player.playSource(currentSource, makeCurrent = false)
-      log.info("Switched to radio source {}.", currentSource)
-    }
-    resetErrorState()
-  }
-
-  /**
-    * Resets the error state for radio playback. The controller now assumes
-    * that there is no error.
-    */
-  private def resetErrorState(): Unit = {
-    errorState = ErrorHandlingStrategy.NoError
-    errorIndicator setVisible false
-  }
-
-  /**
-    * Generates the text for the status line when playback of a source starts.
-    *
-    * @param src the source which is currently played
-    * @return the corresponding text for the status line
-    */
-  private def generateStatusText(src: RadioSource): String = {
-    if (src == currentSource) {
-      applicationContext.getResourceText(ResKeyStatusPlaybackNormal)
-    } else {
-      val srcData = radioSources.find(_._2 == src)
-      applicationContext.getResourceText(new Message(null, ResKeyStatusPlaybackReplace,
-        srcData.map(_._1) getOrElse src.uri))
-    }
-  }
-
-  /**
     * Starts initial radio playback if sources are available. The source to be
     * played is obtained from the configuration; it this fails, playback starts
     * with the first available source.
@@ -475,6 +295,7 @@ class RadioController(val userConfig: Configuration,
     optCurrentSource foreach { s =>
       player.switchToRadioSource(s._2)
       player.startRadioPlayback()
+      statusLineController.updateCurrentSource(s._2)
       comboSources setData s._2
       storeCurrentSource(s)
       playbackActive = true

@@ -144,11 +144,8 @@
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="ACTION_STORE"/>
         <di:param refName="comp:comboStations"/>
-        <di:param refName="comp:statusLine"/>
-        <di:param refName="comp:playbackTime"/>
         <di:param refName="comp:metadataText"/>
-        <di:param refName="widget:errorIndicator"/>
-        <di:param refName="errorHandlingStrategy"/>
+        <di:param refName="statusLineController"/>
       </di:constructor>
     </di:bean>
 
