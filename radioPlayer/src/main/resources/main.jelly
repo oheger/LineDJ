@@ -125,6 +125,17 @@
       </f:statictext>
     </f:panel>
 
+    <!-- Status line controller -->
+    <di:bean name="statusLineController"
+             beanClassName="de.oliver_heger.linedj.radio.RadioStatusLineController">
+      <di:constructor>
+        <di:param refName="jguiraffe.applicationContext"/>
+        <di:param refName="comp:statusLine"/>
+        <di:param refName="comp:playbackTime"/>
+        <di:param refName="widget:errorIndicator"/>
+      </di:constructor>
+    </di:bean>
+
     <!-- Radio controller -->
     <di:bean name="radioController"
       beanClassName="de.oliver_heger.linedj.radio.RadioController">
@@ -149,6 +160,7 @@
     beanClassName="de.oliver_heger.linedj.radio.RadioPlayerEventListener">
     <di:constructor>
       <di:param refName="radioController"/>
+      <di:param refName="statusLineController"/>
     </di:constructor>
   </di:bean>
 
