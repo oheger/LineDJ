@@ -56,7 +56,7 @@ object RadioPlayer {
 
     for {
       eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](creator, "radioEventManagerActor")
-      converter = creator.createActor(RadioEventConverterActor(eventActors._2),
+      converter = creator.createActor(RadioEventConverterActor(eventActors._1),
         "playerEventConverter", Some(RadioEventConverterActor.Stop))
       playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
         RadioEventConverterActor.GetPlayerListener(ref)

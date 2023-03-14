@@ -17,9 +17,11 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern._
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.radio._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +33,7 @@ object RadioEventConverterActorSpec {
   private val TestAudioSource = AudioSource("https://audio.example.org/test/stream.mp3", -1, 0, 0)
 
   /** The corresponding test radio source. */
-  private val TestRadioSource = RadioSource(TestAudioSource.uri)
+  private val TestRadioSource = RadioSource("https://radio.example.org/cool-music/", Some("mp3"))
 }
 
 /**
@@ -52,7 +54,8 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
       time = playerEvent.time)
     val helper = new ConverterActorTestHelper
 
-    helper.expectConversion(playerEvent, radioEvent)
+    helper.sendRadioSourceChangedEvent()
+      .expectConversion(playerEvent, radioEvent)
   }
 
   it should "convert a playback context creation failed event" in {
@@ -60,12 +63,23 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
     val radioEvent = RadioPlaybackContextCreationFailedEvent(source = TestRadioSource, time = playerEvent.time)
     val helper = new ConverterActorTestHelper
 
-    helper.expectConversion(playerEvent, radioEvent)
+    helper.sendRadioSourceChangedEvent()
+      .expectConversion(playerEvent, radioEvent)
   }
 
   it should "convert a playback error event" in {
     val playerEvent = PlaybackErrorEvent(source = TestAudioSource)
     val radioEvent = RadioPlaybackErrorEvent(source = TestRadioSource, time = playerEvent.time)
+    val helper = new ConverterActorTestHelper
+
+    helper.sendRadioSourceChangedEvent()
+      .expectConversion(playerEvent, radioEvent)
+  }
+
+  it should "handle the corner case that no current source is available" in {
+    val radioSource = RadioSource(TestAudioSource.uri)
+    val playerEvent = PlaybackErrorEvent(source = TestAudioSource)
+    val radioEvent = RadioPlaybackErrorEvent(source = radioSource, time = playerEvent.time)
     val helper = new ConverterActorTestHelper
 
     helper.expectConversion(playerEvent, radioEvent)
@@ -81,11 +95,25 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
     * A test helper class managing the dependencies of a test instance.
     */
   private class ConverterActorTestHelper {
-    /** A test probe acting as listener for radio events. */
-    private val probeRadioListener = testKit.createTestProbe[RadioEvent]()
+    /** A test probe for the event manager actor. */
+    private val probeEventManager = testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
+
+    /** Stores the listener actor registered by the event manager. */
+    private var radioListener: ActorRef[RadioEvent] = _
 
     /** The actor to be tested. */
-    private val converterActor = testKit.spawn(RadioEventConverterActor(probeRadioListener.ref))
+    private val converterActor = createConverterActor()
+
+    /**
+      * Sends an event about a changed radio source to the radio event listener
+      * registered by the converter actor.
+      *
+      * @return this test helper
+      */
+    def sendRadioSourceChangedEvent(): ConverterActorTestHelper = {
+      radioListener ! RadioSourceChangedEvent(TestRadioSource)
+      this
+    }
 
     /**
       * Executes a test for an event that is expected to be converted.
@@ -100,7 +128,7 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
       val playerListener = futureResult(futPlayerListener).listener
 
       playerListener ! playerEvent
-      probeRadioListener.expectMessage(radioEvent)
+      probeEventManager.expectMessage(EventManagerActor.Publish(radioEvent))
     }
 
     /**
@@ -109,7 +137,21 @@ class RadioEventConverterActorSpec extends ScalaTestWithActorTestKit with AnyFla
     def checkStop(): Unit = {
       converterActor ! RadioEventConverterActor.Stop
 
-      probeRadioListener.expectTerminated(converterActor)
+      probeEventManager.expectTerminated(converterActor)
+    }
+
+    /**
+      * Creates the converter actor to be tested. This function also obtains
+      * the event listener for radio events that should be registered at the
+      * event manager actor.
+      *
+      * @return the converter actor to be tested
+      */
+    private def createConverterActor(): ActorRef[RadioEventConverterActor.RadioEventConverterCommand] = {
+      val converter = testKit.spawn(RadioEventConverterActor(probeEventManager.ref))
+      val reg = probeEventManager.expectMessageType[EventManagerActor.RegisterListener[RadioEvent]]
+      radioListener = reg.listener
+      converter
     }
   }
 }

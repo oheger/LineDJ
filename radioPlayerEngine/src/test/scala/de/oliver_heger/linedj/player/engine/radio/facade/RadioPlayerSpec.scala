@@ -455,10 +455,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       val radioEvent = RadioPlaybackContextCreationFailedEvent(radioSource, playerEvent.time)
       val converter = testKit.spawn(behavior)
 
-      converter ! RadioEventConverterActor.ConvertEvent(playerEvent)
+      converter ! RadioEventConverterActor.ConvertPlayerEvent(playerEvent)
 
-      actorCreator.probePublisherActor.expectMessage(radioEvent)
+      val commands = actorCreator.probeEventActor.fishForMessagePF(3.seconds) {
+        case _: EventManagerActor.Publish[RadioEvent] =>
+          FishingOutcomes.complete
+        case _ => FishingOutcomes.continueAndIgnore
+      }
+
+      commands should have size 1
+      commands.head.asInstanceOf[EventManagerActor.Publish[RadioEvent]].event should be(radioEvent)
     }
   }
-
 }
