@@ -77,20 +77,22 @@ object RadioSourceStateActor {
     * An internal command this actor pipes to itself when the result of a
     * source evaluation becomes available.
     *
-    * @param result the evaluation response
+    * @param result        the evaluation response
+    * @param sourceChanged flag whether the source was changed
     */
-  private case class EvaluationResultArrived(result: EvaluateIntervalsService.EvaluateIntervalsResponse)
-    extends RadioSourceStateCommand
+  private case class EvaluationResultArrived(result: EvaluateIntervalsService.EvaluateIntervalsResponse,
+                                             sourceChanged: Boolean) extends RadioSourceStateCommand
 
   /**
     * An internal command this actor pipes to itself when the result of a
     * replacement source selection request becomes available.
     *
-    * @param result the replacement result
+    * @param result        the replacement result
+    * @param sourceChanged flag whether the source was changed
     */
   private case class ReplacementResultArrived(result:
-                                              ReplacementSourceSelectionService.ReplacementSourceSelectionResult)
-    extends RadioSourceStateCommand
+                                              ReplacementSourceSelectionService.ReplacementSourceSelectionResult,
+                                              sourceChanged: Boolean) extends RadioSourceStateCommand
 
   /**
     * An internal command this actor receives from the scheduled invocation
@@ -186,13 +188,11 @@ object RadioSourceStateActor {
       case RadioSourceEnabled(radioSource) =>
         applyUpdate(dependencies.stateService.enableSource(radioSource))
 
-      case EvaluationResultArrived(result) =>
-        applyUpdate(dependencies.stateService.evaluationResultArrived(result, LocalDateTime.now(),
-          sourceChanged = false))
+      case EvaluationResultArrived(result, sourceChanged) =>
+        applyUpdate(dependencies.stateService.evaluationResultArrived(result, LocalDateTime.now(), sourceChanged))
 
-      case ReplacementResultArrived(result) =>
-        applyUpdate(dependencies.stateService.replacementResultArrived(result, LocalDateTime.now(),
-          sourceChanged = false))
+      case ReplacementResultArrived(result, sourceChanged) =>
+        applyUpdate(dependencies.stateService.replacementResultArrived(result, LocalDateTime.now(), sourceChanged))
 
       case EvalCurrentSource(seqNo) =>
         applyUpdate(dependencies.stateService.evaluateCurrentSource(seqNo))
@@ -242,15 +242,15 @@ object RadioSourceStateActor {
         dependencies.eventActor ! RadioSourceReplacementStartEvent(currentSource, replacementSource)
         dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(replacementSource)
 
-      case RadioSourceStateService.TriggerEvaluation(evalFunc, _) =>
+      case RadioSourceStateService.TriggerEvaluation(evalFunc, sourceChanged) =>
         evalFunc(dependencies.evalService, LocalDateTime.now(), ec) foreach { response =>
-          dependencies.context.self ! EvaluationResultArrived(response)
+          dependencies.context.self ! EvaluationResultArrived(response, sourceChanged)
         }
 
-      case RadioSourceStateService.TriggerReplacementSelection(replaceFunc, _) =>
+      case RadioSourceStateService.TriggerReplacementSelection(replaceFunc, sourceChanged) =>
         val system = dependencies.context.system.classicSystem
         replaceFunc(dependencies.replaceService, dependencies.evalService, system) foreach { result =>
-          dependencies.context.self ! ReplacementResultArrived(result)
+          dependencies.context.self ! ReplacementResultArrived(result, sourceChanged)
         }
 
       case RadioSourceStateService.ScheduleSourceEvaluation(delay, seqNo) =>

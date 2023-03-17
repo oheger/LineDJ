@@ -162,7 +162,13 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .checkEvent { time => RadioSourceReplacementStartEvent(currentSource, replacementSource, time) }
   }
 
-  it should "handle a state action to start an evaluation" in {
+  /**
+    * Tests whether a state action to trigger an evaluation is correctly
+    * handled.
+    *
+    * @param sourceChanged flag whether the source was changed
+    */
+  private def checkEvaluationStateAction(sourceChanged: Boolean): Unit = {
     val source = radioSource(1)
     val states = testStates(4)
     val evalResult = mock[EvaluateIntervalsResponse]
@@ -172,15 +178,29 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       service.setCurrentSource(source)
     }
       .stub((), states(2)) { service =>
-        service.evaluationResultArrived(eqArg(evalResult), any(), eqArg(false))
+        service.evaluationResultArrived(eqArg(evalResult), any(), eqArg(sourceChanged))
       }.stubMultiReadActions(states(1), states(3),
-      RadioSourceStateService.TriggerEvaluation(helper.evalFunc(evalResult), sourceChanged = false))
+      RadioSourceStateService.TriggerEvaluation(helper.evalFunc(evalResult), sourceChanged))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfEvaluationResult()
   }
 
-  it should "handle a state action to search a replacement source" in {
+  it should "handle a state action to start an evaluation" in {
+    checkEvaluationStateAction(sourceChanged = false)
+  }
+
+  it should "handle a state action to start an evaluation for a changed source" in {
+    checkEvaluationStateAction(sourceChanged = true)
+  }
+
+  /**
+    * Tests whether a state action to search for a replacement source is
+    * handled correctly.
+    *
+    * @param sourceChanged flag whether the source was changed
+    */
+  private def checkReplacementStateAction(sourceChanged: Boolean): Unit = {
     val source = radioSource(1)
     val states = testStates(4)
     val replaceResult = mock[ReplacementSourceSelectionResult]
@@ -190,12 +210,20 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       service.setCurrentSource(source)
     }
       .stub((), states(2)) { service =>
-        service.replacementResultArrived(eqArg(replaceResult), any(), eqArg(false))
+        service.replacementResultArrived(eqArg(replaceResult), any(), eqArg(sourceChanged))
       }.stubMultiReadActions(states(1), states(3),
-      RadioSourceStateService.TriggerReplacementSelection(helper.replaceFunc(replaceResult), sourceChanged = false))
+      RadioSourceStateService.TriggerReplacementSelection(helper.replaceFunc(replaceResult), sourceChanged))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfReplacementResult()
+  }
+
+  it should "handle a state action to search a replacement source" in {
+    checkReplacementStateAction(sourceChanged = false)
+  }
+
+  it should "handle a state action to search a replacement source for a changed source" in {
+    checkReplacementStateAction(sourceChanged = true)
   }
 
   it should "handle a state action to schedule a check for a source" in {
