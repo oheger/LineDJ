@@ -53,9 +53,11 @@ object RadioSourceStateService {
     * source. The provided [[EvalFunc]] has to be invoked, and the state
     * service has to be triggered again when the response becomes available.
     *
-    * @param evalFunc the evaluation function to be invoked
+    * @param evalFunc      the evaluation function to be invoked
+    * @param sourceChanged flag whether the evaluation is caused by a change of
+    *                      the current source
     */
-  case class TriggerEvaluation(evalFunc: EvalFunc) extends StateAction
+  case class TriggerEvaluation(evalFunc: EvalFunc, sourceChanged: Boolean) extends StateAction
 
   /**
     * Type alias for a function that invokes the
@@ -73,9 +75,11 @@ object RadioSourceStateService {
     * to be invoked, and the result has to be passed to the state service when
     * it becomes available.
     *
-    * @param replaceFunc the replacement function to be invoked
+    * @param replaceFunc   the replacement function to be invoked
+    * @param sourceChanged flag whether the evaluation is caused by a change of
+    *                      the current source
     */
-  case class TriggerReplacementSelection(replaceFunc: ReplaceFunc) extends StateAction
+  case class TriggerReplacementSelection(replaceFunc: ReplaceFunc, sourceChanged: Boolean) extends StateAction
 
   /**
     * A specific [[StateAction]] to trigger a (re-)evaluation of the current
@@ -184,23 +188,33 @@ trait RadioSourceStateService {
   /**
     * Updates the state when the response of a request to evaluate the current
     * source arrives. It has to be decided then whether a switch to another
-    * source is necessary.
+    * source is necessary. If the reason for the evaluation was a change of the
+    * source, an additional state action to switch to this source may be
+    * necessary.
     *
-    * @param response the response from the evaluation service
-    * @param refTime  the current time
+    * @param response      the response from the evaluation service
+    * @param refTime       the current time
+    * @param sourceChanged flag whether the evaluation was caused by a change
+    *                      of the current source
     * @return the updated state
     */
-  def evaluationResultArrived(response: EvaluateIntervalsResponse, refTime: LocalDateTime): StateUpdate[Unit]
+  def evaluationResultArrived(response: EvaluateIntervalsResponse,
+                              refTime: LocalDateTime,
+                              sourceChanged: Boolean): StateUpdate[Unit]
 
   /**
     * Updates the state when a result with a replacement source arrives. If a
     * replacement source could be found, playback switches to this source.
     *
-    * @param result  the result with the replacement source
-    * @param refTime the current time
+    * @param result        the result with the replacement source
+    * @param refTime       the current time
+    * @param sourceChanged flag whether the replacement selection was caused by
+    *                      a change of the current source
     * @return the updated state
     */
-  def replacementResultArrived(result: ReplacementSourceSelectionResult, refTime: LocalDateTime): StateUpdate[Unit]
+  def replacementResultArrived(result: ReplacementSourceSelectionResult,
+                               refTime: LocalDateTime,
+                               sourceChanged: Boolean): StateUpdate[Unit]
 
   /**
     * Updates the state for a new radio source to be played. Playback starts
@@ -276,7 +290,7 @@ object RadioSourceStateServiceImpl {
           val until = new LazyDate(time.plusSeconds(radioConfig.maximumEvalDelay.toSeconds))
           Future.successful(EvaluateIntervalsResponse(Inside(until), state.seqNo))
         } else service.evaluateIntervals(sourcesConfig.exclusions(source), time, state.seqNo)(ec)
-      TriggerEvaluation(evalFunc)
+      TriggerEvaluation(evalFunc, sourceChanged = false)
     }
 
   /**
@@ -287,19 +301,19 @@ object RadioSourceStateServiceImpl {
     * @param config         the current configuration of the radio player
     * @param state          the current state
     * @param nextCheckDelay the delay until the next source evaluation
+    * @param sourceChanged  flag whether the current source was changed
     * @return the updated state
     */
   private def updateCurrentSourceActive(config: RadioPlayerConfig,
                                         state: RadioSourceState,
-                                        nextCheckDelay: FiniteDuration): RadioSourceState = {
-    val (actions, nextSeq) = state.replacementSource match {
-      case optReplacement@Some(_) =>
-        (addActionForSource(state) {
-          PlayCurrentSource(_, optReplacement)
-        }, state.seqNo + 1)
-      case None =>
-        (state.actions, state.seqNo)
-    }
+                                        nextCheckDelay: FiniteDuration,
+                                        sourceChanged: Boolean): RadioSourceState = {
+    val (actions, nextSeq) = if (sourceChanged || state.replacementSource.isDefined)
+      (addActionForSource(state) {
+        PlayCurrentSource(_, state.replacementSource)
+      }, state.seqNo + 1)
+    else
+      (state.actions, state.seqNo)
     state.copy(actions = createScheduledEvaluation(config, nextCheckDelay, nextSeq) :: actions,
       replacementSource = None, seqNo = nextSeq)
   }
@@ -358,31 +372,33 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
     } else s
   }
 
-  override def evaluationResultArrived(response: EvaluateIntervalsResponse, refTime: LocalDateTime):
-  StateUpdate[Unit] = modify { s =>
+  override def evaluationResultArrived(response: EvaluateIntervalsResponse,
+                                       refTime: LocalDateTime,
+                                       sourceChanged: Boolean): StateUpdate[Unit] = modify { s =>
     if (response.seqNo == s.seqNo) {
       response.result match {
         case Before(start) =>
           val delay = durationBetween(refTime, start.value)
-          updateCurrentSourceActive(config, s, delay)
+          updateCurrentSourceActive(config, s, delay, sourceChanged)
 
         case Inside(until) =>
           val nextActions = addActionForSource(s) { source =>
             val replaceFunc: ReplaceFunc = (replaceService, evalService, system) =>
               replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, s.disabledSources + source,
                 until.value, s.seqNo, evalService)(system)
-            TriggerReplacementSelection(replaceFunc)
+            TriggerReplacementSelection(replaceFunc, sourceChanged)
           }
           s.copy(actions = nextActions)
 
         case _ =>
-          updateCurrentSourceActive(config, s, config.maximumEvalDelay)
+          updateCurrentSourceActive(config, s, config.maximumEvalDelay, sourceChanged)
       }
     } else s
   }
 
-  override def replacementResultArrived(result: ReplacementSourceSelectionResult, refTime: LocalDateTime):
-  StateUpdate[Unit] = modify { s =>
+  override def replacementResultArrived(result: ReplacementSourceSelectionResult,
+                                        refTime: LocalDateTime,
+                                        sourceChanged: Boolean): StateUpdate[Unit] = modify { s =>
     if (result.seqNo == s.seqNo) {
       val nextSeq = s.seqNo + 1
       result.selectedSource match {
@@ -396,8 +412,11 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
             actions = createScheduledEvaluation(config, delay, nextSeq) :: actions)
 
         case None =>
-          s.copy(actions = ScheduleSourceEvaluation(config.retryFailedReplacement, nextSeq) :: s.actions,
-            replacementSource = None, seqNo = nextSeq)
+          val nextActionsWithPlay = if (sourceChanged) addActionForSource(s) { source =>
+            PlayCurrentSource(source, s.replacementSource)
+          } else s.actions
+          val nextActions = ScheduleSourceEvaluation(config.retryFailedReplacement, nextSeq) :: nextActionsWithPlay
+          s.copy(actions = nextActions, replacementSource = None, seqNo = nextSeq)
       }
     } else s
   }
@@ -406,10 +425,8 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
     val nextSeq = s.seqNo + 1
     val evalFunc: EvalFunc = (service, time, ec) =>
       service.evaluateIntervals(s.sourcesConfig.exclusions(source), time, nextSeq)(ec)
-    val actionsWithTrigger = TriggerEvaluation(evalFunc) :: s.actions
-    val nextActions = if (s.currentSource.contains(source) && s.replacementSource.isEmpty) actionsWithTrigger
-    else PlayCurrentSource(source, s.replacementSource) :: actionsWithTrigger
-    s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = nextActions)
+    val trigger = TriggerEvaluation(evalFunc, sourceChanged = !s.currentSource.contains(source))
+    s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = trigger :: s.actions)
   }
 
   override def disableSource(source: RadioSource): StateUpdate[Unit] = modify { s =>

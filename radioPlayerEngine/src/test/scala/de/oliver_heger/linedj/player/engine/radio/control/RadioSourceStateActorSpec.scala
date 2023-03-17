@@ -172,9 +172,9 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       service.setCurrentSource(source)
     }
       .stub((), states(2)) { service =>
-        service.evaluationResultArrived(eqArg(evalResult), any())
+        service.evaluationResultArrived(eqArg(evalResult), any(), eqArg(false))
       }.stubMultiReadActions(states(1), states(3),
-      RadioSourceStateService.TriggerEvaluation(helper.evalFunc(evalResult)))
+      RadioSourceStateService.TriggerEvaluation(helper.evalFunc(evalResult), sourceChanged = false))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfEvaluationResult()
@@ -190,9 +190,9 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       service.setCurrentSource(source)
     }
       .stub((), states(2)) { service =>
-        service.replacementResultArrived(eqArg(replaceResult), any())
+        service.replacementResultArrived(eqArg(replaceResult), any(), eqArg(false))
       }.stubMultiReadActions(states(1), states(3),
-      RadioSourceStateService.TriggerReplacementSelection(helper.replaceFunc(replaceResult)))
+      RadioSourceStateService.TriggerReplacementSelection(helper.replaceFunc(replaceResult), sourceChanged = false))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfReplacementResult()
@@ -344,7 +344,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       */
     def checkTimeOfEvaluationResult(): StateActorTestHelper =
       checkTimeOfResult { (service, captor) =>
-        verify(service).evaluationResultArrived(any(), captor.capture())
+        verify(service).evaluationResultArrived(any(), captor.capture(), any())
       }
 
     /**
@@ -370,7 +370,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       */
     def checkTimeOfReplacementResult(): StateActorTestHelper =
       checkTimeOfResult { (service, captor) =>
-        verify(service).replacementResultArrived(any(), captor.capture())
+        verify(service).replacementResultArrived(any(), captor.capture(), any())
       }
 
     /**

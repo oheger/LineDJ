@@ -187,10 +187,12 @@ object RadioSourceStateActor {
         applyUpdate(dependencies.stateService.enableSource(radioSource))
 
       case EvaluationResultArrived(result) =>
-        applyUpdate(dependencies.stateService.evaluationResultArrived(result, LocalDateTime.now()))
+        applyUpdate(dependencies.stateService.evaluationResultArrived(result, LocalDateTime.now(),
+          sourceChanged = false))
 
       case ReplacementResultArrived(result) =>
-        applyUpdate(dependencies.stateService.replacementResultArrived(result, LocalDateTime.now()))
+        applyUpdate(dependencies.stateService.replacementResultArrived(result, LocalDateTime.now(),
+          sourceChanged = false))
 
       case EvalCurrentSource(seqNo) =>
         applyUpdate(dependencies.stateService.evaluateCurrentSource(seqNo))
@@ -240,12 +242,12 @@ object RadioSourceStateActor {
         dependencies.eventActor ! RadioSourceReplacementStartEvent(currentSource, replacementSource)
         dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(replacementSource)
 
-      case RadioSourceStateService.TriggerEvaluation(evalFunc) =>
+      case RadioSourceStateService.TriggerEvaluation(evalFunc, _) =>
         evalFunc(dependencies.evalService, LocalDateTime.now(), ec) foreach { response =>
           dependencies.context.self ! EvaluationResultArrived(response)
         }
 
-      case RadioSourceStateService.TriggerReplacementSelection(replaceFunc) =>
+      case RadioSourceStateService.TriggerReplacementSelection(replaceFunc, _) =>
         val system = dependencies.context.system.classicSystem
         replaceFunc(dependencies.replaceService, dependencies.evalService, system) foreach { result =>
           dependencies.context.self ! ReplacementResultArrived(result)
