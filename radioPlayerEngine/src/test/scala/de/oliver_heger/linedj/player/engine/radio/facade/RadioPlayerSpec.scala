@@ -17,24 +17,22 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
-import akka.actor.typed
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, typed}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
-import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.radio.control.{ErrorStateActor, EvaluateIntervalsService, PlaybackStateActor, RadioControlActor, RadioSourceStateActor, RadioSourceStateService, ReplacementSourceSelectionService}
+import de.oliver_heger.linedj.player.engine.radio.control._
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -73,15 +71,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     testKit.shutdownTestKit()
   }
 
-  "A RadioPlayer" should "support switching the radio source" in {
-    val source = RadioSource("Radio Download")
-    val helper = new RadioPlayerTestHelper
-
-    helper.player makeToCurrentSource source
-    helper.probeSchedulerActor.expectMsg(source)
-  }
-
-  it should "provide access to its current config" in {
+  "A RadioPlayer" should "provide access to its current config" in {
     val helper = new RadioPlayerTestHelper
 
     helper.player.config should be(helper.config)
@@ -99,14 +89,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.probeSchedulerActor.expectMsg(CloseRequest)
   }
 
-  it should "support exclusions for radio sources" in {
-    val sourcesConfig = mock[RadioSourceConfig]
-    val helper = new RadioPlayerTestHelper
-
-    helper.player.initSourceExclusions(sourcesConfig)
-    helper.probeSchedulerActor.expectMsg(RadioSchedulerActor.RadioSourceData(sourcesConfig))
-  }
-
   it should "pass the event actor to the super class" in {
     val probeListener = testKit.createTestProbe[RadioEvent]()
     val helper = new RadioPlayerTestHelper
@@ -118,87 +100,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         FishingOutcomes.complete
       case _ => FishingOutcomes.continueAndIgnore
     }
-  }
-
-  it should "support a check for the current radio source with a delay" in {
-    val helper = new RadioPlayerTestHelper
-    val Delay = 2.minutes
-    val Exclusions = Set(RadioSource("ex1"), RadioSource("ex2"))
-
-    helper.player.checkCurrentSource(Exclusions, Delay)
-    helper.expectDelayed(RadioSchedulerActor.CheckCurrentSource(Exclusions), helper
-      .probeSchedulerActor, Delay)
-  }
-
-  it should "support a check for the current radio source with default delay" in {
-    val helper = new RadioPlayerTestHelper
-    val Exclusions = Set.empty[RadioSource]
-
-    helper.player checkCurrentSource Exclusions
-    helper.expectDelayed(RadioSchedulerActor.CheckCurrentSource(Exclusions), helper
-      .probeSchedulerActor, PlayerControl.NoDelay)
-  }
-
-  it should "support starting playback of a specific radio source" in {
-    val source = RadioSource("nice music")
-    val helper = new RadioPlayerTestHelper
-    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val expMsg = DelayActor.Propagate(List((expSrcMsg, helper.probeFacadeActor.ref),
-      (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
-
-    helper.player.playSource(source, makeCurrent = false, resetEngine = false)
-    helper.expectDelayed(expMsg)
-  }
-
-  it should "support starting playback and making a source the current one" in {
-    val source = RadioSource("new current source")
-    val helper = new RadioPlayerTestHelper
-    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val expMsg = DelayActor.Propagate(List((source, helper.probeSchedulerActor.ref),
-      (expSrcMsg, helper.probeFacadeActor.ref), (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
-
-    helper.player.playSource(source, makeCurrent = true, resetEngine = false)
-    helper.expectDelayed(expMsg)
-  }
-
-  it should "support starting playback and resetting the engine" in {
-    val source = RadioSource("source with reset")
-    val helper = new RadioPlayerTestHelper
-    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val expMsg = DelayActor.Propagate(List((PlayerFacadeActor.ResetEngine, helper.probeFacadeActor.ref),
-      (expSrcMsg, helper.probeFacadeActor.ref), (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
-
-    helper.player.playSource(source, makeCurrent = false)
-    helper.expectDelayed(expMsg)
-  }
-
-  it should "support starting playback, resetting the engine, and making a source the current one" in {
-    val source = RadioSource("new current source with reset")
-    val helper = new RadioPlayerTestHelper
-    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val expMsg = DelayActor.Propagate(List((PlayerFacadeActor.ResetEngine, helper.probeFacadeActor.ref),
-      (source, helper.probeSchedulerActor.ref), (expSrcMsg, helper.probeFacadeActor.ref),
-      (expStartMsg, helper.probeFacadeActor.ref)), 0.seconds)
-
-    helper.player.playSource(source, makeCurrent = true)
-    helper.expectDelayed(expMsg)
-  }
-
-  it should "support starting playback with a delay" in {
-    val delay = 22.seconds
-    val source = RadioSource("delayed source")
-    val helper = new RadioPlayerTestHelper
-    val expSrcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val expStartMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val expMsg = DelayActor.Propagate(List((expSrcMsg, helper.probeFacadeActor.ref),
-      (expStartMsg, helper.probeFacadeActor.ref)), delay)
-
-    helper.player.playSource(source, makeCurrent = false, resetEngine = false, delay = delay)
-    helper.expectDelayed(expMsg)
   }
 
   it should "support setting the configuration for radio sources" in {
@@ -335,27 +236,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
     /** The player to be tested. */
     val player: RadioPlayer = futureResult(RadioPlayer(config, createControlActorFactory()))
-
-    /**
-      * Expect a delayed invocation via the delay actor.
-      *
-      * @param msg    the message
-      * @param target the target test probe
-      * @param delay  the delay
-      */
-    def expectDelayed(msg: Any, target: TestProbe, delay: FiniteDuration): Unit = {
-      expectDelayed(DelayActor.Propagate(msg, target.ref, delay))
-    }
-
-    /**
-      * Expects that a specific ''Propagate'' message is passed to the facade
-      * actor.
-      *
-      * @param prop the expected ''Propagate'' message
-      */
-    def expectDelayed(prop: DelayActor.Propagate): Unit = {
-      probeFacadeActor.expectMsg(prop)
-    }
 
     /**
       * Expects that the given command was sent to the control actor.

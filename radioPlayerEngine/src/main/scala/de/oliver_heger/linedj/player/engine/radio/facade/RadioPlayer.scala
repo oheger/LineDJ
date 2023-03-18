@@ -126,71 +126,6 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
   extends PlayerControl[RadioEvent] {
   /**
-    * Marks a source as the new current source. This does not change the
-    * current playback if any. It just means that the source specified is now
-    * monitored for forbidden intervals, and corresponding events are
-    * generated. To actually play this source, it has to be passed to the
-    * ''playSource()'' function.
-    *
-    * @param source identifies the radio stream to be played
-    */
-  def makeToCurrentSource(source: RadioSource): Unit = {
-    schedulerActor ! source
-  }
-
-  /**
-    * Initializes information about radio sources and their exclusion
-    * intervals. If this information is set, the radio player keeps track when
-    * a source should not be played. It can then automatically switch to a
-    * replacement source until the exclusion interval for the current source is
-    * over.
-    *
-    * @param config the configuration about radio sources
-    */
-  def initSourceExclusions(config: RadioSourceConfig): Unit = {
-    schedulerActor ! RadioSchedulerActor.RadioSourceData(config)
-  }
-
-  /**
-    * Forces a check of the current interval against its exclusion intervals.
-    * Normally these checks are done by the player engine itself when
-    * necessary. If playback of a replacement source fails, however, it can
-    * make sense to enforce such a check to select a different replacement
-    * source.
-    *
-    * @param exclusions a set with radio sources to be excluded (i.e. that
-    *                   must not be used as replacement sources)
-    * @param delay      an optional delay for this operation
-    */
-  def checkCurrentSource(exclusions: Set[RadioSource],
-                         delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    invokeDelayed(RadioSchedulerActor.CheckCurrentSource(exclusions), schedulerActor, delay)
-  }
-
-  /**
-    * The central function to start playback of a radio source. The source can
-    * be either the current source or a replacement source. When switching the
-    * current source, the ''makeCurrent'' flag should be '''true'''. Before
-    * switching to another radio source, the player engine should typically be
-    * reset to make sure that all audio buffers in use are cleared. Optionally,
-    * playback can start after a delay.
-    *
-    * @param source      the source to be played
-    * @param makeCurrent flag whether this should become the current source
-    * @param resetEngine flag whether to reset the audio engine
-    * @param delay       the delay
-    */
-  def playSource(source: RadioSource, makeCurrent: Boolean, resetEngine: Boolean = true,
-                 delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
-    val playMsg = PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor)
-    val srcMsg = PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader())
-    val startMsg = List((srcMsg, playerFacadeActor), (playMsg, playerFacadeActor))
-    val curMsg = if (makeCurrent) (source, schedulerActor) :: startMsg else startMsg
-    val resetMsg = if (resetEngine) (PlayerFacadeActor.ResetEngine, playerFacadeActor) :: curMsg else curMsg
-    playerFacadeActor ! DelayActor.Propagate(resetMsg, delay)
-  }
-
-  /**
     * Updates the configuration for radio sources. This determines when
     * specific sources can or cannot be played.
     *
@@ -227,16 +162,4 @@ class RadioPlayer private(val config: RadioPlayerConfig,
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(List(schedulerActor))
-
-  /**
-    * Invokes an actor with a delay. This method sends a corresponding message
-    * to the ''PlayerFacadeActor''.
-    *
-    * @param msg    the message
-    * @param target the target actor
-    * @param delay  the delay
-    */
-  private def invokeDelayed(msg: Any, target: classics.ActorRef, delay: FiniteDuration): Unit = {
-    playerFacadeActor ! DelayActor.Propagate(msg, target, delay)
-  }
 }
