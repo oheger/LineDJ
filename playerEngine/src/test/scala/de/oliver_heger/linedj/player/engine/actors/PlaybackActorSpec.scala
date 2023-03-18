@@ -995,7 +995,7 @@ class PlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     actor ! StartPlayback
     expectMsg(GetAudioSource)
     actor ! AudioSource.infinite("infiniteURI")
-    sendAudioData(actor, bufferResult(dataArray(AudioBufferSize)),
+    sendAudioData(actor, bufferResult(dataArray(AudioBufferSize + 1)),
       bufferResult(dataArray(AudioBufferSize, increment = 1)))
     lineWriter.expectMessageType[LineWriterActor.WriteAudioData]
   }

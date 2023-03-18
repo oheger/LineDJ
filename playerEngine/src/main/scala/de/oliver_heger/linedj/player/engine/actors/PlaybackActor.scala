@@ -449,7 +449,7 @@ class PlaybackActor(config: PlayerConfig,
         playbackError(PlaybackErrorEvent(currentSource.get))
       }
     } else {
-      if (config.inMemoryBufferSize - bytesInAudioBuffer == 0) {
+      if (config.inMemoryBufferSize - bytesInAudioBuffer <= 0) {
         log.warning("Playback stalled! Flushing buffer.")
         audioDataStream.clear()
       }
