@@ -758,10 +758,14 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       * @return the invocation
       */
     def expectScheduledInvocation(delay: FiniteDuration): ScheduledInvocationActor.TypedActorInvocation = {
-      val scheduleMsg = probeScheduler.expectMessageType[ScheduledInvocationActor.TypedInvocationCommand]
+      val scheduleMsg = probeScheduler.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
       scheduleMsg.delay should be(delay)
-      scheduleMsg.invocation.receiver should be(checkScheduler)
-      scheduleMsg.invocation
+      scheduleMsg.invocation match {
+        case inv: ScheduledInvocationActor.TypedActorInvocation =>
+          inv.receiver should be(checkScheduler)
+          inv
+        case inv => fail("Unexpected invocation: " + inv)
+      }
     }
 
     /**
@@ -935,9 +939,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def expectTimeoutSchedule(): CheckSourceTestHelper = {
-      val invocation = probeScheduledInvocation.expectMessageType[ScheduledInvocationActor.TypedInvocationCommand]
+      val invocation = probeScheduledInvocation.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
       invocation.delay should be(TestRadioConfig.sourceCheckTimeout)
-      refTimeoutMessage set invocation.invocation
+      refTimeoutMessage set invocation.invocation.asInstanceOf[ScheduledInvocationActor.TypedActorInvocation]
       this
     }
 
@@ -949,7 +953,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     def sendCheckTimeout(): CheckSourceTestHelper = {
       val invocation = refTimeoutMessage.get()
       invocation should not be null
-      invocation.receiver ! invocation.message
+      invocation.send()
       this
     }
 

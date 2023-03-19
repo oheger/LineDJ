@@ -165,7 +165,8 @@ class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.Schedul
     val currentCount = sequenceCounter
     sequenceCounter += 1
     val scheduleMessage = DelayedInvocation(p, currentCount)
-    schedulerActor ! ScheduledInvocationActor.ClassicInvocationCommand(p.delay, self, scheduleMessage)
+    val invocation = ScheduledInvocationActor.ClassicActorInvocation(self, scheduleMessage)
+    schedulerActor ! ScheduledInvocationActor.ActorInvocationCommand(p.delay, invocation)
 
     DelayData(currentCount)
   }

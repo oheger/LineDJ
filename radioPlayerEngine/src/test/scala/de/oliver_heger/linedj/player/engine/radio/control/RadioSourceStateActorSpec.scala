@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import de.oliver_heger.linedj.StateTestHelper
-import de.oliver_heger.linedj.player.engine.actors.EventTestSupport
-import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.{ScheduledInvocationCommand, TypedInvocationCommand}
+import de.oliver_heger.linedj.player.engine.actors.{EventTestSupport, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
@@ -258,7 +257,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     private val replaceService = mock[ReplacementSourceSelectionService]
 
     /** Test probe for the scheduler actor. */
-    private val scheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()
+    private val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
     /** Test probe for the actor to play a specific source. */
     private val playbackActor = testKit.createTestProbe[RadioControlProtocol.SwitchToSource]()
@@ -408,9 +407,9 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @return this test helper
       */
     def handleScheduledInvocation(): StateActorTestHelper = {
-      val invocation = scheduleActor.expectMessageType[TypedInvocationCommand]
-      invocation.delay should be(SourceCheckDelay)
-      invocation.invocation.receiver ! invocation.invocation.message
+      val command = scheduleActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
+      command.delay should be(SourceCheckDelay)
+      command.invocation.send()
       this
     }
 

@@ -259,16 +259,20 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the scheduled invocation
       */
     def expectMultiSchedule(delay: FiniteDuration, data: Iterable[(Any, ActorRef)]):
-    ScheduledInvocationActor.ClassicInvocationCommand = {
-      val invocation = schedulerProbe.expectMessageType[ScheduledInvocationActor.ClassicInvocationCommand]
-      invocation.receiver should be(actor)
-      invocation.delay should be(delay)
-      invocation.message match {
-        case d: DelayActor.DelayedInvocation =>
-          d.propagate.sendData should be(data)
-        case m => fail("Unexpected scheduled message: " + m)
+    ScheduledInvocationActor.ClassicActorInvocation = {
+      val command = schedulerProbe.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
+      command.delay should be(delay)
+      command.invocation match {
+        case inv@ScheduledInvocationActor.ClassicActorInvocation(receiver, message) =>
+          receiver should be(actor)
+          message match {
+            case d: DelayActor.DelayedInvocation =>
+              d.propagate.sendData should be(data)
+            case m => fail("Unexpected scheduled message: " + m)
+          }
+          inv
+        case o => fail("Unexpected invocation: " + o)
       }
-      invocation
     }
 
     /**
@@ -280,7 +284,7 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the scheduled invocation
       */
     def expectSchedule(delay: FiniteDuration, target: ActorRef = targetProbe.ref,
-                       msg: Any = Message): ScheduledInvocationActor.ClassicInvocationCommand =
+                       msg: Any = Message): ScheduledInvocationActor.ClassicActorInvocation =
       expectMultiSchedule(delay, List((msg, target)))
 
     /**
@@ -303,5 +307,4 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       */
     private def createProps(): Props = DelayActor(schedulerProbe.ref)
   }
-
 }

@@ -34,10 +34,25 @@ import scala.concurrent.duration.FiniteDuration
   */
 object ScheduledInvocationActor {
   /**
+    * A trait to abstract over an invocation of an actor. The main purpose of
+    * this trait is to handle both classic and typed actors in a homogenous
+    * way. This is achieved by defining a generic ''send()'' function.
+    */
+  trait ActorInvocation {
+    /**
+      * Performs the actor invocation by sending the encapsulated message to
+      * the target actor.
+      */
+    def send(): Unit
+  }
+
+  /**
     * A trait defining the invocation of a typed actor of a specific type. It
     * is used to model typesafe invocations for arbitrary actor types.
+    * Instances can be created using factory functions from
+    * [[ScheduledInvocationActor]].
     */
-  trait TypedActorInvocation {
+  trait TypedActorInvocation extends ActorInvocation {
     /** The type of the involved actor. */
     type MESSAGE
 
@@ -46,6 +61,22 @@ object ScheduledInvocationActor {
 
     /** The message to be sent to the actor. */
     def message: MESSAGE
+
+    override def send(): Unit = {
+      receiver ! message
+    }
+  }
+
+  /**
+    * A data class representing an invocation of a classic actor.
+    *
+    * @param receiver the receiver actor
+    * @param message  the message
+    */
+  case class ClassicActorInvocation(receiver: classic.ActorRef, message: Any) extends ActorInvocation {
+    override def send(): Unit = {
+      receiver ! message
+    }
   }
 
   /**
@@ -54,24 +85,15 @@ object ScheduledInvocationActor {
   sealed trait ScheduledInvocationCommand
 
   /**
-    * A command triggering the scheduled invocation of a classic actor.
+    * A command triggering the scheduled invocation of an actor.
     *
-    * @param delay    the delay for the invocation
-    * @param receiver the receiving actor
-    * @param message  the message to send
-    */
-  case class ClassicInvocationCommand(delay: FiniteDuration,
-                                      receiver: classic.ActorRef,
-                                      message: Any) extends ScheduledInvocationCommand
-
-  /**
-    * A command triggering the scheduled invocation of a typed actor.
+    * After the given delay, the invocation is performed.
     *
     * @param delay      the delay for the invocation
     * @param invocation the object describing the invocation
     */
-  case class TypedInvocationCommand(delay: FiniteDuration,
-                                    invocation: TypedActorInvocation) extends ScheduledInvocationCommand
+  case class ActorInvocationCommand(delay: FiniteDuration,
+                                    invocation: ActorInvocation) extends ScheduledInvocationCommand
 
   /**
     * A command causing the actor to stop itself. All pending delayed messages
@@ -83,9 +105,9 @@ object ScheduledInvocationActor {
     * An internal message this actor receives itself from the scheduler when
     * the delay is over. This is then used to do the delayed invocation.
     *
-    * @param run a function that sends the message to the receiver
+    * @param invocation the [[ActorInvocation]] to be performed
     */
-  private case class InvokeAfterDelay(run: () => Unit) extends ScheduledInvocationCommand
+  private case class InvokeAfterDelay(invocation: ActorInvocation) extends ScheduledInvocationCommand
 
   /**
     * Constructs a [[TypedActorInvocation]] instance for the given parameters.
@@ -105,17 +127,17 @@ object ScheduledInvocationActor {
     }
 
   /**
-    * Constructs a [[TypedInvocationCommand]] instance from the given
+    * Constructs an [[ActorInvocationCommand]] instance from the given
     * parameters.
     *
     * @param delay the delay for the invocation
     * @param to    the receiver actor
     * @param data  the message to be passed to the actor
     * @tparam M the type of the message
-    * @return the resulting [[TypedInvocationCommand]]
+    * @return the resulting [[ActorInvocationCommand]]
     */
-  def typedInvocationCommand[M](delay: FiniteDuration, to: ActorRef[M], data: M): TypedInvocationCommand =
-    TypedInvocationCommand(delay, typedInvocation(to, data))
+  def typedInvocationCommand[M](delay: FiniteDuration, to: ActorRef[M], data: M): ActorInvocationCommand =
+    ActorInvocationCommand(delay, typedInvocation(to, data))
 
   /**
     * Returns the behavior to create a new instance of this actor.
@@ -133,16 +155,12 @@ object ScheduledInvocationActor {
     */
   private[actors] def handleMessages(scheduler: TimerScheduler[ScheduledInvocationCommand]):
   Behavior[ScheduledInvocationCommand] = Behaviors.receiveMessage {
-    case TypedInvocationCommand(delay, invocation) =>
-      scheduler.startSingleTimer(InvokeAfterDelay { () => invocation.receiver ! invocation.message }, delay)
+    case ActorInvocationCommand(delay, invocation) =>
+      scheduler.startSingleTimer(InvokeAfterDelay(invocation), delay)
       Behaviors.same
 
-    case ClassicInvocationCommand(delay, receiver, message) =>
-      scheduler.startSingleTimer(InvokeAfterDelay { () => receiver ! message }, delay)
-      Behaviors.same
-
-    case InvokeAfterDelay(run) =>
-      run()
+    case InvokeAfterDelay(invocation) =>
+      invocation.send()
       Behaviors.same
 
     case Stop =>

@@ -51,7 +51,7 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
     val probe = testKit.createTestProbe[String]()
     val message = "A delayed test message"
     val invocation = ScheduledInvocationActor.typedInvocation(probe.ref, message)
-    val command = ScheduledInvocationActor.TypedInvocationCommand(90.seconds, invocation)
+    val command = ScheduledInvocationActor.ActorInvocationCommand(90.seconds, invocation)
     val helper = new ScheduledInvocationTestHelper
 
     helper.testScheduledInvocation(command, command.delay)
@@ -62,7 +62,8 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
   it should "schedule a classic invocation" in {
     val probe = TestProbe()
     val message = "A delayed classic test message"
-    val command = ScheduledInvocationActor.ClassicInvocationCommand(5.minutes, probe.ref, message)
+    val invocation = ScheduledInvocationActor.ClassicActorInvocation(probe.ref, message)
+    val command = ScheduledInvocationActor.ActorInvocationCommand(5.minutes, invocation)
     val helper = new ScheduledInvocationTestHelper
 
     helper.testScheduledInvocation(command, command.delay)
