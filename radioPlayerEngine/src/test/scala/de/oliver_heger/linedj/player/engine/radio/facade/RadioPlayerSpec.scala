@@ -29,11 +29,10 @@ import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.control._
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
-import de.oliver_heger.linedj.player.engine.radio._
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock
@@ -86,7 +85,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       Await.result(helper.player.close(), 1.second)
     }
     helper.probeFacadeActor.expectMsg(CloseRequest)
-    helper.probeSchedulerActor.expectMsg(CloseRequest)
   }
 
   it should "pass the event actor to the super class" in {
@@ -145,14 +143,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * The function to check the classic actors created during tests.
       */
     private val classicCheckFunc: ClassicActorCheckFunc = props => {
-      case "radioSchedulerActor" =>
-        classOf[RadioSchedulerActor] isAssignableFrom props.actorClass() shouldBe true
-        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        classOf[SchedulerSupport] isAssignableFrom props.actorClass() shouldBe true
-        props.args should have length 1
-        props.args.head should be(actorCreator.probePublisherActor.ref)
-        probeSchedulerActor.ref
-
       case "radioPlayerFacadeActor" =>
         classOf[PlayerFacadeActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
@@ -227,9 +217,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** The behavior used for the control actor. */
     private val controlBehavior = Behaviors.monitor[RadioControlActor.RadioControlCommand](probeControlActor.ref,
       Behaviors.ignore)
-
-    /** Test probe for the scheduler actor. */
-    val probeSchedulerActor: TestProbe = TestProbe()
 
     /** The test player configuration. */
     val config: RadioPlayerConfig = createPlayerConfig()

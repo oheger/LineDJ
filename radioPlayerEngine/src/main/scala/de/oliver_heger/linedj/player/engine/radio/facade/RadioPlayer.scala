@@ -17,16 +17,15 @@
 package de.oliver_heger.linedj.player.engine.radio.facade
 
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
 import akka.{actor => classics}
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.radio.actors.schedule.RadioSchedulerActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlayerConfig, RadioSource, RadioSourceConfig}
@@ -71,14 +70,12 @@ object RadioPlayer {
       val facadeActor =
         creator.createActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
-      val schedulerActor = creator.createActor(RadioSchedulerActor(eventActors._2),
-        "radioSchedulerActor")
       val controlBehavior = controlActorFactory(config, eventActors._2, eventActors._1, facadeActor,
         scheduledInvocationActor, factoryActor)
       val controlActor = creator.createActor(controlBehavior, "radioControlActor",
         Some(RadioControlActor.Stop))
 
-      new RadioPlayer(config, facadeActor, schedulerActor, eventActors._1, factoryActor, controlActor)
+      new RadioPlayer(config, facadeActor, eventActors._1, factoryActor, controlActor)
     }
   }
 
@@ -110,7 +107,6 @@ object RadioPlayer {
   *
   * @param config                      the configuration for this player
   * @param playerFacadeActor           reference to the facade actor
-  * @param schedulerActor              reference to the scheduler actor
   * @param eventManagerActor           reference to the event manager actor
   * @param playbackContextFactoryActor the actor to create playback context
   *                                    objects
@@ -118,7 +114,6 @@ object RadioPlayer {
   */
 class RadioPlayer private(val config: RadioPlayerConfig,
                           override val playerFacadeActor: classics.ActorRef,
-                          schedulerActor: classics.ActorRef,
                           override protected val eventManagerActor:
                           ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                           override protected val playbackContextFactoryActor:
@@ -161,5 +156,5 @@ class RadioPlayer private(val config: RadioPlayerConfig,
   }
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(List(schedulerActor))
+    closeActors(Nil)
 }
