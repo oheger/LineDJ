@@ -143,7 +143,15 @@ trait PlayerControl[E] {
   /** The actor managing the playback context factories. */
   protected val playbackContextFactoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand]
 
-  /** The facade actor for the player engine. */
+  /** The actor handling scheduled invocation. */
+  protected val scheduledInvocationActor: ActorRef[ScheduledInvocationActor.ActorInvocationCommand]
+
+  /**
+    * The facade actor for the player engine. This actor is not really used by
+    * this base trait, but it is needed for a concrete implementation.
+    * Therefore, it is stored here, and it is especially taken into account
+    * when closing the player.
+    */
   protected val playerFacadeActor: classics.ActorRef
 
   /**
@@ -175,7 +183,7 @@ trait PlayerControl[E] {
     * @param delay a delay for starting playback
     */
   def startPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokePlaybackActor(PlaybackActor.StartPlayback, delay)
+    handleInvocation(startPlaybackInvocation, delay)
   }
 
   /**
@@ -186,7 +194,7 @@ trait PlayerControl[E] {
     * @param delay a delay for stopping playback
     */
   def stopPlayback(delay: FiniteDuration = DelayActor.NoDelay): Unit = {
-    invokePlaybackActor(PlaybackActor.StopPlayback, delay)
+    handleInvocation(stopPlaybackInvocation, delay)
   }
 
   /**
@@ -244,6 +252,24 @@ trait PlayerControl[E] {
   def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]]
 
   /**
+    * Returns a [[ScheduledInvocationActor.ActorInvocation]] for starting
+    * playback. This base trait uses this object to start playback directly or
+    * after a delay.
+    *
+    * @return the invocation to start playback
+    */
+  protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation
+
+  /**
+    * Returns a [[ScheduledInvocationActor.ActorInvocation]] for stopping
+    * playback. This base trait uses this object to stop playback directly or
+    * after a delay.
+    *
+    * @return the invocation to stop playback
+    */
+  protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation
+
+  /**
     * Invokes the playback actor with the specified message and delay. This
     * method is used to handle some basic functionality related to playback
     * control.
@@ -288,5 +314,20 @@ trait PlayerControl[E] {
     val actorsToClose = playerFacadeActor :: actors.toList
     val futureRequests = actorsToClose.map(_ ? CloseRequest)
     Future.sequence(futureRequests).mapTo[Seq[CloseAck]]
+  }
+
+  /**
+    * Handles the given invocation either by directly executing it or passing
+    * it to the scheduler actor if there is a delay.
+    *
+    * @param invocation the invocation
+    * @param delay      the delay
+    */
+  private def handleInvocation(invocation: ScheduledInvocationActor.ActorInvocation, delay: FiniteDuration): Unit = {
+    if (delay > NoDelay) {
+      scheduledInvocationActor ! ScheduledInvocationActor.ActorInvocationCommand(delay, invocation)
+    } else {
+      invocation.send()
+    }
   }
 }

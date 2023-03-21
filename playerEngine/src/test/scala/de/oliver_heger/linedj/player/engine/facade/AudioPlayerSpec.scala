@@ -139,6 +139,17 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
   }
 
+  it should "pass the schedule actor to the super class" in {
+    val Delay = 10.minutes
+    val helper = new AudioPlayerTestHelper
+
+    helper.player.startPlayback(Delay)
+
+    val command = helper.expectScheduleCommand()
+
+    command.delay should be(Delay)
+  }
+
   /**
     * A test helper class collecting all required dependencies.
     */
@@ -169,7 +180,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         factoryActor.ref
 
       case "lineWriterActor" =>
-        props should not be Props.empty  // It seems impossible to extract the dispatcher name.
+        props should not be Props.empty // It seems impossible to extract the dispatcher name.
         lineWriterActor.ref
     }
 
@@ -216,6 +227,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     def expectFacadeMessage(msg: Any, targetActor: TargetActor,
                             delay: FiniteDuration = NoDelay): AudioPlayerTestHelper =
       expectMessageToFacadeActor(PlayerFacadeActor.Dispatch(msg, targetActor, delay))
+
+    /**
+      * Checks that a command was sent to the scheduler actor.
+      *
+      * @return the received command
+      */
+    def expectScheduleCommand(): ScheduledInvocationActor.ActorInvocationCommand =
+      scheduleActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
 
     /**
       * Expects that close requests have been sent to the affected actors.

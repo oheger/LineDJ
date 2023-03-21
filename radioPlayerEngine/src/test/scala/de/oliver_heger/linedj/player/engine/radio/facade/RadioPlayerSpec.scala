@@ -126,11 +126,35 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.expectControlCommand(RadioControlActor.StartPlayback)
   }
 
+  it should "support starting radio playback with a delay" in {
+    val Delay = 21.seconds
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.startPlayback(Delay)
+
+    val command = helper.expectScheduleCommand()
+    command.delay should be(Delay)
+    command.invocation.send()
+    helper.expectControlCommand(RadioControlActor.StartPlayback)
+  }
+
   it should "support stopping radio playback" in {
     val helper = new RadioPlayerTestHelper
 
     helper.player.stopRadioPlayback()
 
+    helper.expectControlCommand(RadioControlActor.StopPlayback)
+  }
+
+  it should "support stopping radio playback with a delay" in {
+    val Delay = 43.seconds
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.stopPlayback(Delay)
+
+    val command = helper.expectScheduleCommand()
+    command.delay should be(Delay)
+    command.invocation.send()
     helper.expectControlCommand(RadioControlActor.StopPlayback)
   }
 
@@ -232,6 +256,14 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     def expectControlCommand(command: RadioControlActor.RadioControlCommand): Unit = {
       probeControlActor.expectMessage(command)
     }
+
+    /**
+      * Expects that a message is sent to the scheduler actor.
+      *
+      * @return the received message
+      */
+    def expectScheduleCommand(): ScheduledInvocationActor.ActorInvocationCommand =
+      probeSchedulerInvocationActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
 
     /**
       * Creates a stub [[ActorCreator]] for the configuration of the test

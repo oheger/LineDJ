@@ -21,7 +21,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.actor.typed.ActorRef
 import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{SourceActorCreator, TargetSourceReader}
+import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{SourceActorCreator, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
@@ -65,7 +65,7 @@ object AudioPlayer {
       "eventManagerActor") map { eventActors =>
       val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
-      new AudioPlayer(facadeActor, eventActors._1, factoryActor)
+      new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor)
     }
   }
 
@@ -100,12 +100,15 @@ object AudioPlayer {
   * @param eventManagerActor           the actor for managing event listeners
   * @param playbackContextFactoryActor the actor managing playback context
   *                                    factories
+  * @param scheduledInvocationActor    the actor for scheduled invocations
   */
 class AudioPlayer private(protected override val playerFacadeActor: classics.ActorRef,
                           protected override val eventManagerActor:
                           ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
                           protected override val playbackContextFactoryActor:
-                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
+                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                          protected override val scheduledInvocationActor:
+                          ActorRef[ScheduledInvocationActor.ActorInvocationCommand])
   extends PlayerControl[PlayerEvent] {
 
   import AudioPlayer._
@@ -147,4 +150,12 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(Nil)
+
+  override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+    ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
+      PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, TargetPlaybackActor))
+
+override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+  ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
+    PlayerFacadeActor.Dispatch(PlaybackActor.StopPlayback, TargetPlaybackActor))
 }

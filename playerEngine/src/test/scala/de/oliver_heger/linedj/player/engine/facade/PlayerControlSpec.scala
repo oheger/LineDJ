@@ -26,8 +26,9 @@ import akka.util.Timeout
 import akka.{actor => classic}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackActor, PlaybackContextFactoryActor, PlayerFacadeActor, ScheduledInvocationActor}
+import de.oliver_heger.linedj.player.engine.facade.PlayerControlSpec.{PlaybackCommand, PlayerControlImpl, StartPlayback, StopPlayback}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -38,6 +39,58 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Failure
+
+object PlayerControlSpec {
+  /**
+    * Base command trait for a synthetic actor controlling the playback state.
+    * This is used by the test player control implementation to test the
+    * functions to start or stop playback.
+    */
+  private sealed trait PlaybackCommand
+
+  /**
+    * A command to start playback.
+    */
+  private case object StartPlayback extends PlaybackCommand
+
+  /**
+    * A command to stop playback.
+    */
+  private case object StopPlayback extends PlaybackCommand
+
+  /**
+    * A test implementation of the trait used for testing.
+    *
+    * @param playerFacadeActor the player facade actor
+    * @param eventManagerActor the event manager actor
+    * @param playbackContextFactoryActor the factory actor
+    * @param scheduledInvocationActor    the scheduler actor
+    * @param playbackActor               the actor controlling playback
+    */
+  private class PlayerControlImpl(override val playerFacadeActor: classic.ActorRef,
+                                  override val eventManagerActor:
+                                  ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
+                                  override val playbackContextFactoryActor:
+                                  ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                  override val scheduledInvocationActor:
+                                  ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+                                  playbackActor: ActorRef[PlaybackCommand])
+    extends PlayerControl[PlayerEvent] {
+    override def closeActors(actors: Seq[classic.ActorRef])(implicit ec: ExecutionContext, timeout: Timeout):
+    Future[Seq[CloseAck]] = super.closeActors(actors)
+
+    override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala
+    .Seq[CloseAck]] = {
+      throw new UnsupportedOperationException("Unexpected invocation!")
+    }
+
+    override protected val startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+      ScheduledInvocationActor.typedInvocation(playbackActor, StartPlayback)
+
+    override protected val stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+      ScheduledInvocationActor.typedInvocation(playbackActor, StopPlayback)
+}
+}
 
 /**
   * Test class for ''PlayerControl''.
@@ -72,12 +125,14 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.probeFactoryActor.expectMessage(PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory))
   }
 
-  it should "allow starting playback" in {
+  it should "allow starting playback directly" in {
     val helper = new PlayerControlTestHelper
     val player = helper.createPlayerControl()
 
     player.startPlayback()
-    helper.expectPlaybackInvocation(PlaybackActor.StartPlayback)
+
+    helper.expectNoScheduledInvocation()
+      .expectPlaybackCommand(StartPlayback)
   }
 
   it should "allow starting playback with a delay" in {
@@ -86,15 +141,22 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val Delay = 1.minute
 
     player.startPlayback(Delay)
-    helper.expectPlaybackInvocation(PlaybackActor.StartPlayback, Delay)
+
+    val invocation = helper.expectNoPlaybackCommand()
+      .expectScheduledInvocation()
+    invocation.delay should be(Delay)
+    invocation.invocation.send()
+    helper.expectPlaybackCommand(StartPlayback)
   }
 
-  it should "allow stopping playback" in {
+  it should "allow stopping playback directly" in {
     val helper = new PlayerControlTestHelper
     val player = helper.createPlayerControl()
 
     player.stopPlayback()
-    helper.expectPlaybackInvocation(PlaybackActor.StopPlayback)
+
+    helper.expectNoScheduledInvocation()
+      .expectPlaybackCommand(StopPlayback)
   }
 
   it should "allow stopping playback with a delay" in {
@@ -103,7 +165,12 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val Delay = 30.seconds
 
     player.stopPlayback(Delay)
-    helper.expectPlaybackInvocation(PlaybackActor.StopPlayback, Delay)
+
+    val invocation = helper.expectNoPlaybackCommand()
+      .expectScheduledInvocation()
+    invocation.delay should be(Delay)
+    invocation.invocation.send()
+    helper.expectPlaybackCommand(StopPlayback)
   }
 
   it should "allow skipping the current source" in {
@@ -246,16 +313,23 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * provides a concrete implementation of the trait under test.
     */
   private class PlayerControlTestHelper {
-    /** Test test event manager actor. */
+    /** Test probe for the event manager actor. */
     val probeEventManagerActor: scaladsl.TestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]] =
       testKit.createTestProbe[EventManagerActor.EventManagerCommand[PlayerEvent]]()
 
-    /** Test test playback context factory manager actor. */
+    /** Test probe for the playback context factory manager actor. */
     val probeFactoryActor: scaladsl.TestProbe[PlaybackContextFactoryActor.PlaybackContextCommand] =
       testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
     /** Test probe for the player facade actor. */
     val probePlayerFacadeActor: TestProbe = TestProbe()
+
+    /** Test probe for the scheduled invocation actor. */
+    private val probeSchedulerActor: scaladsl.TestProbe[ScheduledInvocationActor.ScheduledInvocationCommand] =
+      testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Test probe for receiving start/stop playback events. */
+    private val probePlaybackActor = testKit.createTestProbe[PlaybackCommand]()
 
     /**
       * Creates a test instance of ''PlayerControl''.
@@ -265,7 +339,45 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     def createPlayerControl(): PlayerControlImpl =
       new PlayerControlImpl(playerFacadeActor = probePlayerFacadeActor.ref,
         eventManagerActor = probeEventManagerActor.ref,
-        playbackContextFactoryActor = probeFactoryActor.ref)
+        playbackContextFactoryActor = probeFactoryActor.ref,
+        scheduledInvocationActor = probeSchedulerActor.ref,
+        playbackActor = probePlaybackActor.ref)
+
+    /**
+      * Expects a scheduled invocation command to be sent to the scheduler
+      * actor.
+      * @return the command received by the scheduler actor
+      */
+    def expectScheduledInvocation(): ScheduledInvocationActor.ActorInvocationCommand =
+      probeSchedulerActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
+
+    /**
+      * Expects that no message is sent to the scheduler actor.
+      * @return this test helper
+      */
+    def expectNoScheduledInvocation(): PlayerControlTestHelper = {
+      probeSchedulerActor.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Expects that the given playback command was sent to the playback actor.
+      * @param command the expected command
+      * @return this test helper
+      */
+    def expectPlaybackCommand(command: PlaybackCommand): PlayerControlTestHelper = {
+      probePlaybackActor.expectMessage(command)
+      this
+    }
+
+    /**
+      * Expects that no message is sent to the playback actor.
+      * @return this test helper
+      */
+    def expectNoPlaybackCommand(): PlayerControlTestHelper = {
+      probePlaybackActor.expectNoMessage(200.millis)
+      this
+    }
 
     /**
       * Expects an invocation of the player facade actor with the parameters
@@ -293,28 +405,5 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     def expectPlaybackInvocation(msg: Any, delay: FiniteDuration = PlayerControl.NoDelay):
     PlayerControlTestHelper =
       expectFacadeActorInvocation(msg, PlayerFacadeActor.TargetPlaybackActor, delay)
-  }
-
-}
-
-/**
-  * A test implementation of the trait which wraps the specified actor.
-  *
-  * @param playerFacadeActor the player facade actor
-  * @param eventManagerActor the event manager actor
-  * @param playbackContextFactoryActor the factory actor
-  */
-private class PlayerControlImpl(override val playerFacadeActor: classic.ActorRef,
-                                override val eventManagerActor:
-                                ActorRef[EventManagerActor.EventManagerCommand[PlayerEvent]],
-                                override val playbackContextFactoryActor:
-                                ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
-  extends PlayerControl[PlayerEvent] {
-  override def closeActors(actors: Seq[classic.ActorRef])(implicit ec: ExecutionContext, timeout:
-  Timeout): Future[Seq[CloseAck]] = super.closeActors(actors)
-
-  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala
-  .Seq[CloseAck]] = {
-    throw new UnsupportedOperationException("Unexpected invocation!")
   }
 }

@@ -75,7 +75,7 @@ object RadioPlayer {
       val controlActor = creator.createActor(controlBehavior, "radioControlActor",
         Some(RadioControlActor.Stop))
 
-      new RadioPlayer(config, facadeActor, eventActors._1, factoryActor, controlActor)
+      new RadioPlayer(config, facadeActor, eventActors._1, factoryActor, scheduledInvocationActor, controlActor)
     }
   }
 
@@ -110,6 +110,7 @@ object RadioPlayer {
   * @param eventManagerActor           reference to the event manager actor
   * @param playbackContextFactoryActor the actor to create playback context
   *                                    objects
+  * @param scheduledInvocationActor    the actor for scheduled invocations
   * @param controlActor                reference to the control actor
   */
 class RadioPlayer private(val config: RadioPlayerConfig,
@@ -118,6 +119,8 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                           ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                           override protected val playbackContextFactoryActor:
                           ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                          override protected val scheduledInvocationActor:
+                          ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
   extends PlayerControl[RadioEvent] {
   /**
@@ -157,4 +160,10 @@ class RadioPlayer private(val config: RadioPlayerConfig,
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     closeActors(Nil)
+
+  override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StartPlayback)
+
+  override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StopPlayback)
 }
