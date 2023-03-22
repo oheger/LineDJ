@@ -16,11 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.{actor => classics}
-import akka.actor.{ActorSystem, Props}
 import akka.actor.typed.ActorRef
-import akka.util.Timeout
-import de.oliver_heger.linedj.io.CloseAck
+import akka.actor.{ActorSystem, Props}
+import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{SourceActorCreator, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
@@ -148,14 +146,11 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
     invokeFacadeActor(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
   }
 
-  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(Nil)
-
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
       PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, TargetPlaybackActor))
 
-override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
-  ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
-    PlayerFacadeActor.Dispatch(PlaybackActor.StopPlayback, TargetPlaybackActor))
+  override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
+    ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
+      PlayerFacadeActor.Dispatch(PlaybackActor.StopPlayback, TargetPlaybackActor))
 }

@@ -249,7 +249,10 @@ trait PlayerControl[E] {
     * @param timeout the timeout when waiting for answers
     * @return a ''Future'' for the ''CloseAck'' messages from child actors
     */
-  def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]]
+  def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] = {
+    val futureAck = playerFacadeActor ? CloseRequest
+    futureAck.mapTo[CloseAck] map { List(_) }
+  }
 
   /**
     * Returns a [[ScheduledInvocationActor.ActorInvocation]] for starting
@@ -292,28 +295,6 @@ trait PlayerControl[E] {
   protected def invokeFacadeActor(msg: Any, target: PlayerFacadeActor.TargetActor,
                                   delay: FiniteDuration = PlayerControl.NoDelay): Unit = {
     playerFacadeActor ! PlayerFacadeActor.Dispatch(msg, target, delay)
-  }
-
-  /**
-    * Closes the provided actors by sending them a ''CloseRequest'' message and
-    * returns a ''Future'' to find out when this request has been answered by
-    * all. This method can be used in concrete implementations to achieve a
-    * robust close handling. Typically, implementations of ''close()'' will
-    * call this method to close all child actors which require close handling.
-    * Note that the actors managed by this instance are automatically added to
-    * the list of actors to be closed.
-    *
-    * @param actors  a sequence of actors to be closed
-    * @param ec      the execution context for the future
-    * @param timeout the timeout when waiting for answers
-    * @return a future for the ''CloseAck'' messages received from the actors
-    */
-  protected def closeActors(actors: Seq[classics.ActorRef])
-                           (implicit ec: ExecutionContext, timeout: Timeout):
-  Future[Seq[CloseAck]] = {
-    val actorsToClose = playerFacadeActor :: actors.toList
-    val futureRequests = actorsToClose.map(_ ? CloseRequest)
-    Future.sequence(futureRequests).mapTo[Seq[CloseAck]]
   }
 
   /**

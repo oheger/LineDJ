@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
+import akka.actor.ActorSystem
 import akka.actor.testkit.typed.scaladsl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.actor.{Actor, ActorSystem}
 import akka.pattern.AskTimeoutException
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
@@ -27,18 +27,15 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackActor, PlaybackContextFactoryActor, PlayerFacadeActor, ScheduledInvocationActor}
+import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControlSpec.{PlaybackCommand, PlayerControlImpl, StartPlayback, StopPlayback}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
-import scala.util.Failure
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 object PlayerControlSpec {
   /**
@@ -76,13 +73,6 @@ object PlayerControlSpec {
                                   ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                   playbackActor: ActorRef[PlaybackCommand])
     extends PlayerControl[PlayerEvent] {
-    override def closeActors(actors: Seq[classic.ActorRef])(implicit ec: ExecutionContext, timeout: Timeout):
-    Future[Seq[CloseAck]] = super.closeActors(actors)
-
-    override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[scala
-    .Seq[CloseAck]] = {
-      throw new UnsupportedOperationException("Unexpected invocation!")
-    }
 
     override protected val startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
       ScheduledInvocationActor.typedInvocation(playbackActor, StartPlayback)
@@ -215,56 +205,31 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.probePlayerFacadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
   }
 
-  /**
-    * Creates a list of test actors that just react on a close request by
-    * sending the corresponding ACK.
-    *
-    * @param count        the number of test actors to create
-    * @param closeCounter a counter for recording close requests
-    * @return the list with test actors
-    */
-  private def createCloseTestActors(count: Int, closeCounter: AtomicInteger): IndexedSeq[classic.ActorRef] =
-    (1 to count) map (_ => system.actorOf(classic.Props(new Actor {
-      override def receive: Receive = {
-        case CloseRequest =>
-          closeCounter.incrementAndGet()
-          sender() ! CloseAck(self)
-      }
-    })))
-
-  it should "provide a method to close dependent actors" in {
+  it should "allow closing the player gracefully" in {
     val helper = new PlayerControlTestHelper
     val player = helper.createPlayerControl()
-    val counter = new AtomicInteger
 
-    val probes = createCloseTestActors(3, counter)
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     implicit val timeout: Timeout = Timeout(1.second)
-    val handle = player.closeActors(probes)
+    val handle = player.close()
     helper.probePlayerFacadeActor.expectMsg(CloseRequest)
     helper.probePlayerFacadeActor.reply(CloseAck(helper.probePlayerFacadeActor.ref))
-    val result = Await.result(handle, 1.second)
-    counter.get() should be(probes.size)
+    val result = futureResult(handle)
+
     val closedActors = result map (_.actor)
-    closedActors should contain allElementsOf probes
     closedActors should contain(helper.probePlayerFacadeActor.ref)
-    closedActors should have size probes.size + 1
+    closedActors should have size 1
   }
 
   it should "do correct timeout handling in its closeActors() method" in {
     val helper = new PlayerControlTestHelper
     val player = helper.createPlayerControl()
-    val latch = new CountDownLatch(1)
 
-    val probes = createCloseTestActors(2, new AtomicInteger).toList
-    val timeoutProbe = TestProbe()
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     implicit val timeout: Timeout = Timeout(200.milliseconds)
-    player.closeActors(timeoutProbe.ref :: probes).onComplete {
-      case Failure(_: AskTimeoutException) => latch.countDown()
-      case r => fail("Unexpected result: " + r)
-    }
-    latch.await(1, TimeUnit.SECONDS) shouldBe true
+    val result = player.close()
+
+    expectFailedFuture[AskTimeoutException](result)
   }
 
   /**

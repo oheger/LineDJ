@@ -22,7 +22,6 @@ import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
 import akka.{actor => classics}
-import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
@@ -157,9 +156,6 @@ class RadioPlayer private(val config: RadioPlayerConfig,
   def switchToRadioSource(source: RadioSource): Unit = {
     controlActor ! RadioControlActor.SelectRadioSource(source)
   }
-
-  override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
-    closeActors(Nil)
 
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StartPlayback)
