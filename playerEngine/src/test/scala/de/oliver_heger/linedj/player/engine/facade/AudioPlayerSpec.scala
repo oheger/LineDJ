@@ -117,6 +117,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.expectFacadeMessage(PlaybackActor.SkipSource, TargetPlaybackActor)
   }
 
+  it should "allow resetting the engine" in {
+    val helper = new AudioPlayerTestHelper
+
+    helper.player.reset()
+
+    helper.expectMessageToFacadeActor(PlayerFacadeActor.ResetEngine)
+  }
+
   it should "correctly implement the close() method" in {
     val helper = new AudioPlayerTestHelper
     implicit val timeout: Timeout = Timeout(100.milliseconds)

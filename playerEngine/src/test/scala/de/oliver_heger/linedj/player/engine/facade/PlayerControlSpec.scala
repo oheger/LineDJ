@@ -163,14 +163,6 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     helper.expectPlaybackCommand(StopPlayback)
   }
 
-  it should "allow skipping the current source" in {
-    val helper = new PlayerControlTestHelper
-    val player = helper.createPlayerControl()
-
-    player.skipCurrentSource()
-    helper.expectPlaybackInvocation(PlaybackActor.SkipSource)
-  }
-
   it should "create Props for the line writer when no blocking dispatcher is defined" in {
     val config = PlayerConfig(mediaManagerActor = null, actorCreator = null)
 
@@ -195,14 +187,6 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     player removeEventListener listener.ref
 
     helper.probeEventManagerActor.expectMessage(EventManagerActor.RemoveListener(listener.ref))
-  }
-
-  it should "allow resetting the engine" in {
-    val helper = new PlayerControlTestHelper
-    val player = helper.createPlayerControl()
-
-    player.reset()
-    helper.probePlayerFacadeActor.expectMsg(PlayerFacadeActor.ResetEngine)
   }
 
   it should "allow closing the player gracefully" in {

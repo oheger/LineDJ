@@ -146,6 +146,23 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
     invokeFacadeActor(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
   }
 
+  /**
+    * Skips the current audio source. Playback continues (if enabled) with the
+    * next source in the playlist (if any).
+    */
+  def skipCurrentSource(): Unit = {
+    invokePlaybackActor(PlaybackActor.SkipSource, PlayerControl.NoDelay)
+  }
+
+  /**
+    * Resets the player engine. This stops playback and clears the current
+    * playlist and all audio buffers. This method should be invoked before
+    * switching playback to a different source.
+    */
+  def reset(): Unit = {
+    playerFacadeActor ! PlayerFacadeActor.ResetEngine
+  }
+
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
       PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, TargetPlaybackActor))
