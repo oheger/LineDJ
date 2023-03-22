@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio
+package de.oliver_heger.linedj.player.engine.radio.config
 
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 

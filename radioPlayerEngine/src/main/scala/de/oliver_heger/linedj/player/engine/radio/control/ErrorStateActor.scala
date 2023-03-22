@@ -24,8 +24,9 @@ import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.CloseSupportTyped
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlayerConfig, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._

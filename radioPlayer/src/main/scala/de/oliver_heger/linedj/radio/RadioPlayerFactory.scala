@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.RadioPlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
 import scala.concurrent.{ExecutionContext, Future}

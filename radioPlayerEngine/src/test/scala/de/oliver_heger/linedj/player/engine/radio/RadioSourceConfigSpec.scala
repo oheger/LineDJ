@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

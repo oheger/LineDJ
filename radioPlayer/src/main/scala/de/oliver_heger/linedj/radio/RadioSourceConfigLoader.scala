@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.radio
 import java.time.DayOfWeek
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
 

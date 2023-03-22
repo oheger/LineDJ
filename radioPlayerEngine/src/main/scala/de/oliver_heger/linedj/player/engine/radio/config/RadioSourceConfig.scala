@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.engine.radio
+package de.oliver_heger.linedj.player.engine.radio.config
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 
 object RadioSourceConfig {
   /** Constant for a default ranking value. */

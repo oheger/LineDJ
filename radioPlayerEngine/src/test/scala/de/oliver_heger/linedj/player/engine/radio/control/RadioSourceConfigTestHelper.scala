@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries.hours
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.radio.{RadioSource, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 
 /**
   * A module providing functionality needed by tests that have to deal with

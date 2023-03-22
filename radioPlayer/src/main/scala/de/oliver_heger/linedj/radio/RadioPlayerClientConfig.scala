@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.radio.RadioSourceConfig
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 
