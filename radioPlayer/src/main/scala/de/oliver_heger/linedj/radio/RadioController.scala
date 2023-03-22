@@ -177,7 +177,7 @@ class RadioController(val userConfig: Configuration,
     * the start playback action.
     */
   def startPlayback(): Unit = {
-    player.startRadioPlayback()
+    player.startPlayback()
     enablePlaybackActions(isPlaying = true)
     playbackActive = true
   }
@@ -187,7 +187,7 @@ class RadioController(val userConfig: Configuration,
     * the stop playback action.
     */
   def stopPlayback(): Unit = {
-    player.stopRadioPlayback()
+    player.stopPlayback()
     enablePlaybackActions(isPlaying = false)
     playbackActive = false
   }
@@ -294,7 +294,7 @@ class RadioController(val userConfig: Configuration,
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
       player.switchToRadioSource(s._2)
-      player.startRadioPlayback()
+      player.startPlayback()
       statusLineController.updateCurrentSource(s._2)
       comboSources setData s._2
       storeCurrentSource(s)

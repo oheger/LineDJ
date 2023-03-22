@@ -133,20 +133,6 @@ class RadioPlayer private(val config: RadioPlayerConfig,
   }
 
   /**
-    * Starts radio playback, provided that a source has been selected.
-    */
-  def startRadioPlayback(): Unit = {
-    controlActor ! RadioControlActor.StartPlayback
-  }
-
-  /**
-    * Stops radio playback if it is currently ongoing.
-    */
-  def stopRadioPlayback(): Unit = {
-    controlActor ! RadioControlActor.StopPlayback
-  }
-
-  /**
     * Sets the given [[RadioSource]] as the new current source. If possible,
     * this source is played directly; otherwise, a replacement source is
     * selected.

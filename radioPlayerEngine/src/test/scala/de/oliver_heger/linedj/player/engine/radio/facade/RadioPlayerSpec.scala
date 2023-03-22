@@ -121,7 +121,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   it should "support starting radio playback" in {
     val helper = new RadioPlayerTestHelper
 
-    helper.player.startRadioPlayback()
+    helper.player.startPlayback()
 
     helper.expectControlCommand(RadioControlActor.StartPlayback)
   }
@@ -141,7 +141,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   it should "support stopping radio playback" in {
     val helper = new RadioPlayerTestHelper
 
-    helper.player.stopRadioPlayback()
+    helper.player.stopPlayback()
 
     helper.expectControlCommand(RadioControlActor.StopPlayback)
   }

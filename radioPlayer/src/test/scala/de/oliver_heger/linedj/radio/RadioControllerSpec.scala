@@ -301,7 +301,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ctrl.stopPlayback()
 
     ctrl.startPlayback()
-    verify(helper.player, times(2)).startRadioPlayback()
+    verify(helper.player, times(2)).startPlayback()
     helper.verifyAction(StartPlaybackAction, enabled = false, count = 2)
       .verifyAction(StopPlaybackAction, enabled = true, count = 2)
   }
@@ -543,7 +543,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       */
     def verifySourcePlayback(src: RadioSource): RadioControllerTestHelper = {
       verifySwitchSource(src)
-      verify(player).startRadioPlayback()
+      verify(player).startPlayback()
       this
     }
 
@@ -553,7 +553,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @return this test helper
       */
     def verifyStopPlayback(): RadioControllerTestHelper = {
-      verify(player).stopRadioPlayback()
+      verify(player).stopPlayback()
       this
     }
 
