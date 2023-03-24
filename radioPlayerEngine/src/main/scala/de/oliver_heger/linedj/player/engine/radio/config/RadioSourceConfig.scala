@@ -83,4 +83,16 @@ trait RadioSourceConfig {
     * @return the ranking for this source
     */
   def ranking(source: RadioSource): Int
+
+  /**
+    * Returns the [[MetadataConfig.RadioSourceMetadataConfig]] for the given
+    * radio source. Based on this information, the radio player engine can
+    * disable radio sources temporarily based on the metadata in their radio
+    * streams. This base implementation returns an empty default configuration
+    * for all passed in radio sources.
+    *
+    * @param source the source in question
+    * @return the metadata configuration for this radio source
+    */
+  def metadataConfig(source: RadioSource): MetadataConfig.RadioSourceMetadataConfig = MetadataConfig.EmptySourceConfig
 }

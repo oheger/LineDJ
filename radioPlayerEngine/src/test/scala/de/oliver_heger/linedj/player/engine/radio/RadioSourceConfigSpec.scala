@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.player.engine.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
-import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -45,6 +46,10 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     RadioSourceConfig.Empty.ranking(source) should be(RadioSourceConfig.DefaultRanking)
   }
 
+  "The Empty MetadataConfig" should "not contain any exclusions" in {
+    MetadataConfig.Empty.exclusions shouldBe empty
+  }
+
   "A RadioSourceConfig" should "correctly return sources from named sources" in {
     val SourcesCount = 8
     val testSources = (1 to SourcesCount) map { idx => RadioSource(s"TestSource$idx") }
@@ -60,5 +65,24 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     val result = config.sources
 
     result should contain theSameElementsInOrderAs testSources
+  }
+
+  it should "return an empty metadata configuration for sources per default" in {
+    val SourcesCount = 16
+    val config = new RadioSourceConfig {
+      override def namedSources: Seq[(String, RadioSource)] = Seq.empty
+
+      override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
+
+      override def ranking(source: RadioSource): Int = 0
+    }
+
+    (1 to SourcesCount) foreach { idx =>
+      val source = radioSource(idx)
+      val metadataConfig = config.metadataConfig(source)
+      metadataConfig should be theSameInstanceAs MetadataConfig.EmptySourceConfig
+    }
+
+    MetadataConfig.EmptySourceConfig.exclusions shouldBe empty
   }
 }
