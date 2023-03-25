@@ -39,9 +39,9 @@ private object RadioStreamActor {
     * resolved. The m3u data was read, and the final audio stream URL was
     * discovered.
     *
-    * @param audioStreamRef the resolved audio stream reference
+    * @param audioStreamUri the resolved audio stream URI
     */
-  private case class AudioStreamResolved(audioStreamRef: StreamReference)
+  private case class AudioStreamResolved(audioStreamUri: String)
 
   /**
     * A message this actor sends to itself when the response for the GET
@@ -96,7 +96,7 @@ private object RadioStreamActor {
     * class.
     *
     * @param config          the player configuration
-    * @param streamRef       the reference to the audio stream for playback
+    * @param streamUri       the URI to the audio stream for playback
     * @param sourceListener  reference to an actor that is sent an audio source
     *                        message when the final audio stream is available
     * @param eventActor      the actor to publish radio events
@@ -107,22 +107,22 @@ private object RadioStreamActor {
     * @return creation properties for a new actor instance
     */
   def apply(config: PlayerConfig,
-            streamRef: StreamReference,
+            streamUri: String,
             sourceListener: ActorRef,
             eventActor: typed.ActorRef[RadioEvent],
             optM3uReader: Option[M3uReader] = None,
             optStreamLoader: Option[HttpStreamLoader] = None): Props =
-    Props(classOf[RadioStreamActor], config, streamRef, sourceListener, eventActor, optM3uReader, optStreamLoader)
+    Props(classOf[RadioStreamActor], config, streamUri, sourceListener, eventActor, optM3uReader, optStreamLoader)
 }
 
 /**
   * An actor class that reads audio data from an internet radio stream.
   *
   * This actor implements the functionality of a data source for
-  * [[PlaybackActor]]. An instance is initialized with a [[StreamReference]].
-  * If this reference points to a m3u file, an [[M3uReader]] object is used to
-  * process the file and extract the actual URI of the audio stream. Otherwise,
-  * the reference is considered to already represent the audio stream.
+  * [[PlaybackActor]]. An instance is initialized with a stream URI, which
+  * either references the radio audio stream directly or points to a m3u file.
+  * An [[M3uReader]] object is used to obtain the actual URI of the audio
+  * stream.
   *
   * With the audio stream at hand a stream is created using this actor as sink
   * (with backpressure). The stream has a buffer with a configurable size. This
@@ -145,7 +145,7 @@ private object RadioStreamActor {
   * audio stream. It cannot be reused and has to be closed afterwards.
   *
   * @param config          the player configuration
-  * @param streamRef       the reference to the audio stream for playback
+  * @param streamUri       the URI to the audio stream for playback
   * @param sourceListener  reference to an actor that is sent an audio source
   *                        message when the final audio stream is available
   * @param eventActor      the actor to publish radio events
@@ -153,7 +153,7 @@ private object RadioStreamActor {
   * @param optStreamLoader the optional object to load radio streams
   */
 private class RadioStreamActor(config: PlayerConfig,
-                               streamRef: StreamReference,
+                               streamUri: String,
                                sourceListener: ActorRef,
                                eventActor: typed.ActorRef[RadioEvent],
                                optM3uReader: Option[M3uReader],
@@ -187,21 +187,21 @@ private class RadioStreamActor(config: PlayerConfig,
     streamLoader = optStreamLoader getOrElse new HttpStreamLoader
 
     val m3uReader = optM3uReader getOrElse new M3uReader(streamLoader)
-    m3uReader.resolveAudioStream(config, streamRef.uri) onComplete { triedReference =>
+    m3uReader.resolveAudioStream(config, streamUri) onComplete { triedReference =>
       val resultMsg = triedReference match {
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))
-        case Success(value) => AudioStreamResolved(StreamReference(value))
+        case Success(value) => AudioStreamResolved(value)
       }
       self ! resultMsg
     }
   }
 
   override def receive: Receive = {
-    case AudioStreamResolved(ref) =>
-      log.info("Playing audio stream from {}.", ref.uri)
-      sourceListener ! AudioSource(ref.uri, Long.MaxValue, 0, 0)
-      streamLoader.sendRequest(createRadioStreamRequest(ref)) onComplete {
+    case AudioStreamResolved(uri) =>
+      log.info("Playing audio stream from {}.", uri)
+      sourceListener ! AudioSource(uri, Long.MaxValue, 0, 0)
+      streamLoader.sendRequest(createRadioStreamRequest(uri)) onComplete {
         case Success(source) => self ! AudioStreamResponse(source)
         case Failure(exception) => self ! StreamFailure(exception)
       }
@@ -237,13 +237,13 @@ private class RadioStreamActor(config: PlayerConfig,
 
   /**
     * Returns the request to query the radio stream represented by the passed
-    * in reference.
+    * in URI
     *
-    * @param ref the reference to the radio stream
+    * @param uri the URI to the radio stream
     * @return the HTTP request to load this stream
     */
-  private def createRadioStreamRequest(ref: StreamReference): HttpRequest =
-    HttpRequest(uri = ref.uri, headers = RadioStreamRequestHeaders)
+  private def createRadioStreamRequest(uri: String): HttpRequest =
+    HttpRequest(uri = uri, headers = RadioStreamRequestHeaders)
 
   /**
     * A receive function that becomes active when the actor receives a close
