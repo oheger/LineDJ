@@ -108,7 +108,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     helper.createTestActor(AudioStreamRef)
 
-    helper.verifyM3uResolveOperation(AudioStreamRef)
+    helper.verifyM3uResolveOperation(AudioStreamUri)
   }
 
   it should "stop itself if resolving of the audio stream fails" in {
@@ -122,7 +122,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
   it should "notify the source listener when the audio stream has been resolved" in {
     val helper = new StreamActorTestHelper
     helper.createTestActor(PlaylistStreamRef)
-    helper.setM3uResolveResult(Success(AudioStreamRef))
+    helper.setM3uResolveResult(Success(AudioStreamUri))
 
     helper.probeSourceListener.expectMsg(AudioSource(AudioStreamUri, Long.MaxValue, 0, 0))
   }
@@ -193,7 +193,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val actor = helper.createTestActor(PlaylistStreamRef)
 
     actor ! PlaybackActor.GetAudioData(ChunkSize)
-    helper.setM3uResolveResult(Success(AudioStreamRef))
+    helper.setM3uResolveResult(Success(AudioStreamUri))
     helper.initRadioStream()
 
     val msg = expectMsgType[BufferDataResult]
@@ -227,7 +227,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor(PlaylistStreamRef)
 
-    helper.setM3uResolveResult(Success(AudioStreamRef))
+    helper.setM3uResolveResult(Success(AudioStreamUri))
     helper.waitForStreamLoaderRequest()
     actor ! CloseRequest
     helper.initRadioStream()
@@ -247,7 +247,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor(PlaylistStreamRef)
 
-    helper.setM3uResolveResult(Success(AudioStreamRef))
+    helper.setM3uResolveResult(Success(AudioStreamUri))
     helper.initStreamLoaderResponse(Failure(new IllegalStateException("Test exception")))
 
     expectTermination(actor)
@@ -323,7 +323,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val probeSourceListener: TestProbe = TestProbe()
 
     /** The promise for the future returned by the M3uReader mock. */
-    private val m3uPromise = Promise[StreamReference]()
+    private val m3uPromise = Promise[String]()
 
     /** The promise for the future returned by the mock HTTP stream loader. */
     private val audioStreamPromise = Promise[HttpResponse]()
@@ -351,13 +351,13 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     /**
       * Checks whether the M3u reader was invoked to resolve the given stream
-      * reference.
+      * URI.
       *
-      * @param streamRef the expected reference
+      * @param uri the expected URI
       * @return this test helper
       */
-    def verifyM3uResolveOperation(streamRef: StreamReference): StreamActorTestHelper = {
-      verify(m3uReader, timeout(1000)).resolveAudioStream(argEq(Config), argEq(streamRef))(any(), any())
+    def verifyM3uResolveOperation(uri: String): StreamActorTestHelper = {
+      verify(m3uReader, timeout(1000)).resolveAudioStream(argEq(Config), argEq(uri))(any(), any())
       this
     }
 
@@ -367,7 +367,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @param result the result
       * @return this test helper
       */
-    def setM3uResolveResult(result: Try[StreamReference]): StreamActorTestHelper = {
+    def setM3uResolveResult(result: Try[String]): StreamActorTestHelper = {
       result match {
         case Failure(exception) => m3uPromise.failure(exception)
         case Success(value) => m3uPromise.success(value)
@@ -419,19 +419,20 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     /**
       * Creates a mock for an ''M3uReader'' and configures it to expect a
-      * resolve operation. If a the reference to be resolved points to a
-      * playlist, the mock returns a promise, and the result can be set later
-      * via ''setM3uResolveResult()''. Otherwise, the mock returns a successful
-      * future with the same reference.
+      * resolve operation. If the URI to be resolved points to a playlist, the
+      * mock returns a promise, and the result can be set later via
+      * ''setM3uResolveResult()''. Otherwise, the mock returns a successful
+      * future with the same URI.
       *
       * @return the mock M3u reader
       */
     private def createM3uReader(): M3uReader = {
       val reader = mock[M3uReader]
       when(reader.resolveAudioStream(any(), any())(any(), any()))
-        .thenAnswer((invocation: InvocationOnMock) => invocation.getArgument[StreamReference](1) match {
-          case StreamReference(uri) if uri.endsWith(".m3u") => m3uPromise.future
-          case ref: StreamReference => Future.successful(ref)
+        .thenAnswer((invocation: InvocationOnMock) => {
+          val uri = invocation.getArgument[String](1)
+          if (uri.endsWith(".m3u")) m3uPromise.future
+          else Future.successful(uri)
         })
       reader
     }

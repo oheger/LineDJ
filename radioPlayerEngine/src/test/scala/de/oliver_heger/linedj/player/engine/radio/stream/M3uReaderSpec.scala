@@ -41,12 +41,6 @@ object M3uReaderSpec {
   /** A test URI pointing to a playlist which needs to be resolved. */
   private val PlaylistUri = "https://www.example.org/music/playlist.m3u"
 
-  /** A reference to the resolved audio stream. */
-  private val AudioStreamRef = StreamReference(AudioStreamUri)
-
-  /** A reference pointing to a playlist that needs to be resolved. */
-  private val PlaylistStreamRef = StreamReference(PlaylistUri)
-
   /** The default newline character. */
   private val Newline = "\n"
 
@@ -130,9 +124,9 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
   private def checkResolveAudioStream(loader: HttpStreamLoader): Unit = {
     val reader = new M3uReader(loader)
 
-    val result = futureResult(reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+    val result = futureResult(reader.resolveAudioStream(createConfig(), PlaylistUri))
 
-    result should be(AudioStreamRef)
+    result should be(AudioStreamUri)
   }
 
   "A M3uReaderActor" should "extract the audio stream URI from a simple m3u file" in {
@@ -155,7 +149,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val loader = createStreamLoaderMock(Newline, "#only comments", "", "# and empty lines", "")
     val reader = new M3uReader(loader)
 
-    expectFailedFuture[NoSuchElementException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+    expectFailedFuture[NoSuchElementException](reader.resolveAudioStream(createConfig(), PlaylistUri))
   }
 
   it should "handle a failed result from the stream loader" in {
@@ -165,7 +159,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val reader = new M3uReader(loader)
 
     val actualException =
-      expectFailedFuture[IOException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+      expectFailedFuture[IOException](reader.resolveAudioStream(createConfig(), PlaylistUri))
     actualException should be(exception)
   }
 
@@ -173,9 +167,9 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val loader = mock[HttpStreamLoader]
     val reader = new M3uReader(loader)
 
-    val result = futureResult(reader.resolveAudioStream(createConfig(), AudioStreamRef))
+    val result = futureResult(reader.resolveAudioStream(createConfig(), AudioStreamUri))
 
-    result should be theSameInstanceAs AudioStreamRef
+    result should be theSameInstanceAs AudioStreamUri
     verifyNoInteractions(loader)
   }
 
@@ -185,7 +179,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val loader = createStreamLoaderMock(streamSource)
     val reader = new M3uReader(loader)
 
-    expectFailedFuture[IllegalStateException](reader.resolveAudioStream(createConfig(), PlaylistStreamRef))
+    expectFailedFuture[IllegalStateException](reader.resolveAudioStream(createConfig(), PlaylistUri))
     stream.expectReadsUntil(M3uReader.MaxM3uStreamSize)
     stream.bytesCount.get() should be < 2L * M3uReader.MaxM3uStreamSize
   }

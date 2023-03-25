@@ -67,24 +67,22 @@ object M3uReader {
     * point to audio data, but to a playlist which references the actual
     * audio stream.
     *
-    * @param ref the reference in question
-    * @return '''true''' if this reference needs to be resolved
+    * @param uri the stream URI in question
+    * @return '''true''' if this URI needs to be resolved
     */
-  private def needToResolveAudioStream(ref: StreamReference): Boolean = ref.uri endsWith ExtM3u
+  private def needToResolveAudioStream(uri: String): Boolean = uri endsWith ExtM3u
 
   /**
-    * Return an HTTP request to load the stream referred to by the given
-    * reference.
+    * Returns an HTTP request to load the stream referred to by the given URI.
     *
-    * @param ref the reference to the stream
+    * @param uri the URI to the stream
     * @return the HTTP request to load this stream
     */
-  private def streamRequest(ref: StreamReference): HttpRequest = HttpRequest(uri = ref.uri)
+  private def streamRequest(uri: String): HttpRequest = HttpRequest(uri = uri)
 }
 
 /**
-  * A helper class that reads the content of a radio stream URL that ends on
-  * ''.m3u''.
+  * A helper class to resolve the final URL of a radio stream.
   *
   * Some radio streams have an ''.m3u'' extension; they do not contain MP3 data
   * directly, but a reference to the actual audio stream. This class is
@@ -97,28 +95,28 @@ object M3uReader {
   */
 private class M3uReader(loader: HttpStreamLoader) {
   /**
-    * Tries to resolve the given reference and return one that points to the
-    * actual audio stream. This function tests whether the passed in reference
+    * Tries to resolve the given stream URI and returns one that points to the
+    * actual audio stream. This function tests whether the passed in URI
     * refers to a file with the ''m3u'' extension. If this is the case, the
     * content of the URL is read and the actual stream URL is extracted.
-    * Otherwise, the reference is returned directly.
+    * Otherwise, the URI is returned directly.
     *
-    * @param config    the ''PlayerConfig''
-    * @param reference the reference to resolve
-    * @param ec        the execution context
-    * @param mat       the object to materialize streams
+    * @param config the ''PlayerConfig''
+    * @param uri    the reference to resolve
+    * @param ec     the execution context
+    * @param mat    the object to materialize streams
     * @return a ''Future'' with a reference to the audio stream
     */
-  def resolveAudioStream(config: PlayerConfig, reference: StreamReference)
-                        (implicit ec: ExecutionContext, mat: Materializer): Future[StreamReference] =
-    if (needToResolveAudioStream(reference)) {
+  def resolveAudioStream(config: PlayerConfig, uri: String)
+                        (implicit ec: ExecutionContext, mat: Materializer): Future[String] =
+    if (needToResolveAudioStream(uri)) {
       for {
-        response <- loader.sendRequest(streamRequest(reference))
+        response <- loader.sendRequest(streamRequest(uri))
         source = createM3uSource(response)
         streamUri <- source.runWith(extractUriSink())
-      } yield StreamReference(streamUri)
+      } yield streamUri
     } else {
-      Future.successful(reference)
+      Future.successful(uri)
     }
 
   /**
