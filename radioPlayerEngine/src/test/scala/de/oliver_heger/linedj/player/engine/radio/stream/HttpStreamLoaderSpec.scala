@@ -17,11 +17,9 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.StandardRoute
 import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -31,66 +29,19 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.io.IOException
-import java.net.ServerSocket
 import scala.concurrent.Future
-import scala.util.Using
-
-object HttpStreamLoaderSpec {
-  /** Constant for the host of the test server. */
-  private val Host = "localhost"
-
-  /**
-    * Determines a free port number that can be used by the test server.
-    *
-    * @return the free port number
-    */
-  private def findFreePort(): Int =
-    Using(new ServerSocket(0)) {
-      _.getLocalPort
-    }.get
-}
 
 /**
   * Test class for [[HttpStreamLoader]].
   */
 class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with AsyncTestHelper with RadioStreamTestHelper.StubServerSupport {
   def this() = this(ActorSystem("HttpStreamLoaderSpec"))
-
-  import HttpStreamLoaderSpec._
 
   override protected def afterAll(): Unit = {
     TestKit shutdownActorSystem system
     super.afterAll()
   }
-
-  /**
-    * Runs a test that needs a mock server. A server is started at a random
-    * port and configured with the given routing function. Then this function
-    * executes the test block, passing in the root URL to the server.
-    *
-    * @param route the routing function
-    * @param block the test block to execute
-    */
-  private def runWithServer(route: HttpRequest => Future[HttpResponse])(block: String => Unit): Unit = {
-    val port = findFreePort()
-    val binding = futureResult(Http().newServerAt(Host, port).bind(route))
-
-    try {
-      block(s"http://$Host:$port")
-    } finally {
-      futureResult(binding.unbind())
-    }
-  }
-
-  /**
-    * Completes the current request with a response containing the test data
-    * text.
-    *
-    * @return the route to complete the request with test data
-    */
-  private def completeTestData(): StandardRoute =
-    complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, FileTestHelper.TestData))
 
   /**
     * Extracts the body of the given response and also checks whether the
@@ -109,7 +60,7 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
 
   "HttpStreamLoader" should "send a request" in {
     val route = get {
-      completeTestData()
+      RadioStreamTestHelper.completeTestData()
     }
 
     val loader = new HttpStreamLoader

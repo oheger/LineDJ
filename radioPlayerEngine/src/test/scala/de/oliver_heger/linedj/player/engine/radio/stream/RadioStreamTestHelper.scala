@@ -16,17 +16,24 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
+import akka.actor.ClassicActorSystemProvider
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
+import akka.http.scaladsl.server.Directives.complete
+import akka.http.scaladsl.server.StandardRoute
 import akka.stream.IOResult
 import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 
 import java.io.{IOException, InputStream}
+import java.net.ServerSocket
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.util.Using
 
 /**
   * A test helper module providing several stream classes that are useful for
@@ -35,6 +42,9 @@ import scala.concurrent.Future
 object RadioStreamTestHelper {
   /** Constant for the read chunk size. */
   final val ChunkSize = 4096
+
+  /** Constant for the host of the test server. */
+  private val Host = "localhost"
 
   /**
     * A case class that represents a read operation on the wrapped input stream.
@@ -181,6 +191,37 @@ object RadioStreamTestHelper {
   }
 
   /**
+    * A trait that can be mixed in by a test class to have support for a simple
+    * stub server. The server is available during test execution time. It can
+    * be configured with a routing function to handle specific requests.
+    */
+  trait StubServerSupport {
+    this: AsyncTestHelper =>
+
+    /**
+      * Runs a test that needs a mock server. A server is started at a random
+      * port and configured with the given routing function. Then this function
+      * executes the test block, passing in the root URL to the server.
+      *
+      * @param route    the routing function
+      * @param block    the test block to execute
+      * @param provider the provider for the actor system
+      */
+    def runWithServer(route: HttpRequest => Future[HttpResponse])
+                     (block: String => Unit)
+                     (implicit provider: ClassicActorSystemProvider): Unit = {
+      val port = findFreePort()
+      val binding = futureResult(Http().newServerAt(Host, port).bind(route))
+
+      try {
+        block(s"http://$Host:$port")
+      } finally {
+        futureResult(binding.unbind())
+      }
+    }
+  }
+
+  /**
     * Generates a sequence of reference test data in the given range.
     *
     * @param size       the size of the sequence
@@ -244,4 +285,23 @@ object RadioStreamTestHelper {
     */
   def metadataBlock(content: ByteString): ByteString =
     metadataBlock((content.size / 16).toByte, content)
+
+  /**
+    * Completes the current request with a response containing the test data
+    * text.
+    *
+    * @return the route to complete the request with test data
+    */
+  def completeTestData(): StandardRoute =
+    complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`, FileTestHelper.TestData))
+
+  /**
+    * Determines a free port number that can be used by the test server.
+    *
+    * @return the free port number
+    */
+  private def findFreePort(): Int =
+    Using(new ServerSocket(0)) {
+      _.getLocalPort
+    }.get
 }
