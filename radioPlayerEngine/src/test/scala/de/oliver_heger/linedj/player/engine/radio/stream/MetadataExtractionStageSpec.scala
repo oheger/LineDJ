@@ -19,39 +19,15 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ClosedShape
-import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
+import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{AudioChunkSize, aggregateSink}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
-
-object MetadataExtractionStageSpec {
-  /** The chunk size of audio blocks. */
-  private val AudioChunkSize = 256
-
-  /**
-    * Generates a metadata string based on the given index. The resulting
-    * string has a length that is a multitude of 16.
-    *
-    * @param index the index
-    * @return the metadata string with this index
-    */
-  private def generateMetadata(index: Int): String = {
-    val content = "Metadata block " + index
-    content + " " * ((16 - content.length % 16) % 16)
-  }
-
-  /**
-    * Returns a sink that aggregates all input into a single ''ByteString''.
-    *
-    * @return the aggregating sink
-    */
-  private def aggregateSink(): Sink[ByteString, Future[ByteString]] = Sink.fold(ByteString.empty)(_ ++ _)
-}
 
 /**
   * Test class for [[MetadataExtractionStage]].
@@ -64,8 +40,6 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     TestKit shutdownActorSystem system
     super.afterAll()
   }
-
-  import MetadataExtractionStageSpec._
 
   /**
     * Runs a stream with the given source and an extraction stage. Returns the
@@ -102,18 +76,12 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     */
   private def checkStreamWithMetadata(streamChunkSize: Int): Unit = {
     val ChunkCount = 16
-    val audioData = (0 until ChunkCount).map(RadioStreamTestHelper.dataBlock(AudioChunkSize, _))
-    val metadata = (1 to ChunkCount).map { idx =>
-      RadioStreamTestHelper.metadataBlock(ByteString(generateMetadata(idx)))
-    }
-    val dataChunks = audioData.zip(metadata)
-      .foldLeft(ByteString.empty) { (d, t) => d ++ t._1 ++ t._2 }
-      .grouped(streamChunkSize)
     val expectedAudioData = ByteString(RadioStreamTestHelper.refData(ChunkCount * AudioChunkSize))
-    val expectedMetadata = (1 to ChunkCount).map(generateMetadata)
+    val expectedMetadata = (1 to ChunkCount).map(RadioStreamTestHelper.generateMetadata)
       .foldLeft(ByteString.empty) { (aggregate, chunk) => aggregate ++ ByteString(chunk) }
 
-    val (extractedAudioData, extractedMetadata) = runStream(Some(AudioChunkSize), Source(dataChunks.toList))
+    val (extractedAudioData, extractedMetadata) =
+      runStream(Some(AudioChunkSize), RadioStreamTestHelper.generateRadioStreamSource(ChunkCount, streamChunkSize))
 
     extractedAudioData should be(expectedAudioData)
     extractedMetadata should be(expectedMetadata)

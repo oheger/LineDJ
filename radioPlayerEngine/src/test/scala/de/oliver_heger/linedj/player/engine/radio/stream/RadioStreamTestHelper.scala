@@ -16,13 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
+import akka.NotUsed
 import akka.actor.ClassicActorSystemProvider
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.Directives.complete
 import akka.http.scaladsl.server.StandardRoute
 import akka.stream.IOResult
-import akka.stream.scaladsl.{Source, StreamConverters}
+import akka.stream.scaladsl.{Sink, Source, StreamConverters}
 import akka.util.ByteString
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 
@@ -43,8 +44,14 @@ object RadioStreamTestHelper {
   /** Constant for the read chunk size. */
   final val ChunkSize = 4096
 
+  /** The chunk size of audio blocks. */
+  final val AudioChunkSize = 256
+
   /** Constant for the host of the test server. */
   private val Host = "localhost"
+
+  /** A string used to generate blocks of metadata. */
+  private val MetaDataBlockContent = "Metadata block "
 
   /**
     * A case class that represents a read operation on the wrapped input stream.
@@ -285,6 +292,56 @@ object RadioStreamTestHelper {
     */
   def metadataBlock(content: ByteString): ByteString =
     metadataBlock((content.size / 16).toByte, content)
+
+  /**
+    * Generates a metadata string based on the given index. The resulting
+    * string has a length that is a multitude of 16.
+    *
+    * @param index the index
+    * @return the metadata string with this index
+    */
+  def generateMetadata(index: Int): String = {
+    val content = MetaDataBlockContent + index
+    content + " " * ((16 - content.length % 16) % 16)
+  }
+
+  /**
+    * Generates a number of chunks for audio data with inlined metadata. This
+    * simulates the content of a radio stream.
+    *
+    * @param chunkCount      the number of chunks to generate
+    * @param streamChunkSize the size of the ''ByteString''s in the stream
+    * @return a list with the generated chunks
+    */
+  def generateAudioDataWithMetadata(chunkCount: Int, streamChunkSize: Int): List[ByteString] = {
+    val audioData = (0 until chunkCount).map(RadioStreamTestHelper.dataBlock(AudioChunkSize, _))
+    val metadata = (1 to chunkCount).map { idx =>
+      RadioStreamTestHelper.metadataBlock(ByteString(generateMetadata(idx)))
+    }
+
+    audioData.zip(metadata)
+      .foldLeft(ByteString.empty) { (d, t) => d ++ t._1 ++ t._2 }
+      .grouped(streamChunkSize)
+      .toList
+  }
+
+  /**
+    * Generates the ''Source'' of a radio stream consisting of a configurable
+    * number of audio data chunks with inlined metadata chunks.
+    *
+    * @param chunkCount      the number of chunks to generate
+    * @param streamChunkSize the size of the ''ByteString''s in the stream
+    * @return the ''Source'' of this simulated radio stream
+    */
+  def generateRadioStreamSource(chunkCount: Int, streamChunkSize: Int = 100): Source[ByteString, NotUsed] =
+    Source(generateAudioDataWithMetadata(chunkCount, streamChunkSize))
+
+  /**
+    * Returns a sink that aggregates all input into a single ''ByteString''.
+    *
+    * @return the aggregating sink
+    */
+  def aggregateSink(): Sink[ByteString, Future[ByteString]] = Sink.fold(ByteString.empty)(_ ++ _)
 
   /**
     * Completes the current request with a response containing the test data
