@@ -361,7 +361,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return this test helper
       */
     def verifyM3uResolveOperation(uri: String): StreamActorTestHelper = {
-      verify(m3uReader, timeout(1000)).resolveAudioStream(argEq(Config), argEq(uri))(any(), any())
+      verify(m3uReader, timeout(1000)).resolveAudioStream(argEq(uri))(any(), any())
       this
     }
 
@@ -432,9 +432,9 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     private def createM3uReader(): M3uReader = {
       val reader = mock[M3uReader]
-      when(reader.resolveAudioStream(any(), any())(any(), any()))
+      when(reader.resolveAudioStream(any())(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
-          val uri = invocation.getArgument[String](1)
+          val uri = invocation.getArgument[String](0)
           if (uri.endsWith(".m3u")) m3uPromise.future
           else Future.successful(uri)
         })

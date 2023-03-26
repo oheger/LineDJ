@@ -187,7 +187,7 @@ private class RadioStreamActor(config: PlayerConfig,
     streamLoader = optStreamLoader getOrElse new HttpStreamLoader
 
     val m3uReader = optM3uReader getOrElse new M3uReader(streamLoader)
-    m3uReader.resolveAudioStream(config, streamUri) onComplete { triedReference =>
+    m3uReader.resolveAudioStream(streamUri) onComplete { triedReference =>
       val resultMsg = triedReference match {
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))

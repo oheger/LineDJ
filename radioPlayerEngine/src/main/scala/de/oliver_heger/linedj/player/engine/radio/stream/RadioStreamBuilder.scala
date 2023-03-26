@@ -217,7 +217,7 @@ class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
                                  (implicit ec: ExecutionContext, mat: Materializer):
   Future[BuilderResult[AUD, META]] =
     for {
-      resolvedStream <- resolveRadioStream(config, streamUri)
+      resolvedStream <- resolveRadioStream(streamUri)
       (graph, kill) <- createGraph(config, sinkAudio, sinkMeta, resolvedStream)
     } yield BuilderResult(resolvedStream.resolvedUri, graph, kill, resolvedStream.optChunkSize.isDefined)
 
@@ -225,17 +225,15 @@ class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
     * Resolves the radio stream defined by the given URI and returns a data
     * object with the required information.
     *
-    * @param config    the player configuration
     * @param streamUri the URI of the audio stream
     * @param ec        the execution context
     * @param mat       the object to materialize streams
     * @return a ''Future'' with information about the resolved stream
     */
-  private def resolveRadioStream(config: PlayerConfig,
-                                 streamUri: String)
+  private def resolveRadioStream(streamUri: String)
                                 (implicit ec: ExecutionContext, mat: Materializer): Future[ResolvedRadioStream] =
     for {
-      resolvedRef <- m3uReader.resolveAudioStream(config, streamUri)
+      resolvedRef <- m3uReader.resolveAudioStream(streamUri)
       response <- streamLoader.sendRequest(createRadioStreamRequest(resolvedRef))
     } yield ResolvedRadioStream(resolvedRef, response.entity.dataBytes, extractChunkSizeHeader(response))
 

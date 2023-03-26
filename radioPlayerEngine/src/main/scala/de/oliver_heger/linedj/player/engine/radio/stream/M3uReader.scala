@@ -22,7 +22,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
-import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.stream.M3uReader.{MaxM3uStreamSize, extractUriSink, needToResolveAudioStream, streamRequest}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -101,13 +100,12 @@ private class M3uReader(loader: HttpStreamLoader) {
     * content of the URL is read and the actual stream URL is extracted.
     * Otherwise, the URI is returned directly.
     *
-    * @param config the ''PlayerConfig''
     * @param uri    the reference to resolve
     * @param ec     the execution context
     * @param mat    the object to materialize streams
     * @return a ''Future'' with a reference to the audio stream
     */
-  def resolveAudioStream(config: PlayerConfig, uri: String)
+  def resolveAudioStream(uri: String)
                         (implicit ec: ExecutionContext, mat: Materializer): Future[String] =
     if (needToResolveAudioStream(uri)) {
       for {
