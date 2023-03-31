@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
 import scala.concurrent.duration._
@@ -61,7 +61,8 @@ object RadioPlayer {
         RadioEventConverterActor.GetPlayerListener(ref)
       }
     } yield {
-      val sourceCreator = radioPlayerSourceCreator(eventActors._2)
+      val streamBuilder = RadioStreamBuilder()
+      val sourceCreator = radioPlayerSourceCreator(eventActors._2, streamBuilder)
       val lineWriterActor = PlayerControl.createLineWriterActor(config.playerConfig, "radioLineWriterActor")
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator,
         "radioSchedulerInvocationActor")
@@ -71,7 +72,7 @@ object RadioPlayer {
         creator.createActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
       val controlBehavior = controlActorFactory(config, eventActors._2, eventActors._1, facadeActor,
-        scheduledInvocationActor, factoryActor)
+        scheduledInvocationActor, factoryActor, streamBuilder)
       val controlActor = creator.createActor(controlBehavior, "radioControlActor",
         Some(RadioControlActor.Stop))
 
@@ -84,12 +85,15 @@ object RadioPlayer {
     * the ''RadioDataSourceActor'' depends on the event actor, this reference
     * has to be passed in.
     *
-    * @param eventActor the event actor
+    * @param eventActor    the event actor
+    * @param streamBuilder the object for building radio streams
+    * @param actorSystem   the actor system
     * @return the function to create the source actor for the radio player
     */
-  private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent]): SourceActorCreator =
+  private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent], streamBuilder: RadioStreamBuilder)
+                                      (implicit actorSystem: ActorSystem): SourceActorCreator =
     (factory, config) => {
-      val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor))
+      val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor, streamBuilder))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)
     }
 }

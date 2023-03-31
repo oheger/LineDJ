@@ -493,18 +493,19 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   it should "create correct Props" in {
     val eventMan = testKit.createTestProbe[RadioEvent]()
-    val props = RadioDataSourceActor(Config, eventMan.ref)
+    val streamBuilder = RadioStreamBuilder()
+    val props = RadioDataSourceActor(Config, eventMan.ref, streamBuilder)
 
     classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
     classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-    props.args should be(List(Config, eventMan.ref))
+    props.args should be(List(Config, eventMan.ref, streamBuilder))
   }
 
   it should "use a correct supervision strategy" in {
     val path = createDataFile()
     val queue = new LinkedBlockingQueue[ActorRef]
     val eventMan = testKit.createTestProbe[RadioEvent]()
-    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, eventMan.ref)
+    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, eventMan.ref, RadioStreamBuilder())
       with ChildActorFactory {
       override def createChildActor(p: Props): ActorRef = {
         val child = super.createChildActor(p)
@@ -553,6 +554,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     /** Test probe for the event manager actor. */
     private val eventManager = testKit.createTestProbe[RadioEvent]()
 
+    /** The object for creating radio streams. */
+    private val streamBuilder = RadioStreamBuilder()
+
     /**
       * Creates a test actor instance.
       *
@@ -593,7 +597,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def expectAndCheckChildCreation(expUri: String, expTestActor: ActorRef): ChildActorCreation = {
       val creation = expectChildCreation()
-      creation.checkProps(expUri, expTestActor, eventManager.ref)
+      creation.checkProps(expUri, expTestActor, eventManager.ref, streamBuilder)
       creation
     }
 
@@ -631,7 +635,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return the ''Props'' for the test actor
       */
     private def createProps(): Props =
-      Props(new RadioDataSourceActor(Config, eventManager.ref) with ChildActorFactory {
+      Props(new RadioDataSourceActor(Config, eventManager.ref, streamBuilder) with ChildActorFactory {
         /**
           * @inheritdoc This implementation returns a test probe. The probe and
           *             the passed ''Props'' are stored in the child creation
@@ -658,19 +662,21 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * Checks the properties against the specified stream URI and
       * dependencies.
       *
-      * @param streamUri  the expected URI of the stream reference
-      * @param testActor  the test actor
-      * @param eventActor the event actor
+      * @param streamUri     the expected URI of the stream reference
+      * @param testActor     the test actor
+      * @param eventActor    the event actor
+      * @param streamBuilder the stream builder
       */
-    def checkProps(streamUri: String, testActor: ActorRef, eventActor: typed.ActorRef[RadioEvent]): Unit = {
+    def checkProps(streamUri: String, testActor: ActorRef,
+                   eventActor: typed.ActorRef[RadioEvent],
+                   streamBuilder: RadioStreamBuilder): Unit = {
       classOf[RadioStreamActor].isAssignableFrom(props.actorClass()) shouldBe true
-      props.args should have size 6
+      props.args should have size 5
       props.args.head should be(Config)
       props.args(1) should be(streamUri)
       props.args(2) should be(testActor)
       props.args(3) should be(eventActor)
-      props.args(4) should be(None)
-      props.args(5) should be(None)
+      props.args(4) should be(streamBuilder)
     }
 
     /**

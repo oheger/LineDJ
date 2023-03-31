@@ -29,11 +29,12 @@ import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWrite
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSource, AudioSourceFinishedEvent, AudioSourceStartedEvent, PlaybackContextCreationFailedEvent, PlaybackErrorEvent, PlaybackProgressEvent, PlayerConfig, PlayerEvent}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -64,7 +65,7 @@ object ErrorStateActorSpec {
   * Test class for the [[ErrorStateActor]] module.
   */
 class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(classic.ActorSystem("ErrorStateActorSpec"))
 
   /** The test kit for testing typed actors. */
@@ -506,6 +507,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     private val probeFactoryActor: TypedTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand] =
       testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
+    /** Mock for the radio stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
+
     /** Stores the line writer actor created via the factory. */
     var lineWriterActor: ActorRef[LineWriterActor.LineWriterCommand] = _
 
@@ -519,7 +523,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     def callPlaybackFactory(factory: ErrorStateActor.PlaybackActorsFactory):
     ErrorStateActor.PlaybackActorsFactoryResult =
       factory.createPlaybackActors(ActorNamePrefix, probePlayerEventActor.ref, probeRadioEventActor.ref,
-        probeFactoryActor.ref, TestPlayerConfig, this)
+        probeFactoryActor.ref, TestPlayerConfig, this, streamBuilder)
 
     override def createActor[T](behavior: Behavior[T],
                                 name: String,
@@ -534,7 +538,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     override def createActor(props: classic.Props, name: String): classic.ActorRef = {
       name match {
         case s"${ActorNamePrefix}SourceActor" =>
-          val expProps = RadioDataSourceActor(TestPlayerConfig, probeRadioEventActor.ref)
+          val expProps = RadioDataSourceActor(TestPlayerConfig, probeRadioEventActor.ref, streamBuilder)
           props should be(expProps)
           probeSourceActor.ref
 
@@ -568,6 +572,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       */
     private val probeReceiverActor = testKit.createTestProbe[ErrorStateActor.RadioSourceCheckSuccessful]()
 
+    /** Mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
+
     /** Stores the actor for receiving player events. */
     private val refPlayerEventActor = new AtomicReference[ActorRef[PlayerEvent]]
 
@@ -582,7 +589,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       */
     def createCheckPlaybackActor(): ActorRef[ErrorStateActor.CheckPlaybackCommand] = {
       val behavior = ErrorStateActor.checkPlaybackBehavior(probeReceiverActor.ref, TestRadioSource, ActorNamePrefix,
-        probeFactoryActor.ref, TestPlayerConfig, this)
+        probeFactoryActor.ref, TestPlayerConfig, streamBuilder, this)
       testKit.spawn(behavior)
     }
 
@@ -657,11 +664,14 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
                                       radioEventActor: ActorRef[RadioEvent],
                                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                                       config: PlayerConfig,
-                                      creator: ActorCreator): ErrorStateActor.PlaybackActorsFactoryResult = {
+                                      creator: ActorCreator,
+                                      builder: RadioStreamBuilder):
+    ErrorStateActor.PlaybackActorsFactoryResult = {
       namePrefix should be(ActorNamePrefix)
       config should be(TestPlayerConfig)
       refPlayerEventActor.set(playerEventActor)
       refRadioEventActor.set(radioEventActor)
+      builder should be(streamBuilder)
       testActorCreatorTyped(creator)
       testActorCreatorClassic(creator)
 
@@ -816,6 +826,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     /** Test probe for the scheduled invocation actor. */
     private val probeScheduledInvocation =
       testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
 
     /**
       * Stores a test probe for the check playback actor. The dummy factory for
@@ -1004,6 +1017,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
         namePrefix,
         probePlaybackContextActor.ref,
         probeScheduler.ref,
+        streamBuilder,
         createCheckPlaybackActorFactory(),
         optSpawner = if (provideSpawner) Some(this) else None)
       val actor = testKit.spawn(behavior)
@@ -1024,10 +1038,12 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
        namePrefix: String,
        factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
        config: PlayerConfig,
+       builder: RadioStreamBuilder,
        _: ErrorStateActor.PlaybackActorsFactory) => {
         receiver should be(checkActor)
         radioSource should be(TestRadioSource)
         factoryActor should be(probePlaybackContextActor.ref)
+        builder should be(streamBuilder)
         config should be(TestPlayerConfig)
         refNamePrefix set namePrefix
 
@@ -1069,6 +1085,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     /** Test probe for the check scheduler actor. */
     private val probeSchedulerActor = testKit.createTestProbe[ErrorStateActor.ScheduleCheckCommand]()
+
+    /** Mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
 
     /** The behavior for the check scheduler actor. */
     private val schedulerBehavior = Behaviors.monitor[ErrorStateActor.ScheduleCheckCommand](probeSchedulerActor.ref,
@@ -1191,6 +1210,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
         probeFactoryActor.ref,
         probeScheduledInvActor.ref,
         probeEventActor.ref,
+        streamBuilder,
         createSchedulerFactory(),
         createCheckSourceFactory(),
         if (provideSpawner) Some(this) else None)
@@ -1226,10 +1246,12 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
        namePrefix: String,
        factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
        scheduler: ActorRef[ErrorStateActor.ScheduleCheckCommand],
+       builder: RadioStreamBuilder,
        _: ErrorStateActor.CheckPlaybackActorFactory,
        _: Option[Spawner]) => {
         config should be(TestRadioConfig)
         factoryActor should be(probeFactoryActor.ref)
+        builder should be(streamBuilder)
         if (provideSpawner) {
           scheduler should be(probeSchedulerActor.ref)
         }

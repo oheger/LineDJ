@@ -23,7 +23,7 @@ import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.CloseSupportTyped
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LineWriterActor, PlaybackActor, PlaybackContextFactoryActor, ScheduledInvocationActor}
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioSource, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
@@ -111,6 +111,7 @@ object ErrorStateActor {
       *                                 factories
       * @param scheduledInvocationActor the actor for scheduled invocations
       * @param eventActor               the event manager actor
+      * @param streamBuilder            the object for creating radio streams
       * @param schedulerFactory         the factory to create a scheduler actor
       * @param checkSourceActorFactory  the factory to create a source check
       *                                 actor
@@ -122,6 +123,7 @@ object ErrorStateActor {
               factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
               scheduledInvocationActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+              streamBuilder: RadioStreamBuilder,
               schedulerFactory: CheckSchedulerActorFactory = checkSchedulerBehavior,
               checkSourceActorFactory: CheckSourceActorFactory = checkSourceBehavior,
               optSpawner: Option[Spawner] = None): Behavior[ErrorStateCommand]
@@ -137,6 +139,7 @@ object ErrorStateActor {
                                            scheduledInvocationActor: ActorRef[
                                              ScheduledInvocationActor.ScheduledInvocationCommand],
                                            eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                                           streamBuilder: RadioStreamBuilder,
                                            schedulerFactory: CheckSchedulerActorFactory,
                                            checkSourceActorFactory: CheckSourceActorFactory,
                                            optSpawner: Option[Spawner]) => {
@@ -145,6 +148,7 @@ object ErrorStateActor {
       factoryActor,
       scheduledInvocationActor,
       eventActor,
+      streamBuilder,
       schedulerFactory,
       checkSourceActorFactory,
       optSpawner)
@@ -179,6 +183,8 @@ object ErrorStateActor {
       * @param radioEventActor  the event actor for radio events
       * @param factoryActor     the playback context factory actor
       * @param config           the configuration for the audio player
+      * @param creator          the object for creating actors
+      * @param streamBuilder    the object for creating radio streams
       * @return the object with the actor references
       */
     def createPlaybackActors(namePrefix: String,
@@ -186,7 +192,8 @@ object ErrorStateActor {
                              radioEventActor: ActorRef[RadioEvent],
                              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                              config: PlayerConfig,
-                             creator: ActorCreator): PlaybackActorsFactoryResult
+                             creator: ActorCreator,
+                             streamBuilder: RadioStreamBuilder): PlaybackActorsFactoryResult
   }
 
   /**
@@ -200,9 +207,10 @@ object ErrorStateActor {
                                       radioEventActor: ActorRef[RadioEvent],
                                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                                       config: PlayerConfig,
-                                      creator: ActorCreator): PlaybackActorsFactoryResult = {
+                                      creator: ActorCreator,
+                                      streamBuilder: RadioStreamBuilder): PlaybackActorsFactoryResult = {
       val lineWriter = creator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
-      val sourceActor = creator.createActor(RadioDataSourceActor(config, radioEventActor),
+      val sourceActor = creator.createActor(RadioDataSourceActor(config, radioEventActor, streamBuilder),
         namePrefix + "SourceActor")
       val playActor = creator.createActor(PlaybackActor(config, sourceActor, lineWriter,
         playerEventActor, factoryActor), namePrefix + "PlaybackActor")
@@ -273,6 +281,7 @@ object ErrorStateActor {
       * @param factoryActor         the actor managing playback context
       *                             factories
       * @param scheduler            the scheduler actor
+      * @param streamBuilder        the object for creating radio streams
       * @param checkPlaybackFactory the factory to create a check playback
       *                             actor
       * @param optSpawner           an optional [[Spawner]]
@@ -283,6 +292,7 @@ object ErrorStateActor {
               namePrefix: String,
               factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
               scheduler: ActorRef[ScheduleCheckCommand],
+              streamBuilder: RadioStreamBuilder,
               checkPlaybackFactory: CheckPlaybackActorFactory = checkPlaybackBehavior,
               optSpawner: Option[Spawner] = None): Behavior[CheckRadioSourceCommand]
   }
@@ -297,6 +307,7 @@ object ErrorStateActor {
                        namePrefix: String,
                        factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                        scheduler: ActorRef[ScheduleCheckCommand],
+                       streamBuilder: RadioStreamBuilder,
                        checkPlaybackFactory: CheckPlaybackActorFactory,
                        optSpawner: Option[Spawner]): Behavior[CheckRadioSourceCommand] = {
       val ctx = RadioSourceCheckContext(config = config,
@@ -304,6 +315,7 @@ object ErrorStateActor {
         namePrefix = namePrefix,
         factoryActor = factoryActor,
         scheduler = scheduler,
+        streamBuilder = streamBuilder,
         checkPlaybackFactory = checkPlaybackFactory,
         optSpawner = optSpawner,
         retryDelay = config.retryFailedSource)
@@ -361,6 +373,7 @@ object ErrorStateActor {
       * @param namePrefix            the prefix to generate actor names
       * @param factoryActor          the playback context factory actor
       * @param config                the configuration for the audio player
+      * @param streamBuilder         the object to create radio streams
       * @param playbackActorsFactory factory for creating playback actors
       * @return the ''Behavior'' for the check playback actor
       */
@@ -369,6 +382,7 @@ object ErrorStateActor {
               namePrefix: String,
               factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
               config: PlayerConfig,
+              streamBuilder: RadioStreamBuilder,
               playbackActorsFactory: PlaybackActorsFactory = ErrorStateActor.playbackActorsFactory):
     Behavior[CheckPlaybackCommand]
   }
@@ -383,6 +397,7 @@ object ErrorStateActor {
      namePrefix: String,
      factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
      config: PlayerConfig,
+     streamBuilder: RadioStreamBuilder,
      playbackActorsFactory: PlaybackActorsFactory) => Behaviors.setup { context =>
       context.log.info("Checking error state of radio source {}.", radioSource)
       val playerEventAdapter = context.messageAdapter[PlayerEvent] { event => PlaybackEventReceived(event) }
@@ -393,7 +408,8 @@ object ErrorStateActor {
         radioEventAdapter,
         factoryActor,
         config,
-        childActorCreator(context))
+        childActorCreator(context),
+        streamBuilder)
       playbackActors.sourceActor ! radioSource
       playbackActors.playActor ! PlaybackActor.StartPlayback
       context.watchWith(playbackActors.sourceActor, PlaybackActorDied)
@@ -656,6 +672,7 @@ object ErrorStateActor {
     * @param factoryActor         the actor managing playback context
     *                             factories
     * @param scheduler            the scheduler actor
+    * @param streamBuilder        the object to create radio streams
     * @param checkPlaybackFactory the factory to create a check playback
     *                             actor
     * @param optSpawner           an optional [[Spawner]]
@@ -668,6 +685,7 @@ object ErrorStateActor {
                                              namePrefix: String,
                                              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                                              scheduler: ActorRef[ScheduleCheckCommand],
+                                             streamBuilder: RadioStreamBuilder,
                                              checkPlaybackFactory: CheckPlaybackActorFactory,
                                              optSpawner: Option[Spawner],
                                              retryDelay: FiniteDuration,
@@ -685,7 +703,7 @@ object ErrorStateActor {
       val spawner = getSpawner(optSpawner, actorContext)
       val playbackNamePrefix = s"${namePrefix}_${count}_"
       val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, factoryActor,
-        config.playerConfig)
+        config.playerConfig, streamBuilder)
       val checkPlaybackActor = spawner.spawn(checkPlaybackBehavior, Some(playbackNamePrefix + "check"))
       actorContext.watchWith(checkPlaybackActor, CheckPlaybackActorStopped)
       checkPlaybackActor
@@ -760,6 +778,7 @@ object ErrorStateActor {
     *                                 factories
     * @param scheduledInvocationActor the actor for scheduled invocations
     * @param eventActor               the event manager actor
+    * @param streamBuilder            the object for creating radio streams
     * @param schedulerFactory         the factory to create a scheduler actor
     * @param checkSourceActorFactory  the factory to create a source check
     *                                 actor
@@ -774,6 +793,7 @@ object ErrorStateActor {
                                        scheduledInvocationActor: ActorRef[
                                          ScheduledInvocationActor.ScheduledInvocationCommand],
                                        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                                       streamBuilder: RadioStreamBuilder,
                                        schedulerFactory: CheckSchedulerActorFactory,
                                        checkSourceActorFactory: CheckSourceActorFactory,
                                        optSpawner: Option[Spawner],
@@ -800,7 +820,8 @@ object ErrorStateActor {
           errorSource,
           childNamePrefix,
           factoryActor,
-          scheduler)
+          scheduler,
+          streamBuilder)
         val checkActor = getSpawner(optSpawner, actorContext).spawn(checkBehavior, Some(childNamePrefix))
 
         actorContext.watchWith(checkActor, SourceAvailableAgain(errorSource))

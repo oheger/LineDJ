@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control._
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioDataSourceActor
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -42,6 +42,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
 
@@ -159,6 +160,12 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.expectControlCommand(RadioControlActor.StopPlayback)
   }
 
+  it should "create only a single stream builder" in {
+    val helper = new RadioPlayerTestHelper
+
+    helper.checkStreamBuilder()
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
@@ -243,6 +250,12 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     private val controlBehavior = Behaviors.monitor[RadioControlActor.RadioControlCommand](probeControlActor.ref,
       Behaviors.ignore)
 
+    /**
+      * Stores the stream builders passed to different actor creation
+      * functions. There should be exactly one builder.
+      */
+    private val streamBuilders = new ConcurrentHashMap[RadioStreamBuilder, Boolean]()
+
     /** The test player configuration. */
     val config: RadioPlayerConfig = createPlayerConfig()
 
@@ -265,6 +278,14 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     def expectScheduleCommand(): ScheduledInvocationActor.ActorInvocationCommand =
       probeSchedulerInvocationActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
+
+    /**
+      * Checks that exactly one stream builder was created and passed to the
+      * actors used by the player.
+      */
+    def checkStreamBuilder(): Unit = {
+      streamBuilders should have size 1
+    }
 
     /**
       * Creates a stub [[ActorCreator]] for the configuration of the test
@@ -290,7 +311,10 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
         classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-        props.args should be(List(config.playerConfig, actorCreator.probePublisherActor.ref))
+        val expectedArguments = List(config.playerConfig, actorCreator.probePublisherActor.ref)
+        props.args should have size expectedArguments.size + 1
+        props.args.take(2) should contain theSameElementsInOrderAs expectedArguments
+        streamBuilders.put(props.args(2).asInstanceOf[RadioStreamBuilder], true)
         probeSourceActor.ref
       })
 
@@ -312,6 +336,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        facadeActor: ActorRef,
        scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
        factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       builder: RadioStreamBuilder,
        optEvalService: Option[EvaluateIntervalsService],
        optReplacementService: Option[ReplacementSourceSelectionService],
        optStateService: Option[RadioSourceStateService],
@@ -327,6 +352,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         optEvalService shouldBe empty
         optReplacementService shouldBe empty
         optStateService shouldBe empty
+        streamBuilders.put(builder, true)
 
         controlBehavior
       }

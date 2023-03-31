@@ -22,6 +22,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
 /**
@@ -142,6 +143,7 @@ object RadioControlActor {
       * @param scheduleActor         the actor for scheduled invocations
       * @param factoryActor          the actor managing playback context
       *                              factories
+      * @param streamBuilder         the object for creating radio streams
       * @param optEvalService        the optional service to evaluate interval
       *                              queries (None for default)
       * @param optReplacementService the optional service to select a
@@ -158,6 +160,7 @@ object RadioControlActor {
               facadeActor: classic.ActorRef,
               scheduleActor: ActorRef[ScheduledInvocationCommand],
               factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              streamBuilder: RadioStreamBuilder,
               optEvalService: Option[EvaluateIntervalsService] = None,
               optReplacementService: Option[ReplacementSourceSelectionService] = None,
               optStateService: Option[RadioSourceStateService] = None,
@@ -177,6 +180,7 @@ object RadioControlActor {
                                  facadeActor: classic.ActorRef,
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
                                  factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                 streamBuilder: RadioStreamBuilder,
                                  optEvalService: Option[EvaluateIntervalsService],
                                  optReplacementService: Option[ReplacementSourceSelectionService],
                                  optStateService: Option[RadioSourceStateService],
@@ -205,7 +209,8 @@ object RadioControlActor {
         enabledStateAdapter,
         factoryActor,
         scheduleActor,
-        eventManagerActor), ErrorStateActorName)
+        eventManagerActor,
+        streamBuilder), ErrorStateActorName)
 
       handle(sourceStateActor, playStateActor, errorStateActor)
     }

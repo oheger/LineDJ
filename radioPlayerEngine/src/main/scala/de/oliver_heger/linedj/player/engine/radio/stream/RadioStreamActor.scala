@@ -16,13 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.NotUsed
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props, typed}
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props, typed}
 import akka.stream._
-import akka.stream.scaladsl.{Flow, GraphDSL, RunnableGraph, Sink, Source}
+import akka.stream.scaladsl.Sink
 import akka.util.ByteString
+import akka.{Done, NotUsed}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
@@ -30,27 +28,18 @@ import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor._
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
-import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private object RadioStreamActor {
   /**
-    * A message this actor sends to itself when an audio stream could be
-    * resolved. The m3u data was read, and the final audio stream URL was
-    * discovered.
+    * A message this actor sends to itself when the audio stream to play has
+    * been created. The create operation is done asynchronously by the
+    * [[RadioStreamBuilder]].
     *
-    * @param audioStreamUri the resolved audio stream URI
+    * @param builderResult the result from the stream builder
     */
-  private case class AudioStreamResolved(audioStreamUri: String)
-
-  /**
-    * A message this actor sends to itself when the response for the GET
-    * request to the audio stream becomes available. Then the audio stream can
-    * be started.
-    *
-    * @param response the response for the stream request
-    */
-  private case class AudioStreamResponse(response: HttpResponse)
+  private case class AudioStreamCreated(builderResult: RadioStreamBuilder.BuilderResult[NotUsed, Future[Done]])
 
   /**
     * A message sent by the managed stream when its initialization is complete.
@@ -77,42 +66,23 @@ private object RadioStreamActor {
   private case object Ack
 
   /**
-    * The headers to be added to requests for a radio stream. Here the header
-    * asking for metadata is included. If the response contains a corresponding
-    * header with the audio data chunk size, the stream actually supports
-    * metadata.
-    */
-  private val RadioStreamRequestHeaders = List(RawHeader("Icy-MetaData", "1"))
-
-  /**
-    * The name of the header defining the size of audio chunks if the metadata
-    * protocol is supported. If this header is found in the response for a
-    * request to a radio stream, metadata extraction is applied.
-    */
-  private val AudioChunkSizeHeader = "icy-metaint"
-
-  /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param config          the player configuration
-    * @param streamUri       the URI to the audio stream for playback
-    * @param sourceListener  reference to an actor that is sent an audio source
-    *                        message when the final audio stream is available
-    * @param eventActor      the actor to publish radio events
-    * @param optM3uReader    the optional object to resolve playlist references;
-    *                        if unspecified, the actor creates its own instance
-    * @param optStreamLoader the optional object for loading radio streams; if
-    *                        unspecified, the actor creates its own instance
+    * @param config         the player configuration
+    * @param streamUri      the URI to the audio stream for playback
+    * @param sourceListener reference to an actor that is sent an audio source
+    *                       message when the final audio stream is available
+    * @param eventActor     the actor to publish radio events
+    * @param streamBuilder  the object to build the radio stream
     * @return creation properties for a new actor instance
     */
   def apply(config: PlayerConfig,
             streamUri: String,
             sourceListener: ActorRef,
             eventActor: typed.ActorRef[RadioEvent],
-            optM3uReader: Option[M3uReader] = None,
-            optStreamLoader: Option[HttpStreamLoader] = None): Props =
-    Props(classOf[RadioStreamActor], config, streamUri, sourceListener, eventActor, optM3uReader, optStreamLoader)
+            streamBuilder: RadioStreamBuilder): Props =
+    Props(classOf[RadioStreamActor], config, streamUri, sourceListener, eventActor, streamBuilder)
 }
 
 /**
@@ -144,29 +114,21 @@ private object RadioStreamActor {
   * An instance of this actor class can only be used for reading a single
   * audio stream. It cannot be reused and has to be closed afterwards.
   *
-  * @param config          the player configuration
-  * @param streamUri       the URI to the audio stream for playback
-  * @param sourceListener  reference to an actor that is sent an audio source
-  *                        message when the final audio stream is available
-  * @param eventActor      the actor to publish radio events
-  * @param optM3uReader    the optional object to resolve playlist references
-  * @param optStreamLoader the optional object to load radio streams
+  * @param config         the player configuration
+  * @param streamUri      the URI to the audio stream for playback
+  * @param sourceListener reference to an actor that is sent an audio source
+  *                       message when the final audio stream is available
+  * @param eventActor     the actor to publish radio events
+  * @param streamBuilder  the object to build the radio stream
   */
 private class RadioStreamActor(config: PlayerConfig,
                                streamUri: String,
                                sourceListener: ActorRef,
                                eventActor: typed.ActorRef[RadioEvent],
-                               optM3uReader: Option[M3uReader],
-                               optStreamLoader: Option[HttpStreamLoader]) extends Actor with ActorLogging {
+                               streamBuilder: RadioStreamBuilder) extends Actor with ActorLogging {
   private implicit val materializer: Materializer = Materializer(context)
 
   private implicit val ec: ExecutionContext = context.dispatcher
-
-  /**
-    * The object for loading radio streams. The object can either be passed at
-    * construction time or it is created manually.
-    */
-  private var streamLoader: HttpStreamLoader = _
 
   /** Stores a kill switch to terminate the managed stream. */
   private var optKillSwitch: Option[KillSwitch] = None
@@ -183,32 +145,29 @@ private class RadioStreamActor(config: PlayerConfig,
   override def preStart(): Unit = {
     super.preStart()
 
-    implicit val actorSystem: ActorSystem = context.system
-    streamLoader = optStreamLoader getOrElse new HttpStreamLoader
+    val sinkAudio = createAudioSink()
+    val sinkMeta = createMetadataSink()
 
-    val m3uReader = optM3uReader getOrElse new M3uReader(streamLoader)
-    m3uReader.resolveAudioStream(streamUri) onComplete { triedReference =>
+    streamBuilder.buildRadioStream(config, streamUri, sinkAudio, sinkMeta) onComplete { triedReference =>
       val resultMsg = triedReference match {
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))
-        case Success(value) => AudioStreamResolved(value)
+        case Success(value) => AudioStreamCreated(value)
       }
       self ! resultMsg
     }
   }
 
   override def receive: Receive = {
-    case AudioStreamResolved(uri) =>
-      log.info("Playing audio stream from {}.", uri)
-      sourceListener ! AudioSource(uri, Long.MaxValue, 0, 0)
-      streamLoader.sendRequest(createRadioStreamRequest(uri)) onComplete {
-        case Success(source) => self ! AudioStreamResponse(source)
-        case Failure(exception) => self ! StreamFailure(exception)
+    case AudioStreamCreated(result) =>
+      log.info("Playing audio stream from {}.", result.resolvedUri)
+      sourceListener ! AudioSource(result.resolvedUri, Long.MaxValue, 0, 0)
+      if (!result.metadataSupported) {
+        log.info("No support for metadata.")
+        eventActor ! RadioMetadataEvent(MetadataNotSupported)
       }
-
-    case AudioStreamResponse(response) =>
-      log.info("Response of the audio stream has arrived.")
-      optKillSwitch = Some(startStream(response))
+      optKillSwitch = Some(result.killSwitch)
+      result.graph.run()
 
     case StreamInitialized =>
       log.info("Audio stream has been initialized.")
@@ -236,16 +195,6 @@ private class RadioStreamActor(config: PlayerConfig,
   }
 
   /**
-    * Returns the request to query the radio stream represented by the passed
-    * in URI
-    *
-    * @param uri the URI to the radio stream
-    * @return the HTTP request to load this stream
-    */
-  private def createRadioStreamRequest(uri: String): HttpRequest =
-    HttpRequest(uri = uri, headers = RadioStreamRequestHeaders)
-
-  /**
     * A receive function that becomes active when the actor receives a close
     * request. It waits for the stream to terminate to send the close ack to
     * the client. Also, the case is handled that the audio stream has not yet
@@ -270,89 +219,29 @@ private class RadioStreamActor(config: PlayerConfig,
   }
 
   /**
-    * Starts the managed audio stream for the given source. Data is read from
-    * the response entity, and the buffer is filled. This actor (acting as sink
-    * of the stream) gets notified when data is available. If metadata is
-    * supported, it is extracted and published via events using the event
-    * actor.
+    * Creates the ''Sink'' for the audio data of the managed stream. This is
+    * the actor itself receiving messages with stream data or lifecycle
+    * updates.
     *
-    * @param streamResponse the response for the stream request
-    * @return a [[KillSwitch]] to terminate the stream
+    * @return the audio ''Sink'' for the managed stream
     */
-  private def startStream(streamResponse: HttpResponse): KillSwitch = {
-    val optChunkSize = extractChunkSizeHeader(streamResponse)
-    optChunkSize match {
-      case Some(value) =>
-        log.info("Metadata is supported with chunk size {}.", value)
-      case None =>
-        log.info("No support for metadata.")
-        eventActor ! RadioMetadataEvent(MetadataNotSupported)
-    }
-
-    val source = createStreamSource(streamResponse)
-    val killSwitch = KillSwitches.shared("stopRadioStream")
-    val mapBufferData = Flow[ByteString].map { data => BufferDataResult(data) }
-    val sinkMeta = Sink.foreach[ByteString] { meta =>
-      val data = CurrentMetadata(meta.utf8String)
-      eventActor ! RadioMetadataEvent(data)
-    }
-
-    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(createStreamSink()) {
-      implicit builder =>
-        sinkAudio =>
-          import GraphDSL.Implicits._
-
-          val ks = builder.add(killSwitch.flow[ByteString])
-          val extractionStage = builder.add(MetadataExtractionStage(optChunkSize))
-
-          source ~> ks ~> extractionStage.in
-          extractionStage.out0 ~> mapBufferData ~> sinkAudio
-          extractionStage.out1 ~> sinkMeta
-          ClosedShape
-    }).withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
-    graph.run()
-
-    killSwitch
+  private def createAudioSink(): Sink[ByteString, NotUsed] = {
+    val sink = Sink.actorRefWithBackpressure[BufferDataResult](ref = self, onInitMessage = StreamInitialized,
+      onCompleteMessage = StreamDone, ackMessage = Ack, onFailureMessage = StreamFailure.apply)
+    sink.contramap[ByteString] { data => BufferDataResult(data) }
   }
 
   /**
-    * Extracts the header with the audio chunk size from the given response. If
-    * this header is present and valid, metadata is supported.
+    * Creates the ''Sink'' to process the metadata of the managed stream. This
+    * sink generates radio metadata events and passes them to the event actor.
     *
-    * @param streamResponse the response for the stream request
-    * @return the optional audio chunk size
+    * @return the sink for processing metadata
     */
-  private def extractChunkSizeHeader(streamResponse: HttpResponse): Option[Int] =
-    streamResponse.headers.find(_.name() == AudioChunkSizeHeader).flatMap { header =>
-      Try {
-        header.value().toInt
-      }.recoverWith {
-        case e =>
-          log.error(e, s"Invalid $AudioChunkSizeHeader header: '${header.value()}'.")
-          Failure(e)
-      }.toOption
+  private def createMetadataSink(): Sink[ByteString, Future[Done]] =
+    Sink.foreach[ByteString] { meta =>
+      val data = CurrentMetadata(meta.utf8String)
+      eventActor ! RadioMetadataEvent(data)
     }
-
-  /**
-    * Creates the ''Source'' for the managed stream. It is obtained from the
-    * response entity applying some buffering.
-    *
-    * @param streamResponse the response for the stream request
-    * @return the ''Source'' of the managed stream
-    */
-  private def createStreamSource(streamResponse: HttpResponse): Source[ByteString, Any] =
-    streamResponse.entity.dataBytes
-      .buffer(config.inMemoryBufferSize / config.bufferChunkSize, OverflowStrategy.backpressure)
-
-  /**
-    * Creates the ''Sink'' for the managed stream. This is the actor itself
-    * receiving messages with stream data or lifecycle updates.
-    *
-    * @return the ''Sink'' for the managed stream
-    */
-  private def createStreamSink(): Sink[BufferDataResult, NotUsed] =
-    Sink.actorRefWithBackpressure[BufferDataResult](ref = self, onInitMessage = StreamInitialized,
-      onCompleteMessage = StreamDone, ackMessage = Ack, onFailureMessage = StreamFailure.apply)
 
   /**
     * Checks whether both data and a request for data is available. In this

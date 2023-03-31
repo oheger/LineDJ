@@ -25,6 +25,7 @@ import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.Sche
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -144,6 +145,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
+
+    /** A mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
 
     /** The reference to the playback actor. */
     private val playActor = new DynamicActorRef[RadioControlProtocol.SwitchToSource]
@@ -271,6 +275,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         facadeActor = mockFacadeActor,
         scheduleActor = probeScheduleActor.ref,
         factoryActor = probeFactoryActor.ref,
+        streamBuilder = streamBuilder,
         config = config))
     }
 
@@ -322,6 +327,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
        scheduledInvocationActor: ActorRef[ScheduledInvocationCommand],
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+       builder: RadioStreamBuilder,
        _: ErrorStateActor.CheckSchedulerActorFactory,
        _: ErrorStateActor.CheckSourceActorFactory,
        optSpawner: Option[Spawner]) => {
@@ -329,6 +335,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         factoryActor should be(probeFactoryActor.ref)
         scheduledInvocationActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
+        builder should be(streamBuilder)
         optSpawner shouldBe empty
 
         enabledStateActor.actorCreated(enabledActor)

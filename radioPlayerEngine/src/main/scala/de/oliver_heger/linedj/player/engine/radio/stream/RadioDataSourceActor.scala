@@ -27,19 +27,22 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
 
-  private class RadioDataSourceActorImpl(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent])
-    extends RadioDataSourceActor(config, eventManager) with ChildActorFactory
+  private class RadioDataSourceActorImpl(config: PlayerConfig,
+                                         eventManager: typed.ActorRef[RadioEvent],
+                                         streamBuilder: RadioStreamBuilder)
+    extends RadioDataSourceActor(config, eventManager, streamBuilder) with ChildActorFactory
 
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param config       the player configuration
-    * @param eventManager the actor for generating events
+    * @param config        the player configuration
+    * @param eventManager  the actor for generating events
+    * @param streamBuilder the object to build radio streams
     * @return the ''Props'' for creating a new actor instance
     */
-  def apply(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent]): Props =
-    Props(classOf[RadioDataSourceActorImpl], config, eventManager)
+  def apply(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent], streamBuilder: RadioStreamBuilder): Props =
+    Props(classOf[RadioDataSourceActorImpl], config, eventManager, streamBuilder)
 
   /** Error message for an unexpected audio source request. */
   private val ErrPendingSourceRequest = "Request for audio source already pending!"
@@ -129,10 +132,13 @@ object RadioDataSourceActor {
   * also stopped by sending the playback actor an end-of-file message on its
   * next request for audio data.
   *
-  * @param config       the audio player configuration
-  * @param eventManager the actor for generating events
+  * @param config        the audio player configuration
+  * @param eventManager  the actor for generating events
+  * @param streamBuilder the object to build radio streams
   */
-class RadioDataSourceActor(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent])
+class RadioDataSourceActor(config: PlayerConfig,
+                           eventManager: typed.ActorRef[RadioEvent],
+                           streamBuilder: RadioStreamBuilder)
   extends Actor with ActorLogging {
   this: ChildActorFactory =>
 
@@ -254,7 +260,7 @@ class RadioDataSourceActor(config: PlayerConfig, eventManager: typed.ActorRef[Ra
     * @return the new child source reader actor
     */
   private def createSourceReaderActor(r: RadioSource): ActorRef = {
-    val reader = createChildActor(RadioStreamActor(config, r.uri, self, eventManager))
+    val reader = createChildActor(RadioStreamActor(config, r.uri, self, eventManager, streamBuilder))
     context watch reader
     reader
   }
