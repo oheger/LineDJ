@@ -23,6 +23,10 @@ import akka.stream.scaladsl.{Broadcast, Flow, Framing, GraphDSL, RunnableGraph, 
 import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamTestHelper}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -36,6 +40,7 @@ import java.io.{PipedInputStream, PipedOutputStream}
 import java.nio.charset.StandardCharsets
 import java.time._
 import java.util.concurrent.atomic.AtomicLong
+import java.util.regex.Pattern
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.Using
@@ -61,6 +66,10 @@ object MetadataCheckActorSpec {
 
   /** A test audio player configuration object. */
   private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
+
+  /** A regular expression pattern to extract artist and song title. */
+  private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
+    s"(?<${MetadataConfig.SongTitleGroup}>.+)")
 
   /**
     * Checks whether the given chunk of data represents metadata.
@@ -103,6 +112,23 @@ object MetadataCheckActorSpec {
     * @return the corresponding time
     */
   private def timeForTicks(ticks: Int): LocalDateTime = RefTime.plusSeconds(ticks)
+
+  /**
+    * Convenience function to create a metadata exclusion with default values.
+    *
+    * @param pattern       the pattern
+    * @param matchContext  the match context
+    * @param resumeMode    the resume mode
+    * @param checkInterval the check interval
+    * @param name          the optional name
+    * @return the exclusion instance
+    */
+  private def createExclusion(pattern: Pattern = Pattern.compile(".*match.*"),
+                              matchContext: MatchContext = MatchContext.Raw,
+                              resumeMode: ResumeMode = ResumeMode.MetadataChange,
+                              checkInterval: FiniteDuration = 10.seconds,
+                              name: Option[String] = None): MetadataConfig.MetadataExclusion =
+    MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, name)
 }
 
 /**
@@ -200,6 +226,114 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         .failRadioStream()
         .checkRunnerCommand(MetadataCheckActor.RadioStreamStopped)
     }
+  }
+
+  "findMetadataExclusion" should "return None if there are no exclusions" in {
+    val metadata = CurrentMetadata("some metadata")
+
+    MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, MetadataConfig.EmptySourceConfig,
+      metadata) shouldBe empty
+  }
+
+  it should "find an exclusion in the raw metadata" in {
+    val metadata = CurrentMetadata("This is a match, yeah!")
+    val exclusion = createExclusion()
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "return None if there is no match" in {
+    val metadata = CurrentMetadata("Some other metadata")
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(createExclusion()))
+
+    MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
+  }
+
+  it should "find an exclusion in the stream title" in {
+    val metadata = CurrentMetadata("other;StreamTitle='A match in the title';foo='bar';")
+    val exclusion = createExclusion(matchContext = MatchContext.Title)
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "evaluate the stream title context" in {
+    val metadata = CurrentMetadata("other='Would be a match';StreamTitle='But not here';")
+    val exclusion = createExclusion(matchContext = MatchContext.Title)
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
+  }
+
+  it should "find an exclusion in the artist" in {
+    val metadata = CurrentMetadata("StreamTitle='Artist match /song title';")
+    val exclusion = createExclusion(matchContext = MatchContext.Artist)
+    val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "evaluate the artist context" in {
+    val metadata = CurrentMetadata("StreamTitle='unknown/song title match';")
+    val exclusion = createExclusion(matchContext = MatchContext.Artist)
+    val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
+
+    MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
+  }
+
+  it should "find an exclusion in the song title" in {
+    val metadata = CurrentMetadata("StreamTitle='Artist name /matching song title';")
+    val exclusion = createExclusion(matchContext = MatchContext.Song)
+    val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "evaluate the song title context" in {
+    val metadata = CurrentMetadata("StreamTitle='artist match/ unknown song title';")
+    val exclusion = createExclusion(matchContext = MatchContext.Song)
+    val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
+
+    MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
+  }
+
+  it should "find a match in the artist if no song title pattern is defined for the source" in {
+    val metadata = CurrentMetadata("StreamTitle='unknown/song title match';")
+    val exclusion = createExclusion(matchContext = MatchContext.Artist)
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "find a match in the song title if no song title pattern is defined for the source" in {
+    val metadata = CurrentMetadata("StreamTitle='artist match/unknown song title';")
+    val exclusion = createExclusion(matchContext = MatchContext.Song)
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusion))
+  }
+
+  it should "find a match in global exclusions" in {
+    val metadata = CurrentMetadata("StreamTitle='artist/match song';")
+    val exclusion = createExclusion(matchContext = MatchContext.Song)
+    val metaConfig = MetadataConfig(exclusions = Seq(exclusion))
+
+    val result = MetadataCheckActor.findMetadataExclusion(metaConfig, MetadataConfig.EmptySourceConfig, metadata)
+
+    result should be(Some(exclusion))
   }
 
   /**

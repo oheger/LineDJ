@@ -23,6 +23,8 @@ import akka.stream.scaladsl.Sink
 import akka.stream.{KillSwitch, Materializer}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
 
@@ -41,6 +43,56 @@ import scala.util.{Failure, Success, Try}
   * affected source, so that it can be enabled again when there is a change.
   */
 object MetadataCheckActor {
+  /**
+    * Tries to find a [[MetadataExclusion]] from the given configurations that
+    * matches the provided metadata.
+    *
+    * @param metadataConfig the global metadata configuration
+    * @param sourceConfig   the configuration for the current radio source
+    * @param metadata       the metadata to check
+    * @return an ''Option'' with a matched exclusion
+    */
+  private[control] def findMetadataExclusion(metadataConfig: MetadataConfig,
+                                             sourceConfig: RadioSourceMetadataConfig,
+                                             metadata: CurrentMetadata): Option[MetadataExclusion] = {
+    lazy val (optArtist, optSong) = extractSongData(sourceConfig, metadata)
+
+    (sourceConfig.exclusions ++ metadataConfig.exclusions).find { exclusion =>
+      val optData = exclusion.matchContext match {
+        case MatchContext.Title => Some(metadata.title)
+        case MatchContext.Artist => optArtist
+        case MatchContext.Song => optSong
+        case MatchContext.Raw => Some(metadata.data)
+      }
+      optData exists { data =>
+        val matcher = exclusion.pattern.matcher(data)
+        matcher.matches()
+      }
+    }
+  }
+
+  /**
+    * Tries to extract the song title and artist from the given metadata. If
+    * the radio source defines a corresponding extraction pattern, it is
+    * applied and evaluated. Otherwise, exclusions will match on the whole
+    * stream title.
+    *
+    * @param sourceConfig the configuration for the current radio source
+    * @param metadata     the metadata
+    * @return a pair with the optional extracted artist and song title
+    */
+  private def extractSongData(sourceConfig: RadioSourceMetadataConfig,
+                              metadata: CurrentMetadata): (Option[String], Option[String]) =
+    sourceConfig.optSongPattern match {
+      case Some(pattern) =>
+        val matcher = pattern.matcher(metadata.title)
+        if (matcher.matches())
+          (Some(matcher.group(MetadataConfig.ArtistGroup)), Some(matcher.group(MetadataConfig.SongTitleGroup)))
+        else (None, None)
+      case None =>
+        (Some(metadata.title), Some(metadata.title))
+    }
+
   /**
     * The base trait for commands processed by the metadata check runner actor.
     * This actor is responsible for running a single test whether a source can
