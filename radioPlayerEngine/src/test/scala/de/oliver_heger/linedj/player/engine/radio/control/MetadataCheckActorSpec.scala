@@ -19,14 +19,17 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.scaladsl.{Broadcast, Flow, Framing, GraphDSL, RunnableGraph, Sink}
 import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.interval.LazyDate
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamTestHelper}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -39,10 +42,10 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.{PipedInputStream, PipedOutputStream}
 import java.nio.charset.StandardCharsets
 import java.time._
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import java.util.regex.Pattern
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Using
 
 object MetadataCheckActorSpec {
@@ -61,6 +64,12 @@ object MetadataCheckActorSpec {
     */
   private val RadioStreamDelimiter = "\n"
 
+  /** Metadata to match an exclusion due to bad music. */
+  private val MetaBadMusic = "Bad music"
+
+  /** Metadata to match another exclusion. */
+  private val MetaNotWanted = "skip this"
+
   /** A radio source used by tests. */
   private val TestRadioSource = RadioSource("sourceWithExcludedMetadata")
 
@@ -70,6 +79,9 @@ object MetadataCheckActorSpec {
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
     s"(?<${MetadataConfig.SongTitleGroup}>.+)")
+
+  /** A counter for generating unique names. */
+  private val counter = new AtomicInteger
 
   /**
     * Checks whether the given chunk of data represents metadata.
@@ -561,6 +573,316 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         any[Sink[ByteString, Future[Done]]]())(any(), any()))
         .thenReturn(promiseRadioStream.future)
       builder
+    }
+  }
+
+  "Check runner actor" should "send a result if metadata has changed" in {
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaNotWanted))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("No problem here"), LocalDateTime.now()))
+      .expectRetrieverCommand(MetadataCheckActor.CancelStream)
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult()
+  }
+
+  it should "wait until the stream is canceled before sending the result" in {
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaNotWanted))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("ok"), LocalDateTime.now()))
+      .expectNoCheckResult()
+  }
+
+  it should "stop itself after sending a result" in {
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaNotWanted))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("ok"), LocalDateTime.now()))
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .checkActorStopped()
+  }
+
+  it should "continue the check if a change in metadata is not sufficient" in {
+    val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 20, 26, 4)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusMinutes(1))))
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, but no title"), refTime))
+      .expectNoCheckResult()
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("StreamTitle='good / music';"),
+        refTime.plusSeconds(10)))
+      .expectRetrieverCommand(MetadataCheckActor.CancelStream)
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult()
+  }
+
+  it should "evaluate the resume interval correctly" in {
+    val refTime = LocalDateTime.of(2023, Month.APRIL, 9, 11, 52, 26)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .prepareIntervalsService(refTime, Inside(new LazyDate(refTime.plusMinutes(1))))
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, even without title"), refTime))
+      .expectRetrieverCommand(MetadataCheckActor.CancelStream)
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult()
+      .checkActorStopped()
+  }
+
+  it should "handle an undefined pattern for extracting song information" in {
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic), optRegSongPattern = None)
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("no title"), LocalDateTime.now()))
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult()
+  }
+
+  it should "store the latest interval query result" in {
+    val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 21, 23, 23)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusMinutes(1))))
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, but no title"), refTime))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, but still no title"),
+        refTime.plusSeconds(10)))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+  }
+
+  it should "run another interval query if necessary" in {
+    val refTime1 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 42, 16)
+    val refTime2 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 42, 46)
+    val refTime3 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 43, 50)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .prepareIntervalsService(refTime1, Before(new LazyDate(refTime2)))
+      .prepareIntervalsService(refTime3, Before(new LazyDate(refTime3.plusSeconds(10))))
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, but no title"), refTime1))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, but no title2"), refTime3))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+  }
+
+  it should "update the current metadata exclusion if it changes" in {
+    val refTime = LocalDateTime.of(2023, Month.APRIL, 8, 18, 27, 23)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata(MetaNotWanted), refTime))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata("Ok, even if no title"), refTime))
+      .expectRetrieverCommand(MetadataCheckActor.CancelStream)
+  }
+
+  it should "handle an unexpectedly stopped radio stream" in {
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult()
+  }
+
+  it should "handle a timeout command" in {
+    val refTime = LocalDateTime.of(2023, Month.APRIL, 8, 18, 52, 14)
+    val refTime2 = LocalDateTime.of(2023, Month.APRIL, 8, 18, 54, 55)
+    val helper = new RunnerTestHelper(CurrentMetadata(MetaBadMusic))
+
+    helper.expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusSeconds(10))))
+      .prepareIntervalsService(refTime2, Before(new LazyDate(refTime2.plusSeconds(40))))
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata(MetaNotWanted), refTime))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataRetrieved(CurrentMetadata(MetaNotWanted), refTime2))
+      .expectRetrieverCommand(MetadataCheckActor.GetMetadata)
+      .sendCommand(MetadataCheckActor.MetadataCheckRunnerTimeout)
+      .expectRetrieverCommand(MetadataCheckActor.CancelStream)
+      .sendCommand(MetadataCheckActor.RadioStreamStopped)
+      .expectCheckResult(Some(MetaNotWanted))
+      .checkActorStopped()
+  }
+
+  /**
+    * A test helper class for testing metadata check runner actors.
+    *
+    * @param currentMetadata   the current metadata to pass to the test actor
+    * @param optRegSongPattern the pattern for extracting song tile data
+    */
+  private class RunnerTestHelper(currentMetadata: CurrentMetadata,
+                                 optRegSongPattern: Option[Pattern] = Some(RegSongData)) {
+    /** A map with test metadata exclusions used by test cases. */
+    private val exclusions: Map[String, MetadataExclusion] = createExclusions()
+
+    /** A test metadata config. */
+    private val TestMetadataConfig = MetadataConfig(checkTimeout = 11.seconds)
+
+    /** A test configuration for the affected radio source. */
+    private val metadataSourceConfig = RadioSourceMetadataConfig(resumeIntervals = Seq(mock),
+      optSongPattern = optRegSongPattern,
+      exclusions = exclusions.values.toSeq)
+
+    /** The clock to be passed to the retriever actor. */
+    private val clock = tickSecondsClock()
+
+    /** Mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
+
+    /** Mock for the evaluate intervals service. */
+    private val intervalService = mock[EvaluateIntervalsService]
+
+    /** Test probe for the retriever actor. */
+    private val probeRetriever = testKit.createTestProbe[MetadataCheckActor.MetadataRetrieveCommand]()
+
+    /** Test probe for the parent source checker actor. */
+    private val probeSourceChecker = testKit.createTestProbe[MetadataCheckActor.SourceCheckCommand]()
+
+    /** Stores the reference to the check runner actor. */
+    private val refCheckRunnerActor = new AtomicReference[ActorRef[MetadataCheckActor.MetadataCheckRunnerCommand]]
+
+    createCheckRunnerActor()
+
+    /**
+      * Sends a command to the actor under test.
+      *
+      * @param command the command to be sent
+      * @return this test helper
+      */
+    def sendCommand(command: MetadataCheckActor.MetadataCheckRunnerCommand): RunnerTestHelper = {
+      checkRunnerActor ! command
+      this
+    }
+
+    /**
+      * Expects that the given command was sent to the retriever actor.
+      *
+      * @param command the expected command
+      * @return this test helper
+      */
+    def expectRetrieverCommand(command: MetadataCheckActor.MetadataRetrieveCommand): RunnerTestHelper = {
+      probeRetriever.expectMessage(command)
+      this
+    }
+
+    /**
+      * Expects that a check result with the given optional exclusion is sent
+      * to the source check actor.
+      *
+      * @param optExclusionName the optional exclusion name
+      * @return this test helper
+      */
+    def expectCheckResult(optExclusionName: Option[String] = None): RunnerTestHelper = {
+      val optExclusion = optExclusionName map (exclusions(_))
+      probeSourceChecker.expectMessage(MetadataCheckActor.MetadataCheckResult(optExclusion))
+      this
+    }
+
+    /**
+      * Expects that no message has been sent to the source check actor.
+      *
+      * @return this test helper
+      */
+    def expectNoCheckResult(): RunnerTestHelper = {
+      probeSourceChecker.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Prepares the mock for the intervals service to expect an invocation and
+      * return a specific result.
+      *
+      * @param time   the reference time to be passed to the service
+      * @param result the result to return
+      * @return this test helper
+      */
+    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): RunnerTestHelper = {
+      implicit val ec: ExecutionContext = testKit.system.executionContext
+      val response = EvaluateIntervalsService.EvaluateIntervalsResponse(result, 0)
+      when(intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, time, 0))
+        .thenReturn(Future.successful(response))
+      this
+    }
+
+    /**
+      * Tests that the actor under test has stopped itself.
+      *
+      * @return this test helper
+      */
+    def checkActorStopped(): RunnerTestHelper = {
+      val probe = testKit.createDeadLetterProbe()
+      probe.expectTerminated(checkRunnerActor)
+      this
+    }
+
+    /**
+      * Returns the actor to be tested. This reference is obtained from the
+      * parameters passed to the retriever actor factory. Since this factory is
+      * invoked asynchronously during the creation of the test actor, the
+      * reference may be available only at a later point in time.
+      *
+      * @return the actor to be tested
+      */
+    private def checkRunnerActor: ActorRef[MetadataCheckActor.MetadataCheckRunnerCommand] = {
+      val actorRef = refCheckRunnerActor.get()
+      actorRef should not be null
+      actorRef
+    }
+
+    /**
+      * Creates the exclusions to be checked during the test.
+      *
+      * @return the exclusions of the radio source
+      */
+    private def createExclusions(): Map[String, MetadataExclusion] =
+      Map(MetaBadMusic -> createExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
+        resumeMode = ResumeMode.NextSong),
+        MetaNotWanted -> createExclusion(pattern = Pattern.compile(s".*$MetaNotWanted.*")))
+
+    /**
+      * Creates a factory for the retriever actor that checks the passed in
+      * parameters and returns a behavior that can be monitored.
+      *
+      * @return the stub factory for the retriever actor
+      */
+    private def createRetrieverFactory(): MetadataCheckActor.MetadataRetrieveActorFactory =
+      (source: RadioSource,
+       config: PlayerConfig,
+       clockParam: Clock,
+       streamBuilderParam: RadioStreamBuilder,
+       checkRunner: ActorRef[MetadataCheckActor.MetadataCheckRunnerCommand]) => {
+        source should be(TestRadioSource)
+        config should be(TestPlayerConfig)
+        clockParam should be(clock)
+        streamBuilderParam should be(streamBuilder)
+        refCheckRunnerActor.set(checkRunner)
+
+        Behaviors.monitor[MetadataCheckActor.MetadataRetrieveCommand](probeRetriever.ref, Behaviors.ignore)
+      }
+
+    /**
+      * Creates the test actor instance.
+      *
+      * @return the actor to be tested
+      */
+    private def createCheckRunnerActor(): ActorRef[MetadataCheckActor.MetadataCheckRunnerCommand] = {
+      val exclusion = MetadataCheckActor.findMetadataExclusion(TestMetadataConfig, metadataSourceConfig,
+        currentMetadata)
+      val behavior = MetadataCheckActor.checkRunnerBehavior(TestRadioSource,
+        "checker" + counter.incrementAndGet(),
+        TestPlayerConfig,
+        TestMetadataConfig,
+        metadataSourceConfig,
+        exclusion.get,
+        clock,
+        streamBuilder,
+        intervalService,
+        probeSourceChecker.ref,
+        createRetrieverFactory())
+      testKit.spawn(behavior)
     }
   }
 }
