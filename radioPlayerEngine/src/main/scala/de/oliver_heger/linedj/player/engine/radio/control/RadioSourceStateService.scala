@@ -19,11 +19,11 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside}
 import de.oliver_heger.linedj.player.engine.interval.LazyDate
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceStateService._
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import scalaz.State
 import scalaz.State._
 
@@ -31,7 +31,6 @@ import java.time.LocalDateTime
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 object RadioSourceStateService {
   /**
@@ -379,7 +378,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
     if (response.seqNo == s.seqNo) {
       response.result match {
         case Before(start) =>
-          val delay = durationBetween(refTime, start.value)
+          val delay = durationBetween(refTime, start.value, config.maximumEvalDelay)
           updateCurrentSourceActive(config, s, delay, sourceChanged)
 
         case Inside(until) =>
@@ -404,7 +403,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
       val nextSeq = s.seqNo + 1
       result.selectedSource match {
         case Some(replacement) =>
-          val delay = durationBetween(refTime, replacement.untilDate)
+          val delay = durationBetween(refTime, replacement.untilDate, config.maximumEvalDelay)
           val actions = if (s.replacementSource contains replacement.source) s.actions
           else addActionForSource(s) {
             StartReplacementSource(_, replacement.source)
@@ -451,18 +450,4 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
   override def readActions(): StateUpdate[List[StateAction]] = State { s =>
     (s.copy(actions = List.empty), s.actions.reverse)
   }
-
-  /**
-    * Calculates the duration between the given times (with second
-    * granularity).
-    *
-    * @param startTime the start time
-    * @param endTime   the end time
-    * @return the duration between these times
-    */
-  private def durationBetween(startTime: LocalDateTime, endTime: LocalDateTime): FiniteDuration =
-    Try {
-      // This can fail if the time delta is too big; the Duration class supports only about 292 years.
-      java.time.Duration.between(startTime, endTime).toSeconds.seconds
-    } getOrElse config.maximumEvalDelay
 }
