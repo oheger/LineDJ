@@ -17,15 +17,16 @@
 package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.Done
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.scaladsl.{Broadcast, Flow, Framing, GraphDSL, RunnableGraph, Sink}
 import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.interval.LazyDate
+import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
+import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
@@ -43,6 +44,7 @@ import java.io.{PipedInputStream, PipedOutputStream}
 import java.nio.charset.StandardCharsets
 import java.time._
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -76,12 +78,18 @@ object MetadataCheckActorSpec {
   /** A test audio player configuration object. */
   private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
 
+  /** A test metadata config. */
+  private val TestMetadataConfig = MetadataConfig(checkTimeout = 11.seconds)
+
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
     s"(?<${MetadataConfig.SongTitleGroup}>.+)")
 
   /** A counter for generating unique names. */
   private val counter = new AtomicInteger
+
+  /** A map with test metadata exclusions used by test cases. */
+  private val MetaExclusions: Map[String, MetadataExclusion] = createExclusions()
 
   /**
     * Checks whether the given chunk of data represents metadata.
@@ -138,9 +146,19 @@ object MetadataCheckActorSpec {
   private def createExclusion(pattern: Pattern = Pattern.compile(".*match.*"),
                               matchContext: MatchContext = MatchContext.Raw,
                               resumeMode: ResumeMode = ResumeMode.MetadataChange,
-                              checkInterval: FiniteDuration = 10.seconds,
+                              checkInterval: FiniteDuration = 2.minutes,
                               name: Option[String] = None): MetadataConfig.MetadataExclusion =
     MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, name)
+
+  /**
+    * Creates a number of metadata exclusions to be checked during test cases.
+    *
+    * @return the exclusions for the test radio source
+    */
+  private def createExclusions(): Map[String, MetadataExclusion] =
+    Map(MetaBadMusic -> createExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
+      resumeMode = ResumeMode.NextSong, checkInterval = 1.minute),
+      MetaNotWanted -> createExclusion(pattern = Pattern.compile(s".*$MetaNotWanted.*")))
 }
 
 /**
@@ -708,6 +726,25 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   }
 
   /**
+    * Prepares a mock intervals service to return a specific result.
+    *
+    * @param service the mock service
+    * @param queries the queries passed to the mock
+    * @param time    the reference time
+    * @param result  the result to return
+    * @return the mock intervals service
+    */
+  private def initIntervalsServiceResult(service: EvaluateIntervalsService,
+                                         queries: Seq[IntervalQuery],
+                                         time: LocalDateTime,
+                                         result: IntervalQueryResult): EvaluateIntervalsService = {
+    implicit val ec: ExecutionContext = testKit.system.executionContext
+    val response = EvaluateIntervalsService.EvaluateIntervalsResponse(result, 0)
+    when(service.evaluateIntervals(queries, time, 0)).thenReturn(Future.successful(response))
+    service
+  }
+
+  /**
     * A test helper class for testing metadata check runner actors.
     *
     * @param currentMetadata   the current metadata to pass to the test actor
@@ -715,16 +752,10 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     */
   private class RunnerTestHelper(currentMetadata: CurrentMetadata,
                                  optRegSongPattern: Option[Pattern] = Some(RegSongData)) {
-    /** A map with test metadata exclusions used by test cases. */
-    private val exclusions: Map[String, MetadataExclusion] = createExclusions()
-
-    /** A test metadata config. */
-    private val TestMetadataConfig = MetadataConfig(checkTimeout = 11.seconds)
-
     /** A test configuration for the affected radio source. */
     private val metadataSourceConfig = RadioSourceMetadataConfig(resumeIntervals = Seq(mock),
       optSongPattern = optRegSongPattern,
-      exclusions = exclusions.values.toSeq)
+      exclusions = MetaExclusions.values.toSeq)
 
     /** The clock to be passed to the retriever actor. */
     private val clock = tickSecondsClock()
@@ -776,7 +807,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @return this test helper
       */
     def expectCheckResult(optExclusionName: Option[String] = None): RunnerTestHelper = {
-      val optExclusion = optExclusionName map (exclusions(_))
+      val optExclusion = optExclusionName map (MetaExclusions(_))
       probeSourceChecker.expectMessage(MetadataCheckActor.MetadataCheckResult(optExclusion))
       this
     }
@@ -800,10 +831,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @return this test helper
       */
     def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): RunnerTestHelper = {
-      implicit val ec: ExecutionContext = testKit.system.executionContext
-      val response = EvaluateIntervalsService.EvaluateIntervalsResponse(result, 0)
-      when(intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, time, 0))
-        .thenReturn(Future.successful(response))
+      initIntervalsServiceResult(intervalService, metadataSourceConfig.resumeIntervals, time, result)
       this
     }
 
@@ -831,16 +859,6 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       actorRef should not be null
       actorRef
     }
-
-    /**
-      * Creates the exclusions to be checked during the test.
-      *
-      * @return the exclusions of the radio source
-      */
-    private def createExclusions(): Map[String, MetadataExclusion] =
-      Map(MetaBadMusic -> createExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
-        resumeMode = ResumeMode.NextSong),
-        MetaNotWanted -> createExclusion(pattern = Pattern.compile(s".*$MetaNotWanted.*")))
 
     /**
       * Creates a factory for the retriever actor that checks the passed in
@@ -882,6 +900,368 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         intervalService,
         probeSourceChecker.ref,
         createRetrieverFactory())
+      testKit.spawn(behavior)
+    }
+  }
+
+  "Source check actor" should "schedule the initial check" in {
+    val expDelay = MetaExclusions(MetaBadMusic).checkInterval
+    val helper = new SourceCheckTestHelper
+
+    val schedule = helper.expectScheduledInvocation()
+
+    schedule.delay should be(expDelay)
+  }
+
+  it should "support canceling the current check" in {
+    val helper = new SourceCheckTestHelper
+
+    helper.expectAndTriggerScheduledInvocation()
+      .expectCheckRunnerCreation(MetaBadMusic)
+      .sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = false))
+      .expectCheckRunnerTimeout()
+      .checkActorNotStopped {
+        helper.sendCommand(MetadataCheckActor.MetadataCheckResult(None))
+      }
+  }
+
+  it should "support canceling the current check if no check is ongoing" in {
+    val helper = new SourceCheckTestHelper
+
+    helper.sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = false))
+      .checkActorNotStopped {
+        helper.sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = false))
+      }
+  }
+
+  it should "support canceling the current check and stopping itself if no check is ongoing" in {
+    val helper = new SourceCheckTestHelper
+
+    helper.sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = true))
+      .checkActorStopped()
+  }
+
+  it should "support canceling the current check and stopping itself after cancellation is complete" in {
+    val helper = new SourceCheckTestHelper
+
+    helper.expectAndTriggerScheduledInvocation()
+      .expectCheckRunnerCreation(MetaBadMusic)
+      .sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = true))
+      .checkActorNotStopped {
+        helper.sendCommand(MetadataCheckActor.CancelSourceCheck(terminate = false))
+      }
+      .sendCommand(MetadataCheckActor.MetadataCheckResult(optExclusion = None))
+      .checkActorStopped()
+  }
+
+  it should "schedule a timeout for a new check" in {
+    val helper = new SourceCheckTestHelper
+    helper.expectAndTriggerScheduledInvocation()
+
+    val schedule = helper.expectScheduledInvocation()
+
+    schedule.delay should be(TestMetadataConfig.checkTimeout)
+    schedule.invocation.send()
+    helper.expectSourceCheckTimeout()
+  }
+
+  it should "handle a successful check result" in {
+    val helper = new SourceCheckTestHelper
+
+    helper.expectAndTriggerScheduledInvocation()
+      .sendCommand(MetadataCheckActor.MetadataCheckResult(None))
+      .expectStateCommand(MetadataCheckActor.SourceCheckSucceeded(TestRadioSource))
+      .checkActorStopped()
+  }
+
+  it should "handle a check result requiring another check" in {
+    val helper = new SourceCheckTestHelper
+    helper.expectAndTriggerScheduledInvocation()
+      .expectCheckRunnerCreation(MetaBadMusic)
+      .prepareIntervalsService(timeForTicks(2), IntervalTypes.After { time => time })
+      .expectScheduledInvocation() // Scheduled timeout
+
+    helper.sendCommand(MetadataCheckActor.MetadataCheckResult(MetaExclusions.get(MetaNotWanted)))
+      .expectAndTriggerScheduledInvocation()
+      .expectCheckRunnerCreation(MetaNotWanted, 2)
+  }
+
+  /**
+    * Helper function for testing whether further checks are scheduled with
+    * corrects delays.
+    *
+    * @param queryResult the result of the interval service
+    * @param expDelay    the expected delay
+    */
+  private def checkDelayOfNextSchedule(queryResult: IntervalQueryResult, expDelay: FiniteDuration): Unit = {
+    val helper = new SourceCheckTestHelper
+    helper.expectAndTriggerScheduledInvocation()
+      .expectCheckRunnerCreation(MetaBadMusic)
+      .prepareIntervalsService(timeForTicks(2), queryResult)
+      .expectScheduledInvocation() // Scheduled timeout
+
+    val invocation = helper.sendCommand(MetadataCheckActor.MetadataCheckResult(MetaExclusions.get(MetaNotWanted)))
+      .expectScheduledInvocation()
+
+    val delta = expDelay - invocation.delay
+    delta should be < 3.seconds
+  }
+
+  it should "schedule a follow-up check based on the current exclusion" in {
+    val queryResult = Before(new LazyDate(timeForTicks(1).plusMinutes(5)))
+    val expDelay = MetaExclusions(MetaNotWanted).checkInterval
+
+    checkDelayOfNextSchedule(queryResult, expDelay)
+  }
+
+  it should "schedule a follow-up check based on the next resume interval" in {
+    val queryResult = Before(new LazyDate(timeForTicks(1).plusSeconds(10)))
+    val expDelay = 10.seconds
+
+    checkDelayOfNextSchedule(queryResult, expDelay)
+  }
+
+  it should "handle a large temporal delta gracefully when scheduling a follow-up check" in {
+    val queryResult = Before(new LazyDate(timeForTicks(1).plusYears(5000)))
+    val expDelay = MetaExclusions(MetaNotWanted).checkInterval
+
+    checkDelayOfNextSchedule(queryResult, expDelay)
+  }
+
+  /**
+    * A test helper class for the source check actor.
+    */
+  private class SourceCheckTestHelper {
+    /** Test probe for the scheduler actor. */
+    private val probeScheduler = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Test probe for the metadata state actor. */
+    private val probeStateActor = testKit.createTestProbe[MetadataCheckActor.MetadataExclusionStateCommand]()
+
+    /** A queue to wait for the creation of check runner actors. */
+    private val queueCheckerCreation =
+      new LinkedBlockingQueue[TestProbe[MetadataCheckActor.MetadataCheckRunnerCommand]]
+
+    /**
+      * Holds the test probe for the current check runner actor. This reference
+      * is set dynamically when the check runner factory is invoked.
+      */
+    private val refProbeChecker = new AtomicReference[TestProbe[MetadataCheckActor.MetadataCheckRunnerCommand]]
+
+    /** Stores the current exclusion passed to the check runner. */
+    private val refCurrentExclusion = new AtomicReference[MetadataExclusion]
+
+    /** Stores the name prefix passed to the check runner. */
+    private val refNamePrefix = new AtomicReference[String]
+
+    /** The test configuration for the current radio source. */
+    private val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData),
+      resumeIntervals = Seq(mock),
+      exclusions = MetaExclusions.values.toSeq)
+
+    /** The clock to be passed to the retriever actor. */
+    private val clock = tickSecondsClock()
+
+    /** Mock for the stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
+
+    /** Mock for the evaluate intervals service. */
+    private val intervalService = createIntervalsService()
+
+    /** The actor to be tested. */
+    private val sourceCheckActor = createSourceCheckerActor()
+
+    /**
+      * Sends the given command to the source check actor.
+      *
+      * @param command the command to send
+      * @return this test helper
+      */
+    def sendCommand(command: MetadataCheckActor.SourceCheckCommand): SourceCheckTestHelper = {
+      sourceCheckActor ! command
+      this
+    }
+
+    /**
+      * Prepares the mock for the intervals service to expect an invocation and
+      * return a specific result.
+      *
+      * @param time   the reference time to be passed to the service
+      * @param result the result to return
+      * @return this test helper
+      */
+    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): SourceCheckTestHelper = {
+      initIntervalsServiceResult(intervalService, sourceConfig.resumeIntervals, time, result)
+      this
+    }
+
+    /**
+      * Expects an invocation of the scheduler actor and returns the
+      * corresponding command.
+      *
+      * @return the command passed to the scheduler actor
+      */
+    def expectScheduledInvocation(): ScheduledInvocationActor.ActorInvocationCommand =
+      probeScheduler.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
+
+    /**
+      * Expects an invocation of the scheduler actor and simulates the
+      * scheduled invocation immediately. Note: The delay is not checked,.
+      *
+      * @return this test helper
+      */
+    def expectAndTriggerScheduledInvocation(): SourceCheckTestHelper = {
+      val invocationCommand = expectScheduledInvocation()
+      invocationCommand.invocation.send()
+      this
+    }
+
+    /**
+      * Expects that a timeout command has been sent to the check runner.
+      *
+      * @return this test helper
+      */
+    def expectCheckRunnerTimeout(): SourceCheckTestHelper = {
+      probeCheckRunner.expectMessage(MetadataCheckActor.MetadataCheckRunnerTimeout)
+      this
+    }
+
+    /**
+      * Expects the creation of another check runner instance and stores it
+      * internally, so that it can be accessed.
+      *
+      * @param expExclusion the key for the expected current exclusion
+      * @param checkIndex   the numeric index expected in the name prefix
+      * @return this test helper
+      */
+    def expectCheckRunnerCreation(expExclusion: String, checkIndex: Int = 1): SourceCheckTestHelper = {
+      refProbeChecker set queueCheckerCreation.poll(3, TimeUnit.SECONDS)
+      refCurrentExclusion.get() should be(MetaExclusions(expExclusion))
+      refNamePrefix.get() should be("testNamePrefix_run" + checkIndex)
+      this
+    }
+
+    /**
+      * Tests that the actor under test has terminated.
+      *
+      * @return this test helper
+      */
+    def checkActorStopped(): SourceCheckTestHelper = {
+      val probe = testKit.createDeadLetterProbe()
+      probe.expectTerminated(sourceCheckActor)
+      this
+    }
+
+    /**
+      * Tests that the actor under test has not terminated. This can be checked
+      * indirectly only. The function runs the provided block which should
+      * somehow interact with the test actor. It then checks that no dead
+      * letter message was received.
+      *
+      * @param block the block to trigger the test actor
+      * @return this test helper
+      */
+    def checkActorNotStopped(block: => Unit): SourceCheckTestHelper = {
+      val probe = testKit.createDeadLetterProbe()
+      block
+      probe.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Expects that the given command was sent to the parent state actor.
+      *
+      * @param command the expected command
+      * @return this test helper
+      */
+    def expectStateCommand(command: MetadataCheckActor.MetadataExclusionStateCommand): SourceCheckTestHelper = {
+      probeStateActor.expectMessage(command)
+      this
+    }
+
+    /**
+      * Expects that a source check timeout command has been sent to the parent
+      * state actor.
+      *
+      * @return this test helper
+      */
+    def expectSourceCheckTimeout(): SourceCheckTestHelper =
+      expectStateCommand(MetadataCheckActor.SourceCheckTimeout(TestRadioSource, sourceCheckActor))
+
+    /**
+      * Returns the probe for the check runner actor. This needs to be obtained
+      * from a reference, since it is created dynamically.
+      *
+      * @return the probe for the check runner actor
+      */
+    private def probeCheckRunner: TestProbe[MetadataCheckActor.MetadataCheckRunnerCommand] = {
+      val probe = refProbeChecker.get()
+      probe should not be null
+      probe
+    }
+
+    /**
+      * Creates the mock for the intervals service and prepares it to answer
+      * the first invocation.
+      *
+      * @return the mock intervals service
+      */
+    private def createIntervalsService(): EvaluateIntervalsService =
+      initIntervalsServiceResult(mock[EvaluateIntervalsService], sourceConfig.resumeIntervals, timeForTicks(1),
+        Inside(new LazyDate(timeForTicks(1).plusMinutes(2))))
+
+    /**
+      * Creates a factory for a check runner behavior that checks the passed in
+      * parameters and returns a behavior based on a test probe.
+      *
+      * @return the factory for a check runner behavior
+      */
+    private def createCheckRunnerFactory(): MetadataCheckActor.MetadataCheckRunnerFactory =
+      (source: RadioSource,
+       namePrefix: String,
+       playerConfig: PlayerConfig,
+       metadataConfig: MetadataConfig,
+       metadataSourceConfig: RadioSourceMetadataConfig,
+       currentExclusion: MetadataExclusion,
+       clockParam: Clock,
+       streamBuilderParam: RadioStreamBuilder,
+       intervalServiceParam: EvaluateIntervalsService,
+       sourceChecker: ActorRef[MetadataCheckActor.SourceCheckCommand],
+       _: MetadataCheckActor.MetadataRetrieveActorFactory) => {
+        source should be(TestRadioSource)
+        playerConfig should be(TestPlayerConfig)
+        metadataConfig should be(TestMetadataConfig)
+        metadataSourceConfig should be(sourceConfig)
+        clockParam should be(clock)
+        streamBuilderParam should be(streamBuilder)
+        intervalServiceParam should be(intervalService)
+        sourceChecker should be(sourceCheckActor)
+
+        refCurrentExclusion set currentExclusion
+        refNamePrefix set namePrefix
+        val probeChecker = testKit.createTestProbe[MetadataCheckActor.MetadataCheckRunnerCommand]()
+        queueCheckerCreation offer probeChecker
+        Behaviors.monitor(probeChecker.ref, Behaviors.ignore)
+      }
+
+    /**
+      * Creates the actor to be tested.
+      *
+      * @return the actor under test
+      */
+    private def createSourceCheckerActor(): ActorRef[MetadataCheckActor.SourceCheckCommand] = {
+      val behavior = MetadataCheckActor.sourceCheckBehavior(TestRadioSource,
+        "testNamePrefix",
+        TestPlayerConfig,
+        TestMetadataConfig,
+        sourceConfig,
+        MetaExclusions(MetaBadMusic),
+        probeStateActor.ref,
+        probeScheduler.ref,
+        clock,
+        streamBuilder,
+        intervalService,
+        createCheckRunnerFactory())
       testKit.spawn(behavior)
     }
   }

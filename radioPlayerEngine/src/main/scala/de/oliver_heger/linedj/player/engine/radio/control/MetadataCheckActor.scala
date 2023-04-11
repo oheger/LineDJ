@@ -23,6 +23,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.{KillSwitch, Materializer}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
@@ -114,6 +115,38 @@ object MetadataCheckActor {
   private def matches(pattern: Pattern, input: String): Boolean = getMatch(pattern, input).isDefined
 
   /**
+    * The base trait for commands processed by the metadata exclusion state
+    * actor. This actor keeps track on the radio sources in exclusion state due
+    * to metadata that matches one of the configured exclusions. Such radio
+    * sources are checked periodically (by other helper actors) whether they
+    * can be enabled again.
+    */
+  sealed trait MetadataExclusionStateCommand
+
+  /**
+    * A command processed by the metadata exclusion state actor indicating
+    * that a specific radio source has been checked successfully and can be
+    * enabled again.
+    *
+    * @param source the radio source affected
+    */
+  private[control] case class SourceCheckSucceeded(source: RadioSource) extends MetadataExclusionStateCommand
+
+  /**
+    * A command processed by the metadata exclusion state actor indicating a
+    * timeout of a currently running source check. If the source is still
+    * marked as disabled, the check is now canceled. Note: This command mainly
+    * serves the purpose to prevent dead letter warnings that could occur if
+    * timeout messages would be scheduled directly to the check actors.
+    *
+    * @param source     the radio source affected
+    * @param checkActor the actor executing the check
+    */
+  private[control] case class SourceCheckTimeout(source: RadioSource,
+                                                 checkActor: ActorRef[SourceCheckCommand])
+    extends MetadataExclusionStateCommand
+
+  /**
     * The base trait for commands processed by the metadata source check actor.
     * This actor is responsible for checking the metadata state of a specific
     * radio source in periodic intervals.
@@ -128,6 +161,159 @@ object MetadataCheckActor {
     * @param optExclusion an optional exclusion active for the source
     */
   private[control] case class MetadataCheckResult(optExclusion: Option[MetadataExclusion]) extends SourceCheckCommand
+
+  /**
+    * A command to tell the source check actor that the currently ongoing check
+    * should be canceled, due to a timeout or a change in the global
+    * configuration.
+    *
+    * @param terminate flag whether the actor should terminate itself
+    */
+  private[control] case class CancelSourceCheck(terminate: Boolean) extends SourceCheckCommand
+
+  /**
+    * An internal command for the source check actor telling it that it is now
+    * due to run another check for the managed radio source.
+    */
+  private case object RunSourceCheck extends SourceCheckCommand
+
+  /**
+    * An internal command for the source check actor that propagates the result
+    * of the intervals service on the resume intervals of the current source.
+    *
+    * @param refTime the reference time the service was queried at
+    * @param result  the query result
+    */
+  private case class NextResumeInterval(refTime: LocalDateTime,
+                                        result: IntervalQueryResult) extends SourceCheckCommand
+
+  /**
+    * A trait defining a factory function for an internal actor implementation
+    * responsible for monitoring the metadata exclusion state of a specific
+    * radio source. This actor schedules metadata checks on this radio source
+    * periodically by creating and managing a metadata check runner actor.
+    */
+  private[control] trait SourceCheckFactory {
+    /**
+      * Returns a ''Behavior'' for creating a new actor instance.
+      *
+      * @param source               the radio source affected
+      * @param namePrefix           a prefix for generating actor names
+      * @param playerConfig         the audio player config
+      * @param metadataConfig       the global metadata config
+      * @param metadataSourceConfig the metadata config for the source
+      * @param currentExclusion     the detected metadata exclusion
+      * @param stateActor           the metadata state actor
+      * @param scheduleActor        the actor for scheduled invocations
+      * @param clock                the clock
+      * @param streamBuilder        the stream builder
+      * @param intervalService      the intervals service
+      * @param runnerFactory        the factory for check runner actors
+      * @return the ''Behavior'' for a new actor instance
+      */
+    def apply(source: RadioSource,
+              namePrefix: String,
+              playerConfig: PlayerConfig,
+              metadataConfig: MetadataConfig,
+              metadataSourceConfig: RadioSourceMetadataConfig,
+              currentExclusion: MetadataExclusion,
+              stateActor: ActorRef[MetadataExclusionStateCommand],
+              scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+              clock: Clock,
+              streamBuilder: RadioStreamBuilder,
+              intervalService: EvaluateIntervalsService,
+              runnerFactory: MetadataCheckRunnerFactory = checkRunnerBehavior): Behavior[SourceCheckCommand]
+  }
+
+  /**
+    * A default [[SourceCheckFactory]] instance that can be used to create new
+    * instances of the source check actor.
+    */
+  private[control] val sourceCheckBehavior: SourceCheckFactory =
+    (source: RadioSource,
+     namePrefix: String,
+     playerConfig: PlayerConfig,
+     metadataConfig: MetadataConfig,
+     metadataSourceConfig: RadioSourceMetadataConfig,
+     currentExclusion: MetadataExclusion,
+     stateActor: ActorRef[MetadataExclusionStateCommand],
+     scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+     clock: Clock,
+     streamBuilder: RadioStreamBuilder,
+     intervalService: EvaluateIntervalsService,
+     runnerFactory: MetadataCheckRunnerFactory) => Behaviors.setup { context =>
+      def handleWaitForNextCheck(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] =
+        Behaviors.receiveMessagePartial {
+          case CancelSourceCheck(terminate) =>
+            if (terminate) Behaviors.stopped else Behaviors.same
+
+          case RunSourceCheck =>
+            val nextCount = count + 1
+            context.log.info("Triggering metadata check {} for {}.", nextCount, source)
+            val runnerBehavior = runnerFactory(source,
+              namePrefix + "_run" + nextCount,
+              playerConfig,
+              metadataConfig,
+              metadataSourceConfig,
+              exclusion,
+              clock,
+              streamBuilder,
+              intervalService,
+              context.self)
+            val runner = context.spawn(runnerBehavior, namePrefix + nextCount)
+
+            val timeout = ScheduledInvocationActor.typedInvocationCommand(metadataConfig.checkTimeout,
+              stateActor,
+              SourceCheckTimeout(source, context.self))
+            scheduleActor ! timeout
+            handleCheckInProgress(runner, nextCount)
+
+          case NextResumeInterval(time, result) =>
+            val timeUntilNextResumeInterval = result match {
+              case Before(start) => durationBetween(time, start.value, exclusion.checkInterval)
+              case _ => exclusion.checkInterval
+            }
+            val nextCheckDelay = timeUntilNextResumeInterval.min(exclusion.checkInterval)
+            context.log.info("Scheduling next metadata check for {} after {}.", source, nextCheckDelay)
+            scheduleActor ! ScheduledInvocationActor.typedInvocationCommand(nextCheckDelay,
+              context.self, RunSourceCheck)
+            handleWaitForNextCheck(exclusion, count)
+        }
+
+      def handleCheckInProgress(checkRunner: ActorRef[MetadataCheckRunnerCommand],
+                                count: Int): Behavior[SourceCheckCommand] =
+        Behaviors.receiveMessagePartial {
+          case CancelSourceCheck(terminate) =>
+            checkRunner ! MetadataCheckRunnerTimeout
+            if (terminate) handleWaitForTermination() else Behaviors.same
+
+          case MetadataCheckResult(None) =>
+            context.log.info("Metadata check successful for {}.", source)
+            stateActor ! SourceCheckSucceeded(source)
+            Behaviors.stopped
+
+          case MetadataCheckResult(Some(exclusion)) =>
+            queryResumeIntervals(exclusion, count)
+        }
+
+      def handleWaitForTermination(): Behavior[SourceCheckCommand] =
+        Behaviors.receiveMessagePartial {
+          case _: MetadataCheckResult =>
+            Behaviors.stopped
+        }
+
+      def queryResumeIntervals(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] = {
+        implicit val ec: ExecutionContext = context.executionContext
+        val refTime = time(clock)
+        intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, refTime, 0) foreach { result =>
+          context.self ! NextResumeInterval(refTime, result.result)
+        }
+        handleWaitForNextCheck(exclusion, count)
+      }
+
+      context.log.info("Starting metadata source check actor {} for radio source {}.", namePrefix, source)
+      queryResumeIntervals(currentExclusion, 0)
+    }
 
   /**
     * The base trait for commands processed by the metadata check runner actor.
@@ -479,9 +665,8 @@ object MetadataCheckActor {
       def handle(retrieveState: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
         Behaviors.receiveMessagePartial {
           case MetadataArrived(data) =>
-            val time = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
             val metadata = CurrentMetadata(data.utf8String)
-            sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(metadata), metadataTime = time))
+            sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(metadata), metadataTime = time(clock)))
 
           case GetMetadata =>
             sendMetadataIfPossible(retrieveState.copy(requestPending = true))
@@ -499,4 +684,12 @@ object MetadataCheckActor {
 
       streamInitializing(requestPending = false, streamCanceled = false)
     }
+
+  /**
+    * Returns the current local time from the given [[Clock]].
+    *
+    * @param clock the clock
+    * @return the current time of the clock as local time
+    */
+  private def time(clock: Clock): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
 }
