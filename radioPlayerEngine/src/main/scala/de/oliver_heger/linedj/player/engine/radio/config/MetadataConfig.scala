@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio.config
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MetadataExclusion
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
@@ -136,7 +137,9 @@ object MetadataConfig {
     * Constant for a [[MetadataConfig]] instance that uses only default values.
     * This means that this instance does not define any exclusions.
     */
-  final val Empty: MetadataConfig = MetadataConfig()
+  final val Empty: MetadataConfig = new MetadataConfig {
+    override def exclusions: Seq[MetadataExclusion] = Seq.empty
+  }
 
   /**
     * Constant for a [[RadioSourceMetadataConfig]] instance that uses only
@@ -148,9 +151,31 @@ object MetadataConfig {
 }
 
 /**
-  * A data class defining the global configuration for metadata exclusions.
+  * A trait defining the global configuration for metadata exclusions.
   *
-  * @param exclusions   a list of global exclusions that are applied to all
-  *                     radio sources
+  * Via the properties defined here the global metadata exclusions can be
+  * queried as well as exclusions defined for single radio sources.
   */
-case class MetadataConfig(exclusions: Seq[MetadataExclusion] = Seq.empty)
+trait MetadataConfig {
+  /**
+    * Returns a list of global exclusions that are applied to all radio
+    * sources.
+    *
+    * @return the globally defined metadata exclusions
+    */
+  def exclusions: Seq[MetadataExclusion]
+
+  /**
+    * Returns the [[MetadataConfig.RadioSourceMetadataConfig]] for the given
+    * radio source. Based on this information, the radio player engine can
+    * disable radio sources temporarily based on the metadata in their radio
+    * streams. This base implementation returns an empty default configuration
+    * for all passed in radio sources.
+    *
+    * @param source the source in question
+    * @return the metadata configuration for this radio source
+    */
+  def metadataSourceConfig(source: RadioSource): MetadataConfig.RadioSourceMetadataConfig =
+    MetadataConfig.EmptySourceConfig
+}
+

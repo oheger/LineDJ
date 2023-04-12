@@ -83,7 +83,7 @@ object MetadataCheckActorSpec {
     metadataCheckTimeout = 99.seconds)
 
   /** A test metadata config. */
-  private val TestMetadataConfig = MetadataConfig()
+  private val TestMetadataConfig = createMetadataConfig()
 
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
@@ -163,6 +163,17 @@ object MetadataCheckActorSpec {
     Map(MetaBadMusic -> createExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
       resumeMode = ResumeMode.NextSong, checkInterval = 1.minute),
       MetaNotWanted -> createExclusion(pattern = Pattern.compile(s".*$MetaNotWanted.*")))
+
+  /**
+    * Creates a test [[MetadataConfig]] based on a mock.
+    *
+    * @return the test metadata config
+    */
+  private def createMetadataConfig(): MetadataConfig = {
+    val config = Mockito.mock(classOf[MetadataConfig])
+    when(config.exclusions).thenReturn(Seq.empty)
+    config
+  }
 }
 
 /**
@@ -363,7 +374,8 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   it should "find a match in global exclusions" in {
     val metadata = CurrentMetadata("StreamTitle='artist/match song';")
     val exclusion = createExclusion(matchContext = MatchContext.Song)
-    val metaConfig = MetadataConfig(exclusions = Seq(exclusion))
+    val metaConfig = mock[MetadataConfig]
+    when(metaConfig.exclusions).thenReturn(Seq(exclusion))
 
     val result = MetadataCheckActor.findMetadataExclusion(metaConfig, MetadataConfig.EmptySourceConfig, metadata)
 
