@@ -673,7 +673,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       classOf[RadioStreamActor].isAssignableFrom(props.actorClass()) shouldBe true
       props.args should have size 5
       props.args.head should be(Config)
-      props.args(1) should be(streamUri)
+      props.args(1) should be(RadioSource(streamUri))
       props.args(2) should be(testActor)
       props.args(3) should be(eventActor)
       props.args(4) should be(streamBuilder)

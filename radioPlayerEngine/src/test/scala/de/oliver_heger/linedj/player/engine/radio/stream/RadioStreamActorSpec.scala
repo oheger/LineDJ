@@ -299,7 +299,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     def createTestActor(): ActorRef = {
       val props = stream.RadioStreamActor(Config,
-        PlaylistStreamUri,
+        RadioSource(PlaylistStreamUri),
         probeSourceListener.ref,
         probeEventActor.ref,
         streamBuilder)

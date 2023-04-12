@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor._
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -70,7 +70,7 @@ private object RadioStreamActor {
     * class.
     *
     * @param config         the player configuration
-    * @param streamUri      the URI to the audio stream for playback
+    * @param streamSource   the radio source to the audio stream for playback
     * @param sourceListener reference to an actor that is sent an audio source
     *                       message when the final audio stream is available
     * @param eventActor     the actor to publish radio events
@@ -78,11 +78,11 @@ private object RadioStreamActor {
     * @return creation properties for a new actor instance
     */
   def apply(config: PlayerConfig,
-            streamUri: String,
+            streamSource: RadioSource,
             sourceListener: ActorRef,
             eventActor: typed.ActorRef[RadioEvent],
             streamBuilder: RadioStreamBuilder): Props =
-    Props(classOf[RadioStreamActor], config, streamUri, sourceListener, eventActor, streamBuilder)
+    Props(classOf[RadioStreamActor], config, streamSource, sourceListener, eventActor, streamBuilder)
 }
 
 /**
@@ -115,14 +115,15 @@ private object RadioStreamActor {
   * audio stream. It cannot be reused and has to be closed afterwards.
   *
   * @param config         the player configuration
-  * @param streamUri      the URI to the audio stream for playback
+  * @param streamSource   the radio source pointing to the audio stream for
+  *                       playback
   * @param sourceListener reference to an actor that is sent an audio source
   *                       message when the final audio stream is available
   * @param eventActor     the actor to publish radio events
   * @param streamBuilder  the object to build the radio stream
   */
 private class RadioStreamActor(config: PlayerConfig,
-                               streamUri: String,
+                               streamSource: RadioSource,
                                sourceListener: ActorRef,
                                eventActor: typed.ActorRef[RadioEvent],
                                streamBuilder: RadioStreamBuilder) extends Actor with ActorLogging {
@@ -148,8 +149,8 @@ private class RadioStreamActor(config: PlayerConfig,
     val sinkAudio = createAudioSink()
     val sinkMeta = createMetadataSink()
 
-    streamBuilder.buildRadioStream(config, streamUri, sinkAudio, sinkMeta) onComplete { triedReference =>
-      val resultMsg = triedReference match {
+    streamBuilder.buildRadioStream(config, streamSource.uri, sinkAudio, sinkMeta) onComplete { triedResult =>
+      val resultMsg = triedResult match {
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))
         case Success(value) => AudioStreamCreated(value)
