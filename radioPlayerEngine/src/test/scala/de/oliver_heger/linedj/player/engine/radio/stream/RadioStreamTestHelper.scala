@@ -311,12 +311,14 @@ object RadioStreamTestHelper {
     *
     * @param chunkCount      the number of chunks to generate
     * @param streamChunkSize the size of the ''ByteString''s in the stream
+    * @param metaGen         function to generate metadata by a block index
     * @return a list with the generated chunks
     */
-  def generateAudioDataWithMetadata(chunkCount: Int, streamChunkSize: Int): List[ByteString] = {
+  def generateAudioDataWithMetadata(chunkCount: Int, streamChunkSize: Int)
+                                   (metaGen: Int => String): List[ByteString] = {
     val audioData = (0 until chunkCount).map(RadioStreamTestHelper.dataBlock(AudioChunkSize, _))
     val metadata = (1 to chunkCount).map { idx =>
-      RadioStreamTestHelper.metadataBlock(ByteString(generateMetadata(idx)))
+      RadioStreamTestHelper.metadataBlock(ByteString(metaGen(idx)))
     }
 
     audioData.zip(metadata)
@@ -331,10 +333,13 @@ object RadioStreamTestHelper {
     *
     * @param chunkCount      the number of chunks to generate
     * @param streamChunkSize the size of the ''ByteString''s in the stream
+    * @param metaGen         function to generate metadata by a block index
     * @return the ''Source'' of this simulated radio stream
     */
-  def generateRadioStreamSource(chunkCount: Int, streamChunkSize: Int = 100): Source[ByteString, NotUsed] =
-    Source(generateAudioDataWithMetadata(chunkCount, streamChunkSize))
+  def generateRadioStreamSource(chunkCount: Int,
+                                streamChunkSize: Int = 100,
+                                metaGen: Int => String = generateMetadata): Source[ByteString, NotUsed] =
+    Source(generateAudioDataWithMetadata(chunkCount, streamChunkSize)(metaGen))
 
   /**
     * Returns a sink that aggregates all input into a single ''ByteString''.

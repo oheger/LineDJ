@@ -36,6 +36,7 @@ private object MetadataExtractionState {
       bytesReceived = 0,
       audioChunks = List.empty,
       metadataChunk = ByteString.empty,
+      lastMetadata = None,
       inMetadata = false)
 }
 
@@ -49,13 +50,15 @@ private object MetadataExtractionState {
   * @param audioChunks      the audio chunks collected so far
   * @param metadataChunk    the metadata collected so far
   * @param inMetadata       flag whether metadata is currently processed
+  * @param lastMetadata     the last extracted metadata if any
   */
 private case class MetadataExtractionState(audioChunkSize: Int,
                                            currentChunkSize: Int,
                                            bytesReceived: Int,
                                            audioChunks: List[ByteString],
                                            metadataChunk: ByteString,
-                                           inMetadata: Boolean)
+                                           inMetadata: Boolean,
+                                           lastMetadata: Option[ByteString])
 
 /**
   * A data class storing the different types of data chunks that have been
@@ -173,8 +176,10 @@ private object SupportedMetadataExtractionService extends MetadataExtractionServ
         (Some(s.metadataChunk), ByteString.empty)
       else (None, s.metadataChunk)
 
-    val extracted = ExtractedStreamData(audioChunks = s.audioChunks.reverse, extractedMetadata)
-    val nextState = s.copy(audioChunks = List.empty, metadataChunk = nextMetadata)
+    val deDuplicatedMetadata = extractedMetadata.filterNot(s.lastMetadata.contains)
+    val nextLastMetadata = deDuplicatedMetadata orElse s.lastMetadata
+    val extracted = ExtractedStreamData(audioChunks = s.audioChunks.reverse, deDuplicatedMetadata)
+    val nextState = s.copy(audioChunks = List.empty, metadataChunk = nextMetadata, lastMetadata = nextLastMetadata)
     (nextState, extracted)
   }
 

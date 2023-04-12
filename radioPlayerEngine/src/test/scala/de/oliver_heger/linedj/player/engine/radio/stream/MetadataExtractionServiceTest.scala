@@ -82,6 +82,7 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     InitialState.bytesReceived should be(0)
     InitialState.audioChunks shouldBe empty
     InitialState.metadataChunk shouldBe empty
+    InitialState.lastMetadata shouldBe empty
   }
 
   "SupportedMetadataExtractionService" should "update the state for a smaller block of audio data" in {
@@ -242,22 +243,24 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
 
   it should "extract data related to metadata if audio processing is again active" in {
     val metadata = dataBlock(128)
-    val originalState = InitialState.copy(metadataChunk = metadata)
+    val originalState = InitialState.copy(metadataChunk = metadata, lastMetadata = Some(ByteString("foo")))
 
     val (state, extracted) = updateState(SupportedMetadataExtractionService.extractedData(), originalState)
 
     state.metadataChunk shouldBe empty
+    state.lastMetadata should be(extracted.metadataChunk)
     extracted.metadataChunk should be(Some(metadata))
   }
 
   it should "not extract an incomplete metadata chunk" in {
     val metadata = dataBlock(64)
     val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 128, bytesReceived = 64,
-      metadataChunk = metadata)
+      metadataChunk = metadata, lastMetadata = Some(ByteString("some last data")))
 
     val (state, extracted) = updateState(SupportedMetadataExtractionService.extractedData(), originalState)
 
     state.metadataChunk should be(metadata)
+    state.lastMetadata should be(originalState.lastMetadata)
     extracted.metadataChunk shouldBe empty
   }
 
@@ -269,7 +272,20 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     val (state, extracted) = updateState(SupportedMetadataExtractionService.extractedData(), originalState)
 
     state.metadataChunk shouldBe empty
+    state.lastMetadata should be(extracted.metadataChunk)
     extracted.metadataChunk should be(Some(metadata))
+  }
+
+  it should "not extract the same metadata as the last block" in {
+    val metadata = dataBlock(128)
+    val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 128, bytesReceived = 128,
+      metadataChunk = metadata, lastMetadata = Some(metadata))
+
+    val (state, extracted) = updateState(SupportedMetadataExtractionService.extractedData(), originalState)
+
+    state.metadataChunk shouldBe empty
+    state.lastMetadata should be(originalState.lastMetadata)
+    extracted.metadataChunk shouldBe empty
   }
 
   it should "handle an incoming block of data" in {

@@ -91,8 +91,20 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     checkStreamWithMetadata(100)
   }
 
-  it should "handle a chunks containing only metadata" in {
+  it should "handle a chunk containing only metadata" in {
     checkStreamWithMetadata(10)
+  }
+
+  it should "filter out duplicate metadata" in {
+    val ChunkCount = 16
+    val expectedMetadata = (0 to ChunkCount / 2).map(RadioStreamTestHelper.generateMetadata)
+      .foldLeft(ByteString.empty) { (aggregate, chunk) => aggregate ++ ByteString(chunk) }
+
+    val (_, extractedMetadata) =
+      runStream(Some(AudioChunkSize), RadioStreamTestHelper.generateRadioStreamSource(ChunkCount, 64,
+        metaGen = idx => RadioStreamTestHelper.generateMetadata(idx / 2)))
+
+    extractedMetadata should be(expectedMetadata)
   }
 
   it should "handle a radio stream that does not support metadata" in {
