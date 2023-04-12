@@ -227,7 +227,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "reset the current metadata after changing the current source" in {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(2))
-    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("some stale data")))
+    ctrl.metadataChanged(RadioMetadataEvent(radioSource(1), CurrentMetadata("some stale data")))
     val src = radioSource(2)
     doReturn(src).when(helper.comboHandler).getData
 
@@ -317,11 +317,12 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   }
 
   it should "handle an event about unsupported metadata" in {
+    val src = radioSource(1)
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(5))
-    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("some data")))
+    ctrl.metadataChanged(RadioMetadataEvent(src, CurrentMetadata("some data")))
 
-    ctrl.metadataChanged(RadioMetadataEvent(MetadataNotSupported))
+    ctrl.metadataChanged(RadioMetadataEvent(src, MetadataNotSupported))
 
     verify(helper.metadataTextHandler).setText("")
   }
@@ -332,7 +333,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1))
 
-    ctrl.metadataChanged(RadioMetadataEvent(metadata))
+    ctrl.metadataChanged(RadioMetadataEvent(radioSource(1), metadata))
 
     verify(helper.metadataTextHandler).setText(MetadataContent)
   }
@@ -346,7 +347,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val ctrl = helper.createInitializedController(createSourceConfiguration(1), mainConfig = mainConfig)
 
     ctrl.playbackTimeProgress(10.seconds)
-    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata(MetadataContent)))
+    ctrl.metadataChanged(RadioMetadataEvent(radioSource(1), CurrentMetadata(MetadataContent)))
     verify(helper.metadataTextHandler).setText("0123456789")
 
     ctrl.playbackTimeProgress(10.seconds + 250.millis)
@@ -358,11 +359,12 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "not update metadata if the same event arrives again" in {
     val metadata = CurrentMetadata("This is some metadata")
+    val event = RadioMetadataEvent(radioSource(1), metadata)
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1))
 
-    ctrl.metadataChanged(RadioMetadataEvent(metadata))
-    ctrl.metadataChanged(RadioMetadataEvent(metadata))
+    ctrl.metadataChanged(event)
+    ctrl.metadataChanged(event)
 
     verify(helper.metadataTextHandler, times(1)).setText(metadata.title)
   }
@@ -376,7 +378,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ctrl.playbackTimeProgress(10.seconds)
 
     ctrl.elementChanged(mock[FormChangeEvent])
-    ctrl.metadataChanged(RadioMetadataEvent(CurrentMetadata("0123456789ABCDEF")))
+    ctrl.metadataChanged(RadioMetadataEvent(radioSource(2), CurrentMetadata("0123456789ABCDEF")))
     ctrl.playbackTimeProgress(3.seconds)
 
     verify(helper.metadataTextHandler).setText("3456789ABC")

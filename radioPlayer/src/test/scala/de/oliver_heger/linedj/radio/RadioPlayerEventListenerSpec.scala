@@ -68,7 +68,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
   }
 
   it should "delegate metadata events" in {
-    val metadataEvent = RadioMetadataEvent(MetadataNotSupported)
+    val metadataEvent = RadioMetadataEvent(RadioSource("metadataSource"), MetadataNotSupported)
     val helper = new RadioPlayerEventListenerTestHelper
 
     helper sendEvent metadataEvent

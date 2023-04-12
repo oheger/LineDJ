@@ -51,6 +51,9 @@ object RadioStreamActorSpec {
   /** URI pointing to a m3u file. */
   private val PlaylistStreamUri = "playlist.m3u"
 
+  /** The radio source passed to test actor instances. */
+  private val TestRadioSource = RadioSource(PlaylistStreamUri)
+
   /** Constant for the size of the managed buffer. */
   private val BufferSize = 16384
 
@@ -299,7 +302,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     def createTestActor(): ActorRef = {
       val props = stream.RadioStreamActor(Config,
-        RadioSource(PlaylistStreamUri),
+        TestRadioSource,
         probeSourceListener.ref,
         probeEventActor.ref,
         streamBuilder)
@@ -352,6 +355,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     def expectMetadataEvent(metadata: RadioMetadata): Unit = {
       val metadataEvent = probeEventActor.expectMessageType[RadioMetadataEvent]
+      metadataEvent.source should be(TestRadioSource)
       metadataEvent.metadata should be(metadata)
       val timeDelta = Duration.between(metadataEvent.time, LocalDateTime.now())
       timeDelta.toSeconds should be < 5L

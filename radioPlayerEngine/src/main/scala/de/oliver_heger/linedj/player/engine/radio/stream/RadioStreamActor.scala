@@ -165,7 +165,7 @@ private class RadioStreamActor(config: PlayerConfig,
       sourceListener ! AudioSource(result.resolvedUri, Long.MaxValue, 0, 0)
       if (!result.metadataSupported) {
         log.info("No support for metadata.")
-        eventActor ! RadioMetadataEvent(MetadataNotSupported)
+        eventActor ! RadioMetadataEvent(streamSource, MetadataNotSupported)
       }
       optKillSwitch = Some(result.killSwitch)
       result.graph.run()
@@ -241,7 +241,7 @@ private class RadioStreamActor(config: PlayerConfig,
   private def createMetadataSink(): Sink[ByteString, Future[Done]] =
     Sink.foreach[ByteString] { meta =>
       val data = CurrentMetadata(meta.utf8String)
-      eventActor ! RadioMetadataEvent(data)
+      eventActor ! RadioMetadataEvent(streamSource, data)
     }
 
   /**

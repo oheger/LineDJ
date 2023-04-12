@@ -191,8 +191,10 @@ case class CurrentMetadata(data: String) extends RadioMetadata {
   * source. If metadata is supported, this can be used to display the current
   * title and artist in the radio player UI.
   *
+  * @param source   the current radio source
   * @param metadata the [[RadioMetadata]]
   * @param time     the time when this event was generated
   */
-case class RadioMetadataEvent(metadata: RadioMetadata,
+case class RadioMetadataEvent(source: RadioSource,
+                              metadata: RadioMetadata,
                               override val time: LocalDateTime = LocalDateTime.now()) extends RadioEvent
