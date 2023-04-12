@@ -152,7 +152,5 @@ object MetadataConfig {
   *
   * @param exclusions   a list of global exclusions that are applied to all
   *                     radio sources
-  * @param checkTimeout timeout for checks whether an exclusion ends
   */
-case class MetadataConfig(exclusions: Seq[MetadataExclusion] = Seq.empty,
-                          checkTimeout: FiniteDuration = 30.seconds)
+case class MetadataConfig(exclusions: Seq[MetadataExclusion] = Seq.empty)

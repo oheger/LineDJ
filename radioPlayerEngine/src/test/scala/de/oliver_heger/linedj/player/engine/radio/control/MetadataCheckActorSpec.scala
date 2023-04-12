@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
@@ -78,8 +78,12 @@ object MetadataCheckActorSpec {
   /** A test audio player configuration object. */
   private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
 
+  /** A test radio player configuration. */
+  private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
+    metadataCheckTimeout = 99.seconds)
+
   /** A test metadata config. */
-  private val TestMetadataConfig = MetadataConfig(checkTimeout = 11.seconds)
+  private val TestMetadataConfig = MetadataConfig()
 
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
@@ -960,7 +964,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     val schedule = helper.expectScheduledInvocation()
 
-    schedule.delay should be(TestMetadataConfig.checkTimeout)
+    schedule.delay should be(TestRadioConfig.metadataCheckTimeout)
     schedule.invocation.send()
     helper.expectSourceCheckTimeout()
   }
@@ -1252,7 +1256,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     private def createSourceCheckerActor(): ActorRef[MetadataCheckActor.SourceCheckCommand] = {
       val behavior = MetadataCheckActor.sourceCheckBehavior(TestRadioSource,
         "testNamePrefix",
-        TestPlayerConfig,
+        TestRadioConfig,
         TestMetadataConfig,
         sourceConfig,
         MetaExclusions(MetaBadMusic),

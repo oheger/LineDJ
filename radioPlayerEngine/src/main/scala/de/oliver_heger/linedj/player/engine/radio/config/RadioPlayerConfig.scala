@@ -50,6 +50,9 @@ import scala.concurrent.duration._
   *                                   if the check lasts longer than this
   *                                   value, the source is considered still in
   *                                   error state
+  * @param metadataCheckTimeout       a timeout for metadata checks; a single
+  *                                   test run processes metadata for this time
+  *                                   at max
   */
 case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              maximumEvalDelay: FiniteDuration = 1.hour,
@@ -57,4 +60,5 @@ case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              retryFailedSource: FiniteDuration = 5.seconds,
                              retryFailedSourceIncrement: Double = 2.0,
                              maxRetryFailedSource: FiniteDuration = 6.hours,
-                             sourceCheckTimeout: FiniteDuration = 60.seconds)
+                             sourceCheckTimeout: FiniteDuration = 60.seconds,
+                             metadataCheckTimeout: FiniteDuration = 30.seconds)

@@ -25,7 +25,7 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
@@ -199,7 +199,7 @@ object MetadataCheckActor {
       *
       * @param source               the radio source affected
       * @param namePrefix           a prefix for generating actor names
-      * @param playerConfig         the audio player config
+      * @param radioConfig          the radio player config
       * @param metadataConfig       the global metadata config
       * @param metadataSourceConfig the metadata config for the source
       * @param currentExclusion     the detected metadata exclusion
@@ -213,7 +213,7 @@ object MetadataCheckActor {
       */
     def apply(source: RadioSource,
               namePrefix: String,
-              playerConfig: PlayerConfig,
+              radioConfig: RadioPlayerConfig,
               metadataConfig: MetadataConfig,
               metadataSourceConfig: RadioSourceMetadataConfig,
               currentExclusion: MetadataExclusion,
@@ -232,7 +232,7 @@ object MetadataCheckActor {
   private[control] val sourceCheckBehavior: SourceCheckFactory =
     (source: RadioSource,
      namePrefix: String,
-     playerConfig: PlayerConfig,
+     radioConfig: RadioPlayerConfig,
      metadataConfig: MetadataConfig,
      metadataSourceConfig: RadioSourceMetadataConfig,
      currentExclusion: MetadataExclusion,
@@ -252,7 +252,7 @@ object MetadataCheckActor {
             context.log.info("Triggering metadata check {} for {}.", nextCount, source)
             val runnerBehavior = runnerFactory(source,
               namePrefix + "_run" + nextCount,
-              playerConfig,
+              radioConfig.playerConfig,
               metadataConfig,
               metadataSourceConfig,
               exclusion,
@@ -262,7 +262,7 @@ object MetadataCheckActor {
               context.self)
             val runner = context.spawn(runnerBehavior, namePrefix + nextCount)
 
-            val timeout = ScheduledInvocationActor.typedInvocationCommand(metadataConfig.checkTimeout,
+            val timeout = ScheduledInvocationActor.typedInvocationCommand(radioConfig.metadataCheckTimeout,
               stateActor,
               SourceCheckTimeout(source, context.self))
             scheduleActor ! timeout
