@@ -23,12 +23,12 @@ import akka.stream.scaladsl.Sink
 import akka.stream.{KillSwitch, Materializer}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
 import java.util.regex.{Matcher, Pattern}
@@ -124,6 +124,16 @@ object MetadataCheckActor {
   sealed trait MetadataExclusionStateCommand
 
   /**
+    * A command processed by the metadata exclusion state actor that updates
+    * the global metadata configuration. The provided configuration is stored.
+    * All radio sources disabled due to metadata are enabled again, so that the
+    * updated configuration can become active.
+    *
+    * @param metaConfig the new metadata config
+    */
+  case class InitMetadataConfig(metaConfig: MetadataConfig) extends MetadataExclusionStateCommand
+
+  /**
     * A command processed by the metadata exclusion state actor indicating
     * that a specific radio source has been checked successfully and can be
     * enabled again.
@@ -145,6 +155,149 @@ object MetadataCheckActor {
   private[control] case class SourceCheckTimeout(source: RadioSource,
                                                  checkActor: ActorRef[SourceCheckCommand])
     extends MetadataExclusionStateCommand
+
+  /**
+    * An internal command processed by the metadata exclusion state actor that
+    * tells it to handle the given radio event. If this is an event about
+    * changed metadata, the data is checked against the defined exclusions.
+    *
+    * @param event the event to check
+    */
+  private case class HandleRadioEvent(event: RadioEvent) extends MetadataExclusionStateCommand
+
+  /** The name prefix for actors checking a specific radio source. */
+  final val SourceCheckActorNamePrefix = "metadataSourceCheck"
+
+  /**
+    * A trait defining a factory function for creating new instances of the
+    * metadata state actor.
+    */
+  trait Factory {
+    /**
+      * Returns a ''Behavior'' for creating a new actor instance.
+      *
+      * @param radioConfig        the radio player config
+      * @param enabledStateActor  the actor managing the source enabled state
+      * @param scheduleActor      the actor for scheduled invocations
+      * @param eventActor         the event manager actor
+      * @param streamBuilder      the stream builder
+      * @param intervalService    the evaluate intervals service
+      * @param clock              a clock
+      * @param sourceCheckFactory the factory for source check actors
+      * @return the ''Behavior'' for the new actor instance
+      */
+    def apply(radioConfig: RadioPlayerConfig,
+              enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+              scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+              eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+              streamBuilder: RadioStreamBuilder,
+              intervalService: EvaluateIntervalsService,
+              clock: Clock = Clock.systemDefaultZone(),
+              sourceCheckFactory: SourceCheckFactory = sourceCheckBehavior): Behavior[MetadataExclusionStateCommand]
+  }
+
+  /**
+    * A data class holding the internal state for metadata exclusion checks.
+    *
+    * @param metaConfig      the current [[MetadataConfig]]
+    * @param disabledSources a map with radio sources in disabled state due to
+    *                        matched metadata and their responsible check
+    *                        actors
+    * @param count           a counter for generating actor names
+    */
+  private case class MetadataExclusionState(metaConfig: MetadataConfig,
+                                            disabledSources: Map[RadioSource, ActorRef[SourceCheckCommand]],
+                                            count: Int) {
+    /**
+      * Returns an updated state that marks the given source as disabled and
+      * has some related property updates.
+      *
+      * @param source     the source to be marked as disabled
+      * @param checkActor the actor to check this source
+      * @return the updated state
+      */
+    def disable(source: RadioSource, checkActor: ActorRef[SourceCheckCommand]): MetadataExclusionState =
+      copy(disabledSources = disabledSources + (source -> checkActor), count = count + 1)
+
+    /**
+      * Tries to enable the given source and returns an option with an updated
+      * state. If the source is not disabled, result is ''None''.
+      *
+      * @param source the source to re-enable
+      * @return an ''Option'' with the updated state
+      */
+    def enableIfDisabled(source: RadioSource): Option[MetadataExclusionState] =
+      if (disabledSources.contains(source)) Some(copy(disabledSources = disabledSources - source))
+      else None
+  }
+
+  /**
+    * A default [[Factory]] implementation to create instances of the metadata
+    * state actor.
+    */
+  final val metadataStateBehavior: Factory =
+    (radioConfig: RadioPlayerConfig,
+     enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+     scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+     eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+     streamBuilder: RadioStreamBuilder,
+     intervalService: EvaluateIntervalsService,
+     clock: Clock,
+     sourceCheckFactory: SourceCheckFactory) => Behaviors.setup { context =>
+      val listener = context.messageAdapter[RadioEvent] { event => HandleRadioEvent(event) }
+      eventActor ! EventManagerActor.RegisterListener(listener)
+
+      def handle(state: MetadataExclusionState): Behavior[MetadataExclusionStateCommand] =
+        Behaviors.receiveMessage {
+          case InitMetadataConfig(metaConfig) =>
+            state.disabledSources foreach { e =>
+              context.log.info("Stopping source check actor for {} due to configuration change.", e._1)
+              enabledStateActor ! RadioControlProtocol.EnableSource(e._1)
+              e._2 ! CancelSourceCheck(terminate = true)
+            }
+            handle(state.copy(metaConfig = metaConfig, disabledSources = Map.empty))
+
+          case HandleRadioEvent(event) =>
+            event match {
+              case RadioMetadataEvent(source, data@CurrentMetadata(_), _)
+                if !state.disabledSources.contains(source) =>
+                val sourceConfig = state.metaConfig.metadataSourceConfig(source)
+                findMetadataExclusion(state.metaConfig, sourceConfig, data) map { exclusion =>
+                  val checkName = s"$SourceCheckActorNamePrefix${state.count}"
+                  val checkBehavior = sourceCheckFactory(source,
+                    checkName,
+                    radioConfig,
+                    state.metaConfig,
+                    sourceConfig,
+                    exclusion,
+                    context.self,
+                    scheduleActor,
+                    clock,
+                    streamBuilder,
+                    intervalService)
+                  val checkActor = context.spawn(checkBehavior, checkName)
+                  enabledStateActor ! RadioControlProtocol.DisableSource(source)
+                  handle(state.disable(source, checkActor))
+                } getOrElse Behaviors.same
+              case _ =>
+                Behaviors.same
+            }
+
+          case SourceCheckSucceeded(source) =>
+            state.enableIfDisabled(source) map { nextState =>
+              enabledStateActor ! RadioControlProtocol.EnableSource(source)
+              handle(nextState)
+            } getOrElse Behaviors.same
+
+          case SourceCheckTimeout(source, checkActor) =>
+            if (state.disabledSources.contains(source)) {
+              checkActor ! CancelSourceCheck(terminate = false)
+            }
+            Behaviors.same
+        }
+
+      handle(MetadataExclusionState(MetadataConfig.Empty, Map.empty, 1))
+    }
 
   /**
     * The base trait for commands processed by the metadata source check actor.

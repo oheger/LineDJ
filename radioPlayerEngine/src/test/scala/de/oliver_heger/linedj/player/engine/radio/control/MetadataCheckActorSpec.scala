@@ -24,15 +24,16 @@ import akka.stream.scaladsl.{Broadcast, Flow, Framing, GraphDSL, RunnableGraph, 
 import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
-import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamTestHelper}
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio._
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.{ArgumentCaptor, Mockito}
@@ -94,6 +95,24 @@ object MetadataCheckActorSpec {
 
   /** A map with test metadata exclusions used by test cases. */
   private val MetaExclusions: Map[String, MetadataExclusion] = createExclusions()
+
+  /**
+    * A data class storing the dynamic parameters passed to a newly created
+    * source check actor instance.
+    *
+    * @param source               the radio source
+    * @param namePrefix           the name prefix
+    * @param metadataConfig       the current metadata configuration
+    * @param metadataSourceConfig the config for the radio source
+    * @param currentExclusion     the current metadata exclusion
+    * @param probe                the test probe monitoring the new instance
+    */
+  private case class SourceCheckCreation(source: RadioSource,
+                                         namePrefix: String,
+                                         metadataConfig: MetadataConfig,
+                                         metadataSourceConfig: RadioSourceMetadataConfig,
+                                         currentExclusion: MetadataExclusion,
+                                         probe: TestProbe[MetadataCheckActor.SourceCheckCommand])
 
   /**
     * Checks whether the given chunk of data represents metadata.
@@ -173,6 +192,23 @@ object MetadataCheckActorSpec {
     val config = Mockito.mock(classOf[MetadataConfig])
     when(config.exclusions).thenReturn(Seq.empty)
     config
+  }
+
+  /**
+    * Initializes a mock for a [[MetadataConfig]] instance to return the test
+    * metadata exclusions. One is treated as global exclusion, the other one is
+    * returned as part of the metadata configuration of the test radio source.
+    *
+    * @param configMock the mock to be initialized
+    * @return the initialized mock
+    */
+  private def initMetaConfigMock(configMock: MetadataConfig): MetadataConfig = {
+    val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData),
+      exclusions = Seq(MetaExclusions(MetaNotWanted)))
+    when(configMock.exclusions).thenReturn(Seq(MetaExclusions(MetaBadMusic)))
+    when(configMock.metadataSourceConfig(any())).thenReturn(MetadataConfig.EmptySourceConfig)
+    when(configMock.metadataSourceConfig(TestRadioSource)).thenReturn(sourceConfig)
+    configMock
   }
 }
 
@@ -1279,6 +1315,350 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         intervalService,
         createCheckRunnerFactory())
       testKit.spawn(behavior)
+    }
+  }
+
+  /**
+    * Checks whether the metadata state actor detects the given metadata
+    * exclusion.
+    *
+    * @param exclusion the exclusion to check
+    */
+  private def checkMetadataExclusion(exclusion: String): Unit = {
+    val helper = new MetadataStateTestHelper
+
+    helper.sendMetadataEvent(exclusion)
+      .expectDisabledSource()
+
+    val creation = helper.nextSourceCheckCreation()
+    creation.currentExclusion should be(MetaExclusions(exclusion))
+    creation.source should be(TestRadioSource)
+    creation.metadataSourceConfig should be(creation.metadataConfig.metadataSourceConfig(TestRadioSource))
+    creation.namePrefix should be(s"${MetadataCheckActor.SourceCheckActorNamePrefix}1")
+  }
+
+  "Metadata exclusion state actor" should "detect a global metadata exclusion" in {
+    checkMetadataExclusion(MetaBadMusic)
+  }
+
+  it should "detect a metadata exclusion for the current source" in {
+    checkMetadataExclusion(MetaNotWanted)
+  }
+
+  /**
+    * Tests whether a radio event unrelated to metadata updates is ignored.
+    *
+    * @param event the event
+    */
+  private def checkIrrelevantEvent(event: RadioEvent): Unit = {
+    val helper = new MetadataStateTestHelper
+
+    helper.sendEvent(event)
+      .expectNoSourceCheckCreation()
+      .sendMetadataEvent(MetaBadMusic)
+      .nextSourceCheckCreation()
+  }
+
+  it should "ignore metadata events without current metadata" in {
+    checkIrrelevantEvent(RadioMetadataEvent(TestRadioSource, MetadataNotSupported))
+  }
+
+  it should "ignore events of other types" in {
+    checkIrrelevantEvent(RadioSourceChangedEvent(TestRadioSource))
+  }
+
+  it should "ignore metadata not matched by an exclusion" in {
+    checkIrrelevantEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata("no problem")))
+  }
+
+  it should "create different source check actors for different sources" in {
+    val source2 = radioSource(2)
+    val event2 = RadioMetadataEvent(source2, CurrentMetadata(MetaBadMusic))
+    val helper = new MetadataStateTestHelper
+    val creation1 = helper.sendMetadataEvent(MetaNotWanted)
+      .nextSourceCheckCreation()
+
+    val creation2 = helper.sendEvent(event2)
+      .nextSourceCheckCreation()
+
+    creation2.metadataConfig should be(creation1.metadataConfig)
+    creation2.namePrefix should be(s"${MetadataCheckActor.SourceCheckActorNamePrefix}2")
+  }
+
+  it should "not create multiple check actors per source" in {
+    val helper = new MetadataStateTestHelper
+    helper.sendMetadataEvent(MetaBadMusic)
+      .nextSourceCheckCreation()
+
+    helper.sendMetadataEvent(MetaNotWanted)
+      .expectNoSourceCheckCreation()
+  }
+
+  it should "handle a successful source check" in {
+    val helper = new MetadataStateTestHelper
+    helper.sendMetadataEvent(MetaNotWanted)
+      .expectDisabledSource()
+      .nextSourceCheckCreation()
+
+    val creation = helper.sendCommand(MetadataCheckActor.SourceCheckSucceeded(TestRadioSource))
+      .expectEnabledSource()
+      .sendMetadataEvent(MetaBadMusic)
+      .nextSourceCheckCreation()
+
+    creation.source should be(TestRadioSource)
+  }
+
+  it should "ignore a message about a successful source check if the source is not disabled" in {
+    val helper = new MetadataStateTestHelper
+
+    helper.sendCommand(MetadataCheckActor.SourceCheckSucceeded(TestRadioSource))
+      .expectNoSourceEnabledChange()
+  }
+
+  it should "forward a source check timeout message" in {
+    val helper = new MetadataStateTestHelper
+    val creation = helper.sendMetadataEvent(MetaBadMusic)
+      .nextSourceCheckCreation()
+
+    helper.sendCommand(MetadataCheckActor.SourceCheckTimeout(TestRadioSource, creation.probe.ref))
+
+    creation.probe.expectMessage(MetadataCheckActor.CancelSourceCheck(terminate = false))
+  }
+
+  it should "ignore a source check timeout message if the source is not disabled" in {
+    val helper = new MetadataStateTestHelper
+    val creation = helper.sendMetadataEvent(MetaNotWanted)
+      .nextSourceCheckCreation()
+
+    helper.sendCommand(MetadataCheckActor.SourceCheckSucceeded(TestRadioSource))
+      .sendCommand(MetadataCheckActor.SourceCheckTimeout(TestRadioSource, creation.probe.ref))
+
+    creation.probe.expectNoMessage(200.millis)
+  }
+
+  it should "enable all sources if the metadata config changes" in {
+    val SourceCount = 4
+    val sources = (1 to SourceCount) map radioSource
+    val nextConfig = initMetaConfigMock(mock[MetadataConfig])
+    val helper = new MetadataStateTestHelper
+    val creations = sources map { source =>
+      val event = RadioMetadataEvent(source, CurrentMetadata(MetaBadMusic))
+      helper.sendEvent(event)
+        .expectDisabledSource(source)
+        .nextSourceCheckCreation()
+    }
+
+    helper.sendCommand(MetadataCheckActor.InitMetadataConfig(nextConfig))
+
+    creations foreach { creation =>
+      creation.probe.expectMessage(MetadataCheckActor.CancelSourceCheck(terminate = true))
+    }
+    val enabledSources = creations map { _ => helper.nextEnabledSource().source }
+    enabledSources should contain theSameElementsAs sources
+
+    val nextCreation = helper.sendEvent(RadioMetadataEvent(radioSource(1), CurrentMetadata(MetaBadMusic)))
+      .nextSourceCheckCreation()
+    nextCreation.metadataConfig should be(nextConfig)
+    nextCreation.namePrefix should be(s"${MetadataCheckActor.SourceCheckActorNamePrefix}${SourceCount + 1}")
+  }
+
+  /**
+    * A helper class for testing the metadata state actor.
+    */
+  private class MetadataStateTestHelper {
+    /** Test probe for the source enabled state actor. */
+    private val probeEnabledStateActor = testKit.createTestProbe[RadioControlProtocol.SourceEnabledStateCommand]()
+
+    /** Test probe for the scheduler actor. */
+    private val probeSchedulerActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
+
+    /** Test probe for the event manager actor. */
+    private val probeEventActor = testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
+
+    /** A test clock instance. */
+    private val clock = tickSecondsClock()
+
+    /** Mock for the radio stream builder. */
+    private val streamBuilder = mock[RadioStreamBuilder]
+
+    /** Mock for the interval service. */
+    private val intervalsService = mock[EvaluateIntervalsService]
+
+    /** A queue to keep track on source check actor creations. */
+    private val queueSourceCheckCreations = new LinkedBlockingQueue[SourceCheckCreation]
+
+    /** Stores the listener registered at the event actor. */
+    private val refEventListener = new AtomicReference[ActorRef[RadioEvent]]
+
+    /** The actor to be tested. */
+    private val stateActor = createStateActor()
+
+    /**
+      * Sends the given command to the actor under test.
+      *
+      * @param command the command to send
+      * @return this test helper
+      */
+    def sendCommand(command: MetadataCheckActor.MetadataExclusionStateCommand): MetadataStateTestHelper = {
+      stateActor ! command
+      this
+    }
+
+    /**
+      * Sends the given event to the registered listener.
+      *
+      * @param event the radio event to send
+      * @return this test helper
+      */
+    def sendEvent(event: RadioEvent): MetadataStateTestHelper = {
+      eventListener ! event
+      this
+    }
+
+    /**
+      * Sends a metadata event with the given text to the registered listener.
+      *
+      * @param data the metadata to send
+      * @return this test helper
+      */
+    def sendMetadataEvent(data: String): MetadataStateTestHelper =
+      sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(data)))
+
+    /**
+      * Expects the creation of a source check actor and returns its reference.
+      *
+      * @return the next source check actor created by the test actor
+      */
+    def nextSourceCheckCreation(): SourceCheckCreation = {
+      val checkActor = queueSourceCheckCreations.poll(3, TimeUnit.SECONDS)
+      checkActor should not be null
+      checkActor
+    }
+
+    /**
+      * Expects that no source check actor is created.
+      *
+      * @return this test helper
+      */
+    def expectNoSourceCheckCreation(): MetadataStateTestHelper = {
+      queueSourceCheckCreations.poll(200, TimeUnit.MILLISECONDS) should be(null)
+      this
+    }
+
+    /**
+      * Expects that the given radio source has been disabled.
+      *
+      * @param source the source in question
+      * @return this test helper
+      */
+    def expectDisabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper = {
+      probeEnabledStateActor.expectMessage(RadioControlProtocol.DisableSource(source))
+      this
+    }
+
+    /**
+      * Expects that the given radio source has been enabled.
+      *
+      * @param source the source in question
+      * @return this test helper
+      */
+    def expectEnabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper = {
+      nextEnabledSource().source should be(source)
+      this
+    }
+
+    /**
+      * Expects a message about an enabled source and returns it. This function
+      * is needed, since the order in which multiple sources are enabled is not
+      * deterministic.
+      *
+      * @return the next message about an enabled source
+      */
+    def nextEnabledSource(): RadioControlProtocol.EnableSource =
+      probeEnabledStateActor.expectMessageType[RadioControlProtocol.EnableSource]
+
+    /**
+      * Expects that no message about an enabled or disabled source comes in.
+      *
+      * @return this test helper
+      */
+    def expectNoSourceEnabledChange(): MetadataStateTestHelper = {
+      probeEnabledStateActor.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Returns the event listener the actor under test should have registered
+      * at the event manager actor. It is obtained on first access.
+      *
+      * @return the event listener
+      */
+    private def eventListener: ActorRef[RadioEvent] = {
+      if (refEventListener.get() == null) {
+        val reg = probeEventActor.expectMessageType[EventManagerActor.RegisterListener[RadioEvent]]
+        refEventListener set reg.listener
+      }
+      refEventListener.get()
+    }
+
+    /**
+      * Creates a factory for creating new source check actors. This factory
+      * implementation checks some of the parameters provided to it and
+      * constructs a [[SourceCheckCreation]] object with relevant data. This
+      * object can be obtained via a queue.
+      *
+      * @return the factory for source check actors
+      */
+    private def createSourceCheckerFactory(): MetadataCheckActor.SourceCheckFactory =
+      (source: RadioSource,
+       namePrefix: String,
+       radioConfig: RadioPlayerConfig,
+       metadataConfig: MetadataConfig,
+       metadataSourceConfig: RadioSourceMetadataConfig,
+       currentExclusion: MetadataExclusion,
+       stateActorParam: ActorRef[MetadataCheckActor.MetadataExclusionStateCommand],
+       scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+       clockParam: Clock,
+       streamBuilderParam: RadioStreamBuilder,
+       intervalServiceParam: EvaluateIntervalsService,
+       _: MetadataCheckActor.MetadataCheckRunnerFactory) => {
+        radioConfig should be(TestRadioConfig)
+        clockParam should be(clock)
+        streamBuilderParam should be(streamBuilder)
+        intervalServiceParam should be(intervalsService)
+        stateActorParam should be(stateActor)
+        scheduleActor should be(probeSchedulerActor.ref)
+
+        val probe = testKit.createTestProbe[MetadataCheckActor.SourceCheckCommand]()
+        val creation = SourceCheckCreation(source = source,
+          namePrefix = namePrefix,
+          metadataConfig = metadataConfig,
+          metadataSourceConfig = metadataSourceConfig,
+          currentExclusion = currentExclusion,
+          probe = probe)
+        queueSourceCheckCreations offer creation
+        Behaviors.monitor(probe.ref, Behaviors.ignore)
+      }
+
+    /**
+      * Creates a new instance of the state actor to be tested.
+      *
+      * @return the actor under test
+      */
+    private def createStateActor(): ActorRef[MetadataCheckActor.MetadataExclusionStateCommand] = {
+      val behavior = MetadataCheckActor.metadataStateBehavior(TestRadioConfig,
+        probeEnabledStateActor.ref,
+        probeSchedulerActor.ref,
+        probeEventActor.ref,
+        streamBuilder,
+        intervalsService,
+        clock,
+        createSourceCheckerFactory())
+      val actor = testKit.spawn(behavior)
+
+      val metaConfig = initMetaConfigMock(mock[MetadataConfig])
+      actor ! MetadataCheckActor.InitMetadataConfig(metaConfig)
+      actor
     }
   }
 }
