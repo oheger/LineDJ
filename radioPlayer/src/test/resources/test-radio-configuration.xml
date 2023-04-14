@@ -20,15 +20,6 @@
   <initialDelay>1500</initialDelay>
   <metadataMaxLen>44</metadataMaxLen>
   <metadataRotateSpeed>0.5</metadataRotateSpeed>
-  <error>
-    <retryInterval>1000</retryInterval>
-    <retryIncrement>2</retryIncrement>
-    <maxRetries>3</maxRetries>
-    <recovery>
-      <time>20</time>
-      <minFailedSources>2</minFailedSources>
-    </recovery>
-  </error>
   <sources>
     <source>
       <name>HR 1</name>

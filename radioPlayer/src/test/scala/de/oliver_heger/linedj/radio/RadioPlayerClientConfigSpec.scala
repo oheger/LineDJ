@@ -21,8 +21,6 @@ import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfigura
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
-
 object RadioPlayerClientConfigSpec {
   /** The name of the test configuration file. */
   private val ConfigFile = "test-radio-configuration.xml"
@@ -71,32 +69,6 @@ class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "support an error configuration" in {
-    val errConfig = loadConfig().errorConfig
-
-    errConfig.retryInterval should be(1000.millis)
-    errConfig.retryIncrementFactor should be(2.0)
-    errConfig.maxRetries should be(3)
-    errConfig.recoveryTime should be(20)
-    errConfig.recoverMinFailedSources should be(2)
-  }
-
-  it should "correct a retry interval that is too small" in {
-    val playerConfig = new HierarchicalConfiguration
-    playerConfig.addProperty("radio.error.retryInterval", 9)
-
-    val config = RadioPlayerClientConfig(playerConfig)
-    config.errorConfig.retryInterval should be(10.millis)
-  }
-
-  it should "correct an increment factor that is too small" in {
-    val playerConfig = new HierarchicalConfiguration
-    playerConfig.addProperty("radio.error.retryIncrement", 1)
-
-    val config = RadioPlayerClientConfig(playerConfig)
-    config.errorConfig.retryIncrementFactor should be(1.1)
-  }
-
   it should "read further configuration properties" in {
     val config = loadConfig()
 
@@ -110,11 +82,6 @@ class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
 
     config.sourceConfig.namedSources shouldBe empty
     config.sourceConfig.exclusions(RadioSource("someRadioSource")) shouldBe empty
-    config.errorConfig.retryInterval should be(RadioPlayerClientConfig.DefaultRetryInterval.millis)
-    config.errorConfig.retryIncrementFactor should be(RadioPlayerClientConfig.DefaultRetryIncrement)
-    config.errorConfig.maxRetries should be(RadioPlayerClientConfig.DefaultMaxRetries)
-    config.errorConfig.recoveryTime should be(RadioPlayerClientConfig.DefaultRecoveryTime)
-    config.errorConfig.recoverMinFailedSources should be(RadioPlayerClientConfig.DefaultMinFailuresForRecovery)
     config.initialDelay should be(RadioPlayerClientConfig.DefaultInitialDelay)
     config.metaMaxLen should be(RadioPlayerClientConfig.DefaultMetadataMaxLen)
     config.metaRotateSpeed should be(RadioPlayerClientConfig.DefaultMetadataRotateScale)

@@ -118,7 +118,6 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       helper.metadataTextHandler, helper.statusLineController)
 
     val playerConfig = ctrl.playerConfig
-    playerConfig.errorConfig.retryInterval.toMillis should be(1000)
     playerConfig.sourceConfig.namedSources should have size 11
     playerConfig.initialDelay should be(1500)
   }
