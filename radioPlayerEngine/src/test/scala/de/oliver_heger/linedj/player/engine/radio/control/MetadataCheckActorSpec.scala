@@ -83,9 +83,6 @@ object MetadataCheckActorSpec {
   private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
     metadataCheckTimeout = 99.seconds)
 
-  /** A test metadata config. */
-  private val TestMetadataConfig = createMetadataConfig()
-
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
     s"(?<${MetadataConfig.SongTitleGroup}>.+)")
@@ -100,17 +97,15 @@ object MetadataCheckActorSpec {
     * A data class storing the dynamic parameters passed to a newly created
     * source check actor instance.
     *
-    * @param source               the radio source
-    * @param namePrefix           the name prefix
-    * @param metadataConfig       the current metadata configuration
-    * @param metadataSourceConfig the config for the radio source
-    * @param currentExclusion     the current metadata exclusion
-    * @param probe                the test probe monitoring the new instance
+    * @param source           the radio source
+    * @param namePrefix       the name prefix
+    * @param metadataConfig   the current metadata configuration
+    * @param currentExclusion the current metadata exclusion
+    * @param probe            the test probe monitoring the new instance
     */
   private case class SourceCheckCreation(source: RadioSource,
                                          namePrefix: String,
                                          metadataConfig: MetadataConfig,
-                                         metadataSourceConfig: RadioSourceMetadataConfig,
                                          currentExclusion: MetadataExclusion,
                                          probe: TestProbe[MetadataCheckActor.SourceCheckCommand])
 
@@ -186,11 +181,13 @@ object MetadataCheckActorSpec {
   /**
     * Creates a test [[MetadataConfig]] based on a mock.
     *
+    * @param srcConfig the config to return for the test radio source
     * @return the test metadata config
     */
-  private def createMetadataConfig(): MetadataConfig = {
+  private def createMetadataConfig(srcConfig: RadioSourceMetadataConfig): MetadataConfig = {
     val config = Mockito.mock(classOf[MetadataConfig])
     when(config.exclusions).thenReturn(Seq.empty)
+    when(config.metadataSourceConfig(TestRadioSource)).thenReturn(srcConfig)
     config
   }
 
@@ -939,13 +936,13 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @return the actor to be tested
       */
     private def createCheckRunnerActor(): ActorRef[MetadataCheckActor.MetadataCheckRunnerCommand] = {
-      val exclusion = MetadataCheckActor.findMetadataExclusion(TestMetadataConfig, metadataSourceConfig,
+      val metaConfig = createMetadataConfig(metadataSourceConfig)
+      val exclusion = MetadataCheckActor.findMetadataExclusion(metaConfig, metadataSourceConfig,
         currentMetadata)
       val behavior = MetadataCheckActor.checkRunnerBehavior(TestRadioSource,
         "checker" + counter.incrementAndGet(),
         TestPlayerConfig,
-        TestMetadataConfig,
-        metadataSourceConfig,
+        metaConfig,
         exclusion.get,
         clock,
         streamBuilder,
@@ -1111,6 +1108,9 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       resumeIntervals = Seq(mock),
       exclusions = MetaExclusions.values.toSeq)
 
+    /** A test metadata configuration. */
+    private val metaConfig = createMetadataConfig(sourceConfig)
+
     /** The clock to be passed to the retriever actor. */
     private val clock = tickSecondsClock()
 
@@ -1273,7 +1273,6 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
        namePrefix: String,
        playerConfig: PlayerConfig,
        metadataConfig: MetadataConfig,
-       metadataSourceConfig: RadioSourceMetadataConfig,
        currentExclusion: MetadataExclusion,
        clockParam: Clock,
        streamBuilderParam: RadioStreamBuilder,
@@ -1282,8 +1281,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
        _: MetadataCheckActor.MetadataRetrieveActorFactory) => {
         source should be(TestRadioSource)
         playerConfig should be(TestPlayerConfig)
-        metadataConfig should be(TestMetadataConfig)
-        metadataSourceConfig should be(sourceConfig)
+        metadataConfig should be(metaConfig)
         clockParam should be(clock)
         streamBuilderParam should be(streamBuilder)
         intervalServiceParam should be(intervalService)
@@ -1305,8 +1303,7 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       val behavior = MetadataCheckActor.sourceCheckBehavior(TestRadioSource,
         "testNamePrefix",
         TestRadioConfig,
-        TestMetadataConfig,
-        sourceConfig,
+        metaConfig,
         MetaExclusions(MetaBadMusic),
         probeStateActor.ref,
         probeScheduler.ref,
@@ -1333,7 +1330,6 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val creation = helper.nextSourceCheckCreation()
     creation.currentExclusion should be(MetaExclusions(exclusion))
     creation.source should be(TestRadioSource)
-    creation.metadataSourceConfig should be(creation.metadataConfig.metadataSourceConfig(TestRadioSource))
     creation.namePrefix should be(s"${MetadataCheckActor.SourceCheckActorNamePrefix}1")
   }
 
@@ -1614,7 +1610,6 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
        namePrefix: String,
        radioConfig: RadioPlayerConfig,
        metadataConfig: MetadataConfig,
-       metadataSourceConfig: RadioSourceMetadataConfig,
        currentExclusion: MetadataExclusion,
        stateActorParam: ActorRef[MetadataCheckActor.MetadataExclusionStateCommand],
        scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
@@ -1633,7 +1628,6 @@ class MetadataCheckActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         val creation = SourceCheckCreation(source = source,
           namePrefix = namePrefix,
           metadataConfig = metadataConfig,
-          metadataSourceConfig = metadataSourceConfig,
           currentExclusion = currentExclusion,
           probe = probe)
         queueSourceCheckCreations offer creation

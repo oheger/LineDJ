@@ -268,7 +268,6 @@ object MetadataCheckActor {
                     checkName,
                     radioConfig,
                     state.metaConfig,
-                    sourceConfig,
                     exclusion,
                     context.self,
                     scheduleActor,
@@ -350,25 +349,23 @@ object MetadataCheckActor {
     /**
       * Returns a ''Behavior'' for creating a new actor instance.
       *
-      * @param source               the radio source affected
-      * @param namePrefix           a prefix for generating actor names
-      * @param radioConfig          the radio player config
-      * @param metadataConfig       the global metadata config
-      * @param metadataSourceConfig the metadata config for the source
-      * @param currentExclusion     the detected metadata exclusion
-      * @param stateActor           the metadata state actor
-      * @param scheduleActor        the actor for scheduled invocations
-      * @param clock                the clock
-      * @param streamBuilder        the stream builder
-      * @param intervalService      the intervals service
-      * @param runnerFactory        the factory for check runner actors
+      * @param source           the radio source affected
+      * @param namePrefix       a prefix for generating actor names
+      * @param radioConfig      the radio player config
+      * @param metadataConfig   the global metadata config
+      * @param currentExclusion the detected metadata exclusion
+      * @param stateActor       the metadata state actor
+      * @param scheduleActor    the actor for scheduled invocations
+      * @param clock            the clock
+      * @param streamBuilder    the stream builder
+      * @param intervalService  the intervals service
+      * @param runnerFactory    the factory for check runner actors
       * @return the ''Behavior'' for a new actor instance
       */
     def apply(source: RadioSource,
               namePrefix: String,
               radioConfig: RadioPlayerConfig,
               metadataConfig: MetadataConfig,
-              metadataSourceConfig: RadioSourceMetadataConfig,
               currentExclusion: MetadataExclusion,
               stateActor: ActorRef[MetadataExclusionStateCommand],
               scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
@@ -387,7 +384,6 @@ object MetadataCheckActor {
      namePrefix: String,
      radioConfig: RadioPlayerConfig,
      metadataConfig: MetadataConfig,
-     metadataSourceConfig: RadioSourceMetadataConfig,
      currentExclusion: MetadataExclusion,
      stateActor: ActorRef[MetadataExclusionStateCommand],
      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
@@ -407,7 +403,6 @@ object MetadataCheckActor {
               namePrefix + "_run" + nextCount,
               radioConfig.playerConfig,
               metadataConfig,
-              metadataSourceConfig,
               exclusion,
               clock,
               streamBuilder,
@@ -458,6 +453,7 @@ object MetadataCheckActor {
       def queryResumeIntervals(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] = {
         implicit val ec: ExecutionContext = context.executionContext
         val refTime = time(clock)
+        val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
         intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, refTime, 0) foreach { result =>
           context.self ! NextResumeInterval(refTime, result.result)
         }
@@ -522,24 +518,22 @@ object MetadataCheckActor {
       * Returns the ''Behavior'' to create a new instance of the metadata check
       * runner actor.
       *
-      * @param source               the radio source to be checked
-      * @param namePrefix           prefix to generate actor names
-      * @param playerConfig         the audio player config
-      * @param metadataConfig       the global metadata config
-      * @param metadataSourceConfig the metadata config of the radio source
-      * @param currentExclusion     the currently detected metadata exclusion
-      * @param clock                the clock to query times
-      * @param streamBuilder        the stream builder
-      * @param intervalService      the interval query service
-      * @param sourceChecker        the source checker parent actor
-      * @param retrieverFactory     the factory to create a retriever actor
+      * @param source           the radio source to be checked
+      * @param namePrefix       prefix to generate actor names
+      * @param playerConfig     the audio player config
+      * @param metadataConfig   the global metadata config
+      * @param currentExclusion the currently detected metadata exclusion
+      * @param clock            the clock to query times
+      * @param streamBuilder    the stream builder
+      * @param intervalService  the interval query service
+      * @param sourceChecker    the source checker parent actor
+      * @param retrieverFactory the factory to create a retriever actor
       * @return the ''Behavior'' to create a new actor instance
       */
     def apply(source: RadioSource,
               namePrefix: String,
               playerConfig: PlayerConfig,
               metadataConfig: MetadataConfig,
-              metadataSourceConfig: RadioSourceMetadataConfig,
               currentExclusion: MetadataExclusion,
               clock: Clock,
               streamBuilder: RadioStreamBuilder,
@@ -584,7 +578,6 @@ object MetadataCheckActor {
      namePrefix: String,
      playerConfig: PlayerConfig,
      metadataConfig: MetadataConfig,
-     metadataSourceConfig: RadioSourceMetadataConfig,
      currentExclusion: MetadataExclusion,
      clock: Clock,
      streamBuilder: RadioStreamBuilder,
@@ -595,6 +588,7 @@ object MetadataCheckActor {
       val retrieverBehavior = retrieverFactory(source, playerConfig, clock, streamBuilder, context.self)
       val retriever = context.spawn(retrieverBehavior, namePrefix + "_retriever")
       retriever ! GetMetadata
+      val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
 
       def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
         Behaviors.receiveMessage {
