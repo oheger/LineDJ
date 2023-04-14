@@ -180,7 +180,7 @@ object RadioControlActor {
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
               playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior,
               errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior,
-              metaActorFactory: MetadataCheckActor.Factory = MetadataCheckActor.metadataStateBehavior):
+              metaActorFactory: MetadataStateActor.Factory = MetadataStateActor.metadataStateBehavior):
     Behavior[RadioControlCommand]
   }
 
@@ -201,7 +201,7 @@ object RadioControlActor {
                                  stateActorFactory: RadioSourceStateActor.Factory,
                                  playActorFactory: PlaybackStateActor.Factory,
                                  errorActorFactory: ErrorStateActor.Factory,
-                                 metaActorFactory: MetadataCheckActor.Factory) =>
+                                 metaActorFactory: MetadataStateActor.Factory) =>
     Behaviors.setup { context =>
       val switchSourceAdapter = context.messageAdapter[RadioControlProtocol.SwitchToSource] { msg =>
         SwitchToSource(msg.source)
@@ -248,14 +248,14 @@ object RadioControlActor {
   private def handle(sourceStateActor: ActorRef[RadioSourceStateActor.RadioSourceStateCommand],
                      playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
                      errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand],
-                     metadataStateActor: ActorRef[MetadataCheckActor.MetadataExclusionStateCommand]):
+                     metadataStateActor: ActorRef[MetadataStateActor.MetadataExclusionStateCommand]):
   Behavior[RadioControlCommand] = Behaviors.receiveMessage {
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
       Behaviors.same
 
     case InitMetadataConfig(config) =>
-      metadataStateActor ! MetadataCheckActor.InitMetadataConfig(config)
+      metadataStateActor ! MetadataStateActor.InitMetadataConfig(config)
       Behaviors.same
 
     case SelectRadioSource(source) =>

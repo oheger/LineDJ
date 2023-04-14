@@ -45,7 +45,7 @@ import scala.util.{Failure, Success, Try}
   * another actor is started which checks periodically the metadata for the
   * affected source, so that it can be enabled again when there is a change.
   */
-object MetadataCheckActor {
+object MetadataStateActor {
   /**
     * Tries to find a [[MetadataExclusion]] from the given configurations that
     * matches the provided metadata.

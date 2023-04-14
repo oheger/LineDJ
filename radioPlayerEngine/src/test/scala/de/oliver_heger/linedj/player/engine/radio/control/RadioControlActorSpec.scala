@@ -54,7 +54,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
   it should "initialize the metadata config" in {
     val metaConfig = mock[MetadataConfig]
     val initCommand = RadioControlActor.InitMetadataConfig(metaConfig)
-    val expMetaStateCommand = MetadataCheckActor.InitMetadataConfig(metaConfig)
+    val expMetaStateCommand = MetadataStateActor.InitMetadataConfig(metaConfig)
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(initCommand)
@@ -155,7 +155,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     private val probeErrorStateActor = testKit.createTestProbe[ErrorStateActor.ErrorStateCommand]()
 
     /** Test probe for the metadata state actor. */
-    private val probeMetadataStateActor = testKit.createTestProbe[MetadataCheckActor.MetadataExclusionStateCommand]()
+    private val probeMetadataStateActor = testKit.createTestProbe[MetadataStateActor.MetadataExclusionStateCommand]()
 
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
@@ -273,7 +273,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the expected command
       * @return this test helper
       */
-    def checkMetadataStateCommand(command: MetadataCheckActor.MetadataExclusionStateCommand):
+    def checkMetadataStateCommand(command: MetadataStateActor.MetadataExclusionStateCommand):
     ControlActorTestHelper = {
       probeMetadataStateActor.expectMessage(command)
       this
@@ -375,7 +375,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       *
       * @return the factory for the metadata state actor
       */
-    private def createMetadataStateActorFactory(): MetadataCheckActor.Factory =
+    private def createMetadataStateActorFactory(): MetadataStateActor.Factory =
       (radioConfig: RadioPlayerConfig,
        enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
        scheduleActor: ActorRef[ScheduledInvocationCommand],
@@ -383,7 +383,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        streamBuilderParam: RadioStreamBuilder,
        intervalService: EvaluateIntervalsService,
        _: Clock,
-       _: MetadataCheckActor.SourceCheckFactory) => {
+       _: MetadataStateActor.SourceCheckFactory) => {
         radioConfig should be(config)
         scheduleActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
