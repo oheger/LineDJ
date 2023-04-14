@@ -21,7 +21,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
-import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
@@ -51,6 +51,9 @@ object RadioControlActor {
   /** The name of the child actor managing the error state. */
   final val ErrorStateActorName = "radioErrorStateActor"
 
+  /** The name of the child actor managing the metadata state. */
+  final val MetadataStateActorName = "radioMetadataExclusionActor"
+
   /**
     * The base trait for the commands supported by this actor implementation.
     */
@@ -63,6 +66,14 @@ object RadioControlActor {
     * @param config the current configuration of radio sources
     */
   case class InitRadioSourceConfig(config: RadioSourceConfig) extends RadioControlCommand
+
+  /**
+    * A command to initialize or update the global configuration for metadata
+    * exclusions.
+    *
+    * @param config the new metadata configuration
+    */
+  case class InitMetadataConfig(config: MetadataConfig) extends RadioControlCommand
 
   /**
     * A command that tells this actor to make a new [[RadioSource]] the current
@@ -152,6 +163,8 @@ object RadioControlActor {
       *                              state (None for default)
       * @param stateActorFactory     factory to create the state management actor
       * @param playActorFactory      factory to create the playback state actor
+      * @param errorActorFactory     factory to create the error state actor
+      * @param metaActorFactory      factory to create the metadata state actor
       * @return the behavior for a new actor instance
       */
     def apply(config: RadioPlayerConfig,
@@ -166,7 +179,8 @@ object RadioControlActor {
               optStateService: Option[RadioSourceStateService] = None,
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
               playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior,
-              errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior):
+              errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior,
+              metaActorFactory: MetadataCheckActor.Factory = MetadataCheckActor.metadataStateBehavior):
     Behavior[RadioControlCommand]
   }
 
@@ -186,7 +200,8 @@ object RadioControlActor {
                                  optStateService: Option[RadioSourceStateService],
                                  stateActorFactory: RadioSourceStateActor.Factory,
                                  playActorFactory: PlaybackStateActor.Factory,
-                                 errorActorFactory: ErrorStateActor.Factory) =>
+                                 errorActorFactory: ErrorStateActor.Factory,
+                                 metaActorFactory: MetadataCheckActor.Factory) =>
     Behaviors.setup { context =>
       val switchSourceAdapter = context.messageAdapter[RadioControlProtocol.SwitchToSource] { msg =>
         SwitchToSource(msg.source)
@@ -211,24 +226,36 @@ object RadioControlActor {
         scheduleActor,
         eventManagerActor,
         streamBuilder), ErrorStateActorName)
+      val metadataStateActor = context.spawn(metaActorFactory(config,
+        enabledStateAdapter,
+        scheduleActor,
+        eventManagerActor,
+        streamBuilder,
+        evalService), MetadataStateActorName)
 
-      handle(sourceStateActor, playStateActor, errorStateActor)
+      handle(sourceStateActor, playStateActor, errorStateActor, metadataStateActor)
     }
 
   /**
     * The main message handling function of this actor.
     *
-    * @param sourceStateActor the source state management actor
-    * @param playStateActor   the playback state management actor
-    * @param errorStateActor  the actor managing the error state
+    * @param sourceStateActor   the source state management actor
+    * @param playStateActor     the playback state management actor
+    * @param errorStateActor    the actor managing the error state
+    * @param metadataStateActor the actor managing the metadata state
     * @return the updated behavior
     */
   private def handle(sourceStateActor: ActorRef[RadioSourceStateActor.RadioSourceStateCommand],
                      playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
-                     errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand]):
+                     errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand],
+                     metadataStateActor: ActorRef[MetadataCheckActor.MetadataExclusionStateCommand]):
   Behavior[RadioControlCommand] = Behaviors.receiveMessage {
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
+      Behaviors.same
+
+    case InitMetadataConfig(config) =>
+      metadataStateActor ! MetadataCheckActor.InitMetadataConfig(config)
       Behaviors.same
 
     case SelectRadioSource(source) =>

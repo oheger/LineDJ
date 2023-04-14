@@ -23,7 +23,7 @@ import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
-import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
@@ -32,6 +32,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.Clock
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
 /**
@@ -48,6 +49,16 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.sendCommand(initCommand)
       .checkSourceStateCommand(expStateCommand)
+  }
+
+  it should "initialize the metadata config" in {
+    val metaConfig = mock[MetadataConfig]
+    val initCommand = RadioControlActor.InitMetadataConfig(metaConfig)
+    val expMetaStateCommand = MetadataCheckActor.InitMetadataConfig(metaConfig)
+    val helper = new ControlActorTestHelper
+
+    helper.sendCommand(initCommand)
+      .checkMetadataStateCommand(expMetaStateCommand)
   }
 
   it should "support selecting a radio source" in {
@@ -143,6 +154,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     /** Test probe for the error state actor. */
     private val probeErrorStateActor = testKit.createTestProbe[ErrorStateActor.ErrorStateCommand]()
 
+    /** Test probe for the metadata state actor. */
+    private val probeMetadataStateActor = testKit.createTestProbe[MetadataCheckActor.MetadataExclusionStateCommand]()
+
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
 
@@ -153,7 +167,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     private val playActor = new DynamicActorRef[RadioControlProtocol.SwitchToSource]
 
     /** The reference to the actor managing the source enabled state. */
-    private val enabledStateActor = new DynamicActorRef[RadioControlProtocol.SourceEnabledStateCommand]
+    private val enabledStateActor = new DynamicActorRef[RadioControlProtocol.SourceEnabledStateCommand](2)
 
     /** The actor instance under test. */
     private val controlActor = createControlActor()
@@ -254,6 +268,18 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     }
 
     /**
+      * Tests that the given command was passed to the metadata state actor.
+      *
+      * @param command the expected command
+      * @return this test helper
+      */
+    def checkMetadataStateCommand(command: MetadataCheckActor.MetadataExclusionStateCommand):
+    ControlActorTestHelper = {
+      probeMetadataStateActor.expectMessage(command)
+      this
+    }
+
+    /**
       * Checks whether the actor under test has been stopped.
       */
     def checkControlActorStopped(): Unit = {
@@ -270,6 +296,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       testKit.spawn(RadioControlActor.behavior(stateActorFactory = createStateActorFactory(),
         playActorFactory = createPlayActorFactory(),
         errorActorFactory = createErrorStateActorFactory(),
+        metaActorFactory = createMetadataStateActorFactory(),
         eventActor = probeEventActor.ref,
         eventManagerActor = probeEventManagerActor.ref,
         facadeActor = mockFacadeActor,
@@ -341,16 +368,44 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         enabledStateActor.actorCreated(enabledActor)
         Behaviors.monitor(probeErrorStateActor.ref, Behaviors.ignore)
       }
+
+    /**
+      * Creates a factory to create a metadata state actor which checks the
+      * creation parameters and delegates to a test probe.
+      *
+      * @return the factory for the metadata state actor
+      */
+    private def createMetadataStateActorFactory(): MetadataCheckActor.Factory =
+      (radioConfig: RadioPlayerConfig,
+       enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+       scheduleActor: ActorRef[ScheduledInvocationCommand],
+       eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+       streamBuilderParam: RadioStreamBuilder,
+       intervalService: EvaluateIntervalsService,
+       _: Clock,
+       _: MetadataCheckActor.SourceCheckFactory) => {
+        radioConfig should be(config)
+        scheduleActor should be(probeScheduleActor.ref)
+        eventActor should be(probeEventManagerActor.ref)
+        streamBuilderParam should be(streamBuilder)
+        intervalService should be(EvaluateIntervalsServiceImpl)
+
+        enabledStateActor.actorCreated(enabledActor)
+        Behaviors.monitor(probeMetadataStateActor.ref, Behaviors.ignore)
+      }
   }
 
   /**
     * A helper class that manages an actor reference created asynchronously. It
-    * ensures safe access to the reference from the test thread.
+    * ensures safe access to the reference from the test thread. The class can
+    * also handle references passed to multiple child actors. It is then
+    * checked whether always the same reference is used.
     *
+    * @param refCount the number of expected references
     * @tparam T the type of the actor reference
     */
-  private class DynamicActorRef[T] {
-    private val actorCreationQueue = new ArrayBlockingQueue[ActorRef[T]](1)
+  private class DynamicActorRef[T](refCount: Int = 1) {
+    private val actorCreationQueue = new ArrayBlockingQueue[ActorRef[T]](refCount)
 
     private var actorField: ActorRef[T] = _
 
@@ -360,7 +415,11 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     def ref: ActorRef[T] = {
       if (actorField == null) {
-        actorField = actorCreationQueue.poll(3, TimeUnit.SECONDS)
+        val references = (1 to refCount).foldLeft(Set.empty[ActorRef[T]]) { (refs, _) =>
+          refs + actorCreationQueue.poll(3, TimeUnit.SECONDS)
+        }
+        references should have size 1
+        actorField = references.iterator.next()
         actorField should not be null
       }
       actorField
