@@ -20,15 +20,18 @@ import java.time.DayOfWeek
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
-import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
 
+import java.util.regex.Pattern
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 /**
-  * A module allowing to construct [[RadioSourceConfig]] instances from the
-  * configuration of the radio player application.
+  * A module allowing to construct [[RadioSourceConfig]] and [[MetadataConfig]]
+  * instances from the configuration of the radio player application.
   *
   * The configuration format covers all the data required for radio sources.
   * This is of course the declaration of the sources themselves with their
@@ -38,6 +41,14 @@ import scala.jdk.CollectionConverters._
   * can be defined globally and assigned a name. These names can then be
   * referenced from source declarations. That way queries can be shared between
   * multiple sources.
+  *
+  * Patterns can be defined to disable radio sources temporarily when they are
+  * matched against the metadata of the currently played radio source. This
+  * allows for instance to skip specific artists or advertisements. The
+  * configuration can define a global list of such metadata exclusions. In
+  * addition, each radio source can have a metadata configuration with its own
+  * specific exclusions and some further properties to tweak the detection of
+  * unwanted content.
   *
   * Below is an example configuration for radio sources showing all supported
   * elements:
@@ -77,6 +88,19 @@ import scala.jdk.CollectionConverters._
   *   </exclusion-set>
   * </exclusion-sets>
   *
+  * <metadataExclusions>
+  *   <metadataExclusion name="Unwanted music">
+  *     <pattern>.*Blunt.*</pattern>
+  *     <matchContext>Artist</matchContext>
+  *     <resumeMode>NextSong</resumeMode>
+  *     <checkInterval>120</checkInterval>
+  *   </metadataExclusion>
+  *   <metadataExclusion>
+  *     <pattern>.*Spots.*</pattern>
+  *     <checkInterval>30</checkInterval>
+  *   </metadataExclusion>
+  * </metadataExclusions>
+  *
   * <sources>
   *   <source>
   *     <name>HR 1</name>
@@ -97,6 +121,22 @@ import scala.jdk.CollectionConverters._
   *       </exclusion>
   *       <exclusion-set-ref name="adsOnWorkDays"/>
   *     </exclusions>
+  *     <metadata>
+  *       <songPattern>(?&lt;artist>[^/]+)/\s*(?&lt;title>.+)</songPattern>
+  *       <resumeIntervals>
+  *         <resumeInterval>
+  *           <minutes from="0" to="3" />
+  *         </resumeInterval>
+  *       </resumeIntervals>
+  *       <metadataExclusions>
+  *         <metadataExclusion>
+  *           <pattern>.*Werbung.*</pattern>
+  *           <matchContext>Title</matchContext>
+  *           <resumeMode>MetadataChange</resumeMode>
+  *           <checkInterval>60</checkInterval>
+  *         </metadataExclusion>
+  *       </metadataExclusions>
+  *     </metadata>
   *   </source>
   * </sources>
   * }}}
@@ -138,6 +178,9 @@ object RadioSourceConfigLoader {
   /** Configuration key for the attribute defining an exclusion name. */
   private val KeyAttrName = "[@name]"
 
+  /** Configuration key for a section with metadata exclusions. */
+  private val KeyMetadataExclusions = "metadataExclusions.metadataExclusion"
+
   /** The key for the exclusion references of a source. */
   private val KeyExclusionRef = KeyExclusionsSection + "exclusion-ref" + KeyAttrName
 
@@ -159,6 +202,33 @@ object RadioSourceConfigLoader {
   /** The key for a day-of-week interval. */
   private val KeyIntervalDays = "days.day"
 
+  /** The key for a metadata exclusion pattern. */
+  private val KeyPattern = "pattern"
+
+  /** The key for the match context property of a metadata exclusion. */
+  private val KeyMatchContext = "matchContext"
+
+  /** The key for the resume mode property of a metadata exclusion. */
+  private val KeyResumeMode = "resumeMode"
+
+  /** The key for the check interval property of a metadata exclusion. */
+  private val KeyCheckInterval = "checkInterval"
+
+  /** The key for the section of the metadata config for a radio source. */
+  private val KeyMetadataConfig = "metadata"
+
+  /** The key for the pattern to extract song information from metadata. */
+  private val KeySongPattern = "songPattern"
+
+  /** The key for the section with resume intervals of a source. */
+  private val KeyResumeIntervals = "resumeIntervals.resumeInterval"
+
+  /** The default match context value. */
+  private val DefaultMatchContext = "Raw"
+
+  /** The default resume mode. */
+  private val DefaultResumeMode = "MetadataChange"
+
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -178,6 +248,18 @@ object RadioSourceConfigLoader {
   }
 
   /**
+    * Creates a new instance of [[MetadataConfig]] with the content of the
+    * specified ''Configuration'' object.
+    *
+    * @param config the ''Configuration''
+    * @return the new [[MetadataConfig]]
+    */
+  def loadMetadataConfig(config: HierarchicalConfiguration): MetadataConfig = {
+    MetadataConfigImpl(readMetadataExclusions(config.configurationAt(KeyRadio)),
+      readMetadataConfigForSources(config))
+  }
+
+  /**
     * Reads the defined radio sources from the configuration.
     *
     * @param config the configuration to be processed
@@ -189,18 +271,26 @@ object RadioSourceConfigLoader {
     val namedExclusions = readNamedExclusions(config)
     val exclusionSets = readExclusionSets(config, namedExclusions)
 
-    val srcConfigs = config.configurationsAt(KeySources)
-    import scala.jdk.CollectionConverters._
-    val sources = srcConfigs.asScala filter { c =>
-      c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
-    } map { c =>
+    val sources = sourcesConfig(config) map { c =>
       (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString(KeySourceExtension))),
         c.getInt(KeySourceRanking, DefaultRanking),
         readExclusionsSection(c, namedExclusions, exclusionSets))
     }
 
-    sources.sortWith(compareSources).toSeq
+    sources.sortWith(compareSources)
   }
+
+  /**
+    * Returns a sequence with sub configurations for the valid radio source
+    * declarations found in the given configuration.
+    *
+    * @param config the configuration
+    * @return a sequence with sub configurations for source declarations
+    */
+  private def sourcesConfig(config: HierarchicalConfiguration): Seq[HierarchicalConfiguration] =
+    config.configurationsAt(KeySources).asScala.filter { c =>
+      c.containsKey(KeySourceName) && c.containsKey(KeySourceURI)
+    }.toSeq
 
   /**
     * Parses the section with named exclusions.
@@ -234,16 +324,18 @@ object RadioSourceConfigLoader {
   }
 
   /**
-    * Parses the exclusions definition from the given configuration. The
-    * configuration can either point to a specific radio source or to the
-    * global section with named exclusions.
+    * Parses the exclusions definition from the given configuration. This
+    * function can process an arbitrary section with interval query
+    * definitions. The exact key to process can be specified.
     *
-    * @param config the sub configuration for the current source
+    * @param config        the sub configuration for the current source
+    * @param keyExclusions the key to read the exclusions from
     * @return a sequence with all extracted interval queries and their optional
     *         names
     */
-  private def readExclusions(config: HierarchicalConfiguration): Seq[(IntervalQuery, Option[String])] = {
-    val exConfigs = config configurationsAt KeyExclusions
+  private def readExclusions(config: HierarchicalConfiguration,
+                             keyExclusions: String = KeyExclusions): Seq[(IntervalQuery, Option[String])] = {
+    val exConfigs = config configurationsAt keyExclusions
     exConfigs.asScala.foldLeft(List.empty[(IntervalQuery, Option[String])]) { (q, c) =>
       parseIntervalQuery(c) match {
         case Some(query) =>
@@ -372,6 +464,55 @@ object RadioSourceConfigLoader {
   }
 
   /**
+    * Reads a section with metadata exclusion at the given key. This can either
+    * be the section with the global exclusions or a section specific to a
+    * single source.
+    *
+    * @param config the configuration
+    * @return the sequence with extracted metadata exclusions
+    */
+  private def readMetadataExclusions(config: HierarchicalConfiguration): Seq[MetadataExclusion] =
+    config.configurationsAt(KeyMetadataExclusions).asScala.filter(_.containsKey(KeyPattern)).map { exclConf =>
+      MetadataExclusion(pattern = Pattern.compile(exclConf.getString(KeyPattern)),
+        matchContext = MatchContext.withName(exclConf.getString(KeyMatchContext, DefaultMatchContext)),
+        resumeMode = ResumeMode.withName(exclConf.getString(KeyResumeMode, DefaultResumeMode)),
+        checkInterval = exclConf.getInt(KeyCheckInterval).seconds,
+        name = Option(exclConf.getString(KeyAttrName)))
+    }.toSeq
+
+  /**
+    * Reads the metadata configurations for all valid radio sources from the
+    * given configuration. Returns a map using the radio source URIs as keys.
+    *
+    * @param config the configuration
+    * @return a map with metadata configurations for all radio sources
+    */
+  private def readMetadataConfigForSources(config: HierarchicalConfiguration): Map[String, RadioSourceMetadataConfig] =
+    sourcesConfig(config).map { srcConfig =>
+      val srcUri = srcConfig.getString(KeySourceURI)
+      val srcMetaConfig = readSourceMetadataConfig(srcConfig)
+      srcUri -> srcMetaConfig
+    }.toMap
+
+  /**
+    * Reads the metadata configuration of a specific radio source if it is
+    * defined. Otherwise, result is an empty metadata configuration.
+    *
+    * @param srcConfig the sub configuration for the source
+    * @return the [[RadioSourceMetadataConfig]] for this source
+    */
+  private def readSourceMetadataConfig(srcConfig: HierarchicalConfiguration): RadioSourceMetadataConfig =
+    if (srcConfig.getMaxIndex(KeyMetadataConfig) >= 0) {
+      val metaConfig = srcConfig.configurationAt(KeyMetadataConfig)
+      val optSongPattern = Option(metaConfig.getString(KeySongPattern)).map { s => Pattern.compile(s) }
+      val exclusions = readMetadataExclusions(metaConfig)
+      val resumeIntervals = readExclusions(metaConfig, KeyResumeIntervals).map(_._1)
+      RadioSourceMetadataConfig(optSongPattern = optSongPattern,
+        resumeIntervals = resumeIntervals,
+        exclusions = exclusions)
+    } else MetadataConfig.EmptySourceConfig
+
+  /**
     * Internal implementation of the radio source config trait as a plain case
     * class.
     *
@@ -387,5 +528,19 @@ object RadioSourceConfigLoader {
       rankingMap.getOrElse(source, DefaultRanking)
 
     override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
+  }
+
+  /**
+    * Internal implementation of the [[MetadataConfig]] trait as a plain case
+    * class.
+    *
+    * @param exclusions            the sequence with global metadata exclusions
+    * @param sourceMetadataConfigs a map with metadata configs for sources
+    */
+  private case class MetadataConfigImpl(override val exclusions: Seq[MetadataExclusion],
+                                        sourceMetadataConfigs: Map[String, RadioSourceMetadataConfig])
+    extends MetadataConfig {
+    override def metadataSourceConfig(source: RadioSource): RadioSourceMetadataConfig =
+      sourceMetadataConfigs.getOrElse(source.uri, super.metadataSourceConfig(source))
   }
 }

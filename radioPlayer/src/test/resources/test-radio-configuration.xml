@@ -20,6 +20,21 @@
   <initialDelay>1500</initialDelay>
   <metadataMaxLen>44</metadataMaxLen>
   <metadataRotateSpeed>0.5</metadataRotateSpeed>
+  <metadataExclusions>
+    <metadataExclusion name="Unwanted music">
+      <pattern>.*Blunt.*</pattern>
+      <matchContext>Artist</matchContext>
+      <resumeMode>NextSong</resumeMode>
+      <checkInterval>120</checkInterval>
+    </metadataExclusion>
+    <metadataExclusion>
+      <pattern>.*Spots.*</pattern>
+      <checkInterval>30</checkInterval>
+    </metadataExclusion>
+    <metadataExclusion>
+      <checkInterval>999</checkInterval>
+    </metadataExclusion>
+  </metadataExclusions>
   <sources>
     <source>
       <name>HR 1</name>
@@ -52,6 +67,25 @@
           <minutes from="57" to="60"/>
         </exclusion>
       </exclusions>
+      <metadata>
+        <songPattern>(?&lt;artist>[^/]+)/\s*(?&lt;title>.+)</songPattern>
+        <resumeIntervals>
+          <resumeInterval>
+            <minutes from="0" to="3" />
+          </resumeInterval>
+          <resumeInterval>
+            <minutes from="29" to="32" />
+          </resumeInterval>
+        </resumeIntervals>
+        <metadataExclusions>
+          <metadataExclusion>
+            <pattern>.*Werbung.*</pattern>
+            <matchContext>Title</matchContext>
+            <resumeMode>MetadataChange</resumeMode>
+            <checkInterval>60</checkInterval>
+          </metadataExclusion>
+        </metadataExclusions>
+      </metadata>
     </source>
     <source>
       <name>HR 2</name>

@@ -18,11 +18,16 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
-import org.apache.commons.configuration.HierarchicalConfiguration
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, ResumeMode}
+import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{LocalDateTime, Month}
+import scala.concurrent.duration._
 
 object RadioSourceConfigLoaderSpec {
   /** Prefix for a radio source name. */
@@ -30,6 +35,9 @@ object RadioSourceConfigLoaderSpec {
 
   /** Prefix for a radio source URI. */
   private val RadioSourceURI = "http://rad.io/"
+
+  /** The test configuration file loaded from disk. */
+  private val TestConfig = new XMLConfiguration("test-radio-configuration.xml")
 
   /**
     * Generates the name for the source with the given index.
@@ -283,7 +291,35 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "A RadioSourceConfig" should "provide a correct list of sources" in {
+  /**
+    * Checks the single properties of a metadata exclusion.
+    *
+    * @param exclusion      the exclusion to check
+    * @param matchContext   the expected match context
+    * @param resumeMode     the expected resume mode
+    * @param interval       the expected check interval
+    * @param optName        the expected optional name
+    * @param matchString    a string to be matched by the pattern
+    * @param nonMatchString a string not to be matched by the pattern
+    */
+  private def checkMetadataExclusion(exclusion: MetadataExclusion,
+                                     matchContext: MatchContext,
+                                     resumeMode: ResumeMode,
+                                     interval: FiniteDuration,
+                                     optName: Option[String],
+                                     matchString: String,
+                                     nonMatchString: String): Unit = {
+    exclusion.matchContext should be(matchContext)
+    exclusion.resumeMode should be(resumeMode)
+    exclusion.checkInterval should be(interval)
+    exclusion.name should be(optName)
+    val matcher1 = exclusion.pattern.matcher(matchString)
+    matcher1.matches() shouldBe true
+    val matcher2 = exclusion.pattern.matcher(nonMatchString)
+    matcher2.matches() shouldBe false
+  }
+
+  "A RadioSourceConfigLoader" should "provide a correct list of sources" in {
     val Count = 4
     val config = createSourceConfiguration(Count)
 
@@ -656,5 +692,63 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     val sourceConfig = RadioSourceConfigLoader.load(config)
 
     sourceConfig ranking radioSource(28) should be(RadioSourceConfigLoader.DefaultRanking)
+  }
+
+  it should "read global metadata exclusions" in {
+    val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
+
+    metaConfig.exclusions should have size 2
+    checkMetadataExclusion(exclusion = metaConfig.exclusions.head,
+      matchContext = MatchContext.Artist,
+      resumeMode = ResumeMode.NextSong,
+      interval = 120.seconds,
+      optName = Some("Unwanted music"),
+      matchString = "James Blunt",
+      nonMatchString = "AC/DC")
+    checkMetadataExclusion(exclusion = metaConfig.exclusions(1),
+      matchContext = MatchContext.Raw,
+      resumeMode = ResumeMode.MetadataChange,
+      interval = 30.seconds,
+      optName = None,
+      matchString = "Commercials and Spots",
+      nonMatchString = "News and culture")
+  }
+
+  it should "read metadata information for radio sources" in {
+    val source = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u")
+    val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
+
+    val sourceConfig = metaConfig.metadataSourceConfig(source)
+
+    val matcher = sourceConfig.optSongPattern.get.matcher("Dire Straits/Brothers in arms")
+    matcher.matches() shouldBe true
+    matcher.group(MetadataConfig.ArtistGroup) should be("Dire Straits")
+    matcher.group(MetadataConfig.SongTitleGroup) should be("Brothers in arms")
+
+    sourceConfig.resumeIntervals should have size 2
+    assertInside(sourceConfig.resumeIntervals(1),
+      LocalDateTime.of(2023, Month.APRIL, 15, 20, 0, 10),
+      LocalDateTime.of(2023, Month.APRIL, 15, 20, 3, 0))
+    assertInside(sourceConfig.resumeIntervals.head,
+      LocalDateTime.of(2023, Month.APRIL, 15, 21, 30, 55),
+      LocalDateTime.of(2023, Month.APRIL, 15, 21, 32, 0))
+
+    sourceConfig.exclusions should have size 1
+    checkMetadataExclusion(exclusion = sourceConfig.exclusions.head,
+      matchContext = MatchContext.Title,
+      resumeMode = ResumeMode.MetadataChange,
+      interval = 1.minute,
+      optName = None,
+      matchString = "Werbung im Rundfunk",
+      nonMatchString = "cool music")
+  }
+
+  it should "handle radio sources without metadata configuration" in {
+    val source = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr2_2.m3u")
+    val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
+
+    val sourceConfig = metaConfig.metadataSourceConfig(source)
+
+    sourceConfig should be(MetadataConfig.EmptySourceConfig)
   }
 }
