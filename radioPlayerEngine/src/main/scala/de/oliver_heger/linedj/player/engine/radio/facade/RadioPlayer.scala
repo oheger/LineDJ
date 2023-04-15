@@ -25,7 +25,7 @@ import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
@@ -135,6 +135,16 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     */
   def initRadioSourceConfig(config: RadioSourceConfig): Unit = {
     controlActor ! RadioControlActor.InitRadioSourceConfig(config)
+  }
+
+  /**
+    * Updates the metadata configuration. This allows disabling radio sources
+    * temporarily based on the stuff they are playing.
+    *
+    * @param config the metadata configuration
+    */
+  def initMetadataConfig(config: MetadataConfig): Unit = {
+    controlActor ! RadioControlActor.InitMetadataConfig(config)
   }
 
   /**

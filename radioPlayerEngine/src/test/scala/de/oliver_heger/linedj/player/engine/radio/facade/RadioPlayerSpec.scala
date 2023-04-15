@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTe
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.radio._
-import de.oliver_heger.linedj.player.engine.radio.config.{RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control._
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -109,6 +109,15 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.player.initRadioSourceConfig(sourcesConfig)
 
     helper.expectControlCommand(RadioControlActor.InitRadioSourceConfig(sourcesConfig))
+  }
+
+  it should "support setting the metadata configuration" in {
+    val metaConfig = mock[MetadataConfig]
+    val helper = new RadioPlayerTestHelper
+
+    helper.player.initMetadataConfig(metaConfig)
+
+    helper.expectControlCommand(RadioControlActor.InitMetadataConfig(metaConfig))
   }
 
   it should "support switching to another radio source" in {
