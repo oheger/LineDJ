@@ -243,6 +243,7 @@ class RadioController(val userConfig: Configuration,
           sourcesUpdating = true
           try {
             player.initRadioSourceConfig(playerConfig.sourceConfig)
+            player.initMetadataConfig(playerConfig.metadataConfig)
             radioSources = updateSourceCombo(playerConfig.sourceConfig)
             enableAction(ActionStartPlayback, enabled = false)
             enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)

@@ -135,6 +135,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
     verify(helper.player).initRadioSourceConfig(any())
+    verify(helper.player).initMetadataConfig(any())
     helper.verifySourcesAddedToCombo()
       .verifyNoMoreInteractionWithCombo()
       .verifyNoMorePlayerInteraction()
@@ -282,6 +283,14 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.createInitializedController(srcConfig)
 
     verify(helper.player).initRadioSourceConfig(srcConfig)
+  }
+
+  it should "initialize the metadata configuration on the radio player" in {
+    val helper = new RadioControllerTestHelper
+
+    val controller = helper.createInitializedController(createSourceConfiguration(1))
+
+    verify(helper.player).initMetadataConfig(controller.playerConfig.metadataConfig)
   }
 
   it should "allow stopping playback" in {
