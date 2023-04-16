@@ -254,10 +254,11 @@ object RadioSourceConfigLoader {
     * @param config the ''Configuration''
     * @return the new [[MetadataConfig]]
     */
-  def loadMetadataConfig(config: HierarchicalConfiguration): MetadataConfig = {
-    MetadataConfigImpl(readMetadataExclusions(config.configurationAt(KeyRadio)),
-      readMetadataConfigForSources(config))
-  }
+  def loadMetadataConfig(config: HierarchicalConfiguration): MetadataConfig =
+    if (config.getMaxIndex(KeyRadio) == 0) {
+      MetadataConfigImpl(readMetadataExclusions(config.configurationAt(KeyRadio)),
+        readMetadataConfigForSources(config))
+    } else MetadataConfig.Empty
 
   /**
     * Reads the defined radio sources from the configuration.

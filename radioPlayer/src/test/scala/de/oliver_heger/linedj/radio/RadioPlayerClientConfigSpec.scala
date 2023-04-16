@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -69,6 +70,17 @@ class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "contain metadata configuration" in {
+    val testSource = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u")
+    val metaConfig = loadConfig().metadataConfig
+
+    metaConfig.exclusions should have size 2
+    val metaSourceConfig = metaConfig.metadataSourceConfig(testSource)
+    metaSourceConfig.exclusions should have size 1
+    metaSourceConfig.resumeIntervals should have size 2
+    metaSourceConfig.optSongPattern should not be empty
+  }
+
   it should "read further configuration properties" in {
     val config = loadConfig()
 
@@ -82,6 +94,7 @@ class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
 
     config.sourceConfig.namedSources shouldBe empty
     config.sourceConfig.exclusions(RadioSource("someRadioSource")) shouldBe empty
+    config.metadataConfig should be(MetadataConfig.Empty)
     config.initialDelay should be(RadioPlayerClientConfig.DefaultInitialDelay)
     config.metaMaxLen should be(RadioPlayerClientConfig.DefaultMetadataMaxLen)
     config.metaRotateSpeed should be(RadioPlayerClientConfig.DefaultMetadataRotateScale)

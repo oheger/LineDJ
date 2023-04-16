@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
-import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.HierarchicalConfiguration
 
@@ -77,8 +77,10 @@ object RadioPlayerClientConfig {
     */
   def apply(config: HierarchicalConfiguration): RadioPlayerClientConfig = {
     val sourceConfig = RadioSourceConfigLoader.load(config)
+    val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(config)
 
     new RadioPlayerClientConfig(sourceConfig = sourceConfig,
+      metadataConfig = metaConfig,
       initialDelay = config.getInt(KeyInitialDelay, DefaultInitialDelay),
       metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
       metaRotateSpeed = config.getDouble(KeyMetaRotateSpeed, DefaultMetadataRotateScale))
@@ -100,12 +102,14 @@ object RadioPlayerClientConfig {
   * application.
   *
   * @param sourceConfig    the configuration of radio sources
+  * @param metadataConfig  the metadata configuration
   * @param initialDelay    the delay before starting playback
   * @param metaMaxLen      the maximum length of metadata before rotation of
   *                        the text is needed
   * @param metaRotateSpeed the scale factor for rotation of metadata
   */
 case class RadioPlayerClientConfig(sourceConfig: RadioSourceConfig,
+                                   metadataConfig: MetadataConfig,
                                    initialDelay: Int,
                                    metaMaxLen: Int,
                                    metaRotateSpeed: Double)
