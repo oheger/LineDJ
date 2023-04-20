@@ -12,18 +12,26 @@ toc::[]
 The radio player application comes with a minimum UI that has two buttons for
 starting and stopping playback, and a combo box for selecting the radio source
 to be played. A status line shows some information about the currently played
-radio source.
+radio source. If supported by the radio station, metadata about the stream is
+retrieved and displayed; this typically contains information about the
+currently played title and artist.
 
-Radio sources are defined in a configuration file (see below). In future, there
-may be a graphical editor for the configuration of radio sources, but currently
-all configuration has to be done manually.
+Radio sources are defined in a configuration file (see below). In the future,
+there may be a graphical editor for the configuration of radio sources, but
+currently all configuration has to be done manually.
 
-Have you ever been annoyed by commercials while listening to your favourite
-radio program? Well, then there is a special feature: In the configuration for
-radio sources exclusions can be defined. During such an exclusion interval, the
-player switches automatically to a different radio source for which no
-exclusion applies currently. That way the player can be configured to skip
-commercials blocks by temporarily playing another station.
+What makes this application special, is the option to define under which
+conditions a specific radio source should _not_ be played. Exclusion criteria
+can be defined in the configuration for radio sources based on
+
+* temporal intervals
+* metadata information provided by the radio source
+
+The radio player monitors these exclusion criteria continuously and
+automatically switches to a replacement source when a match is found. When the
+exclusion no longer applies, playback switches back to the original source.
+That way unwanted content can be skipped, for instance artists or songs you do
+not like or blocks with advertisements.
 
 == Installation
 
@@ -52,6 +60,140 @@ $ osgiImage
 
 This compiles the necessary projects and generates the executable OSGi image
 in the folder link:../images/radio/target/image/[].
+
+== Exclusions
+There are two conceptually different ways to define exclusions for radio
+sources: based on time and based on metadata. They are described in the
+following subsections.
+
+=== Time-based Exclusions
+Using this mechanism, the playback of a specific radio source can be forbidden
+during specific time intervals. An interval definition can consist of a set of
+week days, an hours interval, and a minutes interval. All of these elements are
+optional; so intervals can be specified in a rather flexible way, as shown by
+the following examples:
+
+* On Sundays
+* On working days from 8 p.m. until 12 p.m.
+* Before every full hour (from 55 minutes to 60 minutes) between 6 a.m. and
+  8 p.m., but not on Sundays.
+
+This kind of exclusion is especially useful if the exclusion time can be
+exactly defined. For instance, a radio station typically plays good music, but
+on Sunday mornings they send a boring talk show. This time slot can then be
+excluded. They are less suitable to handle more dynamic situations, such as
+skipping advertisements sent every 30 minutes before the full or half hour;
+in this case, there is typically a certain variance making it difficult to
+find the proper intervals.
+
+=== Metadata-based Exclusions
+If a radio source supports metadata, the player application fetches it
+automatically and allows defining exclusions based on this information. Radio
+stations send metadata between the regular blocks with audio data. A block of
+metadata is a string that can consist of multiple key-value pairs in the
+following format:
+
+ key1='value1';key2='value2';...
+
+There is a standard key named _StreamTitle_ that contains information about
+what is currently played. Often, this is the only key available, but different
+radio sources sometimes add further keys, for instance to mark advertisements.
+Unfortunately, the content of the _StreamTitle_ field is not standardized;
+radio sources use different formats to report the artist and the song title.
+Typically, there is a separator character between these data elements, such as
+a slash or a minus; but if the artist comes first or the song title is up to a
+specific source. It is therefore not possible for the application to guess the
+format. Rather, it has to be configured in form of a regular expression. Since
+the order of the elements is undefined, the regular expression must contain the
+two named groups `artist` and `title`, which can then be extracted by the
+player application. A typical regular expression for this purpose could look as
+follows:
+
+ (?<artist>[^/]+)/\s*(?<title>.+)
+
+This would match a _StreamTitle_ field like "Dire Straits / Brothers in arms".
+The regular expression property for a radio source is optional; if it is
+unspecified, the whole _StreamTitle_ field is considered as both artist and
+song title, i.e. it is no longer possible to distinguish between the two.
+
+The accuracy of the information provided in the _StreamTitle_ field varies
+between different radio sources. Sometimes, the field is updated only after a
+delay. It also happens frequently that other information than artist and song
+title are displayed, such as the name of the radio station or the current
+program, or contact information like phone numbers or mail addresses. This
+makes the interpretation of this data difficult, unfortunately.
+
+A metadata-based exclusion is basically a regular expression pattern that
+matches a specific part of the metadata, the so-called _match context_. The
+following match contexts are supported:
+
+.Match contexts
+[cols="1,3",options="header"]
+|====
+| Match context | Description
+| Raw | Matches against the whole metadata string; so information in arbitrary
+fields is found.
+| Title | Matches against the _StreamTitle_ field; so information in both the
+artist or song title is found.
+| Artist | Matches against the artist. (For this to work reliably, a regular
+expression defining the _StreamTitle_ format must exist.)
+| Song | Matches against the song title. (For this to work reliably, a regular
+expression defining the _StreamTitle_ format must exist.)
+|====
+
+When receiving a new block of metadata, the player application checks the
+defined metadata exclusions against the proper match contexts. If it detects a
+match, playback of this radio source is paused. After a delay, it checks
+whether there is a change in metadata, so that playback is allowed again.
+
+Due to the different usages of metadata by different radio sources, it is not
+trivial to figure out when the exclusion no longer applies. For instance, an
+exclusion may be defined for a specific artist. While playing a title of this
+artist, the radio station may send additional metadata like the name of the
+current program, which no longer contains the artist information. Nevertheless,
+the radio source cannot be enabled yet; so a simple change in metadata is
+obviously not sufficient. To cover such scenarios, a metadata exclusion can
+specific one of the following _resume modes_:
+
+.Resume modes
+[cols="1,3",options="header"]
+|====
+| Resume mode | Description
+| MetadataChange | The exclusion ends as soon as the metadata changes. This is
+the most basic mode and also the default.
+| NextSong | The exclusion ends only if different metadata is received that can
+be interpreted as a new song, according to the regular expression pattern for
+the _StreamTitle_ field. This mode uses the fact that other metadata often not
+follows the typical format in which artist and song title information are
+provided.
+|====
+
+The different _resume modes_ help solving the problem of ending an exclusion
+too early; but there can also be the problem that the end of a song is not
+detected with this mechanism. Consider the case that a song matching an
+exclusion is played, followed by news starting at a full hour. The metadata
+displayed for news does not necessarily follow the pattern of song information;
+hence the resume mode `NextSong` would not apply.
+
+To deal with this constellation, the configuration for a radio source can
+specify an arbitrary number of so-called _resume intervals_. These are time
+intervals, in which the radio station typically plays desired program, such as
+news. A resume interval has the following effects:
+
+* In a resume interval, a change of metadata is sufficient to end the current
+  exclusion; even if the new metadata does not indicate a new song title and
+  the resume mode `NextSong` is set.
+* While a metadata exclusion is active, the player application checks the
+  metadata in regular intervals to see whether the radio source can be enabled
+  again. When scheduling the next check the beginning of the next resume
+  interval is taken into account if it lies before the regular periodic check
+  cycle. This means that the check is then started with the beginning of the
+  resume interval, so that ideally nothing of the desired information is
+  missed.
+
+So far for the rather theoretic description of exclusions. The following
+section explains how exclusions can be defined concretely. This should
+hopefully make things clearer.
 
 == Configuration
 
