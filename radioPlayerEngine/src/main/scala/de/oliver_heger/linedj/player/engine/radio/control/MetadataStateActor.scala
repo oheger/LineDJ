@@ -276,6 +276,9 @@ object MetadataStateActor {
                     intervalService)
                   val checkActor = context.spawn(checkBehavior, checkName)
                   enabledStateActor ! RadioControlProtocol.DisableSource(source)
+                  context.log.info("Disabled radio source '{}' because of metadata exclusion '{}'.", source,
+                    exclusion.name getOrElse exclusion.pattern)
+                  context.log.info("Periodic checks are done by actor '{}'.", checkName)
                   handle(state.disable(source, checkActor))
                 } getOrElse Behaviors.same
               case _ =>
@@ -593,6 +596,7 @@ object MetadataStateActor {
       def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
         Behaviors.receiveMessage {
           case MetadataRetrieved(data, time) =>
+            context.log.info("Received metadata during check: {}.", data.data)
             findMetadataExclusion(metadataConfig, metadataSourceConfig, data) match {
               case Some(exclusion) =>
                 retriever ! GetMetadata
