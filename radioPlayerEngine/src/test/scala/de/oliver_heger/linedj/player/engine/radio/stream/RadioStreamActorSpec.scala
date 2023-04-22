@@ -171,7 +171,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     msg.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize))
   }
 
-  it should "handle a close request by closing the stream" in {
+  it should "handle a close request by closing the stream and stopping itself" in {
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -181,6 +181,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     actor ! CloseRequest
     expectMsg(CloseAck(actor))
     awaitCond(stream.closed.get() == 1)
+    expectTermination(actor)
   }
 
   it should "answer data requests in closing state with an EoF message" in {
@@ -188,10 +189,10 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.initRadioStream()
     val actor = helper.createTestActor()
     actor ! CloseRequest
-    expectMsg(CloseAck(actor))
-
     actor ! PlaybackActor.GetAudioData(ChunkSize)
+
     expectMsg(BufferDataComplete)
+    expectMsg(CloseAck(actor))
   }
 
   it should "handle a the stream builder result in closing state" in {

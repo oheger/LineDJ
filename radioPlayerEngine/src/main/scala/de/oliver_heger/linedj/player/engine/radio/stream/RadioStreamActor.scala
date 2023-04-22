@@ -113,6 +113,7 @@ private object RadioStreamActor {
   *
   * An instance of this actor class can only be used for reading a single
   * audio stream. It cannot be reused and has to be closed afterwards.
+  * Therefore, the actor stops itself when a close request has been processed.
   *
   * @param config         the player configuration
   * @param streamSource   the radio source pointing to the audio stream for
@@ -217,6 +218,7 @@ private class RadioStreamActor(config: PlayerConfig,
     case msg =>
       log.info("Received message {} interpreted as stream end.", msg)
       client ! CloseAck(self)
+      self ! PoisonPill
   }
 
   /**
