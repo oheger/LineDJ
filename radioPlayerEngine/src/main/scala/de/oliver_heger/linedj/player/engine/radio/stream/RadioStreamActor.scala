@@ -66,6 +66,17 @@ private object RadioStreamActor {
   private case object Ack
 
   /**
+    * A message class processed by this actor that allows updating the
+    * reference to the event actor that is used to generate events related to
+    * metadata changes. With this message, event generation can be disabled or
+    * switched to a different event listener actor. This functionality makes it
+    * possible to reuse an actor instance in a different context.
+    *
+    * @param optEventActor the optional actor to send events to
+    */
+  case class UpdateEventActor(optEventActor: Option[typed.ActorRef[RadioEvent]])
+
+  /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
@@ -144,6 +155,9 @@ private class RadioStreamActor(config: PlayerConfig,
     */
   private var optStreamData: Option[(BufferDataResult, ActorRef)] = None
 
+  /** Stores the event listener actor, which can be updated. */
+  private var optEventActor: Option[typed.ActorRef[RadioEvent]] = Some(eventActor)
+
   override def preStart(): Unit = {
     super.preStart()
 
@@ -166,10 +180,14 @@ private class RadioStreamActor(config: PlayerConfig,
       sourceListener ! AudioSource(result.resolvedUri, Long.MaxValue, 0, 0)
       if (!result.metadataSupported) {
         log.info("No support for metadata.")
-        eventActor ! RadioMetadataEvent(streamSource, MetadataNotSupported)
+        sendMetadataEvent(RadioMetadataEvent(streamSource, MetadataNotSupported))
       }
       optKillSwitch = Some(result.killSwitch)
       result.graph.run()
+
+    case UpdateEventActor(newEventActor) =>
+      log.info("Changed event listener actor to '{}'.", newEventActor)
+      optEventActor = newEventActor
 
     case StreamInitialized =>
       log.info("Audio stream has been initialized.")
@@ -243,7 +261,7 @@ private class RadioStreamActor(config: PlayerConfig,
   private def createMetadataSink(): Sink[ByteString, Future[Done]] =
     Sink.foreach[ByteString] { meta =>
       val data = CurrentMetadata(meta.utf8String)
-      eventActor ! RadioMetadataEvent(streamSource, data)
+      sendMetadataEvent(RadioMetadataEvent(streamSource, data))
     }
 
   /**
@@ -264,6 +282,18 @@ private class RadioStreamActor(config: PlayerConfig,
       op()
       optDataRequest = None
       optStreamData = None
+    }
+  }
+
+  /**
+    * Sends a metadata event to the current event listener actor if it is
+    * defined.
+    *
+    * @param event the event to send
+    */
+  private def sendMetadataEvent(event: RadioMetadataEvent): Unit = {
+    optEventActor foreach {
+      _ ! event
     }
   }
 

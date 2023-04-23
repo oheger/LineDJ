@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
 
 object RadioStreamActorSpec {
   /** URI pointing to an audio stream. */
@@ -268,6 +269,41 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.expectMetadataEvent(MetadataNotSupported)
   }
 
+  it should "support disabling the event listener actor" in {
+    val entitySource = RadioStreamTestHelper.generateRadioStreamSource(100)
+    val helper = new StreamActorTestHelper
+    val actor = helper.createTestActor()
+
+    actor ! RadioStreamActor.UpdateEventActor(None)
+    helper.initRadioStreamFromSource(entitySource, metadataSupport = true)
+    (1 to 10) foreach { _ =>
+      actor ! PlaybackActor.GetAudioData(RadioStreamTestHelper.AudioChunkSize)
+      expectMsgType[BufferDataResult]
+    }
+
+    helper.expectNoMetadataEvent()
+  }
+
+  it should "support changing the event listener actor" in {
+    val entitySource = RadioStreamTestHelper.generateRadioStreamSource(100)
+    val eventListener = testKit.createTestProbe[RadioEvent]()
+    val helper = new StreamActorTestHelper
+    val actor = helper.createTestActor()
+
+    actor ! RadioStreamActor.UpdateEventActor(Some(eventListener.ref))
+    helper.initRadioStreamFromSource(entitySource, metadataSupport = true)
+    (1 to 10) foreach { _ =>
+      actor ! PlaybackActor.GetAudioData(RadioStreamTestHelper.AudioChunkSize)
+      expectMsgType[BufferDataResult]
+    }
+
+    (1 to 2) foreach { index =>
+      val expMetadata = CurrentMetadata(RadioStreamTestHelper.generateMetadata(index))
+      val event = eventListener.expectMessageType[RadioMetadataEvent]
+      event.metadata should be(expMetadata)
+    }
+  }
+
   /**
     * A test helper class that manages a test actor instance and its
     * dependencies.
@@ -360,6 +396,10 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       metadataEvent.metadata should be(metadata)
       val timeDelta = Duration.between(metadataEvent.time, LocalDateTime.now())
       timeDelta.toSeconds should be < 5L
+    }
+
+    def expectNoMetadataEvent(): Unit = {
+      probeEventActor.expectNoMessage(200.millis)
     }
 
     /**
