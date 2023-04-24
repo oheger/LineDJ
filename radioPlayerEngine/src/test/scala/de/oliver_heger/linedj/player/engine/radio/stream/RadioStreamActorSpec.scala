@@ -338,12 +338,16 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @return the test actor
       */
     def createTestActor(): ActorRef = {
-      val props = stream.RadioStreamActor(Config,
-        TestRadioSource,
+      val managerActor = testKit.spawn(RadioStreamManagerActor.behavior(Config, streamBuilder, null, 10.seconds))
+      val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource,
         probeSourceListener.ref,
-        probeEventActor.ref,
-        streamBuilder)
-      system.actorOf(props)
+        probeEventActor.ref)
+      val probeClient = TestProbe()
+      managerActor ! RadioStreamManagerActor.GetStreamActorClassic(params, probeClient.ref)
+
+      val response = probeClient.expectMsgType[RadioStreamManagerActor.StreamActorResponse]
+      response.source should be(TestRadioSource)
+      response.streamActor
     }
 
     /**
