@@ -53,6 +53,9 @@ import scala.concurrent.duration._
   * @param metadataCheckTimeout       a timeout for metadata checks; a single
   *                                   test run processes metadata for this time
   *                                   at max
+  * @param streamCacheTime            the time a released radio stream actor
+  *                                   remains cached for a potential reuse
+  *                                   until it gets finally closed
   */
 case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              maximumEvalDelay: FiniteDuration = 1.hour,
@@ -61,4 +64,5 @@ case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              retryFailedSourceIncrement: Double = 2.0,
                              maxRetryFailedSource: FiniteDuration = 6.hours,
                              sourceCheckTimeout: FiniteDuration = 60.seconds,
-                             metadataCheckTimeout: FiniteDuration = 30.seconds)
+                             metadataCheckTimeout: FiniteDuration = 30.seconds,
+                             streamCacheTime: FiniteDuration = 4.seconds)
