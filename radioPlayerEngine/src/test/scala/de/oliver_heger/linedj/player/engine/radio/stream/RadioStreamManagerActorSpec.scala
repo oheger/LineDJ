@@ -18,11 +18,13 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.adapter._
 import akka.testkit.{TestKit, TestProbe}
 import akka.{actor => classic}
-import de.oliver_heger.linedj.io.CloseRequest
+import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
@@ -95,6 +97,55 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     val nextStreamActor = helper.requestStreamActor()
     nextStreamActor should not be streamActor.ref
     helper.verifyStreamActorCreated()
+  }
+
+  it should "stop itself when receiving a Stop command" in {
+    val helper = new StreamManagerTestHelper
+
+    val probe = helper.sendCommand(RadioStreamManagerActor.Stop)
+      .deathWatchProbe
+
+    probe.expectMsgType[classic.Terminated]
+  }
+
+  it should "not stop itself before all actors in the cache have been closed" in {
+    def expectClose(probe: TestProbe, reply: Boolean = true): Unit = {
+      probe.expectMsg(RadioStreamActor.UpdateEventActor(None))
+      probe.expectMsg(CloseRequest)
+      if (reply) {
+        probe.reply(CloseAck(probe.ref))
+      }
+    }
+
+    val source0 = radioSource(0)
+    val source2 = radioSource(2)
+    val source3 = radioSource(3)
+    val streamActor0 = TestProbe()
+    val streamActor1 = TestProbe()
+    val streamActor2 = TestProbe()
+    val streamActor3 = TestProbe()
+    val helper = new StreamManagerTestHelper
+
+    helper.sendCommand(RadioStreamManagerActor.ReleaseStreamActor(source0, streamActor0.ref))
+      .expectCacheInvalidation()
+      .sendCacheInvalidation()
+    expectClose(streamActor0)
+
+    helper.sendCommand(RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, streamActor1.ref))
+      .sendCommand(RadioStreamManagerActor.ReleaseStreamActor(source2, streamActor2.ref))
+      .sendCommand(RadioStreamManagerActor.ReleaseStreamActor(source3, streamActor3.ref))
+      .expectCacheInvalidation()
+      .sendCacheInvalidation()
+      .sendCommand(RadioStreamManagerActor.Stop)
+
+    List(streamActor1, streamActor2, streamActor3) foreach { a =>
+      expectClose(a, reply = a != streamActor2)
+    }
+    val watcher = helper.deathWatchProbe
+    watcher.expectNoMessage(200.millis)
+
+    streamActor2.reply(CloseAck(streamActor2.ref))
+    watcher.expectMsgType[classic.Terminated]
   }
 
   /**
@@ -179,6 +230,18 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       val response = probeClient.expectMessageType[RadioStreamManagerActor.StreamActorResponse]
       response.source should be(TestRadioSource)
       response.streamActor
+    }
+
+    /**
+      * Returns a [[TestProbe]] that watches the actor under test, so it can be
+      * used to check whether it has terminated.
+      *
+      * @return the watching probe
+      */
+    def deathWatchProbe: TestProbe = {
+      val probe = TestProbe()
+      probe watch managerActor.toClassic
+      probe
     }
 
     /**
