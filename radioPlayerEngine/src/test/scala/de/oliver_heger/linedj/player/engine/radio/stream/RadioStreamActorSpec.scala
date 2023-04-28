@@ -27,6 +27,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor.SourceListener
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
@@ -40,7 +41,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.{ByteArrayInputStream, InputStream}
 import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
@@ -102,10 +103,10 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
   "RadioStreamActor" should "notify the source listener when the audio stream has been resolved" in {
     val helper = new StreamActorTestHelper
-    helper.createTestActor()
+    val actor = helper.createTestActor()
     helper.initRadioStream()
 
-    helper.probeSourceListener.expectMsg(AudioSource(AudioStreamUri, Long.MaxValue, 0, 0))
+    helper.checkSourceListenerInvocation(actor)
   }
 
   it should "fill its internal buffer" in {
@@ -309,8 +310,14 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     * dependencies.
     */
   private class StreamActorTestHelper {
-    /** Test probe for an audio source listener actor. */
-    val probeSourceListener: TestProbe = TestProbe()
+    /** A reference to store the audio source passed to the listener. */
+    private val refAudioSource = new AtomicReference[(AudioSource, ActorRef)]
+
+    /**
+      * The source listener function. It stores the passed in source into a
+      * reference variable.
+      */
+    private val sourceListener: SourceListener = (source, ref) => refAudioSource.set((source, ref))
 
     /**
       * A promise for storing information about the source of the test radio
@@ -340,7 +347,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     def createTestActor(): ActorRef = {
       val managerActor = testKit.spawn(RadioStreamManagerActor.behavior(Config, streamBuilder, null, 10.seconds))
       val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource,
-        probeSourceListener.ref,
+        sourceListener,
         probeEventActor.ref)
       val probeClient = TestProbe()
       managerActor ! RadioStreamManagerActor.GetStreamActorClassic(params, probeClient.ref)
@@ -404,6 +411,16 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     def expectNoMetadataEvent(): Unit = {
       probeEventActor.expectNoMessage(200.millis)
+    }
+
+    /**
+      * Checks whether the source listener function has been correctly called.
+      *
+      * @param streamActor the stream actor under test
+      */
+    def checkSourceListenerInvocation(streamActor: ActorRef): Unit = {
+      val expectedSourceData = (AudioSource(AudioStreamUri, Long.MaxValue, 0, 0), streamActor)
+      awaitCond(refAudioSource.get() == expectedSourceData)
     }
 
     /**

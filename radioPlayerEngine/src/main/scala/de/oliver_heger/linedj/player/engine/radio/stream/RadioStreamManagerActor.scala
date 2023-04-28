@@ -53,12 +53,13 @@ object RadioStreamManagerActor {
     * stream actor.
     *
     * @param streamSource   the radio source to be played
-    * @param sourceListener reference to an actor that is sent an audio source
-    *                       message when the final audio stream is available
+    * @param sourceListener reference to the function that is invoked with an
+    *                       audio source when the final audio stream is
+    *                       available
     * @param eventActor     the actor to publish radio events
     */
   case class StreamActorParameters(streamSource: RadioSource,
-                                   sourceListener: classic.ActorRef,
+                                   sourceListener: RadioStreamActor.SourceListener,
                                    eventActor: ActorRef[RadioEvent])
 
   /**

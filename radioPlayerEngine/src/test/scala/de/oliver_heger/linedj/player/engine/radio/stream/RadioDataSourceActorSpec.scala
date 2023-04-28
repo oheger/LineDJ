@@ -228,7 +228,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! RadioSource(src.uri)
     actor ! audioSource(28)
     val creation = helper.expectChildCreation()
-    creation.tell(actor, src)
+    creation.sourceListener(src, creation.probe.ref)
     expectMsg(src)
   }
 
@@ -240,7 +240,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val src = audioSource(1)
     actor ! RadioSource(src.uri)
     val creation = helper.expectChildCreation()
-    creation.tell(actor, src)
+    creation.sourceListener(src, creation.probe.ref)
     actor ! PlaybackActor.GetAudioSource
     expectMsg(src)
   }
@@ -350,9 +350,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     childCreation1.probe.expectMsg(CloseRequest)
 
     actor ! PlaybackActor.GetAudioSource
-    childCreation1.tell(actor, audioSource(1))
+    childCreation1.sourceListener(audioSource(1), childCreation1.probe.ref)
     val src = audioSource(2)
-    childCreation2.tell(actor, src)
+    childCreation2.sourceListener(src, childCreation2.probe.ref)
     expectMsg(src)
   }
 
@@ -674,7 +674,6 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       props.args should have size 5
       props.args.head should be(Config)
       props.args(1) should be(RadioSource(streamUri))
-      props.args(2) should be(testActor)
       props.args(3) should be(eventActor)
       props.args(4) should be(streamBuilder)
     }
@@ -689,6 +688,14 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     def tell(target: ActorRef, msg: Any): Unit = {
       target.tell(msg, probe.ref)
     }
+
+    /**
+      * Returns the source listener function passed when creating a radio
+      * stream actor.
+      *
+      * @return the source listener
+      */
+    def sourceListener: RadioStreamActor.SourceListener = props.args(2).asInstanceOf[RadioStreamActor.SourceListener]
   }
 
   override protected val eventTimeExtractor: RadioEvent => LocalDateTime = _.time

@@ -31,7 +31,7 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-private object RadioStreamActor {
+object RadioStreamActor {
   /**
     * A message this actor sends to itself when the audio stream to play has
     * been created. The create operation is done asynchronously by the
@@ -66,6 +66,14 @@ private object RadioStreamActor {
   private case object Ack
 
   /**
+    * Type alias for a listener function that is notified when the final audio
+    * stream (resolved from the radio source) is available. The function
+    * expects the resolved audio source and the processing stream actor as
+    * parameters.
+    */
+  type SourceListener = (AudioSource, ActorRef) => Unit
+
+  /**
     * A message class processed by this actor that allows updating the
     * reference to the event actor that is used to generate events related to
     * metadata changes. With this message, event generation can be disabled or
@@ -82,15 +90,16 @@ private object RadioStreamActor {
     *
     * @param config         the player configuration
     * @param streamSource   the radio source to the audio stream for playback
-    * @param sourceListener reference to an actor that is sent an audio source
-    *                       message when the final audio stream is available
+    * @param sourceListener reference to the function that is invoked with an
+    *                       audio source when the final audio stream is
+    *                       available
     * @param eventActor     the actor to publish radio events
     * @param streamBuilder  the object to build the radio stream
     * @return creation properties for a new actor instance
     */
   def apply(config: PlayerConfig,
             streamSource: RadioSource,
-            sourceListener: ActorRef,
+            sourceListener: SourceListener,
             eventActor: typed.ActorRef[RadioEvent],
             streamBuilder: RadioStreamBuilder): Props =
     Props(classOf[RadioStreamActor], config, streamSource, sourceListener, eventActor, streamBuilder)
@@ -129,14 +138,15 @@ private object RadioStreamActor {
   * @param config         the player configuration
   * @param streamSource   the radio source pointing to the audio stream for
   *                       playback
-  * @param sourceListener reference to an actor that is sent an audio source
-  *                       message when the final audio stream is available
+  * @param sourceListener reference to the function that is invoked with an
+  *                       audio source when the final audio stream is
+  *                       available
   * @param eventActor     the actor to publish radio events
   * @param streamBuilder  the object to build the radio stream
   */
 private class RadioStreamActor(config: PlayerConfig,
                                streamSource: RadioSource,
-                               sourceListener: ActorRef,
+                               sourceListener: SourceListener,
                                eventActor: typed.ActorRef[RadioEvent],
                                streamBuilder: RadioStreamBuilder) extends Actor with ActorLogging {
   private implicit val materializer: Materializer = Materializer(context)
@@ -177,7 +187,7 @@ private class RadioStreamActor(config: PlayerConfig,
   override def receive: Receive = {
     case AudioStreamCreated(result) =>
       log.info("Playing audio stream from {}.", result.resolvedUri)
-      sourceListener ! AudioSource(result.resolvedUri, Long.MaxValue, 0, 0)
+      sourceListener(AudioSource(result.resolvedUri, Long.MaxValue, 0, 0), self)
       if (!result.metadataSupported) {
         log.info("No support for metadata.")
         sendMetadataEvent(RadioMetadataEvent(streamSource, MetadataNotSupported))
@@ -234,7 +244,7 @@ private class RadioStreamActor(config: PlayerConfig,
       sender() ! BufferDataComplete
 
     case msg =>
-      log.info("Received message {} interpreted as stream end.", msg)
+      log.info("Received message {} interpreted as stream end of source '{}'.", msg, streamSource)
       client ! CloseAck(self)
       self ! PoisonPill
   }

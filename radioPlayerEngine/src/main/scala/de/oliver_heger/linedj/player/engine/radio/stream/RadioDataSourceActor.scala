@@ -176,6 +176,12 @@ class RadioDataSourceActor(config: PlayerConfig,
     case _: java.io.IOException => Stop
   }
 
+  /**
+    * The source listener function to be passed when creating a new radio
+    * stream actor. This function sends the source to Self.
+    */
+  private val sourceListener: RadioStreamActor.SourceListener = (source, sender) => self.tell(source, sender)
+
   override def receive: Receive = {
     case r: RadioSource =>
       currentSourceReader foreach { r =>
@@ -191,8 +197,7 @@ class RadioDataSourceActor(config: PlayerConfig,
     case src: AudioSource if fromCurrentReader() =>
       val updatedSrc = updateAudioSourceFileExtension(src, currentRadioSource)
       currentAudioSource = Some(updatedSrc)
-      pendingAudioSourceRequest = servePending(pendingAudioSourceRequest)(handleSourceRequest(_,
-        updatedSrc))
+      pendingAudioSourceRequest = servePending(pendingAudioSourceRequest)(handleSourceRequest(_, updatedSrc))
 
     case PlaybackActor.GetAudioSource =>
       if (pendingAudioSourceRequest.isDefined) {
@@ -260,7 +265,7 @@ class RadioDataSourceActor(config: PlayerConfig,
     * @return the new child source reader actor
     */
   private def createSourceReaderActor(r: RadioSource): ActorRef = {
-    val reader = createChildActor(RadioStreamActor(config, r, self, eventManager, streamBuilder))
+    val reader = createChildActor(RadioStreamActor(config, r, sourceListener, eventManager, streamBuilder))
     context watch reader
     reader
   }

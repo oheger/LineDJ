@@ -222,10 +222,9 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       */
     def requestStreamActor(optEventActor: Option[ActorRef[RadioEvent]] = None): classic.ActorRef = {
       val probeClient = testKit.createTestProbe[RadioStreamManagerActor.StreamActorResponse]()
-      val probeSourceListener = TestProbe()
+      val sourceListener: RadioStreamActor.SourceListener = (_, _) => {}
       val eventActor = optEventActor getOrElse testKit.createTestProbe[RadioEvent]().ref
-      val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource, probeSourceListener.ref,
-        eventActor)
+      val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource, sourceListener, eventActor)
       managerActor ! RadioStreamManagerActor.GetStreamActor(params, probeClient.ref)
       val response = probeClient.expectMessageType[RadioStreamManagerActor.StreamActorResponse]
       response.source should be(TestRadioSource)
