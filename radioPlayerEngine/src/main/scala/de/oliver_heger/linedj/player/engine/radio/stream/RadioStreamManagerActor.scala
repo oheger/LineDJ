@@ -21,7 +21,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.{actor => classic}
 import de.oliver_heger.linedj.io.CloseSupportTyped
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
@@ -103,10 +103,14 @@ object RadioStreamManagerActor {
     * into the cache for the configured cache time. If it is not requested
     * again within this time, it is closed.
     *
-    * @param source      the radio source
-    * @param streamActor the [[RadioStreamActor]] to release
+    * @param source         the radio source
+    * @param streamActor    the [[RadioStreamActor]] to release
+    * @param resolvedSource the resolved audio source; this needs to be passed
+    *                       to the source listener when the actor is reused
     */
-  case class ReleaseStreamActor(source: RadioSource, streamActor: classic.ActorRef) extends RadioStreamManagerCommand
+  case class ReleaseStreamActor(source: RadioSource,
+                                streamActor: classic.ActorRef,
+                                resolvedSource: AudioSource) extends RadioStreamManagerCommand
 
   /**
     * A command telling this actor to stop itself. Before terminating, the
@@ -150,7 +154,7 @@ object RadioStreamManagerActor {
                                       streamBuilder: RadioStreamBuilder,
                                       scheduler: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                       cacheTime: FiniteDuration,
-                                      cache: Map[RadioSource, classic.ActorRef],
+                                      cache: Map[RadioSource, (classic.ActorRef, AudioSource)],
                                       closing: Set[classic.ActorRef])
 
   /**
@@ -204,10 +208,10 @@ object RadioStreamManagerActor {
         replyTo ! StreamActorResponse(params.streamSource, streamActor)
         handle(nextState)
 
-      case (context, ReleaseStreamActor(source, streamActor)) =>
+      case (context, ReleaseStreamActor(source, streamActor, resolvedSource)) =>
         context.log.info("Putting stream actor for source '{}' into cache.", source)
         streamActor ! RadioStreamActor.UpdateEventActor(None)
-        val nextState = state.copy(cache = state.cache + (source -> streamActor))
+        val nextState = state.copy(cache = state.cache + (source -> (streamActor, resolvedSource)))
         val invocation = ScheduledInvocationActor.typedInvocationCommand(state.cacheTime,
           context.self, CacheTimeEnd(source))
         state.scheduler ! invocation
@@ -215,7 +219,7 @@ object RadioStreamManagerActor {
 
       case (context, CacheTimeEnd(source)) =>
         state.cache.get(source) match {
-          case Some(value) =>
+          case Some((value, _)) =>
             context.log.info("Removing stream actor for source '{}' from cache.", source)
             val closedMsg = StreamActorsClosed(Set(value))
             CloseSupportTyped.triggerClose(context, context.self, closedMsg, closedMsg.actors)
@@ -233,7 +237,7 @@ object RadioStreamManagerActor {
         Behaviors.stopped
 
       case (context, Stop) =>
-        val closedMsg = StreamActorsClosed(state.cache.values.toSet)
+        val closedMsg = StreamActorsClosed(state.cache.values.map(_._1).toSet)
         CloseSupportTyped.triggerClose(context, context.self, closedMsg, closedMsg.actors)
         val nextState = state.copy(cache = Map.empty, closing = state.closing ++ closedMsg.actors)
         context.log.info("Received Stop command. Waiting for {} actors to be closed.", nextState.closing.size)
@@ -271,9 +275,10 @@ object RadioStreamManagerActor {
                                      params: StreamActorParameters,
                                      state: RadioStreamState): (classic.ActorRef, RadioStreamState) =
     state.cache.get(params.streamSource) match {
-      case Some(actor) =>
+      case Some((actor, resolvedSource)) =>
         context.log.info("Reusing stream actor for source '{}' from cache.", params.streamSource)
         actor ! RadioStreamActor.UpdateEventActor(Some(params.eventActor))
+        params.sourceListener(resolvedSource, actor)
         (actor, state.copy(cache = state.cache - params.streamSource))
       case None =>
         val props = RadioStreamActor(state.config,
