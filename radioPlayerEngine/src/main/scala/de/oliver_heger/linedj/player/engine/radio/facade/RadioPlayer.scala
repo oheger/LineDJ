@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 
 import scala.concurrent.duration._
@@ -39,13 +39,15 @@ object RadioPlayer {
     * This is an asynchronous operation; therefore, this function returns a
     * ''Future''.
     *
-    * @param config              the radio player configuration
-    * @param controlActorFactory factory for creating the control actor
-    * @param system              the current ''ActorSystem''
-    * @param ec                  the ''ExecutionContext''
+    * @param config               the radio player configuration
+    * @param streamManagerFactory factory for creating the stream manager actor
+    * @param controlActorFactory  factory for creating the control actor
+    * @param system               the current ''ActorSystem''
+    * @param ec                   the ''ExecutionContext''
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
   def apply(config: RadioPlayerConfig,
+            streamManagerFactory: RadioStreamManagerActor.Factory = RadioStreamManagerActor.behavior,
             controlActorFactory: RadioControlActor.Factory = RadioControlActor.behavior)
            (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
     val typedSystem = system.toTyped
@@ -62,17 +64,21 @@ object RadioPlayer {
       }
     } yield {
       val streamBuilder = RadioStreamBuilder()
-      val sourceCreator = radioPlayerSourceCreator(eventActors._2, streamBuilder)
-      val lineWriterActor = PlayerControl.createLineWriterActor(config.playerConfig, "radioLineWriterActor")
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator,
         "radioSchedulerInvocationActor")
+      val streamManagerBehavior = streamManagerFactory(config.playerConfig, streamBuilder, scheduledInvocationActor,
+        config.streamCacheTime)
+      val streamManager = creator.createActor(streamManagerBehavior, "radioStreamManagerActor",
+        Some(RadioStreamManagerActor.Stop))
+      val sourceCreator = radioPlayerSourceCreator(eventActors._2, streamManager)
+      val lineWriterActor = PlayerControl.createLineWriterActor(config.playerConfig, "radioLineWriterActor")
       val factoryActor = PlayerControl.createPlaybackContextFactoryActor(creator,
         "radioPlaybackContextFactoryActor")
       val facadeActor =
         creator.createActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
       val controlBehavior = controlActorFactory(config, eventActors._2, eventActors._1, facadeActor,
-        scheduledInvocationActor, factoryActor, streamBuilder)
+        scheduledInvocationActor, factoryActor, streamManager, streamBuilder)
       val controlActor = creator.createActor(controlBehavior, "radioControlActor",
         Some(RadioControlActor.Stop))
 
@@ -86,14 +92,15 @@ object RadioPlayer {
     * has to be passed in.
     *
     * @param eventActor    the event actor
-    * @param streamBuilder the object for building radio streams
+    * @param streamManager the radio stream manager actor
     * @param actorSystem   the actor system
     * @return the function to create the source actor for the radio player
     */
-  private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent], streamBuilder: RadioStreamBuilder)
+  private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent],
+                                       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand])
                                       (implicit actorSystem: ActorSystem): SourceActorCreator =
     (factory, config) => {
-      val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor, streamBuilder))
+      val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor, streamManager))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)
     }
 }

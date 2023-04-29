@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control._
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder, RadioStreamManagerActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -172,7 +172,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   it should "create only a single stream builder" in {
     val helper = new RadioPlayerTestHelper
 
-    helper.checkStreamBuilder()
+    helper.checkStreamManager()
   }
 
   /**
@@ -237,6 +237,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         props should not be Props.empty // It seems impossible to extract the dispatcher name.
         probeLineWriterActor.ref
 
+      case "radioStreamManagerActor" =>
+        behavior should be(streamManagerBehavior)
+        optStopCmd should be(Some(RadioStreamManagerActor.Stop))
+        probeStreamManagerActor.ref
+
       case "radioControlActor" =>
         behavior should be(controlBehavior)
         optStopCmd should be(Some(RadioControlActor.Stop))
@@ -252,6 +257,14 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** Test probe for the line writer actor. */
     private val probeLineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
 
+    /** Test probe for the stream manager actor. */
+    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+
+    /** The behavior for the stream manager actor. */
+    private val streamManagerBehavior =
+      Behaviors.monitor[RadioStreamManagerActor.RadioStreamManagerCommand](probeStreamManagerActor.ref,
+        Behaviors.ignore)
+
     /** Test probe for the control actor. */
     private val probeControlActor = testKit.createTestProbe[RadioControlActor.RadioControlCommand]()
 
@@ -260,16 +273,18 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       Behaviors.ignore)
 
     /**
-      * Stores the stream builders passed to different actor creation
-      * functions. There should be exactly one builder.
+      * Stores the stream managers passed to different actor creation
+      * functions. There should be exactly one manager.
       */
-    private val streamBuilders = new ConcurrentHashMap[RadioStreamBuilder, Boolean]()
+    private val streamManagers =
+      new ConcurrentHashMap[typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand], Boolean]()
 
     /** The test player configuration. */
     val config: RadioPlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
-    val player: RadioPlayer = futureResult(RadioPlayer(config, createControlActorFactory()))
+    val player: RadioPlayer = futureResult(RadioPlayer(config, createStreamManagerActorFactory(),
+      createControlActorFactory()))
 
     /**
       * Expects that the given command was sent to the control actor.
@@ -289,11 +304,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       probeSchedulerInvocationActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
 
     /**
-      * Checks that exactly one stream builder was created and passed to the
+      * Checks that exactly one stream manager was created and passed to the
       * actors used by the player.
       */
-    def checkStreamBuilder(): Unit = {
-      streamBuilders should have size 1
+    def checkStreamManager(): Unit = {
+      streamManagers should have size 1
     }
 
     /**
@@ -319,11 +334,11 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       Mockito.when(factory.createChildActor(any())).thenAnswer((invocation: InvocationOnMock) => {
         val props = invocation.getArgument(0, classOf[Props])
         classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
-        classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
         val expectedArguments = List(config.playerConfig, actorCreator.probePublisherActor.ref)
         props.args should have size expectedArguments.size + 1
         props.args.take(2) should contain theSameElementsInOrderAs expectedArguments
-        streamBuilders.put(props.args(2).asInstanceOf[RadioStreamBuilder], true)
+        streamManagers.put(props.args(2)
+          .asInstanceOf[typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]], true)
         probeSourceActor.ref
       })
 
@@ -331,6 +346,25 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       actors should have size 1
       actors(PlayerFacadeActor.KeySourceActor) should be(probeSourceActor.ref)
     }
+
+    /**
+      * Creates a stub factory for the stream manager actor that checks the
+      * parameters and returns a mock behavior.
+      *
+      * @return the factory for the stream manager actor
+      */
+    private def createStreamManagerActorFactory(): RadioStreamManagerActor.Factory =
+      (playerConfig: PlayerConfig,
+       streamBuilder: RadioStreamBuilder,
+       scheduler: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
+       cacheTime: FiniteDuration) => {
+        playerConfig should be(config.playerConfig)
+        streamBuilder should not be null
+        scheduler should be(probeSchedulerInvocationActor.ref)
+        cacheTime should be(config.streamCacheTime)
+
+        streamManagerBehavior
+      }
 
     /**
       * Creates a stub factory for the control actor that checks the parameters
@@ -345,7 +379,8 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        facadeActor: ActorRef,
        scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
        factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-       builder: RadioStreamBuilder,
+      streamManagerActor: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+       _: RadioStreamBuilder,
        optEvalService: Option[EvaluateIntervalsService],
        optReplacementService: Option[ReplacementSourceSelectionService],
        optStateService: Option[RadioSourceStateService],
@@ -362,7 +397,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         optEvalService shouldBe empty
         optReplacementService shouldBe empty
         optStateService shouldBe empty
-        streamBuilders.put(builder, true)
+        streamManagers.put(streamManagerActor, true)
 
         controlBehavior
       }

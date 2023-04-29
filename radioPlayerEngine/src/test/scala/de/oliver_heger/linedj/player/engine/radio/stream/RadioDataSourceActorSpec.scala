@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated, typed}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
@@ -26,7 +27,6 @@ import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -228,7 +228,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! RadioSource(src.uri)
     actor ! audioSource(28)
     val creation = helper.expectChildCreation()
-    creation.sourceListener(src, creation.probe.ref)
+    creation.params.sourceListener(src, creation.probe.ref)
     expectMsg(src)
   }
 
@@ -240,7 +240,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val src = audioSource(1)
     actor ! RadioSource(src.uri)
     val creation = helper.expectChildCreation()
-    creation.sourceListener(src, creation.probe.ref)
+    creation.params.sourceListener(src, creation.probe.ref)
     actor ! PlaybackActor.GetAudioSource
     expectMsg(src)
   }
@@ -350,9 +350,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     childCreation1.probe.expectMsg(CloseRequest)
 
     actor ! PlaybackActor.GetAudioSource
-    childCreation1.sourceListener(audioSource(1), childCreation1.probe.ref)
+    childCreation1.params.sourceListener(audioSource(1), childCreation1.probe.ref)
     val src = audioSource(2)
-    childCreation2.sourceListener(src, childCreation2.probe.ref)
+    childCreation2.params.sourceListener(src, childCreation2.probe.ref)
     expectMsg(src)
   }
 
@@ -491,36 +491,6 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     msg.at should be > lastAckTime
   }
 
-  it should "create correct Props" in {
-    val eventMan = testKit.createTestProbe[RadioEvent]()
-    val streamBuilder = RadioStreamBuilder()
-    val props = RadioDataSourceActor(Config, eventMan.ref, streamBuilder)
-
-    classOf[RadioDataSourceActor] isAssignableFrom props.actorClass() shouldBe true
-    classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
-    props.args should be(List(Config, eventMan.ref, streamBuilder))
-  }
-
-  it should "use a correct supervision strategy" in {
-    val path = createDataFile()
-    val queue = new LinkedBlockingQueue[ActorRef]
-    val eventMan = testKit.createTestProbe[RadioEvent]()
-    val actor = system.actorOf(Props(new RadioDataSourceActor(Config, eventMan.ref, RadioStreamBuilder())
-      with ChildActorFactory {
-      override def createChildActor(p: Props): ActorRef = {
-        val child = super.createChildActor(p)
-        queue offer child
-        child
-      }
-    }))
-
-    actor ! RadioSource(path.toUri.toString)
-    val childActor = pollQueue[ActorRef](queue)
-    val probe = TestProbe()
-    probe watch childActor
-    probe.expectMsgType[Terminated]
-  }
-
   it should "fire an event when a new source is started" in {
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
@@ -553,9 +523,6 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     /** Test probe for the event manager actor. */
     private val eventManager = testKit.createTestProbe[RadioEvent]()
-
-    /** The object for creating radio streams. */
-    private val streamBuilder = RadioStreamBuilder()
 
     /**
       * Creates a test actor instance.
@@ -597,7 +564,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def expectAndCheckChildCreation(expUri: String, expTestActor: ActorRef): ChildActorCreation = {
       val creation = expectChildCreation()
-      creation.checkProps(expUri, expTestActor, eventManager.ref, streamBuilder)
+      creation.checkProps(expUri, expTestActor, eventManager.ref)
       creation
     }
 
@@ -634,19 +601,18 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the ''Props'' for the test actor
       */
-    private def createProps(): Props =
-      Props(new RadioDataSourceActor(Config, eventManager.ref, streamBuilder) with ChildActorFactory {
-        /**
-          * @inheritdoc This implementation returns a test probe. The probe and
-          *             the passed ''Props'' are stored in the child creation
-          *             queue.
-          */
-        override def createChildActor(p: Props): ActorRef = {
-          val childProbe = TestProbe()
-          childCreationQueue put ChildActorCreation(p, childProbe)
-          childProbe.ref
-        }
-      })
+    private def createProps(): Props = {
+      val managerBehavior = Behaviors.receiveMessagePartial[RadioStreamManagerActor.RadioStreamManagerCommand] {
+        case RadioStreamManagerActor.GetStreamActorClassic(params, replyTo) =>
+          val streamProbe = TestProbe()
+          replyTo ! RadioStreamManagerActor.StreamActorResponse(params.streamSource, streamProbe.ref)
+          childCreationQueue offer ChildActorCreation(params, streamProbe)
+          Behaviors.same
+      }
+      val managerActor = testKit.spawn(managerBehavior)
+
+      RadioDataSourceActor(Config, eventManager.ref, managerActor)
+    }
   }
 
   /**
@@ -654,10 +620,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * created. For each child to be created a test probe is returned. This
     * probe and the properties are stored in an instance of this class.
     *
-    * @param props the creation properties of the child actor
+    * @param params the parameters passed to the stream manager actor
     * @param probe the test probe returned as child actor
     */
-  private case class ChildActorCreation(props: Props, probe: TestProbe) {
+  private case class ChildActorCreation(params: RadioStreamManagerActor.StreamActorParameters, probe: TestProbe) {
     /**
       * Checks the properties against the specified stream URI and
       * dependencies.
@@ -665,17 +631,11 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param streamUri     the expected URI of the stream reference
       * @param testActor     the test actor
       * @param eventActor    the event actor
-      * @param streamBuilder the stream builder
       */
     def checkProps(streamUri: String, testActor: ActorRef,
-                   eventActor: typed.ActorRef[RadioEvent],
-                   streamBuilder: RadioStreamBuilder): Unit = {
-      classOf[RadioStreamActor].isAssignableFrom(props.actorClass()) shouldBe true
-      props.args should have size 5
-      props.args.head should be(Config)
-      props.args(1) should be(RadioSource(streamUri))
-      props.args(3) should be(eventActor)
-      props.args(4) should be(streamBuilder)
+                   eventActor: typed.ActorRef[RadioEvent]): Unit = {
+      params.streamSource should be(RadioSource(streamUri))
+      params.eventActor should be(eventActor)
     }
 
     /**
@@ -688,14 +648,6 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     def tell(target: ActorRef, msg: Any): Unit = {
       target.tell(msg, probe.ref)
     }
-
-    /**
-      * Returns the source listener function passed when creating a radio
-      * stream actor.
-      *
-      * @return the source listener
-      */
-    def sourceListener: RadioStreamActor.SourceListener = props.args(2).asInstanceOf[RadioStreamActor.SourceListener]
   }
 
   override protected val eventTimeExtractor: RadioEvent => LocalDateTime = _.time

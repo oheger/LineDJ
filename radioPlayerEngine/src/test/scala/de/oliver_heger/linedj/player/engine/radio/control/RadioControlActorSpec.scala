@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.Sche
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -156,6 +156,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     /** Test probe for the metadata state actor. */
     private val probeMetadataStateActor = testKit.createTestProbe[MetadataStateActor.MetadataExclusionStateCommand]()
+
+    /** Test probe for the stream manager actor. */
+    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
 
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
@@ -302,6 +305,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         facadeActor = mockFacadeActor,
         scheduleActor = probeScheduleActor.ref,
         factoryActor = probeFactoryActor.ref,
+        streamManagerActor = probeStreamManagerActor.ref,
         streamBuilder = streamBuilder,
         config = config))
     }
@@ -354,7 +358,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
        scheduledInvocationActor: ActorRef[ScheduledInvocationCommand],
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-       builder: RadioStreamBuilder,
+       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        _: ErrorStateActor.CheckSchedulerActorFactory,
        _: ErrorStateActor.CheckSourceActorFactory,
        optSpawner: Option[Spawner]) => {
@@ -362,7 +366,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         factoryActor should be(probeFactoryActor.ref)
         scheduledInvocationActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
-        builder should be(streamBuilder)
+        streamManager should be(probeStreamManagerActor.ref)
         optSpawner shouldBe empty
 
         enabledStateActor.actorCreated(enabledActor)

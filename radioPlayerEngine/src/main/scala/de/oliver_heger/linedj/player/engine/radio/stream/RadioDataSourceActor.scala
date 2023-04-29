@@ -23,26 +23,21 @@ import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.{PlaybackActor, PlaybackProtocolViolation}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 
 object RadioDataSourceActor {
-
-  private class RadioDataSourceActorImpl(config: PlayerConfig,
-                                         eventManager: typed.ActorRef[RadioEvent],
-                                         streamBuilder: RadioStreamBuilder)
-    extends RadioDataSourceActor(config, eventManager, streamBuilder) with ChildActorFactory
-
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
     *
     * @param config        the player configuration
     * @param eventManager  the actor for generating events
-    * @param streamBuilder the object to build radio streams
+    * @param streamManager the actor managing radio stream actors
     * @return the ''Props'' for creating a new actor instance
     */
-  def apply(config: PlayerConfig, eventManager: typed.ActorRef[RadioEvent], streamBuilder: RadioStreamBuilder): Props =
-    Props(classOf[RadioDataSourceActorImpl], config, eventManager, streamBuilder)
+  def apply(config: PlayerConfig,
+            eventManager: typed.ActorRef[RadioEvent],
+            streamManager: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]): Props =
+    Props(classOf[RadioDataSourceActor], config, eventManager, streamManager)
 
   /** Error message for an unexpected audio source request. */
   private val ErrPendingSourceRequest = "Request for audio source already pending!"
@@ -134,13 +129,12 @@ object RadioDataSourceActor {
   *
   * @param config        the audio player configuration
   * @param eventManager  the actor for generating events
-  * @param streamBuilder the object to build radio streams
+  * @param streamManager the actor managing radio stream actors
   */
 class RadioDataSourceActor(config: PlayerConfig,
                            eventManager: typed.ActorRef[RadioEvent],
-                           streamBuilder: RadioStreamBuilder)
+                           streamManager: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand])
   extends Actor with ActorLogging {
-  this: ChildActorFactory =>
 
   import RadioDataSourceActor._
 
@@ -188,9 +182,14 @@ class RadioDataSourceActor(config: PlayerConfig,
         r ! CloseRequest
         pendingCloseAck += 1
       }
-      currentSourceReader = Some(createSourceReaderActor(r))
-      currentRadioSource = r
+      val params = RadioStreamManagerActor.StreamActorParameters(r, sourceListener, eventManager)
+      streamManager ! RadioStreamManagerActor.GetStreamActorClassic(params, self)
       stopCurrentSource()
+
+    case RadioStreamManagerActor.StreamActorResponse(r, streamActor) =>
+      currentSourceReader = Some(streamActor)
+      context watch streamActor
+      currentRadioSource = r
       eventManager ! RadioSourceChangedEvent(r)
       log.info("Next radio source for playback: {}.", r.uri)
 
@@ -256,18 +255,6 @@ class RadioDataSourceActor(config: PlayerConfig,
     case CloseAck(_) =>
       handleCloseAck()
       sendCloseAckIfPossible(client)
-  }
-
-  /**
-    * Creates a child actor for reading the specified source.
-    *
-    * @param r the radio source to be read
-    * @return the new child source reader actor
-    */
-  private def createSourceReaderActor(r: RadioSource): ActorRef = {
-    val reader = createChildActor(RadioStreamActor(config, r, sourceListener, eventManager, streamBuilder))
-    context watch reader
-    reader
   }
 
   /**
