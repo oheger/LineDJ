@@ -16,24 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.Done
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.stream.scaladsl.Sink
-import akka.stream.{KillSwitch, Materializer}
-import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
+import akka.actor.{Actor, Props}
+import akka.{actor => classic}
+import de.oliver_heger.linedj.player.engine.AudioSource
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
-import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamBuilder
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
 import java.util.regex.{Matcher, Pattern}
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.ExecutionContext
 
 /**
   * A module providing functionality related to checking and enforcing metadata
@@ -180,7 +178,7 @@ object MetadataStateActor {
       * @param enabledStateActor  the actor managing the source enabled state
       * @param scheduleActor      the actor for scheduled invocations
       * @param eventActor         the event manager actor
-      * @param streamBuilder      the stream builder
+      * @param streamManager      the actor managing radio stream actors
       * @param intervalService    the evaluate intervals service
       * @param clock              a clock
       * @param sourceCheckFactory the factory for source check actors
@@ -190,7 +188,7 @@ object MetadataStateActor {
               enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
               scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-              streamBuilder: RadioStreamBuilder,
+              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
               clock: Clock = Clock.systemDefaultZone(),
               sourceCheckFactory: SourceCheckFactory = sourceCheckBehavior): Behavior[MetadataExclusionStateCommand]
@@ -240,7 +238,7 @@ object MetadataStateActor {
      enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
      eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-     streamBuilder: RadioStreamBuilder,
+     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
      clock: Clock,
      sourceCheckFactory: SourceCheckFactory) => Behaviors.setup { context =>
@@ -272,7 +270,7 @@ object MetadataStateActor {
                     context.self,
                     scheduleActor,
                     clock,
-                    streamBuilder,
+                    streamManager,
                     intervalService)
                   val checkActor = context.spawn(checkBehavior, checkName)
                   enabledStateActor ! RadioControlProtocol.DisableSource(source)
@@ -360,7 +358,7 @@ object MetadataStateActor {
       * @param stateActor       the metadata state actor
       * @param scheduleActor    the actor for scheduled invocations
       * @param clock            the clock
-      * @param streamBuilder    the stream builder
+      * @param streamManager    the actor managing radio stream actors
       * @param intervalService  the intervals service
       * @param runnerFactory    the factory for check runner actors
       * @return the ''Behavior'' for a new actor instance
@@ -373,7 +371,7 @@ object MetadataStateActor {
               stateActor: ActorRef[MetadataExclusionStateCommand],
               scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               clock: Clock,
-              streamBuilder: RadioStreamBuilder,
+              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
               runnerFactory: MetadataCheckRunnerFactory = checkRunnerBehavior): Behavior[SourceCheckCommand]
   }
@@ -391,7 +389,7 @@ object MetadataStateActor {
      stateActor: ActorRef[MetadataExclusionStateCommand],
      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
      clock: Clock,
-     streamBuilder: RadioStreamBuilder,
+     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
      runnerFactory: MetadataCheckRunnerFactory) => Behaviors.setup { context =>
       def handleWaitForNextCheck(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] =
@@ -404,11 +402,10 @@ object MetadataStateActor {
             context.log.info("Triggering metadata check {} for {}.", nextCount, source)
             val runnerBehavior = runnerFactory(source,
               namePrefix + "_run" + nextCount,
-              radioConfig.playerConfig,
               metadataConfig,
               exclusion,
               clock,
-              streamBuilder,
+              streamManager,
               intervalService,
               context.self)
             val runner = context.spawn(runnerBehavior, namePrefix + nextCount)
@@ -523,11 +520,10 @@ object MetadataStateActor {
       *
       * @param source           the radio source to be checked
       * @param namePrefix       prefix to generate actor names
-      * @param playerConfig     the audio player config
       * @param metadataConfig   the global metadata config
       * @param currentExclusion the currently detected metadata exclusion
       * @param clock            the clock to query times
-      * @param streamBuilder    the stream builder
+      * @param streamManager    the actor managing radio stream actors
       * @param intervalService  the interval query service
       * @param sourceChecker    the source checker parent actor
       * @param retrieverFactory the factory to create a retriever actor
@@ -535,11 +531,10 @@ object MetadataStateActor {
       */
     def apply(source: RadioSource,
               namePrefix: String,
-              playerConfig: PlayerConfig,
               metadataConfig: MetadataConfig,
               currentExclusion: MetadataExclusion,
               clock: Clock,
-              streamBuilder: RadioStreamBuilder,
+              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
               sourceChecker: ActorRef[SourceCheckCommand],
               retrieverFactory: MetadataRetrieveActorFactory = retrieveMetadataBehavior):
@@ -579,16 +574,15 @@ object MetadataStateActor {
   private[control] val checkRunnerBehavior: MetadataCheckRunnerFactory =
     (source: RadioSource,
      namePrefix: String,
-     playerConfig: PlayerConfig,
      metadataConfig: MetadataConfig,
      currentExclusion: MetadataExclusion,
      clock: Clock,
-     streamBuilder: RadioStreamBuilder,
+     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
      sourceChecker: ActorRef[SourceCheckCommand],
      retrieverFactory: MetadataRetrieveActorFactory) => Behaviors.setup[MetadataCheckRunnerCommand] { context =>
       implicit val ec: ExecutionContext = context.executionContext
-      val retrieverBehavior = retrieverFactory(source, playerConfig, clock, streamBuilder, context.self)
+      val retrieverBehavior = retrieverFactory(source, clock, streamManager, context.self)
       val retriever = context.spawn(retrieverBehavior, namePrefix + "_retriever")
       retriever ! GetMetadata
       val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
@@ -694,20 +688,45 @@ object MetadataStateActor {
 
   /**
     * An internal command the metadata retriever actor sends to itself when the
-    * future with the stream builder result completes.
+    * stream manager actor sends the response with the requested stream actor.
     *
-    * @param triedResult the tried stream builder result
+    * @param streamActor the radio stream actor reference
     */
-  private case class StreamBuilderResultArrived(triedResult: Try[RadioStreamBuilder.BuilderResult[Future[Done],
-    Future[Done]]]) extends MetadataRetrieveCommand
+  private case class StreamActorArrived(streamActor: classic.ActorRef) extends MetadataRetrieveCommand
 
   /**
-    * An internal command the metadata retriever actor sends to itself when a
-    * chunk of metadata was received.
+    * An internal command the metadata retriever actor sends to itself when it
+    * receives a radio event - which should be an update of metadata.
     *
-    * @param data the raw metadata
+    * @param event the event
     */
-  private case class MetadataArrived(data: ByteString) extends MetadataRetrieveCommand
+  private case class RadioEventArrived(event: RadioEvent) extends MetadataRetrieveCommand
+
+  /**
+    * An internal command the metadata retriever actor sends to itself to
+    * propagate the resolved audio source to itself.
+    *
+    * @param audioSource the resolved audio source
+    */
+  private case class RadioStreamResolved(audioSource: AudioSource) extends MetadataRetrieveCommand
+
+  /**
+    * An internal command the metadata retriever actor sends to itself when the
+    * stream actor dies unexpectedly.
+    */
+  private case object StreamActorDied extends MetadataRetrieveCommand
+
+  /**
+    * An internal command indicating to the metadata retriever actor that a
+    * request for data to the stream actor has been answered.
+    */
+  private case object DataLoaded extends MetadataRetrieveCommand
+
+  /**
+    * A command handled by the bridge actor that tells it to request another
+    * chunk of data from the stream actor.
+    */
+  private case object RequestData
 
   /**
     * A data class holding the information required while fetching metadata
@@ -716,13 +735,18 @@ object MetadataStateActor {
     * @param optMetadata    stores the latest metadata encountered if any
     * @param metadataTime   the time when the metadata was received
     * @param lastMetadata   the last metadata sent to the check runner
-    * @param killSwitch     the kill switch to cancel the stream
+    * @param bridgeActor    the actor bridging between this actor and the
+    *                       stream actor
+    * @param streamActor    the radio stream actor
+    * @param resolvedSource the resolved audio source
     * @param requestPending flag whether metadata has been requested
     */
   private case class MetadataRetrieveState(optMetadata: Option[CurrentMetadata],
                                            metadataTime: LocalDateTime,
                                            lastMetadata: Option[CurrentMetadata],
-                                           killSwitch: KillSwitch,
+                                           bridgeActor: classic.ActorRef,
+                                           streamActor: classic.ActorRef,
+                                           resolvedSource: AudioSource,
                                            requestPending: Boolean) {
     /**
       * Returns a [[MetadataRetrieved]] message to be sent to the check runner
@@ -736,7 +760,57 @@ object MetadataStateActor {
         (optMetadata.map { data => MetadataRetrieved(data, metadataTime) },
           copy(requestPending = false, lastMetadata = optMetadata))
       else (None, this)
+
+    /**
+      * Releases the current radio stream actor by sending a corresponding
+      * command to the stream manager actor.
+      *
+      * @param source        the current radio source
+      * @param streamManager the stream manager actor
+      */
+    def releaseStreamActor(source: RadioSource,
+                           streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]): Unit = {
+      streamManager ! RadioStreamManagerActor.ReleaseStreamActor(source, streamActor, resolvedSource)
+    }
   }
+
+  /**
+    * A data class holding information required during the initialization phase
+    * of the metadata retriever actor.
+    *
+    * @param requestPending    flag whether a metadata request has been
+    *                          received
+    * @param streamCanceled    flag whether a cancel command has been received
+    * @param optStreamActor    the reference to the stream actor
+    * @param optResolvedSource the resolved audio source
+    */
+  private case class MetadataRetrieveInitState(requestPending: Boolean = false,
+                                               streamCanceled: Boolean = false,
+                                               optStreamActor: Option[classic.ActorRef] = None,
+                                               optResolvedSource: Option[AudioSource] = None) {
+    /**
+      * Creates an initialized [[MetadataRetrieveState]] if all required data
+      * is available. Otherwise, result is ''None''. This function is used to
+      * check whether the initialization is now complete.
+      *
+      * @return an ''Option'' with the initial metadata retrieve state
+      */
+    def createRetrieveState(): Option[MetadataRetrieveState] =
+      for {
+        streamActor <- optStreamActor
+        resolvedSource <- optResolvedSource
+      } yield MetadataRetrieveState(streamActor = streamActor,
+        resolvedSource = resolvedSource,
+        requestPending = requestPending,
+        optMetadata = None,
+        metadataTime = LocalDateTime.now(),
+        lastMetadata = None,
+        bridgeActor = null
+      )
+  }
+
+  /** The chunk size for requested audio data. */
+  private val AudioDataChunkSize = 4096
 
   /**
     * A trait defining a factory function for creating an internal actor that
@@ -748,16 +822,14 @@ object MetadataStateActor {
       * from a radio stream.
       *
       * @param source        the source of the radio stream
-      * @param config        the player configuration
       * @param clock         a clock for obtaining the current time
-      * @param streamBuilder the object for building radio streams
+      * @param streamManager the actor managing radio stream actors
       * @param checkRunner   the actor reference for sending replies
       * @return the ''Behavior'' for the new instance
       */
     def apply(source: RadioSource,
-              config: PlayerConfig,
               clock: Clock,
-              streamBuilder: RadioStreamBuilder,
+              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               checkRunner: ActorRef[MetadataCheckRunnerCommand]): Behavior[MetadataRetrieveCommand]
   }
 
@@ -767,64 +839,69 @@ object MetadataStateActor {
     */
   private[control] val retrieveMetadataBehavior: MetadataRetrieveActorFactory =
     (source: RadioSource,
-     config: PlayerConfig,
      clock: Clock,
-     streamBuilder: RadioStreamBuilder,
+     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      checkRunner: ActorRef[MetadataCheckRunnerCommand]) => Behaviors.setup { context =>
-      implicit val mat: Materializer = Materializer(context)
-      implicit val ec: ExecutionContextExecutor = context.system.executionContext
-      val sinkAudio = Sink.ignore
-      val sinkMeta = Sink.foreach[ByteString] { data =>
-        context.self ! MetadataArrived(data)
+      val eventAdapter = context.messageAdapter[RadioEvent] { event => RadioEventArrived(event) }
+      val streamResponseAdapter = context.messageAdapter[RadioStreamManagerActor.StreamActorResponse] { response =>
+        StreamActorArrived(response.streamActor)
       }
 
-      streamBuilder.buildRadioStream(config, source.uri, sinkAudio, sinkMeta) onComplete { triedResult =>
-        context.self ! StreamBuilderResultArrived(triedResult)
-      }
+      val sourceListener: RadioStreamActor.SourceListener = (source, _) =>
+        context.self ! RadioStreamResolved(source)
+      val streamParams = RadioStreamManagerActor.StreamActorParameters(source, sourceListener, eventAdapter)
+      streamManager ! RadioStreamManagerActor.GetStreamActor(streamParams, streamResponseAdapter)
 
-      def streamInitializing(requestPending: Boolean, streamCanceled: Boolean): Behavior[MetadataRetrieveCommand] =
+      def streamInitializing(state: MetadataRetrieveInitState): Behavior[MetadataRetrieveCommand] =
         Behaviors.receiveMessagePartial {
-          case StreamBuilderResultArrived(triedResult) =>
-            triedResult match {
-              case Success(result) =>
-                if (streamCanceled) context.self ! CancelStream
-
-                // Start the stream, even if it was canceled, to ensure that proper cleanup is performed.
-                result.graph.run()._2 onComplete { _ =>
-                  checkRunner ! RadioStreamStopped
-                }
-                val retrieveState = MetadataRetrieveState(optMetadata = None,
-                  metadataTime = LocalDateTime.now(),
-                  lastMetadata = None,
-                  killSwitch = result.killSwitch,
-                  requestPending = requestPending)
-                handle(retrieveState)
-
-              case Failure(exception) =>
-                context.log.error("Could not open radio stream.", exception)
-                checkRunner ! RadioStreamStopped
-                Behaviors.same
-            }
-
           case GetMetadata =>
-            streamInitializing(requestPending = true, streamCanceled)
+            streamInitializing(state.copy(requestPending = true))
 
           case CancelStream =>
-            streamInitializing(requestPending, streamCanceled = true)
+            streamInitializing(state.copy(streamCanceled = true))
+
+          case StreamActorArrived(streamActor) =>
+            completeInitializationIfPossible(state.copy(optStreamActor = Some(streamActor)))
+
+          case RadioStreamResolved(audioSource) =>
+            completeInitializationIfPossible(state.copy(optResolvedSource = Some(audioSource)))
         }
 
       def handle(retrieveState: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
         Behaviors.receiveMessagePartial {
-          case MetadataArrived(data) =>
-            val metadata = CurrentMetadata(data.utf8String)
-            sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(metadata), metadataTime = time(clock)))
+          case RadioEventArrived(event) =>
+            event match {
+              case RadioMetadataEvent(_, data@CurrentMetadata(_), _) =>
+                sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(data), metadataTime = time(clock)))
+              case _ => Behaviors.same
+            }
 
           case GetMetadata =>
             sendMetadataIfPossible(retrieveState.copy(requestPending = true))
 
           case CancelStream =>
-            retrieveState.killSwitch.shutdown()
+            canceling(retrieveState)
+
+          case DataLoaded =>
+            retrieveState.bridgeActor ! RequestData
             Behaviors.same
+
+          case StreamActorDied =>
+            context.log.error("RadioStreamActor died when checking '{}'.", source)
+            checkRunner ! RadioStreamStopped
+            Behaviors.stopped
+        }
+
+      def canceling(retrieveState: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
+        Behaviors.receiveMessagePartial {
+          case DataLoaded =>
+            checkRunner ! RadioStreamStopped
+            retrieveState.releaseStreamActor(source, streamManager)
+            Behaviors.stopped
+
+          case StreamActorDied =>
+            checkRunner ! RadioStreamStopped
+            Behaviors.stopped
         }
 
       def sendMetadataIfPossible(state: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] = {
@@ -833,8 +910,51 @@ object MetadataStateActor {
         handle(nextState)
       }
 
-      streamInitializing(requestPending = false, streamCanceled = false)
+      def completeInitializationIfPossible(initState: MetadataRetrieveInitState): Behavior[MetadataRetrieveCommand] =
+        initState.createRetrieveState() match {
+          case Some(state) if initState.streamCanceled =>
+            state.releaseStreamActor(source, streamManager)
+            checkRunner ! RadioStreamStopped
+            Behaviors.stopped
+
+          case Some(state) =>
+            context.watchWith(state.streamActor.toTyped, StreamActorDied)
+            val bridgeActor = createBridgeActor(context, context.self, state.streamActor)
+            bridgeActor ! RequestData
+            handle(state.copy(bridgeActor = bridgeActor))
+
+          case None =>
+            streamInitializing(initState)
+        }
+
+      streamInitializing(MetadataRetrieveInitState())
     }
+
+  /**
+    * Creates a helper actor that bridges between the metadata retriever actor
+    * and the radio stream actor. The actor solves the problem that the
+    * protocol of the stream actor is not directly compatible with the commands
+    * of the retriever actor.
+    *
+    * @param context     the context of the retriever actor
+    * @param receiver    the reference to the retriever actor
+    * @param streamActor the stream actor to bridge
+    * @return the bridge actor
+    */
+  private def createBridgeActor(context: ActorContext[MetadataRetrieveCommand],
+                                receiver: ActorRef[MetadataRetrieveCommand],
+                                streamActor: classic.ActorRef): classic.ActorRef = {
+    val props = Props(new Actor {
+      override def receive: Receive = {
+        case RequestData =>
+          streamActor ! PlaybackActor.GetAudioData(AudioDataChunkSize)
+
+        case _: LocalBufferActor.BufferDataResult =>
+          receiver ! DataLoaded
+      }
+    })
+    context.actorOf(props)
+  }
 
   /**
     * Returns the current local time from the given [[Clock]].

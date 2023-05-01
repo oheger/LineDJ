@@ -16,40 +16,37 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.Done
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
-import akka.stream.scaladsl.{Broadcast, Flow, Framing, GraphDSL, RunnableGraph, Sink}
-import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
+import akka.testkit.{TestProbe => ClassicTestProbe}
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.PlayerConfig
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
+import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamTestHelper}
-import de.oliver_heger.linedj.player.engine.radio._
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.io.{PipedInputStream, PipedOutputStream}
-import java.nio.charset.StandardCharsets
+import java.io.PipedOutputStream
 import java.time._
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Using
+import scala.concurrent.{ExecutionContext, Future}
 
 object MetadataStateActorSpec {
   /** Constant for a reference instant. */
@@ -57,15 +54,6 @@ object MetadataStateActorSpec {
 
   /** The reference local time corresponding to the reference instant. */
   private val RefTime = LocalDateTime.ofInstant(RefInstant, ZoneOffset.UTC)
-
-  /** A prefix that marks a string as metadata. */
-  private val MetadataPrefix = "meta:"
-
-  /**
-    * A delimiter to separate between different data blocks in simulated radio
-    * streams.
-    */
-  private val RadioStreamDelimiter = "\n"
 
   /** Metadata to match an exclusion due to bad music. */
   private val MetaBadMusic = "Bad music"
@@ -75,6 +63,9 @@ object MetadataStateActorSpec {
 
   /** A radio source used by tests. */
   private val TestRadioSource = RadioSource("sourceWithExcludedMetadata")
+
+  /** A test audio source representing the resolved audio stream. */
+  private val TestAudioSource = AudioSource("resolvedStreamURI", 0, 0, 0)
 
   /** A test audio player configuration object. */
   private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
@@ -108,14 +99,6 @@ object MetadataStateActorSpec {
                                          metadataConfig: MetadataConfig,
                                          currentExclusion: MetadataExclusion,
                                          probe: TestProbe[MetadataStateActor.SourceCheckCommand])
-
-  /**
-    * Checks whether the given chunk of data represents metadata.
-    *
-    * @param chunk the chunk
-    * @return a flag whether this chunk represents metadata
-    */
-  private def isMetadata(chunk: ByteString) = chunk.startsWith(MetadataPrefix)
 
   /**
     * Generates a string of test metadata based on the given index.
@@ -217,93 +200,112 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   import MetadataStateActorSpec._
 
   "Metadata retriever actor" should "send the latest metadata" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeMetadata(1)
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
-    }
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .sendMetadata(1)
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
   }
 
-  it should "ignore audio data in the radio stream" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeData("foo_foo_foo")
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .expectNoCheckRunnerCommand()
-        .writeMetadata(1)
-        .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
-    }
+  it should "ignore other kinds of radio events" in {
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .sendEvent(RadioMetadataEvent(TestRadioSource, MetadataNotSupported))
+      .sendEvent(RadioSourceErrorEvent(TestRadioSource))
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .expectNoCheckRunnerCommand()
+      .sendMetadata(1)
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
   }
 
   it should "reset the pending request flag after sending metadata" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeMetadata(1)
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .expectCheckRunnerCommand()
+    val helper = new RetrieverTestHelper
 
-      helper.writeMetadata(2)
-        .expectNoCheckRunnerCommand()
-    }
+    helper.passStreamActor()
+      .sendMetadata(1)
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .expectCheckRunnerCommand()
+
+    helper.sendMetadata(2)
+      .expectNoCheckRunnerCommand()
   }
 
   it should "only send metadata if it has changed" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .writeMetadata(1)
-        .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
-        .writeMetadata(1)
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .writeMetadata(2)
-        .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), timeForTicks(3)))
-    }
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .sendMetadata(1)
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
+      .sendMetadata(1)
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .sendMetadata(2)
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), timeForTicks(3)))
   }
 
-  it should "stop the radio stream when receiving a CancelStream command" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeMetadata(1)
-        .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-        .expectCheckRunnerCommand()
+  it should "permanently request new audio data" in {
+    val helper = new RetrieverTestHelper
 
-      helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
-        .verifyStreamCanceled()
-    }
+    helper.passStreamActor()
+      .expectAudioDataRequest()
+      .answerAudioDataRequest()
+      .expectAudioDataRequest()
   }
 
-  it should "handle a CancelStream command before receiving the stream builder result" in {
-    retrieverTest { helper =>
-      helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
-        .initSuccessStreamBuilderResult()
-        .verifyStreamCanceled()
-    }
+  it should "stop processing gracefully when receiving a CancelStream command" in {
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .sendMetadata(1)
+      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
+      .expectCheckRunnerCommand()
+
+    helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
+      .expectAudioDataRequest()
+      .answerAudioDataRequest()
+      .expectStreamActorReleased()
+      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
   }
 
-  it should "handle a failure result from the stream builder" in {
-    retrieverTest { helper =>
-      helper.initFailedStreamBuilderResult()
-        .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-    }
+  it should "handle a CancelStream command before receiving the stream actor" in {
+    val helper = new RetrieverTestHelper
+
+    helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
+      .passStreamActor()
+      .expectNoAudioDataRequest()
+      .expectStreamActorReleased()
+      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
   }
 
-  it should "notify the check runner about a completed stream" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeData("some audio data")
-        .cancelRadioStream()
-        .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-    }
+  it should "not release the stream actor before a pending data request is answered" in {
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .sendRetrieverCommand(MetadataStateActor.CancelStream)
+      .expectNoStreamActorRelease()
   }
 
-  it should "notify the check runner about a failed stream" in {
-    retrieverTest { helper =>
-      helper.initSuccessStreamBuilderResult()
-        .writeMetadata(42)
-        .failRadioStream()
-        .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-    }
+  it should "handle a terminated stream actor" in {
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .expectAudioDataRequest()
+      .stopStreamActor()
+      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
+      .expectNoStreamActorRelease()
+  }
+
+  it should "handle a terminated stream actor when waiting for cancellation" in {
+    val helper = new RetrieverTestHelper
+
+    helper.passStreamActor()
+      .expectAudioDataRequest()
+      .sendRetrieverCommand(MetadataStateActor.CancelStream)
+      .stopStreamActor()
+      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
+      .expectNoStreamActorRelease()
   }
 
   "findMetadataExclusion" should "return None if there are no exclusions" in {
@@ -416,36 +418,23 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   }
 
   /**
-    * Helper function to run a test using [[RetrieverTestHelper]] that makes
-    * sure that the helper is closed afterwards.
-    *
-    * @param block the block containing the actual test
-    */
-  private def retrieverTest(block: RetrieverTestHelper => Unit): Unit = {
-    Using(new RetrieverTestHelper)(block).get
-  }
-
-  /**
     * Test helper class for testing the metadata retriever actor.
     */
   private class RetrieverTestHelper extends AutoCloseable {
+    /** Test probe for the stream manager actor. */
+    private val probeStreamManager = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+
     /** Test probe for the check runner actor. */
     private val probeRunner = testKit.createTestProbe[MetadataStateActor.MetadataCheckRunnerCommand]()
 
+    /** Test probe for the radio stream actor. */
+    private val probeStreamActor = ClassicTestProbe()(system.classicSystem)
+
+    /** Stores the event actor passed to the stream manager. */
+    private var eventActor: ActorRef[RadioEvent] = _
+
     /** A stream to be used for the data source of the radio stream. */
     private val radioStream = new PipedOutputStream
-
-    /** A kill switch to terminate the radio stream. */
-    private val radioStreamKillSwitch = KillSwitches.shared("radioStream")
-
-    /** A promise for defining the result of the stream builder. */
-    private val promiseRadioStream = Promise[RadioStreamBuilder.BuilderResult[Future[Done], Future[Done]]]()
-
-    /** A mock KillSwitch to be used in the result of the stream builder. */
-    private val mockKillSwitch = mock[KillSwitch]
-
-    /** Mock for the stream builder passed to the test actor. */
-    private val streamBuilder = createStreamBuilderMock()
 
     /** The retriever actor to be tested. */
     private val retrieverActor = createRetrieverActor()
@@ -458,54 +447,42 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     }
 
     /**
-      * Writes a block of test metadata into the radio stream.
+      * Sends a metadata event with specific content to the registered event
+      * listener actor.
       *
       * @param index the index of the metadata
       * @return this test helper
       */
-    def writeMetadata(index: Int): RetrieverTestHelper =
-      writeData(MetadataPrefix + metadata(index))
+    def sendMetadata(index: Int): RetrieverTestHelper = {
+      val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(metadata(index)))
+      sendEvent(event)
+    }
 
     /**
-      * Writes the given string of data into the radio stream.
+      * Sends the given event to the event actor registered at the stream
+      * actor.
       *
-      * @param data the data to be written
+      * @param event the event to send
       * @return this test helper
       */
-    def writeData(data: String): RetrieverTestHelper = {
-      radioStream.write((data + RadioStreamDelimiter).getBytes(StandardCharsets.UTF_8))
-      radioStream.flush()
+    def sendEvent(event: RadioEvent): RetrieverTestHelper = {
+      eventActor should not be null
+      eventActor ! event
       this
     }
 
     /**
-      * Initializes a successful result for the stream builder. This result
-      * injects the test radio stream into the actor to be tested.
+      * Handles the interaction with the stream manager actor to pass the
+      * requested stream actor to the actor under test.
       *
       * @return this test helper
       */
-    def initSuccessStreamBuilderResult(): RetrieverTestHelper = {
-      val captorAudioSink = ArgumentCaptor.forClass(classOf[Sink[ByteString, Future[Done]]])
-      val captorMetaSink = ArgumentCaptor.forClass(classOf[Sink[ByteString, Future[Done]]])
-      verify(streamBuilder, Mockito.timeout(3000)).buildRadioStream(eqArg(TestPlayerConfig),
-        eqArg(TestRadioSource.uri),
-        captorAudioSink.capture(),
-        captorMetaSink.capture())(any(), any())
-      val result = RadioStreamBuilder.BuilderResult("someResolvedUri",
-        createGraphForRadioStream(captorAudioSink.getValue, captorMetaSink.getValue),
-        mockKillSwitch,
-        metadataSupported = true)
-      promiseRadioStream.success(result)
-      this
-    }
-
-    /**
-      * Initializes a failure result for the stream builder.
-      *
-      * @return this test helper
-      */
-    def initFailedStreamBuilderResult(): RetrieverTestHelper = {
-      promiseRadioStream.failure(new IllegalStateException("Test exception"))
+    def passStreamActor(): RetrieverTestHelper = {
+      val request = probeStreamManager.expectMessageType[RadioStreamManagerActor.GetStreamActor]
+      request.params.streamSource should be(TestRadioSource)
+      eventActor = request.params.eventActor
+      request.replyTo ! RadioStreamManagerActor.StreamActorResponse(TestRadioSource, probeStreamActor.ref)
+      request.params.sourceListener(TestAudioSource, probeStreamActor.ref)
       this
     }
 
@@ -551,33 +528,69 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     }
 
     /**
-      * Verifies that the kill switch has been invoked to stop the radio
-      * stream.
+      * Simulates a failure of the radio stream actor by stopping it.
       *
       * @return this test helper
       */
-    def verifyStreamCanceled(): RetrieverTestHelper = {
-      verify(mockKillSwitch, Mockito.timeout(3000)).shutdown()
+    def stopStreamActor(): RetrieverTestHelper = {
+      system.classicSystem stop probeStreamActor.ref
       this
     }
 
     /**
-      * Stops the radio stream.
+      * Expects that a request for audio data has been sent to the radio stream
+      * actor.
       *
       * @return this test helper
       */
-    def cancelRadioStream(): RetrieverTestHelper = {
-      radioStreamKillSwitch.shutdown()
+    def expectAudioDataRequest(): RetrieverTestHelper = {
+      probeStreamActor.expectMsg(PlaybackActor.GetAudioData(4096))
       this
     }
 
     /**
-      * Causes the radio stream to crash with a failure.
+      * Answers a request for audio data by sending a chunk of dummy data.
       *
       * @return this test helper
       */
-    def failRadioStream(): RetrieverTestHelper = {
-      radioStreamKillSwitch.abort(new IllegalStateException("Radio stream failure!"))
+    def answerAudioDataRequest(): RetrieverTestHelper = {
+      val data = LocalBufferActor.BufferDataResult(ByteString(FileTestHelper.TestData))
+      probeStreamActor.reply(data)
+      this
+    }
+
+    /**
+      * Expects that no request for audio data has been sent to the radio
+      * stream actor.
+      *
+      * @return this test helper
+      */
+    def expectNoAudioDataRequest(): RetrieverTestHelper = {
+      probeStreamActor.expectNoMessage(200.millis)
+      this
+    }
+
+    /**
+      * Expects that the radio stream actor has been released to the stream
+      * manager actor.
+      *
+      * @return this test helper
+      */
+    def expectStreamActorReleased(): RetrieverTestHelper = {
+      val releaseMsg = RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, probeStreamActor.ref,
+        TestAudioSource)
+      probeStreamManager.expectMessage(releaseMsg)
+      this
+    }
+
+    /**
+      * Expects that no release command has been sent to the stream manager
+      * actor.
+      *
+      * @return this test helper
+      */
+    def expectNoStreamActorRelease(): RetrieverTestHelper = {
+      probeStreamManager.expectNoMessage(200.millis)
       this
     }
 
@@ -588,59 +601,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       */
     private def createRetrieverActor(): ActorRef[MetadataStateActor.MetadataRetrieveCommand] =
       testKit.spawn(MetadataStateActor.retrieveMetadataBehavior(TestRadioSource,
-        TestPlayerConfig,
         tickSecondsClock(),
-        streamBuilder,
+        probeStreamManager.ref,
         probeRunner.ref))
-
-    /**
-      * Creates a [[RunnableGraph]] that simulates a radio stream. The stream
-      * source is a piped output stream. Via this stream, data can be written
-      * that is interpreted as metadata or audio data.
-      *
-      * @param sinkAudio the sink for audio data
-      * @param sinkMeta  the sink for metadata
-      * @return the graph simulating the radio stream
-      */
-    private def createGraphForRadioStream(sinkAudio: Sink[ByteString, Future[Done]],
-                                          sinkMeta: Sink[ByteString, Future[Done]]):
-    RunnableGraph[(Future[Done], Future[Done])] = {
-      val inputStream = new PipedInputStream(radioStream)
-      val source = RadioStreamTestHelper.createSourceFromStream(inputStream)
-      val framing = Framing.delimiter(ByteString(RadioStreamDelimiter), 16384)
-      val filterMeta = Flow[ByteString].filter(isMetadata)
-      val mapMeta = Flow[ByteString].map(_.drop(MetadataPrefix.length))
-      val filterAudio = Flow[ByteString].filterNot(isMetadata)
-      RunnableGraph.fromGraph(GraphDSL.createGraph(sinkAudio, sinkMeta)((_, _)) {
-        implicit builder =>
-          (sink1, sink2) =>
-            import GraphDSL.Implicits._
-
-            val ks = builder.add(radioStreamKillSwitch.flow[ByteString])
-            val broadcast = builder.add(Broadcast[ByteString](2))
-
-            source ~> framing ~> ks ~> broadcast ~> filterAudio ~> sink1
-            broadcast ~> filterMeta ~> mapMeta ~> sink2
-            ClosedShape
-      })
-    }
-
-    /**
-      * Creates a mock [[RadioStreamBuilder]] that is prepared to expect an
-      * invocation and return the future of the promise that can be used to set
-      * the builder result later.
-      *
-      * @return the mock stream builder
-      */
-    private def createStreamBuilderMock(): RadioStreamBuilder = {
-      val builder = mock[RadioStreamBuilder]
-      when(builder.buildRadioStream(eqArg(TestPlayerConfig),
-        eqArg(TestRadioSource.uri),
-        any[Sink[ByteString, Future[Done]]](),
-        any[Sink[ByteString, Future[Done]]]())(any(), any()))
-        .thenReturn(promiseRadioStream.future)
-      builder
-    }
   }
 
   "Check runner actor" should "send a result if metadata has changed" in {
@@ -809,11 +772,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     /** The clock to be passed to the retriever actor. */
     private val clock = tickSecondsClock()
 
-    /** Mock for the stream builder. */
-    private val streamBuilder = mock[RadioStreamBuilder]
-
     /** Mock for the evaluate intervals service. */
     private val intervalService = mock[EvaluateIntervalsService]
+
+    /** Test probe for the stream manger actor. */
+    private val probeStreamManager = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
 
     /** Test probe for the retriever actor. */
     private val probeRetriever = testKit.createTestProbe[MetadataStateActor.MetadataRetrieveCommand]()
@@ -917,14 +880,12 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       */
     private def createRetrieverFactory(): MetadataStateActor.MetadataRetrieveActorFactory =
       (source: RadioSource,
-       config: PlayerConfig,
        clockParam: Clock,
-       streamBuilderParam: RadioStreamBuilder,
+       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        checkRunner: ActorRef[MetadataStateActor.MetadataCheckRunnerCommand]) => {
         source should be(TestRadioSource)
-        config should be(TestPlayerConfig)
         clockParam should be(clock)
-        streamBuilderParam should be(streamBuilder)
+        streamManager should be(probeStreamManager.ref)
         refCheckRunnerActor.set(checkRunner)
 
         Behaviors.monitor[MetadataStateActor.MetadataRetrieveCommand](probeRetriever.ref, Behaviors.ignore)
@@ -941,11 +902,10 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         currentMetadata)
       val behavior = MetadataStateActor.checkRunnerBehavior(TestRadioSource,
         "checker" + counter.incrementAndGet(),
-        TestPlayerConfig,
         metaConfig,
         exclusion.get,
         clock,
-        streamBuilder,
+        probeStreamManager.ref,
         intervalService,
         probeSourceChecker.ref,
         createRetrieverFactory())
@@ -1114,8 +1074,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     /** The clock to be passed to the retriever actor. */
     private val clock = tickSecondsClock()
 
-    /** Mock for the stream builder. */
-    private val streamBuilder = mock[RadioStreamBuilder]
+    /** Test probe for the stream manager actor. */
+    private val probeStreamManager = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
 
     /** Mock for the evaluate intervals service. */
     private val intervalService = createIntervalsService()
@@ -1271,19 +1231,17 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     private def createCheckRunnerFactory(): MetadataStateActor.MetadataCheckRunnerFactory =
       (source: RadioSource,
        namePrefix: String,
-       playerConfig: PlayerConfig,
        metadataConfig: MetadataConfig,
        currentExclusion: MetadataExclusion,
        clockParam: Clock,
-       streamBuilderParam: RadioStreamBuilder,
+       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalServiceParam: EvaluateIntervalsService,
        sourceChecker: ActorRef[MetadataStateActor.SourceCheckCommand],
        _: MetadataStateActor.MetadataRetrieveActorFactory) => {
         source should be(TestRadioSource)
-        playerConfig should be(TestPlayerConfig)
         metadataConfig should be(metaConfig)
         clockParam should be(clock)
-        streamBuilderParam should be(streamBuilder)
+        streamManager should be(probeStreamManager.ref)
         intervalServiceParam should be(intervalService)
         sourceChecker should be(sourceCheckActor)
 
@@ -1308,7 +1266,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         probeStateActor.ref,
         probeScheduler.ref,
         clock,
-        streamBuilder,
+        probeStreamManager.ref,
         intervalService,
         createCheckRunnerFactory())
       testKit.spawn(behavior)
@@ -1471,11 +1429,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     /** Test probe for the event manager actor. */
     private val probeEventActor = testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
 
+    /** Test probe for the stream manager actor. */
+    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+
     /** A test clock instance. */
     private val clock = tickSecondsClock()
-
-    /** Mock for the radio stream builder. */
-    private val streamBuilder = mock[RadioStreamBuilder]
 
     /** Mock for the interval service. */
     private val intervalsService = mock[EvaluateIntervalsService]
@@ -1614,12 +1572,12 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
        stateActorParam: ActorRef[MetadataStateActor.MetadataExclusionStateCommand],
        scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
        clockParam: Clock,
-       streamBuilderParam: RadioStreamBuilder,
+       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalServiceParam: EvaluateIntervalsService,
        _: MetadataStateActor.MetadataCheckRunnerFactory) => {
         radioConfig should be(TestRadioConfig)
         clockParam should be(clock)
-        streamBuilderParam should be(streamBuilder)
+        streamManager should be(probeStreamManagerActor.ref)
         intervalServiceParam should be(intervalsService)
         stateActorParam should be(stateActor)
         scheduleActor should be(probeSchedulerActor.ref)
@@ -1644,7 +1602,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         probeEnabledStateActor.ref,
         probeSchedulerActor.ref,
         probeEventActor.ref,
-        streamBuilder,
+        probeStreamManagerActor.ref,
         intervalsService,
         clock,
         createSourceCheckerFactory())

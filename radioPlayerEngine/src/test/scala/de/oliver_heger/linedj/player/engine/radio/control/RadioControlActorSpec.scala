@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.Sche
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamBuilder, RadioStreamManagerActor}
+import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -162,9 +162,6 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     /** A mock reference for the player facade actor. */
     private val mockFacadeActor = mock[classic.ActorRef]
-
-    /** A mock for the stream builder. */
-    private val streamBuilder = mock[RadioStreamBuilder]
 
     /** The reference to the playback actor. */
     private val playActor = new DynamicActorRef[RadioControlProtocol.SwitchToSource]
@@ -306,7 +303,6 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         scheduleActor = probeScheduleActor.ref,
         factoryActor = probeFactoryActor.ref,
         streamManagerActor = probeStreamManagerActor.ref,
-        streamBuilder = streamBuilder,
         config = config))
     }
 
@@ -384,14 +380,14 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
        scheduleActor: ActorRef[ScheduledInvocationCommand],
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-       streamBuilderParam: RadioStreamBuilder,
+       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalService: EvaluateIntervalsService,
        _: Clock,
        _: MetadataStateActor.SourceCheckFactory) => {
         radioConfig should be(config)
         scheduleActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
-        streamBuilderParam should be(streamBuilder)
+        streamManager should be(probeStreamManagerActor.ref)
         intervalService should be(EvaluateIntervalsServiceImpl)
 
         enabledStateActor.actorCreated(enabledActor)
