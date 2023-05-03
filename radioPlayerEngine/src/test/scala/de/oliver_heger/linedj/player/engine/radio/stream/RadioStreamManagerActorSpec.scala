@@ -18,14 +18,15 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
 import akka.testkit.{TestKit, TestProbe}
 import akka.{actor => classic}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -33,7 +34,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
@@ -52,6 +54,14 @@ object RadioStreamManagerActorSpec {
 
   /** A dummy source listener function ignoring its invocation. */
   private val DummySourceListener: RadioStreamActor.SourceListener = (_, _) => {}
+
+  /**
+    * An internal data class to represent messages a client actor receives
+    * from the manager actor.
+    *
+    * @param data the payload of the message
+    */
+  private case class ReceivedMessage(data: AnyRef)
 }
 
 class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
@@ -71,12 +81,6 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
 
   "RadioStreamManagerActor" should "reuse an actor instance from the cache" in {
     val streamActor = TestProbe()
-    val sourceListenerCalled = new AtomicBoolean
-    val sourceListener: RadioStreamActor.SourceListener = (source, ref) => {
-      source should be(ResolvedSource)
-      ref should be(streamActor.ref)
-      sourceListenerCalled.set(true)
-    }
     val helper = new StreamManagerTestHelper
 
     helper.sendCommand(RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, streamActor.ref, ResolvedSource))
@@ -86,15 +90,41 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     streamActor.expectNoMessage(200.millis)
 
     val eventActor = testKit.createTestProbe[RadioEvent]()
-    val streamActorFromManager = helper.requestStreamActor(optEventActor = Some(eventActor.ref),
-      sourceListener = sourceListener)
+    val streamActorFromManager = helper.requestStreamActor(optEventActor = Some(eventActor.ref))
 
     streamActorFromManager should be(streamActor.ref)
     streamActor.expectMsg(RadioStreamActor.UpdateEventActor(Some(eventActor.ref)))
-    sourceListenerCalled.get() shouldBe true
 
     helper.sendCacheInvalidation()
     streamActor.expectNoMessage(200.millis)
+  }
+
+  it should "send messages in the correct order" in {
+    val eventQueue = new LinkedBlockingQueue[ReceivedMessage]
+    val streamActor = TestProbe()
+    val helper = new StreamManagerTestHelper
+    helper.sendCommand(RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, streamActor.ref, ResolvedSource))
+
+    val clientBehavior = Behaviors.setup[ReceivedMessage] { context =>
+      val sourceListener: RadioStreamActor.SourceListener = (source, ref) => {
+        context.self ! ReceivedMessage((source, ref))
+      }
+      val responseAdapter = context.messageAdapter[RadioStreamManagerActor.StreamActorResponse] { response =>
+        ReceivedMessage(response)
+      }
+      helper.sendStreamActorRequest(responseAdapter, sourceListener)
+
+      Behaviors.receiveMessage {
+        msg: ReceivedMessage =>
+          eventQueue offer msg
+          Behaviors.same
+      }
+    }
+    testKit.spawn(clientBehavior)
+
+    val actorResponse = RadioStreamManagerActor.StreamActorResponse(TestRadioSource, streamActor.ref)
+    eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage(actorResponse))
+    eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage((ResolvedSource, streamActor.ref)))
   }
 
   it should "close an actor if the cache time is exceeded" in {
@@ -238,12 +268,26 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     def requestStreamActor(optEventActor: Option[ActorRef[RadioEvent]] = None,
                            sourceListener: RadioStreamActor.SourceListener = DummySourceListener): classic.ActorRef = {
       val probeClient = testKit.createTestProbe[RadioStreamManagerActor.StreamActorResponse]()
-      val eventActor = optEventActor getOrElse testKit.createTestProbe[RadioEvent]().ref
-      val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource, sourceListener, eventActor)
-      managerActor ! RadioStreamManagerActor.GetStreamActor(params, probeClient.ref)
+      sendStreamActorRequest(probeClient.ref, sourceListener, optEventActor)
       val response = probeClient.expectMessageType[RadioStreamManagerActor.StreamActorResponse]
       response.source should be(TestRadioSource)
       response.streamActor
+    }
+
+    /**
+      * Sends a message to the actor under test to request a radio stream actor
+      * for the given parameters.
+      *
+      * @param client         the client expecting the response
+      * @param sourceListener the source listener function
+      * @param optEventActor  an optional event listener actor
+      */
+    def sendStreamActorRequest(client: ActorRef[RadioStreamManagerActor.StreamActorResponse],
+                               sourceListener: RadioStreamActor.SourceListener,
+                               optEventActor: Option[ActorRef[RadioEvent]] = None): Unit = {
+      val eventActor = optEventActor getOrElse testKit.createTestProbe[RadioEvent]().ref
+      val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource, sourceListener, eventActor)
+      managerActor ! RadioStreamManagerActor.GetStreamActor(params, client)
     }
 
     /**

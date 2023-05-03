@@ -199,13 +199,11 @@ object RadioStreamManagerActor {
   private def handle(state: RadioStreamState): Behavior[RadioStreamManagerCommand] =
     Behaviors.receive {
       case (context, GetStreamActorClassic(params, replyTo)) =>
-        val (streamActor, nextState) = getOrCreateStreamActor(context, params, state)
-        replyTo ! StreamActorResponse(params.streamSource, streamActor)
+        val nextState = replayWithNewOrCachedStreamActor(context, params, state)(replyTo.!)
         handle(nextState)
 
       case (context, GetStreamActor(params, replyTo)) =>
-        val (streamActor, nextState) = getOrCreateStreamActor(context, params, state)
-        replyTo ! StreamActorResponse(params.streamSource, streamActor)
+        val nextState = replayWithNewOrCachedStreamActor(context, params, state)(replyTo.!)
         handle(nextState)
 
       case (context, ReleaseStreamActor(source, streamActor, resolvedSource)) =>
@@ -263,31 +261,38 @@ object RadioStreamManagerActor {
 
   /**
     * Obtains a [[RadioStreamActor]] for the given parameters either from the
-    * cache or creates a new instance. Returns the actor reference and the
-    * updated state.
+    * cache or creates a new instance. Creates a response object and passes it
+    * to the provided reply function. Returns the updated state. This function
+    * makes sure that the source listener is invoked after the response is sent
+    * to the client actor.
     *
     * @param context the actor context
     * @param params  the parameters for the stream actor
     * @param state   the current state
-    * @return the stream actor reference and the updated state
+    * @param reply   the function to send the reply
+    * @return the updated state
     */
-  private def getOrCreateStreamActor(context: ActorContext[RadioStreamManagerCommand],
-                                     params: StreamActorParameters,
-                                     state: RadioStreamState): (classic.ActorRef, RadioStreamState) =
+  private def replayWithNewOrCachedStreamActor(context: ActorContext[RadioStreamManagerCommand],
+                                               params: StreamActorParameters,
+                                               state: RadioStreamState)
+                                              (reply: StreamActorResponse => Unit): RadioStreamState = {
     state.cache.get(params.streamSource) match {
       case Some((actor, resolvedSource)) =>
         context.log.info("Reusing stream actor for source '{}' from cache.", params.streamSource)
         actor ! RadioStreamActor.UpdateEventActor(Some(params.eventActor))
+        reply(StreamActorResponse(params.streamSource, actor))
         params.sourceListener(resolvedSource, actor)
-        (actor, state.copy(cache = state.cache - params.streamSource))
+        state.copy(cache = state.cache - params.streamSource)
       case None =>
         val props = RadioStreamActor(state.config,
           params.streamSource,
           params.sourceListener,
           params.eventActor,
           state.streamBuilder)
-        (context.actorOf(props), state)
+        reply(StreamActorResponse(params.streamSource, context.actorOf(props)))
+        state
     }
+  }
 
   /**
     * Handles a message about closed stream actors by updating the state.
