@@ -23,7 +23,7 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.io.CloseSupportTyped
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioSource}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -101,7 +101,13 @@ object RadioStreamManagerActor {
     * A command that passes a [[RadioStreamActor]] for a specific radio source
     * to this manager actor which is no longer used. The stream actor is put
     * into the cache for the configured cache time. If it is not requested
-    * again within this time, it is closed.
+    * again within this time, it is closed. Together with the actor, some
+    * additional data has to be provided that is needed when reusing it from
+    * the cache. So the resolved audio source is expected that has to be passed
+    * to the source listener. Optionally, the latest known metadata for this
+    * source can be specified. This is passed to the event listener actor when
+    * the actor becomes active again, since there is no guarantee that an
+    * update of metadata happens sometime soon.
     *
     * @param source         the radio source
     * @param streamActor    the [[RadioStreamActor]] to release
@@ -110,7 +116,8 @@ object RadioStreamManagerActor {
     */
   case class ReleaseStreamActor(source: RadioSource,
                                 streamActor: classic.ActorRef,
-                                resolvedSource: AudioSource) extends RadioStreamManagerCommand
+                                resolvedSource: AudioSource,
+                                optLastMetadata: Option[CurrentMetadata] = None) extends RadioStreamManagerCommand
 
   /**
     * A command telling this actor to stop itself. Before terminating, the
@@ -139,6 +146,18 @@ object RadioStreamManagerActor {
   private case class StreamActorsClosed(actors: Set[classic.ActorRef]) extends RadioStreamManagerCommand
 
   /**
+    * A data class collecting the information that needs to be stored in the
+    * cache for stream actors.
+    *
+    * @param streamActor    the stream actor reference
+    * @param resolvedSource the resolved audio source for this stream
+    * @param optMetadata    an option with the last known metadata
+    */
+  private case class CacheData(streamActor: classic.ActorRef,
+                               resolvedSource: AudioSource,
+                               optMetadata: Option[CurrentMetadata])
+
+  /**
     * A data class representing the state of this actor.
     *
     * @param config        the audio player config
@@ -154,7 +173,7 @@ object RadioStreamManagerActor {
                                       streamBuilder: RadioStreamBuilder,
                                       scheduler: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                       cacheTime: FiniteDuration,
-                                      cache: Map[RadioSource, (classic.ActorRef, AudioSource)],
+                                      cache: Map[RadioSource, CacheData],
                                       closing: Set[classic.ActorRef])
 
   /**
@@ -206,10 +225,11 @@ object RadioStreamManagerActor {
         val nextState = replayWithNewOrCachedStreamActor(context, params, state)(replyTo.!)
         handle(nextState)
 
-      case (context, ReleaseStreamActor(source, streamActor, resolvedSource)) =>
+      case (context, ReleaseStreamActor(source, streamActor, resolvedSource, optMeta)) =>
         context.log.info("Putting stream actor for source '{}' into cache.", source)
         streamActor ! RadioStreamActor.UpdateEventActor(None)
-        val nextState = state.copy(cache = state.cache + (source -> (streamActor, resolvedSource)))
+        val entry = CacheData(streamActor, resolvedSource, optMeta)
+        val nextState = state.copy(cache = state.cache + (source -> entry))
         val invocation = ScheduledInvocationActor.typedInvocationCommand(state.cacheTime,
           context.self, CacheTimeEnd(source))
         state.scheduler ! invocation
@@ -217,11 +237,11 @@ object RadioStreamManagerActor {
 
       case (context, CacheTimeEnd(source)) =>
         state.cache.get(source) match {
-          case Some((value, _)) =>
+          case Some(entry) =>
             context.log.info("Removing stream actor for source '{}' from cache.", source)
-            val closedMsg = StreamActorsClosed(Set(value))
+            val closedMsg = StreamActorsClosed(Set(entry.streamActor))
             CloseSupportTyped.triggerClose(context, context.self, closedMsg, closedMsg.actors)
-            val nextState = state.copy(cache = state.cache - source, closing = state.closing + value)
+            val nextState = state.copy(cache = state.cache - source, closing = state.closing + entry.streamActor)
             handle(nextState)
           case None =>
             Behaviors.same
@@ -235,7 +255,7 @@ object RadioStreamManagerActor {
         Behaviors.stopped
 
       case (context, Stop) =>
-        val closedMsg = StreamActorsClosed(state.cache.values.map(_._1).toSet)
+        val closedMsg = StreamActorsClosed(state.cache.values.map(_.streamActor).toSet)
         CloseSupportTyped.triggerClose(context, context.self, closedMsg, closedMsg.actors)
         val nextState = state.copy(cache = Map.empty, closing = state.closing ++ closedMsg.actors)
         context.log.info("Received Stop command. Waiting for {} actors to be closed.", nextState.closing.size)
@@ -277,12 +297,16 @@ object RadioStreamManagerActor {
                                                state: RadioStreamState)
                                               (reply: StreamActorResponse => Unit): RadioStreamState = {
     state.cache.get(params.streamSource) match {
-      case Some((actor, resolvedSource)) =>
+      case Some(entry) =>
         context.log.info("Reusing stream actor for source '{}' from cache.", params.streamSource)
-        actor ! RadioStreamActor.UpdateEventActor(Some(params.eventActor))
-        reply(StreamActorResponse(params.streamSource, actor))
-        params.sourceListener(resolvedSource, actor)
+        entry.streamActor ! RadioStreamActor.UpdateEventActor(Some(params.eventActor))
+        reply(StreamActorResponse(params.streamSource, entry.streamActor))
+        params.sourceListener(entry.resolvedSource, entry.streamActor)
+        val metadata = entry.optMetadata getOrElse MetadataNotSupported
+        val event = RadioMetadataEvent(params.streamSource, metadata)
+        params.eventActor ! event
         state.copy(cache = state.cache - params.streamSource)
+
       case None =>
         val props = RadioStreamActor(state.config,
           params.streamSource,

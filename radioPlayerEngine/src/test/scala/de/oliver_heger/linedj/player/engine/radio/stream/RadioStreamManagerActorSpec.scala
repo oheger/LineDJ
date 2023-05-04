@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe => TypedTestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
@@ -25,7 +25,7 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadata, RadioMetadataEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
@@ -34,6 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
@@ -79,6 +80,24 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
 
   import RadioStreamManagerActorSpec._
 
+  /**
+    * Helper function to test whether a correct radio event with metadata is
+    * generated.
+    *
+    * @param eventActor the event actor probe which is passed the event
+    * @param metadata   the expected metadata in the event
+    */
+  private def checkMetadataEvent(eventActor: TypedTestProbe[RadioEvent], metadata: RadioMetadata): Unit = {
+    eventActor.expectMessageType[RadioMetadataEvent] match {
+      case RadioMetadataEvent(source, eventMetadata, time) =>
+        source should be(TestRadioSource)
+        eventMetadata should be(metadata)
+        math.abs(java.time.Duration.between(time, LocalDateTime.now()).toMillis) should be < 3000L
+      case e =>
+        fail("Unexpected event: " + e)
+    }
+  }
+
   "RadioStreamManagerActor" should "reuse an actor instance from the cache" in {
     val streamActor = TestProbe()
     val helper = new StreamManagerTestHelper
@@ -94,6 +113,7 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
 
     streamActorFromManager should be(streamActor.ref)
     streamActor.expectMsg(RadioStreamActor.UpdateEventActor(Some(eventActor.ref)))
+    checkMetadataEvent(eventActor, MetadataNotSupported)
 
     helper.sendCacheInvalidation()
     streamActor.expectNoMessage(200.millis)
@@ -125,6 +145,20 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     val actorResponse = RadioStreamManagerActor.StreamActorResponse(TestRadioSource, streamActor.ref)
     eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage(actorResponse))
     eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage((ResolvedSource, streamActor.ref)))
+  }
+
+  it should "generate a metadata event when reusing an actor if possible" in {
+    val metadata = CurrentMetadata("some radio stream metadata")
+    val streamActor = TestProbe()
+    val eventActor = testKit.createTestProbe[RadioEvent]()
+    val helper = new StreamManagerTestHelper
+
+    helper.sendCommand(RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, streamActor.ref, ResolvedSource,
+      Some(metadata)))
+    streamActor.expectMsg(RadioStreamActor.UpdateEventActor(None))
+    helper.requestStreamActor(optEventActor = Some(eventActor.ref))
+
+    checkMetadataEvent(eventActor, metadata)
   }
 
   it should "close an actor if the cache time is exceeded" in {
