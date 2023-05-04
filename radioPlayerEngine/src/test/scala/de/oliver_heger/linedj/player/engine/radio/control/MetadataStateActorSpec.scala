@@ -265,7 +265,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
       .expectAudioDataRequest()
       .answerAudioDataRequest()
-      .expectStreamActorReleased()
+      .expectStreamActorReleased(Some(CurrentMetadata(metadata(1))))
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
   }
 
@@ -275,7 +275,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
       .passStreamActor()
       .expectNoAudioDataRequest()
-      .expectStreamActorReleased()
+      .expectStreamActorReleased(None)
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
   }
 
@@ -574,11 +574,12 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * Expects that the radio stream actor has been released to the stream
       * manager actor.
       *
+      * @param optMetadata the expected metadata in the release message
       * @return this test helper
       */
-    def expectStreamActorReleased(): RetrieverTestHelper = {
+    def expectStreamActorReleased(optMetadata: Option[CurrentMetadata]): RetrieverTestHelper = {
       val releaseMsg = RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, probeStreamActor.ref,
-        TestAudioSource)
+        TestAudioSource, optMetadata)
       probeStreamManager.expectMessage(releaseMsg)
       this
     }

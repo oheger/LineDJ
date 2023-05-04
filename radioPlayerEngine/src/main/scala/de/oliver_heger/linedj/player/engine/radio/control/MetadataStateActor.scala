@@ -770,7 +770,7 @@ object MetadataStateActor {
       */
     def releaseStreamActor(source: RadioSource,
                            streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]): Unit = {
-      streamManager ! RadioStreamManagerActor.ReleaseStreamActor(source, streamActor, resolvedSource)
+      streamManager ! RadioStreamManagerActor.ReleaseStreamActor(source, streamActor, resolvedSource, optMetadata)
     }
   }
 
