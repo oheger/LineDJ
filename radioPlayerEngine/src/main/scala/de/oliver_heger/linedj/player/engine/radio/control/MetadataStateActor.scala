@@ -404,7 +404,6 @@ object MetadataStateActor {
               namePrefix + "_run" + nextCount,
               metadataConfig,
               exclusion,
-              clock,
               streamManager,
               intervalService,
               context.self)
@@ -522,7 +521,6 @@ object MetadataStateActor {
       * @param namePrefix       prefix to generate actor names
       * @param metadataConfig   the global metadata config
       * @param currentExclusion the currently detected metadata exclusion
-      * @param clock            the clock to query times
       * @param streamManager    the actor managing radio stream actors
       * @param intervalService  the interval query service
       * @param sourceChecker    the source checker parent actor
@@ -533,7 +531,6 @@ object MetadataStateActor {
               namePrefix: String,
               metadataConfig: MetadataConfig,
               currentExclusion: MetadataExclusion,
-              clock: Clock,
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
               sourceChecker: ActorRef[SourceCheckCommand],
@@ -576,13 +573,12 @@ object MetadataStateActor {
      namePrefix: String,
      metadataConfig: MetadataConfig,
      currentExclusion: MetadataExclusion,
-     clock: Clock,
      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
      sourceChecker: ActorRef[SourceCheckCommand],
      retrieverFactory: MetadataRetrieveActorFactory) => Behaviors.setup[MetadataCheckRunnerCommand] { context =>
       implicit val ec: ExecutionContext = context.executionContext
-      val retrieverBehavior = retrieverFactory(source, clock, streamManager, context.self)
+      val retrieverBehavior = retrieverFactory(source, streamManager, context.self)
       val retriever = context.spawn(retrieverBehavior, namePrefix + "_retriever")
       retriever ! GetMetadata
       val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
@@ -822,13 +818,11 @@ object MetadataStateActor {
       * from a radio stream.
       *
       * @param source        the source of the radio stream
-      * @param clock         a clock for obtaining the current time
       * @param streamManager the actor managing radio stream actors
       * @param checkRunner   the actor reference for sending replies
       * @return the ''Behavior'' for the new instance
       */
     def apply(source: RadioSource,
-              clock: Clock,
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               checkRunner: ActorRef[MetadataCheckRunnerCommand]): Behavior[MetadataRetrieveCommand]
   }
@@ -839,7 +833,6 @@ object MetadataStateActor {
     */
   private[control] val retrieveMetadataBehavior: MetadataRetrieveActorFactory =
     (source: RadioSource,
-     clock: Clock,
      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      checkRunner: ActorRef[MetadataCheckRunnerCommand]) => Behaviors.setup { context =>
       val eventAdapter = context.messageAdapter[RadioEvent] { event => RadioEventArrived(event) }
@@ -871,8 +864,8 @@ object MetadataStateActor {
         Behaviors.receiveMessagePartial {
           case RadioEventArrived(event) =>
             event match {
-              case RadioMetadataEvent(_, data@CurrentMetadata(_), _) =>
-                sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(data), metadataTime = time(clock)))
+              case RadioMetadataEvent(_, data@CurrentMetadata(_), time) =>
+                sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(data), metadataTime = time))
               case _ => Behaviors.same
             }
 

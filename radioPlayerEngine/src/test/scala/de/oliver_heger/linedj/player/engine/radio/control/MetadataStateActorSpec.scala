@@ -205,7 +205,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     helper.passStreamActor()
       .sendMetadata(1)
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
   }
 
   it should "ignore other kinds of radio events" in {
@@ -217,7 +217,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
       .expectNoCheckRunnerCommand()
       .sendMetadata(1)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
   }
 
   it should "reset the pending request flag after sending metadata" in {
@@ -233,16 +233,17 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   }
 
   it should "only send metadata if it has changed" in {
+    val time2 = LocalDateTime.of(2023, Month.MAY, 4, 22, 24, 27)
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendMetadata(1)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), timeForTicks(1)))
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
       .sendMetadata(1)
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendMetadata(2)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), timeForTicks(3)))
+      .sendMetadata(2, time2)
+      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), time2))
   }
 
   it should "permanently request new audio data" in {
@@ -451,10 +452,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * listener actor.
       *
       * @param index the index of the metadata
+      * @param time the time of the event
       * @return this test helper
       */
-    def sendMetadata(index: Int): RetrieverTestHelper = {
-      val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(metadata(index)))
+    def sendMetadata(index: Int, time: LocalDateTime = RefTime): RetrieverTestHelper = {
+      val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(metadata(index)), time)
       sendEvent(event)
     }
 
@@ -602,7 +604,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       */
     private def createRetrieverActor(): ActorRef[MetadataStateActor.MetadataRetrieveCommand] =
       testKit.spawn(MetadataStateActor.retrieveMetadataBehavior(TestRadioSource,
-        tickSecondsClock(),
         probeStreamManager.ref,
         probeRunner.ref))
   }
@@ -770,9 +771,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       optSongPattern = optRegSongPattern,
       exclusions = MetaExclusions.values.toSeq)
 
-    /** The clock to be passed to the retriever actor. */
-    private val clock = tickSecondsClock()
-
     /** Mock for the evaluate intervals service. */
     private val intervalService = mock[EvaluateIntervalsService]
 
@@ -881,11 +879,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       */
     private def createRetrieverFactory(): MetadataStateActor.MetadataRetrieveActorFactory =
       (source: RadioSource,
-       clockParam: Clock,
        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        checkRunner: ActorRef[MetadataStateActor.MetadataCheckRunnerCommand]) => {
         source should be(TestRadioSource)
-        clockParam should be(clock)
         streamManager should be(probeStreamManager.ref)
         refCheckRunnerActor.set(checkRunner)
 
@@ -905,7 +901,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         "checker" + counter.incrementAndGet(),
         metaConfig,
         exclusion.get,
-        clock,
         probeStreamManager.ref,
         intervalService,
         probeSourceChecker.ref,
@@ -1234,14 +1229,12 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
        namePrefix: String,
        metadataConfig: MetadataConfig,
        currentExclusion: MetadataExclusion,
-       clockParam: Clock,
        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalServiceParam: EvaluateIntervalsService,
        sourceChecker: ActorRef[MetadataStateActor.SourceCheckCommand],
        _: MetadataStateActor.MetadataRetrieveActorFactory) => {
         source should be(TestRadioSource)
         metadataConfig should be(metaConfig)
-        clockParam should be(clock)
         streamManager should be(probeStreamManager.ref)
         intervalServiceParam should be(intervalService)
         sourceChecker should be(sourceCheckActor)
