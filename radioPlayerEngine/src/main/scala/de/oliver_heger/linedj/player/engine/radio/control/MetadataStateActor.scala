@@ -24,13 +24,12 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MetadataExclusion, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
-import java.util.regex.{Matcher, Pattern}
 import scala.concurrent.ExecutionContext
 
 /**
@@ -44,74 +43,6 @@ import scala.concurrent.ExecutionContext
   * affected source, so that it can be enabled again when there is a change.
   */
 object MetadataStateActor {
-  /**
-    * Tries to find a [[MetadataExclusion]] from the given configurations that
-    * matches the provided metadata.
-    *
-    * @param metadataConfig the global metadata configuration
-    * @param sourceConfig   the configuration for the current radio source
-    * @param metadata       the metadata to check
-    * @return an ''Option'' with a matched exclusion
-    */
-  private[control] def findMetadataExclusion(metadataConfig: MetadataConfig,
-                                             sourceConfig: RadioSourceMetadataConfig,
-                                             metadata: CurrentMetadata): Option[MetadataExclusion] = {
-    lazy val (optArtist, optSong) = extractSongData(sourceConfig, metadata)
-
-    (sourceConfig.exclusions ++ metadataConfig.exclusions).find { exclusion =>
-      val optData = exclusion.matchContext match {
-        case MatchContext.Title => Some(metadata.title)
-        case MatchContext.Artist => optArtist
-        case MatchContext.Song => optSong
-        case MatchContext.Raw => Some(metadata.data)
-      }
-      optData exists { data => matches(exclusion.pattern, data) }
-    }
-  }
-
-  /**
-    * Tries to extract the song title and artist from the given metadata. If
-    * the radio source defines a corresponding extraction pattern, it is
-    * applied and evaluated. Otherwise, exclusions will match on the whole
-    * stream title.
-    *
-    * @param sourceConfig the configuration for the current radio source
-    * @param metadata     the metadata
-    * @return a pair with the optional extracted artist and song title
-    */
-  private def extractSongData(sourceConfig: RadioSourceMetadataConfig,
-                              metadata: CurrentMetadata): (Option[String], Option[String]) =
-    sourceConfig.optSongPattern match {
-      case Some(pattern) =>
-        getMatch(pattern, metadata.title).map { matcher =>
-          (Some(matcher.group(MetadataConfig.ArtistGroup)), Some(matcher.group(MetadataConfig.SongTitleGroup)))
-        } getOrElse ((None, None))
-      case None =>
-        (Some(metadata.title), Some(metadata.title))
-    }
-
-  /**
-    * Tries to match the given input against the pattern and returns an
-    * ''Option'' with the [[Matcher]] if a match was found.
-    *
-    * @param pattern the pattern
-    * @param input   the input string
-    * @return an ''Option'' with the matcher
-    */
-  private def getMatch(pattern: Pattern, input: String): Option[Matcher] = {
-    val matcher = pattern.matcher(input)
-    if (matcher.matches()) Some(matcher) else None
-  }
-
-  /**
-    * Checks whether the given pattern matches the input string.
-    *
-    * @param pattern the pattern
-    * @param input   the input string
-    * @return a flag whether this is a match
-    */
-  private def matches(pattern: Pattern, input: String): Boolean = getMatch(pattern, input).isDefined
-
   /**
     * The base trait for commands processed by the metadata exclusion state
     * actor. This actor keeps track on the radio sources in exclusion state due
@@ -180,6 +111,7 @@ object MetadataStateActor {
       * @param eventActor         the event manager actor
       * @param streamManager      the actor managing radio stream actors
       * @param intervalService    the evaluate intervals service
+      * @param finderService      the service for finding metadata exclusions
       * @param clock              a clock
       * @param sourceCheckFactory the factory for source check actors
       * @return the ''Behavior'' for the new actor instance
@@ -190,6 +122,7 @@ object MetadataStateActor {
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
+              finderService: MetadataExclusionFinderService = MetadataExclusionFinderServiceImpl,
               clock: Clock = Clock.systemDefaultZone(),
               sourceCheckFactory: SourceCheckFactory = sourceCheckBehavior): Behavior[MetadataExclusionStateCommand]
   }
@@ -240,6 +173,7 @@ object MetadataStateActor {
      eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
+     finderService: MetadataExclusionFinderService,
      clock: Clock,
      sourceCheckFactory: SourceCheckFactory) => Behaviors.setup { context =>
       val listener = context.messageAdapter[RadioEvent] { event => HandleRadioEvent(event) }
@@ -260,7 +194,7 @@ object MetadataStateActor {
               case RadioMetadataEvent(source, data@CurrentMetadata(_), _)
                 if !state.disabledSources.contains(source) =>
                 val sourceConfig = state.metaConfig.metadataSourceConfig(source)
-                findMetadataExclusion(state.metaConfig, sourceConfig, data) map { exclusion =>
+                finderService.findMetadataExclusion(state.metaConfig, sourceConfig, data) map { exclusion =>
                   val checkName = s"$SourceCheckActorNamePrefix${state.count}"
                   val checkBehavior = sourceCheckFactory(source,
                     checkName,
@@ -271,7 +205,8 @@ object MetadataStateActor {
                     scheduleActor,
                     clock,
                     streamManager,
-                    intervalService)
+                    intervalService,
+                    finderService)
                   val checkActor = context.spawn(checkBehavior, checkName)
                   enabledStateActor ! RadioControlProtocol.DisableSource(source)
                   context.log.info("Disabled radio source '{}' because of metadata exclusion '{}'.", source,
@@ -360,6 +295,7 @@ object MetadataStateActor {
       * @param clock            the clock
       * @param streamManager    the actor managing radio stream actors
       * @param intervalService  the intervals service
+      * @param finderService    the service for finding metadata exclusions
       * @param runnerFactory    the factory for check runner actors
       * @return the ''Behavior'' for a new actor instance
       */
@@ -373,6 +309,7 @@ object MetadataStateActor {
               clock: Clock,
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
+              finderService: MetadataExclusionFinderService,
               runnerFactory: MetadataCheckRunnerFactory = checkRunnerBehavior): Behavior[SourceCheckCommand]
   }
 
@@ -391,6 +328,7 @@ object MetadataStateActor {
      clock: Clock,
      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
+     finderService: MetadataExclusionFinderService,
      runnerFactory: MetadataCheckRunnerFactory) => Behaviors.setup { context =>
       def handleWaitForNextCheck(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] =
         Behaviors.receiveMessagePartial {
@@ -406,6 +344,7 @@ object MetadataStateActor {
               exclusion,
               streamManager,
               intervalService,
+              finderService,
               context.self)
             val runner = context.spawn(runnerBehavior, namePrefix + nextCount)
 
@@ -523,6 +462,7 @@ object MetadataStateActor {
       * @param currentExclusion the currently detected metadata exclusion
       * @param streamManager    the actor managing radio stream actors
       * @param intervalService  the interval query service
+      * @param finderService    the service for finding metadata exclusions
       * @param sourceChecker    the source checker parent actor
       * @param retrieverFactory the factory to create a retriever actor
       * @return the ''Behavior'' to create a new actor instance
@@ -533,6 +473,7 @@ object MetadataStateActor {
               currentExclusion: MetadataExclusion,
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
+              finderService: MetadataExclusionFinderService,
               sourceChecker: ActorRef[SourceCheckCommand],
               retrieverFactory: MetadataRetrieveActorFactory = retrieveMetadataBehavior):
     Behavior[MetadataCheckRunnerCommand]
@@ -575,6 +516,7 @@ object MetadataStateActor {
      currentExclusion: MetadataExclusion,
      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
      intervalService: EvaluateIntervalsService,
+     finderService: MetadataExclusionFinderService,
      sourceChecker: ActorRef[SourceCheckCommand],
      retrieverFactory: MetadataRetrieveActorFactory) => Behaviors.setup[MetadataCheckRunnerCommand] { context =>
       implicit val ec: ExecutionContext = context.executionContext
@@ -587,7 +529,7 @@ object MetadataStateActor {
         Behaviors.receiveMessage {
           case MetadataRetrieved(data, time) =>
             context.log.info("Received metadata during check: {}.", data.data)
-            findMetadataExclusion(metadataConfig, metadataSourceConfig, data) match {
+            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data) match {
               case Some(exclusion) =>
                 retriever ! GetMetadata
                 handle(state.copy(currentExclusion = exclusion))
@@ -595,7 +537,7 @@ object MetadataStateActor {
                 terminateCheck(None)
               case None =>
                 if (metadataSourceConfig.optSongPattern.isEmpty ||
-                  matches(metadataSourceConfig.optSongPattern.get, data.title)) {
+                  MetadataExclusionFinderServiceImpl.matches(metadataSourceConfig.optSongPattern.get, data.title)) {
                   terminateCheck(None)
                 } else {
                   state.resumeIntervalAt(time) match {

@@ -382,6 +382,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalService: EvaluateIntervalsService,
+       _: MetadataExclusionFinderService,
        _: Clock,
        _: MetadataStateActor.SourceCheckFactory) => {
         radioConfig should be(config)
