@@ -18,14 +18,19 @@ package de.oliver_heger.linedj.player.engine.radio.config
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.regex.Pattern
+import scala.concurrent.duration._
 
 /**
   * Test class for [[RadioSourceConfig]].
   */
-class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
+class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "The Empty RadioSourceConfig" should "contain no named sources" in {
     RadioSourceConfig.Empty.namedSources shouldBe empty
   }
@@ -76,5 +81,27 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers {
     val result = config.sources
 
     result should contain theSameElementsInOrderAs testSources
+  }
+
+  "A MetadataExclusion" should "correctly report that it has no time restrictions" in {
+    val exclusion = MetadataExclusion(pattern = Pattern.compile("some pattern"),
+      matchContext = MatchContext.Title,
+      resumeMode = ResumeMode.MetadataChange,
+      checkInterval = 3.minutes,
+      applicableAt = Seq.empty,
+      name = Some("a test exclusion"))
+
+    exclusion.hasTimeRestrictions shouldBe false
+  }
+
+  it should "correctly report that it has time restrictions" in {
+    val exclusion = MetadataExclusion(pattern = Pattern.compile("some pattern"),
+      matchContext = MatchContext.Title,
+      resumeMode = ResumeMode.MetadataChange,
+      checkInterval = 3.minutes,
+      applicableAt = Seq(mock[IntervalQuery]),
+      name = Some("a test exclusion"))
+
+    exclusion.hasTimeRestrictions shouldBe true
   }
 }

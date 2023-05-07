@@ -478,6 +478,7 @@ object RadioSourceConfigLoader {
         matchContext = MatchContext.withName(exclConf.getString(KeyMatchContext, DefaultMatchContext)),
         resumeMode = ResumeMode.withName(exclConf.getString(KeyResumeMode, DefaultResumeMode)),
         checkInterval = exclConf.getInt(KeyCheckInterval).seconds,
+        applicableAt = Seq.empty,
         name = Option(exclConf.getString(KeyAttrName)))
     }.toSeq
 

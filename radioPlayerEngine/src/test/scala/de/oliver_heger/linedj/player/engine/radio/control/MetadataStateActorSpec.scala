@@ -139,10 +139,11 @@ object MetadataStateActorSpec {
     */
   private def createExclusions(): Map[String, MetadataExclusion] = {
     val exBadMusic = MetadataConfig.MetadataExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
-      resumeMode = ResumeMode.NextSong, checkInterval = 1.minute, matchContext = MatchContext.Raw, name = None)
+      resumeMode = ResumeMode.NextSong, checkInterval = 1.minute, matchContext = MatchContext.Raw,
+      applicableAt = Seq.empty, name = None)
     val exNotWanted = MetadataConfig.MetadataExclusion(pattern = Pattern.compile(s".*$MetaNotWanted.*"),
       matchContext = MatchContext.Raw, resumeMode = ResumeMode.MetadataChange, checkInterval = 2.minutes,
-      name = None)
+      applicableAt = Seq.empty, name = None)
     Map(MetaBadMusic -> exBadMusic, MetaNotWanted -> exNotWanted)
   }
 

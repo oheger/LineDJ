@@ -53,7 +53,7 @@ object MetadataExclusionFinderServiceSpec {
                               resumeMode: ResumeMode = ResumeMode.MetadataChange,
                               checkInterval: FiniteDuration = 2.minutes,
                               name: Option[String] = None): MetadataConfig.MetadataExclusion =
-    MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, name)
+    MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, Seq.empty, name)
 
 }
 

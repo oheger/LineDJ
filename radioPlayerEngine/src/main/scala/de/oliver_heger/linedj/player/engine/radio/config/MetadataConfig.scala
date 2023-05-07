@@ -92,21 +92,40 @@ object MetadataConfig {
     *
     * The class contains a regular expression pattern that is matched against
     * a defined part of the metadata of the current radio stream. If there is a
-    * match, the current radio source is disabled. It is then checked
-    * periodically whether the condition defined by the resume mode is
-    * fulfilled.
+    * match, the current radio source is disabled. Optionally, interval
+    * definitions can be specified that determine when this exclusion is
+    * applicable. In this case, a match of the pattern is only effective if the
+    * current time is in one of the declared intervals.
+    *
+    * For radio sources disabled due to a matching metadata exclusion, it is
+    * then checked periodically whether the condition defined by the resume
+    * mode is fulfilled.
     *
     * @param pattern       the pattern to match
     * @param matchContext  the part of the metadata where to match
     * @param resumeMode    the resume mode
     * @param checkInterval the periodic check interval
+    * @param applicableAt  a sequence with interval declarations determining
+    *                      when this exclusion is applicable; an empty sequence
+    *                      means that it is always applicable
     * @param name          an optional name for this exclusion
     */
   case class MetadataExclusion(pattern: Pattern,
                                matchContext: MatchContext,
                                resumeMode: ResumeMode,
                                checkInterval: FiniteDuration,
-                               name: Option[String])
+                               applicableAt: Seq[IntervalQuery],
+                               name: Option[String]) {
+    /**
+      * Returns a flag whether for this exclusion time restrictions are
+      * defined. A result of '''true''' means that this exclusion applies only
+      * at specific points in time, as defined by the [[applicableAt]]
+      * property.
+      *
+      * @return a flag whether time restrictions are in place
+      */
+    def hasTimeRestrictions: Boolean = applicableAt.nonEmpty
+  }
 
   /**
     * A data class that represents the metadata configuration for a specific
