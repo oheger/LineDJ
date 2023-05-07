@@ -31,7 +31,7 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioP
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
-import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object MetadataStateActorSpec {
   /** Constant for a reference instant. */
@@ -764,8 +764,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @return this test helper
       */
     def prepareFinderService(metadata: String, result: Option[MetadataExclusion] = None): RunnerTestHelper = {
-      when(finderService.findMetadataExclusion(metaConfig, metadataSourceConfig, CurrentMetadata(metadata)))
-        .thenReturn(result)
+      when(finderService.findMetadataExclusion(eqArg(metaConfig),
+        eqArg(metadataSourceConfig),
+        eqArg(CurrentMetadata(metadata)),
+        eqArg(0))(any()))
+        .thenReturn(Future.successful(MetadataExclusionFinderService.MetadataExclusionFinderResponse(result, 0)))
       this
     }
 
@@ -1247,7 +1250,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.sendMetadataEvent("no problem")
       .expectNoSourceCheckCreation()
-      .sendMetadataEvent(MetaBadMusic)
+      .sendMetadataEvent(MetaBadMusic, seqNo = 2)
       .nextSourceCheckCreation()
   }
 
@@ -1255,7 +1258,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val source2 = radioSource(2)
     val event2 = RadioMetadataEvent(source2, CurrentMetadata(MetaBadMusic))
     val helper = new MetadataStateTestHelper
-    helper.prepareFinderService(MetaBadMusic, source2)
+    helper.prepareFinderService(MetaBadMusic, source2, seqNo = 2)
     val creation1 = helper.sendMetadataEvent(MetaNotWanted)
       .nextSourceCheckCreation()
 
@@ -1283,7 +1286,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     val creation = helper.sendCommand(MetadataStateActor.SourceCheckSucceeded(TestRadioSource))
       .expectEnabledSource()
-      .sendMetadataEvent(MetaBadMusic)
+      .sendMetadataEvent(MetaBadMusic, seqNo = 2)
       .nextSourceCheckCreation()
 
     creation.source should be(TestRadioSource)
@@ -1322,11 +1325,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val sources = (1 to SourceCount) map radioSource
     val nextConfig = initMetaConfigMock(mock[MetadataConfig])
     val helper = new MetadataStateTestHelper
-    val creations = sources map { source =>
-      val event = RadioMetadataEvent(source, CurrentMetadata(MetaBadMusic))
-      helper.prepareFinderService(MetaBadMusic, source)
+    val creations = sources.zipWithIndex map { t =>
+      val event = RadioMetadataEvent(t._1, CurrentMetadata(MetaBadMusic))
+      helper.prepareFinderService(MetaBadMusic, t._1, seqNo = t._2 + 1)
         .sendEvent(event)
-        .expectDisabledSource(source)
+        .expectDisabledSource(t._1)
         .nextSourceCheckCreation()
     }
 
@@ -1339,11 +1342,25 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     enabledSources should contain theSameElementsAs sources
 
     val nextSource = radioSource(1)
-    helper.prepareFinderService(MetaBadMusic, nextSource, nextConfig)
+    helper.prepareFinderService(MetaBadMusic, nextSource, nextConfig, seqNo = SourceCount + 1)
     val nextCreation = helper.sendEvent(RadioMetadataEvent(nextSource, CurrentMetadata(MetaBadMusic)))
       .nextSourceCheckCreation()
     nextCreation.metadataConfig should be(nextConfig)
     nextCreation.namePrefix should be(s"${MetadataStateActor.SourceCheckActorNamePrefix}${SourceCount + 1}")
+  }
+
+  it should "ignore stale results from the exclusion finder service" in {
+    val metaStr = "This is not forbidden"
+    val promiseResponse = Promise[MetadataExclusionFinderService.MetadataExclusionFinderResponse]()
+    val helper = new MetadataStateTestHelper
+    helper.prepareFinderService(MetaBadMusic, optResponse = Some(promiseResponse.future))
+      .sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(MetaBadMusic)))
+      .sendMetadataEvent(metaStr, seqNo = 2)
+
+    val exclusion = Some(MetaExclusions(MetaBadMusic))
+    promiseResponse.success(MetadataExclusionFinderService.MetadataExclusionFinderResponse(exclusion, 0))
+
+    helper.expectNoSourceEnabledChange()
   }
 
   /**
@@ -1410,11 +1427,12 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * Also prepares the finder service mock to return the corresponding
       * result.
       *
-      * @param data the metadata to send
+      * @param data  the metadata to send
+      * @param seqNo the expected sequence number
       * @return this test helper
       */
-    def sendMetadataEvent(data: String): MetadataStateTestHelper = {
-      prepareFinderService(data)
+    def sendMetadataEvent(data: String, seqNo: Int = 1): MetadataStateTestHelper = {
+      prepareFinderService(data, seqNo = seqNo)
       sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(data)))
     }
 
@@ -1422,16 +1440,27 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * Prepares the mock for the finder service to expect an invocation and
       * return the corresponding exclusion.
       *
-      * @param metadata the metadata passed to the service
-      * @param source   the affected radio source
-      * @param config   the expected metadata config
+      * @param metadata    the metadata passed to the service
+      * @param source      the affected radio source
+      * @param config      the expected metadata config
+      * @param seqNo       the expected sequence number
+      * @param optResponse the optional response to be returned
       * @return this test helper
       */
     def prepareFinderService(metadata: String,
                              source: RadioSource = TestRadioSource,
-                             config: MetadataConfig = metaConfig): MetadataStateTestHelper = {
-      when(finderService.findMetadataExclusion(config, config.metadataSourceConfig(source),
-        CurrentMetadata(metadata))).thenReturn(MetaExclusions.get(metadata))
+                             config: MetadataConfig = metaConfig,
+                             seqNo: Int = 1,
+                             optResponse:
+                             Option[Future[MetadataExclusionFinderService.MetadataExclusionFinderResponse]] = None):
+    MetadataStateTestHelper = {
+      val response = optResponse.getOrElse(Future.successful(
+        MetadataExclusionFinderService.MetadataExclusionFinderResponse(MetaExclusions.get(metadata), seqNo)))
+      val sourceConfig = config.metadataSourceConfig(source)
+      when(finderService.findMetadataExclusion(eqArg(config),
+        eqArg(sourceConfig),
+        eqArg(CurrentMetadata(metadata)),
+        eqArg(seqNo))(any())).thenReturn(response)
       this
     }
 

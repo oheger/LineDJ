@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.radio.CurrentMetadata
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, RadioSourceMetadataConfig, ResumeMode}
-import de.oliver_heger.linedj.player.engine.radio.control.MetadataExclusionFinderServiceImpl.findMetadataExclusion
+import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -31,6 +31,9 @@ import java.util.regex.Pattern
 import scala.concurrent.duration._
 
 object MetadataExclusionFinderServiceSpec {
+  /** The sequence number used by tests. */
+  private val SeqNo = 4224
+
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
     s"(?<${MetadataConfig.SongTitleGroup}>.+)")
@@ -58,9 +61,29 @@ object MetadataExclusionFinderServiceSpec {
   * Test class for [[MetadataExclusionFinderService]] and its default
   * implementation.
   */
-class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with MockitoSugar with AsyncTestHelper {
 
   import MetadataExclusionFinderServiceSpec._
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  /**
+    * Helper function to invoke the finder service under test with the given
+    * parameters.
+    *
+    * @param config       the metadata config
+    * @param sourceConfig the config for the radio source
+    * @param metadata     the metadata to check
+    * @return the result returned from the service
+    */
+  private def findMetadataExclusion(config: MetadataConfig,
+                                    sourceConfig: MetadataConfig.RadioSourceMetadataConfig,
+                                    metadata: CurrentMetadata): Option[MetadataExclusion] = {
+    val futResponse = MetadataExclusionFinderServiceImpl.findMetadataExclusion(config, sourceConfig, metadata, SeqNo)
+    val response = futureResult(futResponse)
+
+    response.seqNo should be(SeqNo)
+    response.result
+  }
 
   "findMetadataExclusion" should "return None if there are no exclusions" in {
     val metadata = CurrentMetadata("some metadata")

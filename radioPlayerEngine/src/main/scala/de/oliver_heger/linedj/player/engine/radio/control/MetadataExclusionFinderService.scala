@@ -19,8 +19,21 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import de.oliver_heger.linedj.player.engine.radio.CurrentMetadata
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig}
+import de.oliver_heger.linedj.player.engine.radio.control.MetadataExclusionFinderService.MetadataExclusionFinderResponse
 
 import java.util.regex.{Matcher, Pattern}
+import scala.concurrent.{ExecutionContext, Future}
+
+object MetadataExclusionFinderService {
+  /**
+    * A data class defining the response of [[MetadataExclusionFinderService]]
+    * for a single request to find an exclusion for metadata.
+    *
+    * @param result the actual result; the found exclusion if any
+    * @param seqNo  the sequence number passed to the request
+    */
+  case class MetadataExclusionFinderResponse(result: Option[MetadataExclusion], seqNo: Int)
+}
 
 /**
   * Definition of a service that finds matching [[MetadataExclusion]]s in a
@@ -30,16 +43,20 @@ import java.util.regex.{Matcher, Pattern}
 trait MetadataExclusionFinderService {
   /**
     * Tries to find a [[MetadataExclusion]] from the given configurations that
-    * matches the provided metadata.
+    * matches the provided metadata asynchronously.
     *
     * @param metadataConfig the global metadata configuration
     * @param sourceConfig   the configuration for the current radio source
     * @param metadata       the metadata to check
-    * @return an ''Option'' with a matched exclusion
+    * @param seqNo          a sequence number
+    * @param ec             the execution context
+    * @return a (successful) ''Future'' with the response
     */
   def findMetadataExclusion(metadataConfig: MetadataConfig,
                             sourceConfig: RadioSourceMetadataConfig,
-                            metadata: CurrentMetadata): Option[MetadataExclusion]
+                            metadata: CurrentMetadata,
+                            seqNo: Int)
+                           (implicit ec: ExecutionContext): Future[MetadataExclusionFinderResponse]
 }
 
 /**
@@ -48,10 +65,12 @@ trait MetadataExclusionFinderService {
 private object MetadataExclusionFinderServiceImpl extends MetadataExclusionFinderService {
   def findMetadataExclusion(metadataConfig: MetadataConfig,
                             sourceConfig: RadioSourceMetadataConfig,
-                            metadata: CurrentMetadata): Option[MetadataExclusion] = {
+                            metadata: CurrentMetadata,
+                            seqNo: Int)
+                           (implicit ec: ExecutionContext): Future[MetadataExclusionFinderResponse] = {
     lazy val (optArtist, optSong) = extractSongData(sourceConfig, metadata)
 
-    (sourceConfig.exclusions ++ metadataConfig.exclusions).find { exclusion =>
+    val result = (sourceConfig.exclusions ++ metadataConfig.exclusions).find { exclusion =>
       val optData = exclusion.matchContext match {
         case MatchContext.Title => Some(metadata.title)
         case MatchContext.Artist => optArtist
@@ -60,6 +79,8 @@ private object MetadataExclusionFinderServiceImpl extends MetadataExclusionFinde
       }
       optData exists { data => matches(exclusion.pattern, data) }
     }
+
+    Future.successful(MetadataExclusionFinderResponse(result, seqNo))
   }
 
   /**

@@ -30,7 +30,7 @@ import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, Radi
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 /**
   * A module providing functionality related to checking and enforcing metadata
@@ -94,6 +94,17 @@ object MetadataStateActor {
     */
   private case class HandleRadioEvent(event: RadioEvent) extends MetadataExclusionStateCommand
 
+  /**
+    * An internal command the metadata exclusion state actor sends to itself
+    * when the response from the metadata exclusion finder service arrives.
+    *
+    * @param response the response received from the service
+    * @param source   the affected radio source
+    */
+  private case class EventExclusionResponseArrived(response:
+                                                   MetadataExclusionFinderService.MetadataExclusionFinderResponse,
+                                                   source: RadioSource) extends MetadataExclusionStateCommand
+
   /** The name prefix for actors checking a specific radio source. */
   final val SourceCheckActorNamePrefix = "metadataSourceCheck"
 
@@ -135,10 +146,13 @@ object MetadataStateActor {
     *                        matched metadata and their responsible check
     *                        actors
     * @param count           a counter for generating actor names
+    * @param seqNo           a sequence counter to detect stale responses from
+    *                        the exclusions finder service
     */
   private case class MetadataExclusionState(metaConfig: MetadataConfig,
                                             disabledSources: Map[RadioSource, ActorRef[SourceCheckCommand]],
-                                            count: Int) {
+                                            count: Int,
+                                            seqNo: Int) {
     /**
       * Returns an updated state that marks the given source as disabled and
       * has some related property updates.
@@ -193,30 +207,43 @@ object MetadataStateActor {
             event match {
               case RadioMetadataEvent(source, data@CurrentMetadata(_), _)
                 if !state.disabledSources.contains(source) =>
+                val nextState = state.copy(seqNo = state.seqNo + 1)
                 val sourceConfig = state.metaConfig.metadataSourceConfig(source)
-                finderService.findMetadataExclusion(state.metaConfig, sourceConfig, data) map { exclusion =>
-                  val checkName = s"$SourceCheckActorNamePrefix${state.count}"
-                  val checkBehavior = sourceCheckFactory(source,
-                    checkName,
-                    radioConfig,
-                    state.metaConfig,
-                    exclusion,
-                    context.self,
-                    scheduleActor,
-                    clock,
-                    streamManager,
-                    intervalService,
-                    finderService)
-                  val checkActor = context.spawn(checkBehavior, checkName)
-                  enabledStateActor ! RadioControlProtocol.DisableSource(source)
-                  context.log.info("Disabled radio source '{}' because of metadata exclusion '{}'.", source,
-                    exclusion.name getOrElse exclusion.pattern)
-                  context.log.info("Periodic checks are done by actor '{}'.", checkName)
-                  handle(state.disable(source, checkActor))
-                } getOrElse Behaviors.same
+                implicit val ec: ExecutionContextExecutor = context.executionContext
+
+                finderService.findMetadataExclusion(state.metaConfig, sourceConfig, data, nextState.seqNo)
+                  .foreach { res =>
+                    context.self ! EventExclusionResponseArrived(res, source)
+                  }
+                handle(nextState)
               case _ =>
                 Behaviors.same
             }
+
+          case EventExclusionResponseArrived(response, source) if response.seqNo == state.seqNo =>
+            response.result map { exclusion =>
+              val checkName = s"$SourceCheckActorNamePrefix${state.count}"
+              val checkBehavior = sourceCheckFactory(source,
+                checkName,
+                radioConfig,
+                state.metaConfig,
+                exclusion,
+                context.self,
+                scheduleActor,
+                clock,
+                streamManager,
+                intervalService,
+                finderService)
+              val checkActor = context.spawn(checkBehavior, checkName)
+              enabledStateActor ! RadioControlProtocol.DisableSource(source)
+              context.log.info("Disabled radio source '{}' because of metadata exclusion '{}'.", source,
+                exclusion.name getOrElse exclusion.pattern)
+              context.log.info("Periodic checks are done by actor '{}'.", checkName)
+              handle(state.disable(source, checkActor))
+            } getOrElse Behaviors.same
+
+          case _: EventExclusionResponseArrived => // stale response
+            Behaviors.same
 
           case SourceCheckSucceeded(source) =>
             state.enableIfDisabled(source) map { nextState =>
@@ -231,7 +258,7 @@ object MetadataStateActor {
             Behaviors.same
         }
 
-      handle(MetadataExclusionState(MetadataConfig.Empty, Map.empty, 1))
+      handle(MetadataExclusionState(MetadataConfig.Empty, Map.empty, 1, seqNo = 0))
     }
 
   /**
@@ -446,6 +473,18 @@ object MetadataStateActor {
   private case class ResumeIntervalResult(result: IntervalQueryResult) extends MetadataCheckRunnerCommand
 
   /**
+    * An internal command the check runner actor sends to itself when the
+    * result of a request to the metadata exclusion finder service arrives.
+    * Note: In this case, there is no risk of stale results, since new metadata
+    * is explicitly requested and cannot arrive at any time.
+    *
+    * @param metadataRetrieved the related metadata retrieved command
+    * @param result            the result received from the service
+    */
+  private case class ExclusionFinderResult(metadataRetrieved: MetadataRetrieved,
+                                           result: Option[MetadataExclusion]) extends MetadataCheckRunnerCommand
+
+  /**
     * A trait defining a factory function for an internal actor that executes
     * a single check on a radio source that is disabled because of its
     * current metadata. Instances are created periodically for affected
@@ -527,9 +566,15 @@ object MetadataStateActor {
 
       def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
         Behaviors.receiveMessage {
-          case MetadataRetrieved(data, time) =>
+          case retrieved@MetadataRetrieved(data, _) =>
             context.log.info("Received metadata during check: {}.", data.data)
-            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data) match {
+            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, 0) foreach { res =>
+              context.self ! ExclusionFinderResult(retrieved, res.result)
+            }
+            Behaviors.same
+
+          case ExclusionFinderResult(MetadataRetrieved(data, time), result) =>
+            result match {
               case Some(exclusion) =>
                 retriever ! GetMetadata
                 handle(state.copy(currentExclusion = exclusion))
