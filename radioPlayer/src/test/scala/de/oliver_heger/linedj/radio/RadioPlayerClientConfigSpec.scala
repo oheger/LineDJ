@@ -74,9 +74,9 @@ class RadioPlayerClientConfigSpec extends AnyFlatSpec with Matchers {
     val testSource = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u")
     val metaConfig = loadConfig().metadataConfig
 
-    metaConfig.exclusions should have size 2
+    metaConfig.exclusions should have size 3
     val metaSourceConfig = metaConfig.metadataSourceConfig(testSource)
-    metaSourceConfig.exclusions should have size 1
+    metaSourceConfig.exclusions should have size 2
     metaSourceConfig.resumeIntervals should have size 2
     metaSourceConfig.optSongPattern should not be empty
   }

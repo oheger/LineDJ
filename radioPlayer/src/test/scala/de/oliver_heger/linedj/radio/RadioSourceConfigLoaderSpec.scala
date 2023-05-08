@@ -301,6 +301,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     * @param optName        the expected optional name
     * @param matchString    a string to be matched by the pattern
     * @param nonMatchString a string not to be matched by the pattern
+    * @return the checked exclusion
     */
   private def checkMetadataExclusion(exclusion: MetadataExclusion,
                                      matchContext: MatchContext,
@@ -308,7 +309,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
                                      interval: FiniteDuration,
                                      optName: Option[String],
                                      matchString: String,
-                                     nonMatchString: String): Unit = {
+                                     nonMatchString: String): MetadataExclusion = {
     exclusion.matchContext should be(matchContext)
     exclusion.resumeMode should be(resumeMode)
     exclusion.checkInterval should be(interval)
@@ -317,6 +318,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     matcher1.matches() shouldBe true
     val matcher2 = exclusion.pattern.matcher(nonMatchString)
     matcher2.matches() shouldBe false
+
+    exclusion
   }
 
   "A RadioSourceConfigLoader" should "provide a correct list of sources" in {
@@ -697,14 +700,16 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
   it should "read global metadata exclusions" in {
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
 
-    metaConfig.exclusions should have size 2
-    checkMetadataExclusion(exclusion = metaConfig.exclusions.head,
+    metaConfig.exclusions should have size 3
+    val exclusion1 = checkMetadataExclusion(exclusion = metaConfig.exclusions.head,
       matchContext = MatchContext.Artist,
       resumeMode = ResumeMode.NextSong,
       interval = 120.seconds,
       optName = Some("Unwanted music"),
       matchString = "James Blunt",
       nonMatchString = "AC/DC")
+    exclusion1.hasTimeRestrictions shouldBe false
+
     checkMetadataExclusion(exclusion = metaConfig.exclusions(1),
       matchContext = MatchContext.Raw,
       resumeMode = ResumeMode.MetadataChange,
@@ -712,6 +717,20 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       optName = None,
       matchString = "Commercials and Spots",
       nonMatchString = "News and culture")
+
+    val exclusion3 = checkMetadataExclusion(exclusion = metaConfig.exclusions(2),
+      matchContext = MatchContext.Raw,
+      resumeMode = ResumeMode.MetadataChange,
+      interval = 29.seconds,
+      optName = Some("timeRestricted"),
+      matchString = "Annoying ads :-(",
+      nonMatchString = "deep thoughts")
+    assertInside(exclusion3.applicableAt.head,
+      LocalDateTime.of(2023, Month.MAY, 7, 19, 57, 10),
+      LocalDateTime.of(2023, Month.MAY, 7, 20, 0, 0))
+    assertBefore(exclusion3.applicableAt(1),
+      LocalDateTime.of(2023, Month.MAY, 8, 12, 25, 38),
+      LocalDateTime.of(2023, Month.MAY, 8, 12, 27))
   }
 
   it should "read metadata information for radio sources" in {
@@ -733,14 +752,25 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2023, Month.APRIL, 15, 21, 30, 55),
       LocalDateTime.of(2023, Month.APRIL, 15, 21, 32, 0))
 
-    sourceConfig.exclusions should have size 1
-    checkMetadataExclusion(exclusion = sourceConfig.exclusions.head,
+    sourceConfig.exclusions should have size 2
+    val exclusion1 = checkMetadataExclusion(exclusion = sourceConfig.exclusions.head,
       matchContext = MatchContext.Title,
       resumeMode = ResumeMode.MetadataChange,
       interval = 1.minute,
       optName = None,
       matchString = "Werbung im Rundfunk",
       nonMatchString = "cool music")
+    exclusion1.hasTimeRestrictions shouldBe false
+    val exclusion2 = checkMetadataExclusion(exclusion = sourceConfig.exclusions(1),
+      matchContext = MatchContext.Title,
+      resumeMode = ResumeMode.MetadataChange,
+      interval = 45.seconds,
+      matchString = "To skip at full hours!",
+      nonMatchString = "Something else",
+      optName = None)
+    assertInside(exclusion2.applicableAt.head,
+      LocalDateTime.of(2023, Month.MAY, 8, 21, 59, 43),
+      LocalDateTime.of(2023, Month.MAY, 8, 22, 0))
   }
 
   it should "handle radio sources without metadata configuration" in {

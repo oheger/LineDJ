@@ -134,6 +134,14 @@ import scala.jdk.CollectionConverters._
   *           <matchContext>Title</matchContext>
   *           <resumeMode>MetadataChange</resumeMode>
   *           <checkInterval>60</checkInterval>
+  *           <applicableAt>
+  *             <time>
+  *               <minutes from="28" to="31"/>
+  *             </time>
+  *             <time>
+  *               <minutes from="56" to="60"/>
+  *             </time>
+  *           </applicableAt>
   *         </metadataExclusion>
   *       </metadataExclusions>
   *     </metadata>
@@ -222,6 +230,12 @@ object RadioSourceConfigLoader {
 
   /** The key for the section with resume intervals of a source. */
   private val KeyResumeIntervals = "resumeIntervals.resumeInterval"
+
+  /**
+    * The key for the section with the applicable intervals for metadata
+    * exclusions.
+    */
+  private val KeyApplicable = "applicableAt.time"
 
   /** The default match context value. */
   private val DefaultMatchContext = "Raw"
@@ -478,7 +492,7 @@ object RadioSourceConfigLoader {
         matchContext = MatchContext.withName(exclConf.getString(KeyMatchContext, DefaultMatchContext)),
         resumeMode = ResumeMode.withName(exclConf.getString(KeyResumeMode, DefaultResumeMode)),
         checkInterval = exclConf.getInt(KeyCheckInterval).seconds,
-        applicableAt = Seq.empty,
+        applicableAt = readExclusions(exclConf, KeyApplicable).map(_._1),
         name = Option(exclConf.getString(KeyAttrName)))
     }.toSeq
 

@@ -31,6 +31,20 @@
       <pattern>.*Spots.*</pattern>
       <checkInterval>30</checkInterval>
     </metadataExclusion>
+    <metadataExclusion name="timeRestricted">
+      <pattern>.*ads.*</pattern>
+      <checkInterval>29</checkInterval>
+      <applicableAt>
+        <time>
+          <hours from="6" to="20"/>
+          <minutes from="27" to="30"/>
+        </time>
+        <time>
+          <hours from="6" to="20"/>
+          <minutes from="57" to="60"/>
+        </time>
+      </applicableAt>
+    </metadataExclusion>
     <metadataExclusion>
       <checkInterval>999</checkInterval>
     </metadataExclusion>
@@ -83,6 +97,17 @@
             <matchContext>Title</matchContext>
             <resumeMode>MetadataChange</resumeMode>
             <checkInterval>60</checkInterval>
+          </metadataExclusion>
+          <metadataExclusion>
+            <pattern>.*skip at full hour.*</pattern>
+            <matchContext>Title</matchContext>
+            <resumeMode>MetadataChange</resumeMode>
+            <checkInterval>45</checkInterval>
+            <applicableAt>
+              <time>
+                <minutes from="58" to="60"/>
+              </time>
+            </applicableAt>
           </metadataExclusion>
         </metadataExclusions>
       </metadata>
