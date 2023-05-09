@@ -582,7 +582,7 @@ object MetadataStateActor {
                 terminateCheck(None)
               case None =>
                 if (metadataSourceConfig.optSongPattern.isEmpty ||
-                  MetadataExclusionFinderServiceImpl.matches(metadataSourceConfig.optSongPattern.get, data.title)) {
+                  matches(metadataSourceConfig.optSongPattern.get, data.title)) {
                   terminateCheck(None)
                 } else {
                   state.resumeIntervalAt(time) match {

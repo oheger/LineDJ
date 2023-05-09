@@ -21,7 +21,6 @@ import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.MetadataExclusionFinderService.MetadataExclusionFinderResponse
 
-import java.util.regex.{Matcher, Pattern}
 import scala.concurrent.{ExecutionContext, Future}
 
 object MetadataExclusionFinderService {
@@ -81,28 +80,6 @@ private object MetadataExclusionFinderServiceImpl extends MetadataExclusionFinde
     }
 
     Future.successful(MetadataExclusionFinderResponse(result, seqNo))
-  }
-
-  /**
-    * Checks whether the given pattern matches the input string.
-    *
-    * @param pattern the pattern
-    * @param input   the input string
-    * @return a flag whether this is a match
-    */
-  def matches(pattern: Pattern, input: String): Boolean = getMatch(pattern, input).isDefined
-
-  /**
-    * Tries to match the given input against the pattern and returns an
-    * ''Option'' with the [[Matcher]] if a match was found.
-    *
-    * @param pattern the pattern
-    * @param input   the input string
-    * @return an ''Option'' with the matcher
-    */
-  private def getMatch(pattern: Pattern, input: String): Option[Matcher] = {
-    val matcher = pattern.matcher(input)
-    if (matcher.matches()) Some(matcher) else None
   }
 
   /**
