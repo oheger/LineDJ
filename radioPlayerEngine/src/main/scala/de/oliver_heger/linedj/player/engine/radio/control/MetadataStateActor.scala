@@ -133,7 +133,7 @@ object MetadataStateActor {
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               intervalService: EvaluateIntervalsService,
-              finderService: MetadataExclusionFinderService = MetadataExclusionFinderServiceImpl,
+              finderService: MetadataExclusionFinderService,
               clock: Clock = Clock.systemDefaultZone(),
               sourceCheckFactory: SourceCheckFactory = sourceCheckBehavior): Behavior[MetadataExclusionStateCommand]
   }
@@ -205,13 +205,13 @@ object MetadataStateActor {
 
           case HandleRadioEvent(event) =>
             event match {
-              case RadioMetadataEvent(source, data@CurrentMetadata(_), _)
+              case RadioMetadataEvent(source, data@CurrentMetadata(_), time)
                 if !state.disabledSources.contains(source) =>
                 val nextState = state.copy(seqNo = state.seqNo + 1)
                 val sourceConfig = state.metaConfig.metadataSourceConfig(source)
                 implicit val ec: ExecutionContextExecutor = context.executionContext
 
-                finderService.findMetadataExclusion(state.metaConfig, sourceConfig, data, nextState.seqNo)
+                finderService.findMetadataExclusion(state.metaConfig, sourceConfig, data, time, nextState.seqNo)
                   .foreach { res =>
                     context.self ! EventExclusionResponseArrived(res, source)
                   }
@@ -566,9 +566,9 @@ object MetadataStateActor {
 
       def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
         Behaviors.receiveMessage {
-          case retrieved@MetadataRetrieved(data, _) =>
+          case retrieved@MetadataRetrieved(data, time) =>
             context.log.info("Received metadata during check: {}.", data.data)
-            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, 0) foreach { res =>
+            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, time, 0) foreach { res =>
               context.self ! ExclusionFinderResult(retrieved, res.result)
             }
             Behaviors.same

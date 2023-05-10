@@ -17,16 +17,20 @@
 package de.oliver_heger.linedj.player.engine.radio.control
 
 import de.oliver_heger.linedj.AsyncTestHelper
+import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.CurrentMetadata
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.time.{LocalDateTime, Month}
 import java.util.regex.Pattern
 import scala.concurrent.duration._
 
@@ -37,6 +41,9 @@ object MetadataExclusionFinderServiceSpec {
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +
     s"(?<${MetadataConfig.SongTitleGroup}>.+)")
+
+  /** A reference time used by tests. */
+  private val RefTime = LocalDateTime.of(2023, Month.MAY, 9, 21, 36, 38)
 
   /**
     * Convenience function to create a metadata exclusion with default values.
@@ -52,9 +59,9 @@ object MetadataExclusionFinderServiceSpec {
                               matchContext: MatchContext = MatchContext.Raw,
                               resumeMode: ResumeMode = ResumeMode.MetadataChange,
                               checkInterval: FiniteDuration = 2.minutes,
+                              applicable: Seq[IntervalQuery] = Seq.empty,
                               name: Option[String] = None): MetadataConfig.MetadataExclusion =
-    MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, Seq.empty, name)
-
+    MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, applicable, name)
 }
 
 /**
@@ -70,15 +77,19 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     * Helper function to invoke the finder service under test with the given
     * parameters.
     *
-    * @param config       the metadata config
-    * @param sourceConfig the config for the radio source
-    * @param metadata     the metadata to check
+    * @param config           the metadata config
+    * @param sourceConfig     the config for the radio source
+    * @param metadata         the metadata to check
+    * @param optFinderService allows overriding the finder service
     * @return the result returned from the service
     */
   private def findMetadataExclusion(config: MetadataConfig,
                                     sourceConfig: MetadataConfig.RadioSourceMetadataConfig,
-                                    metadata: CurrentMetadata): Option[MetadataExclusion] = {
-    val futResponse = MetadataExclusionFinderServiceImpl.findMetadataExclusion(config, sourceConfig, metadata, SeqNo)
+                                    metadata: CurrentMetadata,
+                                    optFinderService: Option[MetadataExclusionFinderService] = None):
+  Option[MetadataExclusion] = {
+    val finderService = new MetadataExclusionFinderServiceImpl(EvaluateIntervalsServiceImpl)
+    val futResponse = finderService.findMetadataExclusion(config, sourceConfig, metadata, RefTime, SeqNo)
     val response = futureResult(futResponse)
 
     response.seqNo should be(SeqNo)
@@ -194,4 +205,47 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     result should be(Some(exclusion))
   }
 
+  it should "ignore an exclusion that is not applicable" in {
+    val applicableAt = List(IntervalQueries.minutes(40, 50))
+    val exclusion = createExclusion(matchContext = MatchContext.Artist, applicable = applicableAt)
+    val metadata = CurrentMetadata("StreamTitle='Artist match/some song'")
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
+
+    val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result shouldBe empty
+  }
+
+  it should "find the correct exclusion if multiple have time restrictions" in {
+    val patternNoMatch = Pattern.compile("foo")
+    val exclusionNoMatch = createExclusion(pattern = patternNoMatch)
+    val exclusionBefore = createExclusion(matchContext = MatchContext.Song,
+      applicable = List(IntervalQueries.minutes(0, 5)))
+    val exclusionInside = createExclusion(matchContext = MatchContext.Song,
+      applicable = List(IntervalQueries.minutes(30, 40)))
+    val exclusionAfter = createExclusion(matchContext = MatchContext.Song,
+      applicable = List(IntervalQueries.minutes(40, 50)))
+    val metadata = CurrentMetadata("StreamTitle='Some artist/song match'")
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusionBefore, exclusionNoMatch, exclusionInside,
+      exclusionAfter))
+
+    val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
+
+    result should be(Some(exclusionInside))
+  }
+
+  it should "not evaluate interval queries if a match without time restrictions was found" in {
+    val exclusionAlways = createExclusion()
+    val exclusionPartTime = createExclusion(applicable = List(IntervalQueries.minutes(30, 40)))
+    val finderService = mock[MetadataExclusionFinderService]
+    when(finderService.findMetadataExclusion(any(), any(), any(), any(), any())(any))
+      .thenThrow(new UnsupportedOperationException("Unexpected invocation"))
+    val metadata = CurrentMetadata("StreamTitle='Some artist/song match'")
+    val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusionPartTime, exclusionAlways))
+
+    val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata,
+      optFinderService = Some(finderService))
+
+    result should be(Some(exclusionAlways))
+  }
 }

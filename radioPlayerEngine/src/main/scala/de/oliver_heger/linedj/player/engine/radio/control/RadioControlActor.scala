@@ -231,7 +231,8 @@ object RadioControlActor {
         scheduleActor,
         eventManagerActor,
         streamManagerActor,
-        evalService), MetadataStateActorName)
+        evalService,
+        new MetadataExclusionFinderServiceImpl(evalService)), MetadataStateActorName)
 
       handle(sourceStateActor, playStateActor, errorStateActor, metadataStateActor)
     }

@@ -491,7 +491,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.prepareFinderService(nextMetadata)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), LocalDateTime.now()))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
@@ -503,7 +503,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.prepareFinderService(nextMetadata)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), LocalDateTime.now()))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .expectNoCheckResult()
   }
 
@@ -513,26 +513,26 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.prepareFinderService(nextMetadata)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), LocalDateTime.now()))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .checkActorStopped()
   }
 
   it should "continue the check if a change in metadata is not sufficient" in {
     val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 20, 26, 4)
+    val refTime2 = refTime.plusSeconds(10)
     val insufficientMetadata = "Ok, but no title"
     val goodMetadata = "StreamTitle='good / music';"
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(insufficientMetadata)
-      .prepareFinderService(goodMetadata)
+    helper.prepareFinderService(insufficientMetadata, refTime = refTime)
+      .prepareFinderService(goodMetadata, refTime = refTime2)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusMinutes(1))))
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(insufficientMetadata), refTime))
       .expectNoCheckResult()
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(goodMetadata),
-        refTime.plusSeconds(10)))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(goodMetadata), refTime2))
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
@@ -543,7 +543,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val nextMetadata = "Ok, even without title"
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(nextMetadata)
+    helper.prepareFinderService(nextMetadata, refTime = refTime)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .prepareIntervalsService(refTime, Inside(new LazyDate(refTime.plusMinutes(1))))
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), refTime))
@@ -559,25 +559,25 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.prepareFinderService(nextMetadata)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), LocalDateTime.now()))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
   }
 
   it should "store the latest interval query result" in {
     val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 21, 23, 23)
+    val refTime2 = refTime.plusSeconds(10)
     val nextMetadata1 = "Ok, but no title"
     val nextMetadata2 = "Ok, but still no title"
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(nextMetadata1)
-      .prepareFinderService(nextMetadata2)
+    helper.prepareFinderService(nextMetadata1, refTime = refTime)
+      .prepareFinderService(nextMetadata2, refTime = refTime2)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusMinutes(1))))
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata1), refTime))
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata2),
-        refTime.plusSeconds(10)))
+      .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata2), refTime2))
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
   }
 
@@ -589,8 +589,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val nextMetadata2 = "Ok, but still no title"
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(nextMetadata1)
-      .prepareFinderService(nextMetadata2)
+    helper.prepareFinderService(nextMetadata1, refTime = refTime1)
+      .prepareFinderService(nextMetadata2, refTime = refTime3)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .prepareIntervalsService(refTime1, Before(new LazyDate(refTime2)))
       .prepareIntervalsService(refTime3, Before(new LazyDate(refTime3.plusSeconds(10))))
@@ -606,8 +606,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val goodMetadata = "Ok, even if no title"
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(notWantedMetadata, Some(MetaExclusions(MetaNotWanted)))
-      .prepareFinderService(goodMetadata)
+    helper.prepareFinderService(notWantedMetadata, Some(MetaExclusions(MetaNotWanted)), refTime)
+      .prepareFinderService(goodMetadata, refTime = refTime)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(notWantedMetadata), refTime))
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
@@ -628,7 +628,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val refTime2 = LocalDateTime.of(2023, Month.APRIL, 8, 18, 54, 55)
     val helper = new RunnerTestHelper(MetaBadMusic)
 
-    helper.prepareFinderService(MetaNotWanted, Some(MetaExclusions(MetaNotWanted)))
+    helper.prepareFinderService(MetaNotWanted, Some(MetaExclusions(MetaNotWanted)), refTime)
+      .prepareFinderService(MetaNotWanted, Some(MetaExclusions(MetaNotWanted)), refTime2)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .prepareIntervalsService(refTime, Before(new LazyDate(refTime.plusSeconds(10))))
       .prepareIntervalsService(refTime2, Before(new LazyDate(refTime2.plusSeconds(40))))
@@ -761,13 +762,17 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * return a specific result.
       *
       * @param metadata the expected metadata string passed in
+      * @param refTime  the expected reference time
       * @param result   the result to return
       * @return this test helper
       */
-    def prepareFinderService(metadata: String, result: Option[MetadataExclusion] = None): RunnerTestHelper = {
+    def prepareFinderService(metadata: String,
+                             result: Option[MetadataExclusion] = None,
+                             refTime: LocalDateTime = RefTime): RunnerTestHelper = {
       when(finderService.findMetadataExclusion(eqArg(metaConfig),
         eqArg(metadataSourceConfig),
         eqArg(CurrentMetadata(metadata)),
+        eqArg(refTime),
         eqArg(0))(any()))
         .thenReturn(Future.successful(MetadataExclusionFinderService.MetadataExclusionFinderResponse(result, 0)))
       this
@@ -1259,7 +1264,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val source2 = radioSource(2)
     val event2 = RadioMetadataEvent(source2, CurrentMetadata(MetaBadMusic))
     val helper = new MetadataStateTestHelper
-    helper.prepareFinderService(MetaBadMusic, source2, seqNo = 2)
+    helper.prepareFinderService(MetaBadMusic, source2, seqNo = 2, time = event2.time)
     val creation1 = helper.sendMetadataEvent(MetaNotWanted)
       .nextSourceCheckCreation()
 
@@ -1328,7 +1333,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val helper = new MetadataStateTestHelper
     val creations = sources.zipWithIndex map { t =>
       val event = RadioMetadataEvent(t._1, CurrentMetadata(MetaBadMusic))
-      helper.prepareFinderService(MetaBadMusic, t._1, seqNo = t._2 + 1)
+      helper.prepareFinderService(MetaBadMusic, t._1, seqNo = t._2 + 1, time = event.time)
         .sendEvent(event)
         .expectDisabledSource(t._1)
         .nextSourceCheckCreation()
@@ -1343,8 +1348,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     enabledSources should contain theSameElementsAs sources
 
     val nextSource = radioSource(1)
-    helper.prepareFinderService(MetaBadMusic, nextSource, nextConfig, seqNo = SourceCount + 1)
-    val nextCreation = helper.sendEvent(RadioMetadataEvent(nextSource, CurrentMetadata(MetaBadMusic)))
+    helper.prepareFinderService(MetaBadMusic, nextSource, nextConfig, seqNo = SourceCount + 1, time = RefTime)
+    val nextCreation = helper.sendEvent(RadioMetadataEvent(nextSource, CurrentMetadata(MetaBadMusic), RefTime))
       .nextSourceCheckCreation()
     nextCreation.metadataConfig should be(nextConfig)
     nextCreation.namePrefix should be(s"${MetadataStateActor.SourceCheckActorNamePrefix}${SourceCount + 1}")
@@ -1354,8 +1359,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     val metaStr = "This is not forbidden"
     val promiseResponse = Promise[MetadataExclusionFinderService.MetadataExclusionFinderResponse]()
     val helper = new MetadataStateTestHelper
-    helper.prepareFinderService(MetaBadMusic, optResponse = Some(promiseResponse.future))
-      .sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(MetaBadMusic)))
+    helper.prepareFinderService(MetaBadMusic, optResponse = Some(promiseResponse.future), time = RefTime)
+      .sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(MetaBadMusic), RefTime))
       .sendMetadataEvent(metaStr, seqNo = 2)
 
     val exclusion = Some(MetaExclusions(MetaBadMusic))
@@ -1433,8 +1438,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @return this test helper
       */
     def sendMetadataEvent(data: String, seqNo: Int = 1): MetadataStateTestHelper = {
-      prepareFinderService(data, seqNo = seqNo)
-      sendEvent(RadioMetadataEvent(TestRadioSource, CurrentMetadata(data)))
+      val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(data))
+      prepareFinderService(data, seqNo = seqNo, time = event.time)
+      sendEvent(event)
     }
 
     /**
@@ -1444,6 +1450,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param metadata    the metadata passed to the service
       * @param source      the affected radio source
       * @param config      the expected metadata config
+      * @param time        the expected reference time
       * @param seqNo       the expected sequence number
       * @param optResponse the optional response to be returned
       * @return this test helper
@@ -1451,6 +1458,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     def prepareFinderService(metadata: String,
                              source: RadioSource = TestRadioSource,
                              config: MetadataConfig = metaConfig,
+                             time: LocalDateTime,
                              seqNo: Int = 1,
                              optResponse:
                              Option[Future[MetadataExclusionFinderService.MetadataExclusionFinderResponse]] = None):
@@ -1461,6 +1469,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       when(finderService.findMetadataExclusion(eqArg(config),
         eqArg(sourceConfig),
         eqArg(CurrentMetadata(metadata)),
+        eqArg(time),
         eqArg(seqNo))(any())).thenReturn(response)
       this
     }

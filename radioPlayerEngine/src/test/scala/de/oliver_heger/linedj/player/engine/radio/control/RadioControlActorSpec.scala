@@ -382,7 +382,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        intervalService: EvaluateIntervalsService,
-       _: MetadataExclusionFinderService,
+       finderService: MetadataExclusionFinderService,
        _: Clock,
        _: MetadataStateActor.SourceCheckFactory) => {
         radioConfig should be(config)
@@ -390,6 +390,11 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         eventActor should be(probeEventManagerActor.ref)
         streamManager should be(probeStreamManagerActor.ref)
         intervalService should be(EvaluateIntervalsServiceImpl)
+        finderService match {
+          case svc: MetadataExclusionFinderServiceImpl =>
+            svc.intervalsService should be(intervalService)
+          case o => fail("Unexpected MetadataExclusionFinderService: " + o)
+        }
 
         enabledStateActor.actorCreated(enabledActor)
         Behaviors.monitor(probeMetadataStateActor.ref, Behaviors.ignore)
