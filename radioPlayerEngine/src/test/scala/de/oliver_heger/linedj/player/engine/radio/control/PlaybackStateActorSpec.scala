@@ -19,20 +19,22 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.testkit.{TestKit, TestProbe}
 import akka.{actor => classic}
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, EventTestSupport, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.time.LocalDateTime
 import scala.concurrent.duration._
 
 /**
   * Test class for [[PlaybackStateActor]].
   */
 class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers with EventTestSupport[RadioEvent] {
   def this() = this(classic.ActorSystem("PlaybackStateActorSpec"))
 
   /** A test kit to test typed actors. */
@@ -43,6 +45,8 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
     testKit.shutdownTestKit()
     super.afterAll()
   }
+
+  override protected def eventTimeExtractor: RadioEvent => LocalDateTime = _.time
 
   "PlaybackStateActor" should "start playback if a source is available" in {
     val source = radioSource(1)
@@ -129,6 +133,38 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
         PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor))
   }
 
+  it should "generate a playback stopped event" in {
+    val source = radioSource(1)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
+      .sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.StopPlayback)
+      .expectPlaybackStoppedEvent(source)
+  }
+
+  it should "not generate a playback stopped event if the playback state does not change" in {
+    val source = radioSource(11)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
+      .sendCommand(PlaybackStateActor.StopPlayback)
+      .expectNoEvent()
+  }
+
+  it should "not generate a playback stopped event if no current source is set" in {
+    val source = radioSource(22)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.StopPlayback)
+      .expectNoEvent()
+      .sendCommand(PlaybackStateActor.PlaybackSource(source))
+      .sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.StopPlayback)
+      .expectPlaybackStoppedEvent(source)
+  }
+
   /**
     * A test helper class managing an actor under test and its dependencies.
     */
@@ -136,8 +172,11 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
     /** Test probe for the facade actor. */
     private val probeFacadeActor = TestProbe()
 
+    /** Test probe for the event manager actor. */
+    private val probeEventActor = testKit.createTestProbe[EventManagerActor.EventManagerCommand[RadioEvent]]()
+
     /** The actor to be tested. */
-    private val playbackActor = testKit.spawn(PlaybackStateActor.behavior(probeFacadeActor.ref))
+    private val playbackActor = testKit.spawn(PlaybackStateActor.behavior(probeFacadeActor.ref, probeEventActor.ref))
 
     /**
       * Sends the given command to the actor under test.
@@ -187,6 +226,35 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
       */
     def expectNoMessage(): PlaybackActorTestHelper = {
       probeFacadeActor.expectNoMessage(250.millis)
+      this
+    }
+
+    /**
+      * Expects that the actor under test has generated a playback stopped
+      * event for the given radio source.
+      *
+      * @param source the expected radio source
+      * @return this test helper
+      */
+    def expectPlaybackStoppedEvent(source: RadioSource): PlaybackActorTestHelper = {
+      val message = probeEventActor.expectMessageType[EventManagerActor.Publish[RadioEvent]]
+      message.event match {
+        case RadioPlaybackStoppedEvent(eventSource, time) =>
+          eventSource should be(source)
+          assertCurrentTime(time)
+
+        case e => fail("Unexpected radio event: " + e)
+      }
+      this
+    }
+
+    /**
+      * Expects that no event has been generated.
+      *
+      * @return this test helper
+      */
+    def expectNoEvent(): PlaybackActorTestHelper = {
+      probeEventActor.expectNoMessage(250.millis)
       this
     }
   }

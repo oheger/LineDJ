@@ -219,7 +219,7 @@ object RadioControlActor {
       val stateService = optStateService getOrElse new RadioSourceStateServiceImpl(config)
       val sourceStateActor = context.spawn(stateActorFactory(stateService, evalService, replacementService,
         scheduleActor, switchSourceAdapter, eventActor), SourceStateActorName)
-      val playStateActor = context.spawn(playActorFactory(facadeActor), PlayStateActorName)
+      val playStateActor = context.spawn(playActorFactory(facadeActor, eventManagerActor), PlayStateActorName)
       val errorStateActor = context.spawn(errorActorFactory(config,
         enabledStateAdapter,
         factoryActor,

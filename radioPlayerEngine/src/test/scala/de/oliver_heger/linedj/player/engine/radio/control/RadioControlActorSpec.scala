@@ -337,8 +337,10 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @return the factory for the playback state actor
       */
     private def createPlayActorFactory(): PlaybackStateActor.Factory =
-      (facadeActor: classic.ActorRef) => {
+      (facadeActor: classic.ActorRef,
+       eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]) => {
         facadeActor should be(mockFacadeActor)
+        eventManagerActor should be(probeEventManagerActor.ref)
         Behaviors.monitor(probePlayActor.ref, Behaviors.ignore)
       }
 

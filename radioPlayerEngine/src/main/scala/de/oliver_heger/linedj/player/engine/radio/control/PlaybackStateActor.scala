@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.{actor => classic}
-import akka.actor.typed.Behavior
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, PlaybackActor, PlayerFacadeActor}
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
 
 /**
   * An actor implementation that manages the current playback state, i.e. the
@@ -74,19 +74,23 @@ object PlaybackStateActor {
       * implementation. The function expects the facade actor to be controlled
       * by the new actor instance.
       *
-      * @param facadeActor the player facade actor
+      * @param facadeActor       the player facade actor
+      * @param eventManagerActor the actor to generate events
       * @return the ''Behavior'' of a new actor instance
       */
-    def apply(facadeActor: classic.ActorRef): Behavior[PlaybackStateCommand]
+    def apply(facadeActor: classic.ActorRef,
+              eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]):
+    Behavior[PlaybackStateCommand]
   }
 
   /**
     * A default [[Factory]] instance that can be used to create new instances
     * of this actor implementation.
     */
-  final val behavior: Factory = (facadeActor: classic.ActorRef) => {
+  final val behavior: Factory = (facadeActor: classic.ActorRef,
+                                 eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]) => {
     val initState = PlaybackState(optSource = None, optPlayback = None, needsReset = false)
-    handle(facadeActor, initState)
+    handle(facadeActor, eventManagerActor, initState)
   }
 
   /**
@@ -136,25 +140,31 @@ object PlaybackStateActor {
     * The main message handling function of this actor.
     *
     * @param facadeActor the facade actor
+    * @param eventActor  the event manager actor
     * @param state       the current playback state
     * @return the updated ''Behavior''
     */
-  private def handle(facadeActor: classic.ActorRef, state: PlaybackState): Behavior[PlaybackStateCommand] =
+  private def handle(facadeActor: classic.ActorRef,
+                     eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                     state: PlaybackState): Behavior[PlaybackStateCommand] =
     Behaviors.receiveMessage {
       case PlaybackSource(source) =>
         val nextState = state.copy(optSource = Some(source))
-        playSourceIfPossible(facadeActor, nextState)
+        playSourceIfPossible(facadeActor, eventActor, nextState)
 
       case StartPlayback =>
         state.updatePlayback(enabled = true) map { nextState =>
-          playSourceIfPossible(facadeActor, nextState)
+          playSourceIfPossible(facadeActor, eventActor, nextState)
         } getOrElse Behaviors.same
 
       case StopPlayback =>
         state.updatePlayback(enabled = false) map { nextState =>
+          nextState.optSource foreach { source =>
+            eventActor ! EventManagerActor.Publish(RadioPlaybackStoppedEvent(source))
+          }
           val dispatch = PlayerFacadeActor.Dispatch(PlaybackActor.StopPlayback, PlayerFacadeActor.TargetPlaybackActor)
           facadeActor ! DelayActor.Propagate(dispatch, facadeActor, DelayActor.NoDelay)
-          handle(facadeActor, nextState)
+          handle(facadeActor, eventActor, nextState)
         } getOrElse Behaviors.same
     }
 
@@ -164,10 +174,13 @@ object PlaybackStateActor {
     * played before, the engine needs to be reset.
     *
     * @param facadeActor the facade actor
+    * @param eventActor  the event manager actor
     * @param state       the current state
     * @return the updated behavior with the passed state
     */
-  private def playSourceIfPossible(facadeActor: classic.ActorRef, state: PlaybackState):
+  private def playSourceIfPossible(facadeActor: classic.ActorRef,
+                                   eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                                   state: PlaybackState):
   Behavior[PlaybackStateCommand] = {
     val nextState = state.playbackSource map { source =>
       val startMessages = List(
@@ -182,6 +195,6 @@ object PlaybackStateActor {
       state.resetRequired()
     } getOrElse state
 
-    handle(facadeActor, nextState)
+    handle(facadeActor, eventActor, nextState)
   }
 }
