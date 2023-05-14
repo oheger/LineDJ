@@ -56,6 +56,9 @@ import scala.concurrent.duration._
   * @param streamCacheTime            the time a released radio stream actor
   *                                   remains cached for a potential reuse
   *                                   until it gets finally closed
+  * @param stalledPlaybackCheck       the interval in which the playback
+  *                                   guardian actor checks for stalled
+  *                                   playback
   */
 case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              maximumEvalDelay: FiniteDuration = 1.hour,
@@ -65,4 +68,5 @@ case class RadioPlayerConfig(playerConfig: PlayerConfig,
                              maxRetryFailedSource: FiniteDuration = 6.hours,
                              sourceCheckTimeout: FiniteDuration = 60.seconds,
                              metadataCheckTimeout: FiniteDuration = 30.seconds,
-                             streamCacheTime: FiniteDuration = 4.seconds)
+                             streamCacheTime: FiniteDuration = 4.seconds,
+                             stalledPlaybackCheck: FiniteDuration = 5.seconds)
