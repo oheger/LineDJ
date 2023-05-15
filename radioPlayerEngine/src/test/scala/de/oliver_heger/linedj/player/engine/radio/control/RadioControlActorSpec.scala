@@ -33,7 +33,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.Clock
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
+import java.util.concurrent.{ArrayBlockingQueue, CountDownLatch, TimeUnit}
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * Test class for [[RadioControlActor]]. This class tests direct interactions
@@ -117,6 +118,12 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       .checkErrorStateCommand(ErrorStateActor.GetSourcesInErrorState(probe.ref))
   }
 
+  it should "create a playback guardian actor" in {
+    val helper = new ControlActorTestHelper
+
+    helper.checkGuardianActorCreated()
+  }
+
   it should "handle a Stop command" in {
     val helper = new ControlActorTestHelper
 
@@ -168,6 +175,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     /** The reference to the actor managing the source enabled state. */
     private val enabledStateActor = new DynamicActorRef[RadioControlProtocol.SourceEnabledStateCommand](2)
+
+    /** A latch to record the invocation of the guardian actor factory. */
+    private val latchGuardianBehaviorCreated = new CountDownLatch(1)
 
     /** The actor instance under test. */
     private val controlActor = createControlActor()
@@ -288,6 +298,13 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     }
 
     /**
+      * Checks whether the playback guardian actor has been created.
+      */
+    def checkGuardianActorCreated(): Unit = {
+      latchGuardianBehaviorCreated.await(3, TimeUnit.SECONDS) shouldBe true
+    }
+
+    /**
       * Creates a test control actor instance.
       *
       * @return the actor to be tested
@@ -297,6 +314,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         playActorFactory = createPlayActorFactory(),
         errorActorFactory = createErrorStateActorFactory(),
         metaActorFactory = createMetadataStateActorFactory(),
+        guardianActorFactory = createPlaybackGuardianActorFactory(),
         eventActor = probeEventActor.ref,
         eventManagerActor = probeEventManagerActor.ref,
         facadeActor = mockFacadeActor,
@@ -400,6 +418,26 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
         enabledStateActor.actorCreated(enabledActor)
         Behaviors.monitor(probeMetadataStateActor.ref, Behaviors.ignore)
+      }
+
+    /**
+      * Creates a factory to create the playback guardian actor which checks
+      * the creation parameters and registers the invocation.
+      *
+      * @return the factory for the playback guardian actor
+      */
+    private def createPlaybackGuardianActorFactory(): PlaybackGuardianActor.Factory =
+      (checkInterval: FiniteDuration,
+       enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
+       scheduleActor: ActorRef[ScheduledInvocationCommand],
+       eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]) => {
+        checkInterval should be(config.stalledPlaybackCheck)
+        scheduleActor should be(probeScheduleActor.ref)
+        eventActor should be(probeEventManagerActor.ref)
+
+        enabledStateActor.actorCreated(enabledActor)
+        latchGuardianBehaviorCreated.countDown()
+        Behaviors.ignore
       }
   }
 

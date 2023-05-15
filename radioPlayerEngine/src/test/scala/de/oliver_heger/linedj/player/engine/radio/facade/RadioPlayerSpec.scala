@@ -386,7 +386,8 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        _: RadioSourceStateActor.Factory,
        _: PlaybackStateActor.Factory,
        _: ErrorStateActor.Factory,
-       _: MetadataStateActor.Factory) => {
+       _: MetadataStateActor.Factory,
+       _: PlaybackGuardianActor.Factory) => {
         radioConfig should be(config)
         eventActor should be(actorCreator.probePublisherActor.ref)
         eventManagerActor should be(actorCreator.eventManagerActor)

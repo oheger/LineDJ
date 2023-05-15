@@ -54,6 +54,9 @@ object RadioControlActor {
   /** The name of the child actor managing the metadata state. */
   final val MetadataStateActorName = "radioMetadataExclusionActor"
 
+  /** The name of the child actor that checks for stalled playback. */
+  final val GuardianActorName = "radioPlaybackGuardianActor"
+
   /**
     * The base trait for the commands supported by this actor implementation.
     */
@@ -165,6 +168,8 @@ object RadioControlActor {
       * @param playActorFactory      factory to create the playback state actor
       * @param errorActorFactory     factory to create the error state actor
       * @param metaActorFactory      factory to create the metadata state actor
+      * @param guardianActorFactory  factory to create the playback guardian
+      *                              actor
       * @return the behavior for a new actor instance
       */
     def apply(config: RadioPlayerConfig,
@@ -180,7 +185,8 @@ object RadioControlActor {
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
               playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior,
               errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior,
-              metaActorFactory: MetadataStateActor.Factory = MetadataStateActor.metadataStateBehavior):
+              metaActorFactory: MetadataStateActor.Factory = MetadataStateActor.metadataStateBehavior,
+              guardianActorFactory: PlaybackGuardianActor.Factory = PlaybackGuardianActor.behavior):
     Behavior[RadioControlCommand]
   }
 
@@ -201,7 +207,8 @@ object RadioControlActor {
                                  stateActorFactory: RadioSourceStateActor.Factory,
                                  playActorFactory: PlaybackStateActor.Factory,
                                  errorActorFactory: ErrorStateActor.Factory,
-                                 metaActorFactory: MetadataStateActor.Factory) =>
+                                 metaActorFactory: MetadataStateActor.Factory,
+                                 guardianActorFactory: PlaybackGuardianActor.Factory) =>
     Behaviors.setup { context =>
       val switchSourceAdapter = context.messageAdapter[RadioControlProtocol.SwitchToSource] { msg =>
         SwitchToSource(msg.source)
@@ -233,6 +240,10 @@ object RadioControlActor {
         streamManagerActor,
         evalService,
         new MetadataExclusionFinderServiceImpl(evalService)), MetadataStateActorName)
+      context.spawn(guardianActorFactory(config.stalledPlaybackCheck,
+        enabledStateAdapter,
+        scheduleActor,
+        eventManagerActor), GuardianActorName)
 
       handle(sourceStateActor, playStateActor, errorStateActor, metadataStateActor)
     }
