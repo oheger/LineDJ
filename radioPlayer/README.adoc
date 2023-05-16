@@ -193,6 +193,18 @@ news. A resume interval has the following effects:
   resume interval, so that ideally nothing of the desired information is
   missed.
 
+Some radio stations are not very specific with their metadata when currently no
+song is played; then just a standard or empty stream title is displayed. There
+is no clear interpretation of this standard title in general; it could mean for
+instance a traffic announcement, some background information about the next
+artist, or an advertisement. It may, however, be possible to guess the meaning
+based on the current time. So if a radio station is known to play
+advertisements at every full or half hour, it is likely that advertisements are
+received when metadata changes to the standard title at these times. To support
+this use case, a metadata exclusion can be combined with interval declarations
+that specify when it is applicable. So, the exclusion is detected only if the
+current time is inside one of the applicable intervals.
+
 So far for the rather theoretic description of exclusions. The following
 section explains how exclusions can be defined concretely. This should
 hopefully make things clearer.
@@ -326,6 +338,15 @@ metadata exclusions:
   <metadataExclusion>
     <pattern>.*Spots.*</pattern>
     <checkInterval>30</checkInterval>
+    <applicableAt>
+      <time>
+        <minutes from="29" to="31"/>
+      </time>
+      <time>
+        <hours from="6" to="20"/>
+        <minutes from="57" to="60"/>
+      </time>
+    </applicableAt>
   </metadataExclusion>
 </metadataExclusions>
 ----
@@ -362,6 +383,12 @@ against the defined exclusions for a certain time. If a match for an exclusion
 is found (which can be the original exclusion or another one), the next check
 is scheduled after this delay.
 | No
+| applicableAt
+| Under this property an arbitrary number of interval declarations can be
+specified that follow the same syntax as described under
+<<_exclusions_time_based>>, except that each declaration is contained in a
+`time` element.
+| Yes, defaults to no restriction
 |====
 
 === Radio sources
@@ -405,6 +432,11 @@ element under the `radio` element. Each radio source is configured in a sub
           <matchContext>Title</matchContext>
           <resumeMode>MetadataChange</resumeMode>
           <checkInterval>60</checkInterval>
+          <applicableAt>
+            <time>
+              <minutes from="58" to="60"/>
+            </time>
+          </applicableAt>
         </metadataExclusion>
       </metadataExclusions>
     </metadata>
