@@ -123,9 +123,6 @@ class RadioController(val userConfig: Configuration,
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]
 
-  /** Stores the current radio source. */
-  private var currentSource: RadioSource = _
-
   /** Stores the last received metadata text. */
   private var lastMetadataText = UnsupportedMetadataText
 
@@ -311,7 +308,6 @@ class RadioController(val userConfig: Configuration,
     * @param src information about the current source
     */
   private def storeCurrentSource(src: (String, RadioSource)): Unit = {
-    currentSource = src._2
     userConfig.setProperty(KeyCurrentSource, src._1)
   }
 
