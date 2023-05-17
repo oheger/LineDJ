@@ -20,14 +20,14 @@ import OsgiImagePlugin.autoImport._
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
-lazy val VersionAeron = "1.40.0"
+lazy val VersionAeron = "1.41.3"
 lazy val VersionAkka = "2.6.20"
 lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
-lazy val VersionJackson = "2.14.2"
-lazy val VersionJacksonCore = "2.14.2"
+lazy val VersionJackson = "2.15.0"
+lazy val VersionJacksonCore = "2.15.1"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
@@ -73,8 +73,8 @@ lazy val akkaHttpDependencies = Seq(
   */
 lazy val remotingDependencies = Seq(
   "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
-  "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
-  "com.fasterxml.jackson.core" % "jackson-databind" % VersionJacksonCore,
+  "com.fasterxml.jackson.core" % "jackson-core" % VersionJacksonCore,
+  "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
   "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % VersionJackson,
