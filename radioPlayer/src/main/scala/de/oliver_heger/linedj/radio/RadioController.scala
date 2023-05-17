@@ -135,6 +135,13 @@ class RadioController(val userConfig: Configuration,
   private var lastPlaybackDuration = InitialPlaybackDuration
 
   /**
+    * Stores the last radio source for which a playback progress event has been
+    * received. This is needed to reset the last playback duration if playback
+    * switches to another source.
+    */
+  private var lastPlayedSource: RadioSource = _
+
+  /**
     * A function to update the field with the current metadata based on elapsed
     * playback time.
     */
@@ -195,10 +202,15 @@ class RadioController(val userConfig: Configuration,
     * current radio source. This method is invoked when a corresponding event
     * from the player is received. It must be called in the event thread.
     *
-    * @param time the updated playback time
+    * @param source the source that is currently played
+    * @param time   the updated playback time
     */
-  def playbackTimeProgress(time: FiniteDuration): Unit = {
+  def playbackTimeProgress(source: RadioSource, time: FiniteDuration): Unit = {
     lastPlaybackDuration = time
+    if (source != lastPlayedSource) {
+      lastPlayedSource = source
+      metadataTimeFunc = generateMetadataTimeFunc(lastMetadataText)
+    }
     metadataText.setText(metadataTimeFunc(time))
   }
 
@@ -220,7 +232,6 @@ class RadioController(val userConfig: Configuration,
     if (data != lastMetadataText) {
       lastMetadataText = data
       metadataTimeFunc = generateMetadataTimeFunc(data)
-      metadataText setText metadataTimeFunc(lastPlaybackDuration)
     }
   }
 

@@ -331,6 +331,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     ctrl.metadataChanged(RadioMetadataEvent(src, CurrentMetadata("some data")))
 
     ctrl.metadataChanged(RadioMetadataEvent(src, MetadataNotSupported))
+    ctrl.playbackTimeProgress(src, 1.second)
 
     verify(helper.metadataTextHandler).setText("")
   }
@@ -338,10 +339,12 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "handle an event about updated metadata" in {
     val MetadataContent = "Test song from Test Artist"
     val metadata = CurrentMetadata(s"StreamTitle='$MetadataContent';")
+    val src = radioSource(1)
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1))
 
-    ctrl.metadataChanged(RadioMetadataEvent(radioSource(1), metadata))
+    ctrl.metadataChanged(RadioMetadataEvent(src, metadata))
+    ctrl.playbackTimeProgress(src, 1.second)
 
     verify(helper.metadataTextHandler).setText(MetadataContent)
   }
@@ -351,45 +354,63 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val mainConfig = new HierarchicalConfiguration
     mainConfig.addProperty("radio.metadataMaxLen", "10")
     mainConfig.addProperty("radio.metadataRotateSpeed", 4.0)
+    val source = radioSource(1)
     val helper = new RadioControllerTestHelper
     val ctrl = helper.createInitializedController(createSourceConfiguration(1), mainConfig = mainConfig)
 
-    ctrl.playbackTimeProgress(10.seconds)
-    ctrl.metadataChanged(RadioMetadataEvent(radioSource(1), CurrentMetadata(MetadataContent)))
+    ctrl.metadataChanged(RadioMetadataEvent(source, CurrentMetadata(MetadataContent)))
+    ctrl.playbackTimeProgress(source, 10.seconds)
     verify(helper.metadataTextHandler).setText("0123456789")
 
-    ctrl.playbackTimeProgress(10.seconds + 250.millis)
+    ctrl.playbackTimeProgress(source, 10.seconds + 250.millis)
     verify(helper.metadataTextHandler).setText("123456789A")
 
-    ctrl.playbackTimeProgress(11.seconds)
+    ctrl.playbackTimeProgress(source, 11.seconds)
     verify(helper.metadataTextHandler).setText("456789ABCD")
-  }
-
-  it should "not update metadata if the same event arrives again" in {
-    val metadata = CurrentMetadata("This is some metadata")
-    val event = RadioMetadataEvent(radioSource(1), metadata)
-    val helper = new RadioControllerTestHelper
-    val ctrl = helper.createInitializedController(createSourceConfiguration(1))
-
-    ctrl.metadataChanged(event)
-    ctrl.metadataChanged(event)
-
-    verify(helper.metadataTextHandler, times(1)).setText(metadata.title)
   }
 
   it should "reset the playback time when switching to another source" in {
     val mainConfig = new HierarchicalConfiguration
     mainConfig.addProperty("radio.metadataMaxLen", "10")
+    val source = radioSource(2)
     val helper = new RadioControllerTestHelper
-    doReturn(radioSource(2)).when(helper.comboHandler).getData
+    doReturn(source).when(helper.comboHandler).getData
     val ctrl = helper.createInitializedController(createSourceConfiguration(4), mainConfig = mainConfig)
-    ctrl.playbackTimeProgress(10.seconds)
+    ctrl.playbackTimeProgress(source, 10.seconds)
 
     ctrl.elementChanged(mock[FormChangeEvent])
     ctrl.metadataChanged(RadioMetadataEvent(radioSource(2), CurrentMetadata("0123456789ABCDEF")))
-    ctrl.playbackTimeProgress(3.seconds)
+    ctrl.playbackTimeProgress(source, 3.seconds)
 
     verify(helper.metadataTextHandler).setText("3456789ABC")
+  }
+
+  it should "reset the playback time when a progress event for another source is received" in {
+    val mainConfig = new HierarchicalConfiguration
+    mainConfig.addProperty("radio.metadataMaxLen", "10")
+    val source1 = radioSource(1)
+    val source2 = radioSource(2)
+    val helper = new RadioControllerTestHelper
+
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4), mainConfig = mainConfig)
+    ctrl.playbackTimeProgress(source1, 61.seconds)
+    ctrl.metadataChanged(RadioMetadataEvent(source2, CurrentMetadata("0123456789ABCDEF")))
+    ctrl.playbackTimeProgress(source2, 3.seconds)
+
+    verify(helper.metadataTextHandler, Mockito.atLeast(1)).setText("0123456789")
+  }
+
+  it should "not override metadata set before a progress event" in {
+    val mainConfig = new HierarchicalConfiguration
+    mainConfig.addProperty("radio.metadataMaxLen", "10")
+    val source = radioSource(1)
+    val helper = new RadioControllerTestHelper
+
+    val ctrl = helper.createInitializedController(createSourceConfiguration(4), mainConfig = mainConfig)
+    ctrl.metadataChanged(RadioMetadataEvent(source, CurrentMetadata("0123456789ABCDEF")))
+    ctrl.playbackTimeProgress(source, 1.second)
+
+    verify(helper.metadataTextHandler).setText("0123456789")
   }
 
   /**

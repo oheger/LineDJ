@@ -36,7 +36,7 @@ class RadioPlayerEventListenerSpec extends AnyFlatSpec with Matchers with Mockit
 
     helper sendEvent RadioPlaybackProgressEvent(source, 100, PlaybackTime, null)
 
-    verify(helper.controller).playbackTimeProgress(PlaybackTime)
+    verify(helper.controller).playbackTimeProgress(source, PlaybackTime)
     verify(helper.statusController).playbackTimeProgress(source, PlaybackTime)
   }
 

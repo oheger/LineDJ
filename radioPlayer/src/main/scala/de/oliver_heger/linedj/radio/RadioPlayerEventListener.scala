@@ -34,7 +34,7 @@ class RadioPlayerEventListener(controller: RadioController,
                                statusLineController: RadioStatusLineController) extends MessageBusListener {
   override def receive: Receive = {
     case RadioPlaybackProgressEvent(source, _, time, _) =>
-      controller playbackTimeProgress time
+      controller.playbackTimeProgress(source, time)
       statusLineController.playbackTimeProgress(source, time)
     case RadioSourceErrorEvent(source, _) =>
       statusLineController.playbackError(source)
