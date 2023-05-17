@@ -40,8 +40,8 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
-lazy val VersionSlf4j = "2.0.6"
-lazy val VersionScalaTest = "3.2.15"
+lazy val VersionSlf4j = "2.0.7"
+lazy val VersionScalaTest = "3.2.16"
 lazy val VersionScalaTestMockito = "3.2.15.0"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
