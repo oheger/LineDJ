@@ -98,9 +98,7 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
         val (ks, futIO) = source.viaMat(KillSwitches.single)(Keep.right)
           .toMat(sink)(Keep.both)
           .run()
-        val futWrite = futIO flatMap { r =>
-          Future.fromTry(r.status.map(_ => resultMsg))
-        }
+        val futWrite = futIO map { _ => resultMsg }
         processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception, target))
     }
   }
