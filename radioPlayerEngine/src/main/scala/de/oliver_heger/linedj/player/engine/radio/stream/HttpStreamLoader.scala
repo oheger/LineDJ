@@ -104,9 +104,12 @@ private class HttpStreamLoader(implicit val actorSystem: ActorSystem) {
     * @param redirectCount the counter for the redirects
     * @return a ''Future'' with the response
     */
-  private def handleRedirect(request: HttpRequest, response: HttpResponse, redirectCount: Int): Future[HttpResponse] =
+  private def handleRedirect(request: HttpRequest, response: HttpResponse, redirectCount: Int):
+  Future[HttpResponse] = {
+    response.discardEntityBytes()
     response.headers[Location].headOption map { location =>
       val nextRequest = request.withUri(constructRedirectUri(request.uri, location.uri))
       sendRequestAndHandleRedirects(nextRequest, redirectCount + 1)
     } getOrElse failRequest("Invalid redirect without Location header.")
+  }
 }
