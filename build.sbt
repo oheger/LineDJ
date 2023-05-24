@@ -139,7 +139,7 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment)
+  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -893,6 +893,17 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+
+/**
+  * Project for the player server. This project exposes player functionality
+  * via an HTTP server.
+  */
+lazy val playerServer = (project in file("playerServer"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-player-server",
+    libraryDependencies ++= logDependencies,
+  ) dependsOn radioPlayerEngine
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
