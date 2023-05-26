@@ -35,6 +35,7 @@ lazy val VersionLog4j = "2.19.0"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionScala = "2.13.10"
+lazy val VersionScala3 = "3.2.2"
 lazy val VersionScalaz = "7.3.7"
 lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
@@ -49,14 +50,14 @@ ThisBuild / version := "1.0-SNAPSHOT"
 ThisBuild / scalaVersion := VersionScala
 
 lazy val akkaDependencies = Seq(
-  "com.typesafe.akka" %% "akka-actor" % VersionAkka,
-  "com.typesafe.akka" %% "akka-actor-typed" % VersionAkka,
-  "com.typesafe.akka" %% "akka-testkit" % VersionAkka % Test,
-  "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
-  "com.typesafe.akka" %% "akka-stream" % VersionAkka,
-  "com.typesafe.akka" %% "akka-slf4j" % VersionAkka,
-  "com.typesafe.akka" %% "akka-remote" % VersionAkka,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % VersionAkka,
+  ("com.typesafe.akka" %% "akka-actor" % VersionAkka).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-actor-typed" % VersionAkka).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-testkit" % VersionAkka % Test).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-stream" % VersionAkka).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-slf4j" % VersionAkka).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-remote" % VersionAkka).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-serialization-jackson" % VersionAkka).cross(CrossVersion.for3Use2_13),
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
   "org.scala-lang" % "scala-reflect" % VersionScala
 )
@@ -124,7 +125,6 @@ lazy val logDependencies = Seq(
 lazy val defaultSettings = Seq(
   libraryDependencies ++= akkaDependencies,
   libraryDependencies ++= testDependencies,
-  libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
   resolvers += Resolver.mavenLocal
 )
 
@@ -203,6 +203,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
     name := "linedj-archive-common",
     libraryDependencies ++= logDependencies,
     libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+    libraryDependencies += ("org.scala-lang.modules" %% "scala-xml" % "2.1.0"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
@@ -902,6 +903,20 @@ lazy val playerServer = (project in file("playerServer"))
   .settings(defaultSettings)
   .settings(
     name := "linedj-player-server",
+    scalacOptions := Seq(
+      "-deprecation",
+      "-explain",
+      "-explain-types",
+      "-feature",
+      "-indent",
+      "-new-syntax",
+      "-print-lines",
+      "-unchecked",
+      "-Ykind-projector",
+      "-Xfatal-warnings",
+      "-Xmigration"
+    ),
+    scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
   ) dependsOn radioPlayerEngine
 

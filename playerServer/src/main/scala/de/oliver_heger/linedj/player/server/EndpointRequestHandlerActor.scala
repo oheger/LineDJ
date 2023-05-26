@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{Handler
 import java.net.{DatagramSocket, InetAddress, InetSocketAddress, NetworkInterface}
 import scala.jdk.CollectionConverters._
 
-private object EndpointRequestHandlerActor {
+private object EndpointRequestHandlerActor:
   /**
     * Returns a ''Props'' object for creating a new instance of this actor.
     * @param groupAddress the address of the multicast group
@@ -41,11 +41,10 @@ private object EndpointRequestHandlerActor {
             port: Int,
             requestCode: String,
             response: String,
-            readyListener: Option[typed.ActorRef[HandlerReady]] = None): Props = {
+            readyListener: Option[typed.ActorRef[HandlerReady]] = None): Props =
     val interfaces = fetchRelevantNetworkInterfaces()
     val multicastConfig = MulticastConfig(groupAddress, interfaces)
     Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, response, readyListener))
-  }
 
   /**
     * Returns a list with the active network interfaces that are relevant for
@@ -73,15 +72,12 @@ private object EndpointRequestHandlerActor {
     * @param interfaces the list of network interfaces to support
     */
   case class MulticastConfig(multicastAddress: String,
-                             interfaces: Iterable[NetworkInterface]) extends SocketOptionV2 {
-    override def afterBind(s: DatagramSocket): Unit = {
+                             interfaces: Iterable[NetworkInterface]) extends SocketOptionV2:
+    override def afterBind(s: DatagramSocket): Unit =
       val group = InetAddress.getByName(multicastAddress)
       interfaces foreach { interface =>
         s.getChannel.join(group, interface)
       }
-    }
-  }
-}
 
 /**
   * An actor implementation that handles incoming UDP requests that ask for the
@@ -106,32 +102,27 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
                                           requestCode: String,
                                           response: String,
                                           readyListener: Option[typed.ActorRef[HandlerReady]]) extends Actor
-  with ActorLogging {
+  with ActorLogging:
 
   import context.system
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     IO(Udp) ! Udp.Bind(self, new InetSocketAddress(port), List(groups))
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Udp.Bound(_) =>
       log.info("ListenerActor active for interfaces {} on port {}.",
         groups.interfaces, port)
       context.become(active(sender()))
       readyListener foreach(_ ! HandlerReady(groups.interfaces.toList))
-  }
 
-  private def active(socket: ActorRef): Receive = {
+  private def active(socket: ActorRef): Receive =
     case Udp.Received(data, remote) =>
       val request = data.utf8String
       log.info("Received request '{}' from {}.", request, remote)
-      if(request == requestCode) {
+      if request == requestCode then
         socket ! Udp.Send(ByteString(response), remote)
-      }
 
     case Udp.Unbind => socket ! Udp.Unbind
 
     case Udp.Unbound => context.stop(self)
-  }
-}

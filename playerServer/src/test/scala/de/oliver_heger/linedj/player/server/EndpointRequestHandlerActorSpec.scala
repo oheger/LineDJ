@@ -28,7 +28,7 @@ import java.net.{DatagramPacket, DatagramSocket, InetAddress, ServerSocket}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.util.Using
 
-object EndpointRequestHandlerActorSpec {
+object EndpointRequestHandlerActorSpec:
   /** The request code used by the test actor. */
   private val RequestCode = "the_request"
 
@@ -57,7 +57,7 @@ object EndpointRequestHandlerActorSpec {
     */
   private class UdpClientThread(queue: BlockingQueue[String],
                                 code: String,
-                                port: Int) extends Thread {
+                                port: Int) extends Thread:
     /** The socket for UDP communication. */
     private val socket = new DatagramSocket()
 
@@ -65,13 +65,11 @@ object EndpointRequestHandlerActorSpec {
       * Stops the test. Makes sure that the thread is unblocked if it is still
       * waiting on the socket.
       */
-    def stopTest(): Unit = {
-      if(!socket.isClosed) {
+    def stopTest(): Unit =
+      if !socket.isClosed then
         socket.close()
-      }
-    }
 
-    override def run(): Unit = {
+    override def run(): Unit =
       Using(socket) { socket =>
         val packet = new DatagramPacket(code.getBytes,
           code.length,
@@ -85,9 +83,6 @@ object EndpointRequestHandlerActorSpec {
         val response = new String(receivePacket.getData, 0, receivePacket.getLength)
         queue offer response
       }
-    }
-  }
-}
 
 /**
   * Test class for [[EndpointRequestHandlerActor]]. Note: This test class
@@ -95,44 +90,40 @@ object EndpointRequestHandlerActorSpec {
   * cases are skipped.
   */
 class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-with BeforeAndAfterAll with Matchers with TryValues {
+with BeforeAndAfterAll with Matchers with TryValues:
   def this() = this(ActorSystem("EndpointRequestHandlerActorSpec"))
 
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import EndpointRequestHandlerActorSpec._
 
   "EndpointRequestHandlerActor" should "answer a request for the endpoint" in {
     Using(new TestClient) { client =>
-      if(client.sendRequest()) {
+      if client.sendRequest() then
         client.expectResponse() should be(Response)
-      }
     }.success
   }
 
   it should "ignore a request with a wrong code" in {
     Using(new TestClient) { client =>
-      if(client.sendRequest("unexpected request")) {
+      if client.sendRequest("unexpected request") then
         client.expectNoResponse()
-      }
     }.success
   }
 
   it should "stop itself on receiving an Unbind message" in {
     Using(new TestClient) { client =>
-      if (client.sendRequest()) {
+      if client.sendRequest() then
         client.handlerActor ! Udp.Unbind
 
         val probe = TestProbe()
         probe.watch(client.handlerActor)
         probe.expectTerminated(client.handlerActor)
-      }
     }.success
   }
 
@@ -140,7 +131,7 @@ with BeforeAndAfterAll with Matchers with TryValues {
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
     */
-  class TestClient extends AutoCloseable {
+  class TestClient extends AutoCloseable:
     /** A queue for receiving the response from the actor. */
     private val queue = new LinkedBlockingQueue[String]
 
@@ -162,41 +153,37 @@ with BeforeAndAfterAll with Matchers with TryValues {
       * @return a flag whether a test is possible; '''false''' means that no
       *         network is available
       */
-    def sendRequest(code: String = RequestCode): Boolean = {
+    def sendRequest(code: String = RequestCode): Boolean =
       val readyMessage = readyListener.expectMessageType[EndpointRequestHandlerActor.HandlerReady]
-      if(readyMessage.interfaces.nonEmpty) {
+      if readyMessage.interfaces.nonEmpty then
         val thread = createClientThread(code)
         thread.start()
         optClientThread = Some(thread)
         true
-      } else false
-    }
+      else false
 
     /**
       * Expects that a response from the actor has been received. Returns this
       * response.
       * @return the response from the actor under test
       */
-    def expectResponse(): String = {
+    def expectResponse(): String =
       val response = queue.poll(3, TimeUnit.SECONDS)
       response should not be null
       response
-    }
 
     /**
       * Expects that no response from the actor has been received.
       */
-    def expectNoResponse(): Unit = {
+    def expectNoResponse(): Unit =
       val response = queue.poll(250, TimeUnit.MILLISECONDS)
       response should be(null)
-    }
 
-    override def close(): Unit = {
+    override def close(): Unit =
       optClientThread foreach { clientThread =>
         clientThread.stopTest()
         clientThread.join()
       }
-    }
 
     /**
       * Creates the thread that handles the UDP communication.
@@ -213,5 +200,3 @@ with BeforeAndAfterAll with Matchers with TryValues {
     private def createHandlerActor(): ActorRef =
       system.actorOf(EndpointRequestHandlerActor.props(GroupAddress, port, RequestCode, Response,
         Some(readyListener.ref)))
-  }
-}
