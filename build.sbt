@@ -64,8 +64,8 @@ lazy val akkaDependencies = Seq(
 
 /** Dependencies required for using Akka HTTP. */
 lazy val akkaHttpDependencies = Seq(
-  "com.typesafe.akka" %% "akka-http" % VersionAkkaHttp,
-  "com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp,
+  ("com.typesafe.akka" %% "akka-http" % VersionAkkaHttp).cross(CrossVersion.for3Use2_13),
+  ("com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp).cross(CrossVersion.for3Use2_13),
 )
 
 /**
@@ -918,6 +918,7 @@ lazy val playerServer = (project in file("playerServer"))
     ),
     scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
+    libraryDependencies ++= akkaHttpDependencies,
   ) dependsOn radioPlayerEngine
 
 /**
