@@ -42,21 +42,9 @@ private object EndpointRequestHandlerActor:
             requestCode: String,
             response: String,
             readyListener: Option[typed.ActorRef[HandlerReady]] = None): Props =
-    val interfaces = fetchRelevantNetworkInterfaces()
+    val interfaces = fetchActiveNetworkInterfaces()
     val multicastConfig = MulticastConfig(groupAddress, interfaces)
     Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, response, readyListener))
-
-  /**
-    * Returns a list with the active network interfaces that are relevant for
-    * this actor. The actor joins the multicast group for each of these
-    * interfaces.
-    * @return the list with relevant network interfaces
-    */
-  private [server] def fetchRelevantNetworkInterfaces(): List[NetworkInterface] =
-    NetworkInterface.getNetworkInterfaces.asScala
-    .filterNot(ifc => ifc.isLoopback || !ifc.isUp)
-      .toList
-
 
   /**
     * A message that is sent to the ready listener when the handler actor is
