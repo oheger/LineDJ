@@ -41,7 +41,7 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
-lazy val VersionSlf4j = "2.0.7"
+lazy val VersionDisruptor = "3.4.4"
 lazy val VersionScalaTest = "3.2.16"
 lazy val VersionScalaTestMockito = "3.2.15.0"
 
@@ -88,7 +88,6 @@ lazy val remotingDependencies = Seq(
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
   "org.scalatestplus" %% "mockito-4-6" % VersionScalaTestMockito % Test,
-  "org.slf4j" % "slf4j-simple" % VersionSlf4j % Test
 )
 
 lazy val osName = System.getProperty("os.name")
@@ -919,7 +918,8 @@ lazy val playerServer = (project in file("playerServer"))
     scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= akkaHttpDependencies,
-  ) dependsOn radioPlayerEngine
+    libraryDependencies += "com.lmax" % "disruptor" % VersionDisruptor,
+  ) dependsOn(radioPlayerEngine, log4jConfFragment)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
