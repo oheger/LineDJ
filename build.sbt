@@ -26,6 +26,7 @@ lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
+lazy val VersionCommonsConfig = "1.10"
 lazy val VersionJackson = "2.15.0"
 lazy val VersionJacksonCore = "2.15.1"
 lazy val VersionJavaFX = "11.0.2"
@@ -48,6 +49,21 @@ lazy val VersionScalaTestMockito = "3.2.15.0"
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 ThisBuild / version := "1.0-SNAPSHOT"
 ThisBuild / scalaVersion := VersionScala
+
+/** The options to set for the scala compiler for Scala 3 projects. */
+lazy val scala3Options = Seq(
+  "-deprecation",
+  "-explain",
+  "-explain-types",
+  "-feature",
+  "-indent",
+  "-new-syntax",
+  "-print-lines",
+  "-unchecked",
+  "-Ykind-projector",
+  "-Xfatal-warnings",
+  "-Xmigration"
+)
 
 lazy val akkaDependencies = Seq(
   ("com.typesafe.akka" %% "akka-actor" % VersionAkka).cross(CrossVersion.for3Use2_13),
@@ -119,6 +135,8 @@ lazy val logDependencies = Seq(
   "org.apache.logging.log4j" % "log4j-jcl" % VersionLog4j,
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % VersionLog4j
 )
+
+lazy val configDependency = "commons-configuration" % "commons-configuration" % VersionCommonsConfig
 
 /** Settings common to most projects that implement actual functionality. */
 lazy val defaultSettings = Seq(
@@ -201,7 +219,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .settings(
     name := "linedj-archive-common",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+    libraryDependencies += configDependency,
     libraryDependencies += ("org.scala-lang.modules" %% "scala-xml" % "2.1.0"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty,
@@ -220,7 +238,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
   .settings(
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+    libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*"),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon,
@@ -237,7 +255,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .settings(
     name := "linedj-archive-union",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "commons-configuration" % "commons-configuration" % "1.10",
+    libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
@@ -902,19 +920,7 @@ lazy val playerServer = (project in file("playerServer"))
   .settings(defaultSettings)
   .settings(
     name := "linedj-player-server",
-    scalacOptions := Seq(
-      "-deprecation",
-      "-explain",
-      "-explain-types",
-      "-feature",
-      "-indent",
-      "-new-syntax",
-      "-print-lines",
-      "-unchecked",
-      "-Ykind-projector",
-      "-Xfatal-warnings",
-      "-Xmigration"
-    ),
+    scalacOptions := scala3Options,
     scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= akkaHttpDependencies,
