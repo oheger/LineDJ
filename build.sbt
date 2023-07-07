@@ -647,8 +647,6 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-config",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies += configDependency,
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(

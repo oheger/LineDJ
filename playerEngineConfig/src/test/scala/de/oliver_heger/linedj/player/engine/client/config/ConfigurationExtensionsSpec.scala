@@ -20,25 +20,29 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
-object ConfigurationExtensionsSpec:
+object ConfigurationExtensionsSpec {
   /** The key for the property with the tet duration. */
   private val DurationKey = "duration"
 
-  private def createConfigWithDuration(value: Int, unit: Option[String] = None): HierarchicalConfiguration =
+  private def createConfigWithDuration(value: Int, unit: Option[String] = None): HierarchicalConfiguration = {
     val config = new HierarchicalConfiguration
     config.addProperty(DurationKey, value)
     unit foreach { unitValue =>
       config.addProperty(s"$DurationKey[@unit]", unitValue)
     }
     config
+  }
+}
 
 /**
   * Test class for the extensions defined on ''Configuration''
   */
-class ConfigurationExtensionsSpec extends AnyFlatSpec with Matchers:
-  import ConfigurationExtensionsSpec.*
+class ConfigurationExtensionsSpec extends AnyFlatSpec with Matchers {
+
+  import ConfigurationExtensions._
+  import ConfigurationExtensionsSpec._
 
   "Configuration.getDuration" should "return a duration with the default unit seconds" in {
     val config = createConfigWithDuration(42)
@@ -80,6 +84,14 @@ class ConfigurationExtensionsSpec extends AnyFlatSpec with Matchers:
     duration should be(800.milliseconds)
   }
 
+  it should "support an alias for milliseconds" in {
+    val config = createConfigWithDuration(800, Some("Millis"))
+
+    val duration = config.getDuration(DurationKey)
+
+    duration should be(800.milliseconds)
+  }
+
   it should "support case insensitive units in lowercase" in {
     val config = createConfigWithDuration(77, Some("milliseconds"))
 
@@ -94,6 +106,17 @@ class ConfigurationExtensionsSpec extends AnyFlatSpec with Matchers:
     val duration = config.getDuration(DurationKey)
 
     duration should be(55.minutes)
+  }
+
+  it should "fail for an unsupported unit" in {
+    val UnsupportedUnit = "LightYears"
+    val config = createConfigWithDuration(0, Some(UnsupportedUnit))
+
+    val exception = intercept[IllegalArgumentException] {
+      config.getDuration(DurationKey)
+    }
+
+    exception.getMessage should include(UnsupportedUnit)
   }
 
   "Configuration.getDuration with default" should "return the value of a defined key" in {
@@ -112,4 +135,4 @@ class ConfigurationExtensionsSpec extends AnyFlatSpec with Matchers:
 
     duration should be(default)
   }
-end ConfigurationExtensionsSpec
+}

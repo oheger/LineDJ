@@ -24,9 +24,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
-class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "PlayerConfigLoader" should "read the properties from a configuration" in {
     val Prefix = "player.config"
     val config = new HierarchicalConfiguration
@@ -151,4 +151,4 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.mediaManagerActor should be(manager)
     playerConfig.actorCreator should be(creator)
   }
-  
+}

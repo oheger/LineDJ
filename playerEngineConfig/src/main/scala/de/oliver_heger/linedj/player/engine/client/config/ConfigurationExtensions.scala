@@ -18,63 +18,113 @@ package de.oliver_heger.linedj.player.engine.client.config
 
 import org.apache.commons.configuration.Configuration
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
-object DurationUnits:
+object ConfigurationExtensions {
   /**
-    * Return the constant representing the unit with the given name. In
-    * contrast to the default ''valueOf'' function, this function matches unit
-    * names in a case-insensitive way.
+    * A trait representing the top of a hierarchy of duration unit
+    * implementations.
+    *
+    * A concrete unit knows how to convert an Int number to a finite duration.
+    * This is used to implement duration properties for the configuration
+    * library.
+    */
+  sealed trait DurationUnit {
+    /**
+      * Converts the given value to a [[Duration]] that is represented by this
+      * object.
+      *
+      * @param value the numeric value to be converted
+      * @return the resulting ''Duration''
+      */
+    def toDuration(value: Int): FiniteDuration = convert(value)
+
+    /**
+      * The converter function to be applied for this unit.
+      *
+      * @return a function to convert an ''Int'' to this duration
+      */
+    protected def convert: Int => FiniteDuration
+  }
+
+  /**
+    * A concrete [[DurationUnit]] for milliseconds.
+    */
+  private object MillisecondsUnit extends DurationUnit {
+    override protected val convert: Int => FiniteDuration = _.milliseconds
+  }
+
+  /**
+    * A concrete [[DurationUnit]] for seconds.
+    */
+  private object SecondsUnit extends DurationUnit {
+    override protected val convert: Int => FiniteDuration = _.seconds
+  }
+
+  /**
+    * A concrete [[DurationUnit]] for minutes.
+    */
+  private object MinutesUnit extends DurationUnit {
+    override protected val convert: Int => FiniteDuration = _.minutes
+  }
+
+  /**
+    * A concrete [[DurationUnit]] for hours.
+    */
+  private object HoursUnit extends DurationUnit {
+    override protected val convert: Int => FiniteDuration = _.hours
+  }
+
+  /**
+    * A class extending the [[Configuration]] interface by additional
+    * operations.
+    *
+    * @param c the wrapped [[Configuration]] object
+    */
+  implicit class ConfigurationOps(c: Configuration) {
+    /**
+      * Returns the configuration value with the given key of type [[Duration]].
+      * It is possible to specify the unit of the duration in an attribute of the
+      * given key named ''unit''. This must reference one of the constants
+      * defined by the [[DurationUnit]] enumeration (ignoring case). If no unit
+      * is explicitly specified, seconds is used as default.
+      *
+      * @param key the key
+      * @return the value of type ''Duration''
+      */
+    def getDuration(key: String): FiniteDuration = {
+      val unitName = c.getString(s"$key[@unit]", "seconds")
+      val unit = unitByName(unitName)
+      unit.toDuration(c.getInt(key))
+    }
+
+    /**
+      * Returns the configuration value with the given key of type [[Duration]]
+      * or the provided default value if the key does not exist.
+      *
+      * @param key     the key
+      * @param default the default value
+      * @return the value of type ''Duration''
+      */
+    def getDuration(key: String, default: FiniteDuration): FiniteDuration =
+      if (c.containsKey(key)) getDuration(key)
+      else default
+  }
+
+  /**
+    * Returns the [[DurationUnit]] implementation for the unit with the given
+    * name. Names are case insensitive.
     *
     * @param name the name of the unit
-    * @return the constant for the unit with this name
+    * @return the implementation for the unit with this name
     */
-  def byUnit(name: String): DurationUnits =
-    valueOf(name.toLowerCase.capitalize)
-
-/**
-  * An enumeration class defining the units supported by configuration
-  * properties of type ''Duration''. This is used together with the
-  * ''getDuration()'' extension function on [[Configuration]].
-  */
-enum DurationUnits(convert: Int => FiniteDuration):
-  /**
-    * Converts the given value to a [[Duration]] that is represented by this
-    * constant.
-    *
-    * @param value the numeric value to be converted
-    * @return the resulting ''Duration''
-    */
-  def toDuration(value: Int): FiniteDuration = convert(value)
-
-  case Milliseconds extends DurationUnits(_.milliseconds)
-  case Seconds extends DurationUnits(_.seconds)
-  case Minutes extends DurationUnits(_.minutes)
-  case Hours extends DurationUnits(_.hours)
-end DurationUnits
-
-extension (c: Configuration)
-
-  /**
-    * Returns the configuration value with the given key of type [[Duration]].
-    * It is possible to specify the unit of the duration in an attribute of the
-    * given key named ''unit''. This must reference one of the constants
-    * defined by the [[DurationUnits]] enumeration (ignoring case). If no unit
-    * is explicitly specified, seconds is used as default.
-    */
-  def getDuration(key: String): FiniteDuration =
-    val unitName = c.getString(s"$key[@unit]", DurationUnits.Seconds.toString)
-    val unit = DurationUnits.byUnit(unitName)
-    unit.toDuration(c.getInt(key))
-
-  /**
-    * Returns the configuration value with the given key of type [[Duration]]
-    * or the provided default value if the key does not exist.
-    *
-    * @param key     the key
-    * @param default the default value
-    * @return the value of type ''Duration''
-    */
-  def getDuration(key: String, default: FiniteDuration): FiniteDuration =
-    if c.containsKey(key) then getDuration(key)
-    else default
+  def unitByName(name: String): DurationUnit =
+    name.toLowerCase match {
+      case "milliseconds" => MillisecondsUnit
+      case "millis" => MillisecondsUnit
+      case "seconds" => SecondsUnit
+      case "minutes" => MinutesUnit
+      case "hours" => HoursUnit
+      case _ => throw new IllegalArgumentException(s"Unsupported duration unit '$name'.")
+    }
+}

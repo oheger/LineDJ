@@ -17,18 +17,19 @@
 package de.oliver_heger.linedj.player.engine.client.config
 
 import akka.actor.ActorRef
+import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtensions._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.Configuration
 
 import java.nio.file.Paths
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 /**
   * A module providing functionality for loading an XML configuration file with
   * options for the audio player. The options that can be defined here
   * correspond to the properties of [[PlayerConfig]].
   */
-object PlayerConfigLoader:
+object PlayerConfigLoader {
   /**
     * Name of the memory buffer size property. This is the size of the buffer
     * with audio data hold in memory by the audio player.
@@ -174,13 +175,13 @@ object PlayerConfigLoader:
   def loadPlayerConfig(c: Configuration,
                        pathPrefix: String,
                        mediaManagerActor: ActorRef,
-                       actorCreator: ActorCreator): PlayerConfig =
-    val normalizedPrefix = if pathPrefix.endsWith(".") then pathPrefix
+                       actorCreator: ActorCreator): PlayerConfig = {
+    val normalizedPrefix = if (pathPrefix.endsWith(".")) pathPrefix
     else pathPrefix + "."
 
     def key(k: String) = normalizedPrefix + k
 
-    import scala.jdk.CollectionConverters.*
+    import scala.jdk.CollectionConverters._
 
     PlayerConfig(inMemoryBufferSize = c.getInt(key(PropMemoryBufferSize), DefaultMemoryBufferSize),
       playbackContextLimit = c.getInt(key(PropPlaybackContextLimit), DefaultPlaybackContextLimit),
@@ -189,7 +190,7 @@ object PlayerConfigLoader:
       bufferFilePrefix = c.getString(key(PropBufferFilePrefix), DefaultBufferFilePrefix),
       bufferFileExtension = c.getString(key(PropBufferFileExtension), DefaultBufferFileExtension),
       bufferTempPath = Option(c.getString(key(PropBufferTempPath))).map(Paths.get(_)),
-      bufferTempPathParts = if c.containsKey(key(PropBufferTempPathParts)) then
+      bufferTempPathParts = if (c.containsKey(key(PropBufferTempPathParts)))
         c.getList(key(PropBufferTempPathParts)).asScala.map(String.valueOf).toSeq
       else DefaultBufferTempPathParts,
       downloadInProgressNotificationDelay = c.getDuration(key(PropDownloadInProgressNotificationDelay),
@@ -200,6 +201,7 @@ object PlayerConfigLoader:
       blockingDispatcherName = Option(c.getString(key(PropBlockingDispatcherName))),
       mediaManagerActor = mediaManagerActor,
       actorCreator = actorCreator)
+  }
 
   /**
     * Creates a [[PlayerConfig]] with default values and the given dynamic
@@ -211,3 +213,4 @@ object PlayerConfigLoader:
     */
   def defaultConfig(mediaManagerActor: ActorRef, actorCreator: ActorCreator): PlayerConfig =
     DefaultPlayerConfig.copy(mediaManagerActor = mediaManagerActor, actorCreator = actorCreator)
+}
