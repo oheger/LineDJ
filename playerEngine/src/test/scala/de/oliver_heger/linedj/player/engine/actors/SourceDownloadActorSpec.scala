@@ -17,13 +17,12 @@
 package de.oliver_heger.linedj.player.engine.actors
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
@@ -163,9 +162,9 @@ ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
     * @return the test configuration
     */
   private def createConfig(mediaManager: ActorRef): PlayerConfig =
-    PlayerConfig(downloadInProgressNotificationDelay = ReaderAliveDelay,
+    PlayerConfigSpec.TestPlayerConfig.copy(downloadInProgressNotificationDelay = ReaderAliveDelay,
       downloadInProgressNotificationInterval = ReaderAliveInterval,
-      actorCreator = null, mediaManagerActor = mediaManager)
+      mediaManagerActor = mediaManager)
 
   /**
    * Convenience method for creating a download test actor which is initialized

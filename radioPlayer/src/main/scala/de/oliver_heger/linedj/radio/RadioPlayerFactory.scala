@@ -20,7 +20,7 @@ import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
@@ -59,7 +59,7 @@ private class RadioPlayerFactory {
     */
   private def createPlayerConfig(actorManagement: ActorManagement): RadioPlayerConfig = {
     val creator = new ManagingActorCreator(actorManagement)
-    val playerConfig = PlayerConfig(inMemoryBufferSize = 64 * 1024,
+    val playerConfig = PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       timeProgressThreshold = 100.millis,

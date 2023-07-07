@@ -21,6 +21,7 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
@@ -137,8 +138,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     */
   private class ControlActorTestHelper {
     /** A test configuration used by the control actor. */
-    private val config = RadioPlayerConfig(playerConfig = PlayerConfig(mediaManagerActor = mock[classic.ActorRef],
-      actorCreator = mock[ActorCreator]))
+    private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorCreator = mock[ActorCreator],
+      mediaManagerActor = mock[classic.ActorRef]))
 
     /** Test probe for the schedule invocation actor. */
     private val probeScheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()

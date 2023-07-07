@@ -22,6 +22,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.testkit.{TestProbe => ClassicTestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
@@ -64,9 +65,6 @@ object MetadataStateActorSpec {
 
   /** A test audio source representing the resolved audio stream. */
   private val TestAudioSource = AudioSource("resolvedStreamURI", 0, 0, 0)
-
-  /** A test audio player configuration object. */
-  private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
 
   /** A test radio player configuration. */
   private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,

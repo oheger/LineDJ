@@ -25,6 +25,7 @@ import akka.util.ByteString
 import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
@@ -43,9 +44,6 @@ import scala.concurrent.duration._
 object ErrorStateActorSpec {
   /** A prefix for actor names. */
   private val ActorNamePrefix = "ErrorCheck_"
-
-  /** A test player configuration. */
-  private val TestPlayerConfig = PlayerConfig(actorCreator = null, mediaManagerActor = null)
 
   /** A test radio player configuration. */
   private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,

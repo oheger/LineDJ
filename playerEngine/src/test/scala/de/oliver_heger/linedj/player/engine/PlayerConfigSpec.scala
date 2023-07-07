@@ -19,9 +19,30 @@ package de.oliver_heger.linedj.player.engine
 import akka.actor.ActorRef
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Source
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import scala.concurrent.duration._
+
+object PlayerConfigSpec {
+  /** A test player configuration that can be used by all tests. */
+  final val TestPlayerConfig = PlayerConfig(inMemoryBufferSize = 10000,
+    playbackContextLimit = 24000,
+    bufferFileSize = 65536,
+    bufferChunkSize = 16384,
+    bufferFilePrefix = "Buffer",
+    bufferFileExtension = ".buf",
+    bufferTempPath = None,
+    bufferTempPathParts = List(".lineDj", "temp"),
+    downloadInProgressNotificationDelay = 3.minutes,
+    downloadInProgressNotificationInterval = 2.minutes,
+    timeProgressThreshold = 500.millis,
+    blockingDispatcherName = None,
+    mediaManagerActor = null,
+    actorCreator = null)
+}
 
 /**
   * Test class for ''PlayerConfig''.
@@ -29,7 +50,7 @@ import org.scalatestplus.mockito.MockitoSugar
 class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   "PlayerConfig" should "return the same source if no blocking dispatcher is defined" in {
     val source = Source.single("test")
-    val config = PlayerConfig(mediaManagerActor = mock[ActorRef], actorCreator = mock[ActorCreator])
+    val config = TestPlayerConfig.copy(mediaManagerActor = mock[ActorRef], actorCreator = mock[ActorCreator])
 
     val modifiedSource = config.applyBlockingDispatcher(source)
 
@@ -39,7 +60,8 @@ class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "apply the blocking dispatcher to a source" in {
     val BlockingDispatcher = "IO-Dispatcher"
     val source = Source.single("blockingTest")
-    val config = PlayerConfig(blockingDispatcherName = Some(BlockingDispatcher), mediaManagerActor = mock[ActorRef],
+    val config = TestPlayerConfig.copy(blockingDispatcherName = Some(BlockingDispatcher),
+      mediaManagerActor = mock[ActorRef],
       actorCreator = mock[ActorCreator])
 
     val modifiedSource = config.applyBlockingDispatcher(source)

@@ -25,6 +25,7 @@ import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
@@ -408,7 +409,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): RadioPlayerConfig = {
-      RadioPlayerConfig(PlayerConfig(mediaManagerActor = null, actorCreator = actorCreator,
+      RadioPlayerConfig(TestPlayerConfig.copy(actorCreator = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName)))
     }
 

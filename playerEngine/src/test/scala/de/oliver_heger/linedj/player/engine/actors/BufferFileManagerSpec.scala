@@ -1,9 +1,8 @@
 package de.oliver_heger.linedj.player.engine.actors
 
 import java.nio.file.{Files, Path, Paths}
-
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
@@ -206,8 +205,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     * @return the test configuration
     */
   private def createConfig(): PlayerConfig =
-    PlayerConfig(bufferFilePrefix = FilePrefix, bufferFileExtension = FileSuffix,
-      mediaManagerActor = null, actorCreator = null,
+    PlayerConfigSpec.TestPlayerConfig.copy(bufferFilePrefix = FilePrefix, bufferFileExtension = FileSuffix,
       bufferTempPathParts = List("lineDJTest", "temp"),
       bufferTempPath = Some(createPathInDirectory("bufferTemp")))
 

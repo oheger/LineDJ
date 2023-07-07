@@ -881,7 +881,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", playerEngine)
+  ) dependsOn(platform % "compile->compile;test->test", playerEngine, playerEngineConfig)
 
 /**
   * Project for the persistent playlist handler. This module keeps track on

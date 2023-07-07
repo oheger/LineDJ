@@ -23,6 +23,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors._
@@ -47,8 +48,7 @@ object RadioDataSourceActorSpec {
   private val Mp3Ext = Some("mp3")
 
   /** A test configuration used when creating the test actor. */
-  private val Config = PlayerConfig(mediaManagerActor = null, actorCreator = null,
-    inMemoryBufferSize = 1024)
+  private val Config = TestPlayerConfig.copy(inMemoryBufferSize = 1024)
 
   /** A request for audio data. */
   private val DataRequest = PlaybackActor.GetAudioData(512)

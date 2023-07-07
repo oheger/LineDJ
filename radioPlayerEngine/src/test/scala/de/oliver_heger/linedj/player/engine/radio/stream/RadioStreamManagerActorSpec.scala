@@ -23,6 +23,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.testkit.{TestKit, TestProbe}
 import akka.{actor => classic}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadata, RadioMetadataEvent, RadioSource}
@@ -41,9 +42,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object RadioStreamManagerActorSpec {
-  /** A test audio player configuration. */
-  private val TestPlayerConfig = PlayerConfig(mediaManagerActor = null, actorCreator = null)
-
   /** A test radio source. */
   private val TestRadioSource = RadioSource("testRadioSource")
 

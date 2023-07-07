@@ -23,7 +23,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -53,7 +53,10 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def invokeBuilder(uri: String): RadioStreamBuilder.BuilderResult[Future[ByteString], Future[ByteString]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val config = PlayerConfig(mediaManagerActor = null, actorCreator = null)
+    val config = TestPlayerConfig.copy(inMemoryBufferSize = 2097152,
+      playbackContextLimit = 1048570,
+      bufferFileSize = 4194304,
+      bufferChunkSize = 8192)
     val builder = RadioStreamBuilder()
     val sinkAudio = RadioStreamTestHelper.aggregateSink()
     val sinkMeta = RadioStreamTestHelper.aggregateSink()

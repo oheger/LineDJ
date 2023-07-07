@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec, PlayerEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -152,10 +152,9 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @return the test configuration
     */
   private def createPlayerConfig(): PlayerConfig =
-    PlayerConfig(mediaManagerActor = null, actorCreator = null,
-      bufferTempPath = Some(createPathInDirectory("tempBufferDir")),
-      bufferFilePrefix = BufferFilePrefix, bufferFileExtension = BufferFileExt,
-      blockingDispatcherName = None)
+    PlayerConfigSpec.TestPlayerConfig.copy(bufferTempPath = Some(createPathInDirectory("tempBufferDir")),
+      bufferFilePrefix = BufferFilePrefix,
+      bufferFileExtension = BufferFileExt)
 
   "A PlayerFacadeActor" should "create correct creation Props" in {
     val config = createPlayerConfig()

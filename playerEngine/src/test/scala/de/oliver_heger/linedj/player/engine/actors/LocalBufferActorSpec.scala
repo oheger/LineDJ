@@ -6,13 +6,12 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
-
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.ByteString
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
@@ -48,8 +47,8 @@ object LocalBufferActorSpec {
     * @return the test configuration
     */
   private def createConfig(): PlayerConfig =
-    PlayerConfig(bufferFileSize = FileTestHelper.testBytes().length, bufferChunkSize = ChunkSize,
-      actorCreator = null, mediaManagerActor = null)
+    PlayerConfigSpec.TestPlayerConfig.copy(bufferFileSize = FileTestHelper.testBytes().length,
+      bufferChunkSize = ChunkSize)
 
   /**
     * Generates the name of a test buffer file.

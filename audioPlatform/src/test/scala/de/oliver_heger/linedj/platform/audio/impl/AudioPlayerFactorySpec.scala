@@ -23,6 +23,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.platform.comm.ActorFactory
+import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -73,7 +74,8 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
       eqArg(mediaManager.ref), any())).thenAnswer((invocation: InvocationOnMock) => {
       val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]
       refCreator.set(creator)
-      PlayerConfig(inMemoryBufferSize = BufSize, mediaManagerActor = mediaManager.ref,
+      PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = BufSize,
+        mediaManagerActor = mediaManager.ref,
         actorCreator = creator)
     })
     val factory = new AudioPlayerFactory(configFactory)

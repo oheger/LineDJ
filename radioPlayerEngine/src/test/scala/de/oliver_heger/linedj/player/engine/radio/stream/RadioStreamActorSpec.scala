@@ -24,6 +24,7 @@ import akka.util.ByteString
 import akka.{Done, NotUsed}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
 import de.oliver_heger.linedj.player.engine.radio._
@@ -68,8 +69,7 @@ object RadioStreamActorSpec {
     * @return the configuration
     */
   private def createConfig(): PlayerConfig =
-    PlayerConfig(mediaManagerActor = null, actorCreator = null,
-      bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
+    TestPlayerConfig.copy(bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
 }
 
 /**

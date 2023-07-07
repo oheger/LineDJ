@@ -83,9 +83,11 @@ object PlaybackActorSpec {
     *
     * @return the configuration object
     */
-  private def createConfig(): PlayerConfig =
-    PlayerConfig(inMemoryBufferSize = AudioBufferSize, playbackContextLimit = PlaybackContextLimit,
-      actorCreator = null, mediaManagerActor = null)
+  private def createConfig(): PlayerConfig = {
+    PlayerConfigSpec.TestPlayerConfig.copy(inMemoryBufferSize = AudioBufferSize,
+      playbackContextLimit = PlaybackContextLimit,
+      timeProgressThreshold = 1.second)
+  }
 }
 
 /**

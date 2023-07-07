@@ -87,18 +87,18 @@ import scala.concurrent.duration._
   *                          actor is queried for downloads of media files
   * @param actorCreator the function for creating new actors
   */
-case class PlayerConfig(inMemoryBufferSize: Int = 2097152,
-                        playbackContextLimit: Int = 1048570,
-                        bufferFileSize: Int = 4194304,
-                        bufferChunkSize: Int = 8192,
-                        bufferFilePrefix: String = "Buffer",
-                        bufferFileExtension: String = ".tmp",
-                        bufferTempPath: Option[Path] = None,
-                        bufferTempPathParts: Seq[String] = List(".lineDJ", "temp"),
-                        downloadInProgressNotificationDelay: FiniteDuration = 2.minutes,
-                        downloadInProgressNotificationInterval: FiniteDuration = 3.minutes,
-                        timeProgressThreshold: FiniteDuration = 1.second,
-                        blockingDispatcherName: Option[String] = None,
+case class PlayerConfig(inMemoryBufferSize: Int,
+                        playbackContextLimit: Int,
+                        bufferFileSize: Int,
+                        bufferChunkSize: Int,
+                        bufferFilePrefix: String,
+                        bufferFileExtension: String,
+                        bufferTempPath: Option[Path],
+                        bufferTempPathParts: Seq[String],
+                        downloadInProgressNotificationDelay: FiniteDuration,
+                        downloadInProgressNotificationInterval: FiniteDuration,
+                        timeProgressThreshold: FiniteDuration,
+                        blockingDispatcherName: Option[String],
                         mediaManagerActor: ActorRef,
                         actorCreator: ActorCreator) {
   /**
