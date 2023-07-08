@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+   Copyright 2015-2023 The Developers Team.
+
+   Licensed under the Apache License, Version 2.0 (the "License")
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<!-- Test configuration file with radio source definitions. -->
+<configuration>
+<radio>
+  <metadataExclusions>
+    <metadataExclusion name="Unwanted music">
+      <pattern>.*Blunt.*</pattern>
+      <matchContext>Artist</matchContext>
+      <resumeMode>NextSong</resumeMode>
+      <checkInterval>120</checkInterval>
+    </metadataExclusion>
+    <metadataExclusion>
+      <pattern>.*Spots.*</pattern>
+      <checkInterval>30</checkInterval>
+    </metadataExclusion>
+    <metadataExclusion name="timeRestricted">
+      <pattern>.*ads.*</pattern>
+      <checkInterval>29</checkInterval>
+      <applicableAt>
+        <time>
+          <hours from="6" to="20"/>
+          <minutes from="27" to="30"/>
+        </time>
+        <time>
+          <hours from="6" to="20"/>
+          <minutes from="57" to="60"/>
+        </time>
+      </applicableAt>
+    </metadataExclusion>
+    <metadataExclusion>
+      <checkInterval>999</checkInterval>
+    </metadataExclusion>
+  </metadataExclusions>
+  <sources>
+    <source>
+      <name>HR 1</name>
+      <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>1</ranking>
+      <exclusions>
+        <exclusion>
+          <days>
+            <day>MONDAY</day>
+            <day>TUESDAY</day>
+            <day>WEDNESDAY</day>
+            <day>THURSDAY</day>
+            <day>FRIDAY</day>
+            <day>SATURDAY</day>
+          </days>
+          <hours from="6" to="20"/>
+          <minutes from="27" to="30"/>
+        </exclusion>
+        <exclusion>
+          <days>
+            <day>MONDAY</day>
+            <day>TUESDAY</day>
+            <day>WEDNESDAY</day>
+            <day>THURSDAY</day>
+            <day>FRIDAY</day>
+            <day>SATURDAY</day>
+          </days>
+          <hours from="6" to="20"/>
+          <minutes from="57" to="60"/>
+        </exclusion>
+      </exclusions>
+      <metadata>
+        <songPattern>(?&lt;artist>[^/]+)/\s*(?&lt;title>.+)</songPattern>
+        <resumeIntervals>
+          <resumeInterval>
+            <minutes from="0" to="3" />
+          </resumeInterval>
+          <resumeInterval>
+            <minutes from="29" to="32" />
+          </resumeInterval>
+        </resumeIntervals>
+        <metadataExclusions>
+          <metadataExclusion>
+            <pattern>.*Werbung.*</pattern>
+            <matchContext>Title</matchContext>
+            <resumeMode>MetadataChange</resumeMode>
+            <checkInterval>60</checkInterval>
+          </metadataExclusion>
+          <metadataExclusion>
+            <pattern>.*skip at full hour.*</pattern>
+            <matchContext>Title</matchContext>
+            <resumeMode>MetadataChange</resumeMode>
+            <checkInterval>45</checkInterval>
+            <applicableAt>
+              <time>
+                <minutes from="58" to="60"/>
+              </time>
+            </applicableAt>
+          </metadataExclusion>
+        </metadataExclusions>
+      </metadata>
+    </source>
+    <source>
+      <name>HR 2</name>
+      <uri>http://metafiles.gl-systemhaus.de/hr/hr2_2.m3u</uri>
+      <extension>mp3</extension>
+    </source>
+    <source>
+      <name>Rockland</name>
+      <uri>http://188.94.97.90/rockland.mp3</uri>
+      <ranking>10</ranking>
+      <exclusions>
+        <exclusion>
+          <hours from="6" to="20"/>
+          <minutes from="22" to="27"/>
+        </exclusion>
+        <exclusion>
+          <hours from="20" to="24"/>
+          <minutes from="24" to="27"/>
+        </exclusion>
+        <exclusion>
+          <hours from="6" to="24"/>
+          <minutes from="57" to="60"/>
+        </exclusion>
+      </exclusions>
+    </source>
+    <source>
+      <name>SWR 1 BW</name>
+      <uri>http://mp3-live.swr.de/swr1bw_m.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>1</ranking>
+      <exclusions>
+        <exclusion>
+          <days>
+            <day>MONDAY</day>
+            <day>TUESDAY</day>
+            <day>WEDNESDAY</day>
+            <day>THURSDAY</day>
+            <day>FRIDAY</day>
+            <day>SATURDAY</day>
+          </days>
+          <hours from="6" to="20"/>
+          <minutes from="54" to="60"/>
+        </exclusion>
+      </exclusions>
+    </source>
+    <source>
+      <name>Rockantenne</name>
+      <uri>http://www.rockantenne.de/webradio/rockantenne.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>10</ranking>
+      <exclusions>
+      </exclusions>
+    </source>
+    <source>
+      <name>Rockantenne Klassik</name>
+      <uri>http://www.rockantenne.de/webradio/channels/classic-perlen.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>9</ranking>
+      <exclusions>
+      </exclusions>
+    </source>
+    <source>
+      <name>Radio Bob</name>
+      <uri>http://streams.radiobob.de/bob-live/mp3-128/streams.radiobob.de/play.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>5</ranking>
+      <exclusions>
+        <exclusion>
+          <minutes from="29" to="31"/>
+        </exclusion>
+      </exclusions>
+    </source>
+    <source>
+      <name>Die neue 107.7</name>
+      <uri>http://edge.live.mp3.mdn.newmedia.nacamar.net/ps-dieneue_rock/livestream_hi.mp3.m3u</uri>
+      <extension>mp3</extension>
+      <ranking>1</ranking>
+      <exclusions>
+      </exclusions>
+    </source>
+    <source>
+      <name>Sunshine Life</name>
+      <uri>http://sunshinelive.hoerradar.de/sunshinelive-live-mp3-hq</uri>
+      <extension>mp3</extension>
+      <exclusions>
+        <exclusion>
+          <hours from="20" to="24"/>
+          <minutes from="38" to="40"/>
+        </exclusion>
+      </exclusions>
+    </source>
+    <source>
+      <name>Klassik Radio</name>
+      <uri>http://stream.klassikradio.de/live/mp3-128/stream.klassikradio.de/play.m3u</uri>
+      <extension>mp3</extension>
+      <exclusions>
+      </exclusions>
+    </source>
+    <source>
+      <name>Error Source</name>
+      <uri>http://non.existing.src</uri>
+      <extension>mp3</extension>
+      <exclusions>
+      </exclusions>
+    </source>
+  </sources>
+</radio>
+</configuration>
