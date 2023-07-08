@@ -151,8 +151,8 @@ lazy val LineDJ = (project in file("."))
     name := "linedj-parent"
   ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
   reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
-  reorderAlbum, reorderArtist, playerEngine, playerEngineConfig, radioPlayerEngine, radioPlayer,
-  mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
+  reorderAlbum, reorderArtist, playerEngine, playerEngineConfig, radioPlayerEngine, radioPlayerEngineConfig,
+  radioPlayer, mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
@@ -670,6 +670,23 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
+
+/**
+  * Project for the radio player configuration. This project provides standard functionality for parsing configuration
+  * files of the ''radioPlayerEngine'' that can be used by different player clients.
+  */
+lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
+  .enablePlugins(SbtSpiFly)
+  .settings(OSGi.osgiSettings)
+  .settings(
+    name := "linedj-radio-player-config",
+    libraryDependencies += configDependency,
+    libraryDependencies ++= testDependencies,
+    libraryDependencies += "commons-collections" % "commons-collections" % "3.2.2" % Test,
+    OsgiKeys.exportPackage := Seq(
+      "de.oliver_heger.linedj.player.engine.radio.client.config.*"),
+    SpiFlyKeys.skipSpiFly := true
+  ) dependsOn (radioPlayerEngine, playerEngineConfig)
 
 /**
   * Project for the mp3 playback context factory. This is a separate OSGi
