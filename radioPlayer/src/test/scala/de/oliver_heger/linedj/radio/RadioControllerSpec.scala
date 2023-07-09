@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.client.config.RadioSourceConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -133,7 +134,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "handle missing source configurations correctly" in {
     val helper = new RadioControllerTestHelper
 
-    helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
+    helper.createInitializedController(RadioSourceConfigLoader.loadSourceConfig(new HierarchicalConfiguration))
     verify(helper.player).initRadioSourceConfig(any())
     verify(helper.player).initMetadataConfig(any())
     helper.verifySourcesAddedToCombo()
@@ -143,7 +144,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "disable playback actions if there are no sources" in {
     val helper = new RadioControllerTestHelper
-    helper.createInitializedController(RadioSourceConfigLoader.load(new HierarchicalConfiguration))
+    helper.createInitializedController(RadioSourceConfigLoader.loadSourceConfig(new HierarchicalConfiguration))
 
     helper.verifyAction(StartPlaybackAction, enabled = false)
       .verifyAction(StopPlaybackAction, enabled = false)

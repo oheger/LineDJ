@@ -734,7 +734,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine)
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
 
 /**
   * Project for the remote media interface. This project establishes a

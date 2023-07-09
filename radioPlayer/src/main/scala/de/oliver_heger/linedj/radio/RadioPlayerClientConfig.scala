@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.radio
 
+import de.oliver_heger.linedj.player.engine.radio.client.config.RadioSourceConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.HierarchicalConfiguration
@@ -76,7 +77,7 @@ object RadioPlayerClientConfig {
     * @return the [[RadioPlayerClientConfig]] instance
     */
   def apply(config: HierarchicalConfiguration): RadioPlayerClientConfig = {
-    val sourceConfig = RadioSourceConfigLoader.load(config)
+    val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(config)
 
     new RadioPlayerClientConfig(sourceConfig = sourceConfig,
