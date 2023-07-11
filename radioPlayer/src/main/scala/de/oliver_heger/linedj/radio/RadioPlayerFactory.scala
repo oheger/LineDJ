@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
+import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
@@ -66,6 +67,6 @@ private class RadioPlayerFactory {
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
       mediaManagerActor = null,
       actorCreator = creator)
-    RadioPlayerConfig(playerConfig)
+    RadioPlayerConfigLoader.DefaultRadioPlayerConfig.copy(playerConfig = playerConfig)
   }
 }

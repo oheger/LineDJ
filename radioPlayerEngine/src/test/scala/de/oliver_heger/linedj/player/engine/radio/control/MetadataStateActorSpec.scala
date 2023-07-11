@@ -68,7 +68,15 @@ object MetadataStateActorSpec {
 
   /** A test radio player configuration. */
   private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
-    metadataCheckTimeout = 99.seconds)
+    metadataCheckTimeout = 99.seconds,
+    maximumEvalDelay = 2.hours,
+    retryFailedReplacement = 1.minute,
+    retryFailedSource = 50.seconds,
+    retryFailedSourceIncrement = 3.0,
+    maxRetryFailedSource = 20.hours,
+    sourceCheckTimeout = 1.minute,
+    streamCacheTime = 3.seconds,
+    stalledPlaybackCheck = 30.seconds)
 
   /** A regular expression pattern to extract artist and song title. */
   private val RegSongData = Pattern.compile(s"(?<${MetadataConfig.ArtistGroup}>[^/]+)/\\s*" +

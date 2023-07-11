@@ -35,7 +35,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.Clock
 import java.util.concurrent.{ArrayBlockingQueue, CountDownLatch, TimeUnit}
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 /**
   * Test class for [[RadioControlActor]]. This class tests direct interactions
@@ -139,7 +139,16 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
   private class ControlActorTestHelper {
     /** A test configuration used by the control actor. */
     private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorCreator = mock[ActorCreator],
-      mediaManagerActor = mock[classic.ActorRef]))
+      mediaManagerActor = mock[classic.ActorRef]),
+      metadataCheckTimeout = 99.seconds,
+      maximumEvalDelay = 2.hours,
+      retryFailedReplacement = 1.minute,
+      retryFailedSource = 50.seconds,
+      retryFailedSourceIncrement = 3.0,
+      maxRetryFailedSource = 20.hours,
+      sourceCheckTimeout = 1.minute,
+      streamCacheTime = 3.seconds,
+      stalledPlaybackCheck = 30.seconds)
 
     /** Test probe for the schedule invocation actor. */
     private val probeScheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()

@@ -410,7 +410,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def createPlayerConfig(): RadioPlayerConfig = {
       RadioPlayerConfig(TestPlayerConfig.copy(actorCreator = actorCreator,
-        blockingDispatcherName = Some(BlockingDispatcherName)))
+        blockingDispatcherName = Some(BlockingDispatcherName)),
+        metadataCheckTimeout = 99.seconds,
+        maximumEvalDelay = 2.hours,
+        retryFailedReplacement = 1.minute,
+        retryFailedSource = 50.seconds,
+        retryFailedSourceIncrement = 3.0,
+        maxRetryFailedSource = 20.hours,
+        sourceCheckTimeout = 1.minute,
+        streamCacheTime = 3.seconds,
+        stalledPlaybackCheck = 30.seconds)
     }
 
     /**

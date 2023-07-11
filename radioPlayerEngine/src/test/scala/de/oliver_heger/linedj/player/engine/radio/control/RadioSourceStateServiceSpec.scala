@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries.hours
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{After, Before, Inside, IntervalQueryResult}
@@ -78,7 +77,14 @@ object RadioSourceStateServiceSpec {
   private def createRadioPlayerConfig(): RadioPlayerConfig = {
     RadioPlayerConfig(playerConfig = TestPlayerConfig,
       maximumEvalDelay = 33.minutes,
-      retryFailedReplacement = 111.seconds)
+      retryFailedReplacement = 111.seconds,
+      metadataCheckTimeout = 99.seconds,
+      retryFailedSource = 50.seconds,
+      retryFailedSourceIncrement = 3.0,
+      maxRetryFailedSource = 20.hours,
+      sourceCheckTimeout = 1.minute,
+      streamCacheTime = 3.seconds,
+      stalledPlaybackCheck = 30.seconds)
   }
 }
 

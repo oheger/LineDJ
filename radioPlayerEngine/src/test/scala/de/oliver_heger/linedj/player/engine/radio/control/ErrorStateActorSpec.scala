@@ -50,7 +50,12 @@ object ErrorStateActorSpec {
     retryFailedSource = 11.seconds,
     retryFailedSourceIncrement = 2.5,
     maxRetryFailedSource = 30.seconds,
-    sourceCheckTimeout = 44.seconds)
+    sourceCheckTimeout = 44.seconds,
+    maximumEvalDelay = 1.hour,
+    retryFailedReplacement = 30.seconds,
+    metadataCheckTimeout = 45.seconds,
+    streamCacheTime = 10.seconds,
+    stalledPlaybackCheck = 1.minute)
 
   /** A radio source used by tests */
   private val TestRadioSource = RadioSource("http://radio.example.org/music.mp3")

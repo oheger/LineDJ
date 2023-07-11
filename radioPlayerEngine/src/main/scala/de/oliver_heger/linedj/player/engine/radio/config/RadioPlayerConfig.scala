@@ -61,12 +61,12 @@ import scala.concurrent.duration._
   *                                   playback
   */
 case class RadioPlayerConfig(playerConfig: PlayerConfig,
-                             maximumEvalDelay: FiniteDuration = 1.hour,
-                             retryFailedReplacement: FiniteDuration = 1.minute,
-                             retryFailedSource: FiniteDuration = 5.seconds,
-                             retryFailedSourceIncrement: Double = 2.0,
-                             maxRetryFailedSource: FiniteDuration = 6.hours,
-                             sourceCheckTimeout: FiniteDuration = 60.seconds,
-                             metadataCheckTimeout: FiniteDuration = 30.seconds,
-                             streamCacheTime: FiniteDuration = 4.seconds,
-                             stalledPlaybackCheck: FiniteDuration = 5.seconds)
+                             maximumEvalDelay: FiniteDuration,
+                             retryFailedReplacement: FiniteDuration,
+                             retryFailedSource: FiniteDuration,
+                             retryFailedSourceIncrement: Double,
+                             maxRetryFailedSource: FiniteDuration,
+                             sourceCheckTimeout: FiniteDuration,
+                             metadataCheckTimeout: FiniteDuration,
+                             streamCacheTime: FiniteDuration,
+                             stalledPlaybackCheck: FiniteDuration)
