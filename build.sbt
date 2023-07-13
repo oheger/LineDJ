@@ -26,6 +26,8 @@ lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.5"
+lazy val VersionCommonsBeanutils = "1.9.4"
+lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
 lazy val VersionJackson = "2.15.0"
 lazy val VersionJacksonCore = "2.15.1"
@@ -136,6 +138,8 @@ lazy val logDependencies = Seq(
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % VersionLog4j
 )
 
+lazy val beanUtilsDependency = "commons-beanutils" % "commons-beanutils" % VersionCommonsBeanutils
+lazy val collectionsDependency = "commons-collections" % "commons-collections" % VersionCommonsCollections
 lazy val configDependency = "commons-configuration" % "commons-configuration" % VersionCommonsConfig
 
 /** Settings common to most projects that implement actual functionality. */
@@ -682,7 +686,7 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
     name := "linedj-radio-player-config",
     libraryDependencies += configDependency,
     libraryDependencies ++= testDependencies,
-    libraryDependencies += "commons-collections" % "commons-collections" % "3.2.2" % Test,
+    libraryDependencies += collectionsDependency % Test,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.client.config.*"),
     SpiFlyKeys.skipSpiFly := true
@@ -958,7 +962,9 @@ lazy val playerServer = (project in file("playerServer"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= akkaHttpDependencies,
     libraryDependencies += "com.lmax" % "disruptor" % VersionDisruptor,
-  ) dependsOn(radioPlayerEngine, log4jConfFragment)
+    libraryDependencies += collectionsDependency,
+    libraryDependencies += beanUtilsDependency,
+  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, log4jConfFragment)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
