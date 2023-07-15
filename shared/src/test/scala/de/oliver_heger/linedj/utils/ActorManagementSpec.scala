@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app.support
+package de.oliver_heger.linedj.utils
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

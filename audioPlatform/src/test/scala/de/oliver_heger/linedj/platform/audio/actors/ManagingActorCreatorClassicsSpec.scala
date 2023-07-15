@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.platform.audio.actors
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

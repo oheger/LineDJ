@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.platform.app.support
 
 import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.platform.app.PlatformComponent
+import de.oliver_heger.linedj.utils.ActorManagement
 import org.osgi.service.component.ComponentContext
 
 /**

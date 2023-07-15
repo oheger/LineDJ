@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.app.support
+package de.oliver_heger.linedj.utils
 
 import akka.actor.{ActorRef, PoisonPill}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement.{ActorStopper, ManagedActorData}
+import de.oliver_heger.linedj.utils.ActorManagement.{ActorStopper, ManagedActorData}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._

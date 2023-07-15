@@ -18,10 +18,9 @@ package de.oliver_heger.linedj.platform.audio.actors
 
 import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.{actor => classic}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 
 /**
   * A fully functional implementation of [[ActorCreator]] that is based on an
