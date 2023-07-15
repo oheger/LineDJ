@@ -20,10 +20,10 @@ import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
+import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -63,7 +63,7 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     val BufSize = 8888
     val appConfig = new PropertiesConfiguration
     val refCreator = new AtomicReference[ActorCreator]
-    val management = new ActorManagement {
+    val management = new ActorManagementComponent {
       override def initClientContext(context: ClientApplicationContext): Unit = {}
 
       override val clientApplicationContext: ClientApplicationContext = clientAppContext

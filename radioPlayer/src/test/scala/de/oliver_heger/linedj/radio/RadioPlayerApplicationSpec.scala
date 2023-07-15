@@ -24,7 +24,7 @@ import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
@@ -396,7 +396,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param factoryResult the result to be returned by the factory
       */
     private def initPlayerFactoryMock(factory: RadioPlayerFactory, factoryResult: Future[RadioPlayer]): Unit = {
-      when(factory.createRadioPlayer(any(classOf[ActorManagement]))(any(), any()))
+      when(factory.createRadioPlayer(any(classOf[ActorManagementComponent]))(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments.head should be(app)
           factoryResult

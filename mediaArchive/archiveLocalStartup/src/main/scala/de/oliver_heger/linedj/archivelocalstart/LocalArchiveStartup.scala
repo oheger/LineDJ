@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivelocalstart
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import org.apache.logging.log4j.LogManager
@@ -42,7 +42,7 @@ object LocalArchiveStartup {
   * application.
   */
 class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagement {
+  with ActorManagementComponent {
 
   import LocalArchiveStartup._
 

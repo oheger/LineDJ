@@ -16,12 +16,10 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import java.util.concurrent.ConcurrentHashMap
-import akka.actor.{ActorRef, Props}
-import de.oliver_heger.linedj.platform.app.PlatformComponent
+import akka.actor.{ActorRef, PoisonPill}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.{ActorStopper, ManagedActorData}
-import org.osgi.service.component.ComponentContext
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 
 object ActorManagement {
@@ -52,22 +50,14 @@ object ActorManagement {
 }
 
 /**
-  * A trait supporting a [[PlatformComponent]] with actor management.
+  * A trait providing functionality for managing a set of actors that should be
+  * stopped when their lifecycle ends.
   *
-  * A platform component that creates actors during its life time should make
-  * sure that these actors are stopped when itself is stopped. This trait
-  * helps to achieve this. It can be mixed in and provides an implementation of
-  * ''deactivate()'' that stops all actors which have been registered before by
-  * calling the ''registerActor()'' method.
-  *
-  * So a class that wants to use this functionality just has to call
+  * A class that wants to use this functionality just has to call
   * ''registerActor()'' for each actor it wants to have managed. (If an actor
   * is stopped by the class itself or via some other means, it does not have to
   * be registered.) Registered actors are stored in a thread-safe map using
   * their names as keys, so that they can be accessed from every thread.
-  * Stopping of actors has to be done in the OSGi management thread when the
-  * component is deactivated, but actors are typically created in other
-  * threads; so thread-safe access is mandatory.
   *
   * A concrete subclass can rely on the storage of actors and access the
   * managed actor references via the ''getActor()'' method. However, due to the
@@ -84,17 +74,17 @@ object ActorManagement {
   * type are complicated, and typed actors cannot be stopped in a generic way.
   * To at least support the automatic stopping of typed actors, the
   * [[ActorStopper]] trait is introduced. There is an overloaded function to
-  * register such object. (In this case, the access to the typed actor
+  * register such objects. (In this case, the access to the typed actor
   * reference does not work though.)
   */
-trait ActorManagement extends PlatformComponent {
+trait ActorManagement {
   /** A map for storing registered actors. */
   private val managedActors = new ConcurrentHashMap[String, ManagedActorData]
 
   /**
     * Registers the specified actor under the given key. The actor can then be
-    * queried via ''getActor()'', and it is stopped when this component is
-    * deactivated.
+    * queried via ''getActor()'', and it is stopped when the [[stopActors]]
+    * function is called.
     *
     * @param name  the name of the actor
     * @param actor the actor
@@ -109,7 +99,7 @@ trait ActorManagement extends PlatformComponent {
     * Registers an object to stop an actor under the given key. Optionally the
     * actor reference can be provided. If such a reference is available, it can
     * be queried via ''getActor()''. In any case, the ''ActorStopper'' is
-    * invoked when this component is deactivated.
+    * invoked when the [[stopActors]] function is called.
     *
     * @param name    the name of the actor
     * @param stopper the object to stop this actor
@@ -128,19 +118,6 @@ trait ActorManagement extends PlatformComponent {
     */
   def unregisterActor(name: String): Option[ActorRef] =
     unregisterActorData(name).flatMap(_.ref)
-
-  /**
-    * Creates a new actor based on the specified parameters (using the actor
-    * factory of the ''ClientApplicationContext'') and registers it. This is a
-    * convenience method allowing the creation and registration of an actor in
-    * a single step.
-    *
-    * @param props creation properties for the actor
-    * @param name  the actor's name
-    * @return the newly created actor
-    */
-  def createAndRegisterActor(props: Props, name: String): ActorRef =
-    registerActor(name, clientApplicationContext.actorFactory.createActor(props, name))
 
   /**
     * Removes the specified actor from this instance and stops it. The return
@@ -181,21 +158,11 @@ trait ActorManagement extends PlatformComponent {
   def managedActorNames: Iterable[String] = managedActors.keySet().asScala
 
   /**
-    * @inheritdoc This implementation stops all actors that have been
-    *             registered.
-    */
-  abstract override def deactivate(componentContext: ComponentContext): Unit = {
-    stopActors()
-    super.deactivate(componentContext)
-  }
-
-  /**
     * Stops all managed actors and removes them from the internal map. This
-    * method is called by ''deactivate()''. It can also be called by derived
-    * classes if they want to reset their actors in the middle of their
-    * life cycle.
+    * method should be called at least at the end of the lifecycle of this
+    * object when the actors are no longer needed.
     */
-  protected def stopActors(): Unit = {
+  def stopActors(): Unit = {
     val actors = managedActors.values().asScala
     actors foreach (_.stopper.stop())
     managedActors.clear()
@@ -219,6 +186,6 @@ trait ActorManagement extends PlatformComponent {
     */
   private def classicActorStopper(a: ActorRef): ActorStopper =
     () => {
-      clientApplicationContext.actorSystem stop a
+      a ! PoisonPill
     }
 }

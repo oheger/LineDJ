@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivestart
 
 import akka.actor.Props
 import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
 import org.apache.logging.log4j.LogManager
 import org.osgi.service.component.ComponentContext
@@ -39,7 +39,7 @@ import org.osgi.service.component.ComponentContext
   * current implementation of the ''MediaFacade'' trait.
   */
 class MediaArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagement {
+  with ActorManagementComponent {
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -55,7 +55,6 @@ class MediaArchiveStartup extends PlatformComponent with ClientContextSupport
     val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
     val metaDataManager = createAndRegisterActor(Props(classOf[MetaDataUnionActor],
       archiveConfig), MediaActors.MetaDataManager.name)
-    val mediaManager = createAndRegisterActor(MediaUnionActor(metaDataManager),
-      MediaActors.MediaManager.name)
+    createAndRegisterActor(MediaUnionActor(metaDataManager), MediaActors.MediaManager.name)
   }
 }

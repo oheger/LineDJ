@@ -41,7 +41,7 @@ trait ActorManagementComponent extends ActorManagement with PlatformComponent {
     * @param name  the actor's name
     * @return the newly created actor
     */
-  override def createAndRegisterActor(props: Props, name: String): ActorRef =
+  def createAndRegisterActor(props: Props, name: String): ActorRef =
     registerActor(name, clientApplicationContext.actorFactory.createActor(props, name))
 
   /**

@@ -44,7 +44,7 @@ object ActorManagementComponentSpec {
       */
     def numberOfStopActorsCalls: Int = stopCounter.get()
 
-    override protected def stopActors(): Unit = {
+    override def stopActors(): Unit = {
       stopCounter.incrementAndGet()
     }
   }
@@ -144,7 +144,7 @@ class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with Mockit
       * @return this test helper
       */
     def checkActorsStopped(): ManagementComponentTestHelper = {
-      component.numberOfStopActorsCalls should be > 0
+      component.numberOfStopActorsCalls should be(1)
       this
     }
 

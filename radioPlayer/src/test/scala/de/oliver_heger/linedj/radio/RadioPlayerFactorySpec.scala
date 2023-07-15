@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.radio
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.{ActorManagement, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.utils.ActorFactory
@@ -45,16 +45,16 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
   }
 
   /**
-    * Creates a stub ActorManagement object. The object can also be used to
-    * stop all actors that have been created during a test.
+    * Creates a stub [[ActorManagementComponent]] object. The object can also
+    * be used to stop all actors that have been created during a test.
     *
     * @return the stub
     */
-  private def createActorManagement(): ActorManagement = {
+  private def createActorManagement(): ActorManagementComponent = {
     val context = mock[ClientApplicationContext]
     when(context.actorFactory).thenReturn(new ActorFactory(system))
 
-    new ActorManagement {
+    new ActorManagementComponent {
       override def initClientContext(context: ClientApplicationContext): Unit = {}
 
       override def clientApplicationContext: ClientApplicationContext = context

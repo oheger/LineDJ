@@ -18,15 +18,15 @@ package de.oliver_heger.linedj.radio
 
 import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.app.ClientApplication
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An internally used helper class for creating a [[RadioPlayer]] instance.
@@ -40,12 +40,12 @@ private class RadioPlayerFactory {
     * object as actor factory. The creation of the player is an asynchronous
     * operation; therefore, result is a ''Future''.
     *
-    * @param actorManagement the ''ActorManagement''
+    * @param actorManagement the ''ActorManagementComponent''
     * @param system          the ''ActorSystem''
     * @param ec              the ''ExecutionContext''
     * @return a ''Future'' with the newly created ''RadioPlayer''
     */
-  def createRadioPlayer(actorManagement: ActorManagement)
+  def createRadioPlayer(actorManagement: ActorManagementComponent)
                        (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] =
     RadioPlayer(createPlayerConfig(actorManagement))
 
@@ -58,7 +58,7 @@ private class RadioPlayerFactory {
     * @param actorManagement the ''ActorManagement''
     * @return the player configuration
     */
-  private def createPlayerConfig(actorManagement: ActorManagement): RadioPlayerConfig = {
+  private def createPlayerConfig(actorManagement: ActorManagementComponent): RadioPlayerConfig = {
     val creator = new ManagingActorCreator(actorManagement.clientApplicationContext.actorFactory, actorManagement)
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,

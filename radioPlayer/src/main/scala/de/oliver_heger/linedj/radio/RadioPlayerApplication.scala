@@ -20,7 +20,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
+import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
@@ -51,8 +51,8 @@ import scala.concurrent.{Await, Future, Promise, TimeoutException}
   * @param playerFactory the factory for creating a radio player
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
-  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagement with ActorClientSupport
-  with Identifiable {
+  ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagementComponent
+  with ActorClientSupport with Identifiable {
   def this() = this(new RadioPlayerFactory)
 
   /**

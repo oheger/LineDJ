@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.impl
 
 import akka.actor.{ActorRef, ActorSystem}
-import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.platform.app.support.{ActorManagement, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.audio.actors.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.Configuration
@@ -44,10 +44,10 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
     * @param c            the application configuration
     * @param prefix       the prefix for the config settings of the player
     * @param mediaManager the media manager actor
-    * @param management   the actor management instance
+    * @param management   the actor management component instance
     * @return a ''Future'' with the new audio player instance
     */
-  def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef, management: ActorManagement)
+  def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef, management: ActorManagementComponent)
                        (implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
     val creator = new ManagingActorCreator(management.clientApplicationContext.actorFactory, management)
     val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)

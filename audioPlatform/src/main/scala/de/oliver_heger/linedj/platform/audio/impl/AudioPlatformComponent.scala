@@ -20,7 +20,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
-import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagement}
+import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.audio.actors.{AudioPlayerController, AudioPlayerManagerActor, PlayerManagerActor}
@@ -125,7 +125,7 @@ object AudioPlatformComponent {
   * @param playerFactory the factory for creating the audio player
   */
 class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory)
-  extends PlatformComponent with ClientContextSupport with ActorManagement with ActorClientSupport {
+  extends PlatformComponent with ClientContextSupport with ActorManagementComponent with ActorClientSupport {
 
   import AudioPlatformComponent._
 

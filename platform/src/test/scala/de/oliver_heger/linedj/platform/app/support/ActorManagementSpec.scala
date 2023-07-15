@@ -16,12 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
-import org.mockito.Mockito._
-import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -40,15 +37,6 @@ object ActorManagementSpec {
     * @return the actor name
     */
   private def genActorName(idx: Int): String = ActorName + idx
-
-  private class ComponentTestImpl extends ClientContextSupport with SuperInvocationCheck
-    with ActorManagement {
-    /**
-      * Overridden to increase visibility.
-      */
-    override def stopActors(): Unit = super.stopActors()
-  }
-
 }
 
 /**
@@ -65,27 +53,20 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     TestKit shutdownActorSystem system
   }
 
-  "An ActorManagement" should "call the original life-cycle methods" in {
-    val helper = new ActorManagementTestHelper
-
-    helper.activateComponent().checkActivation()
-      .deactivateComponent().checkDeactivation()
-  }
-
-  it should "make registered actors accessible" in {
+  "An ActorManagement" should "make registered actors accessible" in {
     val helper = new ActorManagementTestHelper
 
     val (name1, actor1) = helper.registerActor()
     val (name2, actor2) = helper.registerActor()
-    helper.component.getActor(name1) should be(actor1)
-    helper.component.getActor(name2) should be(actor2)
+    helper.management.getActor(name1) should be(actor1)
+    helper.management.getActor(name2) should be(actor2)
   }
 
   it should "throw an exception when querying an unknown actor" in {
     val helper = new ActorManagementTestHelper
 
     intercept[NoSuchElementException] {
-      helper.component getActor genActorName(1)
+      helper.management getActor genActorName(1)
     }
   }
 
@@ -94,52 +75,38 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val (_, actor1) = helper.registerActor()
     val (_, actor2) = helper.registerActor()
 
-    helper.deactivateComponent()
+    helper.stopActors()
       .checkActorsStopped(actor1, actor2)
-  }
-
-  it should "allow creating and registering actors" in {
-    val helper = new ActorManagementTestHelper
-    val probe = TestProbe()
-    val name = genActorName(42)
-    val props = Props(new Actor {
-      override def receive: Receive = Actor.emptyBehavior
-    })
-    when(helper.clientContext.actorFactory.createActor(props, name)).thenReturn(probe.ref)
-
-    val actor = helper.component.createAndRegisterActor(props, name)
-    actor should be(probe.ref)
-    helper.component getActor name should be(actor)
   }
 
   it should "allow stopping managed actors directly" in {
     val helper = new ActorManagementTestHelper
     val (name, actor) = helper.registerActor()
 
-    helper.component.stopActors()
+    helper.management.stopActors()
     helper.checkActorsStopped(actor)
     intercept[NoSuchElementException] {
-      helper.component getActor name
+      helper.management getActor name
     }
   }
 
   it should "return an empty set if no actors have been registered yet" in {
     val helper = new ActorManagementTestHelper
 
-    helper.component.managedActorNames shouldBe empty
+    helper.management.managedActorNames shouldBe empty
   }
 
   it should "return the names of registered actors" in {
     val helper = new ActorManagementTestHelper
     val expNames = (1 to 10).map(_ => helper.registerActor()._1)
 
-    helper.component.managedActorNames should contain theSameElementsAs expNames
+    helper.management.managedActorNames should contain theSameElementsAs expNames
   }
 
   it should "return None when removing an unknown actor" in {
     val helper = new ActorManagementTestHelper
 
-    helper.component.unregisterActor("someActor") shouldBe empty
+    helper.management.unregisterActor("someActor") shouldBe empty
   }
 
   it should "support removing a registration for an actor" in {
@@ -147,14 +114,14 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val (name1, _) = helper.registerActor()
     val (name2, actor2) = helper.registerActor()
 
-    helper.component.unregisterActor(name2) should be(Some(actor2))
-    helper.component.managedActorNames should contain only name1
+    helper.management.unregisterActor(name2) should be(Some(actor2))
+    helper.management.managedActorNames should contain only name1
   }
 
   it should "return false for an attempt to stop an unknown actor" in {
     val helper = new ActorManagementTestHelper
 
-    helper.component.unregisterAndStopActor("someActor") shouldBe false
+    helper.management.unregisterAndStopActor("someActor") shouldBe false
   }
 
   it should "support removing and stopping an actor" in {
@@ -162,9 +129,9 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val (name1, _) = helper.registerActor()
     val (name2, actor2) = helper.registerActor()
 
-    helper.component.unregisterAndStopActor(name2) shouldBe true
+    helper.management.unregisterAndStopActor(name2) shouldBe true
     helper.checkActorsStopped(actor2)
-    helper.component.managedActorNames should contain only name1
+    helper.management.managedActorNames should contain only name1
   }
 
   it should "support registering only an object to stop actors" in {
@@ -174,8 +141,8 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
     val helper = new ActorManagementTestHelper
 
-    helper.component.registerActor("actorWithStopper", stopper)
-    helper.deactivateComponent()
+    helper.management.registerActor("actorWithStopper", stopper)
+    helper.stopActors()
     stopFlag.get() shouldBe true
   }
 
@@ -184,9 +151,9 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val stopper = mock[ActorStopper]
     val helper = new ActorManagementTestHelper
 
-    helper.component.registerActor(ActorName, stopper)
+    helper.management.registerActor(ActorName, stopper)
     intercept[NoSuchElementException] {
-      helper.component getActor ActorName
+      helper.management getActor ActorName
     }
   }
 
@@ -194,57 +161,19 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * A helper class managing a test instance and its dependencies.
     */
   private class ActorManagementTestHelper {
-    /** The application context. */
-    val clientContext = new ClientApplicationContextImpl
-
-    /** A mock for the OSGi component context. */
-    val componentContext: ComponentContext = mock[ComponentContext]
-
     /** The instance to be tested. */
-    val component: ComponentTestImpl = createTestInstance()
+    val management: ActorManagement = createTestInstance()
 
     /** A counter for generating actor names. */
     private var actorCount = 0
 
     /**
-      * Calls ''activate()'' on the test component.
+      * Calls ''stopActors()'' on the test instance.
       *
       * @return this test helper
       */
-    def activateComponent(): ActorManagementTestHelper = {
-      component activate componentContext
-      verifyNoInteractions(componentContext)
-      this
-    }
-
-    /**
-      * Calls ''deactivate()'' on the test component.
-      *
-      * @return this test helper
-      */
-    def deactivateComponent(): ActorManagementTestHelper = {
-      component deactivate componentContext
-      verifyNoInteractions(componentContext)
-      this
-    }
-
-    /**
-      * Checks whether activation logic was invoked on the test instance.
-      *
-      * @return this test helper
-      */
-    def checkActivation(): ActorManagementTestHelper = {
-      component.activateCount should be(1)
-      this
-    }
-
-    /**
-      * Checks whether deactivation logic was invoked on the test instance.
-      *
-      * @return this test helper
-      */
-    def checkDeactivation(): ActorManagementTestHelper = {
-      component.deactivateCount should be(1)
+    def stopActors(): ActorManagementTestHelper = {
+      management.stopActors()
       this
     }
 
@@ -257,7 +186,7 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       actorCount += 1
       val name = genActorName(actorCount)
       val actor = TestProbe().ref
-      component.registerActor(name, actor)
+      management.registerActor(name, actor)
       (name, actor)
     }
 
@@ -268,7 +197,11 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def checkActorsStopped(refs: ActorRef*): ActorManagementTestHelper = {
-      refs foreach (r => verify(clientContext.actorSystem).stop(r))
+      refs foreach { ref =>
+        val watcher = TestProbe()
+        watcher watch ref
+        watcher.expectTerminated(ref)
+      }
       this
     }
 
@@ -277,11 +210,6 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return the test instance
       */
-    private def createTestInstance(): ComponentTestImpl = {
-      val comp = new ComponentTestImpl
-      comp initClientContext clientContext
-      comp
-    }
+    private def createTestInstance(): ActorManagement = new ActorManagement {}
   }
-
 }
