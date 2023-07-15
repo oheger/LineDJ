@@ -59,7 +59,7 @@ private class RadioPlayerFactory {
     * @return the player configuration
     */
   private def createPlayerConfig(actorManagement: ActorManagement): RadioPlayerConfig = {
-    val creator = new ManagingActorCreator(actorManagement)
+    val creator = new ManagingActorCreator(actorManagement.clientApplicationContext.actorFactory, actorManagement)
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
       bufferChunkSize = 4096,

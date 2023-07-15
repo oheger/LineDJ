@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.platform.audio.actors
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
+import de.oliver_heger.linedj.utils.ActorFactory
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -41,14 +42,16 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
   "ManagingActorCreator" should "create and register a classic actor" in {
     val ActorName = "MyLineWriterActor"
     val props = Props[TestActorImpl]()
+    val factory = mock[ActorFactory]
     val management = mock[ActorManagement]
     val probe = TestProbe()
-    when(management.createAndRegisterActor(props, ActorName)).thenReturn(probe.ref)
+    when(factory.createActor(props, ActorName)).thenReturn(probe.ref)
 
-    val creator = new ManagingActorCreator(management)
+    val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createActor(props, ActorName)
 
     actorRef should be(probe.ref)
+    verify(management).registerActor(ActorName, probe.ref)
   }
 }
 

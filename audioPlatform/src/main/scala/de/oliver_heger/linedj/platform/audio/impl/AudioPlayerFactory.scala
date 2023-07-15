@@ -49,7 +49,7 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
     */
   def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef, management: ActorManagement)
                        (implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
-    val creator = new ManagingActorCreator(management)
+    val creator = new ManagingActorCreator(management.clientApplicationContext.actorFactory, management)
     val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)
     AudioPlayer(config)
   }

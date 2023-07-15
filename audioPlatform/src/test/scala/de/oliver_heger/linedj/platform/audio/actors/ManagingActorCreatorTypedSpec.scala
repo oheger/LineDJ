@@ -45,11 +45,9 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
     val context = mock[ClientApplicationContext]
-    when(management.clientApplicationContext).thenReturn(context)
-    when(context.actorFactory).thenReturn(factory)
     when(factory.createActor(behavior, ActorName, Props.empty)).thenReturn(probe.ref)
 
-    val creator = new ManagingActorCreator(management)
+    val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createActor(behavior, ActorName, None)
 
     actorRef should be(probe.ref)
@@ -65,11 +63,9 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
     val context = mock[ClientApplicationContext]
-    when(management.clientApplicationContext).thenReturn(context)
-    when(context.actorFactory).thenReturn(factory)
     when(factory.createActor(behavior, ActorName, props)).thenReturn(probe.ref)
 
-    val creator = new ManagingActorCreator(management)
+    val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createActor(behavior, ActorName, Some(stopCommand), props)
 
     actorRef should be(probe.ref)

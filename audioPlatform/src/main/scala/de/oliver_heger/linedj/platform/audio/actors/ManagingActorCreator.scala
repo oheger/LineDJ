@@ -21,18 +21,22 @@ import akka.{actor => classic}
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.utils.ActorFactory
 
 /**
   * A fully functional implementation of [[ActorCreator]] that is based on an
-  * [[ActorManagement]] object.
+  * [[ActorFactory]] and uses an [[ActorManagement]] object to manage the
+  * actors that have been created..
   *
-  * This implementation uses the actor factory managed by the associated
-  * [[ActorManagement]] instance to create new actors. The actors are then also
-  * registered, so that they can be stopped properly.
+  * This implementation uses the provided actor factory to create new actors.
+  * The actors are then also registered at the management instance, so that
+  * they can be stopped properly when they are no longer needed.
   *
   * @param actorManagement the [[ActorManagement]] instance
+  * @param actorFactory the [[ActorFactory]] instance
   */
-class ManagingActorCreator(val actorManagement: ActorManagement) extends ActorCreator {
+class ManagingActorCreator(val actorFactory: ActorFactory,
+                           val actorManagement: ActorManagement) extends ActorCreator {
   /**
     * Creates a typed actor for the given behavior with the specified name.
     * Since there is no default way to stop typed actors, it is possible to
@@ -48,7 +52,7 @@ class ManagingActorCreator(val actorManagement: ActorManagement) extends ActorCr
                               name: String,
                               optStopCommand: Option[T],
                               props: Props): ActorRef[T] = {
-    val ref = actorManagement.clientApplicationContext.actorFactory.createActor(behavior, name, props)
+    val ref = actorFactory.createActor(behavior, name, props)
     optStopCommand foreach { command =>
       val stopper: ActorStopper = () => ref ! command
       actorManagement.registerActor(name, stopper)
@@ -64,6 +68,9 @@ class ManagingActorCreator(val actorManagement: ActorManagement) extends ActorCr
     * @param name  the name to use for this actor
     * @return the reference to the newly created actor
     */
-  override def createActor(props: classic.Props, name: String): classic.ActorRef =
-    actorManagement.createAndRegisterActor(props, name)
+  override def createActor(props: classic.Props, name: String): classic.ActorRef = {
+    val actor = actorFactory.createActor(props, name)
+    actorManagement.registerActor(name, actor)
+    actor
+  }
 }
