@@ -20,7 +20,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.comm.ActorFactory
+import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._

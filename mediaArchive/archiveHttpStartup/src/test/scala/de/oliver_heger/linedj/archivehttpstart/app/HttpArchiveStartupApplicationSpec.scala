@@ -31,10 +31,11 @@ import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.Gener
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
+import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.di.impl.DefaultBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider

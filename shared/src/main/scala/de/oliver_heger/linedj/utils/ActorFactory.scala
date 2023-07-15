@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.comm
+package de.oliver_heger.linedj.utils
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.actor.typed
 import akka.actor.typed.Behavior
+import akka.actor.{ActorRef, ActorSystem, Props, typed}
 import com.github.cloudfiles.core.http.factory.Spawner
 
 /**

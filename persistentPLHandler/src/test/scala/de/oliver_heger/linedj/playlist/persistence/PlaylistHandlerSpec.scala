@@ -28,11 +28,10 @@ import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => argEq}

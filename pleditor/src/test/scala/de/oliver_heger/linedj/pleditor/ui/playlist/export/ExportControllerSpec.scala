@@ -21,12 +21,12 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent

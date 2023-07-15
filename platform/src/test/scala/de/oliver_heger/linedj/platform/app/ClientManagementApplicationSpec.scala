@@ -21,10 +21,11 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import akka.actor.{Actor, ActorSystem, Terminated}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency}
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus, MessageBusListener}
+import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
+import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.WindowManager

@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
-import de.oliver_heger.linedj.platform.comm.{ActorFactory, MessageBus}
+import de.oliver_heger.linedj.platform.comm.MessageBus
+import de.oliver_heger.linedj.utils.ActorFactory
 
 /**
   * A trait defining a factory for a [[MediaFacade]] implementation.

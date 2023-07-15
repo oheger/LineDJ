@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.comm
+package de.oliver_heger.linedj.utils
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.{Actor, ActorSystem, Props}

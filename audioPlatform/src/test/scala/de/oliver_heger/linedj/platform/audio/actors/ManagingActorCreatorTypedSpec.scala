@@ -21,10 +21,10 @@ import akka.actor.typed.Props
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
 import de.oliver_heger.linedj.platform.app.support.ActorManagement.ActorStopper
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
+import de.oliver_heger.linedj.utils.ActorFactory
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._

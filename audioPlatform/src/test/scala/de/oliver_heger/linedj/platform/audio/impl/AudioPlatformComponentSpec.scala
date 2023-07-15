@@ -29,11 +29,11 @@ import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerMan
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext

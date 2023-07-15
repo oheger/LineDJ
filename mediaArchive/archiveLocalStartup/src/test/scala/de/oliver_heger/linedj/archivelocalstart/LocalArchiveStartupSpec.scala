@@ -22,9 +22,9 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._

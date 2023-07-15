@@ -25,10 +25,10 @@ import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.app.support.ActorManagement
-import de.oliver_heger.linedj.platform.comm.ActorFactory
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
+import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.Configuration
 import org.mockito.ArgumentCaptor
