@@ -29,10 +29,11 @@ import scala.jdk.CollectionConverters._
 private object EndpointRequestHandlerActor:
   /**
     * Returns a ''Props'' object for creating a new instance of this actor.
-    * @param groupAddress the address of the multicast group
-    * @param port the port the actor should listen on
-    * @param requestCode the expected request code
-    * @param response the response to send
+    *
+    * @param groupAddress  the address of the multicast group
+    * @param port          the port the actor should listen on
+    * @param requestCode   the expected request code
+    * @param response      the response to send
     * @param readyListener an optional listener that is notified when the actor
     *                      is ready to serve requests
     * @return a ''Props'' object for creating a new instance
@@ -49,6 +50,7 @@ private object EndpointRequestHandlerActor:
   /**
     * A message that is sent to the ready listener when the handler actor is
     * ready to handle requests.
+    *
     * @param interfaces the network interfaces the actor supports
     */
   case class HandlerReady(interfaces: List[NetworkInterface])
@@ -56,8 +58,9 @@ private object EndpointRequestHandlerActor:
   /**
     * An internal helper class that configures the [[DatagramSocket]] used by
     * the actor for UDP multicast.
+    *
     * @param multicastAddress the address of the multicast group to join
-    * @param interfaces the list of network interfaces to support
+    * @param interfaces       the list of network interfaces to support
     */
   case class MulticastConfig(multicastAddress: String,
                              interfaces: Iterable[NetworkInterface]) extends SocketOptionV2:
@@ -78,10 +81,10 @@ private object EndpointRequestHandlerActor:
   * interfaces and answers them. Both, the request code and the answer can be
   * configured when creating an instance.
   *
-  * @param groups the object with the multicast configuration
-  * @param port the port the actor should listen on
-  * @param requestCode the expected request code
-  * @param response the response to send
+  * @param groups        the object with the multicast configuration
+  * @param port          the port the actor should listen on
+  * @param requestCode   the expected request code
+  * @param response      the response to send
   * @param readyListener an optional listener that is notified when the actor
   *                      is ready to serve requests
   */
@@ -99,10 +102,10 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
 
   override def receive: Receive =
     case Udp.Bound(_) =>
-      log.info("ListenerActor active for interfaces {} on port {}.",
+      log.info("EndpointRequestHandlerActor active for interfaces {} on port {}.",
         groups.interfaces, port)
       context.become(active(sender()))
-      readyListener foreach(_ ! HandlerReady(groups.interfaces.toList))
+      readyListener foreach (_ ! HandlerReady(groups.interfaces.toList))
 
   private def active(socket: ActorRef): Receive =
     case Udp.Received(data, remote) =>
@@ -111,6 +114,10 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
       if request == requestCode then
         socket ! Udp.Send(ByteString(response), remote)
 
-    case Udp.Unbind => socket ! Udp.Unbind
+    case Udp.Unbind =>
+      socket ! Udp.Unbind
+      log.info("EndpointRequestHandlerActor: Received Unbind request.")
 
-    case Udp.Unbound => context.stop(self)
+    case Udp.Unbound =>
+      log.info("Stopping EndpointRequestHandlerActor.")
+      context.stop(self)

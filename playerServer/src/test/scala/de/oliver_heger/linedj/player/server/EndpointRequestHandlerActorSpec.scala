@@ -51,9 +51,10 @@ object EndpointRequestHandlerActorSpec:
   /**
     * A class simulating a client of the request handler actor. In a thread,
     * the instance sends a UDP multicast request and waits for the response.
+    *
     * @param queue the queue to put the response
-    * @param code the code to send
-    * @param port the port the handler actor is listening
+    * @param code  the code to send
+    * @param port  the port the handler actor is listening
     */
   private class UdpClientThread(queue: BlockingQueue[String],
                                 code: String,
@@ -90,7 +91,7 @@ object EndpointRequestHandlerActorSpec:
   * cases are skipped.
   */
 class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-with BeforeAndAfterAll with Matchers with TryValues:
+  with BeforeAndAfterAll with Matchers with TryValues:
   def this() = this(ActorSystem("EndpointRequestHandlerActorSpec"))
 
   /** The test kit for typed actors. */
@@ -149,6 +150,7 @@ with BeforeAndAfterAll with Matchers with TryValues:
 
     /**
       * Sends the request to the test actor after it
+      *
       * @param code the request code to sent to the test actor
       * @return a flag whether a test is possible; '''false''' means that no
       *         network is available
@@ -165,6 +167,7 @@ with BeforeAndAfterAll with Matchers with TryValues:
     /**
       * Expects that a response from the actor has been received. Returns this
       * response.
+      *
       * @return the response from the actor under test
       */
     def expectResponse(): String =
@@ -187,6 +190,7 @@ with BeforeAndAfterAll with Matchers with TryValues:
 
     /**
       * Creates the thread that handles the UDP communication.
+      *
       * @param code the request code to send
       * @return the UDP client thread
       */
@@ -195,6 +199,7 @@ with BeforeAndAfterAll with Matchers with TryValues:
 
     /**
       * Creates the actor to be tested.
+      *
       * @return the test actor instance
       */
     private def createHandlerActor(): ActorRef =
