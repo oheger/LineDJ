@@ -652,6 +652,7 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
   .settings(
     name := "linedj-player-config",
     libraryDependencies += configDependency,
+    libraryDependencies ++= akkaDependencies,
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.client.config.*"),

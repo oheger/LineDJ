@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.audio.actors
+package de.oliver_heger.linedj.player.engine.client.config
 
 import akka.actor.typed.{ActorRef, Behavior, Props}
 import akka.{actor => classic}
-import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 
 /**

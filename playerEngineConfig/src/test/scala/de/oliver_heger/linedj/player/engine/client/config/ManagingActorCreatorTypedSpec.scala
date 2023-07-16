@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.platform.audio.actors
+package de.oliver_heger.linedj.player.engine.client.config
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.Props
-import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
+import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
@@ -43,7 +42,6 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
-    val context = mock[ClientApplicationContext]
     when(factory.createActor(behavior, ActorName, Props.empty)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
@@ -61,7 +59,6 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
-    val context = mock[ClientApplicationContext]
     when(factory.createActor(behavior, ActorName, props)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
