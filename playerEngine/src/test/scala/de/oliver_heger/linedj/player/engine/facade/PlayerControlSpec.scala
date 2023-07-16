@@ -234,8 +234,11 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
         testKit.spawn(behavior)
       }
 
-      override def createActor(props: classic.Props, name: String): classic.ActorRef = {
+      override def createClassicActor(props: classic.Props,
+                                      name: String,
+                                      optStopCommand: Option[Any]): classic.ActorRef = {
         name should be(actorName + "Old")
+        optStopCommand shouldBe empty
         system.actorOf(props)
       }
     }

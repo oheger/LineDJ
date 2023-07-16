@@ -18,7 +18,10 @@ package de.oliver_heger.linedj.player.engine.client.config
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
+import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.{eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -47,10 +50,30 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
     when(factory.createActor(props, ActorName)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
-    val actorRef = creator.createActor(props, ActorName)
+    val actorRef = creator.createClassicActor(props, ActorName)
 
     actorRef should be(probe.ref)
     verify(management).registerActor(ActorName, probe.ref)
+  }
+
+  it should "create and register a classic actor with a custom stop command" in {
+    val ActorName = "MyCustomStopActor"
+    val StopCommand = "Please, stop now!"
+    val props = Props[TestActorImpl]()
+    val factory = mock[ActorFactory]
+    val management = mock[ActorManagement]
+    val probe = TestProbe()
+    when(factory.createActor(props, ActorName)).thenReturn(probe.ref)
+
+    val creator = new ManagingActorCreator(factory, management)
+    val actorRef = creator.createClassicActor(props, ActorName, Some(StopCommand))
+
+    actorRef should be(probe.ref)
+    val captStopper = ArgumentCaptor.forClass(classOf[ActorStopper])
+    verify(management).registerActor(eqArg(ActorName), captStopper.capture(), eqArg(Some(probe.ref)))
+
+    captStopper.getValue.stop()
+    probe.expectMsg(StopCommand)
   }
 }
 

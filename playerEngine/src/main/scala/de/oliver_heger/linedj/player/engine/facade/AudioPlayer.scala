@@ -61,7 +61,7 @@ object AudioPlayer {
       "playbackContextFactoryActor")
     PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorCreator,
       "eventManagerActor") map { eventActors =>
-      val facadeActor = config.actorCreator.createActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
+      val facadeActor = config.actorCreator.createClassicActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
       new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor)
     }

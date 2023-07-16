@@ -212,9 +212,9 @@ object ErrorStateActor {
                                       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
     PlaybackActorsFactoryResult = {
       val lineWriter = creator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
-      val sourceActor = creator.createActor(RadioDataSourceActor(config, radioEventActor, streamManager),
+      val sourceActor = creator.createClassicActor(RadioDataSourceActor(config, radioEventActor, streamManager),
         namePrefix + "SourceActor")
-      val playActor = creator.createActor(PlaybackActor(config, sourceActor, lineWriter,
+      val playActor = creator.createClassicActor(PlaybackActor(config, sourceActor, lineWriter,
         playerEventActor, factoryActor), namePrefix + "PlaybackActor")
       PlaybackActorsFactoryResult(sourceActor, playActor)
     }
@@ -538,7 +538,10 @@ object ErrorStateActor {
                                   optStopCommand: Option[T],
                                   props: Props): ActorRef[T] = context.spawn(behavior, name, props)
 
-      override def createActor(props: classic.Props, name: String): classic.ActorRef = context.actorOf(props, name)
+      override def createClassicActor(props: classic.Props,
+                                      name: String,
+                                      optStopCommand: Option[Any]): classic.ActorRef =
+        context.actorOf(props, name)
     }
 
   /**

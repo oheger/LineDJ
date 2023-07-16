@@ -49,11 +49,13 @@ trait ActorCreator {
 
   /**
     * Creates a classic actor based on the given ''Props'' with the specified
-    * name.
+    * name. Optionally, a command to stop this actor can be provided. If this
+    * is not specified, the actor is stopped by sending it a ''PoisonPill''.
     *
-    * @param props the ''Props'' for the new actor instance
-    * @param name  the name to use for this actor
+    * @param props          the ''Props'' for the new actor instance
+    * @param name           the name to use for this actor
+    * @param optStopCommand an optional command to stop the actor
     * @return the reference to the newly created actor
     */
-  def createActor(props: classic.Props, name: String): classic.ActorRef
+  def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any] = None): classic.ActorRef
 }

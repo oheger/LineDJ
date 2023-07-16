@@ -75,7 +75,7 @@ object RadioPlayer {
       val factoryActor = PlayerControl.createPlaybackContextFactoryActor(creator,
         "radioPlaybackContextFactoryActor")
       val facadeActor =
-        creator.createActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
+        creator.createClassicActor(PlayerFacadeActor(config.playerConfig, playerListener.listener, scheduledInvocationActor,
           factoryActor, lineWriterActor, sourceCreator), "radioPlayerFacadeActor")
       val controlBehavior = controlActorFactory(config, eventActors._2, eventActors._1, facadeActor,
         scheduledInvocationActor, factoryActor, streamManager)

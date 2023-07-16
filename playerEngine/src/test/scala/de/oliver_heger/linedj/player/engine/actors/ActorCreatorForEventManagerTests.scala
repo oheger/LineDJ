@@ -130,7 +130,10 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
     ref.asInstanceOf[ActorRef[T]]
   }
 
-  override def createActor(props: classic.Props, name: String): classic.ActorRef = {
+  override def createClassicActor(props: classic.Props,
+                                  name: String,
+                                  optStopCommand: Option[Any]): classic.ActorRef = {
+    optStopCommand shouldBe empty
     val checkFunc = customClassicChecks(props)
     checkFunc.isDefinedAt(name) shouldBe true
     checkFunc(name)

@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
   * they can be stopped properly when they are no longer needed.
   *
   * @param actorManagement the [[ActorManagement]] instance
-  * @param actorFactory the [[ActorFactory]] instance
+  * @param actorFactory    the [[ActorFactory]] instance
   */
 class ManagingActorCreator(val actorFactory: ActorFactory,
                            val actorManagement: ActorManagement) extends ActorCreator {
@@ -67,9 +67,17 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
     * @param name  the name to use for this actor
     * @return the reference to the newly created actor
     */
-  override def createActor(props: classic.Props, name: String): classic.ActorRef = {
+  override def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any]): classic.ActorRef = {
     val actor = actorFactory.createActor(props, name)
-    actorManagement.registerActor(name, actor)
+
+    optStopCommand match {
+      case Some(stopCommand) =>
+        val stopper: ActorStopper = () => actor ! stopCommand
+        actorManagement.registerActor(name, stopper, Some(actor))
+      case None =>
+        actorManagement.registerActor(name, actor)
+    }
+
     actor
   }
 }

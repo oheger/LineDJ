@@ -538,7 +538,10 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       lineWriterActor.asInstanceOf[ActorRef[T]]
     }
 
-    override def createActor(props: classic.Props, name: String): classic.ActorRef = {
+    override def createClassicActor(props: classic.Props,
+                                    name: String,
+                                    optStopCommand: Option[Any]): classic.ActorRef = {
+      optStopCommand shouldBe empty
       name match {
         case s"${ActorNamePrefix}SourceActor" =>
           val expProps = RadioDataSourceActor(TestPlayerConfig, probeRadioEventActor.ref, probeStreamManagerActor.ref)
@@ -721,7 +724,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
           case msg => ref.set(msg)
         }
       })
-      val testActor = creator.createActor(props, ActorName)
+      val testActor = creator.createClassicActor(props, ActorName)
 
       testActor.path.name should endWith(ActorName)
       testActor ! Message
