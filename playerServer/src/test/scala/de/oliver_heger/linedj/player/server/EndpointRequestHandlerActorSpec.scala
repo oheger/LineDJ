@@ -117,17 +117,6 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     }.success
   }
 
-  it should "stop itself on receiving an Unbind message" in {
-    Using(new TestClient) { client =>
-      if client.sendRequest() then
-        client.handlerActor ! Udp.Unbind
-
-        val probe = TestProbe()
-        probe.watch(client.handlerActor)
-        probe.expectTerminated(client.handlerActor)
-    }.success
-  }
-
   /**
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
@@ -138,6 +127,9 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     /** Test probe for receiving a ready notification from the handler. */
     private val readyListener = testKit.createTestProbe[EndpointRequestHandlerActor.HandlerReady]()
+
+    /** The object for creating actors. */
+    private val actorCreator = ServerConfigTestHelper.actorCreator(system)
 
     /** The port number to be used by the actor under test. */
     private val port = findFreePort()
@@ -182,11 +174,16 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
       val response = queue.poll(250, TimeUnit.MILLISECONDS)
       response should be(null)
 
+    /**
+      * This implementation stops the client thread if it is running. Also, the
+      * test actor instance is shut down.
+      */
     override def close(): Unit =
       optClientThread foreach { clientThread =>
         clientThread.stopTest()
         clientThread.join()
       }
+      stopHandlerActor()
 
     /**
       * Creates the thread that handles the UDP communication.
@@ -198,10 +195,26 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
       new UdpClientThread(queue, code, port)
 
     /**
-      * Creates the actor to be tested.
+      * Creates the actor to be tested. This is done via a [[ServiceFactory]];
+      * so the corresponding function of this class is tested as well.
       *
       * @return the test actor instance
       */
     private def createHandlerActor(): ActorRef =
-      system.actorOf(EndpointRequestHandlerActor.props(GroupAddress, port, RequestCode, Response,
-        Some(readyListener.ref)))
+      val serverConfig = ServerConfigTestHelper.defaultServerConfig(actorCreator)
+        .copy(lookupMulticastAddress = GroupAddress,
+          lookupPort = port,
+          lookupCommand = RequestCode)
+      val factory = new ServiceFactory
+      factory.createEndpointRequestHandler(serverConfig, Response, Some(readyListener.ref))
+
+    /**
+      * Stops the actor under test and waits for it to terminate. Since always
+      * the same actor name is used, this is necessary when running multiple
+      * tests.
+      */
+    private def stopHandlerActor(): Unit =
+      handlerActor ! Udp.Unbind
+      val probe = TestProbe()
+      probe.watch(handlerActor)
+      probe.expectTerminated(handlerActor)
