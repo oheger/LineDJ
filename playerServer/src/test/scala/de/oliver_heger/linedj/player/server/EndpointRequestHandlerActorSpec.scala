@@ -117,11 +117,22 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     }.success
   }
 
+  it should "correctly resolve the response template" in {
+    val response = "http://$address:8765/index.html"
+    Using(new TestClient(response)) { client =>
+      if client.sendRequest() then
+        val receivedResponse = client.expectResponse()
+        receivedResponse should fullyMatch regex "http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:8765/index.html"
+    }.success
+  }
+
   /**
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
+    *
+    * @param serverResponse the response to send for valid requests
     */
-  class TestClient extends AutoCloseable:
+  class TestClient(serverResponse: String = Response) extends AutoCloseable:
     /** A queue for receiving the response from the actor. */
     private val queue = new LinkedBlockingQueue[String]
 
@@ -206,7 +217,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
           lookupPort = port,
           lookupCommand = RequestCode)
       val factory = new ServiceFactory
-      factory.createEndpointRequestHandler(serverConfig, Response, Some(readyListener.ref))
+      factory.createEndpointRequestHandler(serverConfig, serverResponse, Some(readyListener.ref))
 
     /**
       * Stops the actor under test and waits for it to terminate. Since always

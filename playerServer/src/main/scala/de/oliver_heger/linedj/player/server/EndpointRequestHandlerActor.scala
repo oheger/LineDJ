@@ -21,31 +21,37 @@ import akka.actor.typed
 import akka.io.{IO, Udp}
 import akka.io.Inet.SocketOptionV2
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{HandlerReady, MulticastConfig}
+import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{HandlerReady, MulticastConfig, PlaceHolderAddress}
 
 import java.net.{DatagramSocket, InetAddress, InetSocketAddress, NetworkInterface}
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 private object EndpointRequestHandlerActor:
   /**
+    * Constant for a placeholder in the template for the response to be sent
+    * for valid requests that is to be replaced by the current IP address.
+    */
+  final val PlaceHolderAddress = "$address"
+
+  /**
     * Returns a ''Props'' object for creating a new instance of this actor.
     *
-    * @param groupAddress  the address of the multicast group
-    * @param port          the port the actor should listen on
-    * @param requestCode   the expected request code
-    * @param response      the response to send
-    * @param readyListener an optional listener that is notified when the actor
-    *                      is ready to serve requests
+    * @param groupAddress     the address of the multicast group
+    * @param port             the port the actor should listen on
+    * @param requestCode      the expected request code
+    * @param responseTemplate the template for the response to send
+    * @param readyListener    an optional listener that is notified when the actor
+    *                         is ready to serve requests
     * @return a ''Props'' object for creating a new instance
     */
   def props(groupAddress: String,
             port: Int,
             requestCode: String,
-            response: String,
+            responseTemplate: String,
             readyListener: Option[typed.ActorRef[HandlerReady]] = None): Props =
     val interfaces = fetchActiveNetworkInterfaces()
     val multicastConfig = MulticastConfig(groupAddress, interfaces)
-    Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, response, readyListener))
+    Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, responseTemplate, readyListener))
 
   /**
     * A message that is sent to the ready listener when the handler actor is
@@ -81,17 +87,22 @@ private object EndpointRequestHandlerActor:
   * interfaces and answers them. Both, the request code and the answer can be
   * configured when creating an instance.
   *
-  * @param groups        the object with the multicast configuration
-  * @param port          the port the actor should listen on
-  * @param requestCode   the expected request code
-  * @param response      the response to send
-  * @param readyListener an optional listener that is notified when the actor
-  *                      is ready to serve requests
+  * The answer is actually a template that can contain the placeholders
+  * ''$address''. This placeholder is replaced by a local IP address of one of
+  * the interfaces the actor was bound to. Since the HTTP server typically uses
+  * the same local address, the URL to its endpoint can be generated this way.
+  *
+  * @param groups           the object with the multicast configuration
+  * @param port             the port the actor should listen on
+  * @param requestCode      the expected request code
+  * @param responseTemplate the template to generate the response to send
+  * @param readyListener    an optional listener that is notified when the actor
+  *                         is ready to serve requests
   */
 private class EndpointRequestHandlerActor(groups: MulticastConfig,
                                           port: Int,
                                           requestCode: String,
-                                          response: String,
+                                          responseTemplate: String,
                                           readyListener: Option[typed.ActorRef[HandlerReady]]) extends Actor
   with ActorLogging:
 
@@ -104,10 +115,11 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
     case Udp.Bound(_) =>
       log.info("EndpointRequestHandlerActor active for interfaces {} on port {}.",
         groups.interfaces, port)
-      context.become(active(sender()))
+
+      context.become(active(sender(), generateResponse(groups.interfaces)))
       readyListener foreach (_ ! HandlerReady(groups.interfaces.toList))
 
-  private def active(socket: ActorRef): Receive =
+  private def active(socket: ActorRef, response: String): Receive =
     case Udp.Received(data, remote) =>
       val request = data.utf8String
       log.info("Received request '{}' from {}.", request, remote)
@@ -121,3 +133,22 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
     case Udp.Unbound =>
       log.info("Stopping EndpointRequestHandlerActor.")
       context.stop(self)
+
+  /**
+    * Generates the response to be sent for valid templates based on the
+    * specified template. If the template contains the placeholder for the
+    * address, the local bind address is determined, and the placeholder is
+    * replaced by this address.
+    *
+    * @param interfaces the list of active network interfaces
+    * @return the response string
+    */
+  private def generateResponse(interfaces: Iterable[NetworkInterface]): String =
+    if responseTemplate.contains(PlaceHolderAddress) then
+      interfaces.map(_.localAddress.map(_.getAddress))
+        .find(_.isDefined).flatten
+        .map(_.getHostAddress)
+        .map(address => responseTemplate.replace(PlaceHolderAddress, address))
+        .getOrElse(responseTemplate)
+    else
+      responseTemplate
