@@ -38,6 +38,7 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     config.lookupPort should be(9876)
     config.lookupCommand should be("HELLO")
     config.uiContentFolder.toString should be("webapp")
+    config.uiPath should be("/ui/test/welcome.html")
     config.radioPlayerConfig.playerConfig.inMemoryBufferSize should be(65536)
     config.radioPlayerConfig.playerConfig.bufferTempPath should be(Some(Paths.get("/tmp")))
     config.radioPlayerConfig.maximumEvalDelay should be(2.hours)
@@ -52,6 +53,7 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     config.lookupPort should be(PlayerServerConfig.DefaultLookupPort)
     config.lookupCommand should be(PlayerServerConfig.DefaultLookupCommand)
     config.uiContentFolder.toString should be(PlayerServerConfig.DefaultUiContentFolder)
+    config.uiPath should be(PlayerServerConfig.DefaultUiPath)
     config.radioPlayerConfig.playerConfig.inMemoryBufferSize should be(PlayerConfigLoader.DefaultMemoryBufferSize)
     config.radioPlayerConfig.stalledPlaybackCheck should be(RadioPlayerConfigLoader.DefaultStalledPlaybackCheck)
     config.sourceConfig.sources shouldBe empty

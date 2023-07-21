@@ -25,4 +25,5 @@
     <lookupPort>9876</lookupPort>
     <lookupCommand>HELLO</lookupCommand>
     <uiContentFolder>webapp</uiContentFolder>
+    <uiPath>/ui/test/welcome.html</uiPath>
 </configuration>

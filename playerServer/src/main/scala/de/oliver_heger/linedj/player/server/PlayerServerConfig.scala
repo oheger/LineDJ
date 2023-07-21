@@ -58,6 +58,13 @@ object PlayerServerConfig:
   final val PropUiContentFolder = "uiContentFolder"
 
   /**
+    * Name of the configuration property that defines the URL path for loading
+    * the web UI. When requesting this path from the HTTP server, the player UI
+    * is returned.
+    */
+  final val PropUiPath = "uiPath"
+
+  /**
     * The name of the section containing the audio player configuration.
     */
   final val SectionPlayer = "player"
@@ -81,6 +88,9 @@ object PlayerServerConfig:
 
   /** The default path with UI assets. */
   final val DefaultUiContentFolder = "ui"
+
+  /** The default URL path of the web UI. */
+  final val DefaultUiPath = "/ui/index.html"
 
   /** The default configuration file name. */
   final val DefaultConfigFileName = "player-server-config.xml"
@@ -113,7 +123,8 @@ object PlayerServerConfig:
       lookupMulticastAddress = config.getString(PropLookupMulticastAddress, DefaultLookupMulticastAddress),
       lookupPort = config.getInt(PropLookupPort, DefaultLookupPort),
       lookupCommand = config.getString(PropLookupCommand, DefaultLookupCommand),
-      uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)))
+      uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
+      uiPath = config.getString(PropUiPath, DefaultUiPath))
 
 end PlayerServerConfig
 
@@ -133,6 +144,7 @@ end PlayerServerConfig
   * @param lookupPort             the port for lookup requests
   * @param lookupCommand          the command expected in lookup requests
   * @param uiContentFolder        the folder containing the UI assets
+  * @param uiPath                 the URL path for accessing the Web UI
   */
 case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               sourceConfig: RadioSourceConfig,
@@ -141,4 +153,5 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               lookupMulticastAddress: String,
                               lookupPort: Int,
                               lookupCommand: String,
-                              uiContentFolder: Path)
+                              uiContentFolder: Path,
+                              uiPath: String)

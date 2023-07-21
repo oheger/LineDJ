@@ -59,7 +59,8 @@ object ServerConfigTestHelper:
       lookupMulticastAddress = PlayerServerConfig.DefaultLookupMulticastAddress,
       lookupPort = PlayerServerConfig.DefaultLookupPort,
       lookupCommand = PlayerServerConfig.DefaultLookupCommand,
-      uiContentFolder = Paths get PlayerServerConfig.DefaultUiContentFolder)
+      uiContentFolder = Paths get PlayerServerConfig.DefaultUiContentFolder,
+      uiPath = PlayerServerConfig.DefaultUiPath)
 
   extension (config: PlayerServerConfig)
 
