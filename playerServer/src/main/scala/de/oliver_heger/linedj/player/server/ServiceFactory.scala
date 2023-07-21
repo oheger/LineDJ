@@ -33,18 +33,17 @@ class ServiceFactory:
     * Creates an actor instance that listens for UDP requests for the endpoint
     * URL of the player server.
     *
-    * @param config         the current configuration
-    * @param lookupResponse the response for incoming requests
-    * @param readyListener  a listener to notify when the actor is active
+    * @param config        the current configuration
+    * @param readyListener a listener to notify when the actor is active
     * @return the endpoint request handler actor
     */
   def createEndpointRequestHandler(config: PlayerServerConfig,
-                                   lookupResponse: String,
                                    readyListener: Option[typed.ActorRef[HandlerReady]] = None): ActorRef =
+    val responseTemplate =
+      s"http://${EndpointRequestHandlerActor.PlaceHolderAddress}:${config.serverPort}${config.uiPath}"
     val props = EndpointRequestHandlerActor.props(config.lookupMulticastAddress,
       config.lookupPort,
       config.lookupCommand,
-      lookupResponse,
+      responseTemplate,
       readyListener)
     config.radioPlayerConfig.playerConfig.actorCreator.createClassicActor(props, EndpointRequestHandlerName)
-

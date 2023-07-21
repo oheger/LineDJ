@@ -32,9 +32,6 @@ object EndpointRequestHandlerActorSpec:
   /** The request code used by the test actor. */
   private val RequestCode = "the_request"
 
-  /** The response to be sent by the test actor. */
-  private val Response = "the_response"
-
   /** The address of the multicast group. */
   private val GroupAddress = "231.2.3.4"
 
@@ -106,7 +103,8 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
   "EndpointRequestHandlerActor" should "answer a request for the endpoint" in {
     Using(new TestClient) { client =>
       if client.sendRequest() then
-        client.expectResponse() should be(Response)
+        val receivedResponse = client.expectResponse()
+        receivedResponse should fullyMatch regex "http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:8080/ui/index.html"
     }.success
   }
 
@@ -117,22 +115,11 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     }.success
   }
 
-  it should "correctly resolve the response template" in {
-    val response = "http://$address:8765/index.html"
-    Using(new TestClient(response)) { client =>
-      if client.sendRequest() then
-        val receivedResponse = client.expectResponse()
-        receivedResponse should fullyMatch regex "http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:8765/index.html"
-    }.success
-  }
-
   /**
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
-    *
-    * @param serverResponse the response to send for valid requests
     */
-  class TestClient(serverResponse: String = Response) extends AutoCloseable:
+  class TestClient extends AutoCloseable:
     /** A queue for receiving the response from the actor. */
     private val queue = new LinkedBlockingQueue[String]
 
@@ -217,7 +204,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
           lookupPort = port,
           lookupCommand = RequestCode)
       val factory = new ServiceFactory
-      factory.createEndpointRequestHandler(serverConfig, serverResponse, Some(readyListener.ref))
+      factory.createEndpointRequestHandler(serverConfig, Some(readyListener.ref))
 
     /**
       * Stops the actor under test and waits for it to terminate. Since always
