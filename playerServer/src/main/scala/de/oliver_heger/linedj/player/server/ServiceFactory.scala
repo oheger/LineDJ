@@ -16,9 +16,12 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.{ActorRef, typed}
+import akka.actor.{ActorRef, ActorSystem, typed}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
 import de.oliver_heger.linedj.player.server.ServiceFactory.EndpointRequestHandlerName
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object ServiceFactory:
   /** The default name of the request handler actor. */
@@ -47,3 +50,15 @@ class ServiceFactory:
       responseTemplate,
       readyListener)
     config.radioPlayerConfig.playerConfig.actorCreator.createClassicActor(props, EndpointRequestHandlerName)
+
+  /**
+    * Creates the [[RadioPlayer]] instance based on the given configuration.
+    *
+    * @param config the [[PlayerServerConfig]]
+    * @param system the actor system
+    * @return the radio player instance
+    */
+  def createRadioPlayer(config: PlayerServerConfig)
+                       (implicit system: ActorSystem): Future[RadioPlayer] =
+    implicit val ec: ExecutionContext = system.dispatcher
+    RadioPlayer(config.radioPlayerConfig)
