@@ -17,34 +17,116 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
+import akka.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.Await
+import java.net.ServerSocket
+import java.nio.file.Paths
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.*
+import scala.util.Using
+
+object ServiceFactorySpec:
+  /** The timeout when waiting for a future. */
+  private val FutureTimeout = 3.seconds
+
+  /**
+    * Waits for the given [[Future]] to be completed and returns its result or
+    * throws an exception if the future failed or does not complete within the
+    * timeout.
+    *
+    * @param future the [[Future]]
+    * @tparam T the result type of the future
+    * @return the completed value of the future
+    */
+  private def futureResult[T](future: Future[T]): T =
+    Await.result(future, FutureTimeout)
+
+  /**
+    * Returns a free port that can be used for tests with a server instance.
+    *
+    * @return the port number
+    */
+  private def freePort(): Int =
+    Using(new ServerSocket(0)) { socket =>
+      socket.getLocalPort
+    }.get
+
+  /**
+    * Reads the content of the given source into a string.
+    *
+    * @param source the source
+    * @param mat    the object to materialize streams
+    * @tparam M the materialized type of the source
+    * @return the string content of the source
+    */
+  private def readSource[M](source: Source[ByteString, M])(implicit mat: Materializer): String =
+    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+    futureResult(source.runWith(sink)).utf8String
+
+end ServiceFactorySpec
 
 /**
   * Test class for [[ServiceFactory]].
   */
 class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ServiceFactorySpec"))
 
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
 
+  import ServiceFactorySpec.*
+
+  /**
+    * Returns a [[PlayerServerConfig]] that can be used to start an HTTP
+    * server. It is initialized with an unused server port and the path to the
+    * folder containing the test UI.
+    *
+    * @return the configuration
+    */
+  private def httpServerConfig(): PlayerServerConfig =
+    ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+      .copy(serverPort = freePort(),
+        uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
+        uiPath = "/ui/index.html")
+
   "ServiceFactory" should "create a radio player" in {
     val creator = ServerConfigTestHelper.actorCreator(system)
     val config = ServerConfigTestHelper.defaultServerConfig(creator)
 
     val factory = new ServiceFactory
-    val player = Await.result(factory.createRadioPlayer(config), 3.seconds)
+    val player = futureResult(factory.createRadioPlayer(config))
 
     player.config should be(config.radioPlayerConfig)
     creator.actorManagement.managedActorNames.size should be > 0
 
     creator.actorManagement.stopActors()
+  }
+
+  it should "start the HTTP server" in {
+    val config = httpServerConfig()
+
+    val factory = new ServiceFactory
+    val bindings = futureResult(factory.createHttpServer(config, mock))
+
+    try
+      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
+      val response = futureResult(Http().singleRequest(uiRequest))
+      response.status should be(StatusCodes.OK)
+
+      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
+      val responseString = readSource(response.entity.dataBytes)
+      responseString should be(expectedString)
+    finally
+      futureResult(bindings.unbind())
   }

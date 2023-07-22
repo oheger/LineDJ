@@ -17,6 +17,8 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.actor.{ActorRef, ActorSystem, typed}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
 import de.oliver_heger.linedj.player.server.ServiceFactory.EndpointRequestHandlerName
@@ -62,3 +64,17 @@ class ServiceFactory:
                        (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
     RadioPlayer(config.radioPlayerConfig)
+
+  /**
+    * Creates and starts an HTTP server according to the given configuration
+    * that operates on the given radio player.
+    *
+    * @param config      the configuration
+    * @param radioPlayer the radio player
+    * @param system      the actor system
+    * @return a [[Future]] with the [[ServerBinding]] object
+    */
+  def createHttpServer(config: PlayerServerConfig,
+                       radioPlayer: RadioPlayer)
+                      (implicit system: ActorSystem): Future[ServerBinding] =
+    Http().newServerAt("0.0.0.0", config.serverPort).bind(Routes.route(config, radioPlayer))
