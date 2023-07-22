@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.server.PlayerServerConfig.removeLeadingSlash
 import org.apache.commons.configuration.{DefaultConfigurationBuilder, HierarchicalConfiguration}
 
 import java.nio.file.{Path, Paths}
@@ -126,8 +127,17 @@ object PlayerServerConfig:
       uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
       uiPath = config.getString(PropUiPath, DefaultUiPath))
 
+  /**
+    * Removes a leading slash from the given path if it exists. Otherwise, the
+    * path is returned without changes.
+    *
+    * @param path the path
+    * @return the path with a leading slash removed
+    */
+  private def removeLeadingSlash(path: String): String =
+    if path.startsWith("/") then path.drop(1)
+    else path
 end PlayerServerConfig
-
 
 /**
   * A data class holding the configuration of the player server.
@@ -154,4 +164,14 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               lookupPort: Int,
                               lookupCommand: String,
                               uiContentFolder: Path,
-                              uiPath: String)
+                              uiPath: String):
+  /**
+    * Returns the path prefix for requesting assets of the UI from the server.
+    * This is derived from the [[uiPath]] property. The first path component is
+    * considered as path prefix. (If the string starts with a slash, it is
+    * removed.)
+    *
+    * @return the path prefix for the UI path
+    */
+  def uiPathPrefix: String =
+    removeLeadingSlash(uiPath).takeWhile(_ != '/')

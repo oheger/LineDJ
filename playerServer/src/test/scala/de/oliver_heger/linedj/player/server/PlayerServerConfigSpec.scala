@@ -75,3 +75,16 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
 
     config.radioPlayerConfig.playerConfig.actorCreator should be(creator)
   }
+
+  it should "return the UI path prefix" in {
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+
+    config.uiPathPrefix should be("ui")
+  }
+
+  it should "return the UI path prefix if the UI path does not start with a slash" in {
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+      .copy(uiPath = "ui/without/leading/slash.html")
+
+    config.uiPathPrefix should be("ui")
+  }
