@@ -16,13 +16,17 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorSystem
+import akka.Done
+import akka.actor.{ActorSystem, Terminated}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.utils.ActorManagement
+import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
@@ -30,7 +34,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.net.ServerSocket
 import java.nio.file.Paths
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration.*
 import scala.util.Using
 
@@ -100,7 +104,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
         uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
         uiPath = "/ui/index.html")
 
-  "ServiceFactory" should "create a radio player" in {
+  "createRadioPlayer" should "correctly create and initialize a radio player" in {
     val creator = ServerConfigTestHelper.actorCreator(system)
     val config = ServerConfigTestHelper.defaultServerConfig(creator)
 
@@ -113,7 +117,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     creator.actorManagement.stopActors()
   }
 
-  it should "start the HTTP server" in {
+  "createHttpServer" should "create and start the HTTP server" in {
     val config = httpServerConfig()
 
     val factory = new ServiceFactory
@@ -129,4 +133,65 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       responseString should be(expectedString)
     finally
       futureResult(bindings.unbind())
+  }
+
+  "enableGracefulShutdown" should "call the shutdown when all conditions are met" in {
+    val mockBinding = mock[ServerBinding]
+    val mockSystem = mock[ActorSystem]
+    val mockManagement = mock[ActorManagement]
+    when(mockSystem.dispatcher).thenReturn(system.dispatcher)
+    when(mockSystem.terminate()).thenReturn(Future.successful(Done))
+
+    val factory = new ServiceFactory
+    val futTerminate = factory.enableGracefulShutdown(Future.successful(mockBinding),
+      Future.successful(Done), mockManagement)(mockSystem)
+    futureResult(futTerminate)
+    verify(mockBinding).addToCoordinatedShutdown(5.seconds)(mockSystem)
+    verify(mockManagement).stopActors()
+    verify(mockSystem).terminate()
+  }
+
+  it should "not shutdown before the server has been fully started" in {
+    val mockBinding = mock[ServerBinding]
+    val mockSystem = mock[ActorSystem]
+    val mockManagement = mock[ActorManagement]
+    when(mockSystem.dispatcher).thenReturn(system.dispatcher)
+    val promiseBinding = Promise[ServerBinding]()
+
+    val factory = new ServiceFactory
+    factory.enableGracefulShutdown(promiseBinding.future, Future.successful(Done), mockManagement)(mockSystem)
+
+    verify(mockManagement, never()).stopActors()
+    verify(mockSystem, never()).terminate()
+  }
+
+  it should "not shutdown before the shutdown future has completed" in {
+    val mockBinding = mock[ServerBinding]
+    val mockSystem = mock[ActorSystem]
+    val mockManagement = mock[ActorManagement]
+    when(mockSystem.dispatcher).thenReturn(system.dispatcher)
+    val promiseShutdown = Promise[Done]()
+
+    val factory = new ServiceFactory
+    factory.enableGracefulShutdown(Future.successful(mockBinding), promiseShutdown.future, mockManagement)(mockSystem)
+
+    verify(mockManagement, never()).stopActors()
+    verify(mockSystem, never()).terminate()
+  }
+
+  it should "shutdown the actor system even if the binding future failed" in {
+    val mockSystem = mock[ActorSystem]
+    when(mockSystem.terminate()).thenReturn(Future.successful(Terminated))
+    when(mockSystem.dispatcher).thenReturn(system.dispatcher)
+    val mockManagement = mock[ActorManagement]
+    val promiseBinding = Promise[ServerBinding]()
+
+    val factory = new ServiceFactory
+    val futureTerminated = factory.enableGracefulShutdown(promiseBinding.future, Future.successful(Done),
+      mockManagement)(mockSystem)
+
+    promiseBinding.failure(new IllegalStateException("Test exception"))
+    futureResult(futureTerminated)
+    verify(mockManagement).stopActors()
+    verify(mockSystem).terminate()
   }
