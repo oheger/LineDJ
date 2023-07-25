@@ -78,17 +78,22 @@ class ServiceFactory:
 
   /**
     * Creates and starts an HTTP server according to the given configuration
-    * that operates on the given radio player.
+    * that operates on the given radio player. The server supports a shutdown
+    * command that triggers the provided promise. With this mechanism, the
+    * server can be stopped.
     *
-    * @param config      the configuration
-    * @param radioPlayer the radio player
-    * @param system      the actor system
+    * @param config          the configuration
+    * @param radioPlayer     the radio player
+    * @param shutdownPromise the promise to trigger shutdown
+    * @param system          the actor system
     * @return a [[Future]] with the [[ServerBinding]] object
     */
   def createHttpServer(config: PlayerServerConfig,
-                       radioPlayer: RadioPlayer)
+                       radioPlayer: RadioPlayer,
+                       shutdownPromise: Promise[Done])
                       (implicit system: ActorSystem): Future[ServerBinding] =
-    Http().newServerAt("0.0.0.0", config.serverPort).bind(Routes.route(config, radioPlayer))
+    Http().newServerAt("0.0.0.0", config.serverPort)
+      .bind(Routes.route(config, radioPlayer, shutdownPromise))
 
   /**
     * Enables the system to shutdown gracefully when the given shutdown future

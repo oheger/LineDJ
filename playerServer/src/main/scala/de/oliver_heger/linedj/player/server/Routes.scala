@@ -16,24 +16,51 @@
 
 package de.oliver_heger.linedj.player.server
 
+import akka.Done
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 
+import scala.concurrent.{Future, Promise}
+
 /**
   * An object defining the routes supported by the player server.
   */
-object Routes: 
+object Routes:
   /**
     * Returns the top-level route for the player server.
     *
-    * @param config      the [[PlayerServerConfig]]
-    * @param radioPlayer the [[RadioPlayer]]
+    * @param config          the [[PlayerServerConfig]]
+    * @param radioPlayer     the [[RadioPlayer]]
+    * @param shutdownPromise a promise to trigger when the shutdown command is
+    *                        invoked
     * @return the top-level route of the server
     */
-  def route(config: PlayerServerConfig, radioPlayer: RadioPlayer): Route =
-    uiRoute(config)
+  def route(config: PlayerServerConfig, radioPlayer: RadioPlayer, shutdownPromise: Promise[Done]): Route =
+    concat(
+      uiRoute(config),
+      apiRoute(config, radioPlayer, shutdownPromise)
+    )
+
+  /**
+    * Returns the route for handling requests against the API of the player 
+    * server.
+    *
+    * @param radioConfig     the [[PlayerServerConfig]]
+    * @param radioPlayer     the [[RadioPlayer]]
+    * @param shutdownPromise the promise to trigger shutdown
+    * @return the API route
+    */
+  private def apiRoute(radioConfig: PlayerServerConfig,
+                       radioPlayer: RadioPlayer,
+                       shutdownPromise: Promise[Done]): Route =
+    pathPrefix("api") {
+      concat(
+        shutdownRoute(shutdownPromise)
+      )
+    }
 
   /**
     * Returns the route for the web UI of the player server. This route exposes
@@ -46,4 +73,18 @@ object Routes:
   private def uiRoute(config: PlayerServerConfig): Route =
     pathPrefix(config.uiPathPrefix) {
       getFromDirectory(config.uiContentFolder.toAbsolutePath.toString)
+    }
+
+  /**
+    * Returns a route that shuts down the HTTP server by completing a promise.
+    *
+    * @param shutdownPromise the promise that triggers shutdown
+    * @return the shutdown route
+    */
+  private def shutdownRoute(shutdownPromise: Promise[Done]): Route =
+    path("shutdown") {
+      post {
+        shutdownPromise.success(Done)
+        complete(StatusCodes.Accepted)
+      }
     }

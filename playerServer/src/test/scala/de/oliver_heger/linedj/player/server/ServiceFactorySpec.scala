@@ -20,11 +20,12 @@ import akka.Done
 import akka.actor.{ActorSystem, Terminated}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
@@ -104,6 +105,28 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
         uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
         uiPath = "/ui/index.html")
 
+  /**
+    * Starts the HTTP server using a test factory instance and the provided
+    * parameters. Then, the given test block is executed. Finally, the server
+    * is shut down again.
+    *
+    * @param config          the server configuration
+    * @param radioPlayer     the radio player
+    * @param shutdownPromise the promise to trigger shutdown
+    * @param block           the test block to execute
+    */
+  private def runHttpServerTest(config: PlayerServerConfig = httpServerConfig(),
+                                radioPlayer: RadioPlayer = mock,
+                                shutdownPromise: Promise[Done] = Promise())
+                               (block: PlayerServerConfig => Unit): Unit =
+    val factory = new ServiceFactory
+    val bindings = futureResult(factory.createHttpServer(config, mock, shutdownPromise))
+
+    try
+      block(config)
+    finally
+      futureResult(bindings.unbind())
+
   "createRadioPlayer" should "correctly create and initialize a radio player" in {
     val creator = ServerConfigTestHelper.actorCreator(system)
     val config = ServerConfigTestHelper.defaultServerConfig(creator)
@@ -117,13 +140,8 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     creator.actorManagement.stopActors()
   }
 
-  "createHttpServer" should "create and start the HTTP server" in {
-    val config = httpServerConfig()
-
-    val factory = new ServiceFactory
-    val bindings = futureResult(factory.createHttpServer(config, mock))
-
-    try
+  "createHttpServer" should "start the HTTP server with the UI route" in {
+    runHttpServerTest() { config =>
       val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
       val response = futureResult(Http().singleRequest(uiRequest))
       response.status should be(StatusCodes.OK)
@@ -131,8 +149,20 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
       val responseString = readSource(response.entity.dataBytes)
       responseString should be(expectedString)
-    finally
-      futureResult(bindings.unbind())
+    }
+  }
+
+  it should "set up a route to trigger the server shutdown" in {
+    val shutdownPromise = Promise[Done]()
+
+    runHttpServerTest(shutdownPromise = shutdownPromise) { config =>
+      val shutdownRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}/api/shutdown",
+        method = HttpMethods.POST)
+      val shutdownResponse = futureResult(Http().singleRequest(shutdownRequest))
+      shutdownResponse.status should be(StatusCodes.Accepted)
+      shutdownPromise.isCompleted shouldBe true
+      futureResult(shutdownPromise.future) should be(Done)
+    }
   }
 
   "enableGracefulShutdown" should "call the shutdown when all conditions are met" in {
