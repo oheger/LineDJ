@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.player.server.PlayerServerConfig.removeLeadingSlash
+import de.oliver_heger.linedj.player.server.PlayerServerConfig.{Slash, removeLeadingSlash}
 import org.apache.commons.configuration.{DefaultConfigurationBuilder, HierarchicalConfiguration}
 
 import java.nio.file.{Path, Paths}
@@ -96,6 +96,9 @@ object PlayerServerConfig:
   /** The default configuration file name. */
   final val DefaultConfigFileName = "player-server-config.xml"
 
+  /** Constant for a path separator. */
+  private val Slash = '/'
+
   /**
     * Loads the configuration for this application from the given file. This is
     * done using [[DefaultConfigurationBuilder]]; so the file must conform to
@@ -135,7 +138,7 @@ object PlayerServerConfig:
     * @return the path with a leading slash removed
     */
   private def removeLeadingSlash(path: String): String =
-    if path.startsWith("/") then path.drop(1)
+    if path.startsWith(Slash.toString) then path.drop(1)
     else path
 end PlayerServerConfig
 
@@ -174,4 +177,6 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
     * @return the path prefix for the UI path
     */
   def uiPathPrefix: String =
-    removeLeadingSlash(uiPath).takeWhile(_ != '/')
+    val normalizedPrefix = removeLeadingSlash(uiPath)
+    if !normalizedPrefix.contains(Slash) then ""
+    else normalizedPrefix.takeWhile(_ != '/')

@@ -40,8 +40,8 @@ object Routes:
     */
   def route(config: PlayerServerConfig, radioPlayer: RadioPlayer, shutdownPromise: Promise[Done]): Route =
     concat(
-      uiRoute(config),
-      apiRoute(config, radioPlayer, shutdownPromise)
+      apiRoute(config, radioPlayer, shutdownPromise),
+      uiRoute(config)
     )
 
   /**

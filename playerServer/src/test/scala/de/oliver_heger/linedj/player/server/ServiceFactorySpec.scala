@@ -152,6 +152,20 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     }
   }
 
+  it should "support the UI route without a prefix" in {
+    val orgConfig = httpServerConfig().copy(uiPath = "/index.html")
+
+    runHttpServerTest(orgConfig) { config =>
+      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
+      val response = futureResult(Http().singleRequest(uiRequest))
+      response.status should be(StatusCodes.OK)
+
+      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
+      val responseString = readSource(response.entity.dataBytes)
+      responseString should be(expectedString)
+    }
+  }
+
   it should "set up a route to trigger the server shutdown" in {
     val shutdownPromise = Promise[Done]()
 
