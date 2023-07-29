@@ -26,6 +26,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
@@ -40,21 +41,6 @@ import scala.concurrent.duration.*
 import scala.util.Using
 
 object ServiceFactorySpec:
-  /** The timeout when waiting for a future. */
-  private val FutureTimeout = 3.seconds
-
-  /**
-    * Waits for the given [[Future]] to be completed and returns its result or
-    * throws an exception if the future failed or does not complete within the
-    * timeout.
-    *
-    * @param future the [[Future]]
-    * @tparam T the result type of the future
-    * @return the completed value of the future
-    */
-  private def futureResult[T](future: Future[T]): T =
-    Await.result(future, FutureTimeout)
-
   /**
     * Returns a free port that can be used for tests with a server instance.
     *

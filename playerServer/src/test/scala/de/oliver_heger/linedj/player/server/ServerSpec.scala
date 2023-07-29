@@ -21,7 +21,7 @@ import akka.actor.{ActorSystem, Terminated}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.getActorManagement
+import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.{futureResult, getActorManagement}
 import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as eqArgs}
@@ -94,7 +94,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     runThread.join(3000)
     runThread.isAlive shouldBe false
 
-    Await.result(captBindings.getValue, 3.seconds) should be(binding)
+    futureResult(captBindings.getValue) should be(binding)
     val serverConfig = captPlayerConfig.getValue
     captEndpointRequestHandlerConfig.getValue should be(serverConfig)
     captHttpConfig.getValue should be(serverConfig)
@@ -102,7 +102,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     checkConfig(serverConfig, expectedConfig)
 
     captShutdownPromise.getValue.success(Done)
-    Await.result(captShutdownFuture.getValue, 3.seconds)
+    futureResult(captShutdownFuture.getValue)
 
   /**
     * Checks whether the given configuration matches the expected one. Since
