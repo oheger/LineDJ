@@ -21,9 +21,11 @@ import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement, SystemPropertyAccess}
+import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.{Await, ExecutionContext, Promise}
 import scala.concurrent.duration.*
+import scala.util.{Failure, Success}
 
 object Server:
   /**
@@ -51,6 +53,9 @@ class Server(serviceFactory: ServiceFactory)
             (implicit system: ActorSystem):
   this: SystemPropertyAccess =>
 
+  /** The logger. */
+  private val log = LogManager.getLogger(classOf[Server])
+
   /** The execution context in implicit scope. */
   private implicit val ec: ExecutionContext = system.dispatcher
 
@@ -60,11 +65,14 @@ class Server(serviceFactory: ServiceFactory)
     * shutdown endpoint).
     */
   def run(): Unit =
+    log.info("Server.run()")
+
     val actorFactory = new ActorFactory(system)
     val actorManagement = new ActorManagement {}
     val creator = new ManagingActorCreator(actorFactory, actorManagement)
 
     val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
+    log.info("Loading PlayerServerConfig from '{}'.", configName)
     val config = PlayerServerConfig(configName, null, creator)
 
     val shutdownPromise = Promise[Done]()
@@ -72,7 +80,12 @@ class Server(serviceFactory: ServiceFactory)
     val radioPlayerFuture = serviceFactory.createRadioPlayer(config)
     val bindingsFuture = radioPlayerFuture.flatMap { player =>
       serviceFactory.createHttpServer(config, player, shutdownPromise)
+    } andThen {
+      case Success(_) => log.info("HTTP server is listening on port {}.", config.serverPort)
+      case Failure(exception) => log.error("Failed to start HTTP server.", exception)
     }
-    val terminated = serviceFactory.enableGracefulShutdown(bindingsFuture, shutdownPromise.future, actorManagement)
 
+    val terminated = serviceFactory.enableGracefulShutdown(bindingsFuture, shutdownPromise.future, actorManagement)
     Await.ready(terminated, 366.days) // Wait rather long.
+
+    log.info("Server terminated.")
