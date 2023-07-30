@@ -25,9 +25,15 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
+import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.utils.ActorManagement
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
@@ -114,16 +120,41 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       futureResult(bindings.unbind())
 
   "createRadioPlayer" should "correctly create and initialize a radio player" in {
-    val creator = ServerConfigTestHelper.actorCreator(system)
-    val config = ServerConfigTestHelper.defaultServerConfig(creator)
+    val radioSource = new RadioSource("https://radio.example.org/test.mp3")
+    val sourceConfig = new RadioSourceConfig:
+      override val namedSources: Seq[(String, RadioSource)] =
+        Seq("test" -> radioSource)
+      override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
+      override def ranking(source: RadioSource): Int = 0
 
-    val factory = new ServiceFactory
-    val player = futureResult(factory.createRadioPlayer(config))
+    val config = ServerConfigTestHelper.defaultServerConfig(mock)
+      .copy(sourceConfig = sourceConfig)
 
-    player.config should be(config.radioPlayerConfig)
-    creator.actorManagement.managedActorNames.size should be > 0
+    val radioPlayerFactory = mock[RadioPlayerFactory]
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
 
-    creator.actorManagement.stopActors()
+    val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
+    futureResult(factory.createRadioPlayer(config)) should be(radioPlayer)
+
+    verify(radioPlayer).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
+    verify(radioPlayer).initRadioSourceConfig(config.sourceConfig)
+    verify(radioPlayer).initMetadataConfig(config.metadataConfig)
+    verify(radioPlayer).switchToRadioSource(radioSource)
+    verify(radioPlayer).startPlayback()
+  }
+
+  it should "skip starting playback if no radio sources are available" in {
+    val config = ServerConfigTestHelper.defaultServerConfig(mock)
+    val radioPlayerFactory = mock[RadioPlayerFactory]
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
+
+    val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
+    futureResult(factory.createRadioPlayer(config)) should be(radioPlayer)
+
+    verify(radioPlayer, never()).switchToRadioSource(any())
+    verify(radioPlayer, never()).startPlayback()
   }
 
   "createHttpServer" should "start the HTTP server with the UI route" in {

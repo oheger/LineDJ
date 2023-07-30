@@ -962,10 +962,13 @@ lazy val playerServer = (project in file("playerServer"))
     scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= akkaHttpDependencies,
-    libraryDependencies += "com.lmax" % "disruptor" % VersionDisruptor,
-    libraryDependencies += collectionsDependency,
-    libraryDependencies += beanUtilsDependency,
-  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, log4jConfFragment)
+    libraryDependencies ++= Seq(
+      "com.lmax" % "disruptor" % VersionDisruptor,
+      collectionsDependency,
+      beanUtilsDependency
+    )
+  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, log4jConfFragment,
+      mp3PlaybackContextFactory)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available

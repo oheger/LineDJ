@@ -20,6 +20,7 @@ import akka.Done
 import akka.actor.{ActorRef, ActorSystem, Terminated, typed}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, TerminationTimeout, log}
@@ -43,8 +44,9 @@ object ServiceFactory:
 /**
   * A factory class for creating several services used by the Player Server
   * application based on the current [[PlayerServerConfig]].
+  * @param radioPlayerFactory the factory for creating the [[RadioPlayer]]
   */
-class ServiceFactory:
+class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFactory):
   /**
     * Creates an actor instance that listens for UDP requests for the endpoint
     * URL of the player server.
@@ -74,7 +76,18 @@ class ServiceFactory:
   def createRadioPlayer(config: PlayerServerConfig)
                        (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
-    RadioPlayer(config.radioPlayerConfig)
+    radioPlayerFactory.createRadioPlayer(config) map { player =>
+      player.addPlaybackContextFactory(new Mp3PlaybackContextFactory)
+      player.initRadioSourceConfig(config.sourceConfig)
+      player.initMetadataConfig(config.metadataConfig)
+
+      // TODO: Determine the current radio source from the configuration.
+      config.sourceConfig.sources.headOption foreach { source =>
+        player.switchToRadioSource(source)
+        player.startPlayback()
+      }
+      player
+    }
 
   /**
     * Creates and starts an HTTP server according to the given configuration
