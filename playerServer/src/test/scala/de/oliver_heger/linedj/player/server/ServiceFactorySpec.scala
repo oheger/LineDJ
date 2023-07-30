@@ -18,13 +18,8 @@ package de.oliver_heger.linedj.player.server
 
 import akka.Done
 import akka.actor.{ActorSystem, Terminated}
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes}
-import akka.stream.Materializer
-import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
@@ -42,34 +37,8 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.net.ServerSocket
 import java.nio.file.Paths
-import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration.*
-import scala.util.Using
-
-object ServiceFactorySpec:
-  /**
-    * Returns a free port that can be used for tests with a server instance.
-    *
-    * @return the port number
-    */
-  private def freePort(): Int =
-    Using(new ServerSocket(0)) { socket =>
-      socket.getLocalPort
-    }.get
-
-  /**
-    * Reads the content of the given source into a string.
-    *
-    * @param source the source
-    * @param mat    the object to materialize streams
-    * @tparam M the materialized type of the source
-    * @return the string content of the source
-    */
-  private def readSource[M](source: Source[ByteString, M])(implicit mat: Materializer): String =
-    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-    futureResult(source.runWith(sink)).utf8String
-
-end ServiceFactorySpec
+import scala.concurrent.{Future, Promise}
 
 /**
   * Test class for [[ServiceFactory]].
@@ -81,43 +50,6 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-
-  import ServiceFactorySpec.*
-
-  /**
-    * Returns a [[PlayerServerConfig]] that can be used to start an HTTP
-    * server. It is initialized with an unused server port and the path to the
-    * folder containing the test UI.
-    *
-    * @return the configuration
-    */
-  private def httpServerConfig(): PlayerServerConfig =
-    ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
-      .copy(serverPort = freePort(),
-        uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
-        uiPath = "/ui/index.html")
-
-  /**
-    * Starts the HTTP server using a test factory instance and the provided
-    * parameters. Then, the given test block is executed. Finally, the server
-    * is shut down again.
-    *
-    * @param config          the server configuration
-    * @param radioPlayer     the radio player
-    * @param shutdownPromise the promise to trigger shutdown
-    * @param block           the test block to execute
-    */
-  private def runHttpServerTest(config: PlayerServerConfig = httpServerConfig(),
-                                radioPlayer: RadioPlayer = mock,
-                                shutdownPromise: Promise[Done] = Promise())
-                               (block: PlayerServerConfig => Unit): Unit =
-    val factory = new ServiceFactory
-    val bindings = futureResult(factory.createHttpServer(config, mock, shutdownPromise))
-
-    try
-      block(config)
-    finally
-      futureResult(bindings.unbind())
 
   "createRadioPlayer" should "correctly create and initialize a radio player" in {
     val radioSource = new RadioSource("https://radio.example.org/test.mp3")
@@ -155,45 +87,6 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     verify(radioPlayer, never()).switchToRadioSource(any())
     verify(radioPlayer, never()).startPlayback()
-  }
-
-  "createHttpServer" should "start the HTTP server with the UI route" in {
-    runHttpServerTest() { config =>
-      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
-      val response = futureResult(Http().singleRequest(uiRequest))
-      response.status should be(StatusCodes.OK)
-
-      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
-      val responseString = readSource(response.entity.dataBytes)
-      responseString should be(expectedString)
-    }
-  }
-
-  it should "support the UI route without a prefix" in {
-    val orgConfig = httpServerConfig().copy(uiPath = "/index.html")
-
-    runHttpServerTest(orgConfig) { config =>
-      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
-      val response = futureResult(Http().singleRequest(uiRequest))
-      response.status should be(StatusCodes.OK)
-
-      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
-      val responseString = readSource(response.entity.dataBytes)
-      responseString should be(expectedString)
-    }
-  }
-
-  it should "set up a route to trigger the server shutdown" in {
-    val shutdownPromise = Promise[Done]()
-
-    runHttpServerTest(shutdownPromise = shutdownPromise) { config =>
-      val shutdownRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}/api/shutdown",
-        method = HttpMethods.POST)
-      val shutdownResponse = futureResult(Http().singleRequest(shutdownRequest))
-      shutdownResponse.status should be(StatusCodes.Accepted)
-      shutdownPromise.isCompleted shouldBe true
-      futureResult(shutdownPromise.future) should be(Done)
-    }
   }
 
   "enableGracefulShutdown" should "call the shutdown when all conditions are met" in {
