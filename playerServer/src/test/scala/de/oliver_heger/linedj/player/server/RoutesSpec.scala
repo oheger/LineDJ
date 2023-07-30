@@ -19,13 +19,14 @@ package de.oliver_heger.linedj.player.server
 import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes}
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -58,6 +59,17 @@ object RoutesSpec:
   private def readSource[M](source: Source[ByteString, M])(implicit mat: Materializer): String =
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     futureResult(source.runWith(sink)).utf8String
+
+  /**
+    * Returns the URI for a specific path on the test server based on the given
+    * configuration.
+    *
+    * @param config the configuration
+    * @param path   the path of the URI
+    * @return the URI to invoke this path on the test server
+    */
+  private def serverUri(config: PlayerServerConfig, path: String): String =
+    s"http://localhost:${config.serverPort}$path"
 end RoutesSpec
 
 /**
@@ -104,17 +116,27 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
                                 shutdownPromise: Promise[Done] = Promise())
                                (block: PlayerServerConfig => Unit): Unit =
     val factory = new ServiceFactory
-    val bindings = futureResult(factory.createHttpServer(config, mock, shutdownPromise))
+    val bindings = futureResult(factory.createHttpServer(config, radioPlayer, shutdownPromise))
 
     try
       block(config)
     finally
       futureResult(bindings.unbind())
 
+  /**
+    * Helper function for sending a request to the test server and returning
+    * the response.
+    *
+    * @param request the request to be sent
+    * @return the response
+    */
+  private def sendRequest(request: HttpRequest): HttpResponse =
+    futureResult(Http().singleRequest(request))
+
   "Routes" should "define a route for accessing the UI" in {
     runHttpServerTest() { config =>
-      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
-      val response = futureResult(Http().singleRequest(uiRequest))
+      val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
+      val response = sendRequest(uiRequest)
       response.status should be(StatusCodes.OK)
 
       val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
@@ -127,8 +149,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     val orgConfig = httpServerConfig().copy(uiPath = "/index.html")
 
     runHttpServerTest(orgConfig) { config =>
-      val uiRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}${config.uiPath}")
-      val response = futureResult(Http().singleRequest(uiRequest))
+      val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
+      val response = sendRequest(uiRequest)
       response.status should be(StatusCodes.OK)
 
       val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
@@ -141,11 +163,38 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     val shutdownPromise = Promise[Done]()
 
     runHttpServerTest(shutdownPromise = shutdownPromise) { config =>
-      val shutdownRequest = HttpRequest(uri = s"http://localhost:${config.serverPort}/api/shutdown",
-        method = HttpMethods.POST)
-      val shutdownResponse = futureResult(Http().singleRequest(shutdownRequest))
+      val shutdownRequest = HttpRequest(uri = serverUri(config, "/api/shutdown"), method = HttpMethods.POST)
+      val shutdownResponse = sendRequest(shutdownRequest)
       shutdownResponse.status should be(StatusCodes.Accepted)
       shutdownPromise.isCompleted shouldBe true
       futureResult(shutdownPromise.future) should be(Done)
+    }
+  }
+
+  it should "define a route to start radio playback" in {
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      reset(radioPlayer)
+      val startPlaybackRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback/start"),
+        method = HttpMethods.POST)
+      val startResponse = sendRequest(startPlaybackRequest)
+
+      startResponse.status should be(StatusCodes.OK)
+      verify(radioPlayer).startPlayback()
+    }
+  }
+
+  it should "define a route to stop radio playback" in {
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      reset(radioPlayer)
+      val stopPlaybackRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback/stop"),
+        method = HttpMethods.POST)
+      val stopResponse = sendRequest(stopPlaybackRequest)
+
+      stopResponse.status should be(StatusCodes.OK)
+      verify(radioPlayer).stopPlayback()
     }
   }

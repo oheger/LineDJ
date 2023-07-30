@@ -58,8 +58,35 @@ object Routes:
                        shutdownPromise: Promise[Done]): Route =
     pathPrefix("api") {
       concat(
-        shutdownRoute(shutdownPromise)
+        shutdownRoute(shutdownPromise),
+        radioRoute(radioPlayer)
       )
+    }
+
+  /**
+    * Returns the route for handling API requests related to the radio player.
+    *
+    * @param radioPlayer the [[RadioPlayer]]
+    * @return the route for the radio API
+    */
+  private def radioRoute(radioPlayer: RadioPlayer): Route =
+    pathPrefix("radio") {
+      pathPrefix("playback") {
+        concat(
+          path("start") {
+            post {
+              radioPlayer.startPlayback()
+              complete(StatusCodes.OK)
+            }
+          },
+          path("stop") {
+            post {
+              radioPlayer.stopPlayback()
+              complete(StatusCodes.OK)
+            }
+          }
+        )
+      }
     }
 
   /**
