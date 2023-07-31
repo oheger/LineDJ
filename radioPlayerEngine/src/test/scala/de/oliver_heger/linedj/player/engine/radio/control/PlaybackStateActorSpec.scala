@@ -165,6 +165,48 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
       .expectPlaybackStoppedEvent(source)
   }
 
+  it should "return the initial current playback state" in {
+    val probeClient = testKit.createTestProbe[PlaybackStateActor.CurrentPlaybackState]()
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
+
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, playbackActive = false))
+  }
+
+  it should "return the current playback state if a source is played" in {
+    val source = radioSource(23)
+    val probeClient = testKit.createTestProbe[PlaybackStateActor.CurrentPlaybackState]()
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
+      .sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
+
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), playbackActive = true))
+  }
+
+  it should "return the current playback state if a source is available but playback is disabled" in {
+    val source = radioSource(24)
+    val probeClient = testKit.createTestProbe[PlaybackStateActor.CurrentPlaybackState]()
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
+      .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
+
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), playbackActive = false))
+  }
+
+  it should "return the current playback state if playback is enabled but no source is available" in {
+    val probeClient = testKit.createTestProbe[PlaybackStateActor.CurrentPlaybackState]()
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
+
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, playbackActive = false))
+  }
+
   /**
     * A test helper class managing an actor under test and its dependencies.
     */

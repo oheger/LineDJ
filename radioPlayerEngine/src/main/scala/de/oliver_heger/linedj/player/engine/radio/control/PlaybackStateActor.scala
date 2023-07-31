@@ -65,6 +65,26 @@ object PlaybackStateActor {
   case class PlaybackSource(source: RadioSource) extends PlaybackStateCommand
 
   /**
+    * A command for querying the current playback state.
+    *
+    * @param replyTo reference to the actor to send the response to
+    */
+  case class GetPlaybackState(replyTo: ActorRef[CurrentPlaybackState]) extends PlaybackStateCommand
+
+  /**
+    * A data class containing information about the current playback state. An
+    * instance is sent as response of a [[GetPlaybackState]] request. Note that
+    * there is the possible combination that playback is enabled, but no source
+    * is available. Since this typically does not make sense in practice, for
+    * this combination the playback active flag is set to '''false'''.
+    *
+    * @param currentSource  an option with the current radio source
+    * @param playbackActive flag whether playback is currently active
+    */
+  case class CurrentPlaybackState(currentSource: Option[RadioSource],
+                                  playbackActive: Boolean)
+
+  /**
     * A trait that defines a factory function for creating a ''Behavior'' for a
     * new actor instance.
     */
@@ -166,6 +186,11 @@ object PlaybackStateActor {
           facadeActor ! DelayActor.Propagate(dispatch, facadeActor, DelayActor.NoDelay)
           handle(facadeActor, eventActor, nextState)
         } getOrElse Behaviors.same
+
+      case GetPlaybackState(replyTo) =>
+        val playbackActive = state.optPlayback.isDefined && state.optSource.isDefined
+        replyTo ! CurrentPlaybackState(state.optSource, playbackActive)
+        Behaviors.same
     }
 
   /**
