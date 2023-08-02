@@ -46,6 +46,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
+import scala.reflect.ClassTag
 
 object RadioPlayerSpec {
   /** The name of the dispatcher for blocking actors. */
@@ -176,6 +177,17 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     helper.checkStreamManager()
   }
 
+  it should "return the current playback state" in {
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(RadioSource("testSource")), playbackActive = true)
+    val helper = new RadioPlayerTestHelper
+
+    val futState = helper.player.currentPlaybackState
+
+    val getCommand = helper.nextControlCommand[RadioControlActor.GetPlaybackState]
+    getCommand.replyTo ! playbackState
+    futureResult(futState) should be(playbackState)
+  }
+
   /**
     * A helper class managing the dependencies of the test radio player
     * instance.
@@ -286,6 +298,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /** The player to be tested. */
     val player: RadioPlayer = futureResult(RadioPlayer(config, createStreamManagerActorFactory(),
       createControlActorFactory()))
+
+    /**
+      * Expects that a message of the given type is passed to the control
+      * actor.
+      *
+      * @tparam T the message type
+      * @return the message that was received
+      */
+    def nextControlCommand[T <: RadioControlActor.RadioControlCommand](implicit t: ClassTag[T]): T =
+      probeControlActor.expectMessageType[T]
 
     /**
       * Expects that the given command was sent to the control actor.

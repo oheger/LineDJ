@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, Scheduler}
+import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.util.Timeout
 import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
@@ -49,7 +48,7 @@ object RadioPlayer {
   def apply(config: RadioPlayerConfig,
             streamManagerFactory: RadioStreamManagerActor.Factory = RadioStreamManagerActor.behavior,
             controlActorFactory: RadioControlActor.Factory = RadioControlActor.behavior)
-           (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
+           (implicit system: classics.ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
@@ -82,7 +81,12 @@ object RadioPlayer {
       val controlActor = creator.createActor(controlBehavior, "radioControlActor",
         Some(RadioControlActor.Stop))
 
-      new RadioPlayer(config, facadeActor, eventActors._1, factoryActor, scheduledInvocationActor, controlActor)
+      new RadioPlayer(config,
+        facadeActor,
+        eventActors._1,
+        factoryActor,
+        scheduledInvocationActor,
+        controlActor)(typedSystem)
     }
   }
 
@@ -98,7 +102,7 @@ object RadioPlayer {
     */
   private def radioPlayerSourceCreator(eventActor: ActorRef[RadioEvent],
                                        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand])
-                                      (implicit actorSystem: ActorSystem): SourceActorCreator =
+                                      (implicit actorSystem: classics.ActorSystem): SourceActorCreator =
     (factory, config) => {
       val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor, streamManager))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)
@@ -133,6 +137,7 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                           override protected val scheduledInvocationActor:
                           ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
+                         (implicit actorSystem: ActorSystem[_])
   extends PlayerControl[RadioEvent] {
   /**
     * Updates the configuration for radio sources. This determines when
@@ -163,6 +168,17 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     */
   def switchToRadioSource(source: RadioSource): Unit = {
     controlActor ! RadioControlActor.SelectRadioSource(source)
+  }
+
+  /**
+    * Queries the current playback state and returns a [[Future]] with the
+    * result.
+    *
+    * @return the ''Future'' with the current playback state
+    */
+  def currentPlaybackState: Future[RadioControlActor.CurrentPlaybackState] = {
+    implicit val timeout: Timeout = Timeout(5.seconds)
+    controlActor.ask(RadioControlActor.GetPlaybackState.apply)
   }
 
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
