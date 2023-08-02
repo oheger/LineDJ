@@ -384,6 +384,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        optEvalService: Option[EvaluateIntervalsService],
        optReplacementService: Option[ReplacementSourceSelectionService],
        optStateService: Option[RadioSourceStateService],
+       _: Timeout,
        _: RadioSourceStateActor.Factory,
        _: PlaybackStateActor.Factory,
        _: ErrorStateActor.Factory,

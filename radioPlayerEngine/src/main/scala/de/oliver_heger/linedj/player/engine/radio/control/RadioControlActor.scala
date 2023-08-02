@@ -16,14 +16,18 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.util.Timeout
 import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 /**
   * Implementation of an actor that controls the radio source to be played.
@@ -56,6 +60,9 @@ object RadioControlActor {
 
   /** The name of the child actor that checks for stalled playback. */
   final val GuardianActorName = "radioPlaybackGuardianActor"
+
+  /** The default timeout when using the Ask pattern. */
+  private val DefaultAskTimeout = Timeout(5.seconds)
 
   /**
     * The base trait for the commands supported by this actor implementation.
@@ -115,6 +122,26 @@ object RadioControlActor {
   case object Stop extends RadioControlCommand
 
   /**
+    * A command for querying the current playback state.
+    *
+    * @param replyTo reference to the actor to send the response to
+    */
+  case class GetPlaybackState(replyTo: ActorRef[CurrentPlaybackState]) extends RadioControlCommand
+
+  /**
+    * A data class containing information about the current playback state. An
+    * instance is sent as response of a [[GetPlaybackState]] request. Note that
+    * there is the possible combination that playback is enabled, but no source
+    * is available. Since this typically does not make sense in practice, for
+    * this combination the playback active flag is set to '''false'''.
+    *
+    * @param currentSource  an option with the current radio source
+    * @param playbackActive flag whether playback is currently active
+    */
+  case class CurrentPlaybackState(currentSource: Option[RadioSource],
+                                  playbackActive: Boolean)
+
+  /**
     * An internal command indicating that playback should change to the
     * provided radio source. This can be the current source or a replacement
     * source.
@@ -138,6 +165,16 @@ object RadioControlActor {
     * @param source the affected source
     */
   private case class SourceEnabled(source: RadioSource) extends RadioControlCommand
+
+  /**
+    * An internal command this actor sends to itself when the playback state
+    * from the state actor was received.
+    *
+    * @param state     the playback state
+    * @param forwardTo the client to forward this state
+    */
+  private case class ForwardPlaybackState(state: CurrentPlaybackState,
+                                          forwardTo: ActorRef[CurrentPlaybackState]) extends RadioControlCommand
 
   /**
     * A trait that defines a factory function for creating a ''Behavior'' for a
@@ -164,6 +201,7 @@ object RadioControlActor {
       *                              replacement source (None for default)
       * @param optStateService       the optional service to manage the source
       *                              state (None for default)
+      * @param askTimeout            the timeout for Ask interactions
       * @param stateActorFactory     factory to create the state management actor
       * @param playActorFactory      factory to create the playback state actor
       * @param errorActorFactory     factory to create the error state actor
@@ -182,6 +220,7 @@ object RadioControlActor {
               optEvalService: Option[EvaluateIntervalsService] = None,
               optReplacementService: Option[ReplacementSourceSelectionService] = None,
               optStateService: Option[RadioSourceStateService] = None,
+              askTimeout: Timeout = DefaultAskTimeout,
               stateActorFactory: RadioSourceStateActor.Factory = RadioSourceStateActor.behavior,
               playActorFactory: PlaybackStateActor.Factory = PlaybackStateActor.behavior,
               errorActorFactory: ErrorStateActor.Factory = ErrorStateActor.errorStateBehavior,
@@ -204,6 +243,7 @@ object RadioControlActor {
                                  optEvalService: Option[EvaluateIntervalsService],
                                  optReplacementService: Option[ReplacementSourceSelectionService],
                                  optStateService: Option[RadioSourceStateService],
+                                 askTimeout: Timeout,
                                  stateActorFactory: RadioSourceStateActor.Factory,
                                  playActorFactory: PlaybackStateActor.Factory,
                                  errorActorFactory: ErrorStateActor.Factory,
@@ -245,23 +285,26 @@ object RadioControlActor {
         scheduleActor,
         eventManagerActor), GuardianActorName)
 
-      handle(sourceStateActor, playStateActor, errorStateActor, metadataStateActor)
+      handle(context, sourceStateActor, playStateActor, errorStateActor, metadataStateActor, askTimeout)
     }
 
   /**
     * The main message handling function of this actor.
     *
+    * @param context            the actor context
     * @param sourceStateActor   the source state management actor
     * @param playStateActor     the playback state management actor
     * @param errorStateActor    the actor managing the error state
     * @param metadataStateActor the actor managing the metadata state
+    * @param askTimeout         the timeout for ask interactions
     * @return the updated behavior
     */
-  private def handle(sourceStateActor: ActorRef[RadioSourceStateActor.RadioSourceStateCommand],
+  private def handle(context: ActorContext[RadioControlCommand],
+                     sourceStateActor: ActorRef[RadioSourceStateActor.RadioSourceStateCommand],
                      playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
                      errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand],
-                     metadataStateActor: ActorRef[MetadataStateActor.MetadataExclusionStateCommand]):
-  Behavior[RadioControlCommand] = Behaviors.receiveMessage {
+                     metadataStateActor: ActorRef[MetadataStateActor.MetadataExclusionStateCommand],
+                     askTimeout: Timeout): Behavior[RadioControlCommand] = Behaviors.receiveMessage {
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
       Behaviors.same
@@ -296,6 +339,22 @@ object RadioControlActor {
 
     case GetSourcesInErrorState(receiver) =>
       errorStateActor ! ErrorStateActor.GetSourcesInErrorState(receiver)
+      Behaviors.same
+
+    case GetPlaybackState(replyTo) =>
+      implicit val timeout: Timeout = askTimeout
+      context.ask(playStateActor, PlaybackStateActor.GetPlaybackState.apply) {
+        case Failure(exception) =>
+          context.log.error("Error when querying playback state.", exception)
+          ForwardPlaybackState(CurrentPlaybackState(None, playbackActive = false), replyTo)
+        case Success(value) =>
+          val state = CurrentPlaybackState(value.currentSource, value.playbackActive)
+          ForwardPlaybackState(state, replyTo)
+      }
+      Behaviors.same
+
+    case ForwardPlaybackState(state, forwardTo) =>
+      forwardTo ! state
       Behaviors.same
 
     case Stop =>

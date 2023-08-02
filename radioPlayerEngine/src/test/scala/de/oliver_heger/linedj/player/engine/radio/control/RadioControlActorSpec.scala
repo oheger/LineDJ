@@ -19,8 +19,10 @@ package de.oliver_heger.linedj.player.engine.radio.control
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
+import akka.util.Timeout
 import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
+import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
@@ -28,7 +30,6 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioP
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -132,11 +133,38 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       .checkControlActorStopped()
   }
 
+  it should "handle a command to query the current playback state" in {
+    val currentSource = radioSource(11)
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val helper = new ControlActorTestHelper
+
+    helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
+
+    helper.expectPlaybackStateCommand() match {
+      case PlaybackStateActor.GetPlaybackState(replyTo) =>
+        replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), playbackActive = true)
+      case m => fail("Unexpected playback state command: " + m)
+    }
+
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource), playbackActive = true))
+  }
+
+  it should "handle a timeout when querying the playback state" in {
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val helper = new ControlActorTestHelper(Timeout(10.millis))
+
+    helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
+
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, playbackActive = false))
+  }
+
   /**
     * A test helper class managing a control actor under test and its
     * dependencies.
+    *
+    * @param askTimeout the ask timeout for the test actor
     */
-  private class ControlActorTestHelper {
+  private class ControlActorTestHelper(askTimeout: Timeout = Timeout(5.seconds)) {
     /** A test configuration used by the control actor. */
     private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorCreator = mock[ActorCreator],
       mediaManagerActor = mock[classic.ActorRef]),
@@ -331,7 +359,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         scheduleActor = probeScheduleActor.ref,
         factoryActor = probeFactoryActor.ref,
         streamManagerActor = probeStreamManagerActor.ref,
-        config = config))
+        config = config,
+        askTimeout = askTimeout))
     }
 
     /**
