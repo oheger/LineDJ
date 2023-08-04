@@ -52,15 +52,8 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     super.afterAll()
 
   "createRadioPlayer" should "correctly create and initialize a radio player" in {
-    val radioSource = new RadioSource("https://radio.example.org/test.mp3")
-    val sourceConfig = new RadioSourceConfig:
-      override val namedSources: Seq[(String, RadioSource)] =
-        Seq("test" -> radioSource)
-      override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
-      override def ranking(source: RadioSource): Int = 0
-
-    val config = ServerConfigTestHelper.defaultServerConfig(mock)
-      .copy(sourceConfig = sourceConfig)
+    val testSource = ServerConfigTestHelper.TestRadioSource("test")
+    val config = ServerConfigTestHelper.defaultServerConfig(mock, List(testSource))
 
     val radioPlayerFactory = mock[RadioPlayerFactory]
     val radioPlayer = mock[RadioPlayer]
@@ -72,7 +65,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     verify(radioPlayer).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
     verify(radioPlayer).initRadioSourceConfig(config.sourceConfig)
     verify(radioPlayer).initMetadataConfig(config.metadataConfig)
-    verify(radioPlayer).switchToRadioSource(radioSource)
+    verify(radioPlayer).switchToRadioSource(testSource.toRadioSource)
     verify(radioPlayer).startPlayback()
   }
 
