@@ -19,13 +19,17 @@ package de.oliver_heger.linedj.player.server
 import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
+import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -34,7 +38,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.net.ServerSocket
 import java.nio.file.Paths
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.util.Using
 
 object RoutesSpec:
@@ -79,7 +83,7 @@ end RoutesSpec
   * purpose.
   */
 class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar:
+  with BeforeAndAfterAll with Matchers with MockitoSugar with RadioModel.RadioJsonSupport:
   def this() = this(ActorSystem("RoutesSpec"))
 
   override protected def afterAll(): Unit =
@@ -132,6 +136,19 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     */
   private def sendRequest(request: HttpRequest): HttpResponse =
     futureResult(Http().singleRequest(request))
+
+  /**
+    * Helper function to unmarshal the given response to a specific target
+    * type.
+    *
+    * @param response the response
+    * @param um       the ''Unmarshaller'' instance for this type
+    * @tparam B the target type
+    * @return the unmarshalled response entity
+    */
+  private def unmarshal[B](response: HttpResponse)
+                          (implicit um: Unmarshaller[HttpResponse, B]): B =
+    futureResult(Unmarshal(response).to[B])
 
   "Routes" should "define a route for accessing the UI" in {
     runHttpServerTest() { config =>
@@ -196,5 +213,32 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
       stopResponse.status should be(StatusCodes.OK)
       verify(radioPlayer).stopPlayback()
+    }
+  }
+
+  it should "define a route to query the current playback status" in {
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, playbackActive = true)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val stateRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback"))
+      val stateResponse = sendRequest(stateRequest)
+
+      stateResponse.status should be(StatusCodes.OK)
+      val actualState = unmarshal[RadioModel.PlaybackStatus](stateResponse)
+      actualState should be(RadioModel.PlaybackStatus(enabled = true))
+    }
+  }
+
+  it should "handle errors when querying the current playback status" in {
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val stateRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback"))
+      val stateResponse = sendRequest(stateRequest)
+
+      stateResponse.status should be(StatusCodes.InternalServerError)
     }
   }

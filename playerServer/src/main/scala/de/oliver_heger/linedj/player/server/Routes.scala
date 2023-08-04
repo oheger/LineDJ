@@ -17,18 +17,20 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.Done
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.server.model.RadioModel
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * An object defining the routes supported by the player server.
   */
-object Routes:
+object Routes extends RadioModel.RadioJsonSupport:
   /**
     * Returns the top-level route for the player server.
     *
@@ -36,9 +38,11 @@ object Routes:
     * @param radioPlayer     the [[RadioPlayer]]
     * @param shutdownPromise a promise to trigger when the shutdown command is
     *                        invoked
+    * @param system          the current actor system
     * @return the top-level route of the server
     */
-  def route(config: PlayerServerConfig, radioPlayer: RadioPlayer, shutdownPromise: Promise[Done]): Route =
+  def route(config: PlayerServerConfig, radioPlayer: RadioPlayer, shutdownPromise: Promise[Done])
+           (implicit system: ActorSystem): Route =
     concat(
       apiRoute(config, radioPlayer, shutdownPromise),
       uiRoute(config)
@@ -51,11 +55,13 @@ object Routes:
     * @param radioConfig     the [[PlayerServerConfig]]
     * @param radioPlayer     the [[RadioPlayer]]
     * @param shutdownPromise the promise to trigger shutdown
+    * @param system          the current actor system
     * @return the API route
     */
   private def apiRoute(radioConfig: PlayerServerConfig,
                        radioPlayer: RadioPlayer,
-                       shutdownPromise: Promise[Done]): Route =
+                       shutdownPromise: Promise[Done])
+                      (implicit system: ActorSystem): Route =
     pathPrefix("api") {
       concat(
         shutdownRoute(shutdownPromise),
@@ -67,12 +73,24 @@ object Routes:
     * Returns the route for handling API requests related to the radio player.
     *
     * @param radioPlayer the [[RadioPlayer]]
+    * @param system      the current actor system
     * @return the route for the radio API
     */
-  private def radioRoute(radioPlayer: RadioPlayer): Route =
+  private def radioRoute(radioPlayer: RadioPlayer)
+                        (implicit system: ActorSystem): Route = {
+    implicit val ec: ExecutionContext = system.dispatcher
+
     pathPrefix("radio") {
       pathPrefix("playback") {
         concat(
+          get {
+            val futState = radioPlayer.currentPlaybackState.map { state =>
+              RadioModel.PlaybackStatus(state.playbackActive)
+            }
+            onSuccess(futState) { state =>
+              complete(state)
+            }
+          },
           path("start") {
             post {
               radioPlayer.startPlayback()
@@ -88,6 +106,7 @@ object Routes:
         )
       }
     }
+  }
 
   /**
     * Returns the route for the web UI of the player server. This route exposes
