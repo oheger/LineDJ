@@ -33,10 +33,22 @@ object RadioModel:
   final case class PlaybackStatus(enabled: Boolean)
 
   /**
-    * A trait providing JSON converters for the classes of the radio data 
+    * A data class representing a radio source.
+    *
+    * @param id      an internal ID assigned to the radio source
+    * @param name    the name of the radio source
+    * @param ranking a ranking
+    */
+  final case class RadioSource(id: String,
+                               name: String,
+                               ranking: Int)
+
+  /**
+    * A trait providing JSON converters for the classes of the radio data
     * model. This trait can be mixed into classes that need to do such
     * conversions.
     */
   trait RadioJsonSupport extends SprayJsonSupport with DefaultJsonProtocol:
     implicit val playbackStatusFormat: RootJsonFormat[PlaybackStatus] = jsonFormat1(PlaybackStatus.apply)
+    implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat3(RadioSource.apply)
   end RadioJsonSupport

@@ -242,3 +242,48 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       stateResponse.status should be(StatusCodes.InternalServerError)
     }
   }
+
+  it should "define a route to query the current radio source if it is defined" in {
+    val source = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(source.toRadioSource), playbackActive = false)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(source))
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
+      val sourceResponse = sendRequest(sourceRequest)
+
+      sourceResponse.status should be(StatusCodes.OK)
+      val actualSource = unmarshal[RadioModel.RadioSource](sourceResponse)
+      actualSource.name should be(source.name)
+      actualSource.ranking should be(source.ranking)
+      actualSource.id should not be null
+    }
+  }
+
+  it should "define a route to query the current radio source if it is undefined" in {
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, playbackActive = false)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
+      val sourceResponse = sendRequest(sourceRequest)
+
+      sourceResponse.status should be(StatusCodes.NoContent)
+    }
+  }
+
+  it should "handle errors when querying the current source" in {
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
+      val sourceResponse = sendRequest(sourceRequest)
+
+      sourceResponse.status should be(StatusCodes.InternalServerError)
+    }
+  }

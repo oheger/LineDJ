@@ -22,9 +22,13 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
 
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
@@ -65,46 +69,67 @@ object Routes extends RadioModel.RadioJsonSupport:
     pathPrefix("api") {
       concat(
         shutdownRoute(shutdownPromise),
-        radioRoute(radioPlayer)
+        radioRoute(radioPlayer, radioConfig.sourceConfig)
       )
     }
 
   /**
     * Returns the route for handling API requests related to the radio player.
     *
-    * @param radioPlayer the [[RadioPlayer]]
-    * @param system      the current actor system
+    * @param radioPlayer       the [[RadioPlayer]]
+    * @param radioSourceConfig the configuration for the radio sources
+    * @param system            the current actor system
     * @return the route for the radio API
     */
-  private def radioRoute(radioPlayer: RadioPlayer)
+  private def radioRoute(radioPlayer: RadioPlayer,
+                         radioSourceConfig: RadioSourceConfig)
                         (implicit system: ActorSystem): Route = {
     implicit val ec: ExecutionContext = system.dispatcher
 
+    val radioSources = radioSourcesMap(radioSourceConfig)
+
     pathPrefix("radio") {
-      pathPrefix("playback") {
-        concat(
-          get {
-            val futState = radioPlayer.currentPlaybackState.map { state =>
-              RadioModel.PlaybackStatus(state.playbackActive)
+      concat(
+        pathPrefix("playback") {
+          concat(
+            get {
+              val futState = radioPlayer.currentPlaybackState.map { state =>
+                RadioModel.PlaybackStatus(state.playbackActive)
+              }
+              onSuccess(futState) { state =>
+                complete(state)
+              }
+            },
+            path("start") {
+              post {
+                radioPlayer.startPlayback()
+                complete(StatusCodes.OK)
+              }
+            },
+            path("stop") {
+              post {
+                radioPlayer.stopPlayback()
+                complete(StatusCodes.OK)
+              }
             }
-            onSuccess(futState) { state =>
-              complete(state)
-            }
-          },
-          path("start") {
-            post {
-              radioPlayer.startPlayback()
-              complete(StatusCodes.OK)
-            }
-          },
-          path("stop") {
-            post {
-              radioPlayer.stopPlayback()
-              complete(StatusCodes.OK)
+          )
+        },
+        pathPrefix("sources") {
+          path("current") {
+            get {
+              val futSource = radioPlayer.currentPlaybackState.map { state =>
+                state.currentSource flatMap { source =>
+                  radioSourceConfig.namedSources.find(_._2.uri == source.uri)
+                } flatMap { (name, _) => radioSources.values.find(_.name == name) }
+              }
+              onSuccess(futSource) {
+                case Some(source) => complete(source)
+                case None => complete(StatusCodes.NoContent)
+              }
             }
           }
-        )
-      }
+        }
+      )
     }
   }
 
@@ -134,3 +159,29 @@ object Routes extends RadioModel.RadioJsonSupport:
         complete(StatusCodes.Accepted)
       }
     }
+
+  /**
+    * Generates a map with [[RadioModel.RadioSource]] objects allowing direct
+    * access to the sources based on their IDs.
+    *
+    * @param radioSourceConfig the configuration for radio sources
+    * @return the map with the sources
+    */
+  private def radioSourcesMap(radioSourceConfig: RadioSourceConfig): Map[String, RadioModel.RadioSource] =
+    radioSourceConfig.namedSources.map { (name, source) =>
+      name -> RadioModel.RadioSource(calculateID(name, source.uri), name, radioSourceConfig.ranking(source))
+    }.toMap
+
+  /**
+    * Generates an ID for a radio source based on its name and URI by applying
+    * a hash algorithm.
+    *
+    * @param name the name of the radio source
+    * @param uri  the URI of the source
+    * @return the ID for this source
+    */
+  private def calculateID(name: String, uri: String): String =
+    val digest = MessageDigest.getInstance("SHA-1")
+    digest.update(name.getBytes(StandardCharsets.UTF_8))
+    digest.update(uri.getBytes(StandardCharsets.UTF_8))
+    Base64.getEncoder.encodeToString(digest.digest())
