@@ -114,6 +114,11 @@ object Routes extends RadioModel.RadioJsonSupport:
             }
           )
         },
+        path("sources") {
+          get {
+            complete(RadioModel.RadioSources(radioSources.values.toList))
+          }
+        },
         pathPrefix("sources") {
           path("current") {
             get {

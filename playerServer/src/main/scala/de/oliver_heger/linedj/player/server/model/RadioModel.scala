@@ -44,6 +44,14 @@ object RadioModel:
                                ranking: Int)
 
   /**
+    * A data class representing the list of [[RadioSource]] objects currently
+    * available to the radio player.
+    *
+    * @param sources the list with existing radio sources
+    */
+  final case class RadioSources(sources: List[RadioSource])
+
+  /**
     * A trait providing JSON converters for the classes of the radio data
     * model. This trait can be mixed into classes that need to do such
     * conversions.
@@ -51,4 +59,5 @@ object RadioModel:
   trait RadioJsonSupport extends SprayJsonSupport with DefaultJsonProtocol:
     implicit val playbackStatusFormat: RootJsonFormat[PlaybackStatus] = jsonFormat1(PlaybackStatus.apply)
     implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat3(RadioSource.apply)
+    implicit val radioSourcesFormat: RootJsonFormat[RadioSources] = jsonFormat1(RadioSources.apply)
   end RadioJsonSupport

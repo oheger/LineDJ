@@ -94,16 +94,25 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
   /**
     * Returns a [[PlayerServerConfig]] that can be used to start an HTTP
-    * server. It is initialized with an unused server port and the path to the
-    * folder containing the test UI.
+    * server. It is initialized from a base configuration with an unused server
+    * port and the path to the folder containing the test UI.
     *
+    * @param baseConfig the base configuration
     * @return the configuration
     */
-  private def httpServerConfig(): PlayerServerConfig =
+  private def httpServerConfig(baseConfig: PlayerServerConfig = baseServerConfig): PlayerServerConfig =
+    baseConfig.copy(serverPort = freePort(),
+      uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
+      uiPath = "/ui/index.html")
+
+  /**
+    * Returns a basic configuration for the player server. The configuration
+    * used by tests is typically derived from this base configuration.
+    *
+    * @return the basic server configuration
+    */
+  private def baseServerConfig: PlayerServerConfig =
     ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
-      .copy(serverPort = freePort(),
-        uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
-        uiPath = "/ui/index.html")
 
   /**
     * Starts the HTTP server using a test factory instance and the provided
@@ -115,15 +124,16 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     * @param shutdownPromise the promise to trigger shutdown
     * @param block           the test block to execute
     */
-  private def runHttpServerTest(config: PlayerServerConfig = httpServerConfig(),
+  private def runHttpServerTest(config: PlayerServerConfig = baseServerConfig,
                                 radioPlayer: RadioPlayer = mock,
                                 shutdownPromise: Promise[Done] = Promise())
                                (block: PlayerServerConfig => Unit): Unit =
     val factory = new ServiceFactory
-    val bindings = futureResult(factory.createHttpServer(config, radioPlayer, shutdownPromise))
+    val serverConfig = httpServerConfig(config)
+    val bindings = futureResult(factory.createHttpServer(serverConfig, radioPlayer, shutdownPromise))
 
     try
-      block(config)
+      block(serverConfig)
     finally
       futureResult(bindings.unbind())
 
@@ -285,5 +295,29 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       val sourceResponse = sendRequest(sourceRequest)
 
       sourceResponse.status should be(StatusCodes.InternalServerError)
+    }
+  }
+
+  it should "define a route to query the existing radio sources" in {
+    val sources = (1 to 8).map { idx =>
+      ServerConfigTestHelper.TestRadioSource("radioSource" + idx, idx)
+    }
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      sources)
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourcesRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources"))
+      val sourcesResponse = sendRequest(sourcesRequest)
+
+      sourcesResponse.status should be(StatusCodes.OK)
+      val actualSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
+      val sourceIds = actualSources.map(_.id).toSet
+      sourceIds should have size sources.size
+
+      val actualTestSources = actualSources.map { source =>
+        ServerConfigTestHelper.TestRadioSource(source.name, source.ranking)
+      }
+      actualTestSources should contain theSameElementsAs sources
     }
   }
