@@ -22,6 +22,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
@@ -86,7 +87,7 @@ object Routes extends RadioModel.RadioJsonSupport:
                         (implicit system: ActorSystem): Route = {
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val radioSources = radioSourcesMap(radioSourceConfig)
+    val (modelSourcesByName, engineSourcesByID) = radioSourceMappings(radioSourceConfig)
 
     pathPrefix("radio") {
       concat(
@@ -116,23 +117,35 @@ object Routes extends RadioModel.RadioJsonSupport:
         },
         path("sources") {
           get {
-            complete(RadioModel.RadioSources(radioSources.values.toList))
+            complete(RadioModel.RadioSources(modelSourcesByName.values.toList))
           }
         },
         pathPrefix("sources") {
-          path("current") {
-            get {
-              val futSource = radioPlayer.currentPlaybackState.map { state =>
-                state.currentSource flatMap { source =>
-                  radioSourceConfig.namedSources.find(_._2.uri == source.uri)
-                } flatMap { (name, _) => radioSources.values.find(_.name == name) }
+          concat(
+            path("current" / Remaining) { id =>
+              post {
+                engineSourcesByID.get(id) match
+                  case Some(source) =>
+                    radioPlayer.switchToRadioSource(source)
+                    complete(StatusCodes.OK)
+                  case None =>
+                    complete(StatusCodes.NotFound)
               }
-              onSuccess(futSource) {
-                case Some(source) => complete(source)
-                case None => complete(StatusCodes.NoContent)
+            },
+            path("current") {
+              get {
+                val futSource = radioPlayer.currentPlaybackState.map { state =>
+                  state.currentSource flatMap { source =>
+                    radioSourceConfig.namedSources.find(_._2.uri == source.uri)
+                  } flatMap { (name, _) => modelSourcesByName.get(name) }
+                }
+                onSuccess(futSource) {
+                  case Some(source) => complete(source)
+                  case None => complete(StatusCodes.NoContent)
+                }
               }
             }
-          }
+          )
         }
       )
     }
@@ -166,16 +179,22 @@ object Routes extends RadioModel.RadioJsonSupport:
     }
 
   /**
-    * Generates a map with [[RadioModel.RadioSource]] objects allowing direct
-    * access to the sources based on their IDs.
+    * Generates [[RadioModel.RadioSource]] objects from the given radio sources
+    * configuration and maps allowing fast access to these and the original
+    * radio sources from the configuration based on calculated IDs.
     *
     * @param radioSourceConfig the configuration for radio sources
-    * @return the map with the sources
+    * @return a tuple with maps for accessing the radio sources
     */
-  private def radioSourcesMap(radioSourceConfig: RadioSourceConfig): Map[String, RadioModel.RadioSource] =
-    radioSourceConfig.namedSources.map { (name, source) =>
-      name -> RadioModel.RadioSource(calculateID(name, source.uri), name, radioSourceConfig.ranking(source))
-    }.toMap
+  private def radioSourceMappings(radioSourceConfig: RadioSourceConfig):
+  (Map[String, RadioModel.RadioSource], Map[String, RadioSource]) =
+    val mappings = radioSourceConfig.namedSources.map { (name, source) =>
+      val id = calculateID(name, source.uri)
+      val modelSourceMapping = name -> RadioModel.RadioSource(id, name, radioSourceConfig.ranking(source))
+      val engineSourceMapping = id -> source
+      (modelSourceMapping, engineSourceMapping)
+    }.unzip
+    (mappings._1.toMap, mappings._2.toMap)
 
   /**
     * Generates an ID for a radio source based on its name and URI by applying

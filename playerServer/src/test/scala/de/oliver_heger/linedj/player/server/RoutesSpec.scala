@@ -26,10 +26,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.player.server.model.RadioModel
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -319,5 +321,39 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
         ServerConfigTestHelper.TestRadioSource(source.name, source.ranking)
       }
       actualTestSources should contain theSameElementsAs sources
+    }
+  }
+
+  it should "define a route to set the current radio source" in {
+    val source = ServerConfigTestHelper.TestRadioSource("myFavoriteSource", 99)
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(source))
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourcesResponse = sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
+      val allSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
+      val sourceID = allSources.head.id
+
+      val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
+        uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
+      val currentSourceResponse = sendRequest(currentSourceRequest)
+
+      currentSourceResponse.status should be(StatusCodes.OK)
+      val expectedRadioSource = RadioSource(source.uri)
+      verify(radioPlayer).switchToRadioSource(expectedRadioSource)
+    }
+  }
+
+  it should "handle an unknown source ID" in {
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
+        uri = serverUri(config, "/api/radio/sources/current/nonExistingRadioSourceID"))
+      val currentSourceResponse = sendRequest(currentSourceRequest)
+
+      currentSourceResponse.status should be(StatusCodes.NotFound)
+      verify(radioPlayer, never()).switchToRadioSource(any())
     }
   }
