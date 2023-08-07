@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.player.server
 import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
+import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.player.server.PlayerServerConfig.{Slash, removeLeadingSlash}
-import org.apache.commons.configuration.{DefaultConfigurationBuilder, HierarchicalConfiguration}
+import de.oliver_heger.linedj.player.server.PlayerServerConfig.{PropCurrentSource, Slash, removeLeadingSlash}
+import org.apache.commons.configuration.{Configuration, DefaultConfigurationBuilder, HierarchicalConfiguration}
 
 import java.nio.file.{Path, Paths}
 
@@ -96,6 +97,22 @@ object PlayerServerConfig:
   /** The default configuration file name. */
   final val DefaultConfigFileName = "player-server-config.xml"
 
+  /**
+    * The name of a configuration that stores the name of the currently
+    * selected radio. If there is such a sub configuration in the server
+    * configuration, the current source is loaded from there, and it is also
+    * updated if the user selects another source. If this configuration is a
+    * file-based configuration, its ''auto-save'' flag is enabled, so that
+    * changes on the current source are persisted automatically.
+    */
+  final val CurrentSourceConfigName = "currentConfig"
+
+  /**
+    * The name of the configuration property that stores the name of the
+    * currently selected radio source.
+    */
+  final val PropCurrentSource = "radio.current"
+
   /** Constant for a path separator. */
   private val Slash = '/'
 
@@ -113,7 +130,7 @@ object PlayerServerConfig:
     */
   def apply(configFileName: String, mediaManagerActor: ActorRef, actorCreator: ActorCreator): PlayerServerConfig =
     val builder = new DefaultConfigurationBuilder(configFileName)
-    val config = builder.getConfiguration().asInstanceOf[HierarchicalConfiguration]
+    val config = builder.getConfiguration(true)
 
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(config, SectionPlayer, mediaManagerActor, actorCreator)
     val radioSourceConfig = RadioSourceConfigLoader.loadSourceConfig(config, SectionRadio)
@@ -128,7 +145,8 @@ object PlayerServerConfig:
       lookupPort = config.getInt(PropLookupPort, DefaultLookupPort),
       lookupCommand = config.getString(PropLookupCommand, DefaultLookupCommand),
       uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
-      uiPath = config.getString(PropUiPath, DefaultUiPath))
+      uiPath = config.getString(PropUiPath, DefaultUiPath),
+      optCurrentConfig = Option(config.getConfiguration(CurrentSourceConfigName)))
 
   /**
     * Removes a leading slash from the given path if it exists. Otherwise, the
@@ -167,7 +185,8 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               lookupPort: Int,
                               lookupCommand: String,
                               uiContentFolder: Path,
-                              uiPath: String):
+                              uiPath: String,
+                              optCurrentConfig: Option[Configuration]):
   /**
     * Returns the path prefix for requesting assets of the UI from the server.
     * This is derived from the [[uiPath]] property. The first path component is
@@ -180,3 +199,28 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
     val normalizedPrefix = removeLeadingSlash(uiPath)
     if !normalizedPrefix.contains(Slash) then ""
     else normalizedPrefix.takeWhile(_ != '/')
+
+  /**
+    * Returns the name of the currently selected radio source or ''None'' if
+    * this information is not available. In order for the source to be
+    * available, [[optCurrentConfig]] must be defined, and the corresponding
+    * property must be set.
+    *
+    * @return an ''Option'' with the name of the current radio source
+    */
+  def currentSourceName: Option[String] =
+    optCurrentConfig flatMap { c => Option(c.getString(PropCurrentSource)) }
+
+  /**
+    * Returns the currently selected radio source or ''None'' if this
+    * information is not available. This function tries to resolve the name of
+    * the current radio source obtained from the current configuration against
+    * the radio sources in [[sourceConfig]]. So, result is ''None'' if the name
+    * cannot be resolved.
+    *
+    * @return an ''Option'' with the current radio source
+    */
+  def currentSource: Option[RadioSource] =
+    currentSourceName flatMap { name =>
+      sourceConfig.namedSources.find(_._1 == name).map(_._2)
+    }

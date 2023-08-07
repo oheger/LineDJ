@@ -23,6 +23,7 @@ import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.{futureResult, getActorManagement}
 import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
+import org.apache.commons.configuration.StrictConfigurationComparator
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as eqArgs}
 import org.mockito.Mockito.{timeout, verify, when}
@@ -116,9 +117,19 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     val modifiedPlayerConfig = serverConfig.radioPlayerConfig.playerConfig.copy(actorCreator = null)
     val modifiedRadioConfig = serverConfig.radioPlayerConfig.copy(playerConfig = modifiedPlayerConfig)
     val modifiedServerConfig = serverConfig.copy(radioPlayerConfig = modifiedRadioConfig,
-      sourceConfig = expectedConfig.sourceConfig, metadataConfig = expectedConfig.metadataConfig)
+      sourceConfig = expectedConfig.sourceConfig,
+      metadataConfig = expectedConfig.metadataConfig,
+      optCurrentConfig = expectedConfig.optCurrentConfig)
     modifiedServerConfig should be(expectedConfig)
     serverConfig.sourceConfig.sources should be(expectedConfig.sourceConfig.sources)
+
+    serverConfig.optCurrentConfig.isDefined shouldBe expectedConfig.optCurrentConfig.isDefined
+    val currentConfigEquals = for
+      serverCurrent <- serverConfig.optCurrentConfig
+      expectedCurrent <- expectedConfig.optCurrentConfig
+    yield
+      new StrictConfigurationComparator().compare(serverCurrent, expectedCurrent)
+    currentConfigEquals.getOrElse(true) shouldBe true
 
   "Server" should "run the server" in {
     val expectedConfig = PlayerServerConfig(PlayerServerConfig.DefaultConfigFileName, null, null)

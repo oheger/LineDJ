@@ -17,11 +17,10 @@
 
 -->
 <!--
-  Test configuration definition file for the LineDJ player server application.
+  Test configuration file storing the current configuration source.
 -->
 <configuration>
-    <xml config-name="serverConfig" fileName="server.xml"/>
-    <xml config-name="playerConfig" fileName="player.xml"/>
-    <xml config-name="currentConfig" fileName="current.xml"/>
-    <xml config-name="radioSourcesConfig" fileName="radio-sources.xml" config-at="player"/>
+    <radio>
+        <current>HR 1</current>
+    </radio>
 </configuration>

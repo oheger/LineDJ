@@ -19,6 +19,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
+import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -87,4 +88,39 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
       .copy(uiPath = "ui/without/leading/slash.html")
 
     config.uiPathPrefix should be("ui")
+  }
+
+  it should "return None as the name of the current source if no current config is defined" in {
+    val config = PlayerServerConfig("test-server-config-empty.xml", null, null)
+
+    config.currentSourceName shouldBe empty
+  }
+
+  it should "return the name of the current radio source if it is defined" in {
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+
+    config.currentSourceName should be(Some("HR 1"))
+  }
+
+  it should "return None as the name of the current source if no current source property is defined" in {
+    val config = ServerConfigTestHelper.defaultServerConfig(null)
+      .copy(optCurrentConfig = Some(new HierarchicalConfiguration))
+
+    config.currentSourceName shouldBe empty
+  }
+
+  it should "return None for the current radio source if the name cannot be resolved" in {
+    val currentConfig = new HierarchicalConfiguration
+    currentConfig.addProperty(PlayerServerConfig.PropCurrentSource, "an unknown radio source")
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+      .copy(optCurrentConfig = Some(currentConfig))
+
+    config.currentSource shouldBe empty
+  }
+
+  it should "return the current radio source if it is defined" in {
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+    val expectedSource = config.sourceConfig.sources.head
+
+    config.currentSource should be(Some(expectedSource))
   }
