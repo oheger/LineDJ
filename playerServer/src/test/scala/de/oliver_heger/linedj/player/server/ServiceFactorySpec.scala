@@ -28,6 +28,7 @@ import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.utils.ActorManagement
+import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
@@ -52,8 +53,12 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     super.afterAll()
 
   "createRadioPlayer" should "correctly create and initialize a radio player" in {
-    val testSource = ServerConfigTestHelper.TestRadioSource("test")
-    val config = ServerConfigTestHelper.defaultServerConfig(mock, List(testSource))
+    val currentSource = ServerConfigTestHelper.TestRadioSource("current")
+    val otherSource = ServerConfigTestHelper.TestRadioSource("anotherSource")
+    val currentConfig = new HierarchicalConfiguration
+    currentConfig.addProperty(PlayerServerConfig.PropCurrentSource, currentSource.name)
+    val config = ServerConfigTestHelper.defaultServerConfig(mock, List(otherSource, currentSource))
+      .copy(optCurrentConfig = Some(currentConfig))
 
     val radioPlayerFactory = mock[RadioPlayerFactory]
     val radioPlayer = mock[RadioPlayer]
@@ -65,7 +70,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     verify(radioPlayer).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
     verify(radioPlayer).initRadioSourceConfig(config.sourceConfig)
     verify(radioPlayer).initMetadataConfig(config.metadataConfig)
-    verify(radioPlayer).switchToRadioSource(testSource.toRadioSource)
+    verify(radioPlayer).switchToRadioSource(currentSource.toRadioSource)
     verify(radioPlayer).startPlayback()
   }
 

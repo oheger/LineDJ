@@ -81,8 +81,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
       player.initRadioSourceConfig(config.sourceConfig)
       player.initMetadataConfig(config.metadataConfig)
 
-      // TODO: Determine the current radio source from the configuration.
-      config.sourceConfig.sources.headOption foreach { source =>
+      config.initialSource foreach { source =>
         player.switchToRadioSource(source)
         player.startPlayback()
       }
