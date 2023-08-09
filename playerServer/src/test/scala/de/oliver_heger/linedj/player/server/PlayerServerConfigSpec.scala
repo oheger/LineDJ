@@ -124,3 +124,26 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
 
     config.currentSource should be(Some(expectedSource))
   }
+
+  it should "return the current radio source as initial source if it is defined" in {
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+    val expectedSource = config.sourceConfig.sources.head
+
+    config.initialSource should be(Some(expectedSource))
+  }
+
+  it should "return the first radio source as initial source if no current source is defined" in {
+    val currentConfig = new HierarchicalConfiguration
+    currentConfig.addProperty(PlayerServerConfig.PropCurrentSource, "an unknown radio source")
+    val config = PlayerServerConfig("test-server-config.xml", null, null)
+      .copy(optCurrentConfig = Some(currentConfig))
+    val expectedSource = config.sourceConfig.sources.head
+
+    config.initialSource should be(Some(expectedSource))
+  }
+
+  it should "return None for the initial source if no sources are defined" in {
+    val config = PlayerServerConfig("test-server-config-empty.xml", null, null)
+
+    config.initialSource shouldBe empty
+  }

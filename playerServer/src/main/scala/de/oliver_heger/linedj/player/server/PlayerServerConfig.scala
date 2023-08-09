@@ -224,3 +224,15 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
     currentSourceName flatMap { name =>
       sourceConfig.namedSources.find(_._1 == name).map(_._2)
     }
+
+  /**
+    * Returns a radio source that should be played when the application is
+    * started. If a valid current radio source is defined in the configuration,
+    * this source is returned. Otherwise, the first radio source from the list
+    * of sources is returned. Result is ''None'' if there no radio source at
+    * all.
+    *
+    * @return an ''Option'' with the radio source to be played initially
+    */
+  def initialSource: Option[RadioSource] = currentSource orElse sourceConfig.sources.headOption
+  
