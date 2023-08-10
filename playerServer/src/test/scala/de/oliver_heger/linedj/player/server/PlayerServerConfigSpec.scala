@@ -19,7 +19,7 @@ import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
-import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.commons.configuration.{CombinedConfiguration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -146,4 +146,14 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     val config = PlayerServerConfig("test-server-config-empty.xml", null, null)
 
     config.initialSource shouldBe empty
+  }
+
+  it should "set the auto-save flag in the current configuration if it is a file configuration" in {
+    val combinedConfig = new CombinedConfiguration
+    val currentConfig = new PropertiesConfiguration
+    combinedConfig.addConfiguration(currentConfig, PlayerServerConfig.CurrentSourceConfigName)
+
+    val playerConfig = PlayerServerConfig(combinedConfig, null, null)
+
+    currentConfig.isAutoSave shouldBe true
   }

@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.server.PlayerServerConfig.{PropCurrentSource, Slash, removeLeadingSlash}
-import org.apache.commons.configuration.{Configuration, DefaultConfigurationBuilder, HierarchicalConfiguration}
+import org.apache.commons.configuration.{CombinedConfiguration, Configuration, DefaultConfigurationBuilder, FileConfiguration, HierarchicalConfiguration}
 
 import java.nio.file.{Path, Paths}
 
@@ -132,6 +132,23 @@ object PlayerServerConfig:
     val builder = new DefaultConfigurationBuilder(configFileName)
     val config = builder.getConfiguration(true)
 
+    apply(config, mediaManagerActor, actorCreator)
+
+  /**
+    * Parses the configuration for this application from the given
+    * [[CombinedConfiguration]] object. This variant expects that a combined
+    * configuration has already been loaded. It is processed now to construct a
+    * [[PlayerServerConfig]]. Some objects that cannot be created from the
+    * configuration file must be provided explicitly.
+    *
+    * @param config            the combined configuration for the player server
+    * @param mediaManagerActor reference to the media manager actor
+    * @param actorCreator      the object to create actor instances
+    * @return the [[PlayerServerConfig]] constructed from this configuration
+    */
+  def apply(config: CombinedConfiguration,
+            mediaManagerActor: ActorRef,
+            actorCreator: ActorCreator): PlayerServerConfig = {
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(config, SectionPlayer, mediaManagerActor, actorCreator)
     val radioSourceConfig = RadioSourceConfigLoader.loadSourceConfig(config, SectionRadio)
     val radioMetadataConfig = RadioSourceConfigLoader.loadMetadataConfig(config, SectionRadio)
@@ -146,7 +163,28 @@ object PlayerServerConfig:
       lookupCommand = config.getString(PropLookupCommand, DefaultLookupCommand),
       uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
       uiPath = config.getString(PropUiPath, DefaultUiPath),
-      optCurrentConfig = Option(config.getConfiguration(CurrentSourceConfigName)))
+      optCurrentConfig = getAndInitCurrentConfig(config))
+  }
+
+  /**
+    * Returns the sub configuration that stores the current radio source from
+    * the given combined configuration if it is available. This configuration
+    * is needed directly, since it is updated when the current source is
+    * changed. If the configuration is a file-based configuration, its auto-save
+    * flag is set, so that changes on the current source are automatically
+    * persisted.
+    *
+    * @param config the combined configuration for the player server
+    * @return an ''Option'' with the configuration for the editable values
+    */
+  private def getAndInitCurrentConfig(config: CombinedConfiguration): Option[Configuration] =
+    val optCurrentConfig = Option(config.getConfiguration(CurrentSourceConfigName))
+    optCurrentConfig foreach {
+      case fc: FileConfiguration =>
+        fc.setAutoSave(true)
+      case _ =>
+    }
+    optCurrentConfig
 
   /**
     * Removes a leading slash from the given path if it exists. Otherwise, the
