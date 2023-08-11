@@ -31,6 +31,7 @@ import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.player.server.model.RadioModel
+import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
@@ -342,6 +343,26 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       currentSourceResponse.status should be(StatusCodes.OK)
       val expectedRadioSource = RadioSource(source.uri)
       verify(radioPlayer).switchToRadioSource(expectedRadioSource)
+    }
+  }
+
+  it should "update the current radio source in the current config" in {
+    val source = ServerConfigTestHelper.TestRadioSource("myNewCurrentFavoriteSource", 88)
+    val currentConfig = new HierarchicalConfiguration
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(source)).copy(optCurrentConfig = Some(currentConfig))
+    val radioPlayer = mock[RadioPlayer]
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourcesResponse = sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
+      val allSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
+      val sourceID = allSources.head.id
+
+      val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
+        uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
+      val currentSourceResponse = sendRequest(currentSourceRequest)
+
+      currentConfig.getString(PlayerServerConfig.PropCurrentSource) should be(source.name)
     }
   }
 

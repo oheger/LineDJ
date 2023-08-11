@@ -37,6 +37,15 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 object Routes extends RadioModel.RadioJsonSupport:
   /**
+    * A data class storing the different representations for a radio source.
+    *
+    * @param engineSource the source used by the player engine
+    * @param modelSource  the source as defined in the model
+    */
+  private case class SourceData(engineSource: RadioSource,
+                                modelSource: RadioModel.RadioSource)
+
+  /**
     * Returns the top-level route for the player server.
     *
     * @param config          the [[PlayerServerConfig]]
@@ -57,37 +66,37 @@ object Routes extends RadioModel.RadioJsonSupport:
     * Returns the route for handling requests against the API of the player 
     * server.
     *
-    * @param radioConfig     the [[PlayerServerConfig]]
+    * @param serverConfig    the [[PlayerServerConfig]]
     * @param radioPlayer     the [[RadioPlayer]]
     * @param shutdownPromise the promise to trigger shutdown
     * @param system          the current actor system
     * @return the API route
     */
-  private def apiRoute(radioConfig: PlayerServerConfig,
+  private def apiRoute(serverConfig: PlayerServerConfig,
                        radioPlayer: RadioPlayer,
                        shutdownPromise: Promise[Done])
                       (implicit system: ActorSystem): Route =
     pathPrefix("api") {
       concat(
         shutdownRoute(shutdownPromise),
-        radioRoute(radioPlayer, radioConfig.sourceConfig)
+        radioRoute(radioPlayer, serverConfig)
       )
     }
 
   /**
     * Returns the route for handling API requests related to the radio player.
     *
-    * @param radioPlayer       the [[RadioPlayer]]
-    * @param radioSourceConfig the configuration for the radio sources
-    * @param system            the current actor system
+    * @param radioPlayer  the [[RadioPlayer]]
+    * @param serverConfig the [[PlayerServerConfig]]
+    * @param system       the current actor system
     * @return the route for the radio API
     */
   private def radioRoute(radioPlayer: RadioPlayer,
-                         radioSourceConfig: RadioSourceConfig)
+                         serverConfig: PlayerServerConfig)
                         (implicit system: ActorSystem): Route = {
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val (modelSourcesByName, engineSourcesByID) = radioSourceMappings(radioSourceConfig)
+    val (modelSourcesByName, sourcesByID) = radioSourceMappings(serverConfig.sourceConfig)
 
     pathPrefix("radio") {
       concat(
@@ -124,9 +133,13 @@ object Routes extends RadioModel.RadioJsonSupport:
           concat(
             path("current" / Remaining) { id =>
               post {
-                engineSourcesByID.get(id) match
+                sourcesByID.get(id) match
                   case Some(source) =>
-                    radioPlayer.switchToRadioSource(source)
+                    radioPlayer.switchToRadioSource(source.engineSource)
+                    serverConfig.optCurrentConfig foreach { currentConfig =>
+                      currentConfig.setProperty(PlayerServerConfig.PropCurrentSource,
+                        source.modelSource.name)
+                    }
                     complete(StatusCodes.OK)
                   case None =>
                     complete(StatusCodes.NotFound)
@@ -136,7 +149,7 @@ object Routes extends RadioModel.RadioJsonSupport:
               get {
                 val futSource = radioPlayer.currentPlaybackState.map { state =>
                   state.currentSource flatMap { source =>
-                    radioSourceConfig.namedSources.find(_._2.uri == source.uri)
+                    serverConfig.sourceConfig.namedSources.find(_._2.uri == source.uri)
                   } flatMap { (name, _) => modelSourcesByName.get(name) }
                 }
                 onSuccess(futSource) {
@@ -187,11 +200,12 @@ object Routes extends RadioModel.RadioJsonSupport:
     * @return a tuple with maps for accessing the radio sources
     */
   private def radioSourceMappings(radioSourceConfig: RadioSourceConfig):
-  (Map[String, RadioModel.RadioSource], Map[String, RadioSource]) =
+  (Map[String, RadioModel.RadioSource], Map[String, SourceData]) =
     val mappings = radioSourceConfig.namedSources.map { (name, source) =>
       val id = calculateID(name, source.uri)
-      val modelSourceMapping = name -> RadioModel.RadioSource(id, name, radioSourceConfig.ranking(source))
-      val engineSourceMapping = id -> source
+      val modelSource = RadioModel.RadioSource(id, name, radioSourceConfig.ranking(source))
+      val modelSourceMapping = name -> modelSource
+      val engineSourceMapping = id -> SourceData(source, modelSource)
       (modelSourceMapping, engineSourceMapping)
     }.unzip
     (mappings._1.toMap, mappings._2.toMap)
