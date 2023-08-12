@@ -17,13 +17,14 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
+import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement, SystemPropertyAccess}
 import org.apache.logging.log4j.LogManager
 
-import scala.concurrent.{Await, ExecutionContext, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
@@ -70,22 +71,43 @@ class Server(serviceFactory: ServiceFactory)
     val actorFactory = new ActorFactory(system)
     val actorManagement = new ActorManagement {}
     val creator = new ManagingActorCreator(actorFactory, actorManagement)
-
-    val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
-    log.info("Loading PlayerServerConfig from '{}'.", configName)
-    val config = PlayerServerConfig(configName, null, creator)
-
     val shutdownPromise = Promise[Done]()
-    serviceFactory.createEndpointRequestHandler(config)
-    val radioPlayerFuture = serviceFactory.createRadioPlayer(config)
-    val bindingsFuture = radioPlayerFuture.flatMap { player =>
-      serviceFactory.createHttpServer(config, player, shutdownPromise)
-    } andThen {
-      case Success(_) => log.info("HTTP server is listening on port {}.", config.serverPort)
+
+    val startFuture = (for
+      config <- loadServerConfig(creator)
+      _ <- startEndpointRequestHandler(config)
+      radioPlayer <- serviceFactory.createRadioPlayer(config)
+      bindings <- serviceFactory.createHttpServer(config, radioPlayer, shutdownPromise)
+    yield bindings) andThen {
+      case Success(binding) => log.info("HTTP server is listening on port {}.", binding.localAddress.getPort)
       case Failure(exception) => log.error("Failed to start HTTP server.", exception)
     }
 
-    val terminated = serviceFactory.enableGracefulShutdown(bindingsFuture, shutdownPromise.future, actorManagement)
+    val terminated = serviceFactory.enableGracefulShutdown(startFuture, shutdownPromise.future, actorManagement)
     Await.ready(terminated, 366.days) // Wait rather long.
 
     log.info("Server terminated.")
+
+  /**
+    * Loads the configuration of the server asynchronously using the name
+    * defined by a system property.
+    *
+    * @param creator the [[ActorCreator]]
+    * @return a ''Future'' with the server configuration
+    */
+  private def loadServerConfig(creator: ActorCreator): Future[PlayerServerConfig] = Future {
+    val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
+    log.info("Loading PlayerServerConfig from '{}'.", configName)
+    PlayerServerConfig(configName, null, creator)
+  }
+
+  /**
+    * Starts the actor handling UDP requests for the endpoint address of the
+    * player server.
+    *
+    * @param config the current server configuration
+    * @return a ''Future'' with the actor reference
+    */
+  private def startEndpointRequestHandler(config: PlayerServerConfig): Future[ActorRef] = Future {
+    serviceFactory.createEndpointRequestHandler(config)
+  }
