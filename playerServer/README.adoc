@@ -50,8 +50,9 @@ The following listing shows an example configuration file:
 ----
 
 In this example, the configuration named _radioSourcesConfig_ contains the data about radio sources, including
-time- or metadata-based exclusions. The referenced file `.lineDJ-radio-sources.xml` has the same format as described
-in the documentation for the link:../radioPlayer/README.adoc[radio player] application.
+time- or metadata-based exclusions. The referenced file `.lineDJ-radio-sources.xml` is processed via the
+link:../radioPlayerEngineConfig/README.adoc[Radio player engine config] module; hence, it must be compliant to the
+format expected by this module.
 
 The next configuration populated from the `server.xml` file defines the server itself and the radio player engine. An
 example is provided later in this section.
