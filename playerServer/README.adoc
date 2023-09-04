@@ -1,0 +1,122 @@
+:toc:
+:toc-placement!:
+:toclevels: 3
+= Player Server
+
+A module implementing a server on top of the player engine modules.
+
+toc::[]
+
+== Synopsis
+This module provides an alternative player implementation. Instead of a desktop OSGi application, the player is made
+available via an HTTP server that allows controlling playback via REST calls. The intended use case is that the server
+runs on a machine in the local network, maybe on a Raspberry Pi. The exposed player can then be controlled from other
+devices in the network. If a mobile device is used for this purpose, this works similar to a remove control.
+
+Currently, only the radio player is exposed via the server implementation. This may change in the future to also
+support the audio player.
+
+== Network discovery
+Since the player server can run on an arbitrary machine on the local network, it may not always have the same IP
+address. This makes it difficult for clients to interact with the server. To solve this problem, there is support for a
+discovery mechanism.
+
+The discovery mechanism is based on https://www.baeldung.com/java-broadcast-multicast[multicast UDP addresses]: The
+server application launches a listener on a configurable multicast group and port. When this listener receives a
+request with a specific payload it sends an answer back that contains the base URL of the server. So, clients can send
+a corresponding multicast request. From the response, they can obtain the URL for further interactions with the server.
+
+== Configuration
+The server is configured via a configuration file that is read via the
+https://commons.apache.org/proper/commons-configuration/userguide_v1.10/howto_configurationbuilder.html#Using_DefaultConfigurationBuilder[DefaultConfigurationBuilder]
+class from https://commons.apache.org/proper/commons-configuration/index.html[Apache Commons Configuration] 1.x.
+The file can reference the following options:
+
+* The configuration of the link:../radioPlayer/README.adoc[radio player]. This includes the definition of the radio
+  sources available.
+* A configuration named _currentConfig_ that is used to store current values like the currently selected radio source.
+* A configuration specific to the server. This is explained in detail below.
+
+The following listing shows an example configuration file:
+
+.Example configuration definition file
+[source,xml]
+----
+<configuration>
+    <xml config-name="radioSourcesConfig" fileName=".lineDJ-radio-sources.xml" config-at="player"/>
+    <xml config-name="serverConfig" fileName="server.xml" />
+    <xml config-name="currentConfig" fileName=".lineDJ-radioplayer.xml"/>
+</configuration>
+----
+
+In this example, the configuration named _radioSourcesConfig_ contains the data about radio sources, including
+time- or metadata-based exclusions. The referenced file `.lineDJ-radio-sources.xml` has the same format as described
+in the documentation for the link:../radioPlayer/README.adoc[radio player] application.
+
+The next configuration populated from the `server.xml` file defines the server itself and the radio player engine. An
+example is provided later in this section.
+
+The configuration named _currentConfig_ can be initially empty. It is used by the server to record some settings, so
+that they survive a restart.
+
+The server configuration defines fundamental properties of the server application and the audio and radio player
+engines. An example file could look as follows:
+
+.Example server configuration
+[source,xml]
+----
+<configuration>
+    <serverPort>8080</serverPort>
+    <lookupMulticastAddress>231.10.1.2</lookupMulticastAddress>
+    <lookupPort>5511</lookupPort>
+    <lookupCommand>whereAreYou?</lookupCommand>
+    <uiContentFolder>content/player-server-ui/dist</uiContentFolder>
+    <uiPath>/welcome.html</uiPath>
+    <player>
+        <memoryBufferSize>65536</memoryBufferSize>
+        <playbackContextLimit>8192</playbackContextLimit>
+        <bufferChunkSize>4096</bufferChunkSize>
+        <blockingDispatcherName>io-dispatcher</blockingDispatcherName>
+        <radio>
+          <stalledPlaybackCheck unit="seconds">4</stalledPlaybackCheck>
+        </radio>
+    </player>
+</configuration>
+----
+
+The configuration for the audio and the radio player engines has already been discussed at the corresponding player
+applications. Table <<tab-server-properties>> describes the configuration properties that are specific for the player
+server application.
+
+[#tab-server-properties]
+.Server configuration
+[cols="1,3,1",options="header"]
+|====
+|Property|Description|Default
+
+|serverPort
+|The port on which the HTTP server should listen.
+|8080
+
+|lookupMulticastAddress
+|The multicast UPD address on which the server can be queried for its UI endpoint.
+|231.10.0.0
+
+|lookupPort
+|Defines the lookup port. A query for the UI endpoint of this server has to be sent to the lookup multicast address
+ and this port.
+|4321
+
+|lookupCommand
+|Specifies the lookup command. A lookup query must have this string as payload; otherwise, it is ignored.
+|playerServer?
+
+|uiContentFolder
+|This property defines the local folder which contains the assets of the UI. This folder is served as a static
+ resource. This can be either an absolute or a relative path.
+|ui
+
+|uiPath
+|A property to define the URL path for loading the web UI. When requesting this path from the HTTP server, the player
+ UI is returned. Other endpoints, especially the REST API endpoints, are static.
+|====
