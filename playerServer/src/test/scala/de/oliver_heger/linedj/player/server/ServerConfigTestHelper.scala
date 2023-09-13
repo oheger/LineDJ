@@ -26,6 +26,7 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioS
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 
 import java.nio.file.Paths
+import scala.collection.immutable
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 
@@ -95,13 +96,13 @@ object ServerConfigTestHelper:
     * @param testSources the test radio sources
     * @return the [[RadioSourceConfig]] with these test sources
     */
-  def radioSourceConfig(testSources: Seq[TestRadioSource]): RadioSourceConfig =
+  def radioSourceConfig(testSources: immutable.Seq[TestRadioSource]): RadioSourceConfig =
     val radioSources = testSources.map(s => RadioSource(s.uri))
     new RadioSourceConfig:
-      override val namedSources: Seq[(String, RadioSource)] =
+      override val namedSources: immutable.Seq[(String, RadioSource)] =
         testSources.map(_.name).zip(radioSources)
 
-      override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
+      override def exclusions(source: RadioSource): immutable.Seq[IntervalQuery] = Seq.empty
 
       override def ranking(source: RadioSource): Int =
         testSources.find(_.uri == source.uri).map(_.ranking).getOrElse(0)
@@ -115,7 +116,7 @@ object ServerConfigTestHelper:
     * @return the initialized configuration
     */
   def defaultServerConfig(creator: ActorCreator,
-                          sources: Seq[TestRadioSource] = Nil): PlayerServerConfig =
+                          sources: immutable.Seq[TestRadioSource] = Nil): PlayerServerConfig =
     val playerConfig = PlayerConfigLoader.defaultConfig(null, creator)
     val radioConfig = RadioPlayerConfigLoader.DefaultRadioPlayerConfig.copy(playerConfig = playerConfig)
     PlayerServerConfig(radioPlayerConfig = radioConfig,

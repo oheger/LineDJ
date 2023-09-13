@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.player.engine.radio.config
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 
+import scala.collection.immutable
+
 object RadioSourceConfig {
   /** Constant for a default ranking value. */
   final val DefaultRanking = 0
@@ -28,9 +30,9 @@ object RadioSourceConfig {
     * contains no sources, and all functions are implemented as dummies.
     */
   final val Empty = new RadioSourceConfig {
-    override val namedSources: Seq[(String, RadioSource)] = Seq.empty
+    override val namedSources: immutable.Seq[(String, RadioSource)] = Seq.empty
 
-    override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
+    override def exclusions(source: RadioSource): immutable.Seq[IntervalQuery] = Seq.empty
 
     override def ranking(source: RadioSource): Int = DefaultRanking
   }
@@ -55,14 +57,14 @@ trait RadioSourceConfig {
     *
     * @return a sequence with all available radio sources and their names
     */
-  def namedSources: Seq[(String, RadioSource)]
+  def namedSources: immutable.Seq[(String, RadioSource)]
 
   /**
     * Returns a list with all available radio sources.
     *
     * @return a sequence with all available radio sources
     */
-  def sources: Seq[RadioSource] = namedSources map (_._2)
+  def sources: immutable.Seq[RadioSource] = namedSources map (_._2)
 
   /**
     * Returns exclusions for specific radio sources. This function returns a
@@ -73,7 +75,7 @@ trait RadioSourceConfig {
     * @param source the source in question
     * @return a sequence with exclusions for a this radio source
     */
-  def exclusions(source: RadioSource): Seq[IntervalQuery]
+  def exclusions(source: RadioSource): immutable.Seq[IntervalQuery]
 
   /**
     * Returns a ranking for the specified radio source. The ranking is an
