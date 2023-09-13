@@ -52,6 +52,13 @@ ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 ThisBuild / version := "1.0-SNAPSHOT"
 ThisBuild / scalaVersion := VersionScala
 
+ThisBuild / assemblyMergeStrategy := {
+  case "module-info.class" => MergeStrategy.first
+  case x =>
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+    oldStrategy(x)
+}
+
 /** The options to set for the scala compiler for Scala 3 projects. */
 lazy val scala3Options = Seq(
   "-deprecation",
@@ -966,7 +973,8 @@ lazy val playerServer = (project in file("playerServer"))
       "com.lmax" % "disruptor" % VersionDisruptor,
       collectionsDependency,
       beanUtilsDependency
-    )
+    ),
+    assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
   ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, log4jConfFragment,
       mp3PlaybackContextFactory)
 
