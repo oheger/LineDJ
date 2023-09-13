@@ -45,8 +45,8 @@ lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
 lazy val VersionDisruptor = "3.4.4"
-lazy val VersionScalaTest = "3.2.16"
-lazy val VersionScalaTestMockito = "3.2.15.0"
+lazy val VersionScalaTest = "3.2.17"
+lazy val VersionScalaTestMockito = "3.2.17.0"
 
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 ThisBuild / version := "1.0-SNAPSHOT"
@@ -105,7 +105,7 @@ lazy val remotingDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
-  "org.scalatestplus" %% "mockito-4-6" % VersionScalaTestMockito % Test,
+  "org.scalatestplus" %% "mockito-4-11" % VersionScalaTestMockito % Test,
 )
 
 lazy val osName = System.getProperty("os.name")

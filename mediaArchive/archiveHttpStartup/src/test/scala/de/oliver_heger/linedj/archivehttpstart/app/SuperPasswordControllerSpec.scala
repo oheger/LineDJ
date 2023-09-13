@@ -25,7 +25,6 @@ import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.resources.Message
-import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
@@ -159,8 +158,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def expectSaveCredentials(expPath: Path, result: Future[Path]): ControllerTestHelper = {
-      when(application.saveArchiveCredentials(storageService, expPath, SuperPassword))
-        .thenReturn(result)
+      doReturn(result).when(application).saveArchiveCredentials(storageService, expPath, SuperPassword)
       this
     }
 
