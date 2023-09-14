@@ -231,7 +231,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
   it should "define a route to query the current playback status" in {
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, playbackActive = true)
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = true)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -257,12 +257,14 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
   }
 
   it should "define a route to query the current radio source if it is defined" in {
-    val source = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(Some(source.toRadioSource), playbackActive = false)
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+      Some(sourceSelected.toRadioSource), playbackActive = false)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
-      List(source))
+      List(sourceCurrent))
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
@@ -270,15 +272,15 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
       sourceResponse.status should be(StatusCodes.OK)
       val actualSource = unmarshal[RadioModel.RadioSource](sourceResponse)
-      actualSource.name should be(source.name)
-      actualSource.ranking should be(source.ranking)
+      actualSource.name should be(sourceCurrent.name)
+      actualSource.ranking should be(sourceCurrent.ranking)
       actualSource.id should not be null
     }
   }
 
   it should "define a route to query the current radio source if it is undefined" in {
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, playbackActive = false)
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>

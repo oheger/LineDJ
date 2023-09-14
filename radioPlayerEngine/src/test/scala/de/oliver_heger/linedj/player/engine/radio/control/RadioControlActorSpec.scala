@@ -68,10 +68,12 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     val newSource = radioSource(4)
     val setSourceCommand = RadioControlActor.SelectRadioSource(newSource)
     val expStateCommand = RadioSourceStateActor.RadioSourceSelected(newSource)
+    val expPlaybackStateCommand = PlaybackStateActor.SourceSelected(newSource)
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(setSourceCommand)
       .checkSourceStateCommand(expStateCommand)
+      .checkPlaybackStateCommand(expPlaybackStateCommand)
   }
 
   it should "provide an actor to handle SwitchToSource messages" in {
@@ -135,6 +137,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
   it should "handle a command to query the current playback state" in {
     val currentSource = radioSource(11)
+    val selectedSource = radioSource(12)
     val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
     val helper = new ControlActorTestHelper
 
@@ -142,11 +145,13 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.expectPlaybackStateCommand() match {
       case PlaybackStateActor.GetPlaybackState(replyTo) =>
-        replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), None, playbackActive = true)
+        replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
+          playbackActive = true)
       case m => fail("Unexpected playback state command: " + m)
     }
 
-    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource), playbackActive = true))
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource),
+      Some(selectedSource), playbackActive = true))
   }
 
   it should "handle a timeout when querying the playback state" in {
@@ -155,7 +160,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, playbackActive = false))
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false))
   }
 
   /**

@@ -135,10 +135,13 @@ object RadioControlActor {
     * is available. Since this typically does not make sense in practice, for
     * this combination the playback active flag is set to '''false'''.
     *
-    * @param currentSource  an option with the current radio source
+    * @param currentSource  an option with the radio source currently played
+    * @param selectedSource an option with the radio source that has been
+    *                       selected by the user
     * @param playbackActive flag whether playback is currently active
     */
   case class CurrentPlaybackState(currentSource: Option[RadioSource],
+                                  selectedSource: Option[RadioSource],
                                   playbackActive: Boolean)
 
   /**
@@ -315,6 +318,7 @@ object RadioControlActor {
 
     case SelectRadioSource(source) =>
       sourceStateActor ! RadioSourceStateActor.RadioSourceSelected(source)
+      playStateActor ! PlaybackStateActor.SourceSelected(source)
       Behaviors.same
 
     case SourceDisabled(source) =>
@@ -346,9 +350,9 @@ object RadioControlActor {
       context.ask(playStateActor, PlaybackStateActor.GetPlaybackState.apply) {
         case Failure(exception) =>
           context.log.error("Error when querying playback state.", exception)
-          ForwardPlaybackState(CurrentPlaybackState(None, playbackActive = false), replyTo)
+          ForwardPlaybackState(CurrentPlaybackState(None, None, playbackActive = false), replyTo)
         case Success(value) =>
-          val state = CurrentPlaybackState(value.currentSource, value.playbackActive)
+          val state = CurrentPlaybackState(value.currentSource, value.selectedSource, value.playbackActive)
           ForwardPlaybackState(state, replyTo)
       }
       Behaviors.same
