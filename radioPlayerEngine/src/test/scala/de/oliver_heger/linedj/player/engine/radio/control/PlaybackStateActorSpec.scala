@@ -171,7 +171,7 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
 
     helper.sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, playbackActive = false))
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, None, playbackActive = false))
   }
 
   it should "return the current playback state if a source is played" in {
@@ -181,9 +181,11 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
 
     helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
       .sendCommand(PlaybackStateActor.StartPlayback)
+      .sendCommand(PlaybackStateActor.SourceSelected(source))
       .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), playbackActive = true))
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), Some(source),
+      playbackActive = true))
   }
 
   it should "return the current playback state if a source is available but playback is disabled" in {
@@ -191,10 +193,12 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
     val probeClient = testKit.createTestProbe[PlaybackStateActor.CurrentPlaybackState]()
     val helper = new PlaybackActorTestHelper
 
-    helper.sendCommand(PlaybackStateActor.PlaybackSource(source))
+    helper.sendCommand(PlaybackStateActor.SourceSelected(source))
+      .sendCommand(PlaybackStateActor.PlaybackSource(source))
       .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), playbackActive = false))
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(Some(source), Some(source),
+      playbackActive = false))
   }
 
   it should "return the current playback state if playback is enabled but no source is available" in {
@@ -204,7 +208,7 @@ class PlaybackStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(te
     helper.sendCommand(PlaybackStateActor.StartPlayback)
       .sendCommand(PlaybackStateActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, playbackActive = false))
+    probeClient.expectMessage(PlaybackStateActor.CurrentPlaybackState(None, None, playbackActive = false))
   }
 
   /**

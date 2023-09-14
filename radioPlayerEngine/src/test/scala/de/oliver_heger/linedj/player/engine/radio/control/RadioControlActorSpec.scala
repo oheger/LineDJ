@@ -142,7 +142,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.expectPlaybackStateCommand() match {
       case PlaybackStateActor.GetPlaybackState(replyTo) =>
-        replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), playbackActive = true)
+        replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), None, playbackActive = true)
       case m => fail("Unexpected playback state command: " + m)
     }
 

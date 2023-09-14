@@ -24,8 +24,9 @@ import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStop
 
 /**
   * An actor implementation that manages the current playback state, i.e. the
-  * [[RadioSource]] to be played and a flag whether playback is currently
-  * active.
+  * [[RadioSource]] selected by the user, the current [[RadioSource]] to be
+  * played (which may be a replacement source) and a flag whether playback is
+  * currently active.
   *
   * Changes on the playback state are propagated if necessary to a
   * [[PlayerFacadeActor]]. Via the messages supported by this actor, playback
@@ -65,6 +66,16 @@ object PlaybackStateActor {
   case class PlaybackSource(source: RadioSource) extends PlaybackStateCommand
 
   /**
+    * A command to set the [[RadioSource]] that has been selected by the user.
+    * This information is stored in the playback state; but it is not directly
+    * evaluated. The source that is actually played is set using the
+    * [[PlaybackSource]] command.
+    *
+    * @param source the currently selected [[RadioSource]]
+    */
+  case class SourceSelected(source: RadioSource) extends PlaybackStateCommand
+
+  /**
     * A command for querying the current playback state.
     *
     * @param replyTo reference to the actor to send the response to
@@ -78,10 +89,13 @@ object PlaybackStateActor {
     * is available. Since this typically does not make sense in practice, for
     * this combination the playback active flag is set to '''false'''.
     *
-    * @param currentSource  an option with the current radio source
+    * @param currentSource  an option with the [[RadioSource]] that is
+    *                       currently played
+    * @param selectedSource an option with the selected [[RadioSource]]
     * @param playbackActive flag whether playback is currently active
     */
   case class CurrentPlaybackState(currentSource: Option[RadioSource],
+                                  selectedSource: Option[RadioSource],
                                   playbackActive: Boolean)
 
   /**
@@ -109,18 +123,21 @@ object PlaybackStateActor {
     */
   final val behavior: Factory = (facadeActor: classic.ActorRef,
                                  eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]) => {
-    val initState = PlaybackState(optSource = None, optPlayback = None, needsReset = false)
+    val initState = PlaybackState(optSource = None, optSelectedSource = None, optPlayback = None, needsReset = false)
     handle(facadeActor, eventManagerActor, initState)
   }
 
   /**
     * A data class representing the current playback state.
     *
-    * @param optSource   an ''Option'' for the currently played radio source
-    * @param optPlayback flag whether playback is currently active
-    * @param needsReset  flag whether the engine needs to be reset
+    * @param optSource         an ''Option'' for the currently played radio
+    *                          source
+    * @param optSelectedSource an ''Option'' for the currently selected source
+    * @param optPlayback       flag whether playback is currently active
+    * @param needsReset        flag whether the engine needs to be reset
     */
   private case class PlaybackState(optSource: Option[RadioSource],
+                                   optSelectedSource: Option[RadioSource],
                                    optPlayback: Option[Unit],
                                    needsReset: Boolean) {
     /**
@@ -172,6 +189,10 @@ object PlaybackStateActor {
         val nextState = state.copy(optSource = Some(source))
         playSourceIfPossible(facadeActor, eventActor, nextState)
 
+      case SourceSelected(source) =>
+        val nextState = state.copy(optSelectedSource = Some(source))
+        handle(facadeActor, eventActor, nextState)
+
       case StartPlayback =>
         state.updatePlayback(enabled = true) map { nextState =>
           playSourceIfPossible(facadeActor, eventActor, nextState)
@@ -189,7 +210,7 @@ object PlaybackStateActor {
 
       case GetPlaybackState(replyTo) =>
         val playbackActive = state.optPlayback.isDefined && state.optSource.isDefined
-        replyTo ! CurrentPlaybackState(state.optSource, playbackActive)
+        replyTo ! CurrentPlaybackState(state.optSource, state.optSelectedSource, playbackActive)
         Behaviors.same
     }
 
