@@ -264,7 +264,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       Some(sourceSelected.toRadioSource), playbackActive = false)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
-      List(sourceCurrent))
+      List(sourceCurrent, sourceSelected))
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
@@ -272,8 +272,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
       sourceResponse.status should be(StatusCodes.OK)
       val actualSource = unmarshal[RadioModel.RadioSource](sourceResponse)
-      actualSource.name should be(sourceCurrent.name)
-      actualSource.ranking should be(sourceCurrent.ranking)
+      actualSource.name should be(sourceSelected.name)
+      actualSource.ranking should be(sourceSelected.ranking)
       actualSource.id should not be null
     }
   }

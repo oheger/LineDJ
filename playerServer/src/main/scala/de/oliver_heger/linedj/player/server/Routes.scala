@@ -19,9 +19,8 @@ package de.oliver_heger.linedj.player.server
 import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{Directives, Route}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
@@ -30,7 +29,7 @@ import de.oliver_heger.linedj.player.server.model.RadioModel
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Base64
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Promise}
 
 /**
   * An object defining the routes supported by the player server.
@@ -148,7 +147,7 @@ object Routes extends RadioModel.RadioJsonSupport:
             path("current") {
               get {
                 val futSource = radioPlayer.currentPlaybackState.map { state =>
-                  state.currentSource flatMap { source =>
+                  state.selectedSource flatMap { source =>
                     serverConfig.sourceConfig.namedSources.find(_._2.uri == source.uri)
                   } flatMap { (name, _) => modelSourcesByName.get(name) }
                 }
