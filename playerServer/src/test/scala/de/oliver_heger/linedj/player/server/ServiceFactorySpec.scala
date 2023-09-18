@@ -21,9 +21,7 @@ import akka.actor.{ActorSystem, Terminated}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.testkit.TestKit
 import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
@@ -32,12 +30,10 @@ import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.net.ServerSocket
-import java.nio.file.Paths
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 

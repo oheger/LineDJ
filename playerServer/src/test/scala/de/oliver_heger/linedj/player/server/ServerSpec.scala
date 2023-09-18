@@ -66,7 +66,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     val mockPlayer = mock[RadioPlayer]
     val binding = mock[ServerBinding]
-    val bindingFuture = Future.successful(binding)
+    val bindingFuture = Future.successful(ServiceFactory.ServerStartupData(binding, expectedConfig))
     val promiseTerminated = Promise[Terminated]()
     when(serviceFactory.createEndpointRequestHandler(any(), any())).thenReturn(TestProbe().ref)
     when(serviceFactory.createRadioPlayer(any())(any())).thenReturn(Future.successful(mockPlayer))

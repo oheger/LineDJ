@@ -23,12 +23,12 @@ import akka.http.scaladsl.Http.ServerBinding
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
-import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, TerminationTimeout, log}
+import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
 import de.oliver_heger.linedj.utils.ActorManagement
-import org.apache.logging.log4j.{LogManager, Logger}
+import org.apache.logging.log4j.LogManager
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.*
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 object ServiceFactory:
@@ -41,9 +41,22 @@ object ServiceFactory:
   /** The logger. */
   private val log = LogManager.getLogger(classOf[ServiceFactory])
 
+  /**
+    * A data class that collects information about a newly started HTTP server.
+    * An instance of this class is returned by the function that creates a
+    * server. This instance can then be passed to the function that enables the
+    * server shutdown.
+    *
+    * @param binding the [[ServerBinding]] of the new server
+    * @param config  the configuration used by the server
+    */
+  final case class ServerStartupData(binding: ServerBinding,
+                                     config: PlayerServerConfig)
+
 /**
   * A factory class for creating several services used by the Player Server
   * application based on the current [[PlayerServerConfig]].
+  *
   * @param radioPlayerFactory the factory for creating the [[RadioPlayer]]
   */
 class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFactory):
@@ -103,9 +116,10 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
   def createHttpServer(config: PlayerServerConfig,
                        radioPlayer: RadioPlayer,
                        shutdownPromise: Promise[Done])
-                      (implicit system: ActorSystem): Future[ServerBinding] =
+                      (implicit system: ActorSystem): Future[ServerStartupData] =
     Http().newServerAt("0.0.0.0", config.serverPort)
       .bind(Routes.route(config, radioPlayer, shutdownPromise))
+      .map(binding => ServerStartupData(binding, config))(system.dispatcher)
 
   /**
     * Enables the system to shutdown gracefully when the given shutdown future

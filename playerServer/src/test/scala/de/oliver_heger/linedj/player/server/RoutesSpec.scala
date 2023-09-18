@@ -133,7 +133,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
                                (block: PlayerServerConfig => Unit): Unit =
     val factory = new ServiceFactory
     val serverConfig = httpServerConfig(config)
-    val bindings = futureResult(factory.createHttpServer(serverConfig, radioPlayer, shutdownPromise))
+    val bindings = futureResult(factory.createHttpServer(serverConfig, radioPlayer, shutdownPromise)).binding
 
     try
       block(serverConfig)
