@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.server.PlayerServerConfig.{PropCurrentSource, Slash, removeLeadingSlash}
-import org.apache.commons.configuration.{CombinedConfiguration, Configuration, DefaultConfigurationBuilder, FileConfiguration, HierarchicalConfiguration}
+import org.apache.commons.configuration.{CombinedConfiguration, Configuration, DefaultConfigurationBuilder, FileConfiguration}
 
 import java.nio.file.{Path, Paths}
 
@@ -65,6 +65,14 @@ object PlayerServerConfig:
     * is returned.
     */
   final val PropUiPath = "uiPath"
+
+  /**
+    * Name of the configuration property that defines the shutdown command.
+    * Here an optional command can be specified that is executed when the
+    * server terminates. This can be used for instance to do some special
+    * clean-up or shutdown the current device.
+    */
+  final val PropShutdownCommand = "shutdownCommand"
 
   /**
     * The name of the section containing the audio player configuration.
@@ -163,7 +171,8 @@ object PlayerServerConfig:
       lookupCommand = config.getString(PropLookupCommand, DefaultLookupCommand),
       uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
       uiPath = config.getString(PropUiPath, DefaultUiPath),
-      optCurrentConfig = getAndInitCurrentConfig(config))
+      optCurrentConfig = getAndInitCurrentConfig(config),
+      optShutdownCommand = Option(config.getString(PropShutdownCommand)))
   }
 
   /**
@@ -214,6 +223,10 @@ end PlayerServerConfig
   * @param lookupCommand          the command expected in lookup requests
   * @param uiContentFolder        the folder containing the UI assets
   * @param uiPath                 the URL path for accessing the Web UI
+  * @param optCurrentConfig       the optional configuration to store the
+  *                               current radio source
+  * @param optShutdownCommand     an optional command to be executed when the
+  *                               server shuts down
   */
 case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               sourceConfig: RadioSourceConfig,
@@ -224,7 +237,8 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               lookupCommand: String,
                               uiContentFolder: Path,
                               uiPath: String,
-                              optCurrentConfig: Option[Configuration]):
+                              optCurrentConfig: Option[Configuration],
+                              optShutdownCommand: Option[String]):
   /**
     * Returns the path prefix for requesting assets of the UI from the server.
     * This is derived from the [[uiPath]] property. The first path component is

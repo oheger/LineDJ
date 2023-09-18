@@ -26,4 +26,5 @@
     <lookupCommand>HELLO</lookupCommand>
     <uiContentFolder>webapp</uiContentFolder>
     <uiPath>/ui/test/welcome.html</uiPath>
+    <shutdownCommand>sudo shutdown -h now</shutdownCommand>
 </configuration>

@@ -44,6 +44,7 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     config.radioPlayerConfig.playerConfig.bufferTempPath should be(Some(Paths.get("/tmp")))
     config.radioPlayerConfig.maximumEvalDelay should be(2.hours)
     config.radioPlayerConfig.streamCacheTime should be(5.seconds)
+    config.optShutdownCommand should be(Some("sudo shutdown -h now"))
   }
 
   it should "set default values for unspecified properties" in {
@@ -59,6 +60,7 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     config.radioPlayerConfig.stalledPlaybackCheck should be(RadioPlayerConfigLoader.DefaultStalledPlaybackCheck)
     config.sourceConfig.sources shouldBe empty
     config.metadataConfig.exclusions shouldBe empty
+    config.optShutdownCommand shouldBe empty
   }
 
   it should "set the media manager actor" in {

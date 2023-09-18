@@ -128,7 +128,8 @@ object ServerConfigTestHelper:
       lookupCommand = PlayerServerConfig.DefaultLookupCommand,
       uiContentFolder = Paths get PlayerServerConfig.DefaultUiContentFolder,
       uiPath = PlayerServerConfig.DefaultUiPath,
-      optCurrentConfig = None)
+      optCurrentConfig = None,
+      optShutdownCommand = None)
 
   extension (config: PlayerServerConfig)
 
