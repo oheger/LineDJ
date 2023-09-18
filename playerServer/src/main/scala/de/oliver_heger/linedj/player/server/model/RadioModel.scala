@@ -25,6 +25,33 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
   */
 object RadioModel:
   /**
+    * Constant for the message type ''SourceChanged''. This message type
+    * indicates that the user has selected another radio source as current
+    * source. The payload is the ID of this new radio source.
+    */
+  final val MessageTypeSourceChanged = "SourceChanged"
+
+  /**
+    * Constant for the message type ''ReplacementStart''. The current radio
+    * source has been temporarily disabled, and a replacement source is now
+    * played. The payload consists of the ID of this replacement source.
+    */
+  final val MessageTypeReplacementStart = "ReplacementStart"
+
+  /**
+    * Constant for the message type ''ReplacementEnd''. Playback switched back
+    * to the currently selected radio source. The ID of this source is the
+    * payload.
+    */
+  final val MessageTypeReplacementEnd = "ReplacementEnd"
+
+  /**
+    * Constant for the message type ''TitleInfo''. Information about the
+    * currently played song is updated. The payload is the updated information.
+    */
+  final val MessageTypeTitleInfo = "TitleInfo"
+
+  /**
     * A data class representing the current playback status of the radio
     * player.
     *
@@ -52,6 +79,24 @@ object RadioModel:
   final case class RadioSources(sources: List[RadioSource])
 
   /**
+    * A data class defining messages sent from the server to interested clients
+    * about changes in the state of the radio player. Clients can register for
+    * these messages via a WebSockets API.
+    *
+    * Via this mechanism, a subset of radio events can be received by clients
+    * of the player server. The supported messages are simpler than the
+    * hierarchy of radio events though - which should also simplify the
+    * implementation on client side. A message consists of a type and a payload
+    * that depends on the type. Refer to the ''MessageTypeXXX'' constants for
+    * the list of supported message types.
+    *
+    * @param messageType the type of the message as a string constant
+    * @param payload     the payload of this message
+    */
+  final case class RadioMessage(messageType: String,
+                                payload: String)
+
+  /**
     * A trait providing JSON converters for the classes of the radio data
     * model. This trait can be mixed into classes that need to do such
     * conversions.
@@ -60,4 +105,5 @@ object RadioModel:
     implicit val playbackStatusFormat: RootJsonFormat[PlaybackStatus] = jsonFormat1(PlaybackStatus.apply)
     implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat3(RadioSource.apply)
     implicit val radioSourcesFormat: RootJsonFormat[RadioSources] = jsonFormat1(RadioSources.apply)
+    implicit val radioMessageFormat: RootJsonFormat[RadioMessage] = jsonFormat2(RadioMessage.apply)
   end RadioJsonSupport
