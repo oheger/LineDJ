@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.Done
-import akka.actor.{ActorSystem, Terminated}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
@@ -33,6 +33,8 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.File
+import java.net.InetSocketAddress
 import scala.concurrent.{Future, Promise}
 
 /**
@@ -56,9 +58,12 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     * @param expectedConfig the expected configuration
     * @param configFile     an optional alternative config file name if not the
     *                       default name should be used
+    * @param shutdownCommand the optional shutdown command to execute
     * @return the ''Future'' with the assertion
     */
-  private def runServerTest(expectedConfig: PlayerServerConfig, configFile: Option[String] = None): Future[Assertion] =
+  private def runServerTest(expectedConfig: PlayerServerConfig,
+                            configFile: Option[String] = None,
+                            shutdownCommand: Option[String] = None): Future[Assertion] =
     val serviceFactory = mock[ServiceFactory]
     val server = new Server(serviceFactory) with SystemPropertyAccess:
       override def getSystemProperty(key: String): Option[String] =
@@ -67,8 +72,9 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
     val mockPlayer = mock[RadioPlayer]
     val binding = mock[ServerBinding]
+    when(binding.localAddress).thenReturn(InetSocketAddress.createUnresolved("127.0.0.1", 8080))
     val bindingFuture = Future.successful(ServiceFactory.ServerStartupData(binding, expectedConfig))
-    val promiseTerminated = Promise[Terminated]()
+    val promiseTerminated = Promise[Option[String]]()
     when(serviceFactory.createEndpointRequestHandler(any(), any())).thenReturn(TestProbe().ref)
     when(serviceFactory.createRadioPlayer(any())(any())).thenReturn(Future.successful(mockPlayer))
     when(serviceFactory.createHttpServer(any(), any(), any())(any())).thenReturn(bindingFuture)
@@ -92,7 +98,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     verify(serviceFactory, timeout(3000)).enableGracefulShutdown(captStartup.capture(),
       captShutdownFuture.capture(), captManagement.capture())(eqArgs(system))
 
-    promiseTerminated.success(mock)
+    promiseTerminated.success(shutdownCommand)
     runThread.join(3000)
     runThread.isAlive shouldBe false
 
@@ -123,7 +129,8 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val modifiedServerConfig = serverConfig.copy(radioPlayerConfig = modifiedRadioConfig,
       sourceConfig = expectedConfig.sourceConfig,
       metadataConfig = expectedConfig.metadataConfig,
-      optCurrentConfig = expectedConfig.optCurrentConfig)
+      optCurrentConfig = expectedConfig.optCurrentConfig,
+      optShutdownCommand = expectedConfig.optShutdownCommand)
     modifiedServerConfig should be(expectedConfig)
     serverConfig.sourceConfig.sources should be(expectedConfig.sourceConfig.sources)
 
@@ -146,4 +153,25 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val expectedConfig = PlayerServerConfig(alternativeConfigName, null, null)
 
     runServerTest(expectedConfig, Some(alternativeConfigName))
+  }
+
+  it should "execute the shutdown command" in {
+    val alternativeConfigName = "test-server-config.xml"
+    val tempDir = System.getProperty("java.io.tmpdir")
+    val subDir = "serverSpecNewTestDirectory" + System.currentTimeMillis()
+
+    // The test shutdown command is OS-specific; so the test is only executed under Linux.
+    val optShutdownCommand = if System.getProperty("os.name").contains("Linux") then
+      Some(s"mkdir $tempDir/$subDir")
+    else None
+    val expectedConfig = PlayerServerConfig(alternativeConfigName, null, null)
+
+    runServerTest(expectedConfig, Some(alternativeConfigName), optShutdownCommand) map { ass =>
+      val createdDir = new File(tempDir, subDir)
+      optShutdownCommand match
+        case Some(_) =>
+          awaitCond(createdDir.isDirectory)
+          createdDir.delete() shouldBe true
+        case None => ass
+    }
   }

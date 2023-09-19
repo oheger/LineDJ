@@ -26,6 +26,7 @@ import org.apache.logging.log4j.LogManager
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.*
+import scala.sys.process.Process
 import scala.util.{Failure, Success}
 
 object Server:
@@ -85,7 +86,12 @@ class Server(serviceFactory: ServiceFactory)
     }
 
     val terminated = serviceFactory.enableGracefulShutdown(startFuture, shutdownPromise.future, actorManagement)
-    Await.ready(terminated, 366.days) // Wait rather long.
+    val optShutdownCommand = Await.result(terminated, Duration.Inf)
+
+    optShutdownCommand foreach { command =>
+      log.info("Executing shutdown command: '{}'.", command)
+      Process(command).run()
+    }
 
     log.info("Server terminated.")
 
