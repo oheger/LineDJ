@@ -21,24 +21,24 @@ import akka.actor.{ActorSystem, Terminated}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.{futureResult, getActorManagement}
+import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.getActorManagement
 import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
 import org.apache.commons.configuration.StrictConfigurationComparator
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as eqArgs}
 import org.mockito.Mockito.{timeout, verify, when}
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.compatible.Assertion
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.{Await, Future, Promise}
-import scala.concurrent.duration.*
+import scala.concurrent.{Future, Promise}
 
 /**
   * Test class for [[Server]].
   */
-class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike with BeforeAndAfterAll
+class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike with BeforeAndAfterAll
   with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ServerSpec"))
 
@@ -56,8 +56,9 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     * @param expectedConfig the expected configuration
     * @param configFile     an optional alternative config file name if not the
     *                       default name should be used
+    * @return the ''Future'' with the assertion
     */
-  private def runServerTest(expectedConfig: PlayerServerConfig, configFile: Option[String] = None): Unit =
+  private def runServerTest(expectedConfig: PlayerServerConfig, configFile: Option[String] = None): Future[Assertion] =
     val serviceFactory = mock[ServiceFactory]
     val server = new Server(serviceFactory) with SystemPropertyAccess:
       override def getSystemProperty(key: String): Option[String] =
@@ -95,15 +96,18 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     runThread.join(3000)
     runThread.isAlive shouldBe false
 
-    futureResult(captBindings.getValue) should be(binding)
-    val serverConfig = captPlayerConfig.getValue
-    captEndpointRequestHandlerConfig.getValue should be(serverConfig)
-    captHttpConfig.getValue should be(serverConfig)
-    serverConfig.getActorManagement should be(captManagement.getValue)
-    checkConfig(serverConfig, expectedConfig)
+    captBindings.getValue.map { actBinding =>
+      actBinding should be(binding)
+      val serverConfig = captPlayerConfig.getValue
+      captEndpointRequestHandlerConfig.getValue should be(serverConfig)
+      captHttpConfig.getValue should be(serverConfig)
+      serverConfig.getActorManagement should be(captManagement.getValue)
+      checkConfig(serverConfig, expectedConfig)
 
-    captShutdownPromise.getValue.success(Done)
-    futureResult(captShutdownFuture.getValue)
+      captShutdownPromise.getValue.success(Done)
+    }.flatMap { _ =>
+      captShutdownFuture.getValue map (_ should not be null)
+    }
 
   /**
     * Checks whether the given configuration matches the expected one. Since
