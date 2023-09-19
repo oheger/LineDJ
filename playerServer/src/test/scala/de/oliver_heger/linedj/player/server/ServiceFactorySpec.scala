@@ -24,13 +24,12 @@ import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
@@ -40,7 +39,7 @@ import scala.concurrent.{Future, Promise}
 /**
   * Test class for [[ServiceFactory]].
   */
-class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ServiceFactorySpec"))
 
@@ -61,13 +60,14 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
-    futureResult(factory.createRadioPlayer(config)) should be(radioPlayer)
-
-    verify(radioPlayer).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
-    verify(radioPlayer).initRadioSourceConfig(config.sourceConfig)
-    verify(radioPlayer).initMetadataConfig(config.metadataConfig)
-    verify(radioPlayer).switchToRadioSource(currentSource.toRadioSource)
-    verify(radioPlayer).startPlayback()
+    factory.createRadioPlayer(config) map { player =>
+      verify(player).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
+      verify(player).initRadioSourceConfig(config.sourceConfig)
+      verify(player).initMetadataConfig(config.metadataConfig)
+      verify(player).switchToRadioSource(currentSource.toRadioSource)
+      verify(player).startPlayback()
+      player should be(radioPlayer)
+    }
   }
 
   it should "skip starting playback if no radio sources are available" in {
@@ -77,10 +77,11 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
-    futureResult(factory.createRadioPlayer(config)) should be(radioPlayer)
-
-    verify(radioPlayer, never()).switchToRadioSource(any())
-    verify(radioPlayer, never()).startPlayback()
+    factory.createRadioPlayer(config) map { player =>
+      verify(player, never()).switchToRadioSource(any())
+      verify(player, never()).startPlayback()
+      player should be(radioPlayer)
+    }
   }
 
   "enableGracefulShutdown" should "call the shutdown when all conditions are met" in {
@@ -88,15 +89,17 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val mockSystem = mock[ActorSystem]
     val mockManagement = mock[ActorManagement]
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
-    when(mockSystem.terminate()).thenReturn(Future.successful(Done))
+    when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
 
     val factory = new ServiceFactory
     val futTerminate = factory.enableGracefulShutdown(Future.successful(mockBinding),
       Future.successful(Done), mockManagement)(mockSystem)
-    futureResult(futTerminate)
-    verify(mockBinding).addToCoordinatedShutdown(5.seconds)(mockSystem)
-    verify(mockManagement).stopActors()
-    verify(mockSystem).terminate()
+    futTerminate map { t =>
+      verify(mockBinding).addToCoordinatedShutdown(5.seconds)(mockSystem)
+      verify(mockManagement).stopActors()
+      verify(mockSystem).terminate()
+      t should not be null
+    }
   }
 
   it should "not shutdown before the server has been fully started" in {
@@ -109,8 +112,11 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val factory = new ServiceFactory
     factory.enableGracefulShutdown(promiseBinding.future, Future.successful(Done), mockManagement)(mockSystem)
 
-    verify(mockManagement, never()).stopActors()
-    verify(mockSystem, never()).terminate()
+    Future {
+      verify(mockManagement, never()).stopActors()
+      verify(mockSystem, never()).terminate()
+      1 should be(1)  // an assertion is needed
+    }
   }
 
   it should "not shutdown before the shutdown future has completed" in {
@@ -123,13 +129,16 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val factory = new ServiceFactory
     factory.enableGracefulShutdown(Future.successful(mockBinding), promiseShutdown.future, mockManagement)(mockSystem)
 
-    verify(mockManagement, never()).stopActors()
-    verify(mockSystem, never()).terminate()
+    Future {
+      verify(mockManagement, never()).stopActors()
+      verify(mockSystem, never()).terminate()
+      1 should be(1)
+    }
   }
 
   it should "shutdown the actor system even if the binding future failed" in {
     val mockSystem = mock[ActorSystem]
-    when(mockSystem.terminate()).thenReturn(Future.successful(Terminated))
+    when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
     val mockManagement = mock[ActorManagement]
     val promiseBinding = Promise[ServerBinding]()
@@ -139,7 +148,9 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       mockManagement)(mockSystem)
 
     promiseBinding.failure(new IllegalStateException("Test exception"))
-    futureResult(futureTerminated)
-    verify(mockManagement).stopActors()
-    verify(mockSystem).terminate()
+    futureTerminated map { t =>
+      verify(mockManagement).stopActors()
+      verify(mockSystem).terminate()
+      t should not be null
+    }
   }
