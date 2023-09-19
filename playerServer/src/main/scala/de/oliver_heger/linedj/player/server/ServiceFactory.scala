@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.Done
-import akka.actor.{ActorRef, ActorSystem, Terminated, typed}
+import akka.actor.{ActorRef, ActorSystem, typed}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
@@ -124,39 +124,46 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
   /**
     * Enables the system to shutdown gracefully when the given shutdown future
     * completes. This function installs hooks that stop all managed actors and
-    * terminate the actor system when both the binding future and the shutdown
+    * terminate the actor system when both the startup future and the shutdown
     * future are completed. It returns a [[Future]] that completes when the
-    * actor system has been terminated.
+    * actor system has been terminated. This ''Future'' contains an ''Option''
+    * with the shutdown command to be executed.
     *
-    * @param bindingFuture   the future with the [[ServerBinding]]
+    * @param startupFuture   the future with the [[ServerStartupData]]
     * @param shutdownFuture  the future to trigger the shutdown
     * @param actorManagement the object to manage actors
     * @param system          the actor system
-    * @return a [[Future]] that indicates the termination of the system
+    * @return a [[Future]] that indicates the termination of the system and the
+    *         shutdown command to be executed
     */
-  def enableGracefulShutdown(bindingFuture: Future[ServerBinding],
+  def enableGracefulShutdown(startupFuture: Future[ServerStartupData],
                              shutdownFuture: Future[Done],
                              actorManagement: ActorManagement)
-                            (implicit system: ActorSystem): Future[Terminated] =
+                            (implicit system: ActorSystem): Future[Option[String]] =
     implicit val ec: ExecutionContext = system.dispatcher
-    val shutdownBindingFuture = bindingFuture.map(_.addToCoordinatedShutdown(TerminationTimeout))
+    val shutdownStartupFuture = startupFuture.map { startup =>
+      val shutdownBinding = startup.binding.addToCoordinatedShutdown(TerminationTimeout)
+      startup.copy(binding = shutdownBinding)
+    }
     val futCanShutdown = for
-      _ <- shutdownBindingFuture
+      startup <- shutdownStartupFuture
       _ <- shutdownFuture
-    yield Done
+    yield startup.config
 
-    val promiseTerminated = Promise[Terminated]()
-    futCanShutdown.onComplete { triedResult =>
-      triedResult match
+    val promiseTerminated = Promise[Option[String]]()
+    futCanShutdown.onComplete { triedConfig =>
+      val optShutdownCommand = triedConfig match
         case Failure(exception) =>
           log.error("Error when setting up server.", exception)
+          None
         case Success(value) =>
           log.info("Triggering shutdown.")
+          value.optShutdownCommand
 
       log.info("Stopping actors and terminating actor system.")
       actorManagement.stopActors()
-      system.terminate() onComplete { t =>
-        promiseTerminated.complete(t)
+      system.terminate() onComplete { _ =>
+        promiseTerminated.success(optShutdownCommand)
       }
     }
 

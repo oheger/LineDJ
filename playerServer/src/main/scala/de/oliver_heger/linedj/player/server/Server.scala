@@ -77,9 +77,10 @@ class Server(serviceFactory: ServiceFactory)
       config <- loadServerConfig(creator)
       _ <- startEndpointRequestHandler(config)
       radioPlayer <- serviceFactory.createRadioPlayer(config)
-      bindings <- serviceFactory.createHttpServer(config, radioPlayer, shutdownPromise)
-    yield bindings.binding) andThen {
-      case Success(binding) => log.info("HTTP server is listening on port {}.", binding.localAddress.getPort)
+      startup <- serviceFactory.createHttpServer(config, radioPlayer, shutdownPromise)
+    yield startup) andThen {
+      case Success(startupData) =>
+        log.info("HTTP server is listening on port {}.", startupData.binding.localAddress.getPort)
       case Failure(exception) => log.error("Failed to start HTTP server.", exception)
     }
 

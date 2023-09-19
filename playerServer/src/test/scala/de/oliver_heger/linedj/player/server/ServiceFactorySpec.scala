@@ -90,44 +90,66 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val mockManagement = mock[ActorManagement]
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
     when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val startupData = ServiceFactory.ServerStartupData(mockBinding, config)
 
     val factory = new ServiceFactory
-    val futTerminate = factory.enableGracefulShutdown(Future.successful(mockBinding),
+    val futTerminate = factory.enableGracefulShutdown(Future.successful(startupData),
       Future.successful(Done), mockManagement)(mockSystem)
     futTerminate map { t =>
       verify(mockBinding).addToCoordinatedShutdown(5.seconds)(mockSystem)
       verify(mockManagement).stopActors()
       verify(mockSystem).terminate()
-      t should not be null
+      t shouldBe empty
+    }
+  }
+
+  it should "return a Future with the shutdown command" in {
+    val ShutdownCommand = "run me on shutdown"
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+      .copy(optShutdownCommand = Some(ShutdownCommand))
+    val startupData = ServiceFactory.ServerStartupData(mock, config)
+    val mockSystem = mock[ActorSystem]
+    val mockManagement = mock[ActorManagement]
+    when(mockSystem.dispatcher).thenReturn(system.dispatcher)
+    when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
+
+    val factory = new ServiceFactory
+    val futTerminate = factory.enableGracefulShutdown(Future.successful(startupData),
+      Future.successful(Done), mockManagement)(mockSystem)
+
+    futTerminate map { optCommand =>
+      optCommand should be(Some(ShutdownCommand))
     }
   }
 
   it should "not shutdown before the server has been fully started" in {
-    val mockBinding = mock[ServerBinding]
     val mockSystem = mock[ActorSystem]
     val mockManagement = mock[ActorManagement]
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
-    val promiseBinding = Promise[ServerBinding]()
+    val promiseStartup = Promise[ServiceFactory.ServerStartupData]()
 
     val factory = new ServiceFactory
-    factory.enableGracefulShutdown(promiseBinding.future, Future.successful(Done), mockManagement)(mockSystem)
+    factory.enableGracefulShutdown(promiseStartup.future, Future.successful(Done), mockManagement)(mockSystem)
 
     Future {
       verify(mockManagement, never()).stopActors()
       verify(mockSystem, never()).terminate()
-      1 should be(1)  // an assertion is needed
+      1 should be(1) // an assertion is needed
     }
   }
 
   it should "not shutdown before the shutdown future has completed" in {
     val mockBinding = mock[ServerBinding]
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val startupData = ServiceFactory.ServerStartupData(mockBinding, config)
     val mockSystem = mock[ActorSystem]
     val mockManagement = mock[ActorManagement]
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
     val promiseShutdown = Promise[Done]()
 
     val factory = new ServiceFactory
-    factory.enableGracefulShutdown(Future.successful(mockBinding), promiseShutdown.future, mockManagement)(mockSystem)
+    factory.enableGracefulShutdown(Future.successful(startupData), promiseShutdown.future, mockManagement)(mockSystem)
 
     Future {
       verify(mockManagement, never()).stopActors()
@@ -136,18 +158,18 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     }
   }
 
-  it should "shutdown the actor system even if the binding future failed" in {
+  it should "shutdown the actor system even if the startup future failed" in {
     val mockSystem = mock[ActorSystem]
     when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
     val mockManagement = mock[ActorManagement]
-    val promiseBinding = Promise[ServerBinding]()
+    val promiseStartup = Promise[ServiceFactory.ServerStartupData]()
 
     val factory = new ServiceFactory
-    val futureTerminated = factory.enableGracefulShutdown(promiseBinding.future, Future.successful(Done),
+    val futureTerminated = factory.enableGracefulShutdown(promiseStartup.future, Future.successful(Done),
       mockManagement)(mockSystem)
 
-    promiseBinding.failure(new IllegalStateException("Test exception"))
+    promiseStartup.failure(new IllegalStateException("Test exception"))
     futureTerminated map { t =>
       verify(mockManagement).stopActors()
       verify(mockSystem).terminate()

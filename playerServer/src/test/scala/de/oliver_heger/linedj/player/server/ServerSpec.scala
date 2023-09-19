@@ -86,18 +86,18 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val captShutdownPromise = ArgumentCaptor.forClass(classOf[Promise[Done]])
     verify(serviceFactory, timeout(3000)).createHttpServer(captHttpConfig.capture(), eqArgs(mockPlayer),
       captShutdownPromise.capture())(eqArgs(system))
-    val captBindings = ArgumentCaptor.forClass(classOf[Future[ServerBinding]])
+    val captStartup = ArgumentCaptor.forClass(classOf[Future[ServiceFactory.ServerStartupData]])
     val captShutdownFuture = ArgumentCaptor.forClass(classOf[Future[Done]])
     val captManagement = ArgumentCaptor.forClass(classOf[ActorManagement])
-    verify(serviceFactory, timeout(3000)).enableGracefulShutdown(captBindings.capture(),
+    verify(serviceFactory, timeout(3000)).enableGracefulShutdown(captStartup.capture(),
       captShutdownFuture.capture(), captManagement.capture())(eqArgs(system))
 
     promiseTerminated.success(mock)
     runThread.join(3000)
     runThread.isAlive shouldBe false
 
-    captBindings.getValue.map { actBinding =>
-      actBinding should be(binding)
+    captStartup.getValue.map { actStartup =>
+      actStartup.binding should be(binding)
       val serverConfig = captPlayerConfig.getValue
       captEndpointRequestHandlerConfig.getValue should be(serverConfig)
       captHttpConfig.getValue should be(serverConfig)
