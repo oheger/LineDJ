@@ -17,6 +17,8 @@
 package de.oliver_heger.linedj.player.server
 
 import akka.actor.ActorSystem
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.{ActorRef, Behavior, Props}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
@@ -79,13 +81,22 @@ object ServerConfigTestHelper:
 
   /**
     * Creates a [[ManagingActorCreator]] object that is backed by the given
-    * actor system.
+    * actor system. If an [[ActorTestKit]] is provided, the creation of typed
+    * actors is delegated to this object.
     *
-    * @param system the actor system
+    * @param system     the actor system
+    * @param optTestKit an optional test kit for typed actors
     * @return the [[ManagingActorCreator]]
     */
-  def actorCreator(system: ActorSystem): ManagingActorCreator =
-    val factory = new ActorFactory(system)
+  def actorCreator(system: ActorSystem, optTestKit: Option[ActorTestKit] = None): ManagingActorCreator =
+    val factory = new ActorFactory(system) {
+      override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] =
+        optTestKit match
+          case Some(value) =>
+            value.spawn(behavior, name, props)
+          case None =>
+            super.createActor(behavior, name, props)
+    }
     val management = new ActorManagement {}
     new ManagingActorCreator(factory, management)
 
