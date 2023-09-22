@@ -18,15 +18,14 @@ package de.oliver_heger.linedj.player.server
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 /**
   * Test class for [[RadioPlayerFactory]].
   */
-class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
 with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("RadioPlayerFactorySpec"))
 
@@ -39,10 +38,10 @@ with BeforeAndAfterAll with Matchers:
     val config = ServerConfigTestHelper.defaultServerConfig(creator)
 
     val factory = new RadioPlayerFactory
-    val player = futureResult(factory.createRadioPlayer(config))
+    factory.createRadioPlayer(config) map { player =>
+      creator.actorManagement.managedActorNames.size should be > 0
+      creator.actorManagement.stopActors()
 
-    player.config should be(config.radioPlayerConfig)
-    creator.actorManagement.managedActorNames.size should be > 0
-
-    creator.actorManagement.stopActors()
+      player.config should be(config.radioPlayerConfig)
+    }
   }
