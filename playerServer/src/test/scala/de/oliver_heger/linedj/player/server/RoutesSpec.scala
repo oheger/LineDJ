@@ -20,7 +20,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{FileIO, Sink, Source}
@@ -29,20 +29,20 @@ import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.futureResult
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.compatible.Assertion
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.net.ServerSocket
 import java.nio.file.Paths
-import scala.concurrent.{Future, Promise}
-import scala.util.Using
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Using}
 
 object RoutesSpec:
   /**
@@ -60,12 +60,14 @@ object RoutesSpec:
     *
     * @param source the source
     * @param mat    the object to materialize streams
+    * @param ec     the execution context
     * @tparam M the materialized type of the source
-    * @return the string content of the source
+    * @return a ''Future'' the string content of the source
     */
-  private def readSource[M](source: Source[ByteString, M])(implicit mat: Materializer): String =
+  private def readSource[M](source: Source[ByteString, M])
+                           (implicit mat: Materializer, ec: ExecutionContext): Future[String] =
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-    futureResult(source.runWith(sink)).utf8String
+    source.runWith(sink).map(_.utf8String)
 
   /**
     * Returns the URI for a specific path on the test server based on the given
@@ -85,7 +87,7 @@ end RoutesSpec
   * currently not possible to use the routes testkit of Akka HTTP for this
   * purpose.
   */
-class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar with RadioModel.RadioJsonSupport:
   def this() = this(ActorSystem("RoutesSpec"))
 
@@ -94,6 +96,9 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     super.afterAll()
 
   import RoutesSpec.*
+
+  /** The execution context in implicit scope. */
+  private implicit val ec: ExecutionContext = system.dispatcher
 
   /**
     * Returns a [[PlayerServerConfig]] that can be used to start an HTTP
@@ -130,25 +135,46 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
   private def runHttpServerTest(config: PlayerServerConfig = baseServerConfig,
                                 radioPlayer: RadioPlayer = mock,
                                 shutdownPromise: Promise[Done] = Promise())
-                               (block: PlayerServerConfig => Unit): Unit =
+                               (block: PlayerServerConfig => Future[Assertion]): Future[Assertion] =
     val factory = new ServiceFactory
     val serverConfig = httpServerConfig(config)
-    val bindings = futureResult(factory.createHttpServer(serverConfig, radioPlayer, shutdownPromise)).binding
 
-    try
-      block(serverConfig)
-    finally
-      futureResult(bindings.unbind())
+    val promiseAssertion = Promise[Assertion]()
+    factory.createHttpServer(serverConfig, radioPlayer, shutdownPromise) onComplete {
+      case Success(startUpData) =>
+        block(serverConfig) onComplete { triedResult =>
+          startUpData.binding.unbind() onComplete { _ =>
+            promiseAssertion.complete(triedResult)
+          }
+        }
+
+      case Failure(exception) =>
+        promiseAssertion.failure(exception)
+    }
+
+    promiseAssertion.future
 
   /**
     * Helper function for sending a request to the test server and returning
     * the response.
     *
     * @param request the request to be sent
-    * @return the response
+    * @return a ''Future'' with the response
     */
-  private def sendRequest(request: HttpRequest): HttpResponse =
-    futureResult(Http().singleRequest(request))
+  private def sendRequest(request: HttpRequest): Future[HttpResponse] = Http().singleRequest(request)
+
+  /**
+    * Helper function for sending a request to the test server and checking the
+    * response status. If successful, a ''Future'' with the response is
+    * returned.
+    *
+    * @param request        the request to be sent
+    * @param expectedStatus the expected status code of the response
+    * @return a ''Future'' with the response
+    */
+  private def sendAndCheckRequest(request: HttpRequest,
+                                  expectedStatus: StatusCode = StatusCodes.OK): Future[HttpResponse] =
+    sendRequest(request) filter (_.status == expectedStatus)
 
   /**
     * Helper function to unmarshal the given response to a specific target
@@ -157,21 +183,23 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     * @param response the response
     * @param um       the ''Unmarshaller'' instance for this type
     * @tparam B the target type
-    * @return the unmarshalled response entity
+    * @return a ''Future'' with the unmarshalled response entity
     */
   private def unmarshal[B](response: HttpResponse)
-                          (implicit um: Unmarshaller[HttpResponse, B]): B =
-    futureResult(Unmarshal(response).to[B])
+                          (implicit um: Unmarshaller[HttpResponse, B]): Future[B] =
+    Unmarshal(response).to[B]
 
   "Routes" should "define a route for accessing the UI" in {
     runHttpServerTest() { config =>
       val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
-      val response = sendRequest(uiRequest)
-      response.status should be(StatusCodes.OK)
+      sendRequest(uiRequest) flatMap { response =>
+        response.status should be(StatusCodes.OK)
 
-      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
-      val responseString = readSource(response.entity.dataBytes)
-      responseString should be(expectedString)
+        for
+          expectedString <- readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
+          responseString <- readSource(response.entity.dataBytes)
+        yield responseString should be(expectedString)
+      }
     }
   }
 
@@ -180,12 +208,14 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(orgConfig) { config =>
       val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
-      val response = sendRequest(uiRequest)
-      response.status should be(StatusCodes.OK)
+      sendRequest(uiRequest) flatMap { response =>
+        response.status should be(StatusCodes.OK)
 
-      val expectedString = readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
-      val responseString = readSource(response.entity.dataBytes)
-      responseString should be(expectedString)
+        for
+          expectedString <- readSource(FileIO.fromPath(config.uiContentFolder.resolve("index.html")))
+          responseString <- readSource(response.entity.dataBytes)
+        yield responseString should be(expectedString)
+      }
     }
   }
 
@@ -194,10 +224,11 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(shutdownPromise = shutdownPromise) { config =>
       val shutdownRequest = HttpRequest(uri = serverUri(config, "/api/shutdown"), method = HttpMethods.POST)
-      val shutdownResponse = sendRequest(shutdownRequest)
-      shutdownResponse.status should be(StatusCodes.Accepted)
-      shutdownPromise.isCompleted shouldBe true
-      futureResult(shutdownPromise.future) should be(Done)
+      sendRequest(shutdownRequest) map { shutdownResponse =>
+        shutdownResponse.status should be(StatusCodes.Accepted)
+        shutdownPromise.isCompleted shouldBe true
+        shutdownPromise.future.value should be(Some(Success(Done)))
+      }
     }
   }
 
@@ -208,10 +239,11 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       reset(radioPlayer)
       val startPlaybackRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback/start"),
         method = HttpMethods.POST)
-      val startResponse = sendRequest(startPlaybackRequest)
 
-      startResponse.status should be(StatusCodes.OK)
-      verify(radioPlayer).startPlayback()
+      sendRequest(startPlaybackRequest) map { startResponse =>
+        verify(radioPlayer).startPlayback()
+        startResponse.status should be(StatusCodes.OK)
+      }
     }
   }
 
@@ -222,10 +254,11 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
       reset(radioPlayer)
       val stopPlaybackRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback/stop"),
         method = HttpMethods.POST)
-      val stopResponse = sendRequest(stopPlaybackRequest)
 
-      stopResponse.status should be(StatusCodes.OK)
-      verify(radioPlayer).stopPlayback()
+      sendRequest(stopPlaybackRequest) map { stopResponse =>
+        verify(radioPlayer).stopPlayback()
+        stopResponse.status should be(StatusCodes.OK)
+      }
     }
   }
 
@@ -236,11 +269,11 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val stateRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback"))
-      val stateResponse = sendRequest(stateRequest)
 
-      stateResponse.status should be(StatusCodes.OK)
-      val actualState = unmarshal[RadioModel.PlaybackStatus](stateResponse)
-      actualState should be(RadioModel.PlaybackStatus(enabled = true))
+      for
+        stateResponse <- sendAndCheckRequest(stateRequest)
+        actualState <- unmarshal[RadioModel.PlaybackStatus](stateResponse)
+      yield actualState should be(RadioModel.PlaybackStatus(enabled = true))
     }
   }
 
@@ -250,9 +283,10 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val stateRequest = HttpRequest(uri = serverUri(config, "/api/radio/playback"))
-      val stateResponse = sendRequest(stateRequest)
 
-      stateResponse.status should be(StatusCodes.InternalServerError)
+      sendRequest(stateRequest) map { stateResponse =>
+        stateResponse.status should be(StatusCodes.InternalServerError)
+      }
     }
   }
 
@@ -268,13 +302,14 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
-      val sourceResponse = sendRequest(sourceRequest)
 
-      sourceResponse.status should be(StatusCodes.OK)
-      val actualSource = unmarshal[RadioModel.RadioSource](sourceResponse)
-      actualSource.name should be(sourceSelected.name)
-      actualSource.ranking should be(sourceSelected.ranking)
-      actualSource.id should not be null
+      for
+        sourceResponse <- sendAndCheckRequest(sourceRequest)
+        actualSource <- unmarshal[RadioModel.RadioSource](sourceResponse)
+      yield
+        actualSource.name should be(sourceSelected.name)
+        actualSource.ranking should be(sourceSelected.ranking)
+        actualSource.id should not be null
     }
   }
 
@@ -285,9 +320,10 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
-      val sourceResponse = sendRequest(sourceRequest)
 
-      sourceResponse.status should be(StatusCodes.NoContent)
+      sendRequest(sourceRequest) map { sourceResponse =>
+        sourceResponse.status should be(StatusCodes.NoContent)
+      }
     }
   }
 
@@ -297,9 +333,10 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
-      val sourceResponse = sendRequest(sourceRequest)
 
-      sourceResponse.status should be(StatusCodes.InternalServerError)
+      sendRequest(sourceRequest) map { sourceResponse =>
+        sourceResponse.status should be(StatusCodes.InternalServerError)
+      }
     }
   }
 
@@ -313,17 +350,18 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       val sourcesRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources"))
-      val sourcesResponse = sendRequest(sourcesRequest)
 
-      sourcesResponse.status should be(StatusCodes.OK)
-      val actualSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
-      val sourceIds = actualSources.map(_.id).toSet
-      sourceIds should have size sources.size
+      for
+        sourcesResponse <- sendAndCheckRequest(sourcesRequest)
+        actualSources <- unmarshal[RadioModel.RadioSources](sourcesResponse)
+      yield
+        val sourceIds = actualSources.sources.map(_.id).toSet
+        sourceIds should have size sources.size
 
-      val actualTestSources = actualSources.map { source =>
-        ServerConfigTestHelper.TestRadioSource(source.name, source.ranking)
-      }
-      actualTestSources should contain theSameElementsAs sources
+        val actualTestSources = actualSources.sources.map { source =>
+          ServerConfigTestHelper.TestRadioSource(source.name, source.ranking)
+        }
+        actualTestSources should contain theSameElementsAs sources
     }
   }
 
@@ -334,17 +372,19 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     val radioPlayer = mock[RadioPlayer]
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
-      val sourcesResponse = sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
-      val allSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
-      val sourceID = allSources.head.id
+      for
+        sourcesResponse <- sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
+        allSourcesObj <- unmarshal[RadioModel.RadioSources](sourcesResponse)
+        allSources = allSourcesObj.sources
+        sourceID = allSources.head.id
 
-      val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
-        uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
-      val currentSourceResponse = sendRequest(currentSourceRequest)
-
-      currentSourceResponse.status should be(StatusCodes.OK)
-      val expectedRadioSource = RadioSource(source.uri)
-      verify(radioPlayer).switchToRadioSource(expectedRadioSource)
+        currentSourceRequest = HttpRequest(method = HttpMethods.POST,
+          uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
+        currentSourceResponse <- sendRequest(currentSourceRequest)
+      yield
+        val expectedRadioSource = RadioSource(source.uri)
+        verify(radioPlayer).switchToRadioSource(expectedRadioSource)
+        currentSourceResponse.status should be(StatusCodes.OK)
     }
   }
 
@@ -356,15 +396,17 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     val radioPlayer = mock[RadioPlayer]
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
-      val sourcesResponse = sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
-      val allSources = unmarshal[RadioModel.RadioSources](sourcesResponse).sources
-      val sourceID = allSources.head.id
+      for
+        sourcesResponse <- sendRequest(HttpRequest(uri = serverUri(config, "/api/radio/sources")))
+        allSourcesObj <- unmarshal[RadioModel.RadioSources](sourcesResponse)
+        allSources = allSourcesObj.sources
+        sourceID = allSources.head.id
 
-      val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
-        uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
-      val currentSourceResponse = sendRequest(currentSourceRequest)
-
-      currentConfig.getString(PlayerServerConfig.PropCurrentSource) should be(source.name)
+        currentSourceRequest = HttpRequest(method = HttpMethods.POST,
+          uri = serverUri(config, "/api/radio/sources/current/" + sourceID))
+        _ <- sendRequest(currentSourceRequest)
+      yield
+        currentConfig.getString(PlayerServerConfig.PropCurrentSource) should be(source.name)
     }
   }
 
@@ -374,9 +416,10 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFl
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
         uri = serverUri(config, "/api/radio/sources/current/nonExistingRadioSourceID"))
-      val currentSourceResponse = sendRequest(currentSourceRequest)
 
-      currentSourceResponse.status should be(StatusCodes.NotFound)
-      verify(radioPlayer, never()).switchToRadioSource(any())
+      sendRequest(currentSourceRequest) map { currentSourceResponse =>
+        verify(radioPlayer, never()).switchToRadioSource(any())
+        currentSourceResponse.status should be(StatusCodes.NotFound)
+      }
     }
   }
