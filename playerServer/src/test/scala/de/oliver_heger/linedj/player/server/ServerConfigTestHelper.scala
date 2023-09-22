@@ -29,17 +29,12 @@ import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 
 import java.nio.file.Paths
 import scala.collection.immutable
-import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
 
 /**
   * A test helper object providing functionality related to server 
   * configurations, actor creator implementations, and handling of futures.
   */
 object ServerConfigTestHelper:
-  /** The timeout when waiting for a future. */
-  private val FutureTimeout = 3.seconds
-
   /**
     * A data class defining a radio source as used in tests. This module has
     * functionality to generate a radio source configuration out of instances
@@ -64,20 +59,6 @@ object ServerConfigTestHelper:
       */
     def toRadioSource: RadioSource = RadioSource(uri)
   end TestRadioSource
-
-  /**
-    * Waits for the given [[Future]] to be completed and returns its result or
-    * throws an exception if the future failed or does not complete within the
-    * timeout. Note that this duplicates functionality from the
-    * ''AsyncTestHelper'' trait; unfortunately, due to conflicts between
-    * dependencies for Scala 3 and 2.13, it is not possible to use the trait.
-    *
-    * @param future the [[Future]]
-    * @tparam T the result type of the future
-    * @return the completed value of the future
-    */
-  def futureResult[T](future: Future[T]): T =
-    Await.result(future, FutureTimeout)
 
   /**
     * Creates a [[ManagingActorCreator]] object that is backed by the given
