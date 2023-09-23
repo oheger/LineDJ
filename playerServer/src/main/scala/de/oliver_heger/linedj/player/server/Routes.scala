@@ -95,7 +95,7 @@ object Routes extends RadioModel.RadioJsonSupport:
                         (implicit system: ActorSystem): Route = {
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val (modelSourcesByName, sourcesByID) = radioSourceMappings(serverConfig.sourceConfig)
+    val (modelSourcesByName, sourcesByID, sourceToID) = radioSourceMappings(serverConfig.sourceConfig)
 
     pathPrefix("radio") {
       concat(
@@ -158,6 +158,12 @@ object Routes extends RadioModel.RadioJsonSupport:
               }
             }
           )
+        },
+        path("events") {
+          val futFlow = MessageActor.newMessageFlow(radioPlayer, sourceToID)
+          onSuccess(futFlow) { flow =>
+            handleWebSocketMessages(flow)
+          }
         }
       )
     }
@@ -199,7 +205,7 @@ object Routes extends RadioModel.RadioJsonSupport:
     * @return a tuple with maps for accessing the radio sources
     */
   private def radioSourceMappings(radioSourceConfig: RadioSourceConfig):
-  (Map[String, RadioModel.RadioSource], Map[String, SourceData]) =
+  (Map[String, RadioModel.RadioSource], Map[String, SourceData], Map[RadioSource, String]) =
     val mappings = radioSourceConfig.namedSources.map { (name, source) =>
       val id = calculateID(name, source.uri)
       val modelSource = RadioModel.RadioSource(id, name, radioSourceConfig.ranking(source))
@@ -207,7 +213,9 @@ object Routes extends RadioModel.RadioJsonSupport:
       val engineSourceMapping = id -> SourceData(source, modelSource)
       (modelSourceMapping, engineSourceMapping)
     }.unzip
-    (mappings._1.toMap, mappings._2.toMap)
+
+    val sourceIdMap = mappings._2.map(t => (t._2.engineSource, t._1))
+    (mappings._1.toMap, mappings._2.toMap, sourceIdMap.toMap)
 
   /**
     * Generates an ID for a radio source based on its name and URI by applying

@@ -18,29 +18,37 @@ package de.oliver_heger.linedj.player.server
 
 import akka.Done
 import akka.actor.ActorSystem
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.ActorRef
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
 import akka.http.scaladsl.model.*
+import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{FileIO, Sink, Source}
+import akka.stream.scaladsl.{FileIO, Flow, Keep, Sink, Source}
 import akka.testkit.TestKit
 import akka.util.ByteString
-import de.oliver_heger.linedj.player.engine.radio.RadioSource
+import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.compatible.Assertion
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import spray.json.*
 
 import java.net.ServerSocket
 import java.nio.file.Paths
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Using}
 
@@ -91,8 +99,12 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   with BeforeAndAfterAll with Matchers with MockitoSugar with RadioModel.RadioJsonSupport:
   def this() = this(ActorSystem("RoutesSpec"))
 
+  /** The test kit for testing typed actors. */
+  private val testKit = ActorTestKit()
+
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
+    testKit.shutdownTestKit()
     super.afterAll()
 
   import RoutesSpec.*
@@ -420,6 +432,56 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
       sendRequest(currentSourceRequest) map { currentSourceResponse =>
         verify(radioPlayer, never()).switchToRadioSource(any())
         currentSourceResponse.status should be(StatusCodes.NotFound)
+      }
+    }
+  }
+
+  it should "define a route to register for radio messages" in {
+    val eventActor = testKit.spawn(EventManagerActor[RadioEvent]())
+
+    def sendEvent(event: RadioEvent): Unit =
+      eventActor ! EventManagerActor.Publish(event)
+
+    val radioSource1 = ServerConfigTestHelper.TestRadioSource("someTestSource", 11)
+    val radioSource1ID = "WtifS/vkv2YN5l9LVjuuDltlmqo=" // calculated hash
+    val radioSource2 = ServerConfigTestHelper.TestRadioSource("anotherTestSource", 7)
+    val radioSource2ID = "dcUrULxnshBcQ2uSguf6WMQqvSw="
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(sources = List(radioSource1, radioSource2),
+      creator = ServerConfigTestHelper.actorCreator(system, Some(testKit)))
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayer.config).thenReturn(serverConfig.radioPlayerConfig)
+    when(radioPlayer.addEventListener(any())).thenAnswer((invocation: InvocationOnMock) =>
+      val listener = invocation.getArgument(0, classOf[ActorRef[RadioEvent]])
+      eventActor ! EventManagerActor.RegisterListener(listener))
+
+    val messageQueue = new LinkedBlockingQueue[TextMessage.Strict]
+    val queueSink: Sink[Message, Future[Done]] = Sink.foreach {
+      case message: TextMessage.Strict => messageQueue offer message
+      case m => fail("Unexpected message: " + m)
+    }
+    val outSource = Source.maybe[Message]
+    val flow = Flow.fromSinkAndSourceMat(queueSink, outSource)(Keep.right)
+
+    def nextMessage: RadioModel.RadioMessage =
+      val textMessage = messageQueue.poll(3, TimeUnit.SECONDS)
+      textMessage should not be null
+      val jsonAst = textMessage.text.parseJson
+      jsonAst.convertTo[RadioModel.RadioMessage]
+
+    runHttpServerTest(serverConfig, radioPlayer) { config =>
+      val request = WebSocketRequest(s"ws://localhost:${config.serverPort}/api/radio/events")
+      val (futResponse, promise) = Http().singleWebSocketRequest(request, flow)
+
+      futResponse map { upgrade =>
+        upgrade.response.status should be(StatusCodes.SwitchingProtocols)
+
+        sendEvent(RadioSourceChangedEvent(radioSource1.toRadioSource))
+        nextMessage should be(RadioModel.RadioMessage(RadioModel.MessageTypeSourceChanged, radioSource1ID))
+
+        sendEvent(RadioSourceReplacementStartEvent(radioSource1.toRadioSource, radioSource2.toRadioSource))
+        val message2 = nextMessage
+        promise.success(None) // Close the web socket connection.
+        message2 should be(RadioModel.RadioMessage(RadioModel.MessageTypeReplacementStart, radioSource2ID))
       }
     }
   }
