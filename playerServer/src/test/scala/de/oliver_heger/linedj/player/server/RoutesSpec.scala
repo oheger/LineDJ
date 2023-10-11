@@ -321,7 +321,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
       yield
         actualSource.name should be(sourceSelected.name)
         actualSource.ranking should be(sourceSelected.ranking)
-        actualSource.id should not be null
+        actualSource.id should be(sourceSelected.id)
     }
   }
 
@@ -331,7 +331,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
-      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=false"))
 
       sendRequest(sourceRequest) map { sourceResponse =>
         sourceResponse.status should be(StatusCodes.NoContent)
@@ -345,6 +345,80 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current"))
+
+      sendRequest(sourceRequest) map { sourceResponse =>
+        sourceResponse.status should be(StatusCodes.InternalServerError)
+      }
+    }
+  }
+
+  it should "define a route to query the current source status if all sources are defined" in {
+    val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+      Some(sourceSelected.toRadioSource), playbackActive = false)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(sourceCurrent, sourceSelected))
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=true"))
+
+      for
+        sourceResponse <- sendAndCheckRequest(sourceRequest)
+        actualSource <- unmarshal[RadioModel.RadioSourceStatus](sourceResponse)
+      yield
+        actualSource.currentSourceId should be(Some(sourceSelected.id))
+        actualSource.replacementSourceId should be(Some(sourceCurrent.id))
+    }
+  }
+
+  it should "define a route to query the current source status if no sources are defined" in {
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=true"))
+
+      for
+        sourceResponse <- sendAndCheckRequest(sourceRequest)
+        actualSource <- unmarshal[RadioModel.RadioSourceStatus](sourceResponse)
+      yield
+        actualSource.currentSourceId shouldBe empty
+        actualSource.replacementSourceId shouldBe empty
+    }
+  }
+
+  it should "return an empty replacement source ID if the current source equals the selected source" in {
+    val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+      Some(sourceCurrent.toRadioSource), playbackActive = false)
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(sourceCurrent))
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=true"))
+
+      for
+        sourceResponse <- sendAndCheckRequest(sourceRequest)
+        actualSource <- unmarshal[RadioModel.RadioSourceStatus](sourceResponse)
+      yield
+        actualSource.currentSourceId should be(Some(sourceCurrent.id))
+        actualSource.replacementSourceId shouldBe empty
+    }
+  }
+
+  it should "handle errors when querying the full source status" in {
+    val radioPlayer = mock[RadioPlayer]
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
+
+    runHttpServerTest(radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=true"))
 
       sendRequest(sourceRequest) map { sourceResponse =>
         sourceResponse.status should be(StatusCodes.InternalServerError)

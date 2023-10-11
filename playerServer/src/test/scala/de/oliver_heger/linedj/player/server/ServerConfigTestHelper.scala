@@ -53,6 +53,14 @@ object ServerConfigTestHelper:
     def uri: String = s"https://radio.example.org/$name"
 
     /**
+      * Returns the ID for this radio source as it would be calculated from the
+      * server.
+      *
+      * @return the calculated radio source ID
+      */
+    def id: String = Routes.calculateID(name, uri)
+
+    /**
       * Generates a [[RadioSource]] from the properties of this test source.
       *
       * @return the corresponding [[RadioSource]]

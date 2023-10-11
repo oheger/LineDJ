@@ -146,14 +146,30 @@ object Routes extends RadioModel.RadioJsonSupport:
             },
             path("current") {
               get {
-                val futSource = radioPlayer.currentPlaybackState.map { state =>
-                  state.selectedSource flatMap { source =>
-                    serverConfig.sourceConfig.namedSources.find(_._2.uri == source.uri)
-                  } flatMap { (name, _) => modelSourcesByName.get(name) }
-                }
-                onSuccess(futSource) {
-                  case Some(source) => complete(source)
-                  case None => complete(StatusCodes.NoContent)
+                parameter("full".withDefault(false)) { full =>
+                  val futState = radioPlayer.currentPlaybackState
+
+                  if full then
+                    val futSourceStatus = futState map { state =>
+                      RadioModel.RadioSourceStatus(
+                        currentSourceId = state.selectedSource flatMap sourceToID.get,
+                        replacementSourceId = if state.currentSource == state.selectedSource then None
+                        else state.currentSource flatMap sourceToID.get
+                      )
+                    }
+                    onSuccess(futSourceStatus) {
+                      complete(_)
+                    }
+                  else
+                    val futSource = radioPlayer.currentPlaybackState.map { state =>
+                      state.selectedSource flatMap { source =>
+                        serverConfig.sourceConfig.namedSources.find(_._2.uri == source.uri)
+                      } flatMap { (name, _) => modelSourcesByName.get(name) }
+                    }
+                    onSuccess(futSource) {
+                      case Some(source) => complete(source)
+                      case None => complete(StatusCodes.NoContent)
+                    }
                 }
               }
             }
@@ -225,7 +241,7 @@ object Routes extends RadioModel.RadioJsonSupport:
     * @param uri  the URI of the source
     * @return the ID for this source
     */
-  private def calculateID(name: String, uri: String): String =
+  private[server] def calculateID(name: String, uri: String): String =
     val digest = MessageDigest.getInstance("SHA-1")
     digest.update(name.getBytes(StandardCharsets.UTF_8))
     digest.update(uri.getBytes(StandardCharsets.UTF_8))
