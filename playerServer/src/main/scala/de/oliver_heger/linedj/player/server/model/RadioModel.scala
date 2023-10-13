@@ -46,6 +46,13 @@ object RadioModel:
   final val MessageTypeReplacementEnd = "ReplacementEnd"
 
   /**
+    * Constant for the message ''PlaybackStopped''. This message indicates that
+    * the user has stopped playback. The payload is the ID of the last source
+    * that has been played.
+    */
+  final val MessageTypePlaybackStopped = "PlaybackStopped"
+
+  /**
     * Constant for the message type ''TitleInfo''. Information about the
     * currently played song is updated. The payload is the updated information.
     */

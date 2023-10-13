@@ -25,7 +25,7 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.util.Timeout
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import spray.json.*
@@ -157,6 +157,8 @@ object MessageActor extends RadioModel.RadioJsonSupport:
         idMessage(replacementSource, RadioModel.MessageTypeReplacementStart)
       case RadioSourceReplacementEndEvent(source, _) =>
         idMessage(source, RadioModel.MessageTypeReplacementEnd)
+      case RadioPlaybackStoppedEvent(source, _) =>
+        idMessage(source, RadioModel.MessageTypePlaybackStopped)
       case RadioMetadataEvent(_, metadata, _) =>
         val title = metadata match
           case MetadataNotSupported => ""
