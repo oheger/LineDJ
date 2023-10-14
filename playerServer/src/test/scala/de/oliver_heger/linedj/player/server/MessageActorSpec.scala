@@ -24,7 +24,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioPlaybackContextCreationFailedEvent, RadioPlaybackErrorEvent, RadioPlaybackProgressEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementEndEvent, RadioSourceReplacementStartEvent, RadioSourceSelectedEvent}
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
@@ -86,6 +86,15 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
 
     helper.sendEvent(RadioSourceChangedEvent(unknownSource))
       .expectNoMessage()
+  }
+
+  it should "handle a radio source selected event" in {
+    val event = RadioSourceSelectedEvent(TestSource1)
+    val message = RadioModel.RadioMessage(RadioModel.MessageTypeSourceSelected, TestSourceID1)
+    val helper = new MessageActorTestHelper
+
+    helper.sendEvent(event)
+      .expectMessage(message)
   }
 
   it should "handle a replacement source start event" in {

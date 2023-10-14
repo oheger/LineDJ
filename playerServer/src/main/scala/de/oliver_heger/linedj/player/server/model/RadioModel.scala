@@ -26,10 +26,18 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 object RadioModel:
   /**
     * Constant for the message type ''SourceChanged''. This message type
+    * indicates that playback of a new source has started, which can be either
+    * the current source or a replacement source. The payload is the ID of this
+    * new radio source.
+    */
+  final val MessageTypeSourceChanged = "SourceChanged"
+
+  /**
+    * Constant for the message type ''SourceSelected''. This message type
     * indicates that the user has selected another radio source as current
     * source. The payload is the ID of this new radio source.
     */
-  final val MessageTypeSourceChanged = "SourceChanged"
+  final val MessageTypeSourceSelected = "SourceSelected"
 
   /**
     * Constant for the message type ''ReplacementStart''. The current radio
