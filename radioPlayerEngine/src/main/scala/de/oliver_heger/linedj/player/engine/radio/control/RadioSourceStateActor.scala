@@ -239,6 +239,9 @@ object RadioSourceStateActor {
         }
         dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(currentSource)
 
+      case RadioSourceStateService.ReportNewSelectedSource(source) =>
+        dependencies.eventActor ! RadioSourceSelectedEvent(source)
+
       case RadioSourceStateService.StartReplacementSource(currentSource, replacementSource) =>
         dependencies.eventActor ! RadioSourceReplacementStartEvent(currentSource, replacementSource)
         dependencies.playbackActor ! RadioControlProtocol.SwitchToSource(replacementSource)

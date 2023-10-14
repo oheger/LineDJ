@@ -126,10 +126,13 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
 
     helper.stub((), states.head) { service =>
       service.setCurrentSource(source)
-    }.stubReadActions(states(1), RadioSourceStateService.PlayCurrentSource(source, None))
+    }.stubReadActions(states(1),
+        RadioSourceStateService.PlayCurrentSource(source, None),
+        RadioSourceStateService.ReportNewSelectedSource(source))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectSwitchToSource(source)
       .expectStateUpdates(states)
+      .checkEvent { time => RadioSourceSelectedEvent(source, time) }
   }
 
   it should "handle a state action to switch to another source if a replacement source ends" in {

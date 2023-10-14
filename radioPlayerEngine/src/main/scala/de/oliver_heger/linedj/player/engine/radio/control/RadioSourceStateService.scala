@@ -117,6 +117,14 @@ object RadioSourceStateService {
                                     replacementSource: RadioSource) extends StateAction
 
   /**
+    * A specific [[StateAction]] that indicates a change of the selected radio
+    * source. This change needs to be propagated as an event.
+    *
+    * @param selectedSource the new selected radio source
+    */
+  case class ReportNewSelectedSource(selectedSource: RadioSource) extends StateAction
+
+  /**
     * A data class representing the current state of radio sources.
     *
     * @param sourcesConfig     the configuration for radio sources
@@ -425,8 +433,16 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
     val nextSeq = s.seqNo + 1
     val evalFunc: EvalFunc = (service, time, ec) =>
       service.evaluateIntervals(s.sourcesConfig.exclusions(source), time, nextSeq)(ec)
-    val trigger = TriggerEvaluation(evalFunc, sourceChanged = !s.currentSource.contains(source))
-    s.copy(currentSource = Some(source), replacementSource = None, seqNo = nextSeq, actions = trigger :: s.actions)
+    val sourceChanged = !s.currentSource.contains(source)
+    val trigger = TriggerEvaluation(evalFunc, sourceChanged = sourceChanged)
+    val actionsWithTrigger = trigger :: s.actions
+    val nextActions = if (sourceChanged) ReportNewSelectedSource(source) :: actionsWithTrigger
+    else actionsWithTrigger
+
+    s.copy(currentSource = Some(source),
+      replacementSource = None,
+      seqNo = nextSeq,
+      actions = nextActions)
   }
 
   override def disableSource(source: RadioSource): StateUpdate[Unit] = modify { s =>

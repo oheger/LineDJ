@@ -544,9 +544,10 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     nextState.seqNo should be(SeqNo + 1)
     nextState.currentSource should be(Some(newSource))
     nextState.replacementSource shouldBe empty
-    nextState.actions should have size 2
+    nextState.actions should have size 3
     nextState.actions should contain(ExistingAction)
 
+    nextState.actions should contain(ReportNewSelectedSource(newSource))
     nextState.actions.find(_.isInstanceOf[TriggerEvaluation]) match {
       case Some(TriggerEvaluation(evalFunc, true)) =>
         checkEvalFunc(sourcesConfig, newSource, evalFunc, SeqNo + 1)
