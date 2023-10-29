@@ -36,7 +36,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 object RelayActorSpec {
   /** The prefix for lookup paths. */
-  private val LookupPrefix = "akka.tcp://LineDJ-Server@192.168.0.1/user/"
+  private val LookupPrefix = "pekko.tcp://LineDJ-Server@192.168.0.1/user/"
 
   /** A test message. */
   private val Message = new Object

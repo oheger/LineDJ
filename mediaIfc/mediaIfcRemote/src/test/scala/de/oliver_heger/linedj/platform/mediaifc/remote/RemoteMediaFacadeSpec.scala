@@ -44,14 +44,14 @@ class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     val facade = new RemoteMediaFacadeTestHelper().createFacade()
 
     val path = facade.createActorPathPrefix(config)
-    path should be("akka://testSystem@myTestHost:1234/user/")
+    path should be("pekko://testSystem@myTestHost:1234/user/")
   }
 
   it should "use defaults for missing configuration settings" in {
     val facade = new RemoteMediaFacadeTestHelper().createFacade()
 
     val path = facade.createActorPathPrefix(new PropertiesConfiguration)
-    path should be("akka://LineDJ-Server@127.0.0.1:2552/user/")
+    path should be("pekko://LineDJ-Server@127.0.0.1:2552/user/")
   }
 
   /**

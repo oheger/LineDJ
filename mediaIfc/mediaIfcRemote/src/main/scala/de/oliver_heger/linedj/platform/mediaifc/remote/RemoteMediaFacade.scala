@@ -37,5 +37,5 @@ class RemoteMediaFacade(relayActor: ActorRef, system: ActorSystem, bus: MessageB
     *             configuration options.
     */
   override protected[remote] def createActorPathPrefix(config: Configuration): String =
-    s"akka://${readActorSystemName(config)}@${readHost(config)}:${readPort(config)}/user/"
+    s"pekko://${readActorSystemName(config)}@${readHost(config)}:${readPort(config)}/user/"
 }
