@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

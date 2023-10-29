@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.shared.ser
 
-import akka.serialization.Serializer
-import akka.util.ByteString
 import de.oliver_heger.linedj.shared.archive.media.DownloadDataResult
+import org.apache.pekko.serialization.Serializer
+import org.apache.pekko.util.ByteString
 
 /**
   * A special ''Serializer'' implementation for the [[DownloadDataResult]]

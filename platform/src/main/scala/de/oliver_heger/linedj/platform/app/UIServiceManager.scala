@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.Actor.Receive
-import de.oliver_heger.linedj.platform.app.UIServiceManager.{AddService, ProcessFunc,
-ProcessServices, RemoveService}
+import de.oliver_heger.linedj.platform.app.UIServiceManager.{AddService, ProcessFunc, ProcessServices, RemoveService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import org.apache.pekko.actor.Actor.Receive
 
 import scala.language.higherKinds
 

@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
@@ -32,6 +29,9 @@ import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProces
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito.{verify, when}

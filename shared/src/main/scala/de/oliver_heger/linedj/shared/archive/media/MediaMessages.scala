@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
-import akka.actor.ActorRef
-import akka.util.ByteString
 import com.fasterxml.jackson.annotation.JsonIgnore
 import de.oliver_heger.linedj.shared.RemoteSerializable
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.util.ByteString
 
 /**
   * A message processed by ''MediaManagerActor'' telling it to respond with a

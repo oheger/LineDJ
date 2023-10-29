@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.ActorSystem
 
 /**
   * A trait defining central context functionality for LineDJ client

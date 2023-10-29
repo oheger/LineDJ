@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.embedded
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.actors.ActorBasedMediaFacade
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
 /**
   * An implementation of ''MediaFacade'' that accesses a media archive running

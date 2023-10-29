@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.io.oauth
 
-import akka.actor.ActorSystem
-import akka.stream.IOResult
-import akka.stream.scaladsl.{FileIO, Sink, Source}
-import akka.util.ByteString
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
+import org.apache.pekko.util.ByteString
 
 import java.security.SecureRandom
 import scala.concurrent.{ExecutionContext, Future}

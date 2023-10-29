@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
-import akka.http.scaladsl.model.Uri
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
+import org.apache.pekko.http.scaladsl.model.Uri
 
 /**
   * A data class storing all the relevant information for using a ''FileSystem''

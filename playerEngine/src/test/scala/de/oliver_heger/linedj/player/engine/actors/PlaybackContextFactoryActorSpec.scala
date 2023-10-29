@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.player.engine.{PlaybackContext, PlaybackContextFactory}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito.{verify, verifyNoInteractions, when}
 import org.scalatest.BeforeAndAfterAll

@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{KillSwitch, KillSwitches}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 

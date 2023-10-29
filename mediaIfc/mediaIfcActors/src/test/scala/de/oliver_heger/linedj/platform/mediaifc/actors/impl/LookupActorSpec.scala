@@ -16,10 +16,8 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -27,6 +25,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
 
 /**
  * Test class for ''LookupActor''.

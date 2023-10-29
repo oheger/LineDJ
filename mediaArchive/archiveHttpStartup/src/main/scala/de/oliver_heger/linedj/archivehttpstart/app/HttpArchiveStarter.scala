@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
@@ -28,6 +27,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
 import java.nio.file.Paths
 import java.security.Key

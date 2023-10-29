@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import java.io.IOException
-import java.util.concurrent.atomic.AtomicReference
-import akka.actor.ActorSystem
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
@@ -34,6 +30,8 @@ import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextData}
 import net.sf.jguiraffe.gui.forms.Form
 import net.sf.jguiraffe.transform.{Transformer, TransformerContext}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
@@ -43,6 +41,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 

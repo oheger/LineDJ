@@ -16,16 +16,13 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{
-  MetaDataProcessingError,
-  MetaDataProcessingSuccess
-}
+import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 
 object Mp3FileProcessorActor {
 

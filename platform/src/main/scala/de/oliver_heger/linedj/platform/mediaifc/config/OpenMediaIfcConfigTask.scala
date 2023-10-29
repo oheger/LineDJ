@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.config
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientManagementApplication}
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.app.CommandActionTask
+import org.apache.pekko.actor.Actor.Receive
 
 /**
   * An action task class for opening a dialog window with the configuration for

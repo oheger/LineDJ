@@ -16,20 +16,20 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
-import akka.actor.typed.Props
-import akka.pattern.AskTimeoutException
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioSourcePlaylistInfo, PlayerConfig, PlayerConfigSpec, PlayerEvent}
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
+import org.apache.pekko.actor.typed.Props
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

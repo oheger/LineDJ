@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
-import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddPlaybackContextFactories, Close, CloseAck, PlayerClosed, PlayerCreated, PlayerCreationFailed, PlayerCreationFunc, PlayerManagementCommand, PublishAfterCreation, RemovePlaybackContextFactories}
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}

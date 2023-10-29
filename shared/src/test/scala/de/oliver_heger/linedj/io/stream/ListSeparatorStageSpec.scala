@@ -16,16 +16,15 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.TestKit
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

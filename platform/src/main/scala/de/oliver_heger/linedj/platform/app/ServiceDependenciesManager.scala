@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.util
-
-import akka.actor.Actor.Receive
+import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.platform.comm.{MessageBusListener, ServiceDependencies}
-import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService,
-ServiceDependency, UnregisterService}
+import org.apache.pekko.actor.Actor.Receive
 import org.osgi.framework.{BundleContext, ServiceRegistration}
+
+import java.util
 
 /**
   * An internally used class responsible for updating OSGi service

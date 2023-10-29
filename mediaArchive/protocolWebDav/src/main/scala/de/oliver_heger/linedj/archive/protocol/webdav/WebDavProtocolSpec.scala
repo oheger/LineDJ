@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archive.protocol.webdav
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import com.github.cloudfiles.webdav.{DavConfig, DavFileSystem, DavModel}
 import de.oliver_heger.linedj.archive.protocol.webdav.WebDavProtocolSpec.WebDavProtocolName
 import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 
 import scala.util.{Success, Try}
 

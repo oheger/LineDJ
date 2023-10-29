@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.Location
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.headers.Location
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 
 import java.io.IOException
 import scala.concurrent.{ExecutionContext, Future}

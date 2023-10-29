@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.TestProbe
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.TestProbe
 
 import scala.language.implicitConversions
 

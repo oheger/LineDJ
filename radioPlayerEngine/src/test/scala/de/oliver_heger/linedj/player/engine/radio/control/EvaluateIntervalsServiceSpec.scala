@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalQueries, LazyDate}
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

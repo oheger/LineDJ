@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 
 import scala.concurrent.duration._
 

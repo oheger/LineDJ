@@ -16,25 +16,25 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-import akka.NotUsed
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import scala.concurrent.duration._
 
 object MetaDataExtractionActorSpec {

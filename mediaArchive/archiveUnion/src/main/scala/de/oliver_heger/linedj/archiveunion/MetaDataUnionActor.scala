@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediaFileUri, MediumID, ScanAllMedia}
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Terminated}
 
 object MetaDataUnionActor {
 

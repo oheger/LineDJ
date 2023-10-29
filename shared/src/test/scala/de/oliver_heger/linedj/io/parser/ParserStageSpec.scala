@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.io.parser
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{FlowShape, Graph}
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserStage.ChunkSequenceParser
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.{FlowShape, Graph}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

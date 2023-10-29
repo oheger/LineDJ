@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import java.nio.charset.StandardCharsets
+import org.apache.pekko.util.ByteString
 
-import akka.util.ByteString
+import java.nio.charset.StandardCharsets
 
 /**
   * Companion object for ''ID3DataExtractor''.

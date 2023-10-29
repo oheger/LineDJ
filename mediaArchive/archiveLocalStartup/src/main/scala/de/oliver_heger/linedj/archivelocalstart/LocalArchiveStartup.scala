@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivelocalstart
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.ActorRef
 import org.osgi.service.component.ComponentContext
 
 object LocalArchiveStartup {

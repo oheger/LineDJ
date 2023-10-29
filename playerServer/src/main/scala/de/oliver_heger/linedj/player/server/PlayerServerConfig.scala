@@ -15,7 +15,6 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
@@ -23,6 +22,7 @@ import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConf
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.server.PlayerServerConfig.{PropCurrentSource, Slash, removeLeadingSlash}
 import org.apache.commons.configuration.{CombinedConfiguration, Configuration, DefaultConfigurationBuilder, FileConfiguration}
+import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.{Path, Paths}
 

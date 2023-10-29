@@ -16,20 +16,20 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
-import java.nio.file.{Path, Paths}
-
-import akka.NotUsed
-import akka.actor._
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor._
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+
+import java.nio.file.{Path, Paths}
 
 object CopyFileActorSpec {
   /** A list with chunks returned by the test download actor. */

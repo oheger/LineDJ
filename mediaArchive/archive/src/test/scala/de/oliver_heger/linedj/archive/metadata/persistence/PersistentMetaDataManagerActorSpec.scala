@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
@@ -28,6 +26,8 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, PoisonPill, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

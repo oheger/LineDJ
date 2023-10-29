@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.ActorSystem
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
@@ -25,6 +23,8 @@ import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

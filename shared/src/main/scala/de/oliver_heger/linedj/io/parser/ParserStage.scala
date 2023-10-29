@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.io.parser
 
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.parser.ParserStage.ChunkSequenceParser
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.util.ByteString
 
 object ParserStage {
   /**

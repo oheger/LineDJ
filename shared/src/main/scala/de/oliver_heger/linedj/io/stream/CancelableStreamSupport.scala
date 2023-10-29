@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.stream.KillSwitch
+import org.apache.pekko.stream.KillSwitch
 
 /**
   * A trait that supports the handling of cancelable streams.

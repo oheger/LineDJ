@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.protocol.webdav
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import com.github.cloudfiles.webdav.DavFileSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

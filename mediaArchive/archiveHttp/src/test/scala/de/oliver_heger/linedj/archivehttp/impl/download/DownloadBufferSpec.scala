@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

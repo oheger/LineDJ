@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 
 object ForwardTestActor {
 

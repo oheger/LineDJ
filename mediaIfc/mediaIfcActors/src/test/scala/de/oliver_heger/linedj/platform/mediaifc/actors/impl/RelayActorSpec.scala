@@ -16,15 +16,14 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -32,6 +31,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 object RelayActorSpec {
   /** The prefix for lookup paths. */

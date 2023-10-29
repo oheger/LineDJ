@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archive.group
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.ActorRef
 
 /**
   * A trait that allows creating all the actors of a media archive.

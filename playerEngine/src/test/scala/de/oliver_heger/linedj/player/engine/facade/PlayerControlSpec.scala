@@ -16,19 +16,19 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.pattern.AskTimeoutException
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
-import akka.{actor => classic}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControlSpec.{PlaybackCommand, PlayerControlImpl, StartPlayback, StopPlayback}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.{actor => classic}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

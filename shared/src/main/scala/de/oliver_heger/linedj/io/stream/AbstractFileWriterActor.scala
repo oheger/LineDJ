@@ -16,14 +16,13 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import java.nio.file.{Files, Path}
-import akka.actor.{ActorLogging, ActorRef}
-import akka.stream.KillSwitches
-import akka.stream.scaladsl.{FileIO, Keep, Source}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
+import org.apache.pekko.actor.{ActorLogging, ActorRef}
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Source}
+import org.apache.pekko.util.ByteString
 
-import scala.concurrent.Future
+import java.nio.file.{Files, Path}
 import scala.util.{Failure, Success, Try}
 
 object AbstractFileWriterActor {

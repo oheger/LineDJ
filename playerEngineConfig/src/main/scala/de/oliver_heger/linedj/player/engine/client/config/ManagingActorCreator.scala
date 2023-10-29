@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.{actor => classic}
 
 /**
   * A fully functional implementation of [[ActorCreator]] that is based on an

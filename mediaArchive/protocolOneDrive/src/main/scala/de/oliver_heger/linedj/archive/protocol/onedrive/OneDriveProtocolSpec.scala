@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archive.protocol.onedrive
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import com.github.cloudfiles.onedrive.{OneDriveConfig, OneDriveFileSystem, OneDriveModel}
 import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 
 import scala.util.{Failure, Success, Try}
 

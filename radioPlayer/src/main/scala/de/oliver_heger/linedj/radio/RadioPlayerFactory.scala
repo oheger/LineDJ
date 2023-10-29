@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

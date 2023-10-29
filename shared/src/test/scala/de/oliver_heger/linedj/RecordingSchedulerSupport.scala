@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj
 
+import de.oliver_heger.linedj.utils.SchedulerSupport
+import org.apache.pekko.actor.{ActorRef, Cancellable}
+
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.{ActorRef, Cancellable}
-import de.oliver_heger.linedj.utils.SchedulerSupport
-
 import scala.concurrent.duration._
 
 object RecordingSchedulerSupport {

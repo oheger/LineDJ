@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.player.engine.actors.{EventTestSupport, ScheduledInvocationActor}
+import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
-import de.oliver_heger.linedj.player.engine.radio._
-import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
+import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito.{verify, when}

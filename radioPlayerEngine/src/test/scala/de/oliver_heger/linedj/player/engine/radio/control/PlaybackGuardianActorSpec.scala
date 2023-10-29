@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
-import akka.actor.typed.ActorRef
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
-import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import org.apache.pekko.actor.typed.ActorRef
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 

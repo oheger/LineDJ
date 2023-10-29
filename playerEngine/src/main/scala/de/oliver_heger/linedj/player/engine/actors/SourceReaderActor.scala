@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.AudioSource
-import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataRequest, BufferDataResult, BufferReadActor, ReadBuffer}
+import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor.{GetAudioData, GetAudioSource}
+import org.apache.pekko.actor.{Actor, ActorRef}
 
 import scala.collection.mutable
 

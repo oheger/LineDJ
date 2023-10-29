@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import akka.Done
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.event.LoggingAdapter
-import akka.stream.IOResult
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
@@ -28,6 +23,11 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.event.LoggingAdapter
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{anyString, eq => eqArg}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

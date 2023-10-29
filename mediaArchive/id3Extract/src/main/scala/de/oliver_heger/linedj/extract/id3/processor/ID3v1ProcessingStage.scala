@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.ActorRef
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model.{ID3v1Extractor, TailBuffer}
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.util.ByteString
 
 /**
   * A specialized processing stage for extracting ID3v1 tag information from

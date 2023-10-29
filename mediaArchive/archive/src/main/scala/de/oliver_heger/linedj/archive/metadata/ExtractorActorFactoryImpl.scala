@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import java.util.Locale
-
-import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
 import de.oliver_heger.linedj.extract.metadata.ExtractorActorFactory
+import org.apache.pekko.actor.{ActorRef, Props}
+
+import java.util.Locale
 
 /**
   * A default implementation of the [[ExtractorActorFactory]] trait.

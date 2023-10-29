@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model._
-import akka.pattern.{AskTimeoutException, ask}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.{ByteString, Timeout}
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -36,6 +30,12 @@ import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, Meta
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.pattern.{AskTimeoutException, ask}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

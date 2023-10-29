@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
@@ -27,6 +23,9 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -35,6 +34,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
 object Mp3FileProcessorActorSpec {

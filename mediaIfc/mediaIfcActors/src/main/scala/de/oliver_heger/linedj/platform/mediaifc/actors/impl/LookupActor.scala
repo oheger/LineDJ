@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import akka.actor._
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.LookupActor.{RemoteActorAvailable, RemoteActorUnavailable}
+import org.apache.pekko.actor._
 
 import scala.concurrent.duration._
 

@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.NotUsed
-import akka.actor.{ActorLogging, ActorRef}
-import akka.http.scaladsl.model.Uri
-import akka.pattern.ask
-import akka.stream._
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{ActorLogging, ActorRef}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.stream._
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag

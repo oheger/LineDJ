@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
@@ -29,6 +24,11 @@ import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGe
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, StoppableTestProbe}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

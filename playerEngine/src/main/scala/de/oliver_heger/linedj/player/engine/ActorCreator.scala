@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import akka.{actor => classic}
-import akka.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.{actor => classic}
 
 /**
   * Definition of a trait that allows the player engine to create actors

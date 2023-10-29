@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import akka.actor.{ActorLogging, ActorRef, Props}
-import akka.pattern.ask
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
-import akka.stream.{ClosedShape, KillSwitch, KillSwitches}
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.DirectoryStreamSource
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorLogging, ActorRef, Props}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
+import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
+import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
 import java.util.Locale

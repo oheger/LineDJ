@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.ManagementActor
 import de.oliver_heger.linedj.utils.ActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

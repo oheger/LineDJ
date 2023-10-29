@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.radio._
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 /**
   * An actor implementation that converts events from the audio player to the

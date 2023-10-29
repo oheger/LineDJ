@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import akka.actor.ActorRef
-import akka.pattern.ask
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 object ReorderManagerComponent {
   /** The name of the reorder manager actor. */

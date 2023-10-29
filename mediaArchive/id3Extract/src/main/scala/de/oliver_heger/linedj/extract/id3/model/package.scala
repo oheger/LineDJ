@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3
 
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 
 import scala.annotation.tailrec
 

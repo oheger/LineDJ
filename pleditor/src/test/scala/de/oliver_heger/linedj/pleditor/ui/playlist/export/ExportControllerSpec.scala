@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.export
 
-import java.nio.file.Paths
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -34,6 +31,8 @@ import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 import net.sf.jguiraffe.resources.Message
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
@@ -42,6 +41,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.nio.file.Paths
 
 object ExportControllerSpec {
   /** The number of test songs to be exported. */

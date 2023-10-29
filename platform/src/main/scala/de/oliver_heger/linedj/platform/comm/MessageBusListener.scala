@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.comm
 
-import akka.actor.Actor.Receive
+import org.apache.pekko.actor.Actor.Receive
 
 /**
  * A trait defining an object that needs to listen on the message bus.

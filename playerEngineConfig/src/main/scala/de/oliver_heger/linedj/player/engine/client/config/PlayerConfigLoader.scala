@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtensions._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Paths
 import scala.concurrent.duration._

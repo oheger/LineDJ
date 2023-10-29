@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttp.temp
 
-import java.nio.file.Path
-
-import akka.Done
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.{DirectoryStreamSource, RemoveFileActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
+import java.nio.file.Path
 import scala.concurrent.Future
 
 object RemoveTempFilesActor {

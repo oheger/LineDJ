@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Paths
-
-import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import org.scalatestplus.mockito.MockitoSugar
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 import scalaz.State
+
+import java.nio.file.Paths
 
 object ScanSinkUpdateServiceImplSpec {
   /** A test medium ID. */

@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
+import org.apache.pekko.actor.Actor.Receive
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 object MediaIfcExtensionSpec {
   /** A message that is handled in a special way. */

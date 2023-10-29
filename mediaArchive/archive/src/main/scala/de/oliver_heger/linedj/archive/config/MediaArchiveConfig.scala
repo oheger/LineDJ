@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archive.config
 
-import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.util.Timeout
 
 import java.nio.file.{Path, Paths}
 import java.util.Locale

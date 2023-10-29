@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, Scheduler}
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
@@ -28,6 +24,10 @@ import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import org.apache.pekko.actor.typed.{ActorRef, Scheduler}
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._

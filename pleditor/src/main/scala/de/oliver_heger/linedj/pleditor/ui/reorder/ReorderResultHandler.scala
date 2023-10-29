@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
+import org.apache.pekko.actor.Actor.Receive
 
 /**
   * A class which handles the result of a reorder operation.

@@ -15,12 +15,12 @@
  */
 package de.oliver_heger.linedj.extract.id3.model
 
-import java.io.ByteArrayOutputStream
-import java.util
-
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.io.ByteArrayOutputStream
+import java.util
 
 object Mp3DataExtractorSpec {
   /**

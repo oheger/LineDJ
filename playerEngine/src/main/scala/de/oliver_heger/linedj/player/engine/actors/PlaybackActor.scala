@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, typed}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, DynamicInputStream}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor._
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
+import org.apache.pekko.util.ByteString
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit

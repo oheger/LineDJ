@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{ActorSystem, typed}
-import akka.util.Timeout
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.RetryAfterExtension.RetryAfterConfig
 import com.github.cloudfiles.core.http.auth.AuthConfig
@@ -28,9 +25,12 @@ import com.github.cloudfiles.crypt.fs.resolver.CachePathComponentsResolver
 import com.github.cloudfiles.crypt.fs.{CryptConfig, CryptContentFileSystem, CryptNamesConfig, CryptNamesFileSystem}
 import de.oliver_heger.linedj.archivehttp.io.{CookieManagementExtension, FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.util.Timeout
 
-import scala.language.existentials
 import java.security.{Key, SecureRandom}
+import scala.language.existentials
 import scala.util.Try
 
 /**

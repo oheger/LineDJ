@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.resources.Message
+import org.apache.pekko.actor.Actor.Receive
 
 import java.nio.file.{Path, Paths}
 import scala.util.{Failure, Success}

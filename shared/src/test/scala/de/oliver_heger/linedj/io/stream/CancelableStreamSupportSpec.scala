@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.stream.KillSwitch
+import org.apache.pekko.stream.KillSwitch
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

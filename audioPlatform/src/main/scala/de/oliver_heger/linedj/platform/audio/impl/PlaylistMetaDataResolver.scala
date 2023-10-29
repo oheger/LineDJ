@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.Actor.Receive
-import akka.actor.ActorRef
-import akka.pattern.ask
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -29,6 +25,10 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import de.oliver_heger.linedj.shared.archive.metadata.{FilesMetaDataResponse, GetFilesMetaData, MediaMetaData}
 import de.oliver_heger.linedj.utils.LRUCache
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
 

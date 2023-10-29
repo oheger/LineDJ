@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.io
 
-import java.io.{IOException, InputStream}
+import org.apache.pekko.util.ByteString
 
-import akka.util.ByteString
+import java.io.{IOException, InputStream}
 
 /**
   * Companion object of ''DynamicInputStream''.

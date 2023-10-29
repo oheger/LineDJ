@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.util.concurrent.atomic.AtomicReference
-import akka.actor.Actor.Receive
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
+import org.apache.pekko.util.Timeout
 import org.osgi.framework.{BundleContext, ServiceRegistration}
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 

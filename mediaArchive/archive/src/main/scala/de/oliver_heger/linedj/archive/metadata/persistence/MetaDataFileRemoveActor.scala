@@ -16,14 +16,13 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.Path
-
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
-import de.oliver_heger.linedj.archive.metadata.persistence.MetaDataFileRemoveActor
-.{RemoveMetaDataFiles, RemoveMetaDataFilesResult, RemoveRequestData}
+import de.oliver_heger.linedj.archive.metadata.persistence.MetaDataFileRemoveActor.{RemoveMetaDataFiles, RemoveMetaDataFilesResult, RemoveRequestData}
 import de.oliver_heger.linedj.io.RemoveFileActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
+
+import java.nio.file.Path
 
 object MetaDataFileRemoveActor {
 

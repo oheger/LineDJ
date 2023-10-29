@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import java.nio.charset.StandardCharsets
-
-import akka.util.ByteString
-import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.util.ByteString
+
+import java.nio.charset.StandardCharsets
 
 object MetaDataParserStage {
   /** The object for parsing meta data processing results. */

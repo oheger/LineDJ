@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.MessageBusTestImpl.{DirectCallGUISynchronizer, castMessage}
 import de.oliver_heger.linedj.platform.bus.UIBus
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
+import org.apache.pekko.actor.Actor.Receive
 
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.reflect.ClassTag

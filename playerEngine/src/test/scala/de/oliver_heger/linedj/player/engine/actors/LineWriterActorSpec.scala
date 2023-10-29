@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.{anyInt, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

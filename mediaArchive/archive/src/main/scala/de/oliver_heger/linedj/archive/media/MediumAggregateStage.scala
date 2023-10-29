@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Files, Path}
-
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import de.oliver_heger.linedj.archive.media.MediumAggregateStage.FileDataFactory
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import scalaz.State
+
+import java.nio.file.{Files, Path}
 
 object MediumAggregateStage {
   /** Constant for the file extension for medium description files. */

@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.typed.Behavior
-import akka.actor.typed.scaladsl.Behaviors
-import akka.util.ByteString
-import akka.{actor => classic}
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.util.ByteString
+import org.apache.pekko.{actor => classic}
 
 import javax.sound.sampled.SourceDataLine
 import scala.concurrent.duration._

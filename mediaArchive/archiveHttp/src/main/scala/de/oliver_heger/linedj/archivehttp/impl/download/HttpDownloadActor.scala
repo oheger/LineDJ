@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadActor.DownloadRequestCompleted
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult, MediumFileRequest}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}

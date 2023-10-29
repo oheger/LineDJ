@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.testkit.typed.scaladsl
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.actor.{Actor, ActorSystem}
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
@@ -35,6 +29,12 @@ import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.testkit.typed.scaladsl
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.actor.{Actor, ActorSystem}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll

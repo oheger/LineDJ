@@ -16,18 +16,16 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo, ParseMediumInfoResult}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, anyString, eq => argEq}
 import org.mockito.Mockito._
@@ -36,6 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.{Success, Try}

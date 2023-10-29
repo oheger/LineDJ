@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.{ActorSystem, typed}
-import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
-import akka.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
-import akka.testkit.TestKit
-import akka.util.Timeout
 import com.github.cloudfiles.core.FileSystem.Operation
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
@@ -37,6 +31,12 @@ import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.{FileSystemMediaDownloader, HttpArchiveFileSystem, MediaDownloader}
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, `Set-Cookie`}
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

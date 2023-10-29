@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.Actor
-import akka.{actor => classic}
-import akka.actor.typed.ActorRef
-import akka.actor.typed.scaladsl.ActorContext
-import akka.actor.typed.scaladsl.adapter._
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.{actor => classic}
 
 /**
   * A module offering functionality related to the handling of actors

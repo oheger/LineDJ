@@ -16,22 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.Actor
-import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe => TypedTestProbe}
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.ByteString
-import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
+import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors._
+import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamManagerActor}
-import de.oliver_heger.linedj.player.engine.radio._
-import de.oliver_heger.linedj.player.engine._
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe => TypedTestProbe}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
+import org.apache.pekko.{actor => classic}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

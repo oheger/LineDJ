@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.typed.Behavior
-import akka.actor.{ActorRef, ActorSystem, Props, typed}
 import com.github.cloudfiles.core.http.factory.Spawner
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 
 /**
   * A class for creating actors.

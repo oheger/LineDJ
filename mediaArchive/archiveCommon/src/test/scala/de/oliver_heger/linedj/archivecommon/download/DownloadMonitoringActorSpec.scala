@@ -16,13 +16,11 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
@@ -32,6 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import scala.concurrent.duration._
 
 object DownloadMonitoringActorSpec {

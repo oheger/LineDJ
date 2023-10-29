@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.Done
-import akka.actor.{ActorRef, ActorSystem, typed}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.ServerBinding
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{ActorRef, ActorSystem, typed}
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}

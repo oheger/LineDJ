@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.ActorRef
+import org.apache.pekko.actor.ActorRef
 
 /**
  * A message requesting an actor to close all resources it is currently using.

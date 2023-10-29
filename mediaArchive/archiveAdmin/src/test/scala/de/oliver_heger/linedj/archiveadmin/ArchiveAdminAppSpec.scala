@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.archiveadmin.ArchiveAdminAppSpec.ActorInvocation
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

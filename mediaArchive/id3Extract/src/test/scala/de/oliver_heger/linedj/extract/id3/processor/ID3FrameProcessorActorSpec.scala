@@ -15,11 +15,11 @@
  */
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll

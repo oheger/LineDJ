@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.{ActorSystem, Props, Status}
-import akka.http.scaladsl.model._
-import akka.stream.scaladsl.Source
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
-import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.actor.{ActorSystem, Props, Status}
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit}
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

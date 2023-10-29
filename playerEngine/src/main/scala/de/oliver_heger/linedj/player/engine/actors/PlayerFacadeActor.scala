@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.{Actor, ActorRef, Props, typed}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, Props, typed}
 
 import scala.concurrent.duration._
 

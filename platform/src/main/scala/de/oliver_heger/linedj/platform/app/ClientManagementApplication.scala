@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.util.concurrent.atomic.AtomicReference
-
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
@@ -28,9 +25,11 @@ import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration
 import org.apache.commons.logging.Log
+import org.apache.pekko.actor.ActorSystem
 import org.osgi.framework.BundleContext
 import org.osgi.service.component.ComponentContext
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
 object ClientManagementApplication {

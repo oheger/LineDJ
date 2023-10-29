@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.stubbing.OngoingStubbing

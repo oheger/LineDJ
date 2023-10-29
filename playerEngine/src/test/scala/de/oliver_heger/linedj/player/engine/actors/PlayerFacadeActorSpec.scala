@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.testkit.typed.scaladsl
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
@@ -27,6 +23,10 @@ import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlayb
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec, PlayerEvent}
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import org.apache.pekko.actor.testkit.typed.scaladsl
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

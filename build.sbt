@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
+import OsgiImagePlugin.autoImport.*
 import com.github.oheger.sbt.spifly.SbtSpiFly
-import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport._
-import OsgiImagePlugin.autoImport._
+import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
 lazy val VersionAeron = "1.41.3"
-lazy val VersionAkka = "2.6.20"
-lazy val VersionAkkaHttp = "10.2.10"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
-lazy val VersionCloudFiles = "0.5"
+lazy val VersionCloudFiles = "0.6"
 lazy val VersionCommonsBeanutils = "1.9.4"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
@@ -37,6 +35,8 @@ lazy val VersionJLayer = "1.0.1.4"
 lazy val VersionLog4j = "2.19.0"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
+lazy val VersionPekko = "1.0.1"
+lazy val VersionPekkoHttp = "1.0.0"
 lazy val VersionScala = "2.13.12"
 lazy val VersionScala3 = "3.3.1"
 lazy val VersionScalaz = "7.3.7"
@@ -75,23 +75,23 @@ lazy val scala3Options = Seq(
   "-Xmigration"
 )
 
-lazy val akkaDependencies = Seq(
-  ("com.typesafe.akka" %% "akka-actor" % VersionAkka).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-actor-typed" % VersionAkka).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-testkit" % VersionAkka % Test).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-stream" % VersionAkka).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-slf4j" % VersionAkka).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-remote" % VersionAkka).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-serialization-jackson" % VersionAkka).cross(CrossVersion.for3Use2_13),
+lazy val pekkoDependencies = Seq(
+  ("org.apache.pekko" %% "pekko-actor" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-actor-typed" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-testkit" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-stream" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-slf4j" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-remote" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-serialization-jackson" % VersionPekko).cross(CrossVersion.for3Use2_13),
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
   "org.scala-lang" % "scala-reflect" % VersionScala
 )
 
-/** Dependencies required for using Akka HTTP. */
-lazy val akkaHttpDependencies = Seq(
-  ("com.typesafe.akka" %% "akka-http" % VersionAkkaHttp).cross(CrossVersion.for3Use2_13),
-  ("com.typesafe.akka" %% "akka-http-spray-json" % VersionAkkaHttp).cross(CrossVersion.for3Use2_13),
+/** Dependencies required for using Pekko HTTP. */
+lazy val pekkoHttpDependencies = Seq(
+  ("org.apache.pekko" %% "pekko-http" % VersionPekkoHttp).cross(CrossVersion.for3Use2_13),
+  ("org.apache.pekko" %% "pekko-http-spray-json" % VersionPekkoHttp).cross(CrossVersion.for3Use2_13),
 )
 
 /**
@@ -154,7 +154,7 @@ lazy val configDependency = "commons-configuration" % "commons-configuration" % 
 
 /** Settings common to most projects that implement actual functionality. */
 lazy val defaultSettings = Seq(
-  libraryDependencies ++= akkaDependencies,
+  libraryDependencies ++= pekkoDependencies,
   libraryDependencies ++= testDependencies,
   resolvers += Resolver.mavenLocal
 )
@@ -286,11 +286,11 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
-    libraryDependencies ++= akkaHttpDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
+    libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
@@ -359,7 +359,7 @@ lazy val platform = (project in file("platform"))
 
 /**
   * A project providing the client-side actor system. This project uses the
-  * akka OSGi-integration to setup an actor system and making it available as
+  * Pekko OSGi-integration to setup an actor system and making it available as
   * OSGi service. It can then be used by all client applications.
   */
 lazy val actorSystem = (project in file("actorSystem"))
@@ -369,7 +369,7 @@ lazy val actorSystem = (project in file("actorSystem"))
   .settings(
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
-    libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % VersionAkka,
+    libraryDependencies += "org.apache.pekko" %% "pekko-osgi" % VersionPekko,
     // need to import packages of akka modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
       "akka.remote",
@@ -436,7 +436,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
     libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor-testkit-typed" % VersionAkka % Test,
+    libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
@@ -662,7 +662,7 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
   .settings(
     name := "linedj-player-config",
     libraryDependencies += configDependency,
-    libraryDependencies ++= akkaDependencies,
+    libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.client.config.*"),
@@ -679,7 +679,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
   .settings(
     name := "linedj-radio-player-engine",
     libraryDependencies ++= logDependencies,
-    libraryDependencies ++= akkaHttpDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq(),
@@ -971,7 +971,7 @@ lazy val playerServer = (project in file("playerServer"))
     scalacOptions := scala3Options,
     scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
-    libraryDependencies ++= akkaHttpDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies ++= Seq(
       "com.lmax" % "disruptor" % VersionDisruptor,
       collectionsDependency,

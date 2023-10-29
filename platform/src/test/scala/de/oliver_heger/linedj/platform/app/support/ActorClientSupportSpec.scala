@@ -16,15 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.pattern.AskTimeoutException
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientContextSupport}
 import de.oliver_heger.linedj.platform.comm.MessageBus
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
@@ -35,6 +32,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}

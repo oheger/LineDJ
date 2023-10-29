@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.io
 
-import java.io.IOException
-import java.nio.file.{Files, Paths}
-
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+
+import java.io.IOException
+import java.nio.file.{Files, Paths}
 
 /**
  * Test class for ''RemoveFileActor''.

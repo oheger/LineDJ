@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
-import akka.actor.Actor
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.actor.Actor.Receive
 
 object MediaIfcExtension {
 

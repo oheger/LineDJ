@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.shared.archive.metadata
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.shared.RemoteSerializable
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import org.apache.pekko.actor.ActorRef
 
 /**
   * A message supported by ''MetaDataManagerActor'' that queries for the meta

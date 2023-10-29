@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.{Actor, ActorRef, Cancellable}
+import org.apache.pekko.actor.{Actor, ActorRef, Cancellable}
 
 import scala.concurrent.duration.FiniteDuration
 

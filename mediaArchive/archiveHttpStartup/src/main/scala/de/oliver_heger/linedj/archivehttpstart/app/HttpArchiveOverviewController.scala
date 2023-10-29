@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.{HttpArchiveState, HttpArchiveStateInitializing, HttpArchiveStateNoUnionArchive}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import net.sf.jguiraffe.gui.builder.window.{WindowEvent, WindowListener}
+import org.apache.pekko.actor.Actor.Receive
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec

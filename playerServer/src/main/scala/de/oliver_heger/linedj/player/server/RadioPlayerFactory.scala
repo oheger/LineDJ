@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
 

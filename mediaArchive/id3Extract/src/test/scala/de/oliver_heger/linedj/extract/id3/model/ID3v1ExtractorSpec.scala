@@ -15,14 +15,14 @@
  */
 package de.oliver_heger.linedj.extract.id3.model
 
-import java.nio.file.{Files, Paths}
-
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.nio.file.{Files, Paths}
 
 object ID3v1ExtractorSpec {
   /**

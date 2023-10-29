@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.disabled
 
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{GetAvailableMedia, MediumID}
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.util.Timeout
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

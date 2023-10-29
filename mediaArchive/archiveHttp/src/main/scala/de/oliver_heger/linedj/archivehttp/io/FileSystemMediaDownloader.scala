@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
-import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import com.github.cloudfiles.core.http.HttpRequestSender
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 

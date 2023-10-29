@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Source
-import akka.testkit.TestKit
-import akka.util.ByteString
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}

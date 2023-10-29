@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import java.nio.file.Paths
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
 import scala.concurrent.duration._
 
 object PlayerConfigFactorySpec {

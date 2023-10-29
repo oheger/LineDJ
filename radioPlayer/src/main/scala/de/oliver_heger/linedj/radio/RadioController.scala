@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.TextTimeFunctions
 import de.oliver_heger.linedj.player.engine.radio._
@@ -28,6 +27,7 @@ import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, Stat
 import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
 
 import java.util.concurrent.TimeUnit
 import scala.annotation.tailrec

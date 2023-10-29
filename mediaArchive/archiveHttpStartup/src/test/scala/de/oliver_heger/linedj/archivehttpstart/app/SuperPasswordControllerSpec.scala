@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -25,6 +23,8 @@ import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.resources.Message
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll

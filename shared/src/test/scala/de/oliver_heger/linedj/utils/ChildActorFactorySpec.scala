@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit}
 import de.oliver_heger.linedj.utils.ChildActorFactorySpec.{TestRequest, TestResponse}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

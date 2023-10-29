@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.group
 
-import akka.actor.ActorRef
+import org.apache.pekko.actor.ActorRef
 import scalaz.State
 
 /**

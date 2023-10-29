@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors
 
-import akka.actor.{ActorRef, ActorSystem}
-import akka.pattern.ask
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
@@ -26,6 +23,9 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.{ManagementActor, RelayActor}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 
 import scala.concurrent.Future
 

@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.pleditor.ui.app
 
-import akka.actor.Actor
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.{PlaylistActionEnabler, PlaylistController}
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
+import org.apache.pekko.actor.Actor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._

@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.archivehttp.impl.download.TempFileActorManager.TempFileData
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
+import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Path
 import scala.collection.SortedSet

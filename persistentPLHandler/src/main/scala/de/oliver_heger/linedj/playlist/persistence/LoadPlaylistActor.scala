@@ -16,15 +16,14 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.Path
-
-import akka.actor.{Actor, ActorLogging}
-import akka.stream.scaladsl.{FileIO, Sink}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItem
+import org.apache.pekko.actor.{Actor, ActorLogging}
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
+import org.apache.pekko.util.ByteString
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object LoadPlaylistActor {

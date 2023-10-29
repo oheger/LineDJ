@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, PathUtils}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
 object MetaDataExtractorWrapperActor {
   /**

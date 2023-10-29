@@ -1,26 +1,25 @@
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.stream.scaladsl.Source
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 

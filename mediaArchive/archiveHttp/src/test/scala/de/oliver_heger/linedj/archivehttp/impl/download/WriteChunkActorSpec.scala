@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.NotUsed
-import akka.actor.{ActorSystem, Props}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

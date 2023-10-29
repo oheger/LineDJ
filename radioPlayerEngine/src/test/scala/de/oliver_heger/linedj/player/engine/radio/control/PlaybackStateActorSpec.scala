@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.testkit.{TestKit, TestProbe}
-import akka.{actor => classic}
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, EventTestSupport, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.{actor => classic}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

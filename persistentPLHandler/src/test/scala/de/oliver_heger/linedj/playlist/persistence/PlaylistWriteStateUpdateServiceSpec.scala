@@ -16,13 +16,6 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.{ActorSystem, Props}
-import akka.stream.IOResult
-import akka.stream.scaladsl.{FileIO, Source}
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
@@ -32,12 +25,18 @@ import de.oliver_heger.linedj.playlist.persistence.LoadPlaylistActor.LoadPlaylis
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.WriteFile
 import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec._
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.stream.scaladsl.{FileIO, Source}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 

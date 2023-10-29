@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.DeadLetter
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.Behaviors
-import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackProgressEvent, PlayerEvent}
+import org.apache.pekko.actor.DeadLetter
+import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 

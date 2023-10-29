@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.{ActorRef, ActorSystem}
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.ByteString
-import akka.{Done, NotUsed}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
@@ -31,6 +25,12 @@ import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor.SourceListener
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
+import org.apache.pekko.{Done, NotUsed}
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
@@ -44,8 +44,8 @@ import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.tailrec
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{Future, Promise}
 
 object RadioStreamActorSpec {
   /** URI pointing to an audio stream. */

@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 
 /**
   * A specialized flow stage used during processing of the content document of

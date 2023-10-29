@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.testkit.typed.scaladsl
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.actor.ActorSystem
-import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc, EmptyCheckFunc, EmptyClassicActorCheckFunc}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.{actor => classic}
 import org.scalatest.matchers.should.Matchers
 
 import scala.language.existentials

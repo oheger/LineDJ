@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 
 /**
   * A helper class that can be used to obtain a configurable chunk of data at

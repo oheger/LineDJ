@@ -16,21 +16,20 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import java.io.IOException
-import java.nio.file.{Path, Paths}
-
-import akka.NotUsed
-import akka.actor.{ActorLogging, ActorRef, ActorSystem, Props, Terminated}
-import akka.stream.{DelayOverflowStrategy, IOOperationIncompleteException}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{ActorLogging, ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{DelayOverflowStrategy, IOOperationIncompleteException}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.io.IOException
+import java.nio.file.{Path, Paths}
 import scala.concurrent.duration._
 
 /**

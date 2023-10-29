@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import akka.actor.{ActorRef, Props}
+import org.apache.pekko.actor.{ActorRef, Props}
 
 /**
   * Factory interface for creating actors to extract meta data from specific

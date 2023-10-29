@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.radio._
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import java.time.LocalDateTime
 import scala.concurrent.ExecutionContext

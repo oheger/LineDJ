@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.ActorRef
-import akka.util.ByteString
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.util.ByteString
 import scalaz.State
 import scalaz.State._
 

@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.io.IOException
-import java.nio.file.Paths
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumChecksum
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
+import java.io.IOException
+import java.nio.file.Paths
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor}
 

@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
-import akka.util.Timeout
-import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
@@ -28,6 +23,11 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioP
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Scheduler}
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.{actor => classics}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

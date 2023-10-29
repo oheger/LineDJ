@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.Path
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumChecksum, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.ProcessMedium
@@ -27,7 +25,9 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 
+import java.nio.file.Path
 import scala.annotation.tailrec
 
 object PersistentMetaDataManagerActor {

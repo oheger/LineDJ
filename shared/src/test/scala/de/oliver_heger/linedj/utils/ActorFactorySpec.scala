@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.testkit.TestKit
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

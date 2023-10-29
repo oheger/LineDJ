@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.MonitoringStream
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpecLike

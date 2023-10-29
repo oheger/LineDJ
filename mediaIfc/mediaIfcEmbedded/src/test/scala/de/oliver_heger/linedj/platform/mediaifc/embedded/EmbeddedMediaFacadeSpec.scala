@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.embedded
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

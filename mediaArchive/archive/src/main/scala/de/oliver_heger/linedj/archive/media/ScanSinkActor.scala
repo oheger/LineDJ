@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.archive.media.ScanSinkActor._
 import de.oliver_heger.linedj.shared.archive.media.MediumInfo
+import org.apache.pekko.actor.{Actor, ActorRef}
 import scalaz.State
 
 import scala.concurrent.Promise

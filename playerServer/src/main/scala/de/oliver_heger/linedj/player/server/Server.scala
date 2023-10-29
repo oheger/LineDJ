@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.Done
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement, SystemPropertyAccess}
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.*
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.sys.process.Process
 import scala.util.{Failure, Success}
 

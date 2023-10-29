@@ -16,13 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.facade
 
-import akka.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
-import akka.actor.typed.Behavior
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.{ActorRef, ActorSystem, Props, typed}
-import akka.pattern.AskTimeoutException
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
@@ -35,6 +28,13 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioP
 import de.oliver_heger.linedj.player.engine.radio.control._
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamBuilder, RadioStreamManagerActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.invocation.InvocationOnMock

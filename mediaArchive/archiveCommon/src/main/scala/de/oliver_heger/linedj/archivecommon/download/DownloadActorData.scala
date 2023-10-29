@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
+import org.apache.pekko.actor.ActorRef
+
 import java.util.concurrent.TimeUnit
-
-import akka.actor.ActorRef
-
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /**

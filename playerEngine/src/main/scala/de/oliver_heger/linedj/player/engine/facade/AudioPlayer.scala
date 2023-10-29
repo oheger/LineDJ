@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.typed.ActorRef
-import akka.actor.{ActorSystem, Props}
-import akka.{actor => classics}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{SourceActorCreator, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{AudioSourcePlaylistInfo, PlayerConfig, PlayerEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.{actor => classics}
 
 import scala.concurrent.{ExecutionContext, Future}
 

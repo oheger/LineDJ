@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import akka.NotUsed
-import akka.actor.{ActorRef, Props}
-import akka.pattern.ask
-import akka.stream.KillSwitches
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileData}
@@ -29,6 +23,12 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{ActorRef, Props}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
 

@@ -16,19 +16,18 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Paths
-import java.util.concurrent.atomic.AtomicReference
-
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.util.Failure

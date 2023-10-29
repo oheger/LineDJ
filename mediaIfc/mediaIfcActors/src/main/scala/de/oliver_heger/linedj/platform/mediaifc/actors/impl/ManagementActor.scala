@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.ManagementActor.ActorPathPrefix
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 object ManagementActor {
 

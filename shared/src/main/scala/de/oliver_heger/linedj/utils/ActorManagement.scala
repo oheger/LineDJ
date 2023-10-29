@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.{ActorRef, PoisonPill}
 import de.oliver_heger.linedj.utils.ActorManagement.{ActorStopper, ManagedActorData}
+import org.apache.pekko.actor.{ActorRef, PoisonPill}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._

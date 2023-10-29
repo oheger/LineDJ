@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.NotUsed
-import akka.actor.ClassicActorSystemProvider
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
-import akka.http.scaladsl.server.Directives.complete
-import akka.http.scaladsl.server.StandardRoute
-import akka.stream.IOResult
-import akka.stream.scaladsl.{Sink, Source, StreamConverters}
-import akka.util.ByteString
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ClassicActorSystemProvider
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
+import org.apache.pekko.http.scaladsl.server.Directives.complete
+import org.apache.pekko.http.scaladsl.server.StandardRoute
+import org.apache.pekko.stream.IOResult
+import org.apache.pekko.stream.scaladsl.{Sink, Source, StreamConverters}
+import org.apache.pekko.util.ByteString
 
 import java.io.{IOException, InputStream}
 import java.net.ServerSocket

@@ -16,15 +16,16 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
-import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.{Path, Paths}
 
 object MediaScanStateUpdateServiceSpec {
   /** The name of the test archive. */

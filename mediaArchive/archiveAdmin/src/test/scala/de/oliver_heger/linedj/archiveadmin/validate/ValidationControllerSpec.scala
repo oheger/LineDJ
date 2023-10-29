@@ -16,14 +16,6 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import java.util
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.KillSwitch
-import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity, ValidationErrorCode}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem, ValidationFlow}
@@ -36,6 +28,11 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.testkit.TestKit
 import org.mockito.ArgumentMatchers.{any, anyBoolean, anyInt}
 import org.mockito.Mockito
 import org.mockito.Mockito._
@@ -48,6 +45,9 @@ import org.scalatestplus.mockito.MockitoSugar
 import scalaz.Kleisli
 import scalaz.Scalaz._
 
+import java.util
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 

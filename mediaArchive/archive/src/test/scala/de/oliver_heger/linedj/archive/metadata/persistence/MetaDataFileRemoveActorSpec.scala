@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.io.RemoveFileActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 
 object MetaDataFileRemoveActorSpec {
   /** The number of test paths. */

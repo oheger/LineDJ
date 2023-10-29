@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 
 import scala.util.{Failure, Success, Try}
 

@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

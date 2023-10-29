@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import akka.actor.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._

@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archive.group
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

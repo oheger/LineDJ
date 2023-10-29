@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.ActorSystem
-import akka.testkit.{TestKit, TestProbe}
-import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

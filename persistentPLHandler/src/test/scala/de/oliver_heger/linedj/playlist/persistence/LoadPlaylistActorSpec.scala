@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
 import scala.annotation.tailrec
 
 object LoadPlaylistActorSpec extends PlaylistTestHelper {

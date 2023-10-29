@@ -16,21 +16,20 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Path, Paths}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 

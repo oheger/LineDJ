@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.browser.app
 
-import akka.actor.Actor
 import de.oliver_heger.linedj.browser.media.MediaController
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
+import org.apache.pekko.actor.Actor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec

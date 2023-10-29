@@ -15,11 +15,11 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import org.apache.commons.configuration.{CombinedConfiguration, HierarchicalConfiguration, PropertiesConfiguration}
+import org.apache.pekko.actor.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

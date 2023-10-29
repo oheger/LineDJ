@@ -16,20 +16,19 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-
-import akka.actor.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}

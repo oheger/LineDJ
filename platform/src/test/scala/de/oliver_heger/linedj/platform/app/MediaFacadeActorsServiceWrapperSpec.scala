@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._
 import org.osgi.framework.{BundleContext, ServiceRegistration}

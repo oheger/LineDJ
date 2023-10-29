@@ -16,15 +16,13 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.utils.ActorFactory
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
@@ -32,6 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

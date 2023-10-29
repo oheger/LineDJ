@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.ActorRef
-import akka.stream.scaladsl.{Sink, Source}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.HttpArchiveState
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.util.ByteString
 
 /**
   * Data class representing a description of a medium in an HTTP archive.

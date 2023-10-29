@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import akka.stream.scaladsl.Flow
 import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{DisplayFunc, ValidatedItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
+import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.{Actor, ActorRef, Terminated}
+import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
 
 /**
   * An actor class intended to wrap data actors for an [[ActorSource]].

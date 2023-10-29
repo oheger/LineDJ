@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 
 import scala.collection.immutable.Queue
 

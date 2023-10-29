@@ -16,13 +16,6 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.Paths
-import java.time.LocalDateTime
-
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
@@ -31,11 +24,17 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
+import java.time.LocalDateTime
 import scala.concurrent.duration._
 
 object PlaylistStateWriterActorSpec extends PlaylistTestHelper {

@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.typed.Props
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
 import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.Props
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito._

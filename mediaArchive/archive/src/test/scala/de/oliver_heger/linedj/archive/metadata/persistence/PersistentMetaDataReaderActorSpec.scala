@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.{Path, Paths}
-
-import akka.actor.{ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.actor.{ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.file.{Path, Paths}
 
 object PersistentMetaDataReaderActorSpec {
   /** The name of the test meta data file. */

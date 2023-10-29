@@ -15,8 +15,8 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.duration.*
 

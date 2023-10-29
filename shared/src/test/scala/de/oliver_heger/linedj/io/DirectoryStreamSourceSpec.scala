@@ -16,20 +16,19 @@
 
 package de.oliver_heger.linedj.io
 
-import java.io.IOException
-import java.nio.file.{DirectoryStream, Files, NoSuchFileException, Path}
-import java.util
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{DelayOverflowStrategy, KillSwitches}
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.FileTestHelper
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitches}
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
+import java.io.IOException
+import java.nio.file.{DirectoryStream, Files, NoSuchFileException, Path}
+import java.util
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}

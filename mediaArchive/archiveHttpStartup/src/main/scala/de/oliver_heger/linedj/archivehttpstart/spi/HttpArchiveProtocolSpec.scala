@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivehttpstart.spi
 
-import akka.util.Timeout
 import com.github.cloudfiles.core.Model
 import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
+import org.apache.pekko.util.Timeout
 
 import scala.language.existentials
 import scala.util.Try

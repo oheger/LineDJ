@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.dataBlock
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import akka.actor.Actor
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderActor.{ReorderRequest, ReorderResponse}
+import org.apache.pekko.actor.Actor
 
 object ReorderActor {
 

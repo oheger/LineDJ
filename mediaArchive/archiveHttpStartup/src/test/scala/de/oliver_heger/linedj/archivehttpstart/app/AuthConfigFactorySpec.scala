@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.{BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.oauth.{OAuthConfig, OAuthStorageService}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io
 
-import java.nio.file.{Files, Path}
-
-import akka.actor.Actor
 import de.oliver_heger.linedj.io.RemoveFileActor.{FileRemoved, RemoveFile}
+import org.apache.pekko.actor.Actor
+
+import java.nio.file.{Files, Path}
 
 object RemoveFileActor {
 

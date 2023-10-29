@@ -16,16 +16,15 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.Path
-
-import akka.actor.ActorLogging
-import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
-import akka.stream.{KillSwitch, KillSwitches}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.actor.ActorLogging
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import org.apache.pekko.util.ByteString
 
+import java.nio.file.Path
 import scala.concurrent.Future
 
 /**

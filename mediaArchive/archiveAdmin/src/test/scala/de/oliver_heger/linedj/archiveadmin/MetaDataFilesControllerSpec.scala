@@ -16,12 +16,6 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import java.util
-
-import akka.actor.Actor.Receive
-import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.archiveadmin.MetaDataFilesController.MetaDataFileData
 import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
@@ -45,6 +39,10 @@ import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
 import net.sf.jguiraffe.resources.Message
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.Actor.Receive
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
@@ -54,8 +52,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.jdk.CollectionConverters._
+import java.util
 import scala.collection.immutable.IndexedSeq
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 

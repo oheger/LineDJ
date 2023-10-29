@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.remote
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import de.oliver_heger.linedj.platform.mediaifc.actors.ActorBasedMediaFacadeFactory
+import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
 /**
   * An implementation of [[MediaFacadeFactory]] that creates an instance of

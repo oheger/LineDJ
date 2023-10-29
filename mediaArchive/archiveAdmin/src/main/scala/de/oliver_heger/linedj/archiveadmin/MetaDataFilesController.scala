@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
@@ -34,6 +33,7 @@ import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
 import net.sf.jguiraffe.resources.Message
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.ActorRef
 
 import scala.beans.BeanProperty
 import scala.jdk.CollectionConverters._

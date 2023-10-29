@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import com.github.cloudfiles.core.http.UriEncodingHelper
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._

@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.typed.Behavior
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{PlayerCreationFunc, PlayerManagementCommand}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
+import org.apache.pekko.actor.typed.Behavior
 
 import scala.concurrent.{ExecutionContext, Future}
 

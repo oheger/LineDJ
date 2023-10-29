@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.ClosedShape
-import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Source}
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{AudioChunkSize, aggregateSink}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.ClosedShape
+import org.apache.pekko.stream.scaladsl.{GraphDSL, RunnableGraph, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

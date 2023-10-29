@@ -16,13 +16,11 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.TestKit
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -30,6 +28,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
 object ShutdownManagementActorSpec {

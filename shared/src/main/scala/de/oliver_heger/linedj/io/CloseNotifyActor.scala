@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.{Actor, ActorRef, Terminated}
+import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
 
 /**
   * An actor class which sends a [[CloseAck]] message to a specific actor when

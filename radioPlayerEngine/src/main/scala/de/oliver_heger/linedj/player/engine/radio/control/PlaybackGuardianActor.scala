@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackProgressEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent}
+import de.oliver_heger.linedj.player.engine.radio._
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.concurrent.duration.FiniteDuration
 

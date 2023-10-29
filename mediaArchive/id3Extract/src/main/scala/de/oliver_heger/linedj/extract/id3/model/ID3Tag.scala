@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 
 object ID3Tag {
   /** Text encoding ISO-88559-1. */

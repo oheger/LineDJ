@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import akka.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCode
 
 /**
   * A trait defining the current state an HTTP archive is in.

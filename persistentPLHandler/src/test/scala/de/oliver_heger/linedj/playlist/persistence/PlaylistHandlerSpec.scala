@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.nio.file.Paths
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -33,6 +29,8 @@ import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
 import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._
@@ -42,8 +40,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.{Await, Future}
+import java.nio.file.Paths
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.reflect.ClassTag
 
 object PlaylistHandlerSpec {

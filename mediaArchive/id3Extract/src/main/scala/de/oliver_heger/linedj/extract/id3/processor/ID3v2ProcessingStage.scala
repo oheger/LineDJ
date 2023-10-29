@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.ActorRef
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model.{ID3Header, ID3HeaderExtractor}
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage.{ChunkProcessingResult,
-ProcessingState, ProcessingStateFrameSearch}
+import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage.{ChunkProcessingResult, ProcessingState, ProcessingStateFrameSearch}
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.util.ByteString
 
 import scala.annotation.tailrec
 

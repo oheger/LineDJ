@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.{ActorRef, ActorSystem}
-import akka.io.Udp
-import akka.testkit.{TestKit, TestProbe}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.io.Udp
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, TryValues}
@@ -98,7 +98,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     TestKit shutdownActorSystem system
     super.afterAll()
 
-  import EndpointRequestHandlerActorSpec._
+  import EndpointRequestHandlerActorSpec.*
 
   "EndpointRequestHandlerActor" should "answer a request for the endpoint" in {
     Using(new TestClient) { client =>

@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor.ScanResultProcessed
@@ -28,6 +27,7 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCom
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
 import java.nio.file.Path
 import scala.collection.immutable.Queue

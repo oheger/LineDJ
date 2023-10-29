@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.actorsystem
 
-import akka.actor.ActorSystem
-import akka.osgi.ActorSystemActivator
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.osgi.ActorSystemActivator
 import org.osgi.framework.BundleContext
 
 object Activator {

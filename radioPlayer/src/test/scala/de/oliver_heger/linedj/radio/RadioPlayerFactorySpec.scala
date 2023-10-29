@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
-import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.utils.ActorFactory
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKit
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

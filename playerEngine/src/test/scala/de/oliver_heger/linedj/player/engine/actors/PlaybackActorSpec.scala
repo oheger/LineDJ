@@ -1,18 +1,16 @@
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.testkit.typed.scaladsl
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.actor.typed
-import akka.actor.testkit.typed.scaladsl.{TestProbe => TypedTestProbe}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine._
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.WriteAudioData
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor._
+import org.apache.pekko.actor.testkit.typed.scaladsl
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe => TypedTestProbe}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, typed}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

@@ -16,17 +16,16 @@
 
 package de.oliver_heger.linedj.io
 
+import de.oliver_heger.linedj.io.DirectoryStreamSource.{PathFilter, StreamFactory, TransformFunc}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
+import org.apache.pekko.stream.{Attributes, Outlet, SourceShape}
+import scalaz.State
+
 import java.io.IOException
 import java.nio.file.{DirectoryStream, Files, Path}
 import java.util.Locale
-
-import akka.NotUsed
-import akka.stream.scaladsl.Source
-import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
-import akka.stream.{Attributes, Outlet, SourceShape}
-import de.oliver_heger.linedj.io.DirectoryStreamSource.{PathFilter, StreamFactory, TransformFunc}
-import scalaz.State
-
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.language.implicitConversions

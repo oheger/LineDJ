@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.{actor => classic}
 import de.oliver_heger.linedj.io.CloseSupportTyped
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.{actor => classic}
 
 import scala.concurrent.duration.FiniteDuration
 

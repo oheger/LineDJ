@@ -16,23 +16,22 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import java.nio.file.{Files, Path, Paths}
-
-import akka.actor.{ActorSystem, Props}
-import akka.stream.scaladsl.FileIO
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.io.stream.ActorSource
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult}
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.FileIO
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
   * A test class that tests whether the download of a media file can be

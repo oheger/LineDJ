@@ -15,14 +15,13 @@
  */
 package de.oliver_heger.linedj.archive.config
 
-import java.nio.file.Paths
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.util.Timeout
 import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 
 object MediaArchiveConfigSpec {

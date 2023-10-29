@@ -16,18 +16,17 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import java.io.IOException
-
-import akka.NotUsed
-import akka.actor.{Actor, ActorRef, ActorSystem, Props, Status}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Status}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.io.IOException
 import scala.concurrent.duration._
 
 object StreamPullModeratorActorSpec {

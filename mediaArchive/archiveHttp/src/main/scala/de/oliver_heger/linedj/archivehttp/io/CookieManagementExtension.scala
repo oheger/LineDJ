@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
-import akka.http.scaladsl.model.headers.{Cookie, HttpCookiePair, `Set-Cookie`}
-import akka.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse, StatusCodes}
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.HttpRequestSender.{FailedResponseException, FailedResult, ForwardedResult}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
+import org.apache.pekko.http.scaladsl.model.headers.{Cookie, HttpCookiePair, `Set-Cookie`}
+import org.apache.pekko.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse, StatusCodes}
 
 /**
   * An HTTP extension actor implementation that adds a special cookie handling

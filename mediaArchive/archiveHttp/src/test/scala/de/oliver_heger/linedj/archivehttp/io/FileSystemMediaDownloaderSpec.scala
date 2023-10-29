@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttp.io
 
-import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

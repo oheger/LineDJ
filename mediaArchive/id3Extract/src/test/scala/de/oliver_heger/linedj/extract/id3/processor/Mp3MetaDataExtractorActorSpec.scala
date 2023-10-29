@@ -16,24 +16,24 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
 object Mp3MetaDataExtractorActorSpec {

@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.{actor => classic}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
 import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.{actor => classic}
 
 /**
   * An actor implementation that manages the current playback state, i.e. the

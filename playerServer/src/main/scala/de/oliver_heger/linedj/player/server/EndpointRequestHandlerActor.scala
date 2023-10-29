@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import akka.actor.typed
-import akka.io.{IO, Udp}
-import akka.io.Inet.SocketOptionV2
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{HandlerReady, MulticastConfig, PlaceHolderAddress}
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, typed}
+import org.apache.pekko.io.Inet.SocketOptionV2
+import org.apache.pekko.io.{IO, Udp}
+import org.apache.pekko.util.ByteString
 
 import java.net.{DatagramSocket, InetAddress, InetSocketAddress, NetworkInterface}
 import scala.jdk.CollectionConverters.*

@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.util.ByteString
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.util.ByteString
 
 /**
   * A specialized graph stage implementation that processes a list of elements

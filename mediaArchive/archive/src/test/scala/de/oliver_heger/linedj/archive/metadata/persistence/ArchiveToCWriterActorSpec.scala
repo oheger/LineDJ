@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.scaladsl.Source
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

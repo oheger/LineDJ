@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.{ActorSystem, Props}
-import akka.stream._
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.stream._
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

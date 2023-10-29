@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
-import akka.stream._
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.stream._
+import org.apache.pekko.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
+import org.apache.pekko.util.ByteString
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}

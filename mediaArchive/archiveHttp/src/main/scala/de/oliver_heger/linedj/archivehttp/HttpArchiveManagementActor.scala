@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttp
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status}
-import akka.routing.SmallestMailboxPool
-import akka.stream.scaladsl.{Sink, Source}
-import akka.util.ByteString
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl._
@@ -33,6 +29,10 @@ import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status}
+import org.apache.pekko.routing.SmallestMailboxPool
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.util.ByteString
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.Future

@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.{Actor, Props}
-import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
@@ -28,6 +23,11 @@ import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{Metadat
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
+import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.{Actor, Props}
+import org.apache.pekko.{actor => classic}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}

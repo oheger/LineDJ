@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.bus
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
+import org.apache.pekko.actor.Actor.Receive
 
 /**
  * An implementation of the [[MessageBus]]

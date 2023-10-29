@@ -16,20 +16,19 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import java.nio.file.{Files, Paths}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.stream.scaladsl.Source
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStageSpec.FetchFrameData
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.file.{Files, Paths}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.reflect.ClassTag

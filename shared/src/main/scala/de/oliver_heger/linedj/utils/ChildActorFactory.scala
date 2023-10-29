@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.utils.ChildActorFactory.actorNameFor
+import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 import java.util.concurrent.ConcurrentHashMap
 

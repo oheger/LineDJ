@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.http.scaladsl.model.StatusCodes
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.resources.Message
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

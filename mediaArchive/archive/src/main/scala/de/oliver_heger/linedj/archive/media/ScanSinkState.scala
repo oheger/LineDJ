@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.actor.ActorRef
 import scalaz.State
 import scalaz.State._
 

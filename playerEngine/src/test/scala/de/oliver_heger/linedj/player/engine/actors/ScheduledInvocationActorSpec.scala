@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.scaladsl.TimerScheduler
-import akka.testkit.{TestKit, TestProbe}
-import akka.{actor => classic}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.scaladsl.TimerScheduler
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.{actor => classic}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{eq => eqArg}
 import org.mockito.Mockito._

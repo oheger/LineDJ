@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archivelocalstart
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -26,6 +24,8 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

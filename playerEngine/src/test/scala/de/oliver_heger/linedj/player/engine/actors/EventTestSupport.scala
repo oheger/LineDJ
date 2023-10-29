@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.testkit.typed.scaladsl.TestProbe
+import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.scalatest.matchers.should.Matchers
 
 import java.time.LocalDateTime

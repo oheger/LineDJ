@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.ActorSystem
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.builder.window.{WindowManager, WindowManagerImpl}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.ActorSystem
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 /**

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.{Actor, ActorRef, Terminated}
 import de.oliver_heger.linedj.io.CloseHandlerActor.{CloseComplete, ConditionSatisfied}
+import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
 
 object CloseHandlerActor {
 

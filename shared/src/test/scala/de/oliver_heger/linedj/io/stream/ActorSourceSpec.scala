@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.pattern.AskTimeoutException
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.TestKit
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult, ActorErrorResult}
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

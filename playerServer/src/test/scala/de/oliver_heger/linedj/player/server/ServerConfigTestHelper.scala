@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.actor.ActorSystem
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, Behavior, Props}
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
@@ -26,6 +23,9 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
 
 import java.nio.file.Paths
 import scala.collection.immutable

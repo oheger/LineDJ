@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.Path
-
-import akka.actor.ActorLogging
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.impl.download.WriteChunkActor.{WriteRequest, WriteResponse}
 import de.oliver_heger.linedj.io.stream.{AbstractFileWriterActor, CancelableStreamSupport}
+import org.apache.pekko.actor.ActorLogging
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
+
+import java.nio.file.Path
 
 object WriteChunkActor {
 

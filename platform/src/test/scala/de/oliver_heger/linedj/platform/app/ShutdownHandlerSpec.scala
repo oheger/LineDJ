@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.{ActorSystem, Props}
-import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.app.ShutdownHandler.{ShutdownCompletionNotifier, ShutdownObserver}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito._

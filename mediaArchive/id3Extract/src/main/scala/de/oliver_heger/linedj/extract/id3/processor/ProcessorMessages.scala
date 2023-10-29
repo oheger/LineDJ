@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.id3.model.ID3Header
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.apache.pekko.util.ByteString
 
 /**
   * A message containing data extracted from an ID3 frame to be processed.

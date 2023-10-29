@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.typed.Behavior
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.RadioEvent
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import org.apache.pekko.actor.typed.Behavior
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}

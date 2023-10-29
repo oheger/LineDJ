@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, Terminated}
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Terminated}
 
 import scala.reflect.ClassTag
 

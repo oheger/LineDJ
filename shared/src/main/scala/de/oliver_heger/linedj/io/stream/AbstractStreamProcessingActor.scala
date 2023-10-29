@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.Actor.emptyBehavior
-import akka.actor.{Actor, ActorRef, ActorSystem}
-import akka.stream.KillSwitch
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.{CancelStreams, StreamCompleted}
+import org.apache.pekko.actor.Actor.emptyBehavior
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem}
+import org.apache.pekko.stream.KillSwitch
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

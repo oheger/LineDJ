@@ -1,12 +1,12 @@
 package de.oliver_heger.linedj.extract.id3.model
 
-import java.io.{ByteArrayOutputStream, OutputStream}
-import java.nio.file.{Files, Paths}
-
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.io.{ByteArrayOutputStream, OutputStream}
+import java.nio.file.{Files, Paths}
 
 object ID3FrameExtractorSpec {
 

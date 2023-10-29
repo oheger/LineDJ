@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.NotUsed
-import akka.actor.{Actor, ActorRef, Props, Terminated}
-import akka.stream.scaladsl.{FileIO, Keep, Sink, Source}
-import akka.stream.{KillSwitch, KillSwitches}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{Actor, ActorRef, Props, Terminated}
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import org.apache.pekko.util.ByteString
 
 object Mp3MetaDataExtractorActor {
 

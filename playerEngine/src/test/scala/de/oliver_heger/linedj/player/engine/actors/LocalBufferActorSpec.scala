@@ -1,31 +1,31 @@
 package de.oliver_heger.linedj.player.engine.actors
 
+import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
+import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
+import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
+import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.ByteString
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatestplus.mockito.MockitoSugar
+
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.ByteString
-import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
-import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
-import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
-import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.mockito.MockitoSugar
-
 import scala.concurrent.duration._
 
 object LocalBufferActorSpec {

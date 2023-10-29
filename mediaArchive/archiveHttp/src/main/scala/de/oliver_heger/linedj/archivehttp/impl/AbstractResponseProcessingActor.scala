@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.Status
-import akka.stream.KillSwitch
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import org.apache.pekko.actor.Status
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 

@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
@@ -25,6 +24,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRe
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import net.sf.jguiraffe.gui.builder.action.ActionStore
+import org.apache.pekko.actor.Actor.Receive
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration

@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
-import akka.actor.typed.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddPlaybackContextFactories, PlayerManagementCommand, RemovePlaybackContextFactories}
@@ -26,6 +23,9 @@ import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerState
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._

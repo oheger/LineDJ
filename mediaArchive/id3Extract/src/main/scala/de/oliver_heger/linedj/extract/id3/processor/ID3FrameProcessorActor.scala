@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.extract.id3.model._
+import org.apache.pekko.actor.{Actor, ActorRef}
 
 /**
   * An actor class responsible for the processing of ID3v2 frames.

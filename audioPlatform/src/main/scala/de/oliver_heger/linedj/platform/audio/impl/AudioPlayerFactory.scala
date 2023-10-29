@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.{ActorRef, ActorSystem}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
 import scala.concurrent.{ExecutionContext, Future}
 

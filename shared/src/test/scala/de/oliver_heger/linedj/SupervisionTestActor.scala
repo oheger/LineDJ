@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj
 
-import akka.actor._
-import akka.testkit.TestActorRef
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.TestActorRef
 
 /**
  * An actor implementation that simplifies testing error handling and supervision.

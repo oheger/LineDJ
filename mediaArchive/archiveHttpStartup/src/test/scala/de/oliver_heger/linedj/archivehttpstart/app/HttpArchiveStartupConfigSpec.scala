@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.http.scaladsl.model.Uri
-import akka.util.Timeout
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.{TestKit, TestProbe}
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.crypt.alg.aes.Aes
@@ -32,6 +30,8 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

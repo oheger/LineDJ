@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.ext
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
@@ -25,6 +24,7 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID,
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.utils.LRUCache
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
 
 object MetaDataCache {
   /**

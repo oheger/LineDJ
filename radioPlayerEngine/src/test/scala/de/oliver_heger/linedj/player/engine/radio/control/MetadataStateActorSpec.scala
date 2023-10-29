@@ -16,12 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
-import akka.actor.typed.ActorRef
-import akka.actor.typed.scaladsl.Behaviors
-import akka.testkit.{TestProbe => ClassicTestProbe}
-import akka.util.ByteString
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
@@ -31,7 +27,11 @@ import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchCo
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
-import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.testkit.{TestProbe => ClassicTestProbe}
+import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
 import org.mockito.Mockito
 import org.mockito.Mockito._

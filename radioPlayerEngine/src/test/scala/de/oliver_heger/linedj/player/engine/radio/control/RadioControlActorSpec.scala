@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.typed.ActorRef
-import akka.actor.typed.scaladsl.Behaviors
-import akka.util.Timeout
-import akka.{actor => classic}
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
@@ -30,6 +25,11 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioP
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.{actor => classic}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

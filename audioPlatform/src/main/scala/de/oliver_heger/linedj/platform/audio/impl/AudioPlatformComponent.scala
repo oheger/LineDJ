@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, Scheduler}
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
@@ -29,6 +25,10 @@ import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import org.apache.pekko.actor.typed.{ActorRef, Scheduler}
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._

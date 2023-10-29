@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.Done
-import akka.actor.{ActorSystem, Terminated}
-import akka.http.scaladsl.Http.ServerBinding
-import akka.testkit.TestKit
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.pekko.Done
+import org.apache.pekko.actor.{ActorSystem, Terminated}
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.testkit.TestKit
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.BeforeAndAfterAll

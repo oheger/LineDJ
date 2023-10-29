@@ -16,22 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
-import akka.http.scaladsl.server.Directives._
-import akka.stream.scaladsl.Source
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Test class for [[RadioStreamBuilder]].

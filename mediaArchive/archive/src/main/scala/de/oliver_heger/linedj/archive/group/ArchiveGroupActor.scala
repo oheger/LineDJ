@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archive.group
 
-import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 object ArchiveGroupActor {
   /**

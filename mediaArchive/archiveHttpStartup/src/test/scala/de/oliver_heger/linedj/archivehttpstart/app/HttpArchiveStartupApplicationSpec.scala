@@ -16,10 +16,6 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.StatusCodes
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.factory.HttpRequestSenderFactoryImpl
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateDisconnected, HttpArchiveStateFailedRequest, HttpArchiveStateResponse, HttpArchiveStateServerError}
@@ -31,7 +27,6 @@ import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.Gener
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
-import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
@@ -41,6 +36,10 @@ import net.sf.jguiraffe.di.impl.DefaultBeanStore
 import net.sf.jguiraffe.di.impl.providers.ConstantBeanProvider
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentMatchers.{any, anyBoolean, anyInt, anyString, argThat, eq => argEq}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

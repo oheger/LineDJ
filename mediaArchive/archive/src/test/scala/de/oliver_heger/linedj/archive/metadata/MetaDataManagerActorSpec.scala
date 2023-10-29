@@ -15,28 +15,28 @@
  */
 package de.oliver_heger.linedj.archive.metadata
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.atomic.AtomicInteger
-import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media._
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io._
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediaScanCompleted, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.{Path, Paths}
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 

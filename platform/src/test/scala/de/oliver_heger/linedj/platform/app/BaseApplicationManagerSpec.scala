@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext, ApplicationShutdownListener}
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
-import org.mockito.{ArgumentCaptor, Mockito}
-import org.mockito.Mockito._
+import org.apache.pekko.actor.Actor.Receive
 import org.mockito.ArgumentMatchers.{any, eq => eqArg}
+import org.mockito.Mockito._
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

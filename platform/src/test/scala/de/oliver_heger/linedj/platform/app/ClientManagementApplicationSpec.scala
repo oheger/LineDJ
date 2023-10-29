@@ -16,9 +16,6 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import java.io.File
-import java.util.concurrent.{CountDownLatch, TimeUnit}
-import akka.actor.{Actor, ActorSystem, Terminated}
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
@@ -30,6 +27,7 @@ import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
+import org.apache.pekko.actor.{Actor, ActorSystem, Terminated}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -41,6 +39,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.io.File
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.reflect.ClassTag

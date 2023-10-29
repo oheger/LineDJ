@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.io.oauth
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
 

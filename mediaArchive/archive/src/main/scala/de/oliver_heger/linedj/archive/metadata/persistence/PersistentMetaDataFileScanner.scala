@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import java.nio.file.Path
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Sink
 import de.oliver_heger.linedj.archive.media.MediumChecksum
 import de.oliver_heger.linedj.io.DirectoryStreamSource
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Sink
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object PersistentMetaDataFileScanner {

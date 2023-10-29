@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
-
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
 object ManagementActorSpec {
   /** A test actor path prefix. */

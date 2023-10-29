@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import akka.actor.{Actor, ActorRef, ActorSystem}
-import akka.pattern.ask
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.app.PlatformComponent
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.{ActorRequest, FutureUICallback}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.{ExecutionContext, Future}

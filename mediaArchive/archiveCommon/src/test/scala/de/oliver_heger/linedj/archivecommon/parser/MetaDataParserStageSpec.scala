@@ -16,19 +16,18 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.{FileIO, Source}
-import akka.testkit.TestKit
-import akka.util.ByteString
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{FileIO, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

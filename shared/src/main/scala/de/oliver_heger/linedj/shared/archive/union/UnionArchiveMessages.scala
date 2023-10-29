@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.shared.archive.union
 
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import org.apache.pekko.actor.ActorRef
 
 /**
   * A message processed by ''MediaUnionActor'' which allows adding media

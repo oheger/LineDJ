@@ -16,21 +16,20 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.testkit.TestKit
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio._
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata._
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.Timeout
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 
 object PlaylistMetaDataResolverSpec {

@@ -16,18 +16,18 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.http.scaladsl.model._
-import akka.stream.DelayOverflowStrategy
-import akka.stream.scaladsl.{Sink, Source}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.stream.DelayOverflowStrategy
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
@@ -551,7 +551,7 @@ abstract class AbstractTestProcessorActor(checkMsg: Boolean) extends Actor {
       val client = sender()
       readData(data) foreach { text =>
         if (text.startsWith(ErrorPrefix)) {
-          client ! akka.actor.Status.Failure(new IOException(text.substring(ErrorPrefix.length)))
+          client ! org.apache.pekko.actor.Status.Failure(new IOException(text.substring(ErrorPrefix.length)))
         } else {
           createMediumDescFromDownload(text)
             .filter(d => !checkMsg || (d == desc && mid == mediumID(desc)))

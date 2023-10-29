@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import akka.{actor => classic}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
+import org.apache.pekko.actor.typed.scaladsl.{Behaviors, TimerScheduler}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.{actor => classic}
 
 import scala.concurrent.duration.FiniteDuration
 

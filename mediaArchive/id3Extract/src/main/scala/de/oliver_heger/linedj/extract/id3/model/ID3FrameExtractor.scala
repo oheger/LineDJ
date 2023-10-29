@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import akka.util.ByteString
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import org.apache.pekko.util.ByteString
 
 object ID3FrameExtractor {
   /** An array with tag names for ID3v2.2 frames. */

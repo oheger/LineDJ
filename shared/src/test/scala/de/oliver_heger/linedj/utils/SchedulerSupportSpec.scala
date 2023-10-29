@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.utils
 
-import akka.actor._
-import akka.testkit.{TestKit, TestProbe}
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

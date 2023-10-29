@@ -16,19 +16,19 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
-import akka.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import java.util.concurrent.atomic.AtomicInteger
 
 object MediaUnionActorSpec {
   /** Prefix string for archive component IDs. */

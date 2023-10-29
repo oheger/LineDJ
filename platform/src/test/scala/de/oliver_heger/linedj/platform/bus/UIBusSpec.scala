@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.platform.bus
 
-import akka.actor.Actor
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
+import org.apache.pekko.actor.Actor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock

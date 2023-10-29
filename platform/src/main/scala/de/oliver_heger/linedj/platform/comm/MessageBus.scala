@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.comm
 
-import akka.actor.Actor.Receive
+import org.apache.pekko.actor.Actor.Receive
 
 /**
  * A trait defining a bus for publishing messages to registered listeners.

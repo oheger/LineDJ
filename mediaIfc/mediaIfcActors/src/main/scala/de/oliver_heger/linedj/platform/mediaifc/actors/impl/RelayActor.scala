@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
-import akka.actor.{Actor, ActorRef, Props}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
@@ -24,6 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 object RelayActor {
 

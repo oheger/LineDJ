@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.app.hide.impl
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
 import de.oliver_heger.linedj.platform.app.hide._
 import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication, ClientApplicationContext}
@@ -24,6 +23,7 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
 import org.osgi.service.component.ComponentContext
 
 /**

@@ -16,17 +16,16 @@
 
 package de.oliver_heger.linedj.platform.mediaifc
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.ActorRef
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.util.Timeout
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 

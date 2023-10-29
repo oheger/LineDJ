@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.{Actor, ActorRef, Status}
-import akka.stream.scaladsl.{Sink, Source}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamPullModeratorActor.{Ack, Done, Init}
+import org.apache.pekko.actor.{Actor, ActorRef, Status}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.util.ByteString
 
 case object StreamPullModeratorActor {
 

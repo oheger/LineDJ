@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.actor.{Actor, ActorRef}
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
+import org.apache.pekko.actor.{Actor, ActorRef}
 
 /**
   * An actor that is responsible for propagating media data fetched from an

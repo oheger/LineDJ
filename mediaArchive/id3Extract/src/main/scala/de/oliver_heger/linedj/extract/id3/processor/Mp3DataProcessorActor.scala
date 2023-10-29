@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import akka.actor.Actor
 import de.oliver_heger.linedj.extract.id3.model._
+import org.apache.pekko.actor.Actor
 
 /**
   * An actor for processing MP3 data in order to extract meta data.

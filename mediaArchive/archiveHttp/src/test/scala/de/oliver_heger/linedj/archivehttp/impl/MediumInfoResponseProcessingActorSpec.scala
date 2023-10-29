@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import akka.NotUsed
-import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.Source
-import akka.stream.{DelayOverflowStrategy, KillSwitch}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
-import akka.util.{ByteString, Timeout}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit}
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, anyString, eq => eqArg}

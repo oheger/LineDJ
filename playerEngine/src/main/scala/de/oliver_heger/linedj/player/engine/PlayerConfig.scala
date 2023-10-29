@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import java.nio.file.Path
-import akka.actor.ActorRef
-import akka.actor.typed.Props
-import akka.stream.ActorAttributes
-import akka.stream.scaladsl.Source
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.actor.typed.Props
+import org.apache.pekko.stream.ActorAttributes
+import org.apache.pekko.stream.scaladsl.Source
 
+import java.nio.file.Path
 import scala.concurrent.duration._
 
 /**

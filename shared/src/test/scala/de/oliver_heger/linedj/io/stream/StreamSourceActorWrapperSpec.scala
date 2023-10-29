@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.io.stream
 
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import de.oliver_heger.linedj.SupervisionTestActor
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

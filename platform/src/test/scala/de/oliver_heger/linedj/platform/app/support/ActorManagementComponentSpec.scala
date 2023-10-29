@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app.support
 
-import akka.actor.{Actor, ActorRef, Props}
-import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponentSpec.ComponentTestImpl
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContextImpl, ClientContextSupport}
+import org.apache.pekko.actor.{Actor, ActorRef, Props}
 import org.mockito.Mockito._
 import org.osgi.service.component.ComponentContext
 import org.scalatest.flatspec.AnyFlatSpec

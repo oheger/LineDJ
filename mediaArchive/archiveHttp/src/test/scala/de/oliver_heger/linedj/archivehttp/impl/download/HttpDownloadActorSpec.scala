@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.{ByteString, Timeout}
-import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.Mockito.when
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

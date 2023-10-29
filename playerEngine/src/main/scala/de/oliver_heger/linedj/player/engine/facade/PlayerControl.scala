@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.player.engine.facade
 
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorRef, Props, Scheduler}
-import akka.actor.ActorSystem
-import akka.pattern.ask
-import akka.util.Timeout
-import akka.{actor => classics}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.actors._
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlaybackContextFactory, PlayerConfig}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.{ActorRef, Props, Scheduler}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.{actor => classics}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -75,7 +75,7 @@ object PlayerControl {
     val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))
 
     implicit val askTimeout: Timeout = Timeout(10.seconds)
-    import akka.actor.typed.scaladsl.adapter._
+    import org.apache.pekko.actor.typed.scaladsl.adapter._
     implicit val scheduler: Scheduler = system.toTyped.scheduler
     eventManagerActor.ask[EventManagerActor.PublisherReference[E]] { ref =>
       EventManagerActor.GetPublisher(ref)

@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.Actor
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
 import net.sf.jguiraffe.gui.app.{Application, ApplicationShutdownListener}
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowClosingStrategy}
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.actor.Actor.Receive
 
 object BaseApplicationManager {
 

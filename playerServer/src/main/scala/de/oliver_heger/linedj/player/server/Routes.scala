@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.{Directives, Route}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest

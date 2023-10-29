@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.io
 
-import akka.actor.{ActorRef, Props}
 import de.oliver_heger.linedj.io.CloseHandlerActor.ConditionSatisfied
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{ActorRef, Props}
 
 /**
   * A trait providing support for complex close handling.

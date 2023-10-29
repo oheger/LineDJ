@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.util.Timeout
-import akka.{actor => classic}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.{actor => classic}
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}

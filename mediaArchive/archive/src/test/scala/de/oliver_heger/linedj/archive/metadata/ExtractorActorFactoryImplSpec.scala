@@ -16,15 +16,15 @@
 
 package de.oliver_heger.linedj.archive.metadata
 
-import akka.actor.ActorSystem
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.Mockito._
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 object ExtractorActorFactoryImplSpec {
   /** The tag size limit. */

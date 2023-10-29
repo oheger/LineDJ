@@ -16,16 +16,16 @@
 
 package de.oliver_heger.linedj.platform.mediaifc.actors
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.pattern.AskTimeoutException
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import akka.util.Timeout
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
 import de.oliver_heger.linedj.platform.mediaifc.actors.impl.{ManagementActor, RelayActor}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
+import org.apache.pekko.util.Timeout
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

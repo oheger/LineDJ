@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import java.util.concurrent.atomic.AtomicBoolean
-import akka.actor.Actor.Receive
-import akka.actor.{ActorRef, Props}
-import akka.pattern.ask
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseRequest
 import de.oliver_heger.linedj.platform.app.ShutdownHandler.{ShutdownCompletionNotifier, ShutdownObserver}
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, ShutdownHandler}
@@ -31,8 +26,13 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.Avai
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
+import org.apache.pekko.actor.{ActorRef, Props}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 

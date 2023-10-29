@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import java.nio.file.Path
-
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.shared.archive.media.DownloadData
+import org.apache.pekko.actor.ActorRef
+
+import java.nio.file.Path
 
 /**
   * An internally used data class to record a request for data.

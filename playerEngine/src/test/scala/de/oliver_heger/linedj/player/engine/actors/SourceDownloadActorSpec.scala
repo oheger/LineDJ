@@ -16,20 +16,20 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-import akka.actor.SupervisorStrategy.Stop
-import akka.actor._
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
+import org.apache.pekko.actor.SupervisorStrategy.Stop
+import org.apache.pekko.actor._
+import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import scala.concurrent.duration._
 
 object SourceDownloadActorSpec {

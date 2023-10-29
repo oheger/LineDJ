@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.actorsystem
 
-import akka.actor.ActorSystem
-import org.osgi.framework.BundleContext
+import org.apache.pekko.actor.ActorSystem
 import org.mockito.Mockito._
+import org.osgi.framework.BundleContext
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar

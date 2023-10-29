@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri
-import akka.stream.scaladsl.{Flow, Source}
-import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.ByteString
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

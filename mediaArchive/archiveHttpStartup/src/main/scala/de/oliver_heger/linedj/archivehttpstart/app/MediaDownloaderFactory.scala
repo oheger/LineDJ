@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import akka.actor.ActorSystem
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
+import org.apache.pekko.actor.ActorSystem
 
 import java.security.Key
 import scala.util.Try

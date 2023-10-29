@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.Actor.Receive
-import akka.actor.ActorRef
 import de.oliver_heger.linedj.platform.app.ShutdownHandler._
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.actor.Actor.Receive
+import org.apache.pekko.actor.ActorRef
 
 object ShutdownHandler {
   /** The name used for the shutdown management actor. */

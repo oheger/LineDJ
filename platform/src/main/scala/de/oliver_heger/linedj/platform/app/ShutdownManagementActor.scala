@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.{Actor, ActorLogging, Cancellable, Props}
 import de.oliver_heger.linedj.platform.app.ShutdownManagementActor.{ShutdownConfirmation, ShutdownTimeout}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.utils.SchedulerSupport
+import org.apache.pekko.actor.{Actor, ActorLogging, Cancellable, Props}
 
 import scala.concurrent.duration.DurationInt
 

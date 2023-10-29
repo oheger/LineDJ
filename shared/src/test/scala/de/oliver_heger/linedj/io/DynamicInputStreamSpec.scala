@@ -16,14 +16,13 @@
 
 package de.oliver_heger.linedj.io
 
-import java.io.{ByteArrayOutputStream, IOException}
-import java.nio.charset.StandardCharsets
-import java.util
-
-import akka.util.ByteString
+import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.io.{ByteArrayOutputStream, IOException}
+import java.nio.charset.StandardCharsets
+import java.util
 import scala.collection.mutable.ArrayBuffer
 
 object DynamicInputStreamSpec {

@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.server
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http.ServerBinding
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.getActorManagement
 import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
 import org.apache.commons.configuration.StrictConfigurationComparator
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as eqArgs}
 import org.mockito.Mockito.{timeout, verify, when}

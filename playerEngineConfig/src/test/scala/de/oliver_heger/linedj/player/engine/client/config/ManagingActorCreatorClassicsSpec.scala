@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.testkit.{TestKit, TestProbe}
 import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{eq => eqArg}
 import org.mockito.Mockito._

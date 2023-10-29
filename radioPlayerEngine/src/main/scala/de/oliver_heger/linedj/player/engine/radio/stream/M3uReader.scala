@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import akka.NotUsed
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
-import akka.util.ByteString
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.player.engine.radio.stream.M3uReader.{MaxM3uStreamSize, extractUriSink, needToResolveAudioStream, streamRequest}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
+import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -16,11 +16,6 @@
 
 package de.oliver_heger.linedj.radio
 
-import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Behavior, Props}
-import akka.pattern.AskTimeoutException
-import akka.testkit.TestKit
-import akka.util.Timeout
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
@@ -31,6 +26,11 @@ import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, Radi
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.Configuration
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{eq => eqArg, _}
 import org.mockito.Mockito._

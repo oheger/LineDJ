@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.platform.bus
 
-import akka.actor.Actor
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
+import org.apache.pekko.actor.Actor
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

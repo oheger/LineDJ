@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import akka.actor.Actor.Receive
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.app.Application
+import org.apache.pekko.actor.Actor.Receive
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
