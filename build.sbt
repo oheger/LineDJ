@@ -370,12 +370,12 @@ lazy val actorSystem = (project in file("actorSystem"))
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies += "org.apache.pekko" %% "pekko-osgi" % VersionPekko,
-    // need to import packages of akka modules whose configuration has to be added
+    // need to import packages of pekko modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
-      "akka.remote",
-      "akka.stream",
-      "akka.http;resolution:=optional",
-      "akka.serialization.jackson",
+      "org.apache.pekko.remote",
+      "org.apache.pekko.stream",
+      "org.apache.pekko.http;resolution:=optional",
+      "org.apache.pekko.serialization.jackson",
       "*"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
     OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator"),
