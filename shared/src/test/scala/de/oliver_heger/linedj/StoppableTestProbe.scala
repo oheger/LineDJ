@@ -24,7 +24,7 @@ import scala.language.implicitConversions
 /**
   * A module providing support for ''TestProbe''s that can be stopped.
   *
-  * The Akka testkit obviously does not like it if test probes are stopped.
+  * The Pekko testkit obviously does not like it if test probes are stopped.
   * This can cause strange behavior in test cases executed later, even up to
   * failures of the test actor system. Nevertheless, when testing actors that
   * use death watch for actors they collaborate with, it is useful to have a

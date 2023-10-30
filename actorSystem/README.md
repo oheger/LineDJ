@@ -22,20 +22,20 @@ read by the platform module, but this module can only start after the actor
 system service is available; therefore, a more basic configuration mechanism
 has to be used.)
 
-The options mainly control the remoting subsystem of Akka (refer to the
+The options mainly control the remoting subsystem of Pekko (refer to the
 [Remoting documentation](http://doc.akka.io/docs/akka/2.4/scala/remoting.html)).
 The table below lists the system properties that are evaluated:
 
-| Setting | Description | Default value |
-| ------- | ----------- | ------------- |
-| akka.remote.netty.tcp.hostname | The host name to be used by Akka remoting. This overrides the corresponding property from the Akka remoting configuration. | (none) |
-| akka.remote.netty.tcp.port | The port on which the remoting subsystem listens. This overrides the corresponding property from the Akka remoting configuration. | 0 |
-| LineDJ_ActorSystemName | The name to be set for the actor system. | LineDJ_PlatformActorSystem |
+| Setting                         | Description                                                                                                                        | Default value |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------| ------------- |
+| pekko.remote.netty.tcp.hostname | The host name to be used by Pekko remoting. This overrides the corresponding property from the Pekko remoting configuration.       | (none) |
+| pekko.remote.netty.tcp.port     | The port on which the remoting subsystem listens. This overrides the corresponding property from the Pekko remoting configuration. | 0 |
+| LineDJ_ActorSystemName          | The name to be set for the actor system.                                                                                           | LineDJ_PlatformActorSystem |
 
 _Notes:_
 
 The default values are typically appropriate for a LineDJ application acting as
-client of the media archive. They caue the remoting subsystem to bind to the
+client of the media archive. They cause the remoting subsystem to bind to the
 local IP address under a random port.
 
 For the media archive itself, at least a port number should be defined; so that
@@ -48,6 +48,6 @@ corresponding system properties. Below is an example script that starts an
 host name and port:
 
 ```
-java -Dakka.remote.netty.tcp.hostname=ArchiveHost -Dakka.remote.netty.tcp.port=1234 \
+java -Dpekko.remote.netty.tcp.hostname=ArchiveHost -Dpekko.remote.netty.tcp.port=1234 \
   -jar bin/felix.jar
 ```

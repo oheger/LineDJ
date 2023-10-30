@@ -36,7 +36,7 @@ object Activator {
   * A bundle activator which registers the central client-side actor system as
   * OSGi service.
   *
-  * This class uses functionality provided by the Akka OSGi integration. Akka
+  * This class uses functionality provided by the Pekko OSGi integration. Pekko
   * already creates and configures a working actor system and passes it to a
   * method implemented by this class. This method just registers the actor
   * system in the OSGi registry so that it can be used by other components of

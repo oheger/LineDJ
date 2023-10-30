@@ -92,7 +92,7 @@ end RoutesSpec
 /**
   * Test class for the routes configured by the [[Routes]] module.
   * Unfortunately, due to conflicting Scala 2 and 3 dependencies, it is
-  * currently not possible to use the routes testkit of Akka HTTP for this
+  * currently not possible to use the routes testkit of Pekko HTTP for this
   * purpose.
   */
 class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike

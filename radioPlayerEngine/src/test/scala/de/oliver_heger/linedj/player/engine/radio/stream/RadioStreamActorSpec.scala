@@ -127,7 +127,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     stream.expectReadsUntil(BufferSize)
     awaitCond(stream.readQueue.poll(50, TimeUnit.MILLISECONDS) == null)
 
-    // The exact amount of read bytes depends on the internal chunk size used by Akka Http.
+    // The exact amount of read bytes depends on the internal chunk size used by Pekko Http.
     stream.bytesCount.get() should be < 3L * BufferSize
   }
 

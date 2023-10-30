@@ -87,9 +87,9 @@ abstract class StreamPullModeratorActor extends Actor {
   /**
     * Converts an exception received from the stream into a message that is
     * then passed to this actor. The default implementation transforms the
-    * exception into an ''akka.actor.Status.Failure'' message; derived classes
-    * can implement an alternative transformation. The resulting message can be
-    * handled in the custom ''Receive'' function.
+    * exception into an ''org.apache.pekko.actor.Status.Failure'' message;
+    * derived classes can implement an alternative transformation. The
+    * resulting message can be handled in the custom ''Receive'' function.
     *
     * @param exception the exception from the stream
     * @return the message to represent this exception

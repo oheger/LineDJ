@@ -15,7 +15,7 @@ and how they collaborate to create modular, reactive UI applications.
 Technologies used here include:
 
 * http://www.scala-lang.org/[Scala]
-* http://akka.io/[Akka]
+* http://akka.io/[Akka] (after the switch of the license https://pekko.apache.org/[Apache Pekko])
 * https://www.osgi.org/[OSGi]
 * https://openjfx.io/[JavaFX]
 

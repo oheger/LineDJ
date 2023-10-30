@@ -161,22 +161,22 @@ single bundles separately, but groups them by the projects they come from.
 [cols="1,1,2",options="header"]
 |====
 | Group | Source | Remarks
-| Akka | https://akka.io[Akka.io] |
-The applications make use of different Akka projects, such as Akka Actors, Akka
-streaming, and (partly) Akka remoting. Most of the Akka artifacts are valid
+| Apache Pekko | https://pekko.apache.org/[pekko.apache.org] |
+The applications make use of different Pekko projects, such as Pekko Actors, Pekko
+streaming, and (partly) Pekko remoting. Most of the Pekko artifacts are valid
 OSGi bundles; so the OSGi image plugin can obtain them from the build directly.
 There are, however, some helper libraries, which do not provide OSGi metadata.
 Note that the OSGi compatibility of these artifacts can change even in micro
 releases.
-| Akka Http | https://akka.io[Akka.io] |
+| Pekko Http | https://pekko.apache.org/[pekko.apache.org] |
 Some applications use this library for communication with other services. The
-Akka Http artifacts are no OSGi bundles, unfortunately.
+Pekko Http artifacts are no OSGi bundles, unfortunately.
 | Apache Commons | https://commons.apache.org |
 The Apache Commons project provides small reusable libraries. The newer ones
 are all valid OSGi bundles. Some of the libraries referenced, however, are
 older and thus do not contain OSGi metadata. This is especially the case for
 Commons Jelly and its transitive dependencies.
-| JGUIraffe | https://github.com/oheger/jguiraffe[JGUIraffe on Github] |
+| JGUIraffe | https://github.com/oheger/jguiraffe[JGUIraffe on GitHub] |
 The LineDJ applications use this library as UI framework. The artifacts are
 valid OSGi bundles. However, some applications require a snapshot version,
 which is not available in a public Maven repository. So the jars for these
@@ -197,7 +197,7 @@ this is done.
 in the correct version. In addition, they reference some Scala modules, e.g.
 for XML parsing or parser combinators. All of these libraries are valid OSGi
 bundles.
-| Scalaz | https://github.com/scalaz/scalaz[Scalaz on Github]
+| Scalaz | https://github.com/scalaz/scalaz[Scalaz on GitHub]
 | A library for functional programming in Scala required by most LineDJ
 applications. Unfortunately, newer versions of this library no longer contain
 OSGi metadata.
