@@ -23,12 +23,10 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''StartPlaybackTask''.
   */
-class StartPlaybackTaskSpec extends AnyFlatSpec with MockitoSugar {
-  "A StartPlaybackTask" should "call the controller's startPlayback() method" in {
+class StartPlaybackTaskSpec extends AnyFlatSpec with MockitoSugar:
+  "A StartPlaybackTask" should "call the controller's startPlayback() method" in:
     val controller = mock[RadioController]
     val task = new StartPlaybackTask(controller)
 
     task.run()
     verify(controller).startPlayback()
-  }
-}

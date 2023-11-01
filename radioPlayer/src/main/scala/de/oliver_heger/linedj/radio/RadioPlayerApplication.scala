@@ -52,7 +52,7 @@ import scala.concurrent.{Await, Future, Promise, TimeoutException}
   */
 class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactory) extends
   ClientApplication("radioplayer") with ApplicationAsyncStartup with ActorManagementComponent
-  with ActorClientSupport with Identifiable {
+  with ActorClientSupport with Identifiable:
   def this() = this(new RadioPlayerFactory)
 
   /**
@@ -84,12 +84,10 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *
     * @param factory the factory service to be added
     */
-  def addPlaylistContextFactory(factory: PlaybackContextFactory): Unit = {
-    optManagerActor match {
+  def addPlaylistContextFactory(factory: PlaybackContextFactory): Unit =
+    optManagerActor match
       case Some(actor) => actor ! PlayerManagerActor.AddPlaybackContextFactories(List(factory))
       case None => pendingPlaybackContextFactories = factory :: pendingPlaybackContextFactories
-    }
-  }
 
   /**
     * Removes a ''PlaybackContextFactory'' service from this application. This
@@ -98,12 +96,10 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *
     * @param factory the factory service to be removed
     */
-  def removePlaylistContextFactory(factory: PlaybackContextFactory): Unit = {
-    optManagerActor match {
+  def removePlaylistContextFactory(factory: PlaybackContextFactory): Unit =
+    optManagerActor match
       case Some(actor) => actor ! PlayerManagerActor.RemovePlaybackContextFactories(List(factory))
       case None => pendingPlaybackContextFactories = pendingPlaybackContextFactories filterNot (_ == factory)
-    }
-  }
 
   /**
     * @inheritdoc This implementation stores the user configuration as a bean,
@@ -111,38 +107,35 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *             completes the UI promise to indicate that the UI is now
     *             available.
     */
-  override def initGUI(appCtx: ApplicationContext): Unit = {
+  override def initGUI(appCtx: ApplicationContext): Unit =
     addBeanDuringApplicationStartup("radioApp_config", getUserConfiguration)
 
     super.initGUI(appCtx)
 
     promiseUI.success(())
-  }
 
   /**
     * @inheritdoc This implementation performs some registrations.
     */
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
 
     val managerBehavior = RadioPlayerManagerActor(clientApplicationContext.messageBus)(createPlayer)
     val managerActor = clientApplicationContext.actorFactory.createActor(managerBehavior, "radioPlayerManagerActor")
     managerActor ! PlayerManagerActor.AddPlaybackContextFactories(pendingPlaybackContextFactories)
     optManagerActor = Some(managerActor)
-  }
 
   /**
     * @inheritdoc This implementation closes the player.
     */
-  override def deactivate(componentContext: ComponentContext): Unit = {
+  override def deactivate(componentContext: ComponentContext): Unit =
     closePlayer()
     super.deactivate(componentContext)
-  }
 
   /**
     * Closes the manager actor and waits for its termination.
     */
-  private[radio] def closePlayer(): Unit = {
+  private[radio] def closePlayer(): Unit =
     val shutdownTimeout = 3.seconds
     optManagerActor.foreach { actor =>
       implicit val timeout: Timeout = Timeout(shutdownTimeout)
@@ -151,14 +144,12 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
         PlayerManagerActor.Close(ref, timeout)
       }
 
-      try {
+      try
         Await.ready(futureAck, shutdownTimeout)
-      } catch {
+      catch
         case _: TimeoutException =>
           log.warn("Timeout when shutting down audio player!")
-      }
     }
-  }
 
   /**
     * Creates the [[RadioPlayer]] asynchronously. Note that the resulting
@@ -167,8 +158,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     * @return a ''Future'' with the [[RadioPlayer]].
     */
   private def createPlayer(): Future[RadioPlayer] =
-    for {
+    for
       player <- playerFactory.createRadioPlayer(this)
       _ <- promiseUI.future
-    } yield player
-}
+    yield player

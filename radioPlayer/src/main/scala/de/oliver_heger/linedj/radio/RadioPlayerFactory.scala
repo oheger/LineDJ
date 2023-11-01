@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * This class is used during setup of the radio player application to create
   * the actual player object.
   */
-private class RadioPlayerFactory {
+private class RadioPlayerFactory:
   /**
     * Creates a ''RadioPlayer'' instance using the provided ''ActorManagement''
     * object as actor factory. The creation of the player is an asynchronous
@@ -57,7 +57,7 @@ private class RadioPlayerFactory {
     * @param actorManagement the ''ActorManagement''
     * @return the player configuration
     */
-  private def createPlayerConfig(actorManagement: ActorManagementComponent): RadioPlayerConfig = {
+  private def createPlayerConfig(actorManagement: ActorManagementComponent): RadioPlayerConfig =
     val creator = new ManagingActorCreator(actorManagement.clientApplicationContext.actorFactory, actorManagement)
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
@@ -67,5 +67,3 @@ private class RadioPlayerFactory {
       mediaManagerActor = null,
       actorCreator = creator)
     RadioPlayerConfigLoader.DefaultRadioPlayerConfig.copy(playerConfig = playerConfig)
-  }
-}

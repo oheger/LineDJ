@@ -31,8 +31,8 @@ import org.apache.pekko.actor.Actor.Receive
   * @param statusLineController the status line controller
   */
 class RadioPlayerEventListener(controller: RadioController,
-                               statusLineController: RadioStatusLineController) extends MessageBusListener {
-  override def receive: Receive = {
+                               statusLineController: RadioStatusLineController) extends MessageBusListener:
+  override def receive: Receive =
     case RadioPlaybackProgressEvent(source, _, time, _) =>
       controller.playbackTimeProgress(source, time)
       statusLineController.playbackTimeProgress(source, time)
@@ -44,5 +44,3 @@ class RadioPlayerEventListener(controller: RadioController,
       statusLineController.playbackError(source)
     case metadataEvent: RadioMetadataEvent =>
       controller.metadataChanged(metadataEvent)
-  }
-}

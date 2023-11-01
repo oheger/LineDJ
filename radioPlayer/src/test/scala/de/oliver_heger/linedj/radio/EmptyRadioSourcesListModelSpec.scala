@@ -23,10 +23,8 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''EmptyRadioSourcesListModel''.
   */
-class EmptyRadioSourcesListModelSpec extends AnyFlatSpec with Matchers {
-  "An EmptyRadioSourcesListModel" should "return the correct element type" in {
+class EmptyRadioSourcesListModelSpec extends AnyFlatSpec with Matchers:
+  "An EmptyRadioSourcesListModel" should "return the correct element type" in:
     val model = new EmptyRadioSourcesListModel
 
     model.getType should be(classOf[RadioSource])
-  }
-}

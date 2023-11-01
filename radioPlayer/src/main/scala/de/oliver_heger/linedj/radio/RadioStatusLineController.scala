@@ -25,7 +25,7 @@ import net.sf.jguiraffe.resources.Message
 
 import scala.concurrent.duration.FiniteDuration
 
-object RadioStatusLineController {
+object RadioStatusLineController:
   /** Resource key for the status text for normal playback. */
   private val ResKeyStatusPlaybackNormal = "txt_status_playback"
 
@@ -34,7 +34,6 @@ object RadioStatusLineController {
 
   /** Resource key for the initialization error message. */
   private val ResKeyStatusPlayerInitError = "txt_status_error"
-}
 
 /**
   * A helper class to manage the status line of the radio player application.
@@ -53,7 +52,7 @@ object RadioStatusLineController {
 class RadioStatusLineController(applicationContext: ApplicationContext,
                                 statusText: StaticTextHandler,
                                 playbackTime: StaticTextHandler,
-                                errorIndicator: WidgetHandler) {
+                                errorIndicator: WidgetHandler):
 
   import RadioStatusLineController._
 
@@ -84,9 +83,8 @@ class RadioStatusLineController(applicationContext: ApplicationContext,
     *
     * @param source the new current radio source
     */
-  def updateCurrentSource(source: RadioSource): Unit = {
+  def updateCurrentSource(source: RadioSource): Unit =
     currentSource = source
-  }
 
   /**
     * Notifies this object about a playback error of the given source. If this
@@ -94,12 +92,10 @@ class RadioStatusLineController(applicationContext: ApplicationContext,
     *
     * @param source the source affected by the error
     */
-  def playbackError(source: RadioSource): Unit = {
-    if (source == currentSource) {
+  def playbackError(source: RadioSource): Unit =
+    if source == currentSource then
       errorState = true
-    }
     updateErrorIndicator()
-  }
 
   /**
     * Notifies this object that the given source has been played for a while.
@@ -108,27 +104,23 @@ class RadioStatusLineController(applicationContext: ApplicationContext,
     * @param source the source that is currently played
     * @param time   the playback time
     */
-  def playbackTimeProgress(source: RadioSource, time: FiniteDuration): Unit = {
+  def playbackTimeProgress(source: RadioSource, time: FiniteDuration): Unit =
     playbackTime setText playbackTimeFunc(time)
 
-    if (source != playedSource) {
+    if source != playedSource then
       playedSource = source
       statusText.setText(generateStatusText(source))
-    }
 
-    if (source == currentSource) {
+    if source == currentSource then
       errorState = false
-    }
     updateErrorIndicator()
-  }
 
   /**
     * Notifies this object that the radio player could not be initialized. The
     * controller then displays a corresponding message in the status line.
     */
-  def playerInitializationFailed(): Unit = {
+  def playerInitializationFailed(): Unit =
     statusText.setText(applicationContext.getResourceText(ResKeyStatusPlayerInitError))
-  }
 
   /**
     * Generates the text for the status line when playback of a source starts.
@@ -136,24 +128,19 @@ class RadioStatusLineController(applicationContext: ApplicationContext,
     * @param src the source which is currently played
     * @return the corresponding text for the status line
     */
-  private def generateStatusText(src: RadioSource): String = {
-    if (src == currentSource) {
+  private def generateStatusText(src: RadioSource): String =
+    if src == currentSource then
       applicationContext.getResourceText(ResKeyStatusPlaybackNormal)
-    } else {
+    else
       val srcData = radioSources.find(_._2 == src)
       applicationContext.getResourceText(new Message(null, ResKeyStatusPlaybackReplace,
         srcData.map(_._1) getOrElse src.uri))
-    }
-  }
 
   /**
     * Changes the visibility of the error indicator to match the current
     * error state. If the visibility already corresponds to the error state, no
     * action is taken.
     */
-  private def updateErrorIndicator(): Unit = {
-    if (errorIndicator.isVisible != errorState) {
+  private def updateErrorIndicator(): Unit =
+    if errorIndicator.isVisible != errorState then
       errorIndicator.setVisible(errorState)
-    }
-  }
-}

@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioS
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.HierarchicalConfiguration
 
-object RadioPlayerClientConfig {
+object RadioPlayerClientConfig:
   /**
     * Constant for an initial delay before starting playback (in milliseconds).
     *
@@ -76,7 +76,7 @@ object RadioPlayerClientConfig {
     * @param config the configuration
     * @return the [[RadioPlayerClientConfig]] instance
     */
-  def apply(config: HierarchicalConfiguration): RadioPlayerClientConfig = {
+  def apply(config: HierarchicalConfiguration): RadioPlayerClientConfig =
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(config)
 
@@ -85,7 +85,6 @@ object RadioPlayerClientConfig {
       initialDelay = config.getInt(KeyInitialDelay, DefaultInitialDelay),
       metaMaxLen = config.getInt(KeyMetaMaxLen, DefaultMetadataMaxLen),
       metaRotateSpeed = config.getDouble(KeyMetaRotateSpeed, DefaultMetadataRotateScale))
-  }
 
   /**
     * Creates a [[RadioPlayerClientConfig]] instance from the configuration
@@ -96,7 +95,6 @@ object RadioPlayerClientConfig {
     */
   def apply(context: ApplicationContext): RadioPlayerClientConfig =
     apply(context.getConfiguration.asInstanceOf[HierarchicalConfiguration])
-}
 
 /**
   * A data class storing the full configuration of the radio player

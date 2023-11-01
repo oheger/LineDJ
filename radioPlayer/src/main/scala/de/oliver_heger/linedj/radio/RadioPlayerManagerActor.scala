@@ -34,24 +34,19 @@ import scala.util.{Failure, Success}
   * that a radio player is correctly created asynchronously and initialized. It
   * deals with potential race conditions when adding playback context factories.
   */
-object RadioPlayerManagerActor {
+object RadioPlayerManagerActor:
   def apply(messageBus: MessageBus)
-           (playerCreationFunc: () => Future[RadioPlayer]): Behavior[PlayerManagementCommand] = {
-    val manager = new PlayerManagerActor[RadioPlayer, RadioEvent] {
+           (playerCreationFunc: () => Future[RadioPlayer]): Behavior[PlayerManagementCommand] =
+    val manager = new PlayerManagerActor[RadioPlayer, RadioEvent]:
       override protected def getPlayer(state: RadioPlayer): PlayerControl[RadioEvent] = state
 
-      override protected def onInit(state: RadioPlayer): RadioPlayer = {
+      override protected def onInit(state: RadioPlayer): RadioPlayer =
         messageBus publish RadioController.RadioPlayerInitialized(Success(state))
         state
-      }
 
-      override protected def onInitFailure(cause: Throwable): Unit = {
+      override protected def onInitFailure(cause: Throwable): Unit =
         messageBus publish RadioController.RadioPlayerInitialized(Failure(cause))
-      }
 
       override protected def onClose(state: RadioPlayer): Unit = {}
-    }
 
     manager.behavior(messageBus)(playerCreationFunc)
-  }
-}

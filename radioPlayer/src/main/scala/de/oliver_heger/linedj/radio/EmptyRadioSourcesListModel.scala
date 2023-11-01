@@ -25,6 +25,5 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
   * This model is empty initially. It is then filled when the radio sources
   * available are read from the application's configuration.
   */
-class EmptyRadioSourcesListModel extends EmptyListModel {
+class EmptyRadioSourcesListModel extends EmptyListModel:
   override val getType = classOf[RadioSource]
-}

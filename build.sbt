@@ -133,7 +133,7 @@ lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test classifier "tests",
-  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
+  ("org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2").cross(CrossVersion.for3Use2_13),
 ) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
@@ -764,6 +764,8 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player",
+    scalacOptions := scala3Options,
+    scalaVersion := VersionScala3,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -773,7 +775,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
+  ) dependsOn(platform, audioPlatform, radioPlayerEngine, radioPlayerEngineConfig, test3 % "test->compile")
 
 /**
   * Project for the remote media interface. This project establishes a
@@ -1128,7 +1130,6 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   */
 lazy val radioOsgiImage = (project in file("images/radio"))
   .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
   .settings(
     name := "linedj-radio-osgiImage",
     sourceImagePaths := Seq("base", "radio"),

@@ -25,8 +25,6 @@ package de.oliver_heger.linedj.radio
   *
   * @param controller the radio controller
   */
-class StopPlaybackTask(controller: RadioController) extends Runnable {
-  override def run(): Unit = {
+class StopPlaybackTask(controller: RadioController) extends Runnable:
+  override def run(): Unit =
     controller.stopPlayback()
-  }
-}

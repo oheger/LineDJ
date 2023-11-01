@@ -31,10 +31,11 @@ import org.apache.pekko.actor.Actor.Receive
 
 import java.util.concurrent.TimeUnit
 import scala.annotation.tailrec
+import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-object RadioController {
+object RadioController:
   /**
     * Constant for an initial delay before starting playback (in milliseconds).
     *
@@ -75,7 +76,6 @@ object RadioController {
     * @param triedRadioPlayer a ''Try'' with the [[RadioPlayer]]
     */
   case class RadioPlayerInitialized(triedRadioPlayer: Try[RadioPlayer])
-}
 
 /**
   * A controller class responsible for the main window of the radio player
@@ -101,7 +101,7 @@ class RadioController(val userConfig: Configuration,
                       metadataText: StaticTextHandler,
                       statusLineController: RadioStatusLineController,
                       val playerConfig: RadioPlayerClientConfig)
-  extends FormChangeListener with MessageBusListener {
+  extends FormChangeListener with MessageBusListener:
 
   def this(config: Configuration,
            applicationContext: ApplicationContext,
@@ -161,10 +161,10 @@ class RadioController(val userConfig: Configuration,
     *             sources. This implementation switches to the currently
     *             selected radio source.
     */
-  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
-    if (!sourcesUpdating) {
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit =
+    if !sourcesUpdating then
       val source = comboSources.getData.asInstanceOf[RadioSource]
-      if (source != null) {
+      if source != null then
         lastPlaybackDuration = InitialPlaybackDuration
         metadataTimeFunc = generateMetadataTimeFunc(UnsupportedMetadataText)
         metadataText.setText(UnsupportedMetadataText)
@@ -173,29 +173,24 @@ class RadioController(val userConfig: Configuration,
         player.switchToRadioSource(source)
         val nextSource = radioSources find (t => t._2 == source)
         nextSource foreach storeCurrentSource
-      }
-    }
-  }
 
   /**
     * Starts radio playback. This method is typically invoked in reaction on
     * the start playback action.
     */
-  def startPlayback(): Unit = {
+  def startPlayback(): Unit =
     player.startPlayback()
     enablePlaybackActions(isPlaying = true)
     playbackActive = true
-  }
 
   /**
     * Stops radio playback. This method is typically invoked in reaction on
     * the stop playback action.
     */
-  def stopPlayback(): Unit = {
+  def stopPlayback(): Unit =
     player.stopPlayback()
     enablePlaybackActions(isPlaying = false)
     playbackActive = false
-  }
 
   /**
     * Notifies this controller about a change of the playback time for the
@@ -205,14 +200,12 @@ class RadioController(val userConfig: Configuration,
     * @param source the source that is currently played
     * @param time   the updated playback time
     */
-  def playbackTimeProgress(source: RadioSource, time: FiniteDuration): Unit = {
+  def playbackTimeProgress(source: RadioSource, time: FiniteDuration): Unit =
     lastPlaybackDuration = time
-    if (source != lastPlayedSource) {
+    if source != lastPlayedSource then
       lastPlayedSource = source
       metadataTimeFunc = generateMetadataTimeFunc(lastMetadataText)
-    }
     metadataText.setText(metadataTimeFunc(time))
-  }
 
   /**
     * Notifies this controller about a metadata event. This causes the field
@@ -221,19 +214,16 @@ class RadioController(val userConfig: Configuration,
     *
     * @param event the event about updated metadata
     */
-  def metadataChanged(event: RadioMetadataEvent): Unit = {
-    val data = event.metadata match {
+  def metadataChanged(event: RadioMetadataEvent): Unit =
+    val data = event.metadata match
       case MetadataNotSupported => UnsupportedMetadataText
       case c: CurrentMetadata =>
         log.info("Radio stream metadata: \"{}\".", c.data)
         c.title
-    }
 
-    if (data != lastMetadataText) {
+    if data != lastMetadataText then
       lastMetadataText = data
       metadataTimeFunc = generateMetadataTimeFunc(data)
-    }
-  }
 
   /**
     * Returns the function for handling messages published on the message bus.
@@ -242,14 +232,14 @@ class RadioController(val userConfig: Configuration,
     *
     * @return the message handling function
     */
-  override def receive: Receive = {
+  override def receive: Receive =
     case RadioPlayerInitialized(triedRadioPlayer) =>
-      triedRadioPlayer match {
+      triedRadioPlayer match
         case Success(value) =>
           player = value
 
           sourcesUpdating = true
-          try {
+          try
             player.initRadioSourceConfig(playerConfig.sourceConfig)
             player.initMetadataConfig(playerConfig.metadataConfig)
             radioSources = updateSourceCombo(playerConfig.sourceConfig)
@@ -257,39 +247,33 @@ class RadioController(val userConfig: Configuration,
             enableAction(ActionStopPlayback, enabled = radioSources.nonEmpty)
 
             startPlaybackIfPossible(radioSources, playerConfig.initialDelay.millis)
-          } finally sourcesUpdating = false
+          finally sourcesUpdating = false
 
         case Failure(exception) =>
           log.error("Initialization of radio player failed.", exception)
           statusLineController.playerInitializationFailed()
-      }
-  }
 
   /**
     * Updates the combo box with the radio sources from the configuration.
     *
     * @return the list of currently available radio sources
     */
-  private def updateSourceCombo(srcConfig: RadioSourceConfig): Seq[(String, RadioSource)] = {
+  private def updateSourceCombo(srcConfig: RadioSourceConfig): Seq[(String, RadioSource)] =
     clearSourceCombo()
     val sources = srcConfig.namedSources
     sources.zipWithIndex foreach { t => comboSources.addItem(t._2, t._1._1, t._1._2) }
     sources
-  }
 
   /**
     * Clears the combo box with radio sources.
     */
-  private def clearSourceCombo(): Unit = {
-    @tailrec def removeComboEntry(idx: Int): Unit = {
-      if (idx >= 0) {
+  private def clearSourceCombo(): Unit =
+    @tailrec def removeComboEntry(idx: Int): Unit =
+      if idx >= 0 then
         comboSources removeItem idx
         removeComboEntry(idx - 1)
-      }
-    }
 
     removeComboEntry(comboSources.getListModel.size() - 1)
-  }
 
   /**
     * Starts initial radio playback if sources are available. The source to be
@@ -300,7 +284,7 @@ class RadioController(val userConfig: Configuration,
     * @param delay   a delay for switching to the radio source
     */
   private def startPlaybackIfPossible(sources: Seq[(String, RadioSource)],
-                                      delay: FiniteDuration): Unit = {
+                                      delay: FiniteDuration): Unit =
     val optCurrentSource = readCurrentSourceFromConfig(sources) orElse sources.headOption
     optCurrentSource foreach { s =>
       player.switchToRadioSource(s._2)
@@ -310,7 +294,6 @@ class RadioController(val userConfig: Configuration,
       storeCurrentSource(s)
       playbackActive = true
     }
-  }
 
   /**
     * Stores the current radio source in the configuration, so that playback
@@ -318,9 +301,8 @@ class RadioController(val userConfig: Configuration,
     *
     * @param src information about the current source
     */
-  private def storeCurrentSource(src: (String, RadioSource)): Unit = {
+  private def storeCurrentSource(src: (String, RadioSource)): Unit =
     userConfig.setProperty(KeyCurrentSource, src._1)
-  }
 
   /**
     * Reads information about the current source from the configuration and
@@ -332,11 +314,10 @@ class RadioController(val userConfig: Configuration,
     * @return the current source
     */
   private def readCurrentSourceFromConfig(sources: Seq[(String, RadioSource)]): Option[(String,
-    RadioSource)] = {
+    RadioSource)] =
     Option(userConfig.getString(KeyCurrentSource)) flatMap { name =>
       sources find (_._1 == name)
     }
-  }
 
   /**
     * Sets the state of an action.
@@ -344,9 +325,8 @@ class RadioController(val userConfig: Configuration,
     * @param name    the action's name
     * @param enabled the new enabled state
     */
-  private def enableAction(name: String, enabled: Boolean): Unit = {
+  private def enableAction(name: String, enabled: Boolean): Unit =
     actionStore.getAction(name) setEnabled enabled
-  }
 
   /**
     * Enables the action that control playback based on the current playing
@@ -354,10 +334,9 @@ class RadioController(val userConfig: Configuration,
     *
     * @param isPlaying flag whether playback is currently active
     */
-  private def enablePlaybackActions(isPlaying: Boolean): Unit = {
+  private def enablePlaybackActions(isPlaying: Boolean): Unit =
     enableAction(ActionStartPlayback, !isPlaying)
     enableAction(ActionStopPlayback, isPlaying)
-  }
 
   /**
     * Returns a function to update the metadata field when a playback progress
@@ -372,4 +351,3 @@ class RadioController(val userConfig: Configuration,
       maxLen = playerConfig.metaMaxLen,
       scale = playerConfig.metaRotateSpeed,
       relativeTo = lastPlaybackDuration)
-}
