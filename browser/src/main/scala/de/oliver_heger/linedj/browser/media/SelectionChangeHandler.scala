@@ -32,9 +32,9 @@ import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
  *
  * @param controller the ''MediaController''
  */
-class SelectionChangeHandler(controller: MediaController) extends FormChangeListener {
-  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
-    formChangeEvent.getHandler match {
+class SelectionChangeHandler(controller: MediaController) extends FormChangeListener:
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit =
+    formChangeEvent.getHandler match
       case listHandler: ListComponentHandler =>
         controller selectMedium listHandler.getData.asInstanceOf[MediumID]
 
@@ -43,6 +43,3 @@ class SelectionChangeHandler(controller: MediaController) extends FormChangeList
 
       case _: TableHandler =>
         controller.songSelectionChanged()
-    }
-  }
-}

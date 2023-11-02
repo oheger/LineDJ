@@ -28,33 +28,30 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''MediumPopupHandler''.
  */
-class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A MediumPopupHandler" should "add actions for appending medium, artist, and album" in {
+class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A MediumPopupHandler" should "add actions for appending medium, artist, and album" in:
     val helper = new MediumPopupHandlerTestHelper
 
     helper.invokeHandler().verifyActionAdded(helper.actAddMedium).verifyActionAdded(helper
       .actAddArtists).verifyActionAdded(helper.actAddAlbums)
-  }
 
-  it should "add an action for the currently selected songs" in {
+  it should "add an action for the currently selected songs" in:
     val helper = new MediumPopupHandlerTestHelper
     val actAddSongs = helper prepareAddSongsAction true
 
     helper.invokeHandler().verifyActionAdded(actAddSongs)
-  }
 
-  it should "not add an action for selected songs if there is no selection" in {
+  it should "not add an action for selected songs if there is no selection" in:
     val helper = new MediumPopupHandlerTestHelper
     val actAddSongs = helper prepareAddSongsAction false
 
     helper.invokeHandler().verifyActionNotAdded(actAddSongs)
-  }
 
   /**
    * A test helper class collecting a bunch of mock objects required for most
    * of the tests.
    */
-  private class MediumPopupHandlerTestHelper {
+  private class MediumPopupHandlerTestHelper:
     /** The action for adding selected albums. */
     val actAddAlbums: FormAction = action()
 
@@ -81,20 +78,18 @@ class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar
       * @param enabled the enabled flag
       * @return the action for addings songs
       */
-    def prepareAddSongsAction(enabled: Boolean): FormAction = {
+    def prepareAddSongsAction(enabled: Boolean): FormAction =
       when(actAddSongs.isEnabled).thenReturn(enabled)
       actAddSongs
-    }
 
     /**
      * Verifies that the specified action has been added to the popup builder.
      * @param action the action in question
      * @return this object
      */
-    def verifyActionAdded(action: FormAction): MediumPopupHandlerTestHelper = {
+    def verifyActionAdded(action: FormAction): MediumPopupHandlerTestHelper =
       verify(popupBuilder).addAction(action)
       this
-    }
 
     /**
      * Verifies that the specified action has not been added to the popup
@@ -102,20 +97,18 @@ class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar
      * @param action the action in question
      * @return this object
      */
-    def verifyActionNotAdded(action: FormAction): MediumPopupHandlerTestHelper = {
+    def verifyActionNotAdded(action: FormAction): MediumPopupHandlerTestHelper =
       verify(popupBuilder, never()).addAction(action)
       this
-    }
 
     /**
      * Invokes the test handler.
      * @return this object
      */
-    def invokeHandler(): MediumPopupHandlerTestHelper = {
+    def invokeHandler(): MediumPopupHandlerTestHelper =
       popupHandler.constructPopup(popupBuilder, createComponentData())
       verify(popupBuilder).create()
       this
-    }
 
     /**
      * Creates a mock component builder data object. Here mainly the bean
@@ -123,13 +116,12 @@ class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar
      * medium controller.
      * @return the component builder data mock
      */
-    def createComponentData(): ComponentBuilderData = {
+    def createComponentData(): ComponentBuilderData =
       val builderData = mock[ComponentBuilderData]
       val context = mock[BeanContext]
       when(builderData.getBeanContext).thenReturn(context)
       doReturn(actionStore).when(context).getBean("ACTION_STORE")
       builderData
-    }
 
     /**
      * Creates a mock action.
@@ -141,25 +133,21 @@ class MediumPopupHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar
      * Creates a mock action stores and prepares it to return the test actions.
      * @return the action store mock
      */
-    private def createActionStore(): ActionStore = {
+    private def createActionStore(): ActionStore =
       val store = mock[ActionStore]
       when(store.getAction("addAlbumAction")).thenReturn(actAddAlbums)
       when(store.getAction("addArtistAction")).thenReturn(actAddArtists)
       when(store.getAction("addMediumAction")).thenReturn(actAddMedium)
       when(store.getAction("addSongsAction")).thenReturn(actAddSongs)
       store
-    }
 
     /**
      * Creates the mock for the popup menu builder.
      * @return the mock popup builder
      */
-    private def createPopupBuilder(): PopupMenuBuilder = {
+    private def createPopupBuilder(): PopupMenuBuilder =
       val builder = mock[PopupMenuBuilder]
       when(builder.addAction(any(classOf[FormAction]))).thenReturn(builder)
       builder
-    }
 
-  }
 
-}

@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''SelectionChangeHandler''.
  */
-class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
    * Creates a change event for the specified component handler.
    * @param handler the component handler
@@ -37,7 +37,7 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoS
   private def createChangeEvent(handler: ComponentHandler[_]): FormChangeEvent =
     new FormChangeEvent(this, handler, "some name")
 
-  "A SelectionChangeHandler" should "react on a changed medium selection" in {
+  "A SelectionChangeHandler" should "react on a changed medium selection" in:
     val Medium = MediumID("Some Test Medium", None)
     val controller = mock[MediaController]
     val listHandler = mock[ListComponentHandler]
@@ -46,9 +46,8 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoS
 
     handler elementChanged createChangeEvent(listHandler)
     verify(controller).selectMedium(Medium)
-  }
 
-  it should "react on a changed album selection" in {
+  it should "react on a changed album selection" in:
     val SelectedPaths = Array(mock[TreeNodePath], mock[TreeNodePath])
     val controller = mock[MediaController]
     val treeHandler = mock[TreeHandler]
@@ -57,14 +56,11 @@ class SelectionChangeHandlerSpec extends AnyFlatSpec with Matchers with MockitoS
 
     handler elementChanged createChangeEvent(treeHandler)
     verify(controller).selectAlbums(SelectedPaths)
-  }
 
-  it should "react on a changed songs selection" in {
+  it should "react on a changed songs selection" in:
     val tableHandler = mock[TableHandler]
     val controller = mock[MediaController]
     val handler = new SelectionChangeHandler(controller)
 
     handler elementChanged createChangeEvent(tableHandler)
     verify(controller).songSelectionChanged()
-  }
-}

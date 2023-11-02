@@ -26,6 +26,5 @@ import de.oliver_heger.linedj.platform.ui.EmptyListModel
  * the handler object. Nevertheless, an initial model is needed. This class
  * implements this initial model. It is merely a dummy.
  */
-class EmptyMediumListModel extends EmptyListModel {
+class EmptyMediumListModel extends EmptyListModel:
   override val getType = classOf[String]
-}

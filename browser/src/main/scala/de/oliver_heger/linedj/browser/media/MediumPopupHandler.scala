@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.browser.media
 import net.sf.jguiraffe.gui.builder.action._
 import net.sf.jguiraffe.gui.builder.components.ComponentBuilderData
 
-object MediumPopupHandler {
+object MediumPopupHandler:
   /** The name of the action for adding the current medium. */
   private val ActionAddMedium = "addMediumAction"
 
@@ -39,7 +39,6 @@ object MediumPopupHandler {
    * The name of the action for adding the currently selected songs.
    */
   private val ActionAddSongs = "addSongsAction"
-}
 
 /**
  * A handler for creating popup menus for the medium page.
@@ -49,11 +48,11 @@ object MediumPopupHandler {
  * the playlist under construction. For instance, it is possible to add all
  * songs of currently selected albums or artists.
  */
-class MediumPopupHandler extends PopupMenuHandler {
+class MediumPopupHandler extends PopupMenuHandler:
 
   import MediumPopupHandler._
 
-  override def constructPopup(builder: PopupMenuBuilder, compData: ComponentBuilderData): Unit = {
+  override def constructPopup(builder: PopupMenuBuilder, compData: ComponentBuilderData): Unit =
     val actionStore = compData.getBeanContext.getBean(ActionBuilder.KEY_ACTION_STORE)
       .asInstanceOf[ActionStore]
     builder addAction actionStore.getAction(ActionAddMedium)
@@ -61,10 +60,7 @@ class MediumPopupHandler extends PopupMenuHandler {
     builder addAction actionStore.getAction(ActionAddAlbum)
 
     val action = actionStore.getAction(ActionAddSongs)
-    if (action.isEnabled) {
+    if action.isEnabled then
       builder.addSeparator()
       builder addAction action
-    }
     builder.create()
-  }
-}

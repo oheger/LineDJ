@@ -22,24 +22,19 @@ import org.scalatest.matchers.should.Matchers
 /**
  * Test class for ''EmptyMediumListModel''.
  */
-class EmptyMediumListModelSpec extends AnyFlatSpec with Matchers {
-  "An EmptyMediumListModel" should "have size 0" in {
+class EmptyMediumListModelSpec extends AnyFlatSpec with Matchers:
+  "An EmptyMediumListModel" should "have size 0" in:
     val model = new EmptyMediumListModel
     model.size() should be(0)
-  }
 
-  it should "have type String" in {
+  it should "have type String" in:
     val model = new EmptyMediumListModel
     model.getType should be(classOf[String])
-  }
 
-  it should "return null display objects" in {
+  it should "return null display objects" in:
     val model = new EmptyMediumListModel
     model getDisplayObject 28 should be(null)
-  }
 
-  it should "return null value objects" in {
+  it should "return null value objects" in:
     val model = new EmptyMediumListModel
     model getValueObject 42 should be(null)
-  }
-}

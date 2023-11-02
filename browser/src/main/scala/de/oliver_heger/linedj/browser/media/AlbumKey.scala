@@ -36,13 +36,11 @@ private case class AlbumKey(artist: String, album: String)
  * @param key the album key
  * @param year the inception year
  */
-private case class AlbumKeyWithYear(key: AlbumKey, year: Int) extends Ordered[AlbumKeyWithYear] {
+private case class AlbumKeyWithYear(key: AlbumKey, year: Int) extends Ordered[AlbumKeyWithYear]:
   /**
    * Orders albums by their inception year and name.
    */
-  override def compare(that: AlbumKeyWithYear): Int = {
+  override def compare(that: AlbumKeyWithYear): Int =
     val yearDiff = year - that.year
-    if (yearDiff != 0) yearDiff
+    if yearDiff != 0 then yearDiff
     else key.album.compare(that.key.album)
-  }
-}

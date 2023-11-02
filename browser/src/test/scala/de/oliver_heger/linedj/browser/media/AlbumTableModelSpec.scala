@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object AlbumTableModelSpec {
+object AlbumTableModelSpec:
   /** Constant for an album key.*/
   private val Album1 = AlbumKey("Queen", "A Night at the Opera")
 
@@ -53,27 +53,24 @@ object AlbumTableModelSpec {
   private def appendSongs(model: AlbumTableModel = AlbumTableModel.empty)
                          (key: AlbumKey, songs: SongData*): AlbumTableModel =
   songs.foldLeft(model)((m, s) => m.add(key, s))
-}
 
 /**
  * Test class for ''AlbumTableModel''.
  */
-class AlbumTableModelSpec extends AnyFlatSpec with Matchers {
+class AlbumTableModelSpec extends AnyFlatSpec with Matchers:
   import AlbumTableModelSpec._
-  "An AlbumTableModel" should "return an empty sequence for unknown data" in {
+  "An AlbumTableModel" should "return an empty sequence for unknown data" in:
     AlbumTableModel.empty songsFor AlbumKey("Unknown", "Unknown, too") shouldBe empty
-  }
 
-  it should "allow appending songs in order" in {
+  it should "allow appending songs in order" in:
     val song1 = song("You are my best friend", 4)
     val song2 = song("39", 5)
     val song3 = song("Bohemian Rhapsody", 11)
 
     val model = appendSongs()(Album1, song1, song2, song3)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
-  }
 
-  it should "support multiple albums" in {
+  it should "support multiple albums" in:
     val song1 = song("You are my best friend", 4)
     val song2 = song("39", 5)
     val song3 = song("Bohemian Rhapsody", 11)
@@ -85,9 +82,8 @@ class AlbumTableModelSpec extends AnyFlatSpec with Matchers {
     val model = appendSongs(m2)(Album1, song3)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
     model songsFor Album2 should contain inOrderOnly(song4, song5)
-  }
 
-  it should "allow creating an instance with a sequence of data" in {
+  it should "allow creating an instance with a sequence of data" in:
     val song1 = song("You are my best friend", 4)
     val song2 = song("39", 5)
     val song3 = song("Bohemian Rhapsody", 11)
@@ -99,22 +95,18 @@ class AlbumTableModelSpec extends AnyFlatSpec with Matchers {
     val model = AlbumTableModel(items)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
     model songsFor Album2 should contain inOrderOnly(song4, song5)
-  }
 
-  it should "support adding songs in arbitrary order" in {
+  it should "support adding songs in arbitrary order" in:
     val song1 = song("You are my best friend", 4)
     val song2 = song("39", 5)
     val song3 = song("Bohemian Rhapsody", 11)
 
     val model = appendSongs()(Album1, song2, song1, song3)
     model songsFor Album1 should contain inOrderOnly(song1, song2, song3)
-  }
 
-  it should "ignore songs in add() which are already contained" in {
+  it should "ignore songs in add() which are already contained" in:
     val song1 = song("The Prophet's Song", 8)
     val song2 = song(song1.getTitle(), 8)
     val model = appendSongs()(Album1, song1)
 
     model.add(Album2, song2) should be theSameInstanceAs model
-  }
-}

@@ -21,6 +21,8 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 
+import scala.collection.immutable.Seq
+
 /**
   * A base class for action tasks that append certain data to the current
   * playlist.
@@ -33,10 +35,9 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   *
   * @param messageBus the ''MessageBus''
   */
-abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable {
-  override def run(): Unit = {
+abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable:
+  override def run(): Unit =
     messageBus publish createAppendMessage(fetchSongsToAppend())
-  }
 
   /**
     * Obtains the songs that have to be appended to the playlist for this
@@ -55,7 +56,6 @@ abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable
     */
   private def createAppendMessage(songs: Seq[SongData]): AppendPlaylist =
     AppendPlaylist(songs.map(_.id).toList, activate = false)
-}
 
 /**
   * A specialized action task which appends all songs contained on the current
@@ -65,10 +65,9 @@ abstract class AppendPlaylistActionTask(messageBus: MessageBus) extends Runnable
   * @param messageBus the ''MessageBus''
   */
 class AppendMediumActionTask(controller: MediaController, messageBus: MessageBus) extends
-AppendPlaylistActionTask(messageBus) {
+AppendPlaylistActionTask(messageBus):
   override protected def fetchSongsToAppend(): Seq[SongData] =
     controller.songsForSelectedMedium
-}
 
 /**
   * A specialized action task which appends all the songs of selected artists
@@ -78,10 +77,9 @@ AppendPlaylistActionTask(messageBus) {
   * @param messageBus the ''MessageBus''
   */
 class AppendArtistActionTask(controller: MediaController, messageBus: MessageBus) extends
-AppendPlaylistActionTask(messageBus) {
+AppendPlaylistActionTask(messageBus):
   override protected def fetchSongsToAppend(): Seq[SongData] =
     controller.songsForSelectedArtists
-}
 
 /**
   * A specialized action task which appends all the songs of selected albums to
@@ -91,10 +89,9 @@ AppendPlaylistActionTask(messageBus) {
   * @param messageBus the ''MessageBus''
   */
 class AppendAlbumActionTask(controller: MediaController, messageBus: MessageBus) extends
-AppendPlaylistActionTask(messageBus) {
+AppendPlaylistActionTask(messageBus):
   override protected def fetchSongsToAppend(): Seq[SongData] =
     controller.songsForSelectedAlbums
-}
 
 /**
   * A specialized action task which appends all songs currently selected in the
@@ -104,9 +101,7 @@ AppendPlaylistActionTask(messageBus) {
   * @param messageBus the ''MessageBus''
   */
 class AppendSongsActionTask(tableHandler: TableHandler, messageBus: MessageBus) extends
-AppendPlaylistActionTask(messageBus) {
-  override protected def fetchSongsToAppend(): Seq[SongData] = {
+AppendPlaylistActionTask(messageBus):
+  override protected def fetchSongsToAppend(): Seq[SongData] =
     val selectedIndices = tableHandler.getSelectedIndices.toSeq
     selectedIndices map (tableHandler.getModel.get(_).asInstanceOf[SongData])
-  }
-}

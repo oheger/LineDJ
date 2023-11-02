@@ -20,9 +20,9 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.apache.commons.configuration.HierarchicalConfiguration
 
-import scala.collection.{SortedMap, SortedSet}
+import scala.collection.immutable.{SortedMap, SortedSet}
 
-private object MediumTreeModel {
+private object MediumTreeModel:
   /** Constant for the property delimiter. */
   private val Delimiter = "|"
 
@@ -43,21 +43,19 @@ private object MediumTreeModel {
    * @param items the items for the new model
    * @return the initialized model
    */
-  def apply(items: Iterable[(AlbumKey, SongData)]): MediumTreeModel = {
+  def apply(items: Iterable[(AlbumKey, SongData)]): MediumTreeModel =
     items.foldLeft(empty) { (m, e) =>
       m.add(e._1, e._2, DummyUpdater)._1
     }
-  }
 
   /**
    * Transforms the given album key to a key for a configuration object.
    * @param ak the album key
    * @return the transformed configuration key
    */
-  def toConfigKey(ak: AlbumKeyWithYear): String = {
-    val year = if (ak.year != Integer.MAX_VALUE) s"(${ak.year}) " else ""
+  def toConfigKey(ak: AlbumKeyWithYear): String =
+    val year = if ak.year != Integer.MAX_VALUE then s"(${ak.year}) " else ""
     ak.key.artist + Delimiter + year + ak.key.album
-  }
 
   /**
    * Creates an ''AlbumKeyWithYear'' object from the given data.
@@ -67,7 +65,6 @@ private object MediumTreeModel {
    */
   private def keyWithYear(key: AlbumKey, meta: MediaMetaData): AlbumKeyWithYear =
     AlbumKeyWithYear(key, meta.inceptionYear getOrElse Integer.MAX_VALUE)
-}
 
 /**
  * An internally used helper class serving as the model for the tree which
@@ -103,7 +100,7 @@ private object MediumTreeModel {
  * @param knownKeys a set with known combinations of artists and albums
  */
 private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKeyWithYear]],
-                                      knownKeys: Set[AlbumKey]) {
+                                      knownKeys: Set[AlbumKey]):
 
   import MediumTreeModel._
 
@@ -118,17 +115,15 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
    * @return a new instance with updated state and a ''ConfigurationUpdater''
    */
   def add(key: AlbumKey, meta: SongData, currentUpdater: ConfigurationUpdater):
-  (MediumTreeModel, ConfigurationUpdater) = {
-    if (knownKeys contains key) {
+  (MediumTreeModel, ConfigurationUpdater) =
+    if knownKeys contains key then
       (this, currentUpdater)
-    } else {
+    else
       val albums = data.getOrElse(key.artist, SortedSet.empty[AlbumKeyWithYear])
       val albumWithYear = keyWithYear(key, meta.metaData)
       val newAlbums = albums + albumWithYear
       (new MediumTreeModel(data + (key.artist -> newAlbums), knownKeys + key),
         currentUpdater concat createNextUpdater(albumWithYear, newAlbums, currentUpdater))
-    }
-  }
 
   /**
    * Returns a sorted set with all albums of the given artist.
@@ -154,11 +149,9 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
    * @return the next updater
    */
   private def createNextUpdater(albumWithYear: AlbumKeyWithYear, newAlbums:
-  SortedSet[AlbumKeyWithYear], currentUpdater: ConfigurationUpdater): ConfigurationUpdater = {
-    if (newAlbums.last == albumWithYear) KeyUpdater(albumWithYear, currentUpdater)
+  SortedSet[AlbumKeyWithYear], currentUpdater: ConfigurationUpdater): ConfigurationUpdater =
+    if newAlbums.last == albumWithYear then KeyUpdater(albumWithYear, currentUpdater)
     else ResortUpdater(List(albumWithYear.key.artist))
-  }
-}
 
 /**
  * Definition of a trait for updating a ''Configuration'' object.
@@ -174,7 +167,7 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
  * performance because some operations may render others unnecessary; those can
  * then be dropped completely.
  */
-private sealed trait ConfigurationUpdater {
+private sealed trait ConfigurationUpdater:
   /**
    * Concatenates this object with another ''ConfigurationUpdater''. This method
    * allows for tricky optimizations. For instance, an object implementing a
@@ -196,19 +189,17 @@ private sealed trait ConfigurationUpdater {
    *         the same object as passed in is returned)
    */
   def update(config: HierarchicalConfiguration, model: MediumTreeModel): HierarchicalConfiguration
-}
 
 /**
  * An updater implementation which does not do anything. This object is
  * returned if no changes on a configuration are required.
  */
-private case object NoopUpdater extends ConfigurationUpdater {
+private case object NoopUpdater extends ConfigurationUpdater:
   /**
    * @inheritdoc This implementation does nothing
    */
   override def update(config: HierarchicalConfiguration, model: MediumTreeModel):
   HierarchicalConfiguration = config
-}
 
 /**
  * An updater implementation which adds the specified key to a configuration.
@@ -219,17 +210,15 @@ private case object NoopUpdater extends ConfigurationUpdater {
  * @param prev the previous updater in the chain
  */
 private case class KeyUpdater(key: AlbumKeyWithYear, prev: ConfigurationUpdater) extends
-ConfigurationUpdater {
+ConfigurationUpdater:
   /** The key for the configuration. */
   lazy val configKey = MediumTreeModel toConfigKey key
 
   override def update(config: HierarchicalConfiguration, model: MediumTreeModel):
-  HierarchicalConfiguration = {
+  HierarchicalConfiguration =
     val config2 = prev.update(config, model)
     config2.addProperty(configKey, key.key)
     config2
-  }
-}
 
 /**
  * An updater implementation which adds all current albums of one or many
@@ -239,7 +228,7 @@ ConfigurationUpdater {
  * added anew.
  * @param artists the affected artists
  */
-private case class ResortUpdater(artists: Iterable[String]) extends ConfigurationUpdater {
+private case class ResortUpdater(artists: Iterable[String]) extends ConfigurationUpdater:
   /**
    * @inheritdoc This updater prevents concatenation. It always performs a
    *             full update of the configuration regarding the affected
@@ -248,7 +237,7 @@ private case class ResortUpdater(artists: Iterable[String]) extends Configuratio
   override def concat(other: => ConfigurationUpdater): ConfigurationUpdater = this
 
   override def update(config: HierarchicalConfiguration, model: MediumTreeModel):
-  HierarchicalConfiguration = {
+  HierarchicalConfiguration =
     artists foreach { artist =>
       config clearTree artist
       model albumsFor artist foreach { a =>
@@ -256,5 +245,3 @@ private case class ResortUpdater(artists: Iterable[String]) extends Configuratio
       }
     }
     config
-  }
-}

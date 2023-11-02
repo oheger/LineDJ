@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.browser.app
 
 import de.oliver_heger.linedj.browser.media.MediaController
-import de.oliver_heger.linedj.platform.app._
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplication, RemoteController}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
+import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport}
 import org.apache.pekko.actor.Actor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -30,15 +31,14 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''BrowserApp''.
  */
-class BrowserAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with ApplicationTestSupport {
+class BrowserAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with ApplicationTestSupport:
   /**
    * Creates a new test application instance and starts it up. This instance
    * can then be used to test whether initialization was correctly.
    * @return the instance of the application
    */
-  private def createApp(): BrowserAppTestImpl = {
+  private def createApp(): BrowserAppTestImpl =
     activateApp(new BrowserAppTestImpl)
-  }
 
   /**
    * Executes a function on an application. It is ensured that the application
@@ -48,21 +48,19 @@ class BrowserAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ap
    * @return the result of the function
    */
   private def withApplication[T](app: BrowserAppTestImpl = createApp())(f: BrowserAppTestImpl =>
-    T): T = {
+    T): T =
     try f(app)
     finally app.shutdown()
-  }
 
-  it should "register message bus listeners correctly" in {
+  it should "register message bus listeners correctly" in:
     val application = createApp()
 
     withApplication(activateApp(application)) { app =>
       val uiBus = queryBean[MessageBus](app, ClientApplication.BeanMessageBus)
       verify(uiBus, atLeastOnce()).registerListener(any(classOf[Actor.Receive]))
     }
-  }
 
-  it should "define a correct consumer registration bean" in {
+  it should "define a correct consumer registration bean" in:
     val application = createApp()
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
@@ -72,15 +70,12 @@ class BrowserAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with Ap
     val mediaCtrl = queryBean[MediaController](application.getMainWindowBeanContext,
       "mediaController")
     consumerReg.providers should contain only (remoteCtrl, mediaCtrl)
-  }
 
-  it should "construct an instance correctly" in {
+  it should "construct an instance correctly" in:
     val app = new BrowserApp
 
     app shouldBe a[ApplicationAsyncStartup]
     app.appName should be("browser")
-  }
-}
 
 /**
   * A test implementation of the main application class that can be used to

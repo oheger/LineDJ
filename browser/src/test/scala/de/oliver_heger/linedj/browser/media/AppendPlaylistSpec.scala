@@ -27,10 +27,12 @@ import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.collection.immutable.Seq
+
 /**
   * Test class for the action tasks that append songs to the playlist.
   */
-class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar {
+class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar:
   /**
     * Creates the ID of a test song based on the given index.
     *
@@ -47,34 +49,30 @@ class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar {
     * @param idx the index of the song
     * @return the mock for this test song
     */
-  def mockSong(idx: Int): SongData = {
+  def mockSong(idx: Int): SongData =
     val song = mock[SongData]
     when(song.id).thenReturn(songID(idx))
     song
-  }
 
-  "An AppendPlaylistActionTask" should "append all songs of the medium" in {
+  "An AppendPlaylistActionTask" should "append all songs of the medium" in:
     val helper = new AppendPlaylistTestHelper
     val task = new AppendMediumActionTask(helper.controller, helper.messageBus)
 
     helper.verifyActionTask(task)(_.songsForSelectedMedium)
-  }
 
-  it should "append all songs of selected artists" in {
+  it should "append all songs of selected artists" in:
     val helper = new AppendPlaylistTestHelper
     val task = new AppendArtistActionTask(helper.controller, helper.messageBus)
 
     helper.verifyActionTask(task)(_.songsForSelectedArtists)
-  }
 
-  it should "append all songs belonging to selected albums" in {
+  it should "append all songs belonging to selected albums" in:
     val helper = new AppendPlaylistTestHelper
     val task = new AppendAlbumActionTask(helper.controller, helper.messageBus)
 
     helper.verifyActionTask(task)(_.songsForSelectedAlbums)
-  }
 
-  it should "append the songs selected in the songs table" in {
+  it should "append the songs selected in the songs table" in:
     val SongCount = 8
     val selectedSongs = Array(1, 3, 4, 6)
     val tableHandler = mock[TableHandler]
@@ -87,12 +85,11 @@ class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar {
 
     task.run()
     helper.verifySongsAppended(selectedSongs.map(songID).toList)
-  }
 
   /**
     * A test helper class which collects all required mock objects.
     */
-  private class AppendPlaylistTestHelper {
+  private class AppendPlaylistTestHelper:
 
     /** A mock for the message bus. */
     val messageBus: MessageBus = mock[MessageBus]
@@ -106,32 +103,27 @@ class AppendPlaylistSpec extends AnyFlatSpec with MockitoSugar {
       * @param f the function querying the songs from the controller
       * @return a list with IDs of selected test songs
       */
-    def expectSelectionRequest(f: MediaController => Seq[SongData]): List[MediaFileID] = {
+    def expectSelectionRequest(f: MediaController => Seq[SongData]): List[MediaFileID] =
       val songIDs = List(1, 2, 5, 8, 19)
       val songs = songIDs map mockSong
       when(f(controller)).thenReturn(songs)
       songIDs map songID
-    }
 
     /**
       * Checks whether the expected songs have been appended to the playlist.
       * A corresponding message is searched for on the message bus.
       * @param songs the expected songs
       */
-    def verifySongsAppended(songs: List[MediaFileID]): Unit = {
+    def verifySongsAppended(songs: List[MediaFileID]): Unit =
       verify(messageBus).publish(AppendPlaylist(songs, activate = false))
-    }
 
     /**
       * Verifies that an action task appends the correct songs to the playlist.
       * @param task the task to be tested
       * @param f the function querying the songs from the controller
       */
-    def verifyActionTask(task: Runnable)(f: MediaController => Seq[SongData]): Unit = {
+    def verifyActionTask(task: Runnable)(f: MediaController => Seq[SongData]): Unit =
       val songs = expectSelectionRequest(f)
       task.run()
       verifySongsAppended(songs)
-    }
-  }
 
-}
