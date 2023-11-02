@@ -1046,7 +1046,8 @@ lazy val log4jConfFragment = (project in file("logging/log4jConfFragment"))
   * images.
   */
 lazy val DefaultExcludedModules = Seq(
-  module(organization = "org.osgi")
+  module(organization = "org.osgi"),
+  module(name = "scala-library")
 )
 
 /**
