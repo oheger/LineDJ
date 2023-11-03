@@ -554,6 +554,8 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-medium",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.medium.*"
     ),

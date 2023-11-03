@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object PlaylistReordererMediumSpec {
+object PlaylistReordererMediumSpec:
   /**
     * Creates a ''SongData'' object with the specified URI.
     * @param uri the URI
@@ -30,21 +30,20 @@ object PlaylistReordererMediumSpec {
     */
   private def createSong(uri: String): SongData =
     SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetaData(), null, null, null)
-}
+end PlaylistReordererMediumSpec
 
 /**
   * Test class for ''PlaylistReordererMedium''.
   */
-class PlaylistReordererMediumSpec extends AnyFlatSpec with Matchers {
-  import PlaylistReordererMediumSpec._
+class PlaylistReordererMediumSpec extends AnyFlatSpec with Matchers:
+  import PlaylistReordererMediumSpec.*
 
-  "A PlaylistReordererMedium" should "return a name" in {
+  "A PlaylistReordererMedium" should "return a name" in:
     val reorder = new PlaylistReordererMedium
 
     reorder.name should not be null
-  }
 
-  it should "order songs by their URI" in {
+  it should "order songs by their URI" in:
     val songA = createSong("A")
     val songB = createSong("B")
     val songC = createSong("C")
@@ -54,5 +53,3 @@ class PlaylistReordererMediumSpec extends AnyFlatSpec with Matchers {
     val reorder = new PlaylistReordererMedium
 
     reorder reorder songs should be(orderedSongs)
-  }
-}
