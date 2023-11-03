@@ -269,7 +269,7 @@
 
   <!-- Command and task for the playlist export dialog -->
   <di:bean name="playlistExportCommand"
-    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.export.OpenExportSettingsDlgCommand">
+    beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.plexport.OpenExportSettingsDlgCommand">
     <di:constructor>
       <di:param value="classpath:exportsettings.jelly"/>
       <di:param refName="pleditorApp_Configuration"/>

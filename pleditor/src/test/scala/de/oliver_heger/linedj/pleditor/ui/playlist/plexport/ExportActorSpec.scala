@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import com.typesafe.config.ConfigFactory
 import de.oliver_heger.linedj.io.{FileData, RemoveFileActor, ScanResult}
@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.CopyProgress
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportResult
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.CopyFileActor.CopyProgress
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportResult
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.utils.ChildActorFactory

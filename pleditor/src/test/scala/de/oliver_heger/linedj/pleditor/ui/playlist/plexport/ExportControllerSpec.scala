@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.io.ScanResult
 import de.oliver_heger.linedj.platform.audio.model.SongData

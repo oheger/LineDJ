@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportError
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportError
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}

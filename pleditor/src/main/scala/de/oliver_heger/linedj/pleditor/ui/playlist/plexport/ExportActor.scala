@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.io.{RemoveFileActor, ScanResult}
 import de.oliver_heger.linedj.platform.app.ClientApplication
@@ -125,7 +125,7 @@ object ExportActor {
     *
     * @param manager the media manager actor
     */
-  private [export] case class MediaManagerFetched(manager: ActorRef)
+  private [plexport] case class MediaManagerFetched(manager: ActorRef)
 
   private class ExportActorImpl(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     extends ExportActor(mediaFacade, chunkSize, progressSize) with ChildActorFactory
@@ -145,7 +145,7 @@ object ExportActor {
   val ResultSuccess = ExportResult(error = None)
 
   /** Timeout to be used when fetching the media manager actor. */
-  private [export] implicit val FetchActorTimeout: Timeout = Timeout(10.seconds)
+  private [plexport] implicit val FetchActorTimeout: Timeout = Timeout(10.seconds)
 
   /**
    * Returns a ''Props'' object for creating an instance of this actor class.
@@ -167,7 +167,7 @@ object ExportActor {
    * @param data the data object describing the export
    * @return the export operations and the size of the files to be copied
    */
-  private[export] def initializeExportData(data: ExportData): (Seq[ExportOperation], Long) = {
+  private[plexport] def initializeExportData(data: ExportData): (Seq[ExportOperation], Long) = {
     val targetPaths = generateTargetPaths(data.exportPath, data.songs)
     val copySongs = filterSongsNotToBeCopied(data, targetPaths)
     (createOperations(data, copySongs),calculateTotalSize(copySongs.unzip._1))

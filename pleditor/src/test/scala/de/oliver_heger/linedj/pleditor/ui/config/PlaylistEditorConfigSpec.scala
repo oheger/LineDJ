@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.ui.config
 
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportSettings
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito._

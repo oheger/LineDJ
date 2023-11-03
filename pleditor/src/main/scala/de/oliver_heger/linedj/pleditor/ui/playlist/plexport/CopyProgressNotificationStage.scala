@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.CopyFileActor.{CopyMediumFile, CopyProgress}
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.CopyFileActor.{CopyMediumFile, CopyProgress}
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}

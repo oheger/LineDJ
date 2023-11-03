@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult, ActorErrorResult}
 import de.oliver_heger.linedj.io.stream._
@@ -178,7 +178,7 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
     *
     * @return the source
     */
-  private[export] def createSource(): Source[ByteString, NotUsed] =
+  private[plexport] def createSource(): Source[ByteString, NotUsed] =
     ActorSource[ByteString](downloadActor, DownloadData(chunkSize)) {
       case DownloadDataResult(data) => ActorDataResult(data)
       case DownloadComplete => ActorCompletionResult()

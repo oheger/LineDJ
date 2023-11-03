@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import java.io.IOException
 import java.nio.file.{Path, Paths}
 
-import de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportActor.ExportData
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportData
 import de.oliver_heger.linedj.io.{DirectoryScanner, ScanResult}
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
@@ -57,7 +57,7 @@ java.util.List[SongData], scanner: DirectoryScanner)
 
   import OpenExportProgressDlgCommand._
 
-  override protected[export] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
     super.prepareBuilderData(builderData)
 
     builderData.addProperty(PropExportData, createExportData())

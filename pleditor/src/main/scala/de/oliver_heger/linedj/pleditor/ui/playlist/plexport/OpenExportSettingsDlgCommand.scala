@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
@@ -61,7 +61,7 @@ class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: PlaylistEdito
    *             builder data object, so that they are available when the
    *             builder script gets executed.
    */
-  override protected[export] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
     super.prepareBuilderData(builderData)
     builderData.addProperty(ExportSongsPropertyKey, exportSongs)
     builderData.addProperty(ExportSettingsPropertyKey, createExportSettings())

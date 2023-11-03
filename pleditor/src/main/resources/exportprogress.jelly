@@ -61,7 +61,7 @@
 
     <!-- Connect the dialog controller -->
     <di:bean name="controller"
-      beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.export.ExportController">
+      beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportController">
       <di:constructor>
         <di:param refName="jguiraffe.applicationContext"/>
         <di:param refName="LineDJ_MediaFacade"/>

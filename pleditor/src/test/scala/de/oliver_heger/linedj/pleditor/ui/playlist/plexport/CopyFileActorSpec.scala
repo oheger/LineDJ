@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.pleditor.ui.playlist.export
+package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
@@ -267,7 +267,7 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val target = createPathInDirectory(TargetFile)
     val actor = system.actorOf(Props(new CopyFileActor(testActor, TestProbe().ref,
       ChunkSize, ProgressSize) with ChildActorFactory with CancelableStreamSupport {
-      override private[export] def createSource(): Source[ByteString, NotUsed] =
+      override private[plexport] def createSource(): Source[ByteString, NotUsed] =
         Source.failed(new Exception("BOOM!"))
     }))
     prepareCopyOperation(actor, TestProbe().ref, target)
