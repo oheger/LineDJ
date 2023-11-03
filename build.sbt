@@ -663,6 +663,8 @@ lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-albums",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.randomalbum.*"
     ),

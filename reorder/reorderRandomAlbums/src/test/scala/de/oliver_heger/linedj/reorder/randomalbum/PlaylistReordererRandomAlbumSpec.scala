@@ -25,20 +25,18 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''PlaylistReordererRandomAlbum''.
   */
-class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers {
-  "A PlaylistReordererRandomAlbum" should "return a name" in {
+class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers:
+  "A PlaylistReordererRandomAlbum" should "return a name" in:
     val reorder = new PlaylistReordererRandomAlbum
 
     reorder.name should not be null
-  }
 
-  it should "return the correct ordering" in {
+  it should "return the correct ordering" in:
     val reorder = new PlaylistReordererRandomAlbum
 
     reorder.groupOrdering should be(SongAlbumOrdering)
-  }
 
-  it should "return the album from the grouping function" in {
+  it should "return the album from the grouping function" in:
     val Album = "Brothers in Arms"
     val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
       MediaMetaData(title = Some("So Far Away"), album = Some(Album)),
@@ -46,5 +44,3 @@ class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers {
     val reorder = new PlaylistReordererRandomAlbum
 
     reorder groupSong song should be(Album)
-  }
-}

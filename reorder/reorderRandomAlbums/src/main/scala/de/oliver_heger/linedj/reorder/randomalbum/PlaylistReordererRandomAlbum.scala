@@ -29,10 +29,9 @@ import de.oliver_heger.linedj.pleditor.spi.RandomGroupingPlaylistReorderer
   * produces quite interesting playlist because albums of different artists are
   * mixed.
   */
-class PlaylistReordererRandomAlbum extends RandomGroupingPlaylistReorderer[String] {
+class PlaylistReordererRandomAlbum extends RandomGroupingPlaylistReorderer[String]:
   override val resourceBundleBaseName = "ReorderRandomAlbumResources"
 
   override val groupOrdering: SongAlbumOrdering.type = SongAlbumOrdering
 
   override def groupSong(song: SongData): String = song.album
-}
