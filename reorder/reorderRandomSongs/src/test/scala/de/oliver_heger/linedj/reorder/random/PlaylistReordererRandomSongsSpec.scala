@@ -23,8 +23,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Seq
 
-object PlaylistReordererRandomSongsSpec {
+object PlaylistReordererRandomSongsSpec:
   /** The number of test songs. */
   private val SongCount = 8
 
@@ -48,14 +49,14 @@ object PlaylistReordererRandomSongsSpec {
     */
   private def createTestSongs(): Seq[SongData] =
     1 to SongCount map (i => createSong("TestSong" + i))
-}
+end PlaylistReordererRandomSongsSpec
 
 /**
   * Test class for ''PlaylistReordererRandomSongs''.
   */
-class PlaylistReordererRandomSongsSpec extends AnyFlatSpec with Matchers {
+class PlaylistReordererRandomSongsSpec extends AnyFlatSpec with Matchers:
 
-  import PlaylistReordererRandomSongsSpec._
+  import PlaylistReordererRandomSongsSpec.*
 
   /**
     * Invokes the passed in order with the test songs and checks basic
@@ -70,25 +71,20 @@ class PlaylistReordererRandomSongsSpec extends AnyFlatSpec with Matchers {
     songs
   }
 
-  "A PlaylistReordererRandomSongs" should "return a name" in {
+  "A PlaylistReordererRandomSongs" should "return a name" in:
     val reorder = new PlaylistReordererRandomSongs
 
     reorder.name should not be null
-  }
 
-  it should "produce random orders" in {
+  it should "produce random orders" in:
     val reorder = new PlaylistReordererRandomSongs
 
     @tailrec
-    def check(attempts: Int): Boolean = {
-      if (attempts <= 0) false
-      else {
+    def check(attempts: Int): Boolean =
+      if attempts <= 0 then false
+      else
         val songs = reorderAndCheck(reorder)
-        if (songs != TestSongs) true
+        if songs != TestSongs then true
         else check(attempts - 1)
-      }
-    }
 
     check(8) shouldBe true
-  }
-}
