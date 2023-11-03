@@ -28,10 +28,9 @@ import de.oliver_heger.linedj.pleditor.spi.RandomGroupingPlaylistReorderer
   * With this reorder service it is possible to bring an arbitrary list of
   * songs into a logic order.
   */
-class PlaylistReordererRandomArtist extends RandomGroupingPlaylistReorderer[String] {
+class PlaylistReordererRandomArtist extends RandomGroupingPlaylistReorderer[String]:
   override val resourceBundleBaseName = "ReorderRandomArtistResources"
 
   override val groupOrdering: SongArtistOrdering.type = SongArtistOrdering
 
   override def groupSong(song: SongData): String = song.artist
-}
