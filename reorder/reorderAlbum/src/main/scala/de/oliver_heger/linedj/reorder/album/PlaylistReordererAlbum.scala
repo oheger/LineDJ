@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.reorder.album
 import de.oliver_heger.linedj.platform.audio.model.{SongAlbumOrdering, SongData}
 import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
 
+import scala.collection.immutable.Seq
+
 /**
   * An implementation of a reorder service which orders songs in ''album''
   * style.
@@ -27,9 +29,8 @@ import de.oliver_heger.linedj.pleditor.spi.LocalizedPlaylistReorderer
   * its name. This is appropriate for ordering the songs of an artist. It can
   * also be used to bring songs in a temporal order.
   */
-class PlaylistReordererAlbum extends LocalizedPlaylistReorderer {
+class PlaylistReordererAlbum extends LocalizedPlaylistReorderer:
   override val resourceBundleBaseName = "ReorderAlbumResources"
 
   override def reorder(songs: Seq[SongData]): Seq[SongData] =
     songs sorted SongAlbumOrdering
-}

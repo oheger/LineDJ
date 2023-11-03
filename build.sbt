@@ -575,6 +575,8 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-album",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.album.*"
     ),

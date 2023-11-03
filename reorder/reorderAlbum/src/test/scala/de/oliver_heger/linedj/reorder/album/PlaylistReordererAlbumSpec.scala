@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object PlaylistReordererAlbumSpec {
+object PlaylistReordererAlbumSpec:
   /**
     * Creates a ''SongData'' object with the specified meta data.
     *
@@ -32,22 +32,21 @@ object PlaylistReordererAlbumSpec {
   private def createSong(data: MediaMetaData): SongData =
     SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + data.title.getOrElse("testSong")),
       data, data.title getOrElse "", data.artist getOrElse "", data.album getOrElse "")
-}
+end PlaylistReordererAlbumSpec
 
 /**
   * Test class for ''PlaylistReordererAlbum''.
   */
-class PlaylistReordererAlbumSpec extends AnyFlatSpec with Matchers {
+class PlaylistReordererAlbumSpec extends AnyFlatSpec with Matchers:
 
-  import PlaylistReordererAlbumSpec._
+  import PlaylistReordererAlbumSpec.*
 
-  "A PlaylistReordererAlbum" should "return a name" in {
+  "A PlaylistReordererAlbum" should "return a name" in:
     val reorder = new PlaylistReordererAlbum
 
     reorder.name should not be null
-  }
 
-  it should "order a sequence of songs correctly" in {
+  it should "order a sequence of songs correctly" in:
     val s1 = createSong(MediaMetaData(inceptionYear = Some(1983), album = Some("Crisis"),
       trackNumber = Some(1)))
     val s2 = createSong(MediaMetaData(inceptionYear = Some(1983), album = Some("Crisis"),
@@ -62,5 +61,3 @@ class PlaylistReordererAlbumSpec extends AnyFlatSpec with Matchers {
     val reorder = new PlaylistReordererAlbum
 
     reorder reorder songs should be(List(s1, s2, s3, s4, s5))
-  }
-}
