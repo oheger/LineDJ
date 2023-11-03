@@ -28,8 +28,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''PlaylistActionEnabler''.
   */
-class PlaylistActionEnablerSpec extends AnyFlatSpec with MockitoSugar {
-  "A PlaylistActionEnabler" should "update the managed actions' enabled state" in {
+class PlaylistActionEnablerSpec extends AnyFlatSpec with MockitoSugar:
+  "A PlaylistActionEnabler" should "update the managed actions' enabled state" in:
     val action1, action2 = mock[FormAction]
     val manipulator1, manipulator2 = mock[PlaylistManipulator]
     val store = mock[ActionStore]
@@ -49,5 +49,3 @@ class PlaylistActionEnablerSpec extends AnyFlatSpec with MockitoSugar {
     enabler elementChanged mock[FormChangeEvent]
     verify(action1).setEnabled(false)
     verify(action2).setEnabled(true)
-  }
-}

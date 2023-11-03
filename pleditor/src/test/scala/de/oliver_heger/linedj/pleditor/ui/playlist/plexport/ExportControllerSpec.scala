@@ -43,8 +43,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
+import scala.collection.immutable.Seq
 
-object ExportControllerSpec {
+object ExportControllerSpec:
   /** The number of test songs to be exported. */
   private val SongCount = 10
 
@@ -68,28 +69,25 @@ object ExportControllerSpec {
    * Creates a list with a number of test songs.
    * @return the list with test songs
    */
-  private def createTestSongs(): Seq[SongData] = {
+  private def createTestSongs(): Seq[SongData] =
     val medium = MediumID("TestMedium", None)
     1 to SongCount map (i => SongData(MediaFileID(medium, "song://" + i),
       MediaMetaData(title = Some("Song" + i)), "Song" + i, null, null))
-  }
-}
 
 /**
  * Test class for ''ExportController''.
  */
 class ExportControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ExportControllerSpec._
 
   def this() = this(ActorSystem("ExportControllerSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "An ExportController" should "have dummy implementations for window listener methods" in {
+  "An ExportController" should "have dummy implementations for window listener methods" in:
     val event = mock[WindowEvent]
     val helper = new ExportControllerTestHelper
 
@@ -99,29 +97,25 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     helper.controller.windowDeiconified(event)
     helper.controller.windowIconified(event)
     verifyNoInteractions(event)
-  }
 
-  it should "register itself as message bus listener" in {
+  it should "register itself as message bus listener" in:
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().expectBusListenerRegistration()
-  }
 
-  it should "remove the message bus listener registration when the window is closed" in {
+  it should "remove the message bus listener registration when the window is closed" in:
     val helper = new ExportControllerTestHelper
     helper.openWindow()
 
     helper.controller.windowClosed(mock[WindowEvent])
     verify(helper.mediaFacade.bus).removeListener(ListenerID)
-  }
 
-  it should "create the export actor and start the export" in {
+  it should "create the export actor and start the export" in:
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().expectExportMessage()
-  }
 
-  it should "update controls for a remove progress message" in {
+  it should "update controls for a remove progress message" in:
     val progressMsg = ExportActor.ExportProgress(totalOperations = 100 + SongCount, totalSize =
       1000,
       currentOperation = 5, currentSize = 0, currentPath = TestPath, operationType = ExportActor
@@ -131,9 +125,8 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     helper.openWindow().sendMessage(progressMsg)
     verify(helper.textFile).setText(TestPath.toString)
     verify(helper.progressRemove).setValue(5)
-  }
 
-  it should "update controls for a copy progress message" in {
+  it should "update controls for a copy progress message" in:
     val progressMsg = ExportActor.ExportProgress(totalOperations = 100 + SongCount, totalSize =
       1000,
       currentOperation = 5, currentSize = 100, currentPath = TestPath, operationType =
@@ -144,46 +137,40 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     verify(helper.textFile).setText(TestPath.toString)
     verify(helper.progressRemove).setValue(100)
     verify(helper.progressCopy).setValue(10)
-  }
 
-  it should "handle the successful end of the export" in {
+  it should "handle the successful end of the export" in:
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.ExportResult(None)).expectWindowClosed()
-  }
 
-  it should "handle the end of an export that failed when removing a file" in {
+  it should "handle the end of an export that failed when removing a file" in:
     val error = ExportActor.ExportError(TestPath, ExportActor.OperationType.Remove)
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.ExportResult(Some(error)))
       .expectErrorMessage("exp_failure_remove").expectWindowClosed()
-  }
 
-  it should "handle the end of an export that failed when copying a file" in {
+  it should "handle the end of an export that failed when copying a file" in:
     val error = ExportActor.ExportError(TestPath, ExportActor.OperationType.Copy)
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.ExportResult(Some(error)))
       .expectErrorMessage("exp_failure_copy").expectWindowClosed()
-  }
 
-  it should "handle the end of an export whose initialization failed" in {
+  it should "handle the end of an export whose initialization failed" in:
     val helper = new ExportControllerTestHelper
 
     helper.openWindow().sendMessage(ExportActor.InitializationError)
       .expectErrorMessage(new Message(null, "exp_failure_init")).expectWindowClosed()
-  }
 
-  it should "stop the export actor when the window is closed" in {
+  it should "stop the export actor when the window is closed" in:
     val helper = new ExportControllerTestHelper
     helper.openWindow()
 
     helper.controller.windowClosed(null)
     helper.expectExportActorStopped()
-  }
 
-  it should "react on the cancel button" in {
+  it should "react on the cancel button" in:
     val handler = mock[ComponentHandler[_]]
     val actionEvent = new FormActionEvent(this, handler, "someControl", "someCommand")
     val helper = new ExportControllerTestHelper
@@ -192,12 +179,11 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     helper.controller actionPerformed actionEvent
     verify(handler).setEnabled(false)
     helper.exportActor expectMsg ExportActor.CancelExport
-  }
 
   /**
    * A test helper class managing the dependencies of the test controller.
    */
-  private class ExportControllerTestHelper {
+  private class ExportControllerTestHelper:
     /** Mock for the remote message bus. */
     val mediaFacade: MediaFacade = createRemoteMediaFacade()
 
@@ -231,62 +217,56 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
      * most of its initialization.
      * @return this helper object
      */
-    def openWindow(): ExportControllerTestHelper = {
+    def openWindow(): ExportControllerTestHelper =
       val event = new WindowEvent(this, window, WindowEvent.Type.WINDOW_OPENED)
       controller windowOpened event
       this
-    }
 
     /**
      * Expects that the controller registers itself as message bus listener.
      * @return this test helper
      */
-    def expectBusListenerRegistration(): ExportControllerTestHelper = {
+    def expectBusListenerRegistration(): ExportControllerTestHelper =
       fetchMessageBusListener()
       this
-    }
 
     /**
      * Expects that a message for starting the export is passed to the export
      * actor.
      * @return this test helper
      */
-    def expectExportMessage(): ExportControllerTestHelper = {
+    def expectExportMessage(): ExportControllerTestHelper =
       exportActor.expectMsg(TestExportData)
       this
-    }
 
     /**
      * Sends a message to the test controller via the message bus.
      * @param msg the message
      * @return this test helper
      */
-    def sendMessage(msg: Any): ExportControllerTestHelper = {
+    def sendMessage(msg: Any): ExportControllerTestHelper =
       controller receive msg
       this
-    }
 
     /**
       * Expects that the window is closed after an export operation is done.
       *
       * @return this test helper
       */
-    def expectWindowClosed(): ExportControllerTestHelper = {
+    def expectWindowClosed(): ExportControllerTestHelper =
       verify(window).close(true)
       this
-    }
 
     /**
       * Expects that the export actor has been stopped.
       *
       * @return this test helper
       */
-    def expectExportActorStopped(): ExportControllerTestHelper = {
+    def expectExportActorStopped(): ExportControllerTestHelper =
       val probe = TestProbe()
       probe watch exportActor.ref
       probe.expectMsgType[Terminated].actor should be(exportActor.ref)
       this
-    }
 
     /**
       * Expects an error message to be displayed for a failed export.
@@ -304,33 +284,30 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
       * @param msg the message object
       * @return this test helper
       */
-    def expectErrorMessage(msg: Message): ExportControllerTestHelper = {
+    def expectErrorMessage(msg: Message): ExportControllerTestHelper =
       verify(applicationContext).messageBox(msg,
         "exp_failure_title", MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
       this
-    }
 
     /**
      * Obtains the message bus listener that was registered by the controller.
      * @return the message bus listener
      */
-    private def fetchMessageBusListener(): Actor.Receive = {
+    private def fetchMessageBusListener(): Actor.Receive =
       val captor = ArgumentCaptor.forClass(classOf[Actor.Receive])
       verify(mediaFacade.bus).registerListener(captor.capture())
       captor.getValue
-    }
 
     /**
      * Creates a mock for the media facade.
      * @return the media facade mock
      */
-    private def createRemoteMediaFacade(): MediaFacade = {
+    private def createRemoteMediaFacade(): MediaFacade =
       val facade = mock[MediaFacade]
       val bus = mock[MessageBus]
       when(facade.bus).thenReturn(bus)
       when(bus.registerListener(any[Actor.Receive])).thenReturn(ListenerID)
       facade
-    }
 
     /**
      * Creates a mock actor factory. The factory returns the test probe for the
@@ -339,7 +316,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
      * @param facade the media facade
      * @return the mock for the actor factory
      */
-    private def createActorFactory(actor: TestProbe, facade: MediaFacade): ActorFactory = {
+    private def createActorFactory(actor: TestProbe, facade: MediaFacade): ActorFactory =
       val factory = mock[ActorFactory]
       when(factory.actorSystem).thenReturn(system)
       when(factory.createActor(any[Props], eqArg("playlistExportActor")))
@@ -351,19 +328,15 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
           actor.ref
         })
       factory
-    }
 
     /**
       * Creates a mock configuration for the playlist editor.
       *
       * @return the mock configuration
       */
-    private def createConfig(): PlaylistEditorConfig = {
+    private def createConfig(): PlaylistEditorConfig =
       val config = mock[PlaylistEditorConfig]
       when(config.downloadChunkSize).thenReturn(DownloadChunkSize)
       when(config.progressSize).thenReturn(ProgressSize)
       config
-    }
-  }
 
-}

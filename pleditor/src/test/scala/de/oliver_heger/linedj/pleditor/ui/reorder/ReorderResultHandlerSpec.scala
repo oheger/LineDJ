@@ -28,8 +28,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''ReorderResultHandler''.
   */
-class ReorderResultHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A ReorderResultHandler" should "apply the results of a reorder operation" in {
+class ReorderResultHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A ReorderResultHandler" should "apply the results of a reorder operation" in:
     val tableHandler = mock[TableHandler]
     val song1, song2, song3 = mock[SongData]
     val ReorderRequest = ReorderActor.ReorderRequest(Nil, 2)
@@ -47,5 +47,3 @@ class ReorderResultHandlerSpec extends AnyFlatSpec with Matchers with MockitoSug
     modelOld should be(modelExp)
     verify(tableHandler).rowsUpdated(2, 4)
     verify(tableHandler).setSelectedIndices(Array(2, 3, 4))
-  }
-}

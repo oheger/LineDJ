@@ -20,7 +20,7 @@ import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.locators.Locator
 
-object OpenReorderDlgCommand {
+object OpenReorderDlgCommand:
   /** The name of the property under which the songs to be reordered are stored. */
   val ReorderSongsPropertyKey = "reorderSongs"
 
@@ -29,7 +29,6 @@ object OpenReorderDlgCommand {
     * reordered is stored.
     */
   val StartIndexPropertyKey = "reorderStartIndex"
-}
 
 /**
   * A command class which opens the dialog for reordering parts of the
@@ -44,7 +43,7 @@ object OpenReorderDlgCommand {
   * @param tabHandler    the handler for the playlist table
   */
 class OpenReorderDlgCommand(scriptLocator: Locator, tabHandler: TableHandler) extends
-  OpenWindowCommand(scriptLocator) with PlaylistManipulator {
+  OpenWindowCommand(scriptLocator) with PlaylistManipulator:
 
   import OpenReorderDlgCommand._
 
@@ -64,12 +63,10 @@ class OpenReorderDlgCommand(scriptLocator: Locator, tabHandler: TableHandler) ex
     * @inheritdoc This implementation stores information about the currently
     *             selected songs in the builder data.
     */
-  override protected[playlist] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[playlist] def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     import scala.jdk.CollectionConverters._
     val context = new PlaylistSelectionContext(tabHandler)
     val selection = tabHandler.getModel.subList(context.minimumSelectionIndex, context
       .maximumSelectionIndex + 1)
     builderData.addProperty(ReorderSongsPropertyKey, selection.asScala.toList)
     builderData.addProperty(StartIndexPropertyKey, context.minimumSelectionIndex)
-  }
-}

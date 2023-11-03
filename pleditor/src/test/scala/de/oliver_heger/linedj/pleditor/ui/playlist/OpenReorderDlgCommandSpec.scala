@@ -25,25 +25,23 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object OpenReorderDlgCommandSpec {
+object OpenReorderDlgCommandSpec:
   /** The test locator. */
   private val Locator = URLLocator getInstance "http://line-dj-test.org"
-}
 
 /**
   * Test class for ''OpenReorderDlgCommand''.
   */
-class OpenReorderDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class OpenReorderDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import OpenReorderDlgCommandSpec._
 
-  "An OpenReorderDlgCommand" should "store the script locator" in {
+  "An OpenReorderDlgCommand" should "store the script locator" in:
     val command = new OpenReorderDlgCommand(Locator, mock[TableHandler])
 
     command.getLocator should be(Locator)
-  }
 
-  it should "store information about the reorder operation in the builder data" in {
+  it should "store information about the reorder operation in the builder data" in:
     val builderData = mock[ApplicationBuilderData]
     val handler = mock[TableHandler]
     val model = java.util.Arrays.asList(mock[SongData], mock[SongData], mock[SongData],
@@ -58,29 +56,24 @@ class OpenReorderDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSu
     command prepareBuilderData builderData
     verify(builderData).addProperty("reorderSongs", expectedSongs)
     verify(builderData).addProperty("reorderStartIndex", 1)
-  }
 
-  it should "have a dummy implementation for updatePlaylist()" in {
+  it should "have a dummy implementation for updatePlaylist()" in:
     val context = mock[PlaylistSelectionContext]
     val command = new OpenReorderDlgCommand(Locator, mock[TableHandler])
 
     command.updatePlaylist(context)
     verifyNoInteractions(context)
-  }
 
-  it should "be enabled if a selection exists" in {
+  it should "be enabled if a selection exists" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(true)
     val command = new OpenReorderDlgCommand(Locator, mock[TableHandler])
 
     command isEnabled context shouldBe true
-  }
 
-  it should "be disabled if no selection exists" in {
+  it should "be disabled if no selection exists" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(false)
     val command = new OpenReorderDlgCommand(Locator, mock[TableHandler])
 
     command isEnabled context shouldBe false
-  }
-}

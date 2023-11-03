@@ -20,19 +20,17 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.immutable.Seq
+
 /**
   * Test class for ''LocalizedPlaylistReorderer''.
   */
-class LocalizedPlaylistReordererSpec extends AnyFlatSpec with Matchers {
-  "A LocalizedPlaylistReorderer" should "obtain the correct name" in {
-    val order = new LocalizedPlaylistReorderer {
+class LocalizedPlaylistReordererSpec extends AnyFlatSpec with Matchers:
+  "A LocalizedPlaylistReorderer" should "obtain the correct name" in:
+    val order = new LocalizedPlaylistReorderer:
       override val resourceBundleBaseName: String = "LocalizedPlaylistReordererSpec"
 
-      override def reorder(songs: Seq[SongData]): Seq[SongData] = {
+      override def reorder(songs: Seq[SongData]): Seq[SongData] =
         throw new AssertionError("Unexpected invocation!")
-      }
-    }
 
     order.name should be("LocalizedPlaylistReordererSpec")
-  }
-}

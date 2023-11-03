@@ -32,7 +32,7 @@ import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Path
 
-object ExportController {
+object ExportController:
   /** The name of the export actor. */
   val ExportActorName = "playlistExportActor"
 
@@ -54,7 +54,6 @@ object ExportController {
    * @return the string
    */
   private def pathString(p: Path): String = p.toString
-}
 
 /**
  * A controller class for an export operation.
@@ -79,7 +78,7 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
                        config: PlaylistEditorConfig, actorFactory: ActorFactory,
                        exportData: ExportActor.ExportData, progressRemove: ProgressBarHandler,
                        progressCopy: ProgressBarHandler, currentFile: StaticTextHandler)
-  extends WindowListener with MessageBusListener with FormActionListener {
+  extends WindowListener with MessageBusListener with FormActionListener:
 
   import ExportController._
 
@@ -102,10 +101,9 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
     *
     * @param windowEvent the window event
     */
-  override def windowClosed(windowEvent: WindowEvent): Unit = {
+  override def windowClosed(windowEvent: WindowEvent): Unit =
     actorFactory.actorSystem stop exportActor
     mediaFacade.bus removeListener listenerID
-  }
 
   override def windowActivated(windowEvent: WindowEvent): Unit = {}
 
@@ -118,14 +116,13 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
    * place.
    * @param windowEvent the window event
    */
-  override def windowOpened(windowEvent: WindowEvent): Unit = {
+  override def windowOpened(windowEvent: WindowEvent): Unit =
     listenerID = mediaFacade.bus registerListener receive
 
     val props = ExportActor(mediaFacade, config.downloadChunkSize, config.progressSize)
     exportActor = actorFactory.createActor(props, ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
-  }
 
   /**
    * Reacts on a click of the cancel button. This is answered by sending a
@@ -134,19 +131,18 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
    * shutdown.
    * @param formActionEvent the action event
    */
-  override def actionPerformed(formActionEvent: FormActionEvent): Unit = {
+  override def actionPerformed(formActionEvent: FormActionEvent): Unit =
     exportActor ! ExportActor.CancelExport
     formActionEvent.getHandler setEnabled false
-  }
 
   /**
    * Reacts on messages on the bus. Here the messages from the export actor are
    * retrieved and processed.
    */
-  override def receive: Receive = {
+  override def receive: Receive =
     case progress: ExportActor.ExportProgress =>
       currentFile setText pathString(progress.currentPath)
-      progress.operationType match {
+      progress.operationType match
         case ExportActor.OperationType.Remove =>
           val percent = 100 * progress.currentOperation / (progress.totalOperations - exportData
             .songs.size)
@@ -156,7 +152,6 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
           val percent = 100 * progress.currentSize / progress.totalSize
           progressCopy setValue percent.toInt
           progressRemove setValue 100
-      }
 
     case ExportActor.ExportResult(None) =>
       shutdown()
@@ -165,7 +160,6 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
       applicationContext.messageBox(createErrorMessage(error), ResErrorTitle,
         MessageOutput.MESSAGE_ERROR, MessageOutput.BTN_OK)
       shutdown()
-  }
 
   /**
     * Creates the ''Message'' object for an error message for the specified
@@ -175,7 +169,7 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
     * @return the message object
     */
   private def createErrorMessage(error: ExportError): Message =
-  if (ExportActor.InitializationError.error.get == error)
+  if ExportActor.InitializationError.error.get == error then
     new Message(null, ResErrorInit)
   else new Message(null, fetchErrorResource(error), pathString(error.errorPath))
 
@@ -187,14 +181,12 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
     * @return the resource key for displaying an error message
     */
   private def fetchErrorResource(error: ExportError): String =
-  if (error.errorType == ExportActor.OperationType.Remove) ResErrorRemove
+  if error.errorType == ExportActor.OperationType.Remove then ResErrorRemove
   else ResErrorCopy
 
   /**
    * Performs a shutdown after the export is done. Closes the associated window
    * and stops the export actor.
    */
-  private def shutdown(): Unit = {
+  private def shutdown(): Unit =
     window close true
-  }
-}

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportSettings
 import net.sf.jguiraffe.gui.app.Application
 import org.apache.commons.configuration.Configuration
 
-object PlaylistEditorConfig {
+object PlaylistEditorConfig:
   /** The prefix for all configuration keys. */
   private val KeyPrefix = "browser."
 
@@ -44,7 +44,6 @@ object PlaylistEditorConfig {
 
   /** The default progress size. */
   private val DefaultProgressSize = 1024 * 1024
-}
 
 /**
  * A helper class providing access to configuration options used by the Browser
@@ -56,7 +55,7 @@ object PlaylistEditorConfig {
  *
  * @param app the main application object
  */
-class PlaylistEditorConfig(app: Application) {
+class PlaylistEditorConfig(app: Application):
 
   import PlaylistEditorConfig._
 
@@ -69,9 +68,8 @@ class PlaylistEditorConfig(app: Application) {
    */
   def exportPath: String = userConfiguration getString KeyExportPath
 
-  def exportPath_=(p: String): Unit = {
+  def exportPath_=(p: String): Unit =
     userConfiguration.setProperty(KeyExportPath, p)
-  }
 
   /**
    * Returns the default clear mode to be used for export operations.
@@ -80,9 +78,8 @@ class PlaylistEditorConfig(app: Application) {
   def exportClearMode: Int = userConfiguration.getInt(KeyExportClearMode, ExportSettings
     .ClearNothing)
 
-  def exportClearMode_=(mode: Int): Unit = {
+  def exportClearMode_=(mode: Int): Unit =
     userConfiguration.setProperty(KeyExportClearMode, mode)
-  }
 
   /**
     * Returns the chunk size for download operations.
@@ -101,4 +98,3 @@ class PlaylistEditorConfig(app: Application) {
     */
   def progressSize: Int =
     userConfiguration.getInt(KeyProgressSize, DefaultProgressSize)
-}

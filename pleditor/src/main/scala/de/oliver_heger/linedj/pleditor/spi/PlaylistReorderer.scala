@@ -18,6 +18,8 @@ package de.oliver_heger.linedj.pleditor.spi
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 
+import scala.collection.immutable.Seq
+
 /**
   * A trait for components that can reorder a playlist.
   *
@@ -25,7 +27,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
   * reordering of items in the playlist. Concrete implementations will support
   * different orders like random, sorter by artist, sorted by album, etc.
   */
-trait PlaylistReorderer {
+trait PlaylistReorderer:
   /**
     * Returns a name for the order implemented by this object. This name is
     * displayed to the end user when he or she is prompted to select an order
@@ -41,4 +43,3 @@ trait PlaylistReorderer {
     * @return the reordered list of songs
     */
   def reorder(songs: Seq[SongData]): Seq[SongData]
-}

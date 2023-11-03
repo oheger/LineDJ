@@ -33,17 +33,17 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.collection.immutable.Seq
 import scala.concurrent.Promise
 
-object ReorderControllerSpec {
+object ReorderControllerSpec:
   /** Start index of songs to be sorted. */
   private val StartIndex = 4
-}
 
 /**
   * Test class for ''ReorderController''.
   */
-class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   import ReorderControllerSpec._
 
   /**
@@ -52,38 +52,31 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     *
     * @param f a function that invokes the listener method
     */
-  private def checkDummyWindowListenerMethod(f: (ReorderController, WindowEvent) => Unit): Unit = {
+  private def checkDummyWindowListenerMethod(f: (ReorderController, WindowEvent) => Unit): Unit =
     val event = mock[WindowEvent]
     val helper = new ReorderControllerTestHelper
 
     f(helper.controller, event)
     helper.verifyNoInteractions()
     verifyNoInteractions(event)
-  }
 
-  "A ReorderController" should "do nothing when the window is deiconified" in {
+  "A ReorderController" should "do nothing when the window is deiconified" in:
     checkDummyWindowListenerMethod(_.windowDeiconified(_))
-  }
 
-  it should "do nothing when the window is closing" in {
+  it should "do nothing when the window is closing" in:
     checkDummyWindowListenerMethod(_.windowClosing(_))
-  }
 
-  it should "do nothing when the window is closed" in {
+  it should "do nothing when the window is closed" in:
     checkDummyWindowListenerMethod(_.windowClosed(_))
-  }
 
-  it should "do nothing when the window is activated" in {
+  it should "do nothing when the window is activated" in:
     checkDummyWindowListenerMethod(_.windowActivated(_))
-  }
 
-  it should "do nothing when the window is deactivated" in {
+  it should "do nothing when the window is deactivated" in:
     checkDummyWindowListenerMethod(_.windowDeactivated(_))
-  }
 
-  it should "do nothing when the window is iconified" in {
+  it should "do nothing when the window is iconified" in:
     checkDummyWindowListenerMethod(_.windowIconified(_))
-  }
 
   /**
     * Creates a mock window event that is associated with a mock window.
@@ -91,12 +84,11 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     * @param optWindow an optional window to be returned by the event
     * @return the window event
     */
-  private def createWindowEventWithWindow(optWindow: Option[Window] = None): WindowEvent = {
+  private def createWindowEventWithWindow(optWindow: Option[Window] = None): WindowEvent =
     val event = mock[WindowEvent]
     val window = optWindow getOrElse mock[Window]
     doReturn(window).when(event).getSourceWindow
     event
-  }
 
   /**
     * Expects an invocation of ''windowOpened()''. Prepares mocks for querying
@@ -107,14 +99,13 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     * @return the window event
     */
   private def expectWindowOpened(helper: ReorderControllerTestHelper, optWindow: Option[Window] =
-  None): WindowEvent = {
+  None): WindowEvent =
     val event = createWindowEventWithWindow(optWindow)
     val future = Promise[Seq[(PlaylistReorderer, String)]]().future
     when(helper.reorderService.loadAvailableReorderServices()).thenReturn(future)
     event
-  }
 
-  it should "query reorder services when the window is opened" in {
+  it should "query reorder services when the window is opened" in:
     val helper = new ReorderControllerTestHelper
     val event: WindowEvent = expectWindowOpened(helper)
 
@@ -122,9 +113,8 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     verify(helper.buttonHandler).setEnabled(false)
     verify(helper.reorderService).loadAvailableReorderServices()
     verifyNoInteractions(helper.listHandler)
-  }
 
-  it should "populate the list model with the available reorder services" in {
+  it should "populate the list model with the available reorder services" in:
     val event = createWindowEventWithWindow()
     val promise = Promise[Seq[(PlaylistReorderer, String)]]()
     val services = List((mock[PlaylistReorderer], "B"), (mock[PlaylistReorderer], "A"),
@@ -140,9 +130,8 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     verInOrder.verify(helper.listHandler).addItem(1, "B", services.head._1)
     verInOrder.verify(helper.listHandler).addItem(2, "C", services(2)._1)
     verInOrder.verify(helper.listHandler).setData(services(1)._1)
-  }
 
-  it should "handle an empty list of reorder services" in {
+  it should "handle an empty list of reorder services" in:
     val event = createWindowEventWithWindow()
     val promise = Promise[Seq[(PlaylistReorderer, String)]]()
     val helper = new ReorderControllerTestHelper
@@ -153,7 +142,6 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     helper.syncedRunnable.run()
     verify(helper.listHandler, never()).addItem(anyInt(), anyString(), any())
     verify(helper.listHandler, never()).setData(any())
-  }
 
   /**
     * Creates an action event with the given command.
@@ -161,13 +149,12 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     * @param command the command
     * @return the mock action event
     */
-  private def createActionEvent(command: String): FormActionEvent = {
+  private def createActionEvent(command: String): FormActionEvent =
     val event = mock[FormActionEvent]
     when(event.getCommand).thenReturn(command)
     event
-  }
 
-  it should "trigger the reorder operation when OK is clicked" in {
+  it should "trigger the reorder operation when OK is clicked" in:
     val window = mock[Window]
     val service = mock[PlaylistReorderer]
     val helper = new ReorderControllerTestHelper
@@ -179,9 +166,8 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     helper.controller actionPerformed event
     verify(helper.reorderService).reorder(service, helper.songs, StartIndex)
     verify(window).close(true)
-  }
 
-  it should "close the window when CANCEL is clicked" in {
+  it should "close the window when CANCEL is clicked" in:
     val window = mock[Window]
     val helper = new ReorderControllerTestHelper
     val event = expectWindowOpened(helper, Some(window))
@@ -189,28 +175,25 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     helper.controller actionPerformed createActionEvent("CANCEL")
     verify(window).close(true)
-  }
 
-  it should "disable the OK button if there is no selection" in {
+  it should "disable the OK button if there is no selection" in:
     val helper = new ReorderControllerTestHelper
     doReturn(null).when(helper.listHandler).getData
 
     helper.controller elementChanged mock[FormChangeEvent]
     verify(helper.buttonHandler).setEnabled(false)
-  }
 
-  it should "enable the OK if a selection exists" in {
+  it should "enable the OK if a selection exists" in:
     val helper = new ReorderControllerTestHelper
     doReturn(mock[PlaylistReorderer]).when(helper.listHandler).getData
 
     helper.controller elementChanged mock[FormChangeEvent]
     verify(helper.buttonHandler).setEnabled(true)
-  }
 
   /**
     * Test helper class which collects mock objects for dependencies.
     */
-  private class ReorderControllerTestHelper {
+  private class ReorderControllerTestHelper:
     /** Stores the runnable passed to the sync object. */
     private val syncRunnable = new LinkedBlockingQueue[Runnable](2)
 
@@ -237,9 +220,8 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     /**
       * Checks that the mock objects have not been accessed.
       */
-    def verifyNoInteractions(): Unit = {
+    def verifyNoInteractions(): Unit =
       Mockito.verifyNoInteractions(listHandler, reorderService)
-    }
 
     /**
       * Returns the ''Runnable'' that has been passed to the sync object. Fails
@@ -247,18 +229,17 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       *
       * @return the ''Runnable'' passed to the sync object
       */
-    def syncedRunnable: Runnable = {
+    def syncedRunnable: Runnable =
       val r = syncRunnable.poll(3, TimeUnit.SECONDS)
       r should not be null
       r
-    }
 
     /**
       * Creates a mock for a ''GUISynchronizer''.
       *
       * @return the mock
       */
-    private def createSynchronizer(): GUISynchronizer = {
+    private def createSynchronizer(): GUISynchronizer =
       val sync = mock[GUISynchronizer]
       when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocation: InvocationOnMock) => {
         syncRunnable should have size 0
@@ -266,8 +247,6 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
         null
       })
       sync
-    }
-  }
 
   /**
     * Creates a request for a reorder operation.
@@ -276,4 +255,3 @@ class ReorderControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     */
   private def createTestSongs(): Seq[SongData] =
     List(mock[SongData], mock[SongData])
-}

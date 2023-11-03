@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
 
-object OpenExportSettingsDlgCommand {
+object OpenExportSettingsDlgCommand:
   /**
    * The name of the property under which the songs to be exported are stored
    * in the builder data.
@@ -33,7 +33,6 @@ object OpenExportSettingsDlgCommand {
    * builder data.
    */
   val ExportSettingsPropertyKey = "exportSettings"
-}
 
 /**
  * A command class which is responsible for opening the dialog with export
@@ -52,7 +51,7 @@ object OpenExportSettingsDlgCommand {
  */
 class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: PlaylistEditorConfig,
                                    exportSongs: java.util.List[SongData])
-  extends OpenWindowCommand(scriptLocator) {
+  extends OpenWindowCommand(scriptLocator):
 
   import OpenExportSettingsDlgCommand._
 
@@ -61,20 +60,17 @@ class OpenExportSettingsDlgCommand(scriptLocator: Locator, config: PlaylistEdito
    *             builder data object, so that they are available when the
    *             builder script gets executed.
    */
-  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
     builderData.addProperty(ExportSongsPropertyKey, exportSongs)
     builderData.addProperty(ExportSettingsPropertyKey, createExportSettings())
-  }
 
   /**
    * Creates an object with export settings from the central configuration.
    * @return the object with export settings
    */
-  private def createExportSettings(): ExportSettings = {
+  private def createExportSettings(): ExportSettings =
     val settings = new ExportSettings
-    settings setClearMode config.exportClearMode
-    settings setTargetDirectory config.exportPath
+    settings.clearMode = config.exportClearMode
+    settings.targetDirectory = config.exportPath
     settings
-  }
-}

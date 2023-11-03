@@ -18,14 +18,13 @@ package de.oliver_heger.linedj.pleditor.spi
 
 import java.util.{Locale, ResourceBundle}
 
-object LocalizedPlaylistReorderer {
+object LocalizedPlaylistReorderer:
   /**
     * The resource key for the name property. This key is looked up in the
     * resource bundle in order to determine the name of the reorder
     * algorithm.
     */
   val KeyName = "name"
-}
 
 /**
   * A specialized ''PlaylistReorderer'' trait which implements the ''name''
@@ -40,9 +39,9 @@ object LocalizedPlaylistReorderer {
   * implementations which use this mechanism to determine the name of the
   * reorder algorithm.
   */
-trait LocalizedPlaylistReorderer extends PlaylistReorderer {
+trait LocalizedPlaylistReorderer extends PlaylistReorderer:
 
-  import LocalizedPlaylistReorderer._
+  import LocalizedPlaylistReorderer.*
 
   /**
     * The base name of the resource bundle. This bundle is loaded to determine
@@ -50,7 +49,7 @@ trait LocalizedPlaylistReorderer extends PlaylistReorderer {
     */
   val resourceBundleBaseName: String
 
-  override lazy val name = loadNameFromResourceBundle()
+  override lazy val name: String = loadNameFromResourceBundle()
 
   /**
     * Obtains the localized name of this object from the associated resource
@@ -58,9 +57,7 @@ trait LocalizedPlaylistReorderer extends PlaylistReorderer {
     *
     * @return the name of this object
     */
-  private def loadNameFromResourceBundle(): String = {
+  private def loadNameFromResourceBundle(): String =
     val bundle = ResourceBundle.getBundle(resourceBundleBaseName, Locale.getDefault, getClass
       .getClassLoader)
     bundle getString KeyName
-  }
-}

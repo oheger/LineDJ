@@ -30,16 +30,15 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''NewPlaylistTask''.
   */
-class NewPlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A NewPlaylistTask" should "always be enabled" in {
+class NewPlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A NewPlaylistTask" should "always be enabled" in:
     val context = mock[PlaylistSelectionContext]
     val task = new NewPlaylistTask(mock[PlaylistController], mock[MessageBus])
 
     task isEnabled context shouldBe true
     verifyNoInteractions(context)
-  }
 
-  it should "clear the table model and reset the playlist" in {
+  it should "clear the table model and reset the playlist" in:
     val context = mock[PlaylistSelectionContext]
     val tableHandler = mock[TableHandler]
     val model = new util.ArrayList(util.Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8))
@@ -53,5 +52,3 @@ class NewPlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     model.size() should be(0)
     verify(tableHandler).tableDataChanged()
     verify(bus).publish(SetPlaylist(Playlist(Nil, Nil), closePlaylist = false))
-  }
-}

@@ -20,22 +20,20 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * A task implementations which removes the selected items from the playlist.
   */
 class PlaylistRemoveItemsTask(controller: PlaylistController) extends
-AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
+AbstractPlaylistManipulationTask(controller) with PlaylistManipulator:
 
   /**
     * @inheritdoc This implementation removes all selected indices from the
     *             table model.
     */
-  override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+  override def updatePlaylist(context: PlaylistSelectionContext): Unit =
     val sortedSelection = context.selectedIndices sortWith (_ > _)
     val model = context.tableHandler.getModel
     sortedSelection foreach model.remove
     context.tableHandler.tableDataChanged()
-  }
 
   /**
     * @inheritdoc This implementation returns '''true''' if and only if a
     *             selection is present.
     */
   override def isEnabled(context: PlaylistSelectionContext): Boolean = context.hasSelection
-}

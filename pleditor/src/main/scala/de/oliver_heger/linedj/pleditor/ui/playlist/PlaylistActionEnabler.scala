@@ -35,25 +35,22 @@ import net.sf.jguiraffe.gui.builder.event.{FormChangeEvent, FormChangeListener}
   * @param manipulators the map with the managed manipulators
   */
 class PlaylistActionEnabler(actionStore: ActionStore, tableHandler: TableHandler, manipulators:
-java.util.Map[String, PlaylistManipulator]) extends FormChangeListener {
+java.util.Map[String, PlaylistManipulator]) extends FormChangeListener:
   /** The map with the managed manipulators. */
   lazy val manipulatorMap = createManipulatorMap()
 
-  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit =
     val context = PlaylistSelectionContext(tableHandler)
     manipulatorMap.toList foreach { e =>
       val action = actionStore getAction e._1
       action setEnabled e._2.isEnabled(context)
     }
-  }
 
   /**
     * Converts the Java map passed to the constructor to a Scala immutable map.
     * @return the scala map
     */
-  private def createManipulatorMap(): Map[String, PlaylistManipulator] = {
+  private def createManipulatorMap(): Map[String, PlaylistManipulator] =
     import scala.jdk.CollectionConverters._
     val scalaMap: Map[String, PlaylistManipulator] = manipulators.asScala.toMap
     scalaMap
-  }
-}

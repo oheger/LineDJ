@@ -29,7 +29,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   *
   * @param tableHandler the ''TableHandler'' for the playlist table
   */
-case class PlaylistSelectionContext(tableHandler: TableHandler) {
+case class PlaylistSelectionContext(tableHandler: TableHandler):
   /** The currently selected indices in the playlist table. */
   val selectedIndices = tableHandler.getSelectedIndices
 
@@ -55,4 +55,3 @@ case class PlaylistSelectionContext(tableHandler: TableHandler) {
     * be moved down.
     */
   lazy val isLastElementSelected = maximumSelectionIndex == tableHandler.getModel.size() - 1
-}

@@ -28,9 +28,10 @@ import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 
 import scala.annotation.tailrec
-import scala.jdk.CollectionConverters._
+import scala.collection.immutable.Seq
+import scala.jdk.CollectionConverters.*
 
-object PlaylistController {
+object PlaylistController:
   /** Factor for the size of a Megabyte. */
   private val Megabyte = 1024 * 1024.0
 
@@ -69,18 +70,16 @@ object PlaylistController {
    * @param template the template for generating the status line
    * @return the text for the status line
    */
-  private def generateStatusLineText(songs: Seq[Any], template: String): String = {
+  private def generateStatusLineText(songs: Seq[Any], template: String): String =
     val songData = songs map (_.asInstanceOf[SongData])
     val (size, duration) = songData.foldLeft((0L, 0)) { (d, s) =>
       (d._1 + s.metaData.size, d._2 + s.getDuration)
     }
     val durationDefined = songData forall (_.getDuration > 0)
     val totalDuration = DurationTransformer.formatDuration(duration)
-    val actDuration = if (durationDefined) totalDuration
+    val actDuration = if durationDefined then totalDuration
     else IndicationUnknownDuration + totalDuration
     template.format(songs.size, actDuration, size / Megabyte)
-  }
-}
 
 /**
  * The controller class for the ''playlist'' tab.
@@ -101,7 +100,7 @@ object PlaylistController {
 class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandler,
                          actionStore: ActionStore, statusLineTemplate: String,
                          songDataFactory: SongDataFactory) extends
-  ConsumerRegistrationProvider with Identifiable {
+  ConsumerRegistrationProvider with Identifiable:
   import PlaylistController._
 
   /** The map with meta data currently available. */
@@ -129,12 +128,11 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     *
     * @param manipulator the ''PlaylistManipulator''
     */
-  def updatePlaylist(manipulator: PlaylistManipulator): Unit = {
+  def updatePlaylist(manipulator: PlaylistManipulator): Unit =
     manipulator updatePlaylist PlaylistSelectionContext(tableHandler)
     updateStatusLine()
     updateActions()
     unresolvedSongCount = tableHandler.getModel.size()
-  }
 
   /**
     * Consumer function for state change events of the audio player. If new
@@ -143,30 +141,25 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     *
     * @param event the change event
     */
-  private def handleAudioPlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit = {
+  private def handleAudioPlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit =
     val songs = event.state.playlist.pendingSongs
     val currentTableSize = tableHandler.getModel.size()
-    if (songs.lengthCompare(currentTableSize) > 0) {
+    if songs.lengthCompare(currentTableSize) > 0 then
       addNewSongs(songs, currentTableSize)
-    }
-  }
 
   /**
     * Consumer function for new meta data for songs in the playlist.
     *
     * @param playlistMetaData the new meta data
     */
-  private def handlePlaylistMetaData(playlistMetaData: PlaylistMetaData): Unit = {
+  private def handlePlaylistMetaData(playlistMetaData: PlaylistMetaData): Unit =
     metaData = playlistMetaData.data
-    if (unresolvedSongCount > 0) {
+    if unresolvedSongCount > 0 then
       val (min, max, unres) = applyNewMetaDataToTableModel(metaData, tableHandler.getModel)
-      if (min >= 0) {
+      if min >= 0 then
         tableHandler.rowsUpdated(min, max)
         updateStatusLine()
-      }
       unresolvedSongCount = unres
-    }
-  }
 
   /**
     * Updates the table model with new meta data. Iterates over the table of
@@ -182,23 +175,20 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     */
   private def applyNewMetaDataToTableModel(data: Map[MediaFileID, MediaMetaData],
                                                     model: java.util.List[AnyRef]):
-  (Int, Int, Int) = {
+  (Int, Int, Int) =
     @tailrec def doApply(idx: Int, minIdx: Int, maxIdx: Int, unresolvedCount: Int):
     (Int, Int, Int) =
-    if (idx >= model.size()) (minIdx, maxIdx, unresolvedCount)
-    else {
+    if idx >= model.size() then (minIdx, maxIdx, unresolvedCount)
+    else
       val song = model.get(idx).asInstanceOf[SongData]
       val unresolved = isSongUnresolved(song)
-      if (unresolved && data.contains(song.id)) {
+      if unresolved && data.contains(song.id) then
         model.set(idx, songDataFactory.createSongData(song.id, data(song.id)))
-        doApply(idx + 1, if (minIdx < 0) idx else minIdx, idx, unresolvedCount)
-      }
+        doApply(idx + 1, if minIdx < 0 then idx else minIdx, idx, unresolvedCount)
       else doApply(idx + 1, minIdx, maxIdx,
-        if(unresolved) unresolvedCount + 1 else  unresolvedCount)
-    }
+        if unresolved then unresolvedCount + 1 else  unresolvedCount)
 
     doApply(0, -1, -1, 0)
-  }
 
   /**
     * Adds new songs to the managed table model.
@@ -206,7 +196,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     * @param songs            the full playlist of the audio player
     * @param currentTableSize the current size of the managed table
     */
-  private def addNewSongs(songs: List[MediaFileID], currentTableSize: Int): Unit = {
+  private def addNewSongs(songs: List[MediaFileID], currentTableSize: Int): Unit =
     val newSongs = songs.drop(currentTableSize)
       .map(id => songDataFactory.createSongData(id, metaData.getOrElse(id, UndefinedMetaData)))
     unresolvedSongCount += newSongs.count(isSongUnresolved)
@@ -216,25 +206,21 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     updateActions()
     val newSelection = currentTableSize.until(currentTableSize + newSongs.size).toArray
     tableHandler setSelectedIndices newSelection
-  }
 
   /**
     * Updates the status line with information about the current playlist. This
     * method is called after the playlist has been manipulated.
     */
-  private def updateStatusLine(): Unit = {
+  private def updateStatusLine(): Unit =
     statusLine setText generateStatusLineText(tableHandler.getModel.asScala.toSeq, statusLineTemplate)
-  }
 
   /**
     * Adapts the enabled state of managed actions after changes on the
     * playlist. This affects actions that have to be enabled if and only if the
     * current playlist contains elements.
     */
-  private def updateActions(): Unit = {
+  private def updateActions(): Unit =
     val enabled = !tableHandler.getModel.isEmpty
     ManagedActions foreach { act =>
       actionStore.getAction(act) setEnabled enabled
     }
-  }
-}

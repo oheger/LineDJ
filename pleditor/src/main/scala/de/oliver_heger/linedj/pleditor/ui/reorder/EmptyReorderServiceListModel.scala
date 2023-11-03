@@ -27,6 +27,5 @@ import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
   * model is just a dummy; the required functionality is implemented by the
   * base trait.
   */
-class EmptyReorderServiceListModel extends EmptyListModel {
+class EmptyReorderServiceListModel extends EmptyListModel:
   override val getType = classOf[PlaylistReorderer]
-}

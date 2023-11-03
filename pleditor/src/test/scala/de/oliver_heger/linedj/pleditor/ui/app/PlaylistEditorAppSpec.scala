@@ -16,16 +16,17 @@
 
 package de.oliver_heger.linedj.pleditor.ui.app
 
-import de.oliver_heger.linedj.platform.app._
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplication, RemoteController}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
 import de.oliver_heger.linedj.pleditor.ui.playlist.{PlaylistActionEnabler, PlaylistController}
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderService
+import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport}
 import org.apache.pekko.actor.Actor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -33,35 +34,31 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''PlaylistEditorApp''.
   */
-class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with
-ApplicationTestSupport {
+class PlaylistEditorAppSpec extends AnyFlatSpec with Matchers with MockitoSugar with ApplicationTestSupport:
   /**
     * Creates a new test application instance and starts it up. This instance
     * can then be used to test whether initialization was correctly.
     *
     * @return the instance of the application
     */
-  private def createApp(): PlaylistEditorAppTestImpl = {
+  private def createApp(): PlaylistEditorAppTestImpl =
     val reorderService = mock[ReorderService]
     val app = new PlaylistEditorAppTestImpl(reorderService)
     app initReorderService reorderService
     activateApp(app)
-  }
 
-  "A PlaylistEditorApp" should "create a bean for the BrowserConfig" in {
+  "A PlaylistEditorApp" should "create a bean for the BrowserConfig" in:
     val app = createApp()
     val config = queryBean[PlaylistEditorConfig](app, PlaylistEditorApp.BeanConfig)
     config.userConfiguration should be(app.getUserConfiguration)
-  }
 
-  it should "register message bus listeners correctly" in {
+  it should "register message bus listeners correctly" in:
     val application = createApp()
 
     val uiBus = queryBean[MessageBus](application, ClientApplication.BeanMessageBus)
     verify(uiBus, Mockito.atLeast(1)).registerListener(any(classOf[Actor.Receive]))
-  }
 
-  it should "define a correct consumer registration bean" in {
+  it should "define a correct consumer registration bean" in:
     val application = createApp()
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
@@ -71,30 +68,25 @@ ApplicationTestSupport {
     val playlistCtrl = queryBean[PlaylistController](application.getMainWindowBeanContext,
     "playlistController")
     consumerReg.providers should contain only (remoteCtrl, playlistCtrl)
-  }
 
-  it should "construct an instance correctly" in {
+  it should "construct an instance correctly" in:
     val app = new PlaylistEditorApp
 
     app shouldBe a[ApplicationAsyncStartup]
     app.appName should be("pleditor")
-  }
 
-  it should "create a PlaylistActionEnabler bean for the main window" in {
+  it should "create a PlaylistActionEnabler bean for the main window" in:
     val app = createApp()
 
     val enabler = queryBean[PlaylistActionEnabler](app.getMainWindowBeanContext,
       "playlistActionEnabler")
     enabler.manipulatorMap.keySet should contain allOf("plRemoveAction", "plMoveUpAction",
       "plMoveDownAction", "plMoveTopAction", "plMoveBottomAction", "plReorderAction")
-  }
 
-  it should "create a bean for the reorder service" in {
+  it should "create a bean for the reorder service" in:
     val app = createApp()
 
     queryBean[ReorderService](app, "pleditor_reorderService") should be(app.reorderService)
-  }
-}
 
 /**
   * A test implementation of the main application class that makes sure that

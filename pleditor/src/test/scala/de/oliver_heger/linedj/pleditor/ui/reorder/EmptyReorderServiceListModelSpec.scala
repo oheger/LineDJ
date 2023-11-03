@@ -23,10 +23,8 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''EmptyReorderServiceListModel''.
   */
-class EmptyReorderServiceListModelSpec extends AnyFlatSpec with Matchers {
-  "An EmptyReorderServiceListModel" should "have the correct data type" in {
+class EmptyReorderServiceListModelSpec extends AnyFlatSpec with Matchers:
+  "An EmptyReorderServiceListModel" should "have the correct data type" in:
     val model = new EmptyReorderServiceListModel
 
     model.getType should be(classOf[PlaylistReorderer])
-  }
-}

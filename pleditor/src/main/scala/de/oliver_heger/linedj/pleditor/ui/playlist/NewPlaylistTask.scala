@@ -31,19 +31,17 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
   * @param messageBus the message bus
   */
 class NewPlaylistTask(controller: PlaylistController, messageBus: MessageBus)
-  extends AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
+  extends AbstractPlaylistManipulationTask(controller) with PlaylistManipulator:
   /**
     * @inheritdoc This implementation clears the table model and send a
     *             ''SetPlaylist'' message with an empty, open playlist.
     */
-  override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+  override def updatePlaylist(context: PlaylistSelectionContext): Unit =
     context.tableHandler.getModel.clear()
     context.tableHandler.tableDataChanged()
     messageBus publish SetPlaylist(playlist = Playlist(Nil, Nil), closePlaylist = false)
-  }
 
   /**
     * @inheritdoc This implementation returns always '''true'''.
     */
   override def isEnabled(context: PlaylistSelectionContext): Boolean = true
-}

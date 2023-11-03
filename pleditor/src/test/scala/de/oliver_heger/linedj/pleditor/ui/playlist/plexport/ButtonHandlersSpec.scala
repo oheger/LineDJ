@@ -34,16 +34,16 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for the button handlers of the export settings dialog.
   */
-class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A SetDefaultSettingsHandler" should "store default settings" in {
+class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A SetDefaultSettingsHandler" should "store default settings" in:
     val ClearMode = ExportSettings.ClearOverride
     val ExportPath = "some/export/path"
     val controller = mock[FormController]
     val config = mock[PlaylistEditorConfig]
     val settings = new ExportSettings
     when(controller.validateAndDisplayMessages()).thenAnswer((_: InvocationOnMock) => {
-      settings setClearMode ClearMode
-      settings setTargetDirectory ExportPath
+      settings.clearMode = ClearMode
+      settings.targetDirectory = ExportPath
       val fields = new util.HashMap[String, ValidationResult]
       new DefaultFormValidatorResults(fields)
     })
@@ -52,9 +52,8 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     handler.actionPerformed(null)
     verify(config).exportPath = ExportPath
     verify(config).exportClearMode = ClearMode
-  }
 
-  it should "not update the configuration if validation fails" in {
+  it should "not update the configuration if validation fails" in:
     val controller = mock[FormController]
     val config = mock[PlaylistEditorConfig]
     val settings = new ExportSettings
@@ -65,7 +64,6 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     handler.actionPerformed(null)
     verifyNoInteractions(config)
-  }
 
   /**
     * Verifies that the given service mock has been invoked and returns the
@@ -75,13 +73,12 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @return the options passed to the service
     */
   private def fetchDirectoryChooserOptions(service: FileChooserDialogService):
-  DirectoryChooserOptions = {
+  DirectoryChooserOptions =
     val captor = ArgumentCaptor.forClass(classOf[DirectoryChooserOptions])
     verify(service).showChooseDirectoryDialog(captor.capture())
     captor.getValue
-  }
 
-  "A ChooseExportDirectoryHandler" should "configure the initial directory" in {
+  "A ChooseExportDirectoryHandler" should "configure the initial directory" in:
     val CurrentDir = new File(".").getAbsolutePath
     val service = mock[FileChooserDialogService]
     val controller = mock[FormController]
@@ -91,7 +88,6 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     handler.actionPerformed(null)
     fetchDirectoryChooserOptions(service).getInitialDirectory should be(new File(CurrentDir))
-  }
 
   /**
     * Checks the configuration of the directory chooser dialog if the text
@@ -99,7 +95,7 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     *
     * @param currentDir the current directory
     */
-  private def checkNoInitialDirectoryIsSetIfUndefined(currentDir: String): Unit = {
+  private def checkNoInitialDirectoryIsSetIfUndefined(currentDir: String): Unit =
     val service = mock[FileChooserDialogService]
     val controller = mock[FormController]
     val textDir = mock[ComponentHandler[String]]
@@ -108,21 +104,17 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     handler.actionPerformed(null)
     fetchDirectoryChooserOptions(service).getInitialDirectory should be(null)
-  }
 
-  it should "not set an initial directory is the current directory is null" in {
+  it should "not set an initial directory is the current directory is null" in:
     checkNoInitialDirectoryIsSetIfUndefined(null)
-  }
 
-  it should "not set an initial directory if the current directory is empty" in {
+  it should "not set an initial directory if the current directory is empty" in:
     checkNoInitialDirectoryIsSetIfUndefined("")
-  }
 
-  it should "not set an initial directory if the current directory does not exist" in {
+  it should "not set an initial directory if the current directory does not exist" in:
     checkNoInitialDirectoryIsSetIfUndefined("a directory that does not exist!")
-  }
 
-  it should "process the dialog result" in {
+  it should "process the dialog result" in:
     val ResultFile = new File("/data/music/target")
     val service = mock[FileChooserDialogService]
     val controller = mock[FormController]
@@ -134,5 +126,3 @@ class ButtonHandlersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     options.getResultCallback.onDialogResult(ResultFile, null)
     verify(textDir).setData(ResultFile.getAbsolutePath)
     verify(controller).validateAndDisplayMessages()
-  }
-}

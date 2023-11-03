@@ -16,39 +16,37 @@
 
 package de.oliver_heger.linedj.pleditor.ui.reorder
 
-import de.oliver_heger.linedj.SupervisionTestActor
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
+import de.oliver_heger.linedj.test.SupervisionTestActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object ReorderManagerActorSpec {
+object ReorderManagerActorSpec:
   /** A name for a reorder service. */
   private val ServiceName = "Test reorder service"
-}
 
 /**
   * Test class for ''ReorderManagerActor''.
   */
-class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ReorderManagerActorSpec._
 
   def this() = this(ActorSystem("ReorderManagerActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem  system
-  }
 
-  "A ReorderManagerActor" should "create correct Props" in {
+  "A ReorderManagerActor" should "create correct Props" in:
     val bus = mock[MessageBus]
 
     val props = ReorderManagerActor(bus)
@@ -56,16 +54,14 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     classOf[ChildActorFactory] isAssignableFrom props.actorClass() shouldBe true
     props.args should have length 1
     props.args.head should be(bus)
-  }
 
-  it should "have no reorder services initially" in {
+  it should "have no reorder services initially" in:
     val helper = new ReorderManagerActorTestHelper
 
     helper.actor ! ReorderManagerActor.GetAvailableReorderServices
     expectMsgType[ReorderManagerActor.AvailableReorderServices].services shouldBe empty
-  }
 
-  it should "allow adding reorder services" in {
+  it should "allow adding reorder services" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
 
@@ -74,9 +70,8 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val msg = expectMsgType[ReorderManagerActor.AvailableReorderServices]
     msg.services should have length 1
     msg.services should contain(reorder, ServiceName)
-  }
 
-  it should "allow removing reorder services" in {
+  it should "allow removing reorder services" in:
     val reorder = mock[PlaylistReorderer]
     val reorderOther = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
@@ -88,9 +83,8 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val msg = expectMsgType[ReorderManagerActor.AvailableReorderServices]
     msg.services should have length 1
     msg.services should not contain(reorder, ServiceName)
-  }
 
-  it should "stop the associated child actor when a service is removed" in {
+  it should "stop the associated child actor when a service is removed" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
     helper.addReorderService(reorder, ServiceName)
@@ -99,13 +93,11 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val child = helper removeReorderService reorder
     probe watch child.ref
     probe.expectMsgType[Terminated].actor should be(child.ref)
-  }
 
-  it should "handle a remove request for an unknown service gracefully" in {
+  it should "handle a remove request for an unknown service gracefully" in:
     val helper = new ReorderManagerActorTestHelper
 
     helper send ReorderManagerActor.RemoveReorderService(mock[PlaylistReorderer])
-  }
 
   /**
     * Creates a message for invoking the specified reorder service.
@@ -126,7 +118,7 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
   private def createSongList(): List[SongData] =
     List(mock[SongData], mock[SongData])
 
-  it should "allow invoking a reorder service" in {
+  it should "allow invoking a reorder service" in:
     val reorder = mock[PlaylistReorderer]
     val invocation = createReorderMessage(reorder)
     val response = ReorderActor.ReorderResponse(createSongList(), invocation.request)
@@ -137,30 +129,26 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
     child.expectMsg(invocation.request)
     helper send response
     helper expectMessageOnBus response
-  }
 
-  it should "send an error response for an unknown reorder service" in {
+  it should "send an error response for an unknown reorder service" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
 
     helper send createReorderMessage(reorder)
     helper expectMessageOnBus ReorderManagerActor.FailedReorderServiceInvocation(reorder)
-  }
 
-  it should "react on a failed invocation via a child actor" in {
+  it should "react on a failed invocation via a child actor" in:
     val reorder = mock[PlaylistReorderer]
     val helper = new ReorderManagerActorTestHelper
     val child = helper.addReorderService(reorder, ServiceName)
 
     system stop child.ref
-    awaitCond {
+    awaitCond:
       helper.actor ! ReorderManagerActor.GetAvailableReorderServices
       expectMsgType[ReorderManagerActor.AvailableReorderServices].services.isEmpty
-    }
     helper expectMessageOnBus ReorderManagerActor.FailedReorderServiceInvocation(reorder)
-  }
 
-  it should "use a supervision strategy that stops a failing child actor" in {
+  it should "use a supervision strategy that stops a failing child actor" in:
     val helper = new ReorderManagerActorTestHelper
     val strategy = helper.actor.underlyingActor.supervisorStrategy
 
@@ -177,13 +165,12 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
 
     childActor ! ServiceName
     probe.expectMsgType[Terminated]
-  }
 
   /**
     * A test helper class which collects required mock and helper objects
     * needed by the actor under test.
     */
-  class ReorderManagerActorTestHelper {
+  class ReorderManagerActorTestHelper:
     /** The mock message bus. */
     val messageBus: MessageBus = mock[MessageBus]
 
@@ -198,9 +185,8 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @param msg the message to be sent
       */
-    def send(msg: Any): Unit = {
+    def send(msg: Any): Unit =
       actor receive msg
-    }
 
     /**
       * Makes the specified reorder service available to the test actor. The
@@ -210,10 +196,9 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param name    the name of the service
       * @return the probe representing the wrapping child actor
       */
-    def addReorderService(reorder: PlaylistReorderer, name: String): TestProbe = {
+    def addReorderService(reorder: PlaylistReorderer, name: String): TestProbe =
       send(ReorderManagerActor.AddReorderService(reorder, name))
       managedServices(reorder)
-    }
 
     /**
       * Tells the test actor that the specified reorder service is gone. The
@@ -222,10 +207,9 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param reorder the reorder service to be removed
       * @return the probe representing the wrapping child actor
       */
-    def removeReorderService(reorder: PlaylistReorderer): TestProbe = {
+    def removeReorderService(reorder: PlaylistReorderer): TestProbe =
       send(ReorderManagerActor.RemoveReorderService(reorder))
       managedServices.remove(reorder).get
-    }
 
     /**
       * Checks whether the specified message has been published on the
@@ -233,9 +217,8 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @param msg the expected message
       */
-    def expectMessageOnBus(msg: Any): Unit = {
+    def expectMessageOnBus(msg: Any): Unit =
       verify(messageBus).publish(msg)
-    }
 
     /**
       * Creates a ''Props'' object for creating a test actor instance. Here a
@@ -245,7 +228,7 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param bus the message bus
       * @return the ''Props'' for the test actor
       */
-    private def createProps(bus: MessageBus): Props = {
+    private def createProps(bus: MessageBus): Props =
       Props(new ReorderManagerActor(bus) with ChildActorFactory {
         override def createChildActor(p: Props): ActorRef = {
           p.actorClass() should be(classOf[ReorderActor])
@@ -257,7 +240,4 @@ class ReorderManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyste
           probe.ref
         }
       })
-    }
-  }
 
-}

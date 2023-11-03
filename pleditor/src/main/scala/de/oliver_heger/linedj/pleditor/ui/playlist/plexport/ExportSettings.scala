@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
 import scala.beans.BeanProperty
 
-object ExportSettings {
+object ExportSettings:
   /**
    * Constant for the clear mode ''nothing''. In this mode no files are removed
    * from the target medium. New files are just added, if a file with the name
@@ -41,7 +41,6 @@ object ExportSettings {
    * is cleared before the export files are written.
    */
   val ClearAll = 2
-}
 
 /**
  * A simple bean class that defines the parameters required for an export
@@ -50,11 +49,10 @@ object ExportSettings {
  * This class is used as bean class by the form for entering the settings for
  * an export.
  */
-class ExportSettings {
+class ExportSettings:
   /**
    * The directory in which the exported files are written.
    */
   @BeanProperty var targetDirectory: String = _
 
   @BeanProperty var clearMode = 0
-}

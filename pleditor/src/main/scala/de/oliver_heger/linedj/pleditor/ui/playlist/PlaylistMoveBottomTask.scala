@@ -23,7 +23,7 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * @param controller the ''PlaylistController''
   */
 class PlaylistMoveBottomTask(controller: PlaylistController) extends
-AbstractPlaylistMoveBorderTask(controller) {
+AbstractPlaylistMoveBorderTask(controller):
 
   /**
     * Returns a flag whether the manipulation represented by this object is
@@ -44,10 +44,9 @@ AbstractPlaylistMoveBorderTask(controller) {
     * @param partition the partition of the model
     */
   override protected def combinePartitions(context: PlaylistSelectionContext, partition: (List[
-    (AnyRef, Int)], List[(AnyRef, Int)])): Unit = {
+    (AnyRef, Int)], List[(AnyRef, Int)])): Unit =
     appendToModel(context, partition._2)
     appendToModel(context, partition._1)
-  }
 
   /**
     * Determines the next selection. This method is called after the playlist
@@ -58,8 +57,6 @@ AbstractPlaylistMoveBorderTask(controller) {
     * @return the array with the new selection
     */
   override protected def nextSelection(context: PlaylistSelectionContext, oldSelection: Set[Int])
-  : Array[Int] = {
+  : Array[Int] =
     val modelSize = context.tableHandler.getModel.size()
     (modelSize - oldSelection.size until modelSize).toArray
-  }
-}

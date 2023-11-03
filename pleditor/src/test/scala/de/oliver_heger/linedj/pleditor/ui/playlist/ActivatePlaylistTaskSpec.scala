@@ -30,7 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object ActivatePlaylistTaskSpec {
+object ActivatePlaylistTaskSpec:
   /** A test medium used by test songs. */
   private val TestMedium = MediumID("testMedium", None)
 
@@ -51,17 +51,16 @@ object ActivatePlaylistTaskSpec {
     */
   private def testSong(idx: Int): SongData =
     SongData(fileID(idx), MediaMetaData(), "title" + idx, "artist" + idx, "album" + idx)
-}
 
 /**
   * Test class for ''ActivatePlaylistTask''.
   */
-class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import ActivatePlaylistTaskSpec._
   import scala.jdk.CollectionConverters._
 
-  "An ActivatePlaylistTask" should "send a correct SetPlaylist message" in {
+  "An ActivatePlaylistTask" should "send a correct SetPlaylist message" in:
     val indices = List(1, 2, 4, 8, 11, 23)
     val model = new util.ArrayList[SongData](indices.size)
     model.addAll((indices map testSong).asJava)
@@ -74,9 +73,8 @@ class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSug
     val task = new ActivatePlaylistTask(plService, bus, model)
     task.run()
     verify(bus).publish(SetPlaylist(playlist))
-  }
 
-  it should "handle a None result of the playlist service" in {
+  it should "handle a None result of the playlist service" in:
     val model = new util.ArrayList[SongData]
     val plService = mock[PlaylistService[Playlist, MediaFileID]]
     val bus = mock[MessageBus]
@@ -85,5 +83,3 @@ class ActivatePlaylistTaskSpec extends AnyFlatSpec with Matchers with MockitoSug
     val task = new ActivatePlaylistTask(plService, bus, model)
     task.run()
     verifyNoInteractions(bus)
-  }
-}

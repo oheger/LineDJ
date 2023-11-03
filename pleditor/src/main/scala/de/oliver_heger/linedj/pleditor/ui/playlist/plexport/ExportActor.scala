@@ -23,15 +23,16 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import org.apache.pekko.pattern.pipe
 import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
+import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object ExportActor {
+object ExportActor:
 
   /**
    * An enumeration for describing the possible operations executed during an
@@ -42,7 +43,7 @@ object ExportActor {
    * be determined what happened, so that the user can be given a meaningful
    * error message.
    */
-  object OperationType extends Enumeration {
+  object OperationType extends Enumeration:
     /**
      * Type for a remove operation. This means that a specific file is removed
      * from the target medium.
@@ -54,7 +55,6 @@ object ExportActor {
      * from the server and copied into the target medium.
      */
     val Copy: OperationType.Value = Value
-  }
 
   /**
    * A message processed by [[ExportActor]] that defines a full export
@@ -136,13 +136,13 @@ object ExportActor {
     * therefore, the corresponding properties are undefined. This instance is
     * published on the message bus if the export operation cannot be started.
     */
-  val InitializationError = ExportResult(Some(ExportError(null, null)))
+  val InitializationError: ExportResult = ExportResult(Some(ExportError(null, null)))
 
   /**
     * Constant representing a successful result. This instance is published on
     * the message bus if the export operation has been successful.
     */
-  val ResultSuccess = ExportResult(error = None)
+  val ResultSuccess: ExportResult = ExportResult(error = None)
 
   /** Timeout to be used when fetching the media manager actor. */
   private [plexport] implicit val FetchActorTimeout: Timeout = Timeout(10.seconds)
@@ -167,11 +167,10 @@ object ExportActor {
    * @param data the data object describing the export
    * @return the export operations and the size of the files to be copied
    */
-  private[plexport] def initializeExportData(data: ExportData): (Seq[ExportOperation], Long) = {
+  private[plexport] def initializeExportData(data: ExportData): (Seq[ExportOperation], Long) =
     val targetPaths = generateTargetPaths(data.exportPath, data.songs)
     val copySongs = filterSongsNotToBeCopied(data, targetPaths)
-    (createOperations(data, copySongs),calculateTotalSize(copySongs.unzip._1))
-  }
+    (createOperations(data, copySongs),calculateTotalSize(copySongs.map(_._1)))
 
   /**
    * Creates a list with the operations to be executed during an export. The
@@ -183,14 +182,13 @@ object ExportActor {
    * @return a sequence with the single export operations
    */
   private def createOperations(data: ExportData, copySongs: Seq[(SongData, Path)])
-  : Seq[ExportOperation] = {
-    val buffer = if (data.clearTarget) createRemoveOperations(data.targetContent)
+  : Seq[ExportOperation] =
+    val buffer = if data.clearTarget then createRemoveOperations(data.targetContent)
     else ListBuffer.empty[ExportOperation]
     val copyOps = copySongs map { s => CopyOperation(s._1, s._2) }
     buffer ++= copyOps
 
     buffer.toList
-  }
 
   /**
    * Calculates the total number of bytes to be copied in an export operation.
@@ -209,29 +207,25 @@ object ExportActor {
    * @return the list of songs to be copied and their target paths
    */
   private def filterSongsNotToBeCopied(data: ExportData, songPaths: Seq[Path]): Seq[(SongData,
-    Path)] = {
+    Path)] =
     val songsWithPath = data.songs.zip(songPaths)
-    if (data.clearTarget || data.overrideFiles) songsWithPath
-    else {
+    if data.clearTarget || data.overrideFiles then songsWithPath
+    else
       val existingPaths = Map(data.targetContent.files.map(f => (f.path, f.size)): _*)
       songsWithPath.filterNot(s => existingPaths.contains(s._2) && existingPaths(s._2) == s._1.metaData.size)
-    }
-  }
 
   /**
    * Creates a list buffer with operations which clear the target medium.
    * @param scanResult the scan result
    * @return the buffer with remove operations
    */
-  private def createRemoveOperations(scanResult: ScanResult) : ListBuffer[ExportOperation] = {
+  private def createRemoveOperations(scanResult: ScanResult) : ListBuffer[ExportOperation] =
     val buffer = ListBuffer.empty[ExportOperation]
     buffer ++= scanResult.files.map(f => RemoveOperation(f.path))
-    if (scanResult.directories.nonEmpty) {
+    if scanResult.directories.nonEmpty then
       // The first directory is the output root directory
-      buffer ++= scanResult.directories.tail.reverse.map(RemoveOperation)
-    }
+      buffer ++= scanResult.directories.tail.reverse.map(RemoveOperation.apply)
     buffer
-  }
 
   /**
    * Generates a sequence with the paths for storing the songs to be copied.
@@ -239,10 +233,9 @@ object ExportActor {
    * @param songs the list of songs to be copied
    * @return a list with the corresponding target paths
    */
-  private def generateTargetPaths(exportPath: Path, songs: Seq[SongData]): Seq[Path] = {
+  private def generateTargetPaths(exportPath: Path, songs: Seq[SongData]): Seq[Path] =
     val digits = math.log10(math.max(songs.length, 100)).toInt + 1
     songs.zipWithIndex map (s => exportPath.resolve(generateTargetFileName(s, digits)))
-  }
 
   /**
    * Generates the name of a song file on the target medium.
@@ -267,11 +260,10 @@ object ExportActor {
    * @param uri the URI
    * @return the extension
    */
-  private def extractExtension(uri: String): String = {
+  private def extractExtension(uri: String): String =
     val dot = uri lastIndexOf '.'
-    if (dot > 0) uri substring dot
+    if dot > 0 then uri substring dot
     else ""
-  }
 
   /**
    * Generates the index of a song in the exported list with the given number
@@ -281,12 +273,10 @@ object ExportActor {
    * @param digits the number of digits
    * @return the formatted song index
    */
-  private def formatIndex(index: Int, digits: Int): String = {
+  private def formatIndex(index: Int, digits: Int): String =
     val sIdx = (index + 1).toString
-    if (sIdx.length >= digits) sIdx
+    if sIdx.length >= digits then sIdx
     else "".padTo(digits - sIdx.length, '0') + sIdx
-  }
-}
 
 /**
  * An actor class which exports a playlist.
@@ -309,7 +299,7 @@ object ExportActor {
  * @param progressSize size for sending progress notifications
  */
 class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
   import ExportActor._
@@ -346,7 +336,7 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
    *             request for the media manager remote actor.
    */
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
 
     import context.dispatcher
@@ -356,16 +346,14 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     removeFileActor = createChildActor(Props[RemoveFileActor]()
       .withDispatcher(ClientApplication.BlockingDispatcherName))
     context watch removeFileActor
-  }
 
   /**
    * The supervisor strategy. Here all failing children are stopped. An error
    * in a child actor means a failed operation. This causes the export to be
    * aborted.
    */
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case _: Exception => Stop
-  }
 
   override def receive: Receive = prepareReceive
 
@@ -375,7 +363,7 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
    * the export is actually started.
    * @return the function for handling messages in the preparation phase
    */
-  private def prepareReceive: Receive = {
+  private def prepareReceive: Receive =
     case MediaManagerFetched(actor) =>
       copyFileActor = createChildActor(CopyFileActor(self, actor, chunkSize, progressSize)
         .withDispatcher(ClientApplication.BlockingDispatcherName))
@@ -396,13 +384,12 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
 
     case CancelExport =>
       completeExport()
-  }
 
   /**
    * Returns a ''Receive'' function which is active during an export.
    * @return the function for handling messages during a running export
    */
-  private def exportReceive: Receive = {
+  private def exportReceive: Receive =
     case RemoveFileActor.FileRemoved(path) if checkCurrentOperation(OperationType.Remove, path) =>
       sendFeedbackAndContinueExport()
 
@@ -422,28 +409,24 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     case _: Terminated =>
       completeExport(ExportResult(Some(ExportError(currentOperation.affectedPath,
         currentOperation.operationType))))
-  }
 
   /**
    * Starts the export operation if all required data is available.
    */
-  private def startExportIfPossible(): Unit = {
-    if (exportData != null && copyFileActor != null) {
+  private def startExportIfPossible(): Unit =
+    if exportData != null && copyFileActor != null then
       continueExport()
       context become exportReceive
-    }
-  }
 
   /**
    * Sends a feedback message about the current state of the export operation
    * via the message bus and then continues the export.
    */
-  private def sendFeedbackAndContinueExport(): Unit = {
+  private def sendFeedbackAndContinueExport(): Unit =
     currentSize += currentOperation.processedSize
     currentOperationIndex += 1
     publish(createProgressMessage(currentSize, currentOperationIndex))
     continueExport()
-  }
 
   /**
    * Creates a message about the progress of the current export operation.
@@ -451,30 +434,26 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
    * @param progressOpIdx the index of the current operation
    * @return the progress message
    */
-  private def createProgressMessage(progressSize: Long, progressOpIdx: Int): ExportProgress = {
+  private def createProgressMessage(progressSize: Long, progressOpIdx: Int): ExportProgress =
     ExportProgress(totalOperations = totalExportOperations,
       totalSize = totalSize, currentOperation = progressOpIdx, currentSize = progressSize,
       currentPath = currentOperation.affectedPath, operationType = currentOperation.operationType)
-  }
 
   /**
    * Invokes the next operation in the current export.
    */
-  private def continueExport(): Unit = {
-    def invoke(actor: ActorRef, msg: Option[Any]): Unit = {
+  private def continueExport(): Unit =
+    def invoke(actor: ActorRef, msg: Option[Any]): Unit =
       msg.foreach(actor ! _)
-    }
 
-    if (exportOperations.isEmpty) {
+    if exportOperations.isEmpty then
       completeExport()
-    } else {
+    else
       val op = exportOperations.head
       invoke(removeFileActor, op.getRemoveMessage)
       invoke(copyFileActor, op.getCopyMessage)
       exportOperations = exportOperations.tail
       currentOperation = op
-    }
-  }
 
   /**
     * Performs actions for completing an export operation. This method is called
@@ -482,10 +461,9 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
     *
     * @param result the result message to publish on the message bus
     */
-  private def completeExport(result: ExportResult = ResultSuccess): Unit = {
+  private def completeExport(result: ExportResult = ResultSuccess): Unit =
     publish(result)
     context become Actor.emptyBehavior
-  }
 
   /**
    * Checks whether the current operation has the specified properties. This is
@@ -502,10 +480,8 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
    * Publishes the specified message on the message bus.
    * @param msg the message to be published
    */
-  private def publish(msg: Any): Unit = {
+  private def publish(msg: Any): Unit =
     mediaFacade.bus publish msg
-  }
-}
 
 /**
  * A trait defining a single (file-based) operation that is done during an
@@ -516,7 +492,7 @@ class ExportActor(mediaFacade: MediaFacade, chunkSize: Int, progressSize: Int)
  * operation. Before an export actually starts, a list of such operations is
  * generated. This is then processed by the export actor step by step.
  */
-private trait ExportOperation {
+private trait ExportOperation:
   /**
    * The path which is affected by this operation (on the target medium). This
    * path can be displayed to the end user, e.g. as a feedback what is
@@ -549,7 +525,6 @@ private trait ExportOperation {
    * @return the number of bytes processed by this operation
    */
   def processedSize: Long
-}
 
 /**
  * A specialized export operation for downloading and copying a file.
@@ -558,8 +533,8 @@ private trait ExportOperation {
  * @param affectedPath the target path
  */
 private case class CopyOperation(affectedSong: SongData, override val affectedPath: Path) extends
-ExportOperation {
-  override val operationType = ExportActor.OperationType.Copy
+ExportOperation:
+  override val operationType: ExportActor.OperationType.Value = ExportActor.OperationType.Copy
 
   override def getCopyMessage: Option[Any] =
     Some(CopyFileActor.CopyMediumFile(MediumFileRequest(affectedSong.id,
@@ -569,15 +544,14 @@ ExportOperation {
    * @inheritdoc This implementation returns the size of the affected file.
    */
   override def processedSize: Long = affectedSong.metaData.size
-}
 
 /**
  * A specialized export operation for removing a file on the target medium.
  *
  * @param affectedPath the path to be removed
  */
-private case class RemoveOperation(override val affectedPath: Path) extends ExportOperation {
-  override val operationType = ExportActor.OperationType.Remove
+private case class RemoveOperation(override val affectedPath: Path) extends ExportOperation:
+  override val operationType: ExportActor.OperationType.Value = ExportActor.OperationType.Remove
 
   override def getRemoveMessage: Option[Any] =
     Some(RemoveFileActor.RemoveFile(affectedPath))
@@ -587,4 +561,3 @@ private case class RemoveOperation(override val affectedPath: Path) extends Expo
    *             implementation always returns 0.
    */
   override def processedSize: Long = 0
-}

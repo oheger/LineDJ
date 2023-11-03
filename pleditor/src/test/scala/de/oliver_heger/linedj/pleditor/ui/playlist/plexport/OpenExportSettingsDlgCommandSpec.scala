@@ -31,7 +31,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object OpenExportSettingsDlgCommandSpec {
+object OpenExportSettingsDlgCommandSpec:
   /** A test locator. */
   private val Locator = URLLocator getInstance "http://www.test.org"
 
@@ -43,35 +43,31 @@ object OpenExportSettingsDlgCommandSpec {
    * @param index the index to derive properties from
    * @return the test song data object
    */
-  private def createSongData(index: Int): SongData = {
+  private def createSongData(index: Int): SongData =
     val title = "Song " + index
     SongData(MediaFileID(MediumID("Medium" + index, None), "song://TestSong" + index),
       MediaMetaData(title = Some(title)), title, null, null)
-  }
-}
 
 /**
  * Test class for ''OpenExportSettingsDlgCommand''.
  */
-class OpenExportSettingsDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class OpenExportSettingsDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import OpenExportSettingsDlgCommandSpec._
 
-  "An OpenExportSettingsDlgCommand" should "pass its locator to the super class" in {
+  "An OpenExportSettingsDlgCommand" should "pass its locator to the super class" in:
     val command = new OpenExportSettingsDlgCommand(Locator, mock[PlaylistEditorConfig], ExportSongs)
 
     command.getLocator should be(Locator)
-  }
 
-  it should "initialize the builder data with the songs to be exported" in {
+  it should "initialize the builder data with the songs to be exported" in:
     val builderData = mock[ApplicationBuilderData]
     val command = new OpenExportSettingsDlgCommand(Locator, mock[PlaylistEditorConfig], ExportSongs)
 
     command prepareBuilderData builderData
     verify(builderData).addProperty("exportSongs", ExportSongs)
-  }
 
-  it should "initialize the builder data with export settings" in {
+  it should "initialize the builder data with export settings" in:
     val builderData = mock[ApplicationBuilderData]
     val config = mock[PlaylistEditorConfig]
     val ExportPath = "export/path"
@@ -83,7 +79,5 @@ class OpenExportSettingsDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
     command prepareBuilderData builderData
     val captor = ArgumentCaptor.forClass(classOf[ExportSettings])
     verify(builderData).addProperty(argEq("exportSettings"), captor.capture())
-    captor.getValue.getClearMode() should be(ClearMode)
-    captor.getValue.getTargetDirectory() should be(ExportPath)
-  }
-}
+    captor.getValue.clearMode should be(ClearMode)
+    captor.getValue.targetDirectory should be(ExportPath)

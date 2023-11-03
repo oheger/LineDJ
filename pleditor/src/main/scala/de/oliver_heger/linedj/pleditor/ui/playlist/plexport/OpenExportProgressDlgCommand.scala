@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
 
-object OpenExportProgressDlgCommand {
+object OpenExportProgressDlgCommand:
   /**
    * The name of the property under which the export data is stored in the
    * bean context.
@@ -34,7 +34,6 @@ object OpenExportProgressDlgCommand {
 
   /** Constant for an empty scan result. */
   private val EmptyScanResult = ScanResult(Nil, Nil)
-}
 
 /**
  * A specialized command for opening the dialog which displays the progress of
@@ -53,27 +52,25 @@ object OpenExportProgressDlgCommand {
  */
 class OpenExportProgressDlgCommand(scriptLocator: Locator, settings: ExportSettings, exportSongs:
 java.util.List[SongData], scanner: DirectoryScanner)
-  extends OpenWindowCommand(scriptLocator) {
+  extends OpenWindowCommand(scriptLocator):
 
   import OpenExportProgressDlgCommand._
 
-  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
 
     builderData.addProperty(PropExportData, createExportData())
-  }
 
   /**
    * Creates the ''ExportData'' object to be passed to the export controller.
    * @return the ''ExportData''
    */
-  private def createExportData(): ExportData = {
+  private def createExportData(): ExportData =
     import scala.jdk.CollectionConverters._
     val exportPath = Paths get settings.targetDirectory
     ExportActor.ExportData(exportSongs.asScala.toSeq, scanIfNecessary(exportPath), exportPath, clearTarget =
       settings.clearMode == ExportSettings.ClearAll,
       overrideFiles = settings.clearMode == ExportSettings.ClearOverride)
-  }
 
   /**
    * Scans the target directory if this is required. Note: If parsing fails, an
@@ -83,13 +80,10 @@ java.util.List[SongData], scanner: DirectoryScanner)
    * @param path the path to be scanned
    * @return the result of the scan operation
    */
-  private def scanIfNecessary(path: Path): ScanResult = {
-    if (settings.clearMode != ExportSettings.ClearOverride) {
-      try {
+  private def scanIfNecessary(path: Path): ScanResult =
+    if settings.clearMode != ExportSettings.ClearOverride then
+      try
         scanner scan path
-      } catch {
+      catch
         case _: IOException => EmptyScanResult
-      }
-    } else EmptyScanResult
-  }
-}
+    else EmptyScanResult

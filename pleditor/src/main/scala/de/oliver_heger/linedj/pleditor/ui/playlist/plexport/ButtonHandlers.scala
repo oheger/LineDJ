@@ -41,17 +41,14 @@ import net.sf.jguiraffe.gui.forms.ComponentHandler
   * @param settings   the object with settings data
   */
 class SetDefaultSettingsHandler(controller: FormController, config: PlaylistEditorConfig, settings:
-ExportSettings) extends FormActionListener {
+ExportSettings) extends FormActionListener:
   /**
     * @inheritdoc This method gets called when the monitored button is clicked.
     */
-  override def actionPerformed(formActionEvent: FormActionEvent): Unit = {
-    if (controller.validateAndDisplayMessages().isValid) {
+  override def actionPerformed(formActionEvent: FormActionEvent): Unit =
+    if controller.validateAndDisplayMessages().isValid then
       config.exportClearMode = settings.clearMode
       config.exportPath = settings.targetDirectory
-    }
-  }
-}
 
 /**
   * An event listener class that reacts on the button to select the export
@@ -67,24 +64,19 @@ ExportSettings) extends FormActionListener {
   */
 class ChooseExportDirectoryHandler(controller: FormController,
                                    chooserService: FileChooserDialogService,
-                                   textDir: ComponentHandler[String]) extends FormActionListener {
-  override def actionPerformed(e: FormActionEvent): Unit = {
-    val callback = new DialogResultCallback[File, Void] {
-      override def onDialogResult(result: File, d: Void): Unit = {
+                                   textDir: ComponentHandler[String]) extends FormActionListener:
+  override def actionPerformed(e: FormActionEvent): Unit =
+    val callback = new DialogResultCallback[File, Void]:
+      override def onDialogResult(result: File, d: Void): Unit =
         directorySelected(controller, textDir, result)
-      }
-    }
     val currentDir = textDir.getData
     val options = new DirectoryChooserOptions(callback)
       .setTitleResource("exp_directorydlg_title")
-    if (currentDir != null && currentDir.length > 0) {
+    if currentDir != null && currentDir.length > 0 then
       val initDir = new File(currentDir)
-      if (initDir.isDirectory) {
+      if initDir.isDirectory then
         options.setInitialDirectory(initDir)
-      }
-    }
     chooserService.showChooseDirectoryDialog(options)
-  }
 
   /**
     * Processes the result of the directory selection dialog. The path of the
@@ -96,8 +88,6 @@ class ChooseExportDirectoryHandler(controller: FormController,
     * @param directory  the directory selected by the user
     */
   private def directorySelected(controller: FormController, textDir: ComponentHandler[String],
-                                directory: File): Unit = {
+                                directory: File): Unit =
     textDir setData directory.getAbsolutePath
     controller.validateAndDisplayMessages()
-  }
-}

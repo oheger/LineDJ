@@ -23,18 +23,14 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''AbstractPlaylistManipulationTask''.
   */
-class AbstractPlaylistManipulationTaskSpec extends AnyFlatSpec with MockitoSugar {
-  "An AbstractPlaylistManipulationTask" should "trigger a playlist update" in {
+class AbstractPlaylistManipulationTaskSpec extends AnyFlatSpec with MockitoSugar:
+  "An AbstractPlaylistManipulationTask" should "trigger a playlist update" in:
     val controller = mock[PlaylistController]
-    val task = new AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
-      override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+    val task = new AbstractPlaylistManipulationTask(controller) with PlaylistManipulator:
+      override def updatePlaylist(context: PlaylistSelectionContext): Unit =
         fail("Unexpected invocation!")
-      }
 
       override def isEnabled(context: PlaylistSelectionContext): Boolean = true
-    }
 
     task.run()
     verify(controller).updatePlaylist(task)
-  }
-}

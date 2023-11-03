@@ -23,7 +23,7 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * @param controller the ''PlaylistController''
   */
 class PlaylistMoveTopTask(controller: PlaylistController) extends
-AbstractPlaylistMoveBorderTask(controller) with PlaylistManipulator {
+AbstractPlaylistMoveBorderTask(controller) with PlaylistManipulator:
 
   /**
     * @inheritdoc This implementation returns '''true''' if and only if there
@@ -37,10 +37,9 @@ AbstractPlaylistMoveBorderTask(controller) with PlaylistManipulator {
     *             the unselected part.
     */
   override protected def combinePartitions(context: PlaylistSelectionContext, partition: (List[
-    (AnyRef, Int)], List[(AnyRef, Int)])): Unit = {
+    (AnyRef, Int)], List[(AnyRef, Int)])): Unit =
     appendToModel(context, partition._1)
     appendToModel(context, partition._2)
-  }
 
   /**
     * @inheritdoc This implementation returns a selection with comprises all
@@ -48,4 +47,3 @@ AbstractPlaylistMoveBorderTask(controller) with PlaylistManipulator {
     */
   override protected def nextSelection(context: PlaylistSelectionContext, oldSelection: Set[Int])
   : Array[Int] = (0 until oldSelection.size).toArray
-}

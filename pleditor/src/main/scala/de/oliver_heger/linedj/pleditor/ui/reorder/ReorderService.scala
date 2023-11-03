@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 
+import scala.collection.immutable.Seq
 import scala.concurrent.Future
 
 /**
@@ -27,7 +28,7 @@ import scala.concurrent.Future
   * This trait defines a couple of methods used within the playlist editor
   * application to reorder parts of the current playlist.
   */
-trait ReorderService {
+trait ReorderService:
   /**
     * Obtains information about the currently available reorder services. This
     * is fetched asynchronously.
@@ -47,4 +48,3 @@ trait ReorderService {
     * @param startIdx the index of the first song in the playlist
     */
   def reorder(service: PlaylistReorderer, songs: Seq[SongData], startIdx: Int): Unit
-}

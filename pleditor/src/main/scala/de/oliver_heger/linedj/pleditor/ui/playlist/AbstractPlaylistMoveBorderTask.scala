@@ -26,14 +26,14 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * @param controller the ''PlaylistController''
   */
 abstract class AbstractPlaylistMoveBorderTask(controller: PlaylistController) extends
-AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
+AbstractPlaylistManipulationTask(controller) with PlaylistManipulator:
   /**
     * @inheritdoc This implementation creates a partition of the table model
     *             consisting of selected and not selected elements. Concrete
     *             subclasses are passed the partitions and can decide in
     *             which order they have to be concatenated.
     */
-  override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+  override def updatePlaylist(context: PlaylistSelectionContext): Unit =
     import scala.jdk.CollectionConverters._
     val selection = context.selectedIndices.toSet
     val model = context.tableHandler.getModel
@@ -44,7 +44,6 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     combinePartitions(context, partition)
     context.tableHandler.tableDataChanged()
     context.tableHandler setSelectedIndices nextSelection(context, selection)
-  }
 
   /**
     * Appends the given list with items to the playlist table model.
@@ -52,10 +51,9 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     * @param part the part of the playlist to be appended
     */
   protected def appendToModel(context: PlaylistSelectionContext, part: List[(AnyRef, Int)]): Unit
-  = {
+  =
     val model = context.tableHandler.getModel
     part foreach (e => model.add(e._1))
-  }
 
   /**
     * Combines the partitions of the original model in the correct order. This
@@ -77,4 +75,3 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     * @return the array with the new selection
     */
   protected def nextSelection(context: PlaylistSelectionContext, oldSelection: Set[Int]): Array[Int]
-}

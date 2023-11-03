@@ -24,12 +24,12 @@ import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
 import net.sf.jguiraffe.gui.forms.ComponentHandler
 
+import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object ReorderController {
+object ReorderController:
   /** The command key for the OK button. */
   private val CommandOK = "OK"
-}
 
 /**
   * The controller class for a dialog allowing the user to reorder parts of the
@@ -49,7 +49,7 @@ object ReorderController {
 class ReorderController(listHandler: ListComponentHandler, buttonHandler: ComponentHandler[_],
                         reorderService: ReorderService, sync: GUISynchronizer,
                         songs: Seq[SongData], startIndex: Int)
-  extends WindowListener with FormActionListener with FormChangeListener {
+  extends WindowListener with FormActionListener with FormChangeListener:
   import ReorderController._
 
   /** Stores the window associated with this controller. */
@@ -72,17 +72,14 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     *             available reorder services. When the response arrives the
     *             list model is updated.
     */
-  override def windowOpened(windowEvent: WindowEvent): Unit = {
+  override def windowOpened(windowEvent: WindowEvent): Unit =
     window = WindowUtils windowFromEvent windowEvent
     buttonHandler setEnabled false
     reorderService.loadAvailableReorderServices() foreach { list =>
-      sync.asyncInvoke(new Runnable {
-        override def run(): Unit = {
-          fillListModel(list)
-        }
+      sync.asyncInvoke(() => {
+        fillListModel(list)
       })
     }
-  }
 
   /**
     * Reacts on a click on one of the buttons. For the OK button the selected
@@ -91,13 +88,11 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     *
     * @param formActionEvent the action event
     */
-  override def actionPerformed(formActionEvent: FormActionEvent): Unit = {
-    if (CommandOK == formActionEvent.getCommand) {
+  override def actionPerformed(formActionEvent: FormActionEvent): Unit =
+    if CommandOK == formActionEvent.getCommand then
       val service = listHandler.getData.asInstanceOf[PlaylistReorderer]
       reorderService.reorder(service, songs, startIndex)
-    }
     window.close(true)
-  }
 
   /**
     * Reacts on changes of the list selection. Depending on the presence of a
@@ -105,9 +100,8 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     *
     * @param formChangeEvent the change event
     */
-  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit =
     buttonHandler.setEnabled(listHandler.getData != null)
-  }
 
   /**
     * Fills the model of the list component with the specified services.
@@ -115,7 +109,7 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     * @param list the list with information about reorder services
     * @return a flag whether there is at least one service to choose
     */
-  private def fillListModel(list: Seq[(PlaylistReorderer, String)]): Boolean = {
+  private def fillListModel(list: Seq[(PlaylistReorderer, String)]): Boolean =
     val sortedList = list.sortWith(_._2 < _._2)
     sortedList.zipWithIndex.foreach { e =>
       val index = e._2
@@ -125,5 +119,3 @@ class ReorderController(listHandler: ListComponentHandler, buttonHandler: Compon
     }
     sortedList.headOption foreach (listHandler setData _._1)
     list.nonEmpty
-  }
-}

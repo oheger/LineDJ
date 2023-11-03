@@ -31,7 +31,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object OpenExportProgressDlgCommandSpec {
+object OpenExportProgressDlgCommandSpec:
   /** A test locator. */
   private val Locator = URLLocator getInstance "http://www.test.org/progress_dlg.tst"
 
@@ -56,33 +56,30 @@ object OpenExportProgressDlgCommandSpec {
    * @param index the index to derive properties from
    * @return the test song data object
    */
-  private def createSongData(index: Int): SongData = {
+  private def createSongData(index: Int): SongData =
     val title = "Song " + index
     SongData(MediaFileID(MediumID("Medium" + index, None), "song://TestSong" + index),
       MediaMetaData(title = Some(title)), title, null, null)
-  }
 
   /**
    * Creates a settings object with the specified clear mode.
    * @param clearMode the clear mode
    * @return the settings object
    */
-  private def createSettings(clearMode: Int): ExportSettings = {
+  private def createSettings(clearMode: Int): ExportSettings =
     val settings = new ExportSettings
-    settings setTargetDirectory ExportDirectoryName
-    settings setClearMode clearMode
+    settings.targetDirectory = ExportDirectoryName
+    settings.clearMode = clearMode
     settings
-  }
 
   /**
    * Creates a test ''ScanResult'' object.
    * @return the scan result
    */
-  private def createScanResult(): ScanResult = {
+  private def createScanResult(): ScanResult =
     val dirs = List("dir1", "otherDir") map path
     val files = List("song1.mp3", "lala.mp3", "dumdum.ogg") map (s => FileData(path(s), 100))
     ScanResult(directories = dirs, files = files)
-  }
 
   /**
    * Helper function for creating an ''ExportData'' object.
@@ -92,28 +89,25 @@ object OpenExportProgressDlgCommandSpec {
    * @return the generated data object
    */
   private def exportData(scanResult: ScanResult, clearTarget: Boolean, overrideFiles: Boolean):
-  ExportActor.ExportData = {
+  ExportActor.ExportData =
     import scala.jdk.CollectionConverters._
     ExportActor.ExportData(songs = ExportSongs.asScala.toSeq, targetContent = scanResult, exportPath =
       ExportPath, clearTarget, overrideFiles)
-  }
-}
 
 /**
  * Test class for ''OpenExportProgressDlgCommand''.
  */
-class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import OpenExportProgressDlgCommandSpec._
 
-  "An OpenExportProgressDlgCommand" should "pass the script locator to the base class" in {
+  "An OpenExportProgressDlgCommand" should "pass the script locator to the base class" in:
     val command = new OpenExportProgressDlgCommand(Locator, createSettings(ExportSettings
       .ClearAll), ExportSongs, mock[DirectoryScanner])
 
     command.getLocator should be(Locator)
-  }
 
-  it should "produce an ExportData object if the target directory does not have to be scanned" in {
+  it should "produce an ExportData object if the target directory does not have to be scanned" in:
     val builderData = mock[ApplicationBuilderData]
     val scanner = mock[DirectoryScanner]
     val settings = createSettings(ExportSettings.ClearOverride)
@@ -123,7 +117,6 @@ class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
     val expData = exportData(ScanResult(Nil, Nil), clearTarget = false, overrideFiles = true)
     verifyNoInteractions(scanner)
     verify(builderData).addProperty("exportData", expData)
-  }
 
   /**
    * Helper method for checking the generated ExportData if the target
@@ -133,7 +126,7 @@ class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
    * @param overrideFiles expected override files flag
    */
   private def checkExportDataWithScan(clearMode: Int, clearTarget: Boolean, overrideFiles:
-  Boolean): Unit = {
+  Boolean): Unit =
     val builderData = mock[ApplicationBuilderData]
     val scanner = mock[DirectoryScanner]
     val scanResult = createScanResult()
@@ -144,17 +137,14 @@ class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
     command prepareBuilderData builderData
     val expData = exportData(scanResult, clearTarget, overrideFiles)
     verify(builderData).addProperty("exportData", expData)
-  }
 
-  it should "produce an ExportData object for clear mode ClearAll" in {
+  it should "produce an ExportData object for clear mode ClearAll" in:
     checkExportDataWithScan(ExportSettings.ClearAll, clearTarget = true, overrideFiles = false)
-  }
 
-  it should "produce an ExportData object for clear mode ClearNothing" in {
+  it should "produce an ExportData object for clear mode ClearNothing" in:
     checkExportDataWithScan(ExportSettings.ClearNothing, clearTarget = false, overrideFiles = false)
-  }
 
-  it should "handle an exception thrown by the scanner" in {
+  it should "handle an exception thrown by the scanner" in:
     val builderData = mock[ApplicationBuilderData]
     val scanner = mock[DirectoryScanner]
     when(scanner.scan(ExportPath)).thenThrow(new IOException("TestException"))
@@ -164,5 +154,3 @@ class OpenExportProgressDlgCommandSpec extends AnyFlatSpec with Matchers with Mo
     command prepareBuilderData builderData
     val expData = exportData(ScanResult(Nil, Nil), clearTarget = true, overrideFiles = false)
     verify(builderData).addProperty("exportData", expData)
-  }
-}

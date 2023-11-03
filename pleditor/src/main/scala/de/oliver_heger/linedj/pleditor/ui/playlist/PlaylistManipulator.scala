@@ -24,7 +24,7 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * [[PlaylistController]] defines a method which accepts a
   * ''PlaylistManipulator'' and executes it on the current playlist.
   */
-trait PlaylistManipulator {
+trait PlaylistManipulator:
   /**
     * Updates the playlist managed by the given ''TableHandler''. Concrete
     * implementations can access the handler's table model and manipulate it.
@@ -42,4 +42,3 @@ trait PlaylistManipulator {
     * @return a flag whether this manipulation is available
     */
   def isEnabled(context: PlaylistSelectionContext): Boolean
-}

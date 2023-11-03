@@ -23,24 +23,22 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * @param controller the ''PlaylistController''
   */
 class PlaylistMoveDownTask(controller: PlaylistController) extends
-AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
+AbstractPlaylistManipulationTask(controller) with PlaylistManipulator:
 
   /**
     * @inheritdoc This implementation swaps all selected elements with their
     *             successors.
     */
-  override def updatePlaylist(context: PlaylistSelectionContext): Unit = {
+  override def updatePlaylist(context: PlaylistSelectionContext): Unit =
     val model = context.tableHandler.getModel
     val orderIndices = context.selectedIndices sortWith (_ > _)
-    for (idx <- orderIndices) {
+    for idx <- orderIndices do
       val t = model.get(idx + 1)
       model.set(idx + 1, model.get(idx))
       model.set(idx, t)
-    }
     context.tableHandler.rowsUpdated(context.minimumSelectionIndex,
       context.maximumSelectionIndex + 1)
     context.tableHandler.setSelectedIndices(context.selectedIndices map (_ + 1))
-  }
 
   /**
     * @inheritdoc This implementation returns '''true''' if and only if there
@@ -48,4 +46,3 @@ AbstractPlaylistManipulationTask(controller) with PlaylistManipulator {
     */
   override def isEnabled(context: PlaylistSelectionContext): Boolean =
     context.hasSelection && !context.isLastElementSelected
-}

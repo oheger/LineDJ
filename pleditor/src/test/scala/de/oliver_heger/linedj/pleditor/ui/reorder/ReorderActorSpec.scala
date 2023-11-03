@@ -25,16 +25,17 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.collection.immutable.Seq
+
 /**
   * Test class for ''ReorderActor''.
   */
 class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with MockitoSugar:
   def this() = this(ActorSystem("ReorderActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates a sequence of test songs of the given length.
@@ -44,7 +45,7 @@ class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   def createSongs(count: Int): Seq[SongData] =
     (1 to count) map (_ => mock[SongData])
 
-  "A ReorderActor" should "handle a reorder request" in {
+  "A ReorderActor" should "handle a reorder request" in:
     val reorder = mock[PlaylistReorderer]
     val songs = createSongs(8)
     val orderedSongs = createSongs(7)
@@ -54,5 +55,3 @@ class ReorderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 
     actor ! request
     expectMsg(ReorderActor.ReorderResponse(orderedSongs, request))
-  }
-}

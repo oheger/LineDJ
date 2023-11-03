@@ -34,46 +34,42 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object ReorderManagerComponentSpec {
+object ReorderManagerComponentSpec:
   /** A name for a test reorder service. */
   private val ServiceName = "ReorderServiceTestName"
-}
 
 /**
   * Test class for ''ReorderManagerComponent''.
   */
 class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ReorderManagerComponentSpec._
 
   def this() = this(ActorSystem("ReorderManagerComponentSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates a mock reorder service.
     *
     * @return the mock service
     */
-  private def createReorderService(): PlaylistReorderer = {
+  private def createReorderService(): PlaylistReorderer =
     val service = mock[PlaylistReorderer]
     when(service.name).thenReturn(ServiceName)
     service
-  }
 
-  "A ReorderManagerComponent" should "report new services to the management actor" in {
+  "A ReorderManagerComponent" should "report new services to the management actor" in:
     val reorder = createReorderService()
     val helper = new ReorderManagerComponentTestHelper
 
     helper.component reorderServiceAdded reorder
     helper.reorderManagerActor.expectMsg(ReorderManagerActor.AddReorderService(reorder,
       ServiceName))
-  }
 
-  it should "ignore new services that fail when asked for their name" in {
+  it should "ignore new services that fail when asked for their name" in:
     val reorder = mock[PlaylistReorderer]
     when(reorder.name).thenThrow(new RuntimeException("Test exception"))
     val helper = new ReorderManagerComponentTestHelper
@@ -82,17 +78,15 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     val ping = "Ping" // test that no other message was sent
     helper.reorderManagerActor.ref ! ping
     helper.reorderManagerActor.expectMsg(ping)
-  }
 
-  it should "report removed services to the management actor" in {
+  it should "report removed services to the management actor" in:
     val reorder = createReorderService()
     val helper = new ReorderManagerComponentTestHelper
 
     helper.component reorderServiceRemoved reorder
     helper.reorderManagerActor.expectMsg(ReorderManagerActor.RemoveReorderService(reorder))
-  }
 
-  it should "stop the management actor when the component gets deactivated" in {
+  it should "stop the management actor when the component gets deactivated" in:
     val context = mock[ComponentContext]
     val helper = new ReorderManagerComponentTestHelper
 
@@ -101,9 +95,8 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     val watcher = TestProbe()
     watcher watch helper.reorderManagerActor.ref
     watcher.expectMsgType[Terminated]
-  }
 
-  it should "implement the loadAvailableReorderServices() method" in {
+  it should "implement the loadAvailableReorderServices() method" in:
     val serviceList = List((mock[PlaylistReorderer], ServiceName), (mock[PlaylistReorderer],
       "other"))
     val props = Props(new Actor {
@@ -117,9 +110,8 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
 
     val future = helper.component.loadAvailableReorderServices()
     Await.result(future, 5.seconds) should be(serviceList)
-  }
 
-  it should "implement the reorder() method" in {
+  it should "implement the reorder() method" in:
     val reorder = createReorderService()
     val songs = List(mock[SongData], mock[SongData])
     val startIndex = 8
@@ -128,7 +120,6 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.component.reorder(reorder, songs, startIndex)
     helper.reorderManagerActor.expectMsg(ReorderManagerActor.ReorderServiceInvocation(reorder,
       ReorderActor.ReorderRequest(songs, startIndex)))
-  }
 
   /**
     * A test helper class collecting all dependent objects.
@@ -137,7 +128,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     *                        actor factory
     */
   class ReorderManagerComponentTestHelper(optManagerActor: Option[ActorRef] = None) extends
-    ActorFactory(system) {
+    ActorFactory(system):
     /** The application context. */
     val context: ClientApplicationContext = createClientApplicationContext()
 
@@ -156,28 +147,23 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
       * @inheritdoc This implementation allows creating exactly one management
       *             actor. The test probe is returned.
       */
-    override def createActor(props: Props, name: String): ActorRef = {
+    override def createActor(props: Props, name: String): ActorRef =
       props should be(ReorderManagerActor(context.messageBus))
       name should be("ReorderManagerActor")
-      if (factoryCount.incrementAndGet() > 1) {
+      if factoryCount.incrementAndGet() > 1 then
         fail("Too many invocations of actor factory!")
-      }
       optManagerActor getOrElse reorderManagerActor.ref
-    }
 
     /**
       * Creates a mock for the client application context.
       *
       * @return the mock context
       */
-    private def createClientApplicationContext(): ClientApplicationContext = {
+    private def createClientApplicationContext(): ClientApplicationContext =
       val context = mock[ClientApplicationContext]
       val bus = mock[MessageBus]
       when(context.messageBus).thenReturn(bus)
       when(context.actorFactory).thenReturn(this)
       when(context.actorSystem).thenReturn(system)
       context
-    }
-  }
 
-}

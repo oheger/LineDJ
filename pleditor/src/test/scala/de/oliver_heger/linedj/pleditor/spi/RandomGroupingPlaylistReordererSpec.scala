@@ -23,8 +23,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Seq
 
-object RandomGroupingPlaylistReordererSpec {
+object RandomGroupingPlaylistReordererSpec:
   /** A sequence with test songs. */
   private val Songs = createSongs()
 
@@ -49,21 +50,19 @@ object RandomGroupingPlaylistReordererSpec {
     * @param orderedSongs the ordered songs
     * @return the results of the evaluation
     */
-  private def evalSongs(orderedSongs: Seq[SongData]): (String, String, Boolean) = {
+  private def evalSongs(orderedSongs: Seq[SongData]): (String, String, Boolean) =
     val state = ("_", "", true)
     orderedSongs.foldLeft(state) { (state, song) =>
       val title = song.title
-      if (title.head != state._1.last)
+      if title.head != state._1.last then
         (state._1 + title.head, "", state._3)
       else (state._1, title, state._3 && state._2 < title)
     }
-  }
-}
 
 /**
   * Test class for ''RandomGroupingPlaylistReorderer''.
   */
-class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
+class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers:
 
   import RandomGroupingPlaylistReordererSpec._
 
@@ -74,7 +73,7 @@ class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
     * @return the test object
     */
   private def createReorder(): RandomGroupingPlaylistReorderer[Char] =
-    new RandomGroupingPlaylistReorderer[Char] {
+    new RandomGroupingPlaylistReorderer[Char]:
 
       override val groupOrdering: Ordering[SongData] =
         (x: SongData, y: SongData) => x.title compareTo y.getTitle()
@@ -82,7 +81,6 @@ class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
       override val resourceBundleBaseName: String = "Irrelevant"
 
       override def groupSong(s: SongData): Char = s.getTitle().head
-    }
 
   /**
     * Reorders the test songs using a test instance and evaluates the outcome.
@@ -92,32 +90,25 @@ class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers {
   private def reorderAndEvalSongs(): (String, String, Boolean) =
     evalSongs(createReorder() reorder Songs)
 
-  "A RandomGroupingPlaylistReorderer" should "return a seq with the same elements" in {
+  "A RandomGroupingPlaylistReorderer" should "return a seq with the same elements" in:
     createReorder() reorder Songs should contain theSameElementsAs Songs
-  }
 
-  it should "use the correct ordering within the groups" in {
+  it should "use the correct ordering within the groups" in:
     val (_, _, ordered) = reorderAndEvalSongs()
     ordered shouldBe true
-  }
 
-  it should "correctly group songs" in {
+  it should "correctly group songs" in:
     val (groups, _, _) = reorderAndEvalSongs()
     groups should have length 4
-  }
 
-  it should "generate a random order" in {
+  it should "generate a random order" in:
     val reorder = createReorder()
     val (order, _, _) = evalSongs(reorder reorder Songs)
 
-    @tailrec def go(attempts: Int): Boolean = {
-      if (attempts <= 0) false
-      else {
+    @tailrec def go(attempts: Int): Boolean =
+      if attempts <= 0 then false
+      else
         val (nextOrder, _, _) = evalSongs(reorder reorder Songs)
-        if (nextOrder == order) go(attempts - 1) else true
-      }
-    }
+        if nextOrder == order then go(attempts - 1) else true
 
     go(16) shouldBe true
-  }
-}

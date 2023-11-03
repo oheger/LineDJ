@@ -27,42 +27,38 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''PlaylistMoveUpTask''.
   */
-class PlaylistMoveUpTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class PlaylistMoveUpTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a test task with a mock controller.
     * @return the test task
     */
-  private def createTask(): PlaylistMoveUpTask = {
+  private def createTask(): PlaylistMoveUpTask =
     new PlaylistMoveUpTask(mock[PlaylistController])
-  }
 
-  "A PlaylistMoveUpTask" should "not be enabled if there is no selection" in {
+  "A PlaylistMoveUpTask" should "not be enabled if there is no selection" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(false)
     val task = createTask()
 
     task isEnabled context shouldBe false
-  }
 
-  it should "be enabled if the first element is not part of the selection" in {
+  it should "be enabled if the first element is not part of the selection" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(true)
     when(context.isFirstElementSelected).thenReturn(false)
     val task = createTask()
 
     task isEnabled context shouldBe true
-  }
 
-  it should "not be enabled if the first element is selected" in {
+  it should "not be enabled if the first element is selected" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(true)
     when(context.isFirstElementSelected).thenReturn(true)
     val task = createTask()
 
     task isEnabled context shouldBe false
-  }
 
-  it should "move selected items one position up" in {
+  it should "move selected items one position up" in:
     val context = mock[PlaylistSelectionContext]
     val tabHandler = mock[TableHandler]
     val model = new util.ArrayList(java.util.Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
@@ -77,5 +73,3 @@ class PlaylistMoveUpTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar
     model should be(java.util.Arrays.asList(0, 2, 1, 4, 5, 3, 6, 8, 7, 9, 10))
     verify(tabHandler).rowsUpdated(1, 8)
     verify(tabHandler).setSelectedIndices(Array(4, 1, 7, 3))
-  }
-}

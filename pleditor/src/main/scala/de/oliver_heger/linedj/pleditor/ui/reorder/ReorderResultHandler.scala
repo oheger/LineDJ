@@ -31,16 +31,13 @@ import org.apache.pekko.actor.Actor.Receive
   *
   * @param tableHandler the handler for the playlist table
   */
-class ReorderResultHandler(tableHandler: TableHandler) extends MessageBusListener {
-  override def receive: Receive = {
+class ReorderResultHandler(tableHandler: TableHandler) extends MessageBusListener:
+  override def receive: Receive =
     case result: ReorderActor.ReorderResponse =>
       val model = tableHandler.getModel
       val startIndex = result.request.startIndex
       val updateIndices = result.reorderedSongs.indices map (_ + startIndex)
-      result.reorderedSongs.zip(updateIndices).foreach {
+      result.reorderedSongs.zip(updateIndices).foreach:
         e => model.set(e._2, e._1)
-      }
       tableHandler.rowsUpdated(startIndex, startIndex + result.reorderedSongs.size - 1)
       tableHandler setSelectedIndices updateIndices.toArray
-  }
-}

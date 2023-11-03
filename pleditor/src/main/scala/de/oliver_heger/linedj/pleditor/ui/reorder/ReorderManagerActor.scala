@@ -23,7 +23,9 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor._
 
-object ReorderManagerActor {
+import scala.collection.immutable.Seq
+
+object ReorderManagerActor:
 
   /**
     * A message processed by [[ReorderManagerActor]] which requests information
@@ -90,8 +92,7 @@ object ReorderManagerActor {
     */
   private case class ServiceData(name: String, childActor: ActorRef)
 
-  private class ReorderManagerActorImpl(bus: MessageBus) extends ReorderManagerActor(bus) with
-    ChildActorFactory
+  private class ReorderManagerActorImpl(bus: MessageBus) extends ReorderManagerActor(bus) with ChildActorFactory
 
   /**
     * Creates a ''Props'' object for creating actor instances.
@@ -101,7 +102,6 @@ object ReorderManagerActor {
     */
   def apply(bus: MessageBus): Props =
     Props(classOf[ReorderManagerActorImpl], bus)
-}
 
 /**
   * An actor implementation which manages all available reorder services.
@@ -121,7 +121,7 @@ object ReorderManagerActor {
   *
   * @param bus the ''MessageBus''
   */
-class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
+class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
   /**
@@ -137,12 +137,11 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
     * stopped, and a ''Terminated'' message is received. This is handled by
     * removing the corresponding reorder service.
     */
-  override val supervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case _: Exception =>
       Stop
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case GetAvailableReorderServices =>
       sender() ! AvailableReorderServices(availableReorderServices())
 
@@ -166,7 +165,6 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
 
     case t: Terminated =>
       handleChildActorTermination(t.actor)
-  }
 
   /**
     * Returns a list with meta data about all currently available reorder
@@ -186,15 +184,13 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
     * @param optData an option with the associated service data
     */
   private def handleServiceInvocation(service: PlaylistReorderer, request: ReorderActor
-  .ReorderRequest, optData: Option[ServiceData]): Unit = {
-    optData match {
+  .ReorderRequest, optData: Option[ServiceData]): Unit =
+    optData match
       case Some(data) =>
         data.childActor ! request
 
       case None =>
         bus publish FailedReorderServiceInvocation(service)
-    }
-  }
 
   /**
     * Handles a message that a child actor has been terminated. This typically
@@ -204,7 +200,7 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
     *
     * @param childActor the affected child actor
     */
-  private def handleChildActorTermination(childActor: ActorRef): Unit = {
+  private def handleChildActorTermination(childActor: ActorRef): Unit =
     log.warning("Invocation of a child actor failed!")
     val item = reorderServices.find(p => p._2.childActor == childActor)
     item foreach { p =>
@@ -212,5 +208,3 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging {
       reorderServices remove service
       bus publish FailedReorderServiceInvocation(service)
     }
-  }
-}

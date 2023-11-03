@@ -27,14 +27,12 @@ package de.oliver_heger.linedj.pleditor.ui.playlist
   * @param controller the ''PlaylistController''
   */
 abstract class AbstractPlaylistManipulationTask(val controller: PlaylistController) extends
-Runnable {
+Runnable:
   this: PlaylistManipulator =>
 
   /**
     * This implementation invokes the ''PlaylistController'' and triggers an
     * update of the playlist.
     */
-  override def run(): Unit = {
+  override def run(): Unit =
     controller updatePlaylist this
-  }
-}

@@ -34,10 +34,8 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
   */
 class ActivatePlaylistTask(playlistService: PlaylistService[Playlist, MediaFileID],
                            messageBus: MessageBus,
-                           tableModel: java.util.List[SongData]) extends Runnable {
-  override def run(): Unit = {
+                           tableModel: java.util.List[SongData]) extends Runnable:
+  override def run(): Unit =
     import scala.jdk.CollectionConverters._
     val playlist = playlistService.toPlaylist(tableModel.asScala.map(_.id).toList, 0)
     playlist foreach (messageBus publish SetPlaylist(_))
-  }
-}

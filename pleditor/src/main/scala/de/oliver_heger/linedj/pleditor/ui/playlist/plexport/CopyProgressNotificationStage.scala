@@ -33,14 +33,14 @@ import org.apache.pekko.util.ByteString
 private class CopyProgressNotificationStage(receiver: ActorRef,
                                             copyRequest: CopyMediumFile,
                                             progressSize: Int)
-  extends GraphStage[FlowShape[ByteString, ByteString]] {
+  extends GraphStage[FlowShape[ByteString, ByteString]]:
   val in: Inlet[ByteString] = Inlet("CopyProgressNotificationStage.in")
   val out: Outlet[ByteString] = Outlet("CopyProgressNotificationStage.out")
 
   override def shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       /** A counter for the number of bytes that have been written. */
       private var bytesWritten = 0
 
@@ -53,7 +53,7 @@ private class CopyProgressNotificationStage(receiver: ActorRef,
           push(out, chunk)
           bytesWritten += chunk.size
           val progressCount = bytesWritten / progressSize
-          if (copyProgressCount != progressCount) {
+          if copyProgressCount != progressCount then {
             copyProgressCount = progressCount
             receiver ! CopyProgress(copyRequest, progressCount * progressSize)
           }
@@ -65,5 +65,3 @@ private class CopyProgressNotificationStage(receiver: ActorRef,
           pull(in)
         }
       })
-    }
-}

@@ -27,7 +27,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.Path
 
-object CopyFileActor {
+object CopyFileActor:
 
   /**
     * A message processed by [[CopyFileActor]] telling it to download a file and
@@ -109,7 +109,6 @@ object CopyFileActor {
             progressSize: Int): Props =
     Props(classOf[CopyFileActorImpl], parent, mediaManager, chunkSize, progressSize)
 
-}
 
 /**
   * An actor class that copies a file received from the server into a target
@@ -132,7 +131,7 @@ object CopyFileActor {
   *                     notification message is sent
   */
 class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
-                    progressSize: Int) extends AbstractFileWriterActor with ActorLogging {
+                    progressSize: Int) extends AbstractFileWriterActor with ActorLogging:
   this: ChildActorFactory with CancelableStreamSupport =>
 
   import CopyFileActor._
@@ -143,35 +142,32 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
   /** The current download actor. */
   private var downloadActor: ActorRef = _
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case copyRequest: CopyMediumFile if currentCopyRequest == null =>
       mediaManager ! copyRequest.request
       currentCopyRequest = copyRequest
 
     case MediumFileResponse(_, optReader, _) if downloadActor == null &&
       currentCopyRequest != null =>
-      optReader match {
+      optReader match
         case Some(reader) =>
           downloadActor = createChildActor(Props(classOf[StreamSourceActorWrapper],
             reader, DownloadActorDied))
           runCopyStream()
         case None =>
           sendCopyCompletedNotification()
-      }
 
     case CancelCopyOperation =>
       cancelCurrentStreams()
-  }
 
   /**
     * @inheritdoc This implementation reacts on the result of stream
     *             processing. In case of an error, the actor stops itself.
     *             Otherwise, a completion message is sent to the parent.
     */
-  override protected def propagateResult(client: ActorRef, result: Any): Unit = {
+  override protected def propagateResult(client: ActorRef, result: Any): Unit =
     copyRequestCompleted()
     super.propagateResult(client, result)
-  }
 
   /**
     * Creates the source for the copy stream.
@@ -179,38 +175,33 @@ class CopyFileActor(parent: ActorRef, mediaManager: ActorRef, chunkSize: Int,
     * @return the source
     */
   private[plexport] def createSource(): Source[ByteString, NotUsed] =
-    ActorSource[ByteString](downloadActor, DownloadData(chunkSize)) {
+    ActorSource[ByteString](downloadActor, DownloadData(chunkSize)):
       case DownloadDataResult(data) => ActorDataResult(data)
       case DownloadComplete => ActorCompletionResult()
       case DownloadActorDied => ActorErrorResult(new Exception("Download actor died!"))
-    }
 
   /**
     * Starts the stream for the current copy operation.
     */
-  private def runCopyStream(): Unit = {
+  private def runCopyStream(): Unit =
     val source = createSource()
       .via(new CopyProgressNotificationStage(parent, currentCopyRequest, progressSize))
     writeFile(source, currentCopyRequest.target,
       MediumFileCopied(currentCopyRequest.request, currentCopyRequest.target),
       parent)
-  }
 
   /**
     * This method is called when a copy request is complete. It cleans up some
     * internal fields and sends out corresponding messages.
     */
-  private def copyRequestCompleted(): Unit = {
+  private def copyRequestCompleted(): Unit =
     context stop downloadActor
     downloadActor = null
     currentCopyRequest = null
-  }
 
   /**
     * Sends a notification that the current copy operation is complete.
     */
-  private def sendCopyCompletedNotification(): Unit = {
+  private def sendCopyCompletedNotification(): Unit =
     parent ! MediumFileCopied(currentCopyRequest.request, currentCopyRequest.target)
     currentCopyRequest = null
-  }
-}

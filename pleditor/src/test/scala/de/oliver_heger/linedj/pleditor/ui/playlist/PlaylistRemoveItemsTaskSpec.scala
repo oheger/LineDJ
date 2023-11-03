@@ -27,32 +27,29 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''PlaylistRemoveItemsTask''.
   */
-class PlaylistRemoveItemsTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class PlaylistRemoveItemsTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a task for the tests.
     * @return the test task
     */
-  private def createTask(): PlaylistRemoveItemsTask = {
+  private def createTask(): PlaylistRemoveItemsTask =
     new PlaylistRemoveItemsTask(mock[PlaylistController])
-  }
 
-  "A PlaylistRemoveItemsTask" should "return the enabled flag if there is no selection" in {
+  "A PlaylistRemoveItemsTask" should "return the enabled flag if there is no selection" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(false)
     val task = createTask()
 
     task isEnabled context shouldBe false
-  }
 
-  it should "return the enabled flag if there is a selection" in {
+  it should "return the enabled flag if there is a selection" in:
     val context = mock[PlaylistSelectionContext]
     when(context.hasSelection).thenReturn(true)
     val task = createTask()
 
     task isEnabled context shouldBe true
-  }
 
-  it should "remove selected items from the playlist" in {
+  it should "remove selected items from the playlist" in:
     val context = mock[PlaylistSelectionContext]
     val tableHandler = mock[TableHandler]
     val model = new util.ArrayList(util.Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8))
@@ -65,5 +62,3 @@ class PlaylistRemoveItemsTaskSpec extends AnyFlatSpec with Matchers with Mockito
     task updatePlaylist context
     model should be(util.Arrays.asList(1, 3, 4, 7, 8))
     verify(tableHandler).tableDataChanged()
-  }
-}

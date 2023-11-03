@@ -18,6 +18,8 @@ package de.oliver_heger.linedj.pleditor.spi
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 
+import scala.collection.immutable.Seq
+
 /**
   * A base trait for reorder service implementation which produce a random
   * order based on some property of the passed in songs.
@@ -34,11 +36,10 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
   *
   * @tparam G the type to be used for the grouping of songs
   */
-trait RandomGroupingPlaylistReorderer[G] extends LocalizedPlaylistReorderer {
-  override def reorder(songs: Seq[SongData]): Seq[SongData] = {
+trait RandomGroupingPlaylistReorderer[G] extends LocalizedPlaylistReorderer:
+  override def reorder(songs: Seq[SongData]): Seq[SongData] =
     val grouping = songs groupBy groupSong
     util.Random.shuffle(grouping.toList).flatMap(_._2.sorted(groupOrdering))
-  }
 
   /**
     * Implements the grouping function. This function is used to group the
@@ -56,4 +57,3 @@ trait RandomGroupingPlaylistReorderer[G] extends LocalizedPlaylistReorderer {
     * @return the ordering for the songs in a group
     */
   def groupOrdering: Ordering[SongData]
-}

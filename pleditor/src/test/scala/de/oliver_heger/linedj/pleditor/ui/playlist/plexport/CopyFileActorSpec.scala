@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
+import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.NotUsed
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
@@ -31,9 +31,9 @@ import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import java.nio.file.{Path, Paths}
 
-object CopyFileActorSpec {
+object CopyFileActorSpec:
   /** A list with chunks returned by the test download actor. */
-  val DownloadChunks = List(ByteString(FileTestHelper.TestData),
+  val DownloadChunks: List[ByteString] = List(ByteString(FileTestHelper.TestData),
     ByteString("another chunk of data"), ByteString("last chunk"))
 
   /** A test chunk size. */
@@ -57,10 +57,9 @@ object CopyFileActorSpec {
     *
     * @param probe the probe to be checked
     */
-  private def expectNoMoreMessages(probe: TestProbe): Unit = {
+  private def expectNoMoreMessages(probe: TestProbe): Unit =
     probe.ref ! TestMessage
     probe.expectMsg(TestMessage)
-  }
 
   /**
     * Returns the concatenated content of the chunks returned by the test
@@ -70,25 +69,22 @@ object CopyFileActorSpec {
     */
   private def downloadContent(): ByteString =
     DownloadChunks.foldLeft(ByteString.empty)(_ ++ _)
-}
 
 /**
   * Test class for ''CopyFileActor''.
   */
 class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with FileTestHelper:
 
   import CopyFileActorSpec._
 
   def this() = this(ActorSystem("CopyFileActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  after {
+  after:
     tearDownTestFile()
-  }
 
   /**
     * Creates a ''Props'' object for creating a test actor instance.
@@ -108,11 +104,10 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     *
     * @param termActor the actor in question
     */
-  private def expectTermination(termActor: ActorRef): Unit = {
+  private def expectTermination(termActor: ActorRef): Unit =
     val probe = TestProbe()
     probe watch termActor
     probe.expectMsgType[Terminated].actor should be(termActor)
-  }
 
   /**
     * Prepares the test actor for a copy operation.
@@ -123,13 +118,12 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     * @return the test actor
     */
   private def prepareCopyOperation(actor: ActorRef, readerActor: ActorRef, target: Path):
-  ActorRef = {
+  ActorRef =
     actor ! CopyFileActor.CopyMediumFile(FileRequest, target)
     actor ! MediumFileResponse(FileRequest, Some(readerActor), 100)
     actor
-  }
 
-  "A CopyFileActor" should "create correct properties" in {
+  "A CopyFileActor" should "create correct properties" in:
     val probeManager = TestProbe()
     val props = CopyFileActor(testActor, probeManager.ref, ChunkSize, ProgressSize)
 
@@ -137,17 +131,15 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CancelableStreamSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(testActor, probeManager.ref, ChunkSize, ProgressSize))
-  }
 
-  it should "pass a file request to the media manager actor" in {
+  it should "pass a file request to the media manager actor" in:
     val probe = TestProbe()
     val actor = system.actorOf(actorProps(Some(probe)))
 
     actor ! CopyFileActor.CopyMediumFile(FileRequest, createPathInDirectory(TargetFile))
     probe.expectMsg(FileRequest)
-  }
 
-  it should "download and copy a file to the target location" in {
+  it should "download and copy a file to the target location" in:
     val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val target = createPathInDirectory(TargetFile)
@@ -155,9 +147,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     prepareCopyOperation(actor, readerActor, target)
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
     readDataFile(target) should be(downloadContent().utf8String)
-  }
 
-  it should "send the confirmation message to the correct client actor" in {
+  it should "send the confirmation message to the correct client actor" in:
     val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val probeManager = TestProbe()
     val actor = system.actorOf(actorProps(mediaManagerProbe = Some(probeManager)))
@@ -166,10 +157,9 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     actor ! CopyFileActor.CopyMediumFile(FileRequest, target)
     actor.tell(MediumFileResponse(FileRequest, Some(readerActor), 100), probeManager.ref)
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
-  }
 
   it should "ignore MediumFileResponse messages during processing and support multiple copy " +
-    "operations" in {
+    "operations" in:
     val mediaManagerProbe = TestProbe()
     val actor = system.actorOf(actorProps(Some(mediaManagerProbe)))
 
@@ -194,16 +184,14 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target2))
     readDataFile(target2) should be(downloadContent().utf8String)
     mediaManagerProbe.expectMsg(FileRequest)
-  }
 
-  it should "ignore a MediumFileResponse if there is no current copy request" in {
+  it should "ignore a MediumFileResponse if there is no current copy request" in:
     val actor = TestActorRef[CopyFileActor](actorProps())
 
     actor receive MediumFileResponse(FileRequest.copy(fileID = FileRequest.fileID.copy(
       uri = "toBeIgnored")), Some(TestProbe().ref), 111)
-  }
 
-  it should "ignore another copy request while one is processed" in {
+  it should "ignore another copy request while one is processed" in:
     val mediaManagerProbe = TestProbe()
     val actor = TestActorRef[CopyFileActor](actorProps(Some(mediaManagerProbe)))
     val target = createPathInDirectory(TargetFile)
@@ -213,9 +201,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       uri = "toBeIgnored")), target)
     mediaManagerProbe.expectMsg(FileRequest)
     expectNoMoreMessages(mediaManagerProbe)
-  }
 
-  it should "stop the reader actor when the copy operation is complete" in {
+  it should "stop the reader actor when the copy operation is complete" in:
     val readerActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val target = createPathInDirectory(TargetFile)
@@ -223,9 +210,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
 
     expectTermination(readerActor)
-  }
 
-  it should "allow canceling a copy operation" in {
+  it should "allow canceling a copy operation" in:
     val downloadActor = system.actorOf(Props(classOf[SingleStepDownloadActor], testActor))
     val target = createPathInDirectory(TargetFile)
     val actor = system.actorOf(actorProps())
@@ -235,24 +221,21 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     actor ! CopyFileActor.CancelCopyOperation
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
     expectTermination(downloadActor)
-  }
 
-  it should "ignore a cancel request if no copy operation is ongoing" in {
+  it should "ignore a cancel request if no copy operation is ongoing" in:
     val actor = TestActorRef[CopyFileActor](actorProps())
 
     actor receive CopyFileActor.CancelCopyOperation
-  }
 
-  it should "crash if the target file could not be written" in {
+  it should "crash if the target file could not be written" in:
     val downloadActor = system.actorOf(Props[DownloadActorTestImpl]())
     val actor = system.actorOf(actorProps())
     val invalidPath = Paths.get("")
     prepareCopyOperation(actor, downloadActor, invalidPath)
 
     expectTermination(actor)
-  }
 
-  it should "crash if the current reader actor dies" in {
+  it should "crash if the current reader actor dies" in:
     val downloadActor = system.actorOf(Props(classOf[SingleStepDownloadActor], testActor))
     val target = createPathInDirectory(TargetFile)
     val actor = system.actorOf(actorProps())
@@ -261,9 +244,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
     system stop downloadActor
     expectTermination(actor)
-  }
 
-  it should "crash if there is a stream processing error" in {
+  it should "crash if there is a stream processing error" in:
     val target = createPathInDirectory(TargetFile)
     val actor = system.actorOf(Props(new CopyFileActor(testActor, TestProbe().ref,
       ChunkSize, ProgressSize) with ChildActorFactory with CancelableStreamSupport {
@@ -273,9 +255,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     prepareCopyOperation(actor, TestProbe().ref, target)
 
     expectTermination(actor)
-  }
 
-  it should "send progress notifications when copying a file" in {
+  it should "send progress notifications when copying a file" in:
     val actor = system.actorOf(actorProps(progressSize = 500))
     val reader = system.actorOf(Props[DownloadActorTestImpl]())
     val target = createPathInDirectory(TargetFile)
@@ -283,9 +264,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
     expectMsg(CopyFileActor.CopyProgress(CopyFileActor.CopyMediumFile(FileRequest, target), 500))
     expectMsgType[CopyFileActor.MediumFileCopied]
-  }
 
-  it should "reset the progress counters when starting a new copy operation" in {
+  it should "reset the progress counters when starting a new copy operation" in:
     val actor = system.actorOf(actorProps(progressSize = 500))
     val reader = system.actorOf(Props[DownloadActorTestImpl]())
     val target = createPathInDirectory(TargetFile)
@@ -300,9 +280,8 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     expectMsgType[DownloadData]
     reader2 ! DownloadComplete
     expectMsgType[CopyFileActor.MediumFileCopied]
-  }
 
-  it should "handle a failed MediumFileResponse" in {
+  it should "handle a failed MediumFileResponse" in:
     val probeManager = TestProbe()
     val target = createPathInDirectory(TargetFile)
     val actor = system.actorOf(actorProps(mediaManagerProbe = Some(probeManager)))
@@ -311,27 +290,22 @@ class CopyFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
     actor ! MediumFileResponse(FileRequest, None, 0)
     expectMsg(CopyFileActor.MediumFileCopied(FileRequest, target))
-  }
-}
 
 /**
   * A test download actor which always sends a sequence of chunks.
   */
-class DownloadActorTestImpl extends Actor {
+class DownloadActorTestImpl extends Actor:
   var chunks: List[ByteString] = CopyFileActorSpec.DownloadChunks
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case DownloadData(size) if size == CopyFileActorSpec.ChunkSize =>
-      val response = chunks match {
+      val response = chunks match
         case h :: t =>
           chunks = t
           DownloadDataResult(h)
         case _ =>
           DownloadComplete
-      }
       sender() ! response
-  }
-}
 
 /**
   * A test download actor which passes download requests to a trigger actor
@@ -341,15 +315,13 @@ class DownloadActorTestImpl extends Actor {
   *
   * @param trigger the trigger actor
   */
-class SingleStepDownloadActor(trigger: ActorRef) extends Actor {
+class SingleStepDownloadActor(trigger: ActorRef) extends Actor:
   private var receiver: ActorRef = _
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case d: DownloadData =>
       trigger ! d
       receiver = sender()
 
     case m if sender() == trigger =>
       receiver ! m
-  }
-}
