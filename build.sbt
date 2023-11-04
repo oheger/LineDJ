@@ -985,6 +985,8 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-player-ui",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -998,7 +1000,7 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+  ) dependsOn(platform, audioPlatform, test3 % "test->compile")
 
 /**
   * Project for the player server. This project exposes player functionality

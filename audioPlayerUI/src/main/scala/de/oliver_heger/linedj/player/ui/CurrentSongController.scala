@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.ui.{DurationTransformer, TextTimeFunction
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 
-object CurrentSongController {
+object CurrentSongController:
   /** Constant for an empty/undefined field. */
   private val Empty = ""
 
@@ -42,10 +42,9 @@ object CurrentSongController {
     * @param data the current song data
     * @return the text for the album field
     */
-  private def generateAlbumValue(data: CurrentSongData): String = {
+  private def generateAlbumValue(data: CurrentSongData): String =
     val track = data.song.metaData.trackNumber.map(t => s" ($t)").getOrElse(Empty)
     s"${data.song.album}$track"
-  }
 
   /**
     * Generates a map with the texts to be written into the details fields.
@@ -70,7 +69,6 @@ object CurrentSongController {
   private case class CurrentSongData(index: Int, playlistSize: Int, song: SongData,
                                      sDuration: String)
 
-}
 
 /**
   * A class responsible for managing UI controls that display detail
@@ -105,7 +103,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
                             txtTitle: StaticTextHandler, txtArtist: StaticTextHandler,
                             txtAlbum: StaticTextHandler, txtTime: StaticTextHandler,
                             txtIndex: StaticTextHandler, txtYear: StaticTextHandler,
-                            progressHandler: ProgressBarHandler) {
+                            progressHandler: ProgressBarHandler):
 
   import CurrentSongController._
 
@@ -131,9 +129,8 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * playlist. If necessary, the UI controls in the details panel are
     * updated.
     */
-  def playlistStateChanged(): Unit = {
+  def playlistStateChanged(): Unit =
     handlePlaylistChange(fetchCurrentSong())
-  }
 
   /**
     * Notifies this controller that there was a change in the data of the
@@ -143,9 +140,8 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param current an ''Option'' with the index of the current song in the
     *                playlist
     */
-  def playlistDataChanged(current: Option[Int]): Unit = {
+  def playlistDataChanged(current: Option[Int]): Unit =
     handlePlaylistChange(current map (c => createCurrentSongData(c)))
-  }
 
   /**
     * Notifies this controller about a progress in the playback of the current
@@ -154,10 +150,9 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     *
     * @param event the playback progress event
     */
-  def playlistProgress(event: PlaybackProgressEvent): Unit = {
+  def playlistProgress(event: PlaybackProgressEvent): Unit =
     timeUpdateFunctions foreach (e => e._1 setText e._2(event.playbackTime))
     calcPlaybackProgress(event) foreach updateProgress
-  }
 
   /**
     * Handles a change of the playlist. If the change affects the current song,
@@ -165,17 +160,14 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     *
     * @param optData an ''Option'' with information about the current song
     */
-  private def handlePlaylistChange(optData: Option[CurrentSongData]): Unit = {
-    if (optData != currentSong) {
-      optData match {
+  private def handlePlaylistChange(optData: Option[CurrentSongData]): Unit =
+    if optData != currentSong then
+      optData match
         case Some(data) =>
           updateDataForCurrentSong(data)
         case None =>
           clearAllFields()
-      }
       currentSong = optData
-    }
-  }
 
   /**
     * Updates the UI and some internal fields after a change of the current
@@ -183,12 +175,11 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     *
     * @param data data about the new current song
     */
-  private def updateDataForCurrentSong(data: CurrentSongData): Unit = {
+  private def updateDataForCurrentSong(data: CurrentSongData): Unit =
     val values = fieldValues(playlistUpdateFunctions, data)
     values foreach (e => e._1 setText e._2)
     updateProgress(0)
     timeUpdateFunctions = createTimeUpdateFunctions(data, config.maxUIFieldSize, config.rotationSpeed, values)
-  }
 
   /**
     * Generates a map with update functions for fields based on the playback
@@ -203,23 +194,21 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     */
   private def createTimeUpdateFunctions(data: CurrentSongData, maxLen: Int, speed: Double,
                                         texts: Map[StaticTextHandler, String]):
-  Map[StaticTextHandler, TextTimeFunc] = {
+  Map[StaticTextHandler, TextTimeFunc] =
     val rotates = texts.filter(e => e._2.length >= maxLen)
       .foldLeft(Map.empty[StaticTextHandler, TextTimeFunc]) { (m, e) =>
         m + (e._1 -> TextTimeFunctions.rotateText(e._2, maxLen, scale = speed))
       }
     rotates + (txtTime -> TextTimeFunctions.withSuffix(" / " + data.sDuration)(TextTimeFunctions.formattedTime()))
-  }
 
   /**
     * Clears all fields in the details pane. This method is called if there is
     * no current song in the playlist for which details could be displayed.
     */
-  private def clearAllFields(): Unit = {
+  private def clearAllFields(): Unit =
     playlistUpdateFunctions.keys foreach (_.setText(Empty))
     timeUpdateFunctions = Map.empty
     updateProgress(0)
-  }
 
   /**
     * Calculates the playback progress for the current song based on the
@@ -228,19 +217,18 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param event the event
     * @return an ''Option'' with the playback progress
     */
-  private def calcPlaybackProgress(event: PlaybackProgressEvent): Option[Int] = for {
+  private def calcPlaybackProgress(event: PlaybackProgressEvent): Option[Int] = for
     s <- currentSong
     d <- s.song.metaData.duration
-  } yield scala.math.round(100 * event.playbackTime.toMillis.toFloat / d)
+  yield scala.math.round(100 * event.playbackTime.toMillis.toFloat / d)
 
   /**
     * Updates the progress bar control.
     *
     * @param v the value to be set
     */
-  private def updateProgress(v: Int): Unit = {
+  private def updateProgress(v: Int): Unit =
     progressHandler setValue v
-  }
 
   /**
     * Returns an ''Option'' with information about the current song. The
@@ -249,11 +237,10 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     *
     * @return an ''Option'' with data about the current song
     */
-  private def fetchCurrentSong(): Option[CurrentSongData] = {
+  private def fetchCurrentSong(): Option[CurrentSongData] =
     val index = tableHandler.getSelectedIndex
-    if (index < 0) None
+    if index < 0 then None
     else Some(createCurrentSongData(index))
-  }
 
   /**
     * Creates a ''CurrentSongData'' object from the given input.
@@ -261,11 +248,10 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
     * @param index the index in the playlist
     * @return the ''CurrentSongData''
     */
-  private def createCurrentSongData(index: Int): CurrentSongData = {
+  private def createCurrentSongData(index: Int): CurrentSongData =
     val songData = tableHandler.getModel.get(index).asInstanceOf[SongData]
     CurrentSongData(index + 1, tableHandler.getModel.size(),
       songData, extractDuration(songData))
-  }
 
   /**
     * Extracts the (formatted) duration of the specified song. If the duration
@@ -291,4 +277,3 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
       txtIndex -> (data => s"${data.index} / ${data.playlistSize}"),
       txtYear -> (_.song.metaData.inceptionYear.map(_.toString) getOrElse Empty),
       txtTime -> (DurationTransformer.formatDuration(0) + " / " + _.sDuration))
-}

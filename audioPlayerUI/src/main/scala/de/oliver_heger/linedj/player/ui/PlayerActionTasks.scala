@@ -30,13 +30,12 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   *
   * @param controller the ''UIController''
   */
-abstract class PlayerActionTask(val controller: UIController) extends Runnable {
-  override def run(): Unit = {
+abstract class PlayerActionTask(val controller: UIController) extends Runnable:
+  override def run(): Unit =
     playerCommand foreach { cmd =>
       controller.playerActionTriggered()
       controller.messageBus publish cmd
     }
-  }
 
   /**
     * Returns the command to be published on the message bus on behalf of this
@@ -45,34 +44,30 @@ abstract class PlayerActionTask(val controller: UIController) extends Runnable {
     * @return the optional message bus command
     */
   protected def playerCommand: Option[AnyRef]
-}
 
 /**
   * Task implementation for starting playback.
   *
   * @param controller the ''UIController''
   */
-class StartPlaybackTask(controller: UIController) extends PlayerActionTask(controller) {
+class StartPlaybackTask(controller: UIController) extends PlayerActionTask(controller):
   override protected val playerCommand: Option[AnyRef] = Some(StartAudioPlayback())
-}
 
 /**
   * Task implementation for stopping playback.
   *
   * @param controller the ''UIController''
   */
-class StopPlaybackTask(controller: UIController) extends PlayerActionTask(controller) {
+class StopPlaybackTask(controller: UIController) extends PlayerActionTask(controller):
   override protected val playerCommand: Option[AnyRef] = Some(StopAudioPlayback())
-}
 
 /**
   * Task implementation for moving to the next song in the playlist.
   *
   * @param controller the ''UIController''
   */
-class NextSongTask(controller: UIController) extends PlayerActionTask(controller) {
+class NextSongTask(controller: UIController) extends PlayerActionTask(controller):
   override protected val playerCommand: Option[AnyRef] = Some(SkipCurrentSource)
-}
 
 /**
   * Task implementation for moving backwards in the current playlist.
@@ -89,12 +84,11 @@ class NextSongTask(controller: UIController) extends PlayerActionTask(controller
   */
 class PreviousSongTask(controller: UIController, config: AudioPlayerConfig,
                        playlistService: PlaylistService[Playlist, MediaFileID])
-  extends PlayerActionTask(controller) {
-  override protected def playerCommand: Option[AnyRef] = {
+  extends PlayerActionTask(controller):
+  override protected def playerCommand: Option[AnyRef] =
     nextPlaylist(controller.lastPlayerState.playlist) map { pl =>
       SetPlaylist(pl, closePlaylist = controller.lastPlayerState.playlistClosed)
     }
-  }
 
   /**
     * Determines the updated playlist based on the playback progress in the
@@ -104,13 +98,12 @@ class PreviousSongTask(controller: UIController, config: AudioPlayerConfig,
     * @return an option for the updated playlist
     */
   private def nextPlaylist(currentPlaylist: Playlist): Option[Playlist] =
-    if (controller.lastProgressEvent.playbackTime.toSeconds < config.skipBackwardsThreshold) {
+    if controller.lastProgressEvent.playbackTime.toSeconds < config.skipBackwardsThreshold then
       playlistService.currentIndex(currentPlaylist) flatMap { index =>
-        if (index > 0) playlistService.setCurrentSong(currentPlaylist, index - 1)
+        if index > 0 then playlistService.setCurrentSong(currentPlaylist, index - 1)
         else Some(currentPlaylist)
       }
-    } else Some(currentPlaylist)
-}
+    else Some(currentPlaylist)
 
 /**
   * Task implementation for setting a specific song as current song in the
@@ -125,12 +118,10 @@ class PreviousSongTask(controller: UIController, config: AudioPlayerConfig,
   */
 class GotoSongTask(controller: UIController, tableHandler: TableHandler,
                    playlistService: PlaylistService[Playlist, MediaFileID])
-  extends PlayerActionTask(controller) {
-  override protected def playerCommand: Option[AnyRef] = {
+  extends PlayerActionTask(controller):
+  override protected def playerCommand: Option[AnyRef] =
     val index = tableHandler.getSelectedIndex
     val state = controller.lastPlayerState
     playlistService.setCurrentSong(state.playlist, index) map { pl =>
       SetPlaylist(pl, closePlaylist = state.playlistClosed)
     }
-  }
-}

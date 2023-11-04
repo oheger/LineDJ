@@ -29,7 +29,7 @@ import org.apache.pekko.actor.Actor.Receive
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-object UIController {
+object UIController:
   /** Name of the group that contains all player-related actions. */
   val PlayerActionGroup = "PlayerActions"
 
@@ -69,7 +69,6 @@ object UIController {
   : Boolean =
     oldState.playlistSeqNo != newState.playlistSeqNo ||
       (!oldState.playlistActivated && newState.playlistActivated)
-}
 
 /**
   * The main controller class for the audio player application.
@@ -96,7 +95,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
                    currentSongController: CurrentSongController,
                    plService: PlaylistService[Playlist, MediaFileID],
                    config: AudioPlayerConfig) extends MessageBusListener
-  with ConsumerRegistrationProvider with Identifiable {
+  with ConsumerRegistrationProvider with Identifiable:
 
   import UIController._
 
@@ -120,11 +119,10 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     *
     * @return the message handling function
     */
-  override def receive: Receive = {
+  override def receive: Receive =
     case event: PlaybackProgressEvent =>
       currentSongController playlistProgress event
       currentProgress = event
-  }
 
   /**
     * Returns the latest player state received by this object.
@@ -145,32 +143,29 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     * This causes all actions to be disabled until the updated player state
     * is received. Based on this state, the enabled state of actions is set.
     */
-  def playerActionTriggered(): Unit = {
+  def playerActionTriggered(): Unit =
     actionStore.enableGroup(PlayerActionGroup, false)
-  }
 
   /**
     * Consumer function for notifications of changes of the audio player state.
     *
     * @param event the state change event
     */
-  private def consumePlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit = {
+  private def consumePlayerStateChangeEvent(event: AudioPlayerStateChangedEvent): Unit =
     playlistTableController handlePlayerStateUpdate event.state
     currentSongController.playlistStateChanged()
     updateActionStates(event.state)
     handlePlaybackAutoStart(currentState, event.state)
     currentState = event.state
-  }
 
   /**
     * Consumer function for updates of playlist meta data.
     *
     * @param meta the updated meta data
     */
-  private def consumePlaylistMetaDataChanged(meta: PlaylistMetaData): Unit = {
+  private def consumePlaylistMetaDataChanged(meta: PlaylistMetaData): Unit =
     playlistTableController handleMetaDataUpdate meta
     currentSongController.playlistDataChanged(plService currentIndex currentState.playlist)
-  }
 
   /**
     * Updates the enabled states of all player-relevant actions after a change
@@ -178,7 +173,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     *
     * @param state the current state of the audio player
     */
-  private def updateActionStates(state: AudioPlayerState): Unit = {
+  private def updateActionStates(state: AudioPlayerState): Unit =
     val hasCurrent = plService.currentSong(state.playlist).isDefined
     val isPlaying = hasCurrent && state.playbackActive
     enableAction(ActionStopPlayback, isPlaying)
@@ -186,7 +181,6 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     enableAction(ActionNextSong, isPlaying)
     enableAction(ActionGotoSong, plService.size(state.playlist) > 0)
     enableAction(ActionStartPlayback, hasCurrent && !state.playbackActive)
-  }
 
   /**
     * Enables the specified action.
@@ -194,9 +188,8 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     * @param name  the name of the action
     * @param state the new enabled state
     */
-  private def enableAction(name: String, state: Boolean): Unit = {
+  private def enableAction(name: String, state: Boolean): Unit =
     actionStore.getAction(name) setEnabled state
-  }
 
   /**
     * Checks whether playback needs to be started when reacting on a playlist
@@ -206,12 +199,9 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     * @param newState the new state of the audio player
     */
   private def handlePlaybackAutoStart(oldState: AudioPlayerState,
-                                      newState: AudioPlayerState): Unit = {
-    if (!newState.playbackActive &&
+                                      newState: AudioPlayerState): Unit =
+    if !newState.playbackActive &&
       playlistStateChanged(oldState, newState) &&
       newState.playlist.pendingSongs.nonEmpty &&
-      config.autoStartMode.canStartPlayback(newState)) {
+      config.autoStartMode.canStartPlayback(newState) then
       actionStore.getAction(ActionStartPlayback).execute(null)
-    }
-  }
-}

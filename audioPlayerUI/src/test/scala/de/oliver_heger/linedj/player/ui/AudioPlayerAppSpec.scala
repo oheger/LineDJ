@@ -16,35 +16,34 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.app._
+import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
+import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.apache.commons.configuration.Configuration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object AudioPlayerAppSpec {
+object AudioPlayerAppSpec:
   /** Test value for the rotation speed configuration property. */
   private val RotationSpeed = 11
-}
 
 /**
   * Test class for ''AudioPlayerApp''.
   */
-class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestSupport {
-  import AudioPlayerAppSpec._
+class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestSupport:
+  import AudioPlayerAppSpec.*
 
   /**
     * @inheritdoc This implementation adds properties to the configuration to
     *             test whether the player configuration is constructed
     *             correctly.
     */
-  override def createClientApplicationContext(config: Configuration): ClientApplicationContext = {
+  override def createClientApplicationContext(config: Configuration): ClientApplicationContext =
     val ctx = super.createClientApplicationContext()
     ctx.managementConfiguration.addProperty(AudioPlayerConfig.PropRotationSpeed, RotationSpeed)
     ctx
-  }
 
   /**
     * Obtains the bean for the UI controller from the current application
@@ -57,32 +56,29 @@ class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestS
     queryBean[UIController](application.getMainWindowBeanContext,
       "uiController")
 
-  "An AudioPlayerApp" should "construct an instance correctly" in {
+  "An AudioPlayerApp" should "construct an instance correctly" in:
     val app = new AudioPlayerApp
 
     app shouldBe a[ApplicationAsyncStartup]
     app.appName should be("audioPlayer")
-  }
 
-  it should "define a correct consumer registration bean" in {
+  it should "define a correct consumer registration bean" in:
     val application = activateApp(new AudioPlayerAppTestImpl)
 
     val consumerReg = queryBean[ConsumerRegistrationProcessor](application
       .getMainWindowBeanContext, ClientApplication.BeanConsumerRegistration)
     val controller = queryController(application)
     consumerReg.providers should contain only controller
-  }
 
-  it should "define a message bus registration bean" in {
+  it should "define a message bus registration bean" in:
     val application = activateApp(new AudioPlayerAppTestImpl)
 
     val busReg = queryBean[MessageBusRegistration](application.getMainWindowBeanContext,
       ClientApplication.BeanMessageBusRegistration)
     val controller = queryController(application)
     busReg.listeners should contain only controller
-  }
 
-  it should "disable all player actions on startup" in {
+  it should "disable all player actions on startup" in:
     val application = activateApp(new AudioPlayerAppTestImpl)
 
     val actionStore = queryBean[ActionStore](application.getMainWindowBeanContext, "ACTION_STORE")
@@ -91,17 +87,14 @@ class AudioPlayerAppSpec extends AnyFlatSpec with Matchers with ApplicationTestS
       actionStore.getActionNamesForGroup(UIController.PlayerActionGroup)).asScala
     playerActions.size should be > 0
     playerActions.forall(!_.isEnabled) shouldBe true
-  }
 
-  it should "create a bean for the configuration in the application context" in {
+  it should "create a bean for the configuration in the application context" in:
     val application = activateApp(new AudioPlayerAppTestImpl)
 
     val config = queryBean[AudioPlayerConfig](application, AudioPlayerApp.BeanPlayerConfig)
     config.rotationSpeed should be(RotationSpeed)
-  }
 
   /**
     * A test application implementation that starts up synchronously.
     */
   private class AudioPlayerAppTestImpl extends AudioPlayerApp with ApplicationSyncStartup with AppWithTestPlatform
-}

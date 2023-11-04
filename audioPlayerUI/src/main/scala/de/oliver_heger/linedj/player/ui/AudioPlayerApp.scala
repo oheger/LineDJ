@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.ui
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 
-object AudioPlayerApp {
+object AudioPlayerApp:
   /** The name of this application. */
   val ApplicationName = "audioPlayer"
 
@@ -28,12 +28,11 @@ object AudioPlayerApp {
     * configuration.
     */
   val BeanPlayerConfig: String = ApplicationName + ".config"
-}
 
 /**
   * The main application class for the audio player application.
   */
-class AudioPlayerApp extends ClientApplication("audioPlayer") with ApplicationAsyncStartup {
+class AudioPlayerApp extends ClientApplication("audioPlayer") with ApplicationAsyncStartup:
   import AudioPlayerApp._
 
   /**
@@ -41,10 +40,8 @@ class AudioPlayerApp extends ClientApplication("audioPlayer") with ApplicationAs
     *             application context to this application's ''BeanContext'',
     *             so that they are available everywhere in this application.
     */
-  override def createApplicationContext(): ApplicationContext = {
+  override def createApplicationContext(): ApplicationContext =
     val appCtx = super.createApplicationContext()
     addBeanDuringApplicationStartup(BeanPlayerConfig,
       AudioPlayerConfig(clientApplicationContext.managementConfiguration))
     appCtx
-  }
-}

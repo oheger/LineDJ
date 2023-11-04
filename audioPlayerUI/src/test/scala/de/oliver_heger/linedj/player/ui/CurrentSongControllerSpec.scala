@@ -31,7 +31,7 @@ import java.util
 import java.util.Collections
 import scala.concurrent.duration._
 
-object CurrentSongControllerSpec {
+object CurrentSongControllerSpec:
   /** Title of the test song. */
   private val Title = "Scenes From A Night's Dream"
 
@@ -83,12 +83,11 @@ object CurrentSongControllerSpec {
     * @return the application configuration
     */
   private def createUIConfig(fieldSize: Option[Int] = None, speed: Option[Int] = None):
-  AudioPlayerConfig = {
+  AudioPlayerConfig =
     val config = new PropertiesConfiguration
     fieldSize.foreach(s => config.addProperty(AudioPlayerConfig.PropMaxFieldSize, s))
     speed.foreach(s => config.addProperty(AudioPlayerConfig.PropRotationSpeed, s))
     AudioPlayerConfig(config)
-  }
 
   /**
     * Generates a rotated text.
@@ -99,90 +98,79 @@ object CurrentSongControllerSpec {
     */
   private def rotate(s: String, by: Int): String =
     (s + " * " + s).substring(by, MaxFieldSize + by)
-}
 
 /**
   * Test class for ''CurrentSongController''.
   */
-class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import CurrentSongControllerSpec._
 
-  "A CurrentSongController" should "init the title field" in {
+  "A CurrentSongController" should "init the title field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyTitle()
-  }
 
-  it should "init the artist field" in {
+  it should "init the artist field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyArtist()
-  }
 
-  it should "init the index field" in {
+  it should "init the index field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyIndex(s"${Index + 1} / $PlaylistSize")
-  }
 
-  it should "init the album field" in {
+  it should "init the album field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyAlbum(s"$Album ($Track)")
-  }
 
-  it should "init the year field" in {
+  it should "init the year field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyYear(Year.toString)
-  }
 
-  it should "init the time field" in {
+  it should "init the time field" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyDuration(s"0:00 / $DurationFmt")
-  }
 
-  it should "init the album field if there is no track number" in {
+  it should "init the album field if there is no track number" in:
     val helper = new ControllerTestHelper
 
     helper.updateCurrentMetaData(_.copy(trackNumber = None))
       .triggerPlaylistChanged()
       .verifyAlbum()
-  }
 
-  it should "init the time field if there is no duration" in {
+  it should "init the time field if there is no duration" in:
     val helper = new ControllerTestHelper
 
     helper.updateCurrentMetaData(_.copy(duration = None))
       .triggerPlaylistChanged()
       .verifyDuration("0:00 / ?")
-  }
 
-  it should "init the year field if there is no year in meta data" in {
+  it should "init the year field if there is no year in meta data" in:
     val helper = new ControllerTestHelper
 
     helper.updateCurrentMetaData(_.copy(inceptionYear = None))
       .triggerPlaylistChanged()
       .verifyYear("")
-  }
 
-  it should "update fields only if there is a change in the current song" in {
+  it should "update fields only if there is a change in the current song" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .triggerPlaylistChanged()
       .verifyTitle()
-  }
 
-  it should "clear all fields if there is no current song" in {
+  it should "clear all fields if there is no current song" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
@@ -190,47 +178,41 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .triggerPlaylistChanged()
       .verifyTitle("").verifyArtist("").verifyAlbum("")
       .verifyDuration("").verifyYear("").verifyIndex("")
-  }
 
-  it should "update the current song on a playlist data change" in {
+  it should "update the current song on a playlist data change" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistDataChanged(Some(Index))
       .verifyTitle()
       .verifyIndex(s"${Index + 1} / $PlaylistSize")
-  }
 
-  it should "update the current song on a playlist data change only if needed" in {
+  it should "update the current song on a playlist data change only if needed" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistDataChanged(Some(Index))
       .triggerPlaylistDataChanged(Some(Index))
       .verifyTitle()
-  }
 
-  it should "clear all fields if the current song on a data change is None" in {
+  it should "clear all fields if the current song on a data change is None" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .triggerPlaylistDataChanged(None)
       .verifyTitle("")
-  }
 
-  it should "update the playback time on a progress event" in {
+  it should "update the playback time on a progress event" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .sendProgress(posOfs = 0, timeOfs = 63)
       .verifyDuration("1:03 / " + DurationFmt)
-  }
 
-  it should "handle a progress event gracefully if there is no current song" in {
+  it should "handle a progress event gracefully if there is no current song" in:
     val helper = new ControllerTestHelper
 
     helper.sendProgress(0, 1)
-  }
 
-  it should "reset the map with time update functions if there is no current song" in {
+  it should "reset the map with time update functions if there is no current song" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
@@ -238,9 +220,8 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .triggerPlaylistChanged()
       .sendProgress(timeOfs = 0, posOfs = 25)
       .verifyDuration(s"0:00 / $DurationFmt")
-  }
 
-  it should "rotate fields that are too long" in {
+  it should "rotate fields that are too long" in:
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
 
     helper.triggerPlaylistChanged()
@@ -248,9 +229,8 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .verifyTitle(rotate(Title, 1))
       .verifyAlbum(rotate(Album, 1))
       .verifyArtist(Artist)
-  }
 
-  it should "handle larger offsets when rotating" in {
+  it should "handle larger offsets when rotating" in:
     val Offset = 12
     val Time = (Title.length + 3) * 5 + Offset
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize)))
@@ -258,33 +238,29 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
     helper.triggerPlaylistChanged()
       .sendProgress(timeOfs = Time, posOfs = 0)
       .verifyTitle(rotate(Title, Offset))
-  }
 
-  it should "handle the rotation speed" in {
+  it should "handle the rotation speed" in:
     val helper = new ControllerTestHelper(config = createUIConfig(fieldSize = Some(MaxFieldSize),
       speed = Some(2)))
 
     helper.triggerPlaylistChanged()
       .sendProgress(timeOfs = 2, posOfs = 0)
       .verifyTitle(rotate(Title, 4))
-  }
 
-  it should "update the progress bar correctly" in {
+  it should "update the progress bar correctly" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .sendProgress(posOfs = 0, timeOfs = 88)
       .verifyProgress(42)
-  }
 
-  it should "reset the position when the current song changes" in {
+  it should "reset the position when the current song changes" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
       .verifyProgress(0)
-  }
 
-  it should "handle a song with no duration when calculating progress" in {
+  it should "handle a song with no duration when calculating progress" in:
     val helper = new ControllerTestHelper
 
     helper.updateCurrentMetaData(_.copy(duration = None))
@@ -292,9 +268,8 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .sendProgress(posOfs = 100, timeOfs = 1)
       .verifyProgress(0)
       .verifyNoMoreProgressUpdates()
-  }
 
-  it should "reset the progress bar if there is no current song" in {
+  it should "reset the progress bar if there is no current song" in:
     val helper = new ControllerTestHelper
 
     helper.triggerPlaylistChanged()
@@ -302,14 +277,13 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .clearTableSelection()
       .triggerPlaylistChanged()
       .verifyProgress(0, expCount = 2)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     *
     * @param config the configuration for the UI application
     */
-  private class ControllerTestHelper(config: AudioPlayerConfig = createUIConfig()) {
+  private class ControllerTestHelper(config: AudioPlayerConfig = createUIConfig()):
     /** The collection serving as table model. */
     private val tableModel = createTableModel()
 
@@ -345,10 +319,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       *
       * @return this test helper
       */
-    def triggerPlaylistChanged(): ControllerTestHelper = {
+    def triggerPlaylistChanged(): ControllerTestHelper =
       controller.playlistStateChanged()
       this
-    }
 
     /**
       * Notifies the test controller about a change in the data of the
@@ -357,10 +330,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @param current the index of the current song
       * @return this test helper
       */
-    def triggerPlaylistDataChanged(current: Option[Int]): ControllerTestHelper = {
+    def triggerPlaylistDataChanged(current: Option[Int]): ControllerTestHelper =
       controller.playlistDataChanged(current)
       this
-    }
 
     /**
       * Sends a playback progress event to the test controller.
@@ -371,12 +343,11 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @return this test helper
       */
     def sendProgress(posOfs: Long, timeOfs: Long, source: AudioSource = TestSource):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       val event = PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs.seconds,
         currentSource = source)
       controller playlistProgress event
       this
-    }
 
     /**
       * Allows changing the meta data of the current song in the playlist.
@@ -384,11 +355,10 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @param fMeta a function to update the current meta data
       * @return this test helper
       */
-    def updateCurrentMetaData(fMeta: MediaMetaData => MediaMetaData): ControllerTestHelper = {
+    def updateCurrentMetaData(fMeta: MediaMetaData => MediaMetaData): ControllerTestHelper =
       val oldSong = tableModel.get(Index).asInstanceOf[SongData]
       tableModel.set(Index, oldSong.copy(metaData = fMeta(oldSong.metaData)))
       this
-    }
 
     /**
       * Prepares the mock for the table controller to report a cleared
@@ -396,10 +366,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       *
       * @return this test helper
       */
-    def clearTableSelection(): ControllerTestHelper = {
+    def clearTableSelection(): ControllerTestHelper =
       when(tableHandler.getSelectedIndex).thenReturn(-1)
       this
-    }
 
     /**
       * Verifies that the correct title text was set.
@@ -462,20 +431,18 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @param expCount the number of times the value is expected
       * @return this test helper
       */
-    def verifyProgress(expValue: Int, expCount: Int = 1): ControllerTestHelper = {
+    def verifyProgress(expValue: Int, expCount: Int = 1): ControllerTestHelper =
       verify(progressHandler, times(expCount)).setValue(expValue)
       this
-    }
 
     /**
       * Verifies that there are no more updates on the progress bar element.
       *
       * @return this test helper
       */
-    def verifyNoMoreProgressUpdates(): ControllerTestHelper = {
+    def verifyNoMoreProgressUpdates(): ControllerTestHelper =
       verifyNoMoreInteractions(progressHandler)
       this
-    }
 
     /**
       * Verifies that a text was correctly set for a text handler.
@@ -484,10 +451,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @param txt     the expected text
       * @return this test helper
       */
-    private def verifyTextHandler(handler: StaticTextHandler, txt: String): ControllerTestHelper = {
+    private def verifyTextHandler(handler: StaticTextHandler, txt: String): ControllerTestHelper =
       verify(handler).setText(txt)
       this
-    }
 
     /**
       * Creates a test controller instance.
@@ -511,12 +477,11 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       *
       * @return the initialized table model collection
       */
-    private def createTableModel(): java.util.List[AnyRef] = {
+    private def createTableModel(): java.util.List[AnyRef] =
       val model = new util.ArrayList[AnyRef](PlaylistSize)
       model addAll Collections.nCopies(PlaylistSize, UndefinedSong)
       model.set(Index, TestSongData)
       model
-    }
 
     /**
       * Creates a mock for the table handler. The mock is already configured
@@ -524,12 +489,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       *
       * @return the mock for the table handler
       */
-    private def createTableHandler(): TableHandler = {
+    private def createTableHandler(): TableHandler =
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(tableModel)
       when(handler.getSelectedIndex).thenReturn(Index)
       handler
-    }
-  }
 
-}

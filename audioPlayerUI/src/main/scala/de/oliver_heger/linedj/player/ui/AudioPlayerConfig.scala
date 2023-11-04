@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartMode
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
-object AudioPlayerConfig {
+object AudioPlayerConfig:
   /** The logger. */
   private val Log = LogManager.getLogger(classOf[AudioPlayerConfig])
 
@@ -102,7 +102,7 @@ object AudioPlayerConfig {
     * automatically if specific criteria are fulfilled. The different modes for
     * auto start are represented by implementations of this trait.
     */
-  sealed trait AutoStartMode {
+  sealed trait AutoStartMode:
     /**
       * Checks whether the passed in audio player state allows auto start of
       * playback. This method is invoked by the audio player controller if a
@@ -112,30 +112,26 @@ object AudioPlayerConfig {
       * @return a flag whether playback can start now
       */
     def canStartPlayback(state: AudioPlayerState): Boolean
-  }
 
   /**
     * A special auto start mode that triggers start of playback as soon as a
     * playlist is available.
     */
-  object AutoStartAlways extends AutoStartMode {
+  object AutoStartAlways extends AutoStartMode:
     override def canStartPlayback(state: AudioPlayerState): Boolean = true
-  }
 
   /**
     * A special auto start mode that triggers start of playback if a playlist
     * is available that has been closed.
     */
-  object AutoStartIfClosed extends AutoStartMode {
+  object AutoStartIfClosed extends AutoStartMode:
     override def canStartPlayback(state: AudioPlayerState): Boolean = state.playlistClosed
-  }
 
   /**
     * A special auto start mode that disables auto start of playback.
     */
-  object AutoStartNever extends AutoStartMode {
+  object AutoStartNever extends AutoStartMode:
     override def canStartPlayback(state: AudioPlayerState): Boolean = false
-  }
 
   /**
     * Returns a new instance of ''AudioPlayerConfig'' that is initialized from
@@ -156,19 +152,16 @@ object AudioPlayerConfig {
     * @param config the configuration
     * @return the auto start mode
     */
-  private def mapAutoStartMode(config: Configuration): AutoStartMode = {
+  private def mapAutoStartMode(config: Configuration): AutoStartMode =
     val mode = config.getString(PropAutoStartPlayback,
       AutoStartModeNameNever).toLowerCase(Locale.ROOT)
-    mode match {
+    mode match
       case AutoStartModeNameAlways => AutoStartAlways
       case AutoStartModeNameIfClosed => AutoStartIfClosed
       case AutoStartModeNameNever => AutoStartNever
       case s =>
         Log.warn("Unsupported auto start mode '{}'. Setting default.", s)
         AutoStartNever
-    }
-  }
-}
 
 /**
   * A class allowing convenient access to all configuration properties

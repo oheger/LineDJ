@@ -32,7 +32,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object PlaylistTableControllerSpec {
+object PlaylistTableControllerSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("settings"))
 
@@ -96,12 +96,11 @@ object PlaylistTableControllerSpec {
     */
   private def metaDataState(idx: Int): MetaDataResolveState =
     MetaDataResolveState(idx, List.empty, Map.empty)
-}
 
 /**
   * Test class for ''PlaylistTableController''.
   */
-class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import PlaylistTableControllerSpec._
 
@@ -125,7 +124,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     */
   private def playlistMetaData(): PlaylistMetaData = mock[PlaylistMetaData]
 
-  "A PlaylistTableController" should "populate the model for a full playlist update" in {
+  "A PlaylistTableController" should "populate the model for a full playlist update" in:
     val SongCount = 2 * InitPlaylistSize
     val state = playerState()
     val delta = MetaDataResolveDelta(songDataList(SongCount).zipWithIndex, Nil, fullUpdate = true)
@@ -134,9 +133,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     helper.expectPlaylistUpdate(state, delta, metaDataState(1))
       .triggerPlaylistUpdate(state)
       .checkModelForFullUpdate(SongCount)
-  }
 
-  it should "notify the table handler about a full playlist update" in {
+  it should "notify the table handler about a full playlist update" in:
     val state = playerState()
     val helper = new ControllerTestHelper
 
@@ -144,9 +142,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       fullUpdate = true), metaDataState(1))
       .triggerPlaylistUpdate(state)
       .verifyTableDataChangeNotification()
-  }
 
-  it should "handle a playlist update that does not require an action" in {
+  it should "handle a playlist update that does not require an action" in:
     val state = playerState()
     val helper = new ControllerTestHelper
 
@@ -155,9 +152,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .triggerPlaylistUpdate(state)
       .checkModelForPartialUpdates(Set.empty)
       .verifyNoMoreUpdatesOfTableHandler()
-  }
 
-  it should "update the model when new meta data arrives" in {
+  it should "update the model when new meta data arrives" in:
     val metaData = playlistMetaData()
     val delta = MetaDataResolveDelta(List(songDataIdx(1), songDataIdx(2), songDataIdx(3),
       songDataIdx(8)), List((0, 2), (7, 7)), fullUpdate = false)
@@ -168,9 +164,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .triggerMetaDataUpdate(metaData, selIdx = SelectedIndex)
       .checkModelForPartialUpdates(Set(0, 1, 2, 7))
       .verifyTableSelection(SelectedIndex)
-  }
 
-  it should "notify the table handler about partial updates" in {
+  it should "notify the table handler about partial updates" in:
     val metaData = playlistMetaData()
     val updates = List((1, 3), (7, 7), (5, 6))
     val delta = MetaDataResolveDelta(Nil, updates, fullUpdate = false)
@@ -180,9 +175,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .triggerMetaDataUpdate(metaData)
     updates foreach (t => helper.verifyTableRangeUpdateNotification(t._1, t._2))
     helper.verifyNoMoreUpdatesOfTableHandler()
-  }
 
-  it should "track the meta data state when processing updates" in {
+  it should "track the meta data state when processing updates" in:
     val delta1 = MetaDataResolveDelta(songDataList(InitPlaylistSize).zipWithIndex, Nil,
       fullUpdate = true)
     val delta2 = MetaDataResolveDelta(Nil, List((1, 2)), fullUpdate = false)
@@ -201,9 +195,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .verifyTableDataChangeNotification()
       .verifyTableRangeUpdateNotification(1, 2)
       .verifyTableRangeUpdateNotification(3, 5)
-  }
 
-  it should "clear the table selection if there is no current song" in {
+  it should "clear the table selection if there is no current song" in:
     val state = playerState()
     val helper = new ControllerTestHelper
 
@@ -211,9 +204,8 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       metaDataState(1))
       .triggerPlaylistUpdate(state)
       .verifyNoTableSelection()
-  }
 
-  it should "set the table selection to the correct current index" in {
+  it should "set the table selection to the correct current index" in:
     val CurrentIndex = 3
     val state = playerState()
     val helper = new ControllerTestHelper
@@ -223,12 +215,11 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .expectCurrentIndex(state.playlist, CurrentIndex)
       .triggerPlaylistUpdate(state)
       .verifyTableSelection(CurrentIndex)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
-  private class ControllerTestHelper {
+  private class ControllerTestHelper:
     /** Mock for the song data factory. */
     private val songDataFactory = mock[SongDataFactory]
 
@@ -262,12 +253,11 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       */
     def expectPlaylistUpdate(playerState: AudioPlayerState, delta: MetaDataResolveDelta,
                              nextState: MetaDataResolveState, currentState: MetaDataResolveState
-                             = InitMetaDataState): ControllerTestHelper = {
+                             = InitMetaDataState): ControllerTestHelper =
       val resultFunc = serviceResult(delta, nextState)
       when(service.processPlaylistUpdate(playerState.playlist, playerState.playlistSeqNo,
         currentState)).thenReturn(resultFunc)
       this
-    }
 
     /**
       * Prepares the mock for the meta data service to process a meta data
@@ -282,11 +272,10 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     def expectMetaDataUpdate(metaData: PlaylistMetaData, delta: MetaDataResolveDelta,
                              nextState: MetaDataResolveState,
                              currentState: MetaDataResolveState = InitMetaDataState):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       val resultFunc = serviceResult(delta, nextState)
       when(service.processMetaDataUpdate(metaData, currentState)).thenReturn(resultFunc)
       this
-    }
 
     /**
       * Invokes the test controller with the specified player state to check
@@ -295,10 +284,9 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @param playerState the player state
       * @return this test helper
       */
-    def triggerPlaylistUpdate(playerState: AudioPlayerState): ControllerTestHelper = {
+    def triggerPlaylistUpdate(playerState: AudioPlayerState): ControllerTestHelper =
       controller handlePlayerStateUpdate playerState
       this
-    }
 
     /**
       * Invokes the test controller with the specified meta data to check
@@ -310,11 +298,10 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @return this test helper
       */
     def triggerMetaDataUpdate(metaData: PlaylistMetaData, selIdx: Int = 0):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       when(tableHandler.getSelectedIndex).thenReturn(selIdx)
       controller handleMetaDataUpdate metaData
       this
-    }
 
     /**
       * Checks that the model collection has been updated to contain the
@@ -324,10 +311,9 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @param songCount the expected number of songs in the table model
       * @return this test helper
       */
-    def checkModelForFullUpdate(songCount: Int): ControllerTestHelper = {
+    def checkModelForFullUpdate(songCount: Int): ControllerTestHelper =
       tableModel.asScala should contain theSameElementsInOrderAs songDataList(songCount)
       this
-    }
 
     /**
       * Checks that elements with the specified indices have been updated in
@@ -338,15 +324,14 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *                       (0-based)
       * @return this test helper
       */
-    def checkModelForPartialUpdates(updatedIndices: Set[Int]): ControllerTestHelper = {
+    def checkModelForPartialUpdates(updatedIndices: Set[Int]): ControllerTestHelper =
       tableModel should have size InitPlaylistSize
       tableModel.asScala.zipWithIndex foreach { t =>
-        val expSong = if (updatedIndices contains t._2) songData(t._2 + 1)
+        val expSong = if updatedIndices contains t._2 then songData(t._2 + 1)
         else InitSongData
         t._1 should be(expSong)
       }
       this
-    }
 
     /**
       * Verifies that a notification about a full table data change has been
@@ -354,10 +339,9 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return this test helper
       */
-    def verifyTableDataChangeNotification(): ControllerTestHelper = {
+    def verifyTableDataChangeNotification(): ControllerTestHelper =
       verify(tableHandler).tableDataChanged()
       this
-    }
 
     /**
       * Verifies that the table handler was notified about a change in the
@@ -367,10 +351,9 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @param to   the to index
       * @return this test helper
       */
-    def verifyTableRangeUpdateNotification(from: Int, to: Int): ControllerTestHelper = {
+    def verifyTableRangeUpdateNotification(from: Int, to: Int): ControllerTestHelper =
       verify(tableHandler).rowsUpdated(from, to)
       this
-    }
 
     /**
       * Checks that no more interactions took place with the table handler
@@ -378,14 +361,13 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return this test helper
       */
-    def verifyNoMoreUpdatesOfTableHandler(): ControllerTestHelper = {
+    def verifyNoMoreUpdatesOfTableHandler(): ControllerTestHelper =
       verify(tableHandler, Mockito.atMost(1)).getModel
       verify(tableHandler, Mockito.atMost(2)).getSelectedIndex
       verify(tableHandler, Mockito.atMost(1)).clearSelection()
       verify(tableHandler, Mockito.atMost(1)).setSelectedIndex(anyInt())
       verifyNoMoreInteractions(tableHandler)
       this
-    }
 
     /**
       * Generates a result function for the playlist meta data service. If the
@@ -410,10 +392,9 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @param idx the index to be returned for this playlist
       * @return this test helper
       */
-    def expectCurrentIndex(pl: Playlist, idx: Int): ControllerTestHelper = {
+    def expectCurrentIndex(pl: Playlist, idx: Int): ControllerTestHelper =
       when(playlistService.currentIndex(pl)).thenReturn(Some(idx))
       this
-    }
 
     /**
       * Verifies that the table selection was set to the specified index.
@@ -421,20 +402,18 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       * @param idx the index
       * @return this test helper
       */
-    def verifyTableSelection(idx: Int): ControllerTestHelper = {
+    def verifyTableSelection(idx: Int): ControllerTestHelper =
       verify(tableHandler).setSelectedIndex(idx)
       this
-    }
 
     /**
       * Verifies that the table selection was cleared.
       *
       * @return this test helper
       */
-    def verifyNoTableSelection(): ControllerTestHelper = {
+    def verifyNoTableSelection(): ControllerTestHelper =
       verify(tableHandler).clearSelection()
       this
-    }
 
     /**
       * Creates the mock for the meta data service and configures some default
@@ -442,11 +421,10 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return the mock meta data service
       */
-    private def createMetaDataService(): PlaylistMetaDataService = {
+    private def createMetaDataService(): PlaylistMetaDataService =
       val svc = mock[PlaylistMetaDataService]
       when(svc.InitialState).thenReturn(InitMetaDataState)
       svc
-    }
 
     /**
       * Creates mock for the meta data service. This service is needed to find
@@ -455,11 +433,10 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return the mock for the playlist service
       */
-    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] = {
+    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] =
       val svc = mock[PlaylistService[Playlist, MediaFileID]]
       when(svc.currentIndex(any())).thenReturn(None)
       svc
-    }
 
     /**
       * Creates the collection serving as table model. It is already filled
@@ -467,22 +444,18 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return the table model collection
       */
-    private def createModelCollection(): util.ArrayList[AnyRef] = {
+    private def createModelCollection(): util.ArrayList[AnyRef] =
       val model = new util.ArrayList[AnyRef]
       model.addAll(Collections.nCopies(InitPlaylistSize, InitSongData))
       model
-    }
 
     /**
       * Creates the mock for the table handler.
       *
       * @return the mock table handler
       */
-    private def createTableHandler(): TableHandler = {
+    private def createTableHandler(): TableHandler =
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(tableModel)
       handler
-    }
-  }
 
-}

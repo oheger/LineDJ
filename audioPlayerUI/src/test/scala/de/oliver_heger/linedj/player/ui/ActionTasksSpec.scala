@@ -16,27 +16,27 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+import de.oliver_heger.linedj.test.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
 /**
   * Test class for the different action tasks of the audio player UI
   * application.
   */
-class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a mock ''UIController'' that is initialized with some default
     * behavior.
@@ -47,13 +47,12 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @return the mock controller
     */
   private def createMockController(bus: MessageBus, state: AudioPlayerState,
-                                   progress: PlaybackProgressEvent) = {
+                                   progress: PlaybackProgressEvent) =
     val controller = mock[UIController]
     when(controller.messageBus).thenReturn(bus)
     when(controller.lastPlayerState).thenReturn(state)
     when(controller.lastProgressEvent).thenReturn(progress)
     controller
-  }
 
   /**
     * Executes a test for an action task that produces a result on the UI
@@ -73,7 +72,7 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
                                         progress: PlaybackProgressEvent
                                         = mock[PlaybackProgressEvent])
                                        (taskCreator: UIController => PlayerActionTask)
-                                       (implicit t: ClassTag[T]): T = {
+                                       (implicit t: ClassTag[T]): T =
     val bus = new MessageBusTestImpl
     val controller = createMockController(bus, state, progress)
     val task = taskCreator(controller)
@@ -81,7 +80,6 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     verify(controller).playerActionTriggered()
     bus.expectMessageType[T]
-  }
 
   /**
     * Executes a test for an action task for which no result on the message bus
@@ -95,7 +93,7 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private def checkTaskNoBusResult(state: AudioPlayerState = mock[AudioPlayerState],
                                    progress: PlaybackProgressEvent
                                    = mock[PlaybackProgressEvent])
-                                  (taskCreator: UIController => PlayerActionTask): Unit = {
+                                  (taskCreator: UIController => PlayerActionTask): Unit =
     val bus = mock[MessageBus]
     val controller = createMockController(bus, state, progress)
     val task = taskCreator(controller)
@@ -103,28 +101,24 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     verifyNoInteractions(bus)
     verify(controller, never()).playerActionTriggered()
-  }
 
-  "A StartPlaybackTask" should "send a correct command on the message bus" in {
+  "A StartPlaybackTask" should "send a correct command on the message bus" in:
     val cmd = checkTaskWithBusResult[StartAudioPlayback]()(new StartPlaybackTask(_))
     cmd should be(StartAudioPlayback())
-  }
 
-  "A StopPlaybackTask" should "send a correct command on the message bus" in {
+  "A StopPlaybackTask" should "send a correct command on the message bus" in:
     val cmd = checkTaskWithBusResult[StopAudioPlayback]()(new StopPlaybackTask(_))
     cmd should be(StopAudioPlayback())
-  }
 
-  "A NextSongTask" should "send a correct command on the message bus" in {
+  "A NextSongTask" should "send a correct command on the message bus" in:
     val cmd = checkTaskWithBusResult[AudioPlayerCommand]()(new NextSongTask(_))
     cmd should be(SkipCurrentSource)
-  }
 
   /**
     * Checks a successful execution of the goto task.
     * @param closePlaylist flag whether the playlist is to be closed
     */
-  private def checkGotoTask(closePlaylist: Boolean): Unit = {
+  private def checkGotoTask(closePlaylist: Boolean): Unit =
     val Index = 11
     val playlist = mock[Playlist]
     val updatedPlaylist = mock[Playlist]
@@ -138,17 +132,14 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val cmd = checkTaskWithBusResult[SetPlaylist](state = state)(new GotoSongTask(_, tabHandler,
       plService))
     cmd should be(SetPlaylist(updatedPlaylist, closePlaylist))
-  }
 
-  "A GotoSongTask" should "change the current song in the playlist and close it" in {
+  "A GotoSongTask" should "change the current song in the playlist and close it" in:
     checkGotoTask(closePlaylist = true)
-  }
 
-  it should "change the current song in the playlist and keep it open" in {
+  it should "change the current song in the playlist and keep it open" in:
     checkGotoTask(closePlaylist = false)
-  }
 
-  it should "not send a message if no updated playlist can be created" in {
+  it should "not send a message if no updated playlist can be created" in:
     val Index = -1
     val playlist = mock[Playlist]
     val tabHandler = mock[TableHandler]
@@ -159,7 +150,6 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       playlistClosed = false, playlistActivated = true)
 
     checkTaskNoBusResult(state)(new GotoSongTask(_, tabHandler, plService))
-  }
 
   /**
     * Creates a progress event with the given time offset.
@@ -171,7 +161,7 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     PlaybackProgressEvent(playbackTime = time.seconds, bytesProcessed = 1,
       currentSource = AudioSource("test", 20180105, 0, 0))
 
-  "A PreviousSongTask" should "move to the previous song if progress is under threshold" in {
+  "A PreviousSongTask" should "move to the previous song if progress is under threshold" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val Index = 17
@@ -186,9 +176,8 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(newPlaylist))
-  }
 
-  it should "reset the current song if progress is over the threshold" in {
+  it should "reset the current song if progress is over the threshold" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
@@ -200,9 +189,8 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       Config, plService))
     cmd should be(SetPlaylist(playlist))
     verifyNoInteractions(plService)
-  }
 
-  it should "respect the playlist closed flag" in {
+  it should "respect the playlist closed flag" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
@@ -213,9 +201,8 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       progress = createProgressEvent(Config.skipBackwardsThreshold))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist, closePlaylist = false))
-  }
 
-  it should "reset the current song if it is the first in the playlist" in {
+  it should "reset the current song if it is the first in the playlist" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
@@ -227,9 +214,8 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
     cmd should be(SetPlaylist(playlist))
-  }
 
-  it should "handle a None result in setCurrentSong" in {
+  it should "handle a None result in setCurrentSong" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val Index = 17
@@ -242,9 +228,8 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
-  }
 
-  it should "handle a None result in currentIndex" in {
+  it should "handle a None result in currentIndex" in:
     val Config = AudioPlayerConfig(skipBackwardsThreshold = 10, maxUIFieldSize = 100,
       rotationSpeed = 1, autoStartMode = AutoStartNever)
     val playlist = mock[Playlist]
@@ -255,5 +240,3 @@ class ActionTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       playbackActive = true, playlistClosed = true, playlistActivated = true),
       progress = createProgressEvent(Config.skipBackwardsThreshold - 1))(new PreviousSongTask(_,
       Config, plService))
-  }
-}

@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
@@ -25,19 +24,20 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.{AutoStartAlways, AutoStartIfClosed, AutoStartMode, AutoStartNever}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import de.oliver_heger.linedj.test.ActionTestHelper
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
-object UIControllerSpec {
+object UIControllerSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("testSettings"))
 
@@ -71,35 +71,31 @@ object UIControllerSpec {
     * @param time the time offset (in seconds)
     * @return the event
     */
-  private def createProgressEvent(pos: Long, time: Long): PlaybackProgressEvent = {
+  private def createProgressEvent(pos: Long, time: Long): PlaybackProgressEvent =
     PlaybackProgressEvent(bytesProcessed = pos, playbackTime = time.seconds,
       currentSource = AudioSource("test", 123456, 0, 0))
-  }
-}
 
 /**
   * Test class for ''UIController''.
   */
-class UIControllerSpec extends AnyFlatSpec with Matchers {
+class UIControllerSpec extends AnyFlatSpec with Matchers:
   import UIControllerSpec._
 
-  "A UIController" should "pass a player state to its sub controllers" in {
+  "A UIController" should "pass a player state to its sub controllers" in:
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(state)
       .verifyStatePassedToSubControllers(state)
-  }
 
-  it should "report the last player state" in {
+  it should "report the last player state" in:
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(state)
       .verifyLastPlayerState(state)
-  }
 
-  it should "report an initial player state" in {
+  it should "report an initial player state" in:
     val helper = new ControllerTestHelper
 
     val state = helper.lastPlayerState
@@ -107,9 +103,8 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
     state.playlist.playedSongs should have size 0
     state.playlist.pendingSongs should have size 0
     state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
-  }
 
-  it should "pass playlist meta data to the playlist table controller" in {
+  it should "pass playlist meta data to the playlist table controller" in:
     val meta = PlaylistMetaData(Map.empty)
     val state = createState(playing = false)
     val optIndex = Some(42)
@@ -119,74 +114,65 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       .expectCurrentSongIndex(state, optIndex)
       .metaDataChanged(meta)
       .verifyMetaDataPassedToSubController(meta, optIndex)
-  }
 
-  it should "pass a playlist progress event to the current song controller" in {
+  it should "pass a playlist progress event to the current song controller" in:
     val event = createProgressEvent(100, 200)
     val helper = new ControllerTestHelper
 
     helper.sendOnBus(event)
       .verifyProgressEventPassedToSubController(event)
-  }
 
-  it should "report the last progress event" in {
+  it should "report the last progress event" in:
     val event = createProgressEvent(1, 2)
     val helper = new ControllerTestHelper
 
     helper.sendOnBus(event)
       .verifyLastProgressEvent(event)
-  }
 
-  it should "report an initial progress event" in {
+  it should "report an initial progress event" in:
     val helper = new ControllerTestHelper
 
     val event = helper.lastProgressEvent
     event.currentSource.length should be > 0L
     event.bytesProcessed should be(0)
     event.playbackTime should be(0.seconds)
-  }
 
-  it should "enable actions if playback is active" in {
+  it should "enable actions if playback is active" in:
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(createState(playing = true))
       .verifyActionsEnabled(UIController.ActionStopPlayback, UIController.ActionNextSong,
         UIController.ActionGotoSong, UIController.ActionPreviousSong)
-  }
 
-  it should "enable actions if playback is not active" in {
+  it should "enable actions if playback is not active" in:
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(createState(playing = false))
       .verifyActionsEnabled(UIController.ActionStartPlayback, UIController.ActionGotoSong)
-  }
 
-  it should "update action enabled states after each player state change" in {
+  it should "update action enabled states after each player state change" in:
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(createState(playing = true))
       .playerStateChanged(createState(playing = false))
       .verifyActionsEnabled(UIController.ActionStartPlayback, UIController.ActionGotoSong)
-  }
 
-  it should "disable all actions after one has been triggered" in {
+  it should "disable all actions after one has been triggered" in:
     val helper = new ControllerTestHelper
 
     helper.playerStateChanged(createState(playing = true))
       .playerActionTriggered()
       .verifyActionsEnabled()
-  }
 
-  it should "disable actions if there is no current song" in {
+  it should "disable actions if there is no current song" in:
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
     helper.prepareNoCurrentSong(state)
       .playerStateChanged(state)
       .verifyActionsEnabled(UIController.ActionGotoSong)
-  }
 
-  it should "disable actions if the playlist is empty" in {
+  it should "disable actions if the playlist is empty" in:
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
@@ -194,35 +180,31 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       .prepareEmptyPlaylist(state)
       .playerStateChanged(state)
       .verifyActionsEnabled()
-  }
 
-  it should "start playback for a new playlist if configured" in {
+  it should "start playback for a new playlist if configured" in:
     val helper = new ControllerTestHelper
     val state = createState(playing = false)
 
     helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackStarted()
-  }
 
-  it should "not start playback for a new playlist if not configured" in {
+  it should "not start playback for a new playlist if not configured" in:
     val helper = new ControllerTestHelper
     val state = createState(playing = false)
 
     helper.playerStateChanged(state)
       .verifyPlaybackNotStarted()
-  }
 
-  it should "not start playback if the new playlist is empty" in {
+  it should "not start playback if the new playlist is empty" in:
     val helper = new ControllerTestHelper
     val state = createState(playlist = Playlist(Nil, Nil), playing = false)
 
     helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
-  }
 
-  it should "not start playback if the playlist sequence number does not change" in {
+  it should "not start playback if the playlist sequence number does not change" in:
     val helper = new ControllerTestHelper
     val orgState = helper.lastPlayerState
     val state = createState(playing = false, active = false, seqNo = orgState.playlistSeqNo)
@@ -230,9 +212,8 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
     helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
-  }
 
-  it should "start playback if the playlist is now activated" in {
+  it should "start playback if the playlist is now activated" in:
     val helper = new ControllerTestHelper
     val state1 = createState(playing = false, active = false, closed = false)
     val state2 = state1.copy(playlistActivated = true, playlistClosed = true)
@@ -241,39 +222,35 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       .playerStateChanged(state1)
       .playerStateChanged(state2)
       .verifyPlaybackStarted()
-  }
 
-  it should "not start playback for a new playlist if it is already active" in {
+  it should "not start playback for a new playlist if it is already active" in:
     val state = createState(playing = true)
     val helper = new ControllerTestHelper
 
     helper.enablePlaybackAutoStart(AutoStartAlways)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
-  }
 
-  it should "not start playback for mode if-closed if the playlist is not closed" in {
+  it should "not start playback for mode if-closed if the playlist is not closed" in:
     val state = createState(playing = false, closed = false)
     val helper = new ControllerTestHelper
 
     helper.enablePlaybackAutoStart(AutoStartIfClosed)
       .playerStateChanged(state)
       .verifyPlaybackNotStarted()
-  }
 
-  it should "start playback for mode if-closed if the playlist is closed" in {
+  it should "start playback for mode if-closed if the playlist is closed" in:
     val state = createState(playing = false)
     val helper = new ControllerTestHelper
 
     helper.enablePlaybackAutoStart(AutoStartIfClosed)
       .playerStateChanged(state)
       .verifyPlaybackStarted()
-  }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     */
-  private class ControllerTestHelper extends ActionTestHelper with MockitoSugar {
+  private class ControllerTestHelper extends ActionTestHelper with MockitoSugar:
     /** Mock for the table controller. */
     private val tableController = mock[PlaylistTableController]
 
@@ -308,11 +285,10 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param state the state
       * @return this test helper
       */
-    def playerStateChanged(state: AudioPlayerState): ControllerTestHelper = {
+    def playerStateChanged(state: AudioPlayerState): ControllerTestHelper =
       val event = AudioPlayerStateChangedEvent(state)
       stateConsumer(event)
       this
-    }
 
     /**
       * Verifies that the player state is passed to helper objects.
@@ -320,12 +296,11 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param state the state
       * @return this test helper
       */
-    def verifyStatePassedToSubControllers(state: AudioPlayerState): ControllerTestHelper = {
+    def verifyStatePassedToSubControllers(state: AudioPlayerState): ControllerTestHelper =
       val io = Mockito.inOrder(tableController, currentSongController)
       io.verify(tableController).handlePlayerStateUpdate(state)
       io.verify(currentSongController).playlistStateChanged()
       this
-    }
 
     /**
       * Returns the last player state received by the controller test
@@ -342,10 +317,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param state the expected state
       * @return this test helper
       */
-    def verifyLastPlayerState(state: AudioPlayerState): ControllerTestHelper = {
+    def verifyLastPlayerState(state: AudioPlayerState): ControllerTestHelper =
       lastPlayerState should be(state)
       this
-    }
 
     /**
       * Passes the specified meta data to the corresponding consumer function.
@@ -353,10 +327,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param meta the meta data
       * @return this test helper
       */
-    def metaDataChanged(meta: PlaylistMetaData): ControllerTestHelper = {
+    def metaDataChanged(meta: PlaylistMetaData): ControllerTestHelper =
       metaDataConsumer(meta)
       this
-    }
 
     /**
       * Verifies that the specified meta data has been passed to the correct
@@ -367,12 +340,11 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @return this test helper
       */
     def verifyMetaDataPassedToSubController(meta: PlaylistMetaData, optIdx: Option[Int]):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       val io = Mockito.inOrder(tableController, currentSongController)
       io.verify(tableController).handleMetaDataUpdate(meta)
       io.verify(currentSongController).playlistDataChanged(optIdx)
       this
-    }
 
     /**
       * Sends the specified message to the test controller via the message bus
@@ -381,10 +353,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param msg the message
       * @return this test helper
       */
-    def sendOnBus(msg: AnyRef): ControllerTestHelper = {
+    def sendOnBus(msg: AnyRef): ControllerTestHelper =
       controller receive msg
       this
-    }
 
     /**
       * Verifies that the specified event has been passed to the correct sub
@@ -394,10 +365,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @return this test helper
       */
     def verifyProgressEventPassedToSubController(event: PlaybackProgressEvent):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       verify(currentSongController).playlistProgress(event)
       this
-    }
 
     /**
       * Returns the last progress event reported by the test controller.
@@ -413,10 +383,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param event the expected event
       * @return this test helper
       */
-    def verifyLastProgressEvent(event: PlaybackProgressEvent): ControllerTestHelper = {
+    def verifyLastProgressEvent(event: PlaybackProgressEvent): ControllerTestHelper =
       lastProgressEvent should be(event)
       this
-    }
 
     /**
       * Verifies that only the specified actions are enabled. All other
@@ -425,23 +394,21 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param actions the names of actions that should be enabled
       * @return this test helper
       */
-    def verifyActionsEnabled(actions: String*): ControllerTestHelper = {
+    def verifyActionsEnabled(actions: String*): ControllerTestHelper =
       actionNames foreach { a =>
         val expState = actions contains a
         isActionEnabled(a) shouldBe expState
       }
       this
-    }
 
     /**
       * Notifies the test controller about an action that was triggered.
       *
       * @return this test helper
       */
-    def playerActionTriggered(): ControllerTestHelper = {
+    def playerActionTriggered(): ControllerTestHelper =
       controller.playerActionTriggered()
       this
-    }
 
     /**
       * Prepares the mock for the playlist service to report an undefined
@@ -450,10 +417,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param state the state
       * @return this test helper
       */
-    def prepareNoCurrentSong(state: AudioPlayerState): ControllerTestHelper = {
+    def prepareNoCurrentSong(state: AudioPlayerState): ControllerTestHelper =
       when(plService.currentSong(state.playlist)).thenReturn(None)
       this
-    }
 
     /**
       * Prepares the mock for the playlist service to report an empty playlist
@@ -462,10 +428,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param state the state
       * @return this test helper
       */
-    def prepareEmptyPlaylist(state: AudioPlayerState): ControllerTestHelper = {
+    def prepareEmptyPlaylist(state: AudioPlayerState): ControllerTestHelper =
       when(plService.size(state.playlist)).thenReturn(0)
       this
-    }
 
     /**
       * Prepares the mock for the playlist service to report the specified
@@ -476,10 +441,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @return this test helper
       */
     def expectCurrentSongIndex(state: AudioPlayerState, current: Option[Int]):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       when(plService.currentIndex(state.playlist)).thenReturn(current)
       this
-    }
 
     /**
       * Prepares the mock for the player configuration to return the specified
@@ -488,30 +452,27 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @param mode the auto start mode
       * @return this test helper
       */
-    def enablePlaybackAutoStart(mode: AutoStartMode): ControllerTestHelper = {
+    def enablePlaybackAutoStart(mode: AutoStartMode): ControllerTestHelper =
       when(playerConfig.autoStartMode).thenReturn(mode)
       this
-    }
 
     /**
       * Verifies that the action to start playback has been triggered once.
       *
       * @return this test heper
       */
-    def verifyPlaybackStarted(): ControllerTestHelper = {
+    def verifyPlaybackStarted(): ControllerTestHelper =
       verify(actions(UIController.ActionStartPlayback)).execute(null)
       this
-    }
 
     /**
       * Verifies that the action to start playback has not been triggered.
       *
       * @return this test helper
       */
-    def verifyPlaybackNotStarted(): ControllerTestHelper = {
+    def verifyPlaybackNotStarted(): ControllerTestHelper =
       verify(actions(UIController.ActionStartPlayback), never()).execute(any())
       this
-    }
 
     /**
       * Creates all mock actions required by the test class and an action store
@@ -519,7 +480,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       *
       * @return the mock action store
       */
-    private def initActionMocks(): ActionStore = {
+    private def initActionMocks(): ActionStore =
       createActions(actionNames.toSeq: _*)
       resetActionStates()
       val store = createActionStore()
@@ -528,7 +489,6 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
         null
       }).when(store).enableGroup(UIController.PlayerActionGroup, false)
       store
-    }
 
     /**
       * Creates an initialized mock for the playlist service. The mock is
@@ -538,23 +498,21 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       *
       * @return the mock playlist service
       */
-    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] = {
+    private def createPlaylistService(): PlaylistService[Playlist, MediaFileID] =
       val service = mock[PlaylistService[Playlist, MediaFileID]]
       when(service.currentSong(any())).thenReturn(Some(mock[MediaFileID]))
       when(service.size(any())).thenReturn(42)
       service
-    }
 
     /**
       * Creates a mock for the configuration of the player application.
       *
       * @return the mock for the configuration
       */
-    private def createAppConfig(): AudioPlayerConfig = {
+    private def createAppConfig(): AudioPlayerConfig =
       val config = mock[AudioPlayerConfig]
       when(config.autoStartMode).thenReturn(AutoStartNever)
       config
-    }
 
     /**
       * Finds a registration of the specified type.
@@ -564,13 +522,10 @@ class UIControllerSpec extends AnyFlatSpec with Matchers {
       * @return the consumer registration of this type
       */
     private def findRegistration[T <: ConsumerRegistration[_]](implicit t: ClassTag[T]): T =
-      controller.registrations.find(_.getClass == t.runtimeClass) match {
+      controller.registrations.find(_.getClass == t.runtimeClass) match
         case None =>
           throw new AssertionError("No registration of type " + t.runtimeClass)
         case Some(reg) =>
           reg.id should be(controller.componentID)
           reg.asInstanceOf[T]
-      }
-  }
 
-}

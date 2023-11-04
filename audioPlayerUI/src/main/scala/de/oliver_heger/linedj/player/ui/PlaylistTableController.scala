@@ -42,7 +42,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 class PlaylistTableController(songDataFactory: SongDataFactory,
                               plMetaService: PlaylistMetaDataService,
                               plService: PlaylistService[Playlist, MediaFileID],
-                              tableHandler: TableHandler) {
+                              tableHandler: TableHandler):
   /** Stores the most recent state of the meta data resolver. */
   private var metaDataState = plMetaService.InitialState
 
@@ -52,12 +52,11 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param state the new state of the audio player
     */
-  def handlePlayerStateUpdate(state: AudioPlayerState): Unit = {
+  def handlePlayerStateUpdate(state: AudioPlayerState): Unit =
     val (delta, nextState) = plMetaService.processPlaylistUpdate(state.playlist,
       state.playlistSeqNo, metaDataState)(songDataFactory)
     processDelta(delta, nextState)
     updateTableSelection(state)
-  }
 
   /**
     * Notifies this object that new meta data has been fetched. Updates the
@@ -65,13 +64,12 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param metaData the new meta data
     */
-  def handleMetaDataUpdate(metaData: PlaylistMetaData): Unit = {
+  def handleMetaDataUpdate(metaData: PlaylistMetaData): Unit =
     val selIdx = tableHandler.getSelectedIndex
     val (delta, nextState) = plMetaService.processMetaDataUpdate(metaData,
       metaDataState)(songDataFactory)
     processDelta(delta, nextState)
     tableHandler setSelectedIndex selIdx
-  }
 
   /**
     * Processes a delta object obtained from the playlist meta data service.
@@ -81,11 +79,10 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     * @param delta     the delta to be processed
     * @param nextState the next state of meta data resolving
     */
-  private def processDelta(delta: MetaDataResolveDelta, nextState: MetaDataResolveState): Unit = {
-    if (delta.fullUpdate) processFullPlaylistUpdate(delta)
+  private def processDelta(delta: MetaDataResolveDelta, nextState: MetaDataResolveState): Unit =
+    if delta.fullUpdate then processFullPlaylistUpdate(delta)
     else processPartialPlaylistUpdate(delta)
     metaDataState = nextState
-  }
 
   /**
     * Processes a delta object from the playlist meta data service that
@@ -93,12 +90,11 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param delta the delta to be processed
     */
-  private def processFullPlaylistUpdate(delta: MetaDataResolveDelta): Unit = {
+  private def processFullPlaylistUpdate(delta: MetaDataResolveDelta): Unit =
     lazy val model = tableHandler.getModel
     tableHandler.getModel.clear()
     delta.resolvedSongs foreach (e => model.add(e._1))
     tableHandler.tableDataChanged()
-  }
 
   /**
     * Processes a delta object from the playlist meta data service that
@@ -106,11 +102,10 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param delta the delta to be processed
     */
-  private def processPartialPlaylistUpdate(delta: MetaDataResolveDelta): Unit = {
+  private def processPartialPlaylistUpdate(delta: MetaDataResolveDelta): Unit =
     lazy val model = tableHandler.getModel
     delta.resolvedSongs foreach (e => model.set(e._2, e._1))
     delta.updatedRanges foreach (t => tableHandler.rowsUpdated(t._1, t._2))
-  }
 
   /**
     * Updates the selection of the playlist table after an update of the
@@ -119,12 +114,9 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param state the updated state of the audio player
     */
-  private def updateTableSelection(state: AudioPlayerState): Unit = {
-    plService currentIndex state.playlist match {
+  private def updateTableSelection(state: AudioPlayerState): Unit =
+    plService currentIndex state.playlist match
       case Some(idx) =>
         tableHandler setSelectedIndex idx
       case None =>
         tableHandler.clearSelection()
-    }
-  }
-}

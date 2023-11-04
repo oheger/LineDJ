@@ -23,8 +23,8 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''AudioPlayerConfig''.
   */
-class AudioPlayerConfigSpec extends AnyFlatSpec with Matchers {
-  "An AudioPlayerConfig" should "provide access to all properties" in {
+class AudioPlayerConfigSpec extends AnyFlatSpec with Matchers:
+  "An AudioPlayerConfig" should "provide access to all properties" in:
     val MaxFieldSize = 42
     val RotationSpeed = 3.5
     val SkipBackwardsThreshold = 8
@@ -37,38 +37,32 @@ class AudioPlayerConfigSpec extends AnyFlatSpec with Matchers {
     config.maxUIFieldSize should be(MaxFieldSize)
     config.rotationSpeed should be(RotationSpeed)
     config.skipBackwardsThreshold should be(SkipBackwardsThreshold)
-  }
 
-  it should "use correct default values" in {
+  it should "use correct default values" in:
     val config = AudioPlayerConfig(new PropertiesConfiguration)
 
     config.maxUIFieldSize should be(Integer.MAX_VALUE)
     config.rotationSpeed should be(AudioPlayerConfig.DefRotationSpeed)
     config.skipBackwardsThreshold should be(AudioPlayerConfig.DefSkipBackwardsThreshold)
     config.autoStartMode should be(AudioPlayerConfig.AutoStartNever)
-  }
 
-  it should "detect auto start mode always" in {
+  it should "detect auto start mode always" in:
     val c = new PropertiesConfiguration
     c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "Always")
     val config = AudioPlayerConfig(c)
 
     config.autoStartMode should be(AudioPlayerConfig.AutoStartAlways)
-  }
 
-  it should "detect auto start mode closed" in {
+  it should "detect auto start mode closed" in:
     val c = new PropertiesConfiguration
     c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "CLOSED")
     val config = AudioPlayerConfig(c)
 
     config.autoStartMode should be(AudioPlayerConfig.AutoStartIfClosed)
-  }
 
-  it should "handle an invalid auto start mode" in {
+  it should "handle an invalid auto start mode" in:
     val c = new PropertiesConfiguration
     c.addProperty(AudioPlayerConfig.PropAutoStartPlayback, "an invalid mode!")
     val config = AudioPlayerConfig(c)
 
     config.autoStartMode should be(AudioPlayerConfig.AutoStartNever)
-  }
-}
