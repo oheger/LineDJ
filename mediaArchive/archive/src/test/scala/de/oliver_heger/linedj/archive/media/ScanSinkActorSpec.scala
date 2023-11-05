@@ -72,7 +72,7 @@ object ScanSinkActorSpec {
     */
   private def createMediumInfo(idx: Int): MediumInfo =
     MediumInfo(mediumID = createMediumID(idx), name = "info" + idx, description = "",
-      orderMode = "", orderParams = "", checksum = "")
+      orderMode = "", checksum = "")
 
   /**
     * Creates a map with medium information for the specified test medium.

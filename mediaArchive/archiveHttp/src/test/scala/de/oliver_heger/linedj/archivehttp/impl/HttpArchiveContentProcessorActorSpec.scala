@@ -181,7 +181,7 @@ object HttpArchiveContentProcessorActorSpec {
   def createSettingsProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MediumInfoResponseProcessingResult = {
     val info = MediumInfo(mediumID = mediumID(desc), name = desc.mediumDescriptionPath,
-      description = reqUri, orderMode = "", orderParams = "", checksum = "")
+      description = reqUri, orderMode = "", checksum = "")
     MediumInfoResponseProcessingResult(info, SeqNo)
   }
 

@@ -528,7 +528,7 @@ class MockMediumInfoParserActor extends Actor {
   override def receive: Receive = {
     case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) if active =>
       val info = MediumInfo(mediumID = mid, name = path.toString, description = "",
-        orderMode = "", orderParams = "", checksum = "0")
+        orderMode = "", checksum = "0")
       sender() ! MediumInfoParserActor.ParseMediumInfoResult(req, info)
 
     case CloseRequest =>

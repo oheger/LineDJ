@@ -144,8 +144,7 @@ object MediaControllerSpec:
     * @return the undefined medium info
     */
   private def undefinedMediumInfo(id: MediumID): MediumInfo =
-    MediumInfo(name = "(undefined)", description = null, mediumID = id, orderMode = null,
-      orderParams = null, checksum = "nocheck")
+    MediumInfo(name = "(undefined)", description = null, mediumID = id, orderMode = null, checksum = "nocheck")
 
   /**
     * Creates a medium info object for a medium without a description file.
@@ -187,7 +186,7 @@ object MediaControllerSpec:
     */
   private def mediumInfo(name: String): MediumInfo =
     MediumInfo(name = name, description = name + "_desc", mediumID = mediumID(name),
-      checksum = mediumChecksum(name), orderMode = "", orderParams = "")
+      checksum = mediumChecksum(name), orderMode = "")
 
   /**
     * Generates a checksum for a test medium.

@@ -60,8 +60,7 @@ object MediumInfoResponseProcessingActorSpec {
 
   /** A test medium info object to be returned by a mock parser. */
   private val TestMediumInfo = MediumInfo(name = "TestMedium",
-    description = "A test medium", mediumID = TestMediumID,
-    orderMode = null, orderParams = null, checksum = Checksum)
+    description = "A test medium", mediumID = TestMediumID, orderMode = null, checksum = Checksum)
 
   /** A test HTTP medium description object. */
   private val TestDesc = HttpMediumDesc(mediumDescriptionPath = "playlist.settings",

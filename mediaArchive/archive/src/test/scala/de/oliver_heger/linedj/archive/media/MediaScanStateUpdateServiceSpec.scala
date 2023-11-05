@@ -144,7 +144,7 @@ object MediaScanStateUpdateServiceSpec {
     val mid = mediumID(idx)
     val cs = if (withChecksum) checkSum(idx) else MediumChecksum.Undefined
     MediumInfo(name = "Medium " + mid.mediumURI, mediumID = mid, description = "",
-      checksum = cs.checksum, orderMode = "", orderParams = "")
+      checksum = cs.checksum, orderMode = "")
   }
 
   /**

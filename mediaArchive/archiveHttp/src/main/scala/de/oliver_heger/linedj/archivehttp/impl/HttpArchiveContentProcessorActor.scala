@@ -40,7 +40,7 @@ object HttpArchiveContentProcessorActor {
     * @return the undefined medium info result for this medium ID
     */
   private def createUndefinedInfoResult(mid: MediumID): MediumInfoResponseProcessingResult =
-    MediumInfoResponseProcessingResult(MediumInfo("", "", mid, "", "", ""), UndefinedSeqNo)
+    MediumInfoResponseProcessingResult(MediumInfo("", "", mid, "", ""), UndefinedSeqNo)
 
   /**
     * Creates a special undefined meta data result for the given medium ID.

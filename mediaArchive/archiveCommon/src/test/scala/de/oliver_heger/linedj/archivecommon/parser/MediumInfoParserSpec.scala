@@ -21,32 +21,24 @@ object MediumInfoParserSpec {
   private val OrderMode = "TestOrder"
 
   /**
-   * Generates a XML fragment with test playlist settings.
-   * @return the fragment
-   */
+    * Generates a XML fragment with test playlist settings.
+    *
+    * @return the fragment
+    */
   private def createMediumSettings() =
     <configuration>
       <name>{MediumName}</name>
       <description>{MediumDescription}</description>
       <order>
         <mode>{OrderMode}</mode>
-        <params>
-          {createOrderParams()}
-        </params>
       </order>
     </configuration>
 
   /**
-   * Generates a XML fragment with parameters for the ordering.
-   * @return the fragment
-   */
-  private def createOrderParams() =
-    <coolness>true</coolness>
-
-  /**
-   * Creates the content array for the test medium settings.
-   * @return an array with the content of the test medium settings
-   */
+    * Creates the content array for the test medium settings.
+    *
+    * @return an array with the content of the test medium settings
+    */
   private def createMediumSettingsFileContent(): Array[Byte] = {
     val stream = new ByteArrayOutputStream
     val writer = new OutputStreamWriter(stream)
@@ -57,8 +49,8 @@ object MediumInfoParserSpec {
 }
 
 /**
- * Test class for ''MediumInfoParser''.
- */
+  * Test class for ''MediumInfoParser''.
+  */
 class MediumInfoParserSpec extends AnyFlatSpec with Matchers {
 
   import MediumInfoParserSpec._
@@ -71,7 +63,6 @@ class MediumInfoParserSpec extends AnyFlatSpec with Matchers {
     info.name should be(MediumName)
     info.description should be(MediumDescription)
     info.orderMode should be(OrderMode)
-    info.orderParams should be("<coolness>true</coolness>")
     info.checksum should be("")
   }
 

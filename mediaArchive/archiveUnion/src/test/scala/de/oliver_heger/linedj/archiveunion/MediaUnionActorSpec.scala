@@ -72,7 +72,7 @@ object MediaUnionActorSpec {
     */
   private def mediumInfo(mid: MediumID, idx: Int): MediumInfo =
     MediumInfo(name = "MediumName" + idx, description = "desc" + idx, orderMode = "",
-      orderParams = "", checksum = checksum(idx), mediumID = mid)
+      checksum = checksum(idx), mediumID = mid)
 
   /**
     * Creates a mapping for a test medium.

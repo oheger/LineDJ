@@ -44,7 +44,7 @@ object MetaDataServiceImplSpec {
     */
   def mediumInfo(idx: Int): MediumInfo =
     MediumInfo(name = "Medium" + idx, description = "Test medium " + idx,
-      mediumID = mediumID(idx), checksum = idx.toString, orderMode = null, orderParams = null)
+      mediumID = mediumID(idx), checksum = idx.toString, orderMode = null)
 
   /**
     * Generates a mapping from a medium ID to a medium info based on the given

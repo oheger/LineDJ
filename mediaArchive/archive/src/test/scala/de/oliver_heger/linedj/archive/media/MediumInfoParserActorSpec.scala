@@ -45,7 +45,7 @@ object MediumInfoParserActorSpec {
 
   /** An object with test medium info data. */
   private val TestInfo = MediumInfo(name = "TestMedium", description = "Some desc",
-    mediumID = TestMediumID, orderMode = "Directories", orderParams = "", checksum = "")
+    mediumID = TestMediumID, orderMode = "Directories", checksum = "")
 
   /** The maximum size restriction for description files. */
   private val MaxFileSize = 4 * 8192
@@ -89,7 +89,6 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     settings.description should have length 0
     settings.mediumID should be(TestMediumID)
     settings.orderMode should have length 0
-    settings.orderParams should have length 0
     settings.checksum should have length 0
   }
 

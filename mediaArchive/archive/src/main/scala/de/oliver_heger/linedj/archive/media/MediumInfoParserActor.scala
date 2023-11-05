@@ -39,8 +39,7 @@ object MediumInfoParserActor {
     * parsing error.
     */
   private[media] lazy val DummyMediumSettingsData = MediumInfo(name = UnknownMedium,
-    description = "", mediumID = MediumID.UndefinedMediumID, orderMode = "", orderParams = "",
-    checksum = "")
+    description = "", mediumID = MediumID.UndefinedMediumID, orderMode = "", checksum = "")
 
   /**
     * A message processed by ''MediumInfoParserActor'' which tells it to parse a

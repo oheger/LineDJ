@@ -27,10 +27,10 @@ package de.oliver_heger.linedj.shared.archive.media
  * @param description an additional description about the represented medium
  * @param mediumID the ID of the represented medium
  * @param orderMode the default ordering mode for a playlist for this medium
- * @param orderParams additional parameters for sorting the medium; this is a
- *                    plain string whose interpretation depends on the order
- *                    mode
  * @param checksum an alphanumeric checksum calculated for this medium
  */
-case class MediumInfo(name: String, description: String, mediumID: MediumID, orderMode: String,
-                      orderParams: String, checksum: String)
+case class MediumInfo(name: String,
+                      description: String,
+                      mediumID: MediumID,
+                      orderMode: String,
+                      checksum: String)

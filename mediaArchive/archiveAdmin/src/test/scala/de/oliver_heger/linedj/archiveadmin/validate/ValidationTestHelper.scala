@@ -60,7 +60,7 @@ object ValidationTestHelper {
     */
   def testMediumInfo(idx: Int): MediumInfo = {
     val mid = testMedium(idx)
-    MediumInfo("Medium " + mid.mediumURI, "desc" + idx, mid, "order" + idx, "params" + idx, "check" + idx)
+    MediumInfo("Medium " + mid.mediumURI, "desc" + idx, mid, "order" + idx, "check" + idx)
   }
 
   /**

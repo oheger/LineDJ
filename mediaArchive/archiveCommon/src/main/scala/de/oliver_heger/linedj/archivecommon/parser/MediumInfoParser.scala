@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
 import scala.util.Try
 
 /**
- * Companion object for ''MediumInfoParser''.
- */
+  * Companion object for ''MediumInfoParser''.
+  */
 private object MediumInfoParser {
   /**
     * Constant for an undefined checksum for a medium. This value is set by the
@@ -45,15 +45,13 @@ private object MediumInfoParser {
   /** Constant for the XML element defining the standard order mode. */
   private val ElemOrderMode = "mode"
 
-  /** Constant for the XML element defining additional ordering parameters. */
-  private val ElemOrderParams = "params"
-
   /**
-   * Parses the content of a medium description file and returns a ''NodeSeq''
-   * that can be evaluated.
-   * @param data the array with the content of the medium description
-   * @return the parsed XML node sequence
-   */
+    * Parses the content of a medium description file and returns a ''NodeSeq''
+    * that can be evaluated.
+    *
+    * @param data the array with the content of the medium description
+    * @return the parsed XML node sequence
+    */
   private def parseMediumDescription(data: Array[Byte]): xml.NodeSeq = {
     val stream = new ByteArrayInputStream(data)
     xml.XML.load(stream)
@@ -74,20 +72,19 @@ private object MediumInfoParser {
     MediumInfo(name = (elem \ ElemName).text,
       description = (elem \ ElemDesc).text,
       orderMode = (elemOrder \ ElemOrderMode).text,
-      orderParams = (elemOrder \ ElemOrderParams \ "_").toString(),
       mediumID = mediumID,
       checksum = checksum)
   }
 }
 
 /**
- * An internally used helper class for parsing XML files with meta data about
- * media.
- *
- * An instance of this class can parse an XML document with media information
- * (using the typical format). The XML is passed in as a byte array because
- * this is the result produced by a file loader actor.
- */
+  * An internally used helper class for parsing XML files with meta data about
+  * media.
+  *
+  * An instance of this class can parse an XML document with media information
+  * (using the typical format). The XML is passed in as a byte array because
+  * this is the result produced by a file loader actor.
+  */
 class MediumInfoParser {
 
   import MediumInfoParser._

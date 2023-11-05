@@ -101,7 +101,7 @@ object MetaDataFilesControllerSpec {
     */
   private def mediumInfo(idx: Int): MediumInfo =
     MediumInfo(name = "Medium_" + idx, description = "Test medium" + idx,
-      mediumID = mediumID(idx), orderMode = "", orderParams = "", checksum = checksum(idx))
+      mediumID = mediumID(idx), orderMode = "", checksum = checksum(idx))
 
   /**
     * Generates an object with available media. It contains all the test media.

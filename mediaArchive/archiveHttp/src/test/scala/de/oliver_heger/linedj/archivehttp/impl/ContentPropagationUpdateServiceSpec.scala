@@ -48,8 +48,7 @@ object ContentPropagationUpdateServiceSpec {
     * @return the info object for this test medium
     */
   private def mediumInfo(idx: Int): MediumInfo =
-    MediumInfo(name = "TestMedium" + idx, description = "", orderMode = "", checksum = "",
-      orderParams = "", mediumID = mediumID(idx))
+    MediumInfo(name = "TestMedium" + idx, description = "", orderMode = "", checksum = "", mediumID = mediumID(idx))
 
   /**
     * Generates the path for the media files contained on the given test

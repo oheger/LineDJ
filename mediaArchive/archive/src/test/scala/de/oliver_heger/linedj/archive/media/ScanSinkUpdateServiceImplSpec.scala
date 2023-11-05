@@ -81,7 +81,7 @@ object ScanSinkUpdateServiceImplSpec {
     */
   private def createMediumInfo(mid: MediumID): MediumInfo =
     MediumInfo(name = "Info for " + mid.mediumURI, mediumID = mid,
-      description = "", orderMode = "", orderParams = "", checksum = "")
+      description = "", orderMode = "", checksum = "")
 
   /**
     * Convenience method to execute a ''State'' object to produce the updated

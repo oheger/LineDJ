@@ -310,7 +310,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     def checksum(idx: Int): String = s"check$idx"
 
     def createInfo(idx: Int): MediumInfo =
-      MediumInfo("name" + idx, "someDesc" + idx, mediumID(idx), "noOrder", "noParams", checksum(idx))
+      MediumInfo("name" + idx, "someDesc" + idx, mediumID(idx), "noOrder", checksum(idx))
 
     val chunk1 = createChunk(1, complete = false).chunk
     val chunk2 = createChunk(2, complete = false, mediumID(2)).chunk
