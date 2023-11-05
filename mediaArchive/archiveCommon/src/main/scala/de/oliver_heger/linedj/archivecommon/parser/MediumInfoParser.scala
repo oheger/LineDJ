@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.archivecommon.parser
 
 import java.io.ByteArrayInputStream
-
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import org.apache.commons.configuration.{Configuration, XMLConfiguration}
 
 import scala.util.Try
 
@@ -31,7 +31,7 @@ private object MediumInfoParser {
     * parser for the ''checksum'' property of generated description objects if
     * no specific checksum is provided.
     */
-  val ChecksumUndefined = ""
+  final val ChecksumUndefined = ""
 
   /** Constant for the XML element defining the name of a medium. */
   private val ElemName = "name"
@@ -39,42 +39,38 @@ private object MediumInfoParser {
   /** Constant for the XML element defining the medium description. */
   private val ElemDesc = "description"
 
-  /** Constant for the XML element defining the playlist standard order. */
-  private val ElemOrder = "order"
-
   /** Constant for the XML element defining the standard order mode. */
-  private val ElemOrderMode = "mode"
+  private val ElemOrderMode = "order.mode"
 
   /**
-    * Parses the content of a medium description file and returns a ''NodeSeq''
-    * that can be evaluated.
+    * Parses the content of a medium description file and returns a
+    * [[Configuration]] that can be evaluated.
     *
     * @param data the array with the content of the medium description
-    * @return the parsed XML node sequence
+    * @return the [[Configuration]] with the parsed medium description
     */
-  private def parseMediumDescription(data: Array[Byte]): xml.NodeSeq = {
+  private def parseMediumDescription(data: Array[Byte]): Configuration = {
     val stream = new ByteArrayInputStream(data)
-    xml.XML.load(stream)
+    val config = new XMLConfiguration()
+    config.load(stream)
+    config
   }
 
   /**
-    * Extracts information about a medium from the given XML document and
-    * returns it as a ''MediumSettingsData'' object.
+    * Extracts information about a medium from the given [[Configuration]] and
+    * returns it as a [[MediumInfo]] object.
     *
     * @param mediumID the ID to the affected medium
     * @param checksum the checksum for the resulting object
-    * @param elem     the XML structure to be processed
+    * @param config     the configuration to be processed
     * @return the resulting ''MediumInfo'' object
     */
-  private def extractMediumInfo(mediumID: MediumID, checksum: String, elem: xml.NodeSeq):
-  MediumInfo = {
-    val elemOrder = elem \ ElemOrder
-    MediumInfo(name = (elem \ ElemName).text,
-      description = (elem \ ElemDesc).text,
-      orderMode = (elemOrder \ ElemOrderMode).text,
+  private def extractMediumInfo(mediumID: MediumID, checksum: String, config: Configuration): MediumInfo =
+    MediumInfo(name = config.getString(ElemName),
+      description = config.getString(ElemDesc),
+      orderMode = config.getString(ElemOrderMode),
       mediumID = mediumID,
       checksum = checksum)
-  }
 }
 
 /**

@@ -1,11 +1,11 @@
 package de.oliver_heger.linedj.archivecommon.parser
 
-import java.io.{ByteArrayOutputStream, OutputStreamWriter}
-
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.charset.StandardCharsets
 
 object MediumInfoParserSpec {
   /** A test medium ID. */
@@ -21,31 +21,28 @@ object MediumInfoParserSpec {
   private val OrderMode = "TestOrder"
 
   /**
-    * Generates a XML fragment with test playlist settings.
+    * Generates a string with an XML fragment with test playlist settings.
     *
     * @return the fragment
     */
-  private def createMediumSettings() =
-    <configuration>
-      <name>{MediumName}</name>
-      <description>{MediumDescription}</description>
-      <order>
-        <mode>{OrderMode}</mode>
-      </order>
-    </configuration>
+  private def createMediumSettings(): String =
+    s"""
+      |<configuration>
+      |  <name>$MediumName</name>
+      |  <description>$MediumDescription</description>
+      |  <order>
+      |    <mode>$OrderMode</mode>
+      |  </order>
+      |</configuration>
+      |""".stripMargin
 
   /**
     * Creates the content array for the test medium settings.
     *
     * @return an array with the content of the test medium settings
     */
-  private def createMediumSettingsFileContent(): Array[Byte] = {
-    val stream = new ByteArrayOutputStream
-    val writer = new OutputStreamWriter(stream)
-    xml.XML.write(writer, createMediumSettings(), enc = null, xmlDecl = false, doctype = null)
-    writer.close()
-    stream.toByteArray
-  }
+  private def createMediumSettingsFileContent(): Array[Byte] =
+    createMediumSettings().getBytes(StandardCharsets.UTF_8)
 }
 
 /**
