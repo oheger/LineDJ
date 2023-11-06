@@ -417,7 +417,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private val mockKillSwitch = new AtomicReference[Option[KillSwitch]](None)
 
     /** The controller to be tested. */
-    val controller: ValidationController = createController()
+    val controller: ValidationController[MediaFile] = createController()
 
     /**
       * The current number of validation errors passed to the status line
@@ -800,8 +800,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the test instance
       */
-    private def createController(): ValidationController =
-      new ValidationController(app = createApplication(), metaDataService = metaDataService,
+    private def createController(): ValidationController[MediaFile] =
+      new ValidationController[MediaFile](app = createApplication(), metaDataService = metaDataService,
         tableHandler = tableHandler, sync = createSynchronizer(), validationFlow = createValidationFlow(),
         converter = converter, statusHandler = statusHandler) {
         /**

@@ -102,11 +102,15 @@ object ValidationController {
   * @param validationFlow  the flow that does the actual validation
   * @param converter       the validation item converter
   * @param statusHandler   the handler for the status line
+  * @tparam RESULT the result type used by the managed [[ValidationFlow]]
   */
-class ValidationController(metaDataService: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
-                           app: ClientApplication, sync: GUISynchronizer, tableHandler: TableHandler,
-                           validationFlow: ValidationFlow[_], converter: ValidationItemConverter,
-                           statusHandler: StatusLineHandler) extends WindowListener {
+class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
+                                   app: ClientApplication,
+                                   sync: GUISynchronizer,
+                                   tableHandler: TableHandler,
+                                   validationFlow: ValidationFlow[RESULT],
+                                   converter: ValidationItemConverter,
+                                   statusHandler: StatusLineHandler) extends WindowListener {
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
