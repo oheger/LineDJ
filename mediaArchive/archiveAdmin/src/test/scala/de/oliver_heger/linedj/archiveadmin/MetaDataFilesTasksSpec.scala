@@ -24,28 +24,24 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for the action tasks related to meta data files.
   */
-class MetaDataFilesTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A RefreshFilesTask" should "correctly invoke the controller" in {
+class MetaDataFilesTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A RefreshFilesTask" should "correctly invoke the controller" in:
     val controller = mock[MetaDataFilesController]
     val task = new RefreshFilesTask(controller)
 
     task.run()
     verify(controller).refresh()
-  }
 
-  "A RemoveFilesTask" should "correctly invoke the controller" in {
+  "A RemoveFilesTask" should "correctly invoke the controller" in:
     val controller = mock[MetaDataFilesController]
     val task = new RemoveFilesTask(controller)
 
     task.run()
     verify(controller).removeFiles()
-  }
 
-  "A CloseMetaDataFilesDialogTask" should "correctly invoke the controller" in {
+  "A CloseMetaDataFilesDialogTask" should "correctly invoke the controller" in:
     val controller = mock[MetaDataFilesController]
     val task = new CloseMetaDataFilesDialogTask(controller)
 
     task.run()
     verify(controller).close()
-  }
-}

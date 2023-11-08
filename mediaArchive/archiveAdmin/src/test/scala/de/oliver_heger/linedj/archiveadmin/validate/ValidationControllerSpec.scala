@@ -51,7 +51,7 @@ import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-object ValidationControllerSpec {
+object ValidationControllerSpec:
   /** A timeout setting. */
   private implicit val Timeout: FiniteDuration = 3.seconds
 
@@ -102,7 +102,7 @@ object ValidationControllerSpec {
     * @param testFiles a map with all test files
     * @return the map with files that are invalid and their error code
     */
-  private def generateInvalidFiles(testFiles: Map[MediumID, List[MediaFile]]): Map[MediaFile, ValidationErrorCode] = {
+  private def generateInvalidFiles(testFiles: Map[MediumID, List[MediaFile]]): Map[MediaFile, ValidationErrorCode] =
     val ErrorCodes = ValidationErrorCode.values.toArray
 
     def fetchErrorCode(index: Int): ValidationErrorCode =
@@ -113,7 +113,6 @@ object ValidationControllerSpec {
       .filter(_._2 % 2 == 0)
       .map(t => (t._1, fetchErrorCode(t._2)))
       .toMap
-  }
 
   /**
     * Generates a map with error items to be assigned to invalid files.
@@ -137,61 +136,53 @@ object ValidationControllerSpec {
     */
   private def countValidationWarnings(items: Iterable[ValidationErrorItem]): Int =
     items.count(_.severity == Severity.Warning)
-}
 
 
 /**
   * Test class of ''ValidationController''.
   */
 class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike with Matchers
-  with BeforeAndAfterAll with MockitoSugar {
+  with BeforeAndAfterAll with MockitoSugar:
   def this() = this(ActorSystem("ValidationControllerSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import ValidationControllerSpec._
 
-  "A ValidationController" should "populate the table model" in {
+  "A ValidationController" should "populate the table model" in:
     val helper = new ControllerTestHelper
 
     helper.openWindow()
       .runSyncTasksToPopulateTable()
     helper.tableModel should contain theSameElementsAs ErrorItems.values
-  }
 
-  it should "ignore the window activated event" in {
+  it should "ignore the window activated event" in:
     val helper = new ControllerTestHelper
 
     helper.sendWindowEvent(_.windowActivated(_))
-  }
 
-  it should "ignore the window closed event" in {
+  it should "ignore the window closed event" in:
     val helper = new ControllerTestHelper
 
     helper.sendWindowEvent(_.windowClosed(_))
-  }
 
-  it should "ignore the window deactivated event" in {
+  it should "ignore the window deactivated event" in:
     val helper = new ControllerTestHelper
 
     helper.sendWindowEvent(_.windowDeactivated(_))
-  }
 
-  it should "ignore the window de-iconified event" in {
+  it should "ignore the window de-iconified event" in:
     val helper = new ControllerTestHelper
 
     helper.sendWindowEvent(_.windowDeiconified(_))
-  }
 
-  it should "ignore the window iconified event" in {
+  it should "ignore the window iconified event" in:
     val helper = new ControllerTestHelper
 
     helper.sendWindowEvent(_.windowIconified(_))
-  }
 
-  it should "update the UI in configurable chunks" in {
+  it should "update the UI in configurable chunks" in:
     val ChunkSize = 2
     val helper = new ControllerTestHelper
 
@@ -201,18 +192,16 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     verify(helper.tableHandler).rowsInserted(0, ChunkSize - 1)
     verify(helper.tableHandler).rowsInserted(ChunkSize, 2 * ChunkSize - 1)
     verify(helper.tableHandler).rowsInserted(4 * ChunkSize, 5 * ChunkSize - 1)
-  }
 
-  it should "use a correct default update chunk size" in {
+  it should "use a correct default update chunk size" in:
     val helper = new ControllerTestHelper
 
     helper.openWindow()
       .runSyncTasks(() => helper.tableModel.size > 0)
     helper.tableModel should have size ValidationController.DefaultUIUpdateChunkSize
     verify(helper.tableHandler).rowsInserted(0, ValidationController.DefaultUIUpdateChunkSize - 1)
-  }
 
-  it should "sort the table when the validation stream is complete" in {
+  it should "sort the table when the validation stream is complete" in:
     val ExpectedErrors = (1 to MediaCount).flatMap { idx =>
       TestFilesPerMedium(ValidationTestHelper.testMedium(idx))
         .filter(f => ErrorItems.contains(f.uri))
@@ -225,37 +214,32 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .runNextSyncTask()
     helper.tableModel should contain theSameElementsInOrderAs ExpectedErrors
     verify(helper.tableHandler).tableDataChanged()
-  }
 
-  it should "compare error items by media names ignoring case" in {
+  it should "compare error items by media names ignoring case" in:
     val item1 = ValidationErrorItem("B-Medium", "foo", "error", null, null)
     val item2 = ValidationErrorItem("a-Medium", "foo", "error", null, null)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be > 0
-  }
 
-  it should "compare error items by names ignoring case" in {
+  it should "compare error items by names ignoring case" in:
     val item1 = ValidationErrorItem("medium", "a-file", "error", null, null)
     val item2 = ValidationErrorItem("medium", "B-file", "error", null, null)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
-  }
 
-  it should "order validation errors before warnings" in {
+  it should "order validation errors before warnings" in:
     val item1 = ValidationErrorItem("medium", "file", "a-error", null, Severity.Warning)
     val item2 = ValidationErrorItem("medium", "file", "b-error", null, Severity.Error)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be > 0
-  }
 
-  it should "compare error items by error names ignoring case" in {
+  it should "compare error items by error names ignoring case" in:
     val item1 = ValidationErrorItem("medium", "file", "a-error", null, Severity.Error)
     val item2 = ValidationErrorItem("medium", "file", "B-error", null, Severity.Error)
 
     ValidationController.ErrorItemComparator.compare(item1, item2) should be < 0
-  }
 
-  it should "ignore errors during stream processing" in {
+  it should "ignore errors during stream processing" in:
     val ErrorMedia = AvailableMedia(
       (ValidationTestHelper.testMedium(42), ValidationTestHelper.testMediumInfo(42)) :: TestMedia.mediaList)
     val helper = new ControllerTestHelper
@@ -263,41 +247,36 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.openWindow()
       .initAvailableMedia(Future.successful(ErrorMedia))
       .runSyncTasksToPopulateTable()
-  }
 
-  it should "close the window" in {
+  it should "close the window" in:
     val helper = new ControllerTestHelper
     helper.openWindow()
 
     helper.controller.closeWindow()
     helper.verifyWindowClosed()
-  }
 
-  it should "update the status line for fetching available media" in {
+  it should "update the status line for fetching available media" in:
     val helper = new ControllerTestHelper
 
     helper.openWindow()
       .validateStatusHandler(_.fetchingMedia())
-  }
 
-  it should "update the status line during stream processing" in {
+  it should "update the status line during stream processing" in:
     val helper = new ControllerTestHelper
     helper.openWindow()
 
     helper.hasValidationErrors shouldBe false
     helper.runSyncTasks(() => helper.hasValidationErrors && helper.hasValidationWarnings)
-  }
 
-  it should "set a successful status result if no errors occurred" in {
+  it should "set a successful status result if no errors occurred" in:
     val helper = new ControllerTestHelper
 
     helper.openWindow()
       .runSyncTasksToPopulateTable()
       .runNextSyncTask()
       .checkValidationResults(ErrorCount, WarningCount, successful = true)
-  }
 
-  it should "set a failure status result if there were errors during processing" in {
+  it should "set a failure status result if there were errors during processing" in:
     val ErrorMedia = AvailableMedia(
       (ValidationTestHelper.testMedium(42) -> ValidationTestHelper.testMediumInfo(42)) :: TestMedia.mediaList)
     val helper = new ControllerTestHelper
@@ -307,16 +286,14 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .runSyncTasksToPopulateTable()
       .runNextSyncTask()
       .checkValidationResults(ErrorCount, WarningCount, successful = false)
-  }
 
-  it should "process the retrieved available media in the UI thread" in {
+  it should "process the retrieved available media in the UI thread" in:
     val helper = new ControllerTestHelper
 
     helper.openWindow()
       .expectNoSourceCreation()
-  }
 
-  it should "set a failed status result if available media could not be fetched" in {
+  it should "set a failed status result if available media could not be fetched" in:
     val helper = new ControllerTestHelper
 
     helper.initAvailableMedia(Future.failed(new Exception("No media")))
@@ -324,9 +301,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .runNextSyncTask()
       .expectNoSourceCreation()
       .validateStatusHandler(_.validationResults(0, 0, successful = false))
-  }
 
-  it should "cancel the validation stream if the window is closed" in {
+  it should "cancel the validation stream if the window is closed" in:
     val helper = new ControllerTestHelper
 
     helper.delaySource()
@@ -335,9 +311,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .closeWindow()
       .validateStreamCanceled()
       .validateStatusHandler(_.validationResults(anyInt(), anyInt(), anyBoolean()), never())
-  }
 
-  it should "handle a closed window before meta data has been fetched" in {
+  it should "handle a closed window before meta data has been fetched" in:
     val helper = new ControllerTestHelper
 
     helper.withMockKillSwitch()
@@ -346,9 +321,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .runNextSyncTask()
       .expectNoSourceCreation()
       .validateNoStreamCancellation()
-  }
 
-  it should "handle a closed window before meta data has been fetched with a failure" in {
+  it should "handle a closed window before meta data has been fetched with a failure" in:
     val helper = new ControllerTestHelper
 
     helper.initAvailableMedia(Future.failed(new Exception("No media")))
@@ -356,9 +330,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .closeWindow()
       .runNextSyncTask()
       .validateStatusHandler(_.validationResults(anyInt(), anyInt(), anyBoolean()), never())
-  }
 
-  it should "reset the kill switch when stream processing is complete" in {
+  it should "reset the kill switch when stream processing is complete" in:
     val helper = new ControllerTestHelper
 
     helper.withMockKillSwitch()
@@ -367,12 +340,11 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .runNextSyncTask()
       .closeWindow()
       .validateNoStreamCancellation()
-  }
 
   /**
     * A test helper class managing a test instance and all its dependencies.
     */
-  private class ControllerTestHelper {
+  private class ControllerTestHelper:
     /** The list acting as table model. */
     val tableModel: java.util.List[AnyRef] = new util.ArrayList
 
@@ -445,14 +417,12 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def sendWindowEvent(sender: (WindowListener, WindowEvent) => Unit, checkNoAction: Boolean = true):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       val event = new WindowEvent(this, window, WindowEvent.Type.WINDOW_OPENED)
       sender(controller, event)
-      if (checkNoAction) {
+      if checkNoAction then
         verifyNoInteractions(window)
-      }
       this
-    }
 
     /**
       * Sends a window opened event to the test controller.
@@ -475,10 +445,9 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return this test helper
       */
-    def verifyWindowClosed(): ControllerTestHelper = {
+    def verifyWindowClosed(): ControllerTestHelper =
       verify(window).close(false)
       this
-    }
 
     /**
       * Obtains the next task passed to the Sync object and executes it.
@@ -486,12 +455,11 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param timeout a timeout when waiting for tasks in the queue
       * @return this test helper
       */
-    def runNextSyncTask()(implicit timeout: FiniteDuration): ControllerTestHelper = {
+    def runNextSyncTask()(implicit timeout: FiniteDuration): ControllerTestHelper =
       val task = syncTaskQueue.poll(timeout.toMillis, TimeUnit.MILLISECONDS)
-      if (task == null) throw new NoSuchElementException("No sync task added to queue")
+      if task == null then throw new NoSuchElementException("No sync task added to queue")
       task.run()
       this
-    }
 
     /**
       * Executes sync tasks until the given function returns '''true'''. This
@@ -501,11 +469,10 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param timeout a timeout when waiting for sync tasks
       * @return this test helper
       */
-    def runSyncTasks(until: () => Boolean)(implicit timeout: FiniteDuration): ControllerTestHelper = {
+    def runSyncTasks(until: () => Boolean)(implicit timeout: FiniteDuration): ControllerTestHelper =
       runNextSyncTask()(timeout)
-      if (until()) this
+      if until() then this
       else runSyncTasks(until)(timeout)
-    }
 
     /**
       * Executes sync tasks until the table model has the expected content.
@@ -522,12 +489,10 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return this test helper
       */
-    def validateStreamCanceled(): ControllerTestHelper = {
-      intercept[NoSuchElementException] {
+    def validateStreamCanceled(): ControllerTestHelper =
+      intercept[NoSuchElementException]:
         runSyncTasksToPopulateTable()(UnexpectedTimeout)
-      }
       this
-    }
 
     /**
       * Updates the configuration of the test application. This can be used to
@@ -537,10 +502,9 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param value the value
       * @return this test helper
       */
-    def updateConfiguration(key: String, value: Any): ControllerTestHelper = {
+    def updateConfiguration(key: String, value: Any): ControllerTestHelper =
       configuration.setProperty(key, value)
       this
-    }
 
     /**
       * Returns a flag whether validation errors are present.
@@ -565,12 +529,11 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param successful the expected success flag
       * @return this test helper
       */
-    def checkValidationResults(errors: Int, warnings: Int, successful: Boolean): ControllerTestHelper = {
+    def checkValidationResults(errors: Int, warnings: Int, successful: Boolean): ControllerTestHelper =
       validationErrorCount should be(errors)
       validationWarningCount should be(warnings)
       statusResult.contains(successful) shouldBe true
       this
-    }
 
     /**
       * Allows a custom validation on the status line handler. Invokes the
@@ -582,20 +545,18 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def validateStatusHandler(f: StatusLineHandler => Unit, mode: VerificationMode = times(1)):
-    ControllerTestHelper = {
+    ControllerTestHelper =
       f(verify(statusHandler, mode))
       this
-    }
 
     /**
       * Checks that no validation source is created.
       *
       * @return this test helper
       */
-    def expectNoSourceCreation(): ControllerTestHelper = {
+    def expectNoSourceCreation(): ControllerTestHelper =
       sourceCreationLatch.await(UnexpectedTimeout.toMillis, TimeUnit.MILLISECONDS) shouldBe false
       this
-    }
 
     /**
       * Overrides the result for the available media to be returned by the meta
@@ -604,11 +565,10 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param mediaResult the result to be set for the service
       * @return this test helper
       */
-    def initAvailableMedia(mediaResult: Future[AvailableMedia]): ControllerTestHelper = {
+    def initAvailableMedia(mediaResult: Future[AvailableMedia]): ControllerTestHelper =
       prepareMediaRequest(metaDataService, mediaResult)
       checkMediaInConverter set false // cannot check for standard media
       this
-    }
 
     /**
       * Sets a flag that the validation source should be delayed. This is
@@ -616,10 +576,9 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return this test helper
       */
-    def delaySource(): ControllerTestHelper = {
+    def delaySource(): ControllerTestHelper =
       delaySourceFlag set true
       this
-    }
 
     /**
       * Initializes a mock kill switch. This one is then passed to the
@@ -628,27 +587,25 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return this test helper
       */
-    def withMockKillSwitch(): ControllerTestHelper = {
+    def withMockKillSwitch(): ControllerTestHelper =
       mockKillSwitch set Some(mock[KillSwitch])
       this
-    }
 
     /**
       * Checks that the kill switch mock was never invoked.
       *
       * @return this test helper
       */
-    def validateNoStreamCancellation(): ControllerTestHelper = {
+    def validateNoStreamCancellation(): ControllerTestHelper =
       verify(mockKillSwitch.get().get, never()).shutdown()
       this
-    }
 
     /**
       * Creates the mock for the client application.
       *
       * @return the mock application
       */
-    private def createApplication(): ClientApplication = {
+    private def createApplication(): ClientApplication =
       val app = mock[ClientApplication]
       val appCtx = mock[ClientApplicationContext]
       Mockito.when(appCtx.actorSystem).thenReturn(system)
@@ -656,18 +613,16 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       Mockito.when(appCtx.managementConfiguration).thenReturn(configuration)
       Mockito.when(app.clientApplicationContext).thenReturn(appCtx)
       app
-    }
 
     /**
       * Creates a mock for the table handler.
       *
       * @return the mock table handler
       */
-    private def createTableHandler(): TableHandler = {
+    private def createTableHandler(): TableHandler =
       val handler = mock[TableHandler]
       Mockito.when(handler.getModel).thenReturn(tableModel)
       handler
-    }
 
     /**
       * Creates the mock for the object to sync with the UI thread. The mock
@@ -676,14 +631,13 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock for the sync object
       */
-    private def createSynchronizer(): GUISynchronizer = {
+    private def createSynchronizer(): GUISynchronizer =
       val sync = mock[GUISynchronizer]
       Mockito.when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocation: InvocationOnMock) => {
         val task = invocation.getArguments.head.asInstanceOf[Runnable]
         syncTaskQueue offer task
       })
       sync
-    }
 
     /**
       * Generates a flow that simulates file validation. For each file it is
@@ -695,12 +649,11 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private def createValidationFlow(): ValidationFlow[MediaFile] =
       Flow[List[MediaFile]].mapConcat { files =>
         files map { f =>
-          val result = InvalidFiles get f match {
+          val result = InvalidFiles get f match
             case Some(code) =>
               code.failureNel[MediaFile]
             case None =>
               f.successNel[ValidationErrorCode]
-          }
           ValidatedItem(f.mediumID, f.uri, identity, result)
         }
       }
@@ -711,27 +664,25 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock item converter
       */
-    private def createConverter(): ValidationItemConverter = {
+    private def createConverter(): ValidationItemConverter =
       val converter = mock[ValidationItemConverter]
       prepareConverter(converter)
       converter
-    }
 
     /**
       * Prepares the mock for the item converter to handle conversion requests.
       *
       * @param converter the mock for the converter
       */
-    private def prepareConverter(converter: ValidationItemConverter): Unit = {
+    private def prepareConverter(converter: ValidationItemConverter): Unit =
       Mockito.when(converter.generateTableItems(any(classOf[AvailableMedia]), any(classOf[ValidatedItem[_]])))
         .thenAnswer((invocation: InvocationOnMock) => {
-          if (checkMediaInConverter.get()) {
+          if checkMediaInConverter.get() then {
             invocation.getArguments.head should be(TestMedia)
           }
           val valItem = invocation.getArguments()(1).asInstanceOf[ValidatedItem[_]]
           List(ErrorItems(valItem.uri))
         })
-    }
 
     /**
       * Creates a mock for the meta data service. The service returns the
@@ -739,7 +690,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock meta data service
       */
-    private def createMetaDataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] = {
+    private def createMetaDataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] =
       val service = mock[MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]]]
       prepareMediaRequest(service, Future.successful(TestMedia))
 
@@ -754,7 +705,6 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
           }
         })
       service
-    }
 
     /**
       * Prepares the mock meta data service to expect a query for the currently
@@ -764,13 +714,12 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param result  the available media future result to be returned
       */
     private def prepareMediaRequest(service: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
-                                    result: Future[AvailableMedia]): Unit = {
+                                    result: Future[AvailableMedia]): Unit =
       val resMedia = Kleisli[Future, MessageBus, AvailableMedia] { bus =>
         bus should be(messageBus)
         result
       }
       Mockito.when(service.fetchMedia()).thenReturn(resMedia)
-    }
 
     /**
       * Creates a mock for the status line handler. The mock updates the
@@ -778,7 +727,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock status line handler
       */
-    private def createStatusHandler(): StatusLineHandler = {
+    private def createStatusHandler(): StatusLineHandler =
       val handler = mock[StatusLineHandler]
       doAnswer((invocation: InvocationOnMock) => {
         statusResult shouldBe empty
@@ -793,7 +742,6 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
         statusResult = Some(invocation.getArguments()(2).asInstanceOf[Boolean])
       }).when(handler).validationResults(anyInt(), anyInt(), anyBoolean())
       handler
-    }
 
     /**
       * Creates the test instance.
@@ -803,27 +751,22 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private def createController(): ValidationController[MediaFile] =
       new ValidationController[MediaFile](app = createApplication(), metaDataService = metaDataService,
         tableHandler = tableHandler, sync = createSynchronizer(), validationFlow = createValidationFlow(),
-        converter = converter, statusHandler = statusHandler) {
+        converter = converter, statusHandler = statusHandler):
         /**
           * @inheritdoc This implementation allows injecting a special test
           *             source. It also records the creation of the source.
           */
-        override def createSource(media: AvailableMedia): Source[MediumID, NotUsed] = {
+        override def createSource(media: AvailableMedia): Source[MediumID, NotUsed] =
           val orgSource = super.createSource(media)
           sourceCreationLatch.countDown()
-          if (delaySourceFlag.get()) orgSource.delay(50.millis)
+          if delaySourceFlag.get() then orgSource.delay(50.millis)
           else orgSource
-        }
 
         /**
           * @inheritdoc This implementation allows injecting a mock kill
           *             switch. If defined, the mock kill switch is returned.
           */
-        override def materializeValidationStream(media: AvailableMedia): KillSwitch = {
+        override def materializeValidationStream(media: AvailableMedia): KillSwitch =
           val orgKs = super.materializeValidationStream(media)
           mockKillSwitch.get() getOrElse orgKs
-        }
-      }
-  }
 
-}

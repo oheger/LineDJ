@@ -28,11 +28,9 @@ import net.sf.jguiraffe.locators.Locator
   *
   * @param controller the ''MetaDataFilesController''
   */
-class RefreshFilesTask(controller: MetaDataFilesController) extends Runnable {
-  override def run(): Unit = {
+class RefreshFilesTask(controller: MetaDataFilesController) extends Runnable:
+  override def run(): Unit =
     controller.refresh()
-  }
-}
 
 /**
   * A task class for the ''remove meta data files'' action.
@@ -41,11 +39,9 @@ class RefreshFilesTask(controller: MetaDataFilesController) extends Runnable {
   *
   * @param controller the ''MetaDataFilesController''
   */
-class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable {
-  override def run(): Unit = {
+class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable:
+  override def run(): Unit =
     controller.removeFiles()
-  }
-}
 
 /**
   * A task class for the action for closing the meta data files window.
@@ -54,11 +50,9 @@ class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable {
   *
   * @param controller the ''MetaDataFilesController''
   */
-class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends Runnable {
-  override def run(): Unit = {
+class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends Runnable:
+  override def run(): Unit =
     controller.close()
-  }
-}
 
 /**
   * A specialized command class for opening the dialog with meta data files for
@@ -71,9 +65,7 @@ class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends 
   * @param refArchiveID the reference containing the selected archive
   */
 class OpenMetaDataFilesDlgCommand(locator: Locator, refArchiveID: AtomicReference[String])
-  extends OpenWindowCommand(locator) {
-  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  extends OpenWindowCommand(locator):
+  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
     builderData.addProperty(MetaDataFilesController.PropSelectedArchiveID, refArchiveID.get())
-  }
-}

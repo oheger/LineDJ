@@ -28,34 +28,29 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for helper class related to UI.
   */
-class UIHelpersSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "EmptyArchiveComponentsListModel" should "return the correct component type" in {
+class UIHelpersSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "EmptyArchiveComponentsListModel" should "return the correct component type" in:
     val model = new EmptyArchiveComponentsListModel
 
     model.getType should be(classOf[String])
-  }
 
-  "ArchiveComponentsListChangeHandler" should "handle a change event" in {
+  "ArchiveComponentsListChangeHandler" should "handle a change event" in:
     val controller = mock[ArchiveAdminController]
     val handler = new ArchiveComponentsListChangeHandler(controller)
 
     handler.elementChanged(null)
     verify(controller).archiveSelectionChanged()
-  }
 
-  "OpenMetaDataFilesDlgCommand" should "pass the locator to the base class" in {
+  "OpenMetaDataFilesDlgCommand" should "pass the locator to the base class" in:
     val locator = mock[Locator]
     val command = new OpenMetaDataFilesDlgCommand(locator, new AtomicReference[String])
 
     command.getLocator should be(locator)
-  }
 
-  it should "pass the property for the selected archive to the builder data object" in {
+  it should "pass the property for the selected archive to the builder data object" in:
     val ArchiveName = "The selected archive"
     val builderData = mock[ApplicationBuilderData]
     val command = new OpenMetaDataFilesDlgCommand(mock[Locator], new AtomicReference[String](ArchiveName))
 
     command.prepareBuilderData(builderData)
     verify(builderData).addProperty(MetaDataFilesController.PropSelectedArchiveID, ArchiveName)
-  }
-}

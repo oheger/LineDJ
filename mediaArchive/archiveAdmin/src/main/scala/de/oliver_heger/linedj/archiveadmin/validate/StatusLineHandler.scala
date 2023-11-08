@@ -21,7 +21,7 @@ import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.components.tags.StaticTextDataImpl
 import net.sf.jguiraffe.resources.Message
 
-object StatusLineHandler {
+object StatusLineHandler:
   /** Resource ID for the status ''fetching media''. */
   val ResFetchingMedia = "validation_status_fetch_media"
 
@@ -31,7 +31,6 @@ object StatusLineHandler {
     * used while the validation is still in progress and for the final result.
     */
   val ResResult = "validation_status_result"
-}
 
 /**
   * A class that manages the status line of the validation results dialog.
@@ -50,7 +49,7 @@ object StatusLineHandler {
   * @param iconError          the icon indicating a complete validation with errors
   */
 class StatusLineHandler(applicationContext: ApplicationContext, textHandler: StaticTextHandler,
-                        iconProgress: AnyRef, iconSuccess: AnyRef, iconError: AnyRef) {
+                        iconProgress: AnyRef, iconSuccess: AnyRef, iconError: AnyRef):
 
   import StatusLineHandler._
 
@@ -58,9 +57,8 @@ class StatusLineHandler(applicationContext: ApplicationContext, textHandler: Sta
     * Notification that the available media are now fetched. This is the
     * initial state of the validation process.
     */
-  def fetchingMedia(): Unit = {
+  def fetchingMedia(): Unit =
     updateStatusLine(applicationContext.getResourceText(ResFetchingMedia), iconProgress)
-  }
 
   /**
     * Notification about an update of the validation progress. The given number
@@ -69,9 +67,8 @@ class StatusLineHandler(applicationContext: ApplicationContext, textHandler: Sta
     * @param errors   the number of validation errors
     * @param warnings the number of validation warnings
     */
-  def updateProgress(errors: Int, warnings: Int): Unit = {
+  def updateProgress(errors: Int, warnings: Int): Unit =
     updateResults(errors, warnings, iconProgress)
-  }
 
   /**
     * Notification that the validation process is now complete and the final
@@ -83,10 +80,9 @@ class StatusLineHandler(applicationContext: ApplicationContext, textHandler: Sta
     * @param warnings   the number of validation warnings
     * @param successful flag whether the process was successful
     */
-  def validationResults(errors: Int, warnings: Int, successful: Boolean): Unit = {
+  def validationResults(errors: Int, warnings: Int, successful: Boolean): Unit =
     updateResults(errors, warnings,
-      if (successful) iconSuccess else iconError)
-  }
+      if successful then iconSuccess else iconError)
 
   /**
     * Updates the status line with a message regarding validation results and
@@ -96,10 +92,9 @@ class StatusLineHandler(applicationContext: ApplicationContext, textHandler: Sta
     * @param warnings the number of validation warnings
     * @param icon     the icon to be displayed
     */
-  private def updateResults(errors: Int, warnings: Int, icon: AnyRef): Unit = {
+  private def updateResults(errors: Int, warnings: Int, icon: AnyRef): Unit =
     val msg = new Message(null, ResResult, errors, warnings)
     updateStatusLine(applicationContext.getResourceText(msg), icon)
-  }
 
   /**
     * Updates the status line with the given text and icon.
@@ -107,10 +102,8 @@ class StatusLineHandler(applicationContext: ApplicationContext, textHandler: Sta
     * @param text the text
     * @param icon the icon
     */
-  private def updateStatusLine(text: String, icon: AnyRef): Unit = {
+  private def updateStatusLine(text: String, icon: AnyRef): Unit =
     val data = new StaticTextDataImpl
     data setIcon icon
     data setText text
     textHandler setData data
-  }
-}

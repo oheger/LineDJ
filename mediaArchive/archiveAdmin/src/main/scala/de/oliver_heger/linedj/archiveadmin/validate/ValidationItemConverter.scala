@@ -32,7 +32,7 @@ import scala.beans.BeanProperty
   * @param applicationContext the application context (for resource resolution)
   * @param resourcePrefix     prefix for resource resolution
   */
-class ValidationItemConverter(applicationContext: ApplicationContext, resourcePrefix: String) {
+class ValidationItemConverter(applicationContext: ApplicationContext, resourcePrefix: String):
   /** The icon representing the severity ''warning''. */
   @BeanProperty var iconSeverityWarning: AnyRef = _
 
@@ -57,14 +57,13 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @return a list with corresponding validation error items
     */
   def generateTableItems(media: AvailableMedia, valItem: ValidatedItem[_]): List[ValidationErrorItem] =
-    valItem.result match {
+    valItem.result match
       case Success(_) => List.empty
       case Failure(nel) =>
         val mediumName = fetchMediumName(media, valItem)
         errorItem(nel.head, mediumName, valItem) ::
           nel.tail.toList.map(c => errorItem(c, mediumName, valItem))
 
-    }
 
   /**
     * Generates an error item for the specified parameters.
@@ -98,6 +97,5 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @return the icon
     */
   private def severityIcon(code: ValidationErrorCode): AnyRef =
-    if (MetaDataValidator.severity(code) == Severity.Error) iconSeverityError
+    if MetaDataValidator.severity(code) == Severity.Error then iconSeverityError
     else iconSeverityWarning
-}

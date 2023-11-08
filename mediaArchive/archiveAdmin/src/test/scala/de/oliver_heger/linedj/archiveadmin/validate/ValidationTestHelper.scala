@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   *
   * This object mainly provides functions to generate test data.
   */
-object ValidationTestHelper {
+object ValidationTestHelper:
   /** A prefix for the generation of URIs for media. */
   private val MediumUriPrefix = "testMedium"
 
@@ -58,10 +58,9 @@ object ValidationTestHelper {
     * @param idx the index
     * @return the test medium info
     */
-  def testMediumInfo(idx: Int): MediumInfo = {
+  def testMediumInfo(idx: Int): MediumInfo =
     val mid = testMedium(idx)
     MediumInfo("Medium " + mid.mediumURI, "desc" + idx, mid, "order" + idx, "check" + idx)
-  }
 
   /**
     * Generates an object with available media that contains the given number
@@ -70,10 +69,9 @@ object ValidationTestHelper {
     * @param count the number of test media
     * @return the available media
     */
-  def createAvailableMedia(count: Int): AvailableMedia = {
+  def createAvailableMedia(count: Int): AvailableMedia =
     val mediaMap = (1 to count).map(i => (testMedium(i), testMediumInfo(i))).toMap
     AvailableMedia(mediaMap.toList)
-  }
 
   /**
     * Generates the URI of a test media file based on the given indices.
@@ -136,10 +134,9 @@ object ValidationTestHelper {
     * @param additionalData meta data for additional songs
     * @return the test album
     */
-  def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetaData*): MediaAlbum = {
+  def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetaData*): MediaAlbum =
     val songData = (1 to numberOfSongs) map (metaData(_, idx))
     MediaAlbum(Medium, "album" + idx, additionalData.toList ::: songData.toList)
-  }
 
   /**
     * Generates a list with the files of an album matching the criteria
@@ -152,4 +149,3 @@ object ValidationTestHelper {
     */
   def albumFiles(albumIdx: Int, numberOfSongs: Int, mediumIdx: Int = 1): List[MediaFile] =
     (1 to numberOfSongs).map(file(_, albumIdx, mediumIdx)).toList
-}

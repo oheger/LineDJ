@@ -36,10 +36,11 @@ import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorRef
 
 import scala.beans.BeanProperty
+import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
-object MetaDataFilesController {
+object MetaDataFilesController:
   /**
     * The name of the refresh action. This action requests current file
     * information from the archive.
@@ -125,7 +126,6 @@ object MetaDataFilesController {
                                      showProgress: Boolean = true,
                                      resetFileData: Boolean = false)
 
-}
 
 /**
   * A controller class for dealing with persistent meta data files.
@@ -154,7 +154,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
                               actionStore: ActionStore, filesTableHandler: TableHandler,
                               statusLine: StaticTextHandler, progressIndicator: WidgetHandler,
                               archiveID: String)
-  extends WindowListener with FormChangeListener {
+  extends WindowListener with FormChangeListener:
 
   import MetaDataFilesController._
 
@@ -191,11 +191,10 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     * @inheritdoc This implementation performs some cleanup when the window is
     *             closing.
     */
-  override def windowClosing(event: WindowEvent): Unit = {
+  override def windowClosing(event: WindowEvent): Unit =
     messageBus publish ArchiveAvailabilityUnregistration(ArchiveRegistrationID)
     messageBus publish StateListenerUnregistration(StateListenerRegistrationID)
     messageBus publish AvailableMediaUnregistration(MediaRegistrationID)
-  }
 
   override def windowClosed(event: WindowEvent): Unit = {}
 
@@ -206,7 +205,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     *             required registrations are added. It also requests data
     *             about meta data files from the archive.
     */
-  override def windowOpened(event: WindowEvent): Unit = {
+  override def windowOpened(event: WindowEvent): Unit =
     window = WindowUtils windowFromEvent event
     messageBus publish ArchiveAvailabilityRegistration(ArchiveRegistrationID,
       consumeArchiveAvailability)
@@ -214,7 +213,6 @@ class MetaDataFilesController(application: ArchiveAdminApp,
       consumeStateEvents)
     messageBus publish AvailableMediaRegistration(MediaRegistrationID, consumeAvailableMedia)
     refresh()
-  }
 
   override def windowDeactivated(event: WindowEvent): Unit = {}
 
@@ -226,18 +224,16 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     *
     * @param e the change event (ignored)
     */
-  override def elementChanged(e: FormChangeEvent): Unit = {
-    if (currentState.refreshEnabled) {
+  override def elementChanged(e: FormChangeEvent): Unit =
+    if currentState.refreshEnabled then
       enableAction(ActionRemoveFiles, enabled = filesTableHandler.getSelectedIndices.nonEmpty &&
         optUpdateActor.isDefined)
-    }
-  }
 
   /**
     * Notifies this controller that a remove operation should be triggered.
     * This method is invoked in reaction on the remove files action.
     */
-  def removeFiles(): Unit = {
+  def removeFiles(): Unit =
     optUpdateActor foreach { actor =>
       switchToState(StateRemoving)
       val model = filesTableHandler.getModel
@@ -245,31 +241,27 @@ class MetaDataFilesController(application: ArchiveAdminApp,
         .asInstanceOf[MetaDataFileData].checksum)
 
       application.invokeActor(actor, RemovePersistentMetaData(fileIDs.toSet))
-        .executeUIThread[RemovePersistentMetaDataResult, Unit] {
+        .executeUIThread[RemovePersistentMetaDataResult, Unit]:
           case Success(result) =>
             handleRemoveResult(result)
           case Failure(exception) =>
             log.error("Error when removing meta data files!", exception)
             switchToState(StateErrorActorAccess)
-        }
     }
-  }
 
   /**
     * Tells this controller to refresh its information about meta data
     * files. This method is invoked in reaction on the refresh action.
     */
-  def refresh(): Unit = {
+  def refresh(): Unit =
     switchToState(StateLoading)
-  }
 
   /**
     * Tells this controller to close the window. This method is invoked in
     * reaction on the close action.
     */
-  def close(): Unit = {
+  def close(): Unit =
     window.close(false)
-  }
 
   /**
     * Returns an ''Option'' with the actor for updating meta data files. Not
@@ -285,38 +277,34 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     *
     * @param result the result
     */
-  private def handleRemoveResult(result: RemovePersistentMetaDataResult): Unit = {
+  private def handleRemoveResult(result: RemovePersistentMetaDataResult): Unit =
     fileInfo foreach { info =>
       val newFiles = info.metaDataFiles filterNot (t => result.successfulRemoved.contains(t._2))
       val newUnused = info.unusedFiles diff result.successfulRemoved
       fileInfo = Some(MetaDataFileInfo(newFiles, newUnused, info.optUpdateActor))
       dataReceived()
 
-      if (result.successfulRemoved.size < result.request.checksumSet.size) {
+      if result.successfulRemoved.size < result.request.checksumSet.size then
         applicationContext.messageBox(ResIDRemoveFailedText, ResIDRemoveFailedTitle,
           MessageOutput.MESSAGE_WARNING, MessageOutput.BTN_OK)
-      }
     }
-  }
 
   /**
     * Notifies this object that data relevant for this controller has been
     * received. If sufficient data is available, the table is now
     * populated.
     */
-  private def dataReceived(): Unit = {
-    for {
+  private def dataReceived(): Unit =
+    for
       media <- availableMedia
       info <- fileInfo
-    } {
+    do
       val assignedData = fetchAssignedFiles(info, media)
       val unassignedData = fetchUnassignedFiles(info)
       populateTable(assignedData ++ unassignedData)
 
       switchToState(ControllerState(new Message(null, ResIDStateReady, info.metaDataFiles.size,
         info.unusedFiles.size), refreshEnabled = true, showProgress = false))
-    }
-  }
 
   /**
     * Returns a list with ''MetaDataFileData'' objects for all files that
@@ -349,44 +337,40 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     *
     * @param content a sequence with the content objects to be added
     */
-  private def populateTable(content: Seq[MetaDataFileData]): Unit = {
+  private def populateTable(content: Seq[MetaDataFileData]): Unit =
     val model = filesTableHandler.getModel
     model.clear()
     model addAll content.asJava
     filesTableHandler.tableDataChanged()
-  }
 
   /**
     * The consumer function for available media messages.
     *
     * @param media the current ''AvailableMedia'' object
     */
-  private def consumeAvailableMedia(media: AvailableMedia): Unit = {
+  private def consumeAvailableMedia(media: AvailableMedia): Unit =
     availableMedia = Some(media)
     dataReceived()
-  }
 
   /**
     * The consumer function for updates of the archive availability.
     *
     * @param event the availability event
     */
-  private def consumeArchiveAvailability(event: MediaFacade.MediaArchiveAvailabilityEvent): Unit = {
-    event match {
+  private def consumeArchiveAvailability(event: MediaFacade.MediaArchiveAvailabilityEvent): Unit =
+    event match
       case MediaFacade.MediaArchiveUnavailable =>
         switchToState(StateDisconnected)
 
       case _ =>
-    }
-  }
 
   /**
     * The consumer function for meta data state change events.
     *
     * @param event the state event
     */
-  private def consumeStateEvents(event: MetaDataStateEvent): Unit = {
-    event match {
+  private def consumeStateEvents(event: MetaDataStateEvent): Unit =
+    event match
       case MetaDataScanStarted =>
         switchToState(StateScanning)
       case MetaDataScanCompleted =>
@@ -396,8 +380,6 @@ class MetaDataFilesController(application: ArchiveAdminApp,
       case MetaDataStateUpdated(MetaDataState(_, _, _, _, false, _, _)) =>
         switchToState(StateLoading)
       case _ => // ignore other events
-    }
-  }
 
   /**
     * Sets the enabled state of the specified action.
@@ -405,38 +387,31 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     * @param name    the action name
     * @param enabled the new state for this action
     */
-  private def enableAction(name: String, enabled: Boolean): Unit = {
+  private def enableAction(name: String, enabled: Boolean): Unit =
     actionStore.getAction(name) setEnabled enabled
-  }
 
   /**
     * Switches to the specified state. Controls are updated accordingly.
     *
     * @param state the new target state
     */
-  private def switchToState(state: ControllerState): Unit = {
-    if (state != currentState) {
+  private def switchToState(state: ControllerState): Unit =
+    if state != currentState then
       enableAction(ActionRefresh, enabled = state.refreshEnabled)
       enableAction(ActionRemoveFiles, enabled = false)
       progressIndicator setVisible state.showProgress
       statusLine.setText(applicationContext.getResourceText(state.statusMessage))
 
-      if (state.sendFileRequest) {
+      if state.sendFileRequest then
         filesTableHandler.getModel.clear()
         application.invokeActor(application.mediaFacadeActors.mediaManager,
-          GetArchiveMetaDataFileInfo(archiveID)).executeUIThread[MetaDataFileInfo, Unit] {
+          GetArchiveMetaDataFileInfo(archiveID)).executeUIThread[MetaDataFileInfo, Unit]:
           case Success(response) =>
             fileInfo = Some(response)
             dataReceived()
           case Failure(ex) =>
             log.error("Error when requesting meta data file info!", ex)
             switchToState(StateErrorActorAccess)
-        }
-      }
-    }
-    if (state.resetFileData) {
+    if state.resetFileData then
       fileInfo = None
-    }
     currentState = state
-  }
-}

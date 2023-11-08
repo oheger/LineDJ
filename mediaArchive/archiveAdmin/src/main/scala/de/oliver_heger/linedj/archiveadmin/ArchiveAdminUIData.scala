@@ -34,7 +34,7 @@ import scala.beans.BeanProperty
   * objects, all properties are of type ''StaticTextData''. The controller is
   * responsible for converting the data to be displayed to this type.
   */
-class ArchiveAdminUIData {
+class ArchiveAdminUIData:
   /** Contains information about the number of media. */
   @BeanProperty var mediaCount: StaticTextData = _
 
@@ -49,15 +49,13 @@ class ArchiveAdminUIData {
 
   /** Represents the archive status, such as scan in progress, available, etc. */
   @BeanProperty var archiveStatus: StaticTextData = _
-}
 
 /**
   * A class representing the initial empty list model of the combo box for
   * archive components.
   */
-class EmptyArchiveComponentsListModel extends EmptyListModel {
+class EmptyArchiveComponentsListModel extends EmptyListModel:
   override def getType: Class[_] = classOf[String]
-}
 
 /**
   * A listener class that reacts on changes of the selection of the archive
@@ -68,8 +66,6 @@ class EmptyArchiveComponentsListModel extends EmptyListModel {
   *
   * @param controller the archive admin controller
   */
-class ArchiveComponentsListChangeHandler(controller: ArchiveAdminController) extends FormChangeListener {
-  override def elementChanged(formChangeEvent: FormChangeEvent): Unit = {
+class ArchiveComponentsListChangeHandler(controller: ArchiveAdminController) extends FormChangeListener:
+  override def elementChanged(formChangeEvent: FormChangeEvent): Unit =
     controller.archiveSelectionChanged()
-  }
-}

@@ -26,7 +26,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object StatusLineHandlerSpec {
+object StatusLineHandlerSpec:
   /** The icon for in progress. */
   private val IconProgress = new Object
 
@@ -56,51 +56,46 @@ object StatusLineHandlerSpec {
 
   /** The message for the result status line. */
   private val StatusMessage = new Message(null, StatusLineHandler.ResResult, ErrorCount, WarningCount)
-}
 
 /**
   * Test class for ''StatusLineHandler''.
   */
-class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import StatusLineHandlerSpec._
 
-  "A StatusLineHandler" should "switch to the fetching media state" in {
+  "A StatusLineHandler" should "switch to the fetching media state" in:
     val helper = new StatusHandlerTestHelper
 
     helper.expectResource(StatusLineHandler.ResFetchingMedia)
       .invokeHandler(_.fetchingMedia())
       .verifyStatusLine(IconProgress)
-  }
 
-  it should "update the validation progress" in {
+  it should "update the validation progress" in:
     val helper = new StatusHandlerTestHelper
 
     helper.expectResource(StatusMessage)
       .invokeHandler(_.updateProgress(ErrorCount, WarningCount))
       .verifyStatusLine(IconProgress)
-  }
 
-  it should "display validation results if everything was successful" in {
+  it should "display validation results if everything was successful" in:
     val helper = new StatusHandlerTestHelper
 
     helper.expectResource(StatusMessage)
       .invokeHandler(_.validationResults(ErrorCount, WarningCount, successful = true))
       .verifyStatusLine(IconSuccess)
-  }
 
-  it should "display validation results if there were errors" in {
+  it should "display validation results if there were errors" in:
     val helper = new StatusHandlerTestHelper
 
     helper.expectResource(StatusMessage)
       .invokeHandler(_.validationResults(ErrorCount, WarningCount, successful = false))
       .verifyStatusLine(IconError)
-  }
 
   /**
     * Test helper class managing a handler to be tested and its dependencies.
     */
-  private class StatusHandlerTestHelper {
+  private class StatusHandlerTestHelper:
     /** Mock for the application context. */
     private val applicationContext = createApplicationContext()
 
@@ -120,10 +115,9 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       * @param inv the invocation function
       * @return this test helper
       */
-    def invokeHandler(inv: StatusLineHandler => Unit): StatusHandlerTestHelper = {
+    def invokeHandler(inv: StatusLineHandler => Unit): StatusHandlerTestHelper =
       inv(statusHandler)
       this
-    }
 
     /**
       * Prepares the mock application context to expect a resource request for
@@ -132,10 +126,9 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       * @param resID the resource ID
       * @return this test helper
       */
-    def expectResource(resID: AnyRef): StatusHandlerTestHelper = {
+    def expectResource(resID: AnyRef): StatusHandlerTestHelper =
       when(applicationContext.getResourceText(resID)).thenReturn(TextExpected)
       this
-    }
 
     /**
       * Prepares the mock application context to expect a resource request for
@@ -144,10 +137,9 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       * @param message the message
       * @return this test helper
       */
-    def expectResource(message: Message): StatusHandlerTestHelper = {
+    def expectResource(message: Message): StatusHandlerTestHelper =
       when(applicationContext.getResourceText(message)).thenReturn(TextExpected)
       this
-    }
 
     /**
       * Checks whether the status line has been updated correctly. It must
@@ -156,11 +148,10 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       * @param expIcon the expected icon
       * @return this test helper
       */
-    def verifyStatusLine(expIcon: AnyRef): StatusHandlerTestHelper = {
+    def verifyStatusLine(expIcon: AnyRef): StatusHandlerTestHelper =
       currentData.getText should be(TextExpected)
       currentData.getIcon should be(expIcon)
       this
-    }
 
     /**
       * Creates a mock application context. The mock is prepared to answer
@@ -168,12 +159,11 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       *
       * @return the mock for the application context
       */
-    private def createApplicationContext(): ApplicationContext = {
+    private def createApplicationContext(): ApplicationContext =
       val context = mock[ApplicationContext]
       when(context.getResourceText(any(classOf[AnyRef]))).thenReturn(TextOther)
       when(context.getResourceText(any(classOf[Message]))).thenReturn(TextOther)
       context
-    }
 
     /**
       * Creates a mock for the static text handler. The mock is prepared to
@@ -181,13 +171,12 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       *
       * @return the mock for the static text handler
       */
-    private def createTextHandler(): StaticTextHandler = {
+    private def createTextHandler(): StaticTextHandler =
       val handler = mock[StaticTextHandler]
       when(handler.setData(any(classOf[StaticTextData]))).thenAnswer((invocation: InvocationOnMock) => {
         currentData = invocation.getArguments.head.asInstanceOf[StaticTextData]
       })
       handler
-    }
 
     /**
       * Creates the status line handler instance to be tested.
@@ -196,6 +185,4 @@ class StatusLineHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       */
     private def createStatusHandler(): StatusLineHandler =
       new StatusLineHandler(applicationContext, textHandler, IconProgress, IconSuccess, IconError)
-  }
 
-}

@@ -34,11 +34,12 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 
 import java.util.Comparator
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-object ValidationController {
+object ValidationController:
   /** The prefix for all properties related to meta data validation. */
   val PrefixValidationConfig = "media.validation."
 
@@ -67,23 +68,21 @@ object ValidationController {
     *
     * @return the comparator
     */
-  private def createValidationErrorItemComparator(): Comparator[AnyRef] = {
+  private def createValidationErrorItemComparator(): Comparator[AnyRef] =
     (t: scala.Any, t1: scala.Any) => {
       val item1 = t.asInstanceOf[ValidationErrorItem]
       val item2 = t1.asInstanceOf[ValidationErrorItem]
       val r1 = item1.mediumName.compareToIgnoreCase(item2.mediumName)
-      if (r1 == 0) {
+      if r1 == 0 then
         val r2 = item1.name.compareToIgnoreCase(item2.name)
-        if (r2 == 0) {
-          if (item1.severity != item2.severity) {
-            if (item1.severity == Severity.Error) -1
+        if r2 == 0 then
+          if item1.severity != item2.severity then
+            if item1.severity == Severity.Error then -1
             else 1
-          } else item1.error.compareToIgnoreCase(item2.error)
-        } else r2
-      } else r1
+          else item1.error.compareToIgnoreCase(item2.error)
+        else r2
+      else r1
     }
-  }
-}
 
 /**
   * A controller class for retrieving and displaying meta data validation
@@ -110,7 +109,7 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
                                    tableHandler: TableHandler,
                                    validationFlow: ValidationFlow[RESULT],
                                    converter: ValidationItemConverter,
-                                   statusHandler: StatusLineHandler) extends WindowListener {
+                                   statusHandler: StatusLineHandler) extends WindowListener:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -142,13 +141,12 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     *
     * @param windowEvent the window event (ignored)
     */
-  override def windowClosing(windowEvent: WindowEvent): Unit = {
+  override def windowClosing(windowEvent: WindowEvent): Unit =
     windowClosed = true
     killSwitch foreach { ks =>
       log.info("Canceling validation stream.")
       ks.shutdown()
     }
-  }
 
   override def windowClosed(windowEvent: WindowEvent): Unit = {}
 
@@ -158,18 +156,16 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
 
   override def windowIconified(windowEvent: WindowEvent): Unit = {}
 
-  override def windowOpened(windowEvent: WindowEvent): Unit = {
+  override def windowOpened(windowEvent: WindowEvent): Unit =
     window = WindowUtils windowFromEvent windowEvent
     startValidationStream()
-  }
 
   /**
     * Closes the associated window. This method is called by the close window
     * action. It will cancel an ongoing validation stream.
     */
-  def closeWindow(): Unit = {
+  def closeWindow(): Unit =
     window.close(false)
-  }
 
   /**
     * Creates the source for the validation stream. The source emits all the
@@ -189,7 +185,7 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     * @param media the currently available media
     * @return the kill switch to cancel the stream
     */
-  private[validate] def materializeValidationStream(media: AvailableMedia): KillSwitch = {
+  private[validate] def materializeValidationStream(media: AvailableMedia): KillSwitch =
     implicit val system: ActorSystem = app.clientApplicationContext.actorSystem
     val updateChunkSize = app.clientApplicationContext.managementConfiguration
       .getInt(PropUIUpdateChunkSize, DefaultUIUpdateChunkSize)
@@ -208,26 +204,21 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
 
     futSink foreach (_ => completeStreamProcessing())
     ks
-  }
 
   /**
     * Initiates the stream that validates all media.
     */
-  private def startValidationStream(): Unit = {
+  private def startValidationStream(): Unit =
     statusHandler.fetchingMedia()
-    metaDataService.fetchMedia()(messageBus) onComplete {
+    metaDataService.fetchMedia()(messageBus) onComplete:
       case Success(media) =>
-        doSynced {
+        doSynced:
           killSwitch = Some(materializeValidationStream(media))
-        }
 
       case Failure(exception) =>
         log.error("Could not retrieve available media!", exception)
-        doSynced {
+        doSynced:
           statusHandler.validationResults(0, 0, successful = false)
-        }
-    }
-  }
 
   /**
     * Creates the decider for stream supervision. This function returns a
@@ -236,12 +227,11 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     *
     * @return the decider for stream supervision
     */
-  private def createDecider(): Supervision.Decider = {
+  private def createDecider(): Supervision.Decider =
     err =>
       log.error("Error during validation stream processing!", err)
       processingErrors.set(true)
       Supervision.Resume
-  }
 
   /**
     * Appends newly detected validation errors to the table. This method is
@@ -249,29 +239,26 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     *
     * @param items the validation errors to be appended
     */
-  private def appendValidationErrors(items: Seq[ValidationErrorItem]): Unit = {
+  private def appendValidationErrors(items: Seq[ValidationErrorItem]): Unit =
     import scala.jdk.CollectionConverters._
-    doSynced {
+    doSynced:
       val modelSize = tableHandler.getModel.size()
       tableHandler.getModel.addAll(items.asJava)
       tableHandler.rowsInserted(modelSize, modelSize + items.size - 1)
 
       validationErrorCount += items.count(_.severity == Severity.Error)
       statusHandler.updateProgress(validationErrorCount, validationWarningCount)
-    }
-  }
 
   /**
     * Executes some final steps after the validation stream is complete, such
     * as updating the table model. This method is called from a future when the
     * sink of the validation stream completes.
     */
-  private def completeStreamProcessing(): Unit = doSynced {
+  private def completeStreamProcessing(): Unit = doSynced:
     java.util.Collections.sort(tableHandler.getModel, ErrorItemComparator)
     tableHandler.tableDataChanged()
     statusHandler.validationResults(validationErrorCount, validationWarningCount, !processingErrors.get())
     killSwitch = None
-  }
 
   /**
     * Invokes the given function asynchronously on the event dispatch thread.
@@ -280,9 +267,8 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     *
     * @param f the function to execute on the UI thread
     */
-  private def doSynced(f: => Unit): Unit = {
-    sync.asyncInvoke(() => if (!windowClosed) f)
-  }
+  private def doSynced(f: => Unit): Unit =
+    sync.asyncInvoke(() => if !windowClosed then f)
 
   /**
     * Convenience function to calculate the number of validation warnings.
@@ -299,4 +285,3 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     * @return the message bus
     */
   private def messageBus: MessageBus = app.clientApplicationContext.messageBus
-}

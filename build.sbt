@@ -477,6 +477,8 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveAdmin",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
@@ -486,7 +488,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", archive)
+  ) dependsOn(platform, archive, test3 % "test->compile")
 
 /**
   * Project for the media browser client application. This application allows

@@ -11,7 +11,7 @@ import scala.beans.BeanProperty
   * An object defining several data classes and types that are used during meta
   * data validation operations.
   */
-object ValidationModel {
+object ValidationModel:
   /**
     * Type definition for a function that is used to generate a display string
     * for a validated element. The function is passed the element's URI and has
@@ -60,4 +60,3 @@ object ValidationModel {
     * current medium.
     */
   type ValidationFlow[R] = Flow[List[MediaFile], ValidatedItem[R], Any]
-}

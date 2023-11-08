@@ -31,7 +31,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import scalaz.Scalaz._
 import scalaz._
 
-object ValidationItemConverterSpec {
+object ValidationItemConverterSpec:
   /** An object with available media. */
   private val TestMedia = createAvailableMedia(4)
 
@@ -74,23 +74,21 @@ object ValidationItemConverterSpec {
     */
   private def createItem[V](result: ValidationResult[V], mid: MediumID = Medium): ValidatedItem[V] =
     ValidatedItem(result = result, medium = mid, displayFunc = displayFunc, uri = Uri)
-}
 
 /**
   * Test class for ''ValidationItemConverter''.
   */
-class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import ValidationItemConverterSpec._
 
-  "A ValidationItemConverter" should "handle a valid item" in {
+  "A ValidationItemConverter" should "handle a valid item" in:
     val item = createItem(MediaFile(Medium, Uri, metaData(1)).successNel[ValidationErrorCode])
     val helper = new ConverterTestHelper
 
     helper.convert(item) should have size 0
-  }
 
-  it should "convert an item with failures" in {
+  it should "convert an item with failures" in:
     val codes = List(ValidationErrorCode.NoInceptionYear, ValidationErrorCode.NoArtist,
       ValidationErrorCode.MinimumTrackNumberNotOne)
     val icons = List(IconWarning, IconError, IconWarning)
@@ -103,20 +101,18 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
     val helper = new ConverterTestHelper
 
     helper.convert(createItem(result)) should contain theSameElementsAs expItems
-  }
 
-  it should "handle an unexpected medium ID" in {
+  it should "handle an unexpected medium ID" in:
     val result: ValidationResult[MediaFile] = Failure(ValidationErrorCode.NoTitle.wrapNel)
     val helper = new ConverterTestHelper
 
     val errorItem = helper.convert(createItem(result, mid = testMedium(42)))
     errorItem.head.mediumName should be(UnknownMedium)
-  }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     */
-  private class ConverterTestHelper {
+  private class ConverterTestHelper:
     /** Mock for the application context. */
     private val appCtx = createApplicationContext()
 
@@ -137,13 +133,12 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return the test converter instance
       */
-    private def createConverter(): ValidationItemConverter = {
+    private def createConverter(): ValidationItemConverter =
       val converter = new ValidationItemConverter(appCtx, ResourcePrefix)
-      converter setIconSeverityWarning IconWarning
-      converter setIconSeverityError IconError
-      converter setUnknownMediumName UnknownMedium
+      converter.iconSeverityWarning = IconWarning
+      converter.iconSeverityError = IconError
+      converter.unknownMediumName = UnknownMedium
       converter
-    }
 
     /**
       * Creates a mock for an application context that is prepared to resolve
@@ -151,12 +146,9 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
       *
       * @return the mock application context
       */
-    private def createApplicationContext(): ApplicationContext = {
+    private def createApplicationContext(): ApplicationContext =
       val ctx = mock[ApplicationContext]
       Mockito.when(ctx.getResourceText(anyString())).thenAnswer((invocation: InvocationOnMock) =>
         s"${invocation.getArguments.head}$ResolvedSuffix")
       ctx
-    }
-  }
 
-}

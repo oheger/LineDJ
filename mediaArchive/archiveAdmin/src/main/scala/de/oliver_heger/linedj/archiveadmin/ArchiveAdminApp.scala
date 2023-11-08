@@ -26,7 +26,7 @@ import org.osgi.service.component.ComponentContext
 
 import scala.concurrent.duration._
 
-object ArchiveAdminApp {
+object ArchiveAdminApp:
   /**
     * Configuration property for the timeout value to be applied for
     * invocations of the meta data actor.
@@ -35,13 +35,12 @@ object ArchiveAdminApp {
 
   /** The default timeout value for actor invocations (in seconds). */
   private val DefaultActorTimeout = 10
-}
 
 /**
   * Main class of LineDJ Archive Admin application.
   */
 class ArchiveAdminApp extends ClientApplication("archiveAdmin") with ApplicationAsyncStartup
-  with ActorClientSupport {
+  with ActorClientSupport:
 
   import ArchiveAdminApp._
 
@@ -60,9 +59,8 @@ class ArchiveAdminApp extends ClientApplication("archiveAdmin") with Application
     *
     * @param mediaFacadeActors the media facade actors
     */
-  def initFacadeActors(mediaFacadeActors: MediaFacadeActors): Unit = {
+  def initFacadeActors(mediaFacadeActors: MediaFacadeActors): Unit =
     mediaFacadeActorsField = mediaFacadeActors
-  }
 
   /**
     * Returns the ''MediaFacadeActors'' object managed by this application.
@@ -72,11 +70,10 @@ class ArchiveAdminApp extends ClientApplication("archiveAdmin") with Application
     */
   def mediaFacadeActors: MediaFacadeActors = mediaFacadeActorsField
 
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     val timeoutSecs = clientApplicationContext.managementConfiguration.getInt(PropActorTimeout, DefaultActorTimeout)
     actorInvocationTimeout = Timeout(timeoutSecs.seconds)
-  }
 
   /**
     * Helper function to send a request to an actor. The given message is sent
@@ -87,4 +84,3 @@ class ArchiveAdminApp extends ClientApplication("archiveAdmin") with Application
     * @return an object representing the actor request
     */
   def invokeActor(actor: ActorRef, msg: Any): ActorRequest = actorRequest(actor, msg)
-}

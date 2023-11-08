@@ -35,17 +35,15 @@ import net.sf.jguiraffe.gui.builder.event.BuilderEvent
   * @param message the message to be sent to the media archive
   */
 class MetaDataScanTask(val facade: MediaFacade, val message: Any)
-  extends ActionTask {
+  extends ActionTask:
   /**
     * @inheritdoc This implementation sends the message to the meta data
     *             actor and then disables the action (to prevent multiple
     *             triggers).
     */
-  override def run(action: FormAction, event: BuilderEvent): Unit = {
+  override def run(action: FormAction, event: BuilderEvent): Unit =
     facade.send(MediaActors.MediaManager, message)
     action setEnabled false
-  }
-}
 
 /**
   * An action task class that starts a new meta data scan.

@@ -17,9 +17,7 @@
 package de.oliver_heger.linedj.archiveadmin
 
 import de.oliver_heger.linedj.archiveadmin.MetaDataFilesController.MetaDataFileData
-import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper._
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -29,8 +27,10 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetaDataFileInfo
+import de.oliver_heger.linedj.test.ActionTestHelper
+import de.oliver_heger.linedj.test.ConsumerRegistrationProviderTestHelper.{checkRegistrationIDs, findRegistration}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -44,8 +44,8 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{eq => eqArg, _}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{eq as eqArg, *}
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -54,11 +54,11 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util
 import scala.collection.immutable.IndexedSeq
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
-object MetaDataFilesControllerSpec {
+object MetaDataFilesControllerSpec:
   /** The number of test media. */
   private val MediaCount = 4
 
@@ -108,10 +108,9 @@ object MetaDataFilesControllerSpec {
     *
     * @return the object with available media
     */
-  private def availableMedia(): AvailableMedia = {
+  private def availableMedia(): AvailableMedia =
     val mediaData = (1 to MediaCount) map (i => (mediumID(i), mediumInfo(i)))
     AvailableMedia(mediaData.toList)
-  }
 
   /**
     * Generates a meta data state update event with the specified flag for
@@ -130,7 +129,7 @@ object MetaDataFilesControllerSpec {
     *
     * @return the sequence with test model data
     */
-  private def createModelData(): IndexedSeq[MetaDataFileData] = {
+  private def createModelData(): IndexedSeq[MetaDataFileData] =
     val mediaData = (1 to MediaCount) map { i =>
       val info = mediumInfo(i)
       MetaDataFilesController.MetaDataFileData(info.name, info.checksum)
@@ -140,24 +139,21 @@ object MetaDataFilesControllerSpec {
       MetaDataFilesController.MetaDataFileData(null, OrphanedChecksum2)
     )
     mediaData ++ unassignedData
-  }
-}
 
 /**
   * Test class for ''MetaDataFilesController''.
   */
 class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
 
   import MetaDataFilesControllerSpec._
 
   def this() = this(ActorSystem("MetaDataFilesControllerSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A MetaDataFilesController" should "register consumers on startup" in {
+  "A MetaDataFilesController" should "register consumers on startup" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.openWindow()
 
@@ -165,9 +161,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       helper.findAvailableMediaRegistration(),
       helper.findStateListenerRegistration())
     checkRegistrationIDs(registrations)
-  }
 
-  it should "cancel consumer registrations on shutdown" in {
+  it should "cancel consumer registrations on shutdown" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.openWindow().closeWindow()
 
@@ -178,32 +173,28 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     messages should contain(StateListenerUnregistration(listenerReg.id))
     val mediaReg = helper.findAvailableMediaRegistration()
     messages should contain(AvailableMediaUnregistration(mediaReg.id))
-  }
 
-  it should "update its state for an archive unavailable message" in {
+  it should "update its state for an archive unavailable message" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendArchiveAvailability(MediaFacade.MediaArchiveUnavailable)
       .verifyDisabledState("files_state_disconnected")
-  }
 
-  it should "ignore an archive available event" in {
+  it should "ignore an archive available event" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendArchiveAvailability(MediaFacade.MediaArchiveAvailable)
-  }
 
-  it should "update its state for a scan started event" in {
+  it should "update its state for a scan started event" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendStateEvent(MetaDataScanStarted)
       .verifyDisabledState("files_state_scanning")
-  }
 
-  it should "update its state for a scan completed event" in {
+  it should "update its state for a scan completed event" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.tableModelList add "some data"
 
@@ -212,52 +203,46 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .verifyDisabledState("files_state_loading", verifyRequest = false)
       .verifyActorRequestExecuted[MetaDataFileInfo]
     helper.tableModelList.isEmpty shouldBe true
-  }
 
-  it should "update its state for a state update indicating scan in progress" in {
+  it should "update its state for a state update indicating scan in progress" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendStateEvent(updateEvent(scanInProgress = true))
       .verifyDisabledState("files_state_scanning")
-  }
 
-  it should "update its state for a state update indicating no scan in progress" in {
+  it should "update its state for a state update indicating no scan in progress" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendStateEvent(updateEvent(scanInProgress = false))
       .verifyDisabledState("files_state_loading", verifyRequest = false)
       .verifyActorRequestExecuted[MetaDataFileInfo]
-  }
 
-  it should "ignore other meta data state events" in {
+  it should "ignore other meta data state events" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendStateEvent(MetaDataScanCanceled)
       .expectNoDataRequest()
-  }
 
-  it should "ignore state transitions to the same target state" in {
+  it should "ignore state transitions to the same target state" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
       .sendStateEvent(MetaDataScanStarted)
       .sendStateEvent(updateEvent(scanInProgress = true))
       .verifyDisabledState("files_state_scanning")
-  }
 
   /**
     * Checks whether the table for meta data files has been correctly filled.
     *
     * @param helper the helper
     */
-  private def checkTableModel(helper: MetaDataFilesControllerTestHelper): Unit = {
+  private def checkTableModel(helper: MetaDataFilesControllerTestHelper): Unit =
     helper.tableModelList.asScala should be(TableModelData)
-  }
 
-  it should "populate the table when data becomes available" in {
+  it should "populate the table when data becomes available" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
@@ -265,17 +250,15 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .expectAndAnswerActorRequest(Success(helper.metaDataFileInfo()))
     verify(helper.tableHandler).tableDataChanged()
     checkTableModel(helper)
-  }
 
-  it should "handle a failed request for file information" in {
+  it should "handle a failed request for file information" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
       .expectAndAnswerActorRequest[MetaDataFileInfo](Failure(new Exception))
       .verifyDisabledState("files_state_error_actor_access", verifyRequest = false)
-  }
 
-  it should "update its state when data becomes available" in {
+  it should "update its state when data becomes available" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendAvailableMedia().sendStateEvent(MetaDataScanCompleted)
@@ -284,9 +267,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .verifyAction("removeFilesAction", enabled = false)
       .verifyProgressIndicator(enabled = false)
       .verifyStatusText(new Message(null, "files_state_ready", MediaCount, 2))
-  }
 
-  it should "filter out media for which no meta data file exists" in {
+  it should "filter out media for which no meta data file exists" in:
     val helper = new MetaDataFilesControllerTestHelper
     val avMedia = availableMedia()
     val moreMedia = (mediumID(42), mediumInfo(42)) :: avMedia.mediaList
@@ -295,9 +277,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .sendStateEvent(MetaDataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metaDataFileInfo()))
     checkTableModel(helper)
-  }
 
-  it should "handle data arriving in another order" in {
+  it should "handle data arriving in another order" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
@@ -306,9 +287,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .sendAvailableMedia()
     verify(helper.tableHandler).tableDataChanged()
     checkTableModel(helper)
-  }
 
-  it should "reset file data if the archive becomes unavailable" in {
+  it should "reset file data if the archive becomes unavailable" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -316,9 +296,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .sendArchiveAvailability(MediaFacade.MediaArchiveUnavailable)
       .sendAvailableMedia()
     verify(helper.tableHandler, never()).tableDataChanged()
-  }
 
-  it should "reset file data if a scan starts" in {
+  it should "reset file data if a scan starts" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -326,9 +305,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .sendStateEvent(MetaDataScanStarted)
       .sendAvailableMedia()
     verify(helper.tableHandler, never()).tableDataChanged()
-  }
 
-  it should "enable the remove action if files are selected" in {
+  it should "enable the remove action if files are selected" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -337,9 +315,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .resetMocks()
       .triggerTableSelection(Array(0))
       .verifyAction("removeFilesAction", enabled = true)
-  }
 
-  it should "disable the remove action if no files are selected" in {
+  it should "disable the remove action if no files are selected" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -348,9 +325,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .resetMocks()
       .triggerTableSelection(Array.empty)
       .verifyAction("removeFilesAction", enabled = false)
-  }
 
-  it should "disable the remove action if no update actor is available" in {
+  it should "disable the remove action if no update actor is available" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -359,9 +335,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .resetMocks()
       .triggerTableSelection(Array(0))
       .verifyAction("removeFilesAction", enabled = false)
-  }
 
-  it should "only update the remove action if allowed by the state" in {
+  it should "only update the remove action if allowed by the state" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.openWindow()
@@ -369,16 +344,14 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       .resetMocks()
       .triggerTableSelection(Array(0, 1, 2))
       .verifyAction("removeFilesAction", enabled = false)
-  }
 
-  it should "handle a selection change event if no state is set" in {
+  it should "handle a selection change event if no state is set" in:
     val helper = new MetaDataFilesControllerTestHelper
 
     helper.triggerTableSelection(Array(1))
     verifyNoMoreInteractions(helper.actions("removeFilesAction"))
-  }
 
-  it should "react on the remove action" in {
+  it should "react on the remove action" in:
     val helper = new MetaDataFilesControllerTestHelper
     val selection = Array(0, 2)
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
@@ -390,9 +363,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.controller.removeFiles()
     helper.verifyDisabledState("files_state_removing", verifyRequest = false)
       .verifyActorRequestExecuted[RemovePersistentMetaDataResult]
-  }
 
-  it should "react on the refresh action" in {
+  it should "react on the refresh action" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.openWindow().sendStateEvent(MetaDataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metaDataFileInfo()))
@@ -402,9 +374,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.controller.refresh()
     helper.verifyDisabledState("files_state_loading", verifyRequest = false)
       .verifyActorRequestExecuted[MetaDataFileInfo]
-  }
 
-  it should "handle the result of a remove files operation" in {
+  it should "handle the result of a remove files operation" in:
     val helper = new MetaDataFilesControllerTestHelper
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetaData(checksumSet)
@@ -424,9 +395,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val expected = helper.metaDataFileInfo().metaDataFiles.values.toSet - checksum(2)
     remainingChecksumSet should be(expected)
     verify(helper.appContext, never()).messageBox(any(), any(), anyInt(), anyInt())
-  }
 
-  it should "display a warning for an incomplete remove operation" in {
+  it should "display a warning for an incomplete remove operation" in:
     val helper = new MetaDataFilesControllerTestHelper
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetaData(checksumSet)
@@ -441,9 +411,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.expectAndAnswerActorRequest(Success(result))
     verify(helper.appContext).messageBox("files_err_remove_msg", "files_err_remove_tit",
       MessageOutput.MESSAGE_WARNING, MessageOutput.BTN_OK)
-  }
 
-  it should "handle a failed remove operation" in {
+  it should "handle a failed remove operation" in:
     val helper = new MetaDataFilesControllerTestHelper
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetaData(checksumSet)
@@ -454,62 +423,55 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.prepareMetaDataActorRequest(request)
       .prepareTableSelection(checksumSet)
     helper.controller.removeFiles()
-    helper.expectAndAnswerActorRequest(Failure(new Exception))
+    helper.expectAndAnswerActorRequest(Failure[MetaDataFileInfo](new Exception))
       .verifyDisabledState("files_state_error_actor_access")
-  }
 
-  it should "support closing the window" in {
+  it should "support closing the window" in:
     val helper = new MetaDataFilesControllerTestHelper
     helper.openWindow()
 
     helper.controller.close()
     verify(helper.window).close(false)
-  }
 
-  it should "ignore a window de-iconified event" in {
+  it should "ignore a window de-iconified event" in:
     val helper = new MetaDataFilesControllerTestHelper
     val event = helper.windowEvent()
 
     helper.controller.windowDeiconified(event)
     verifyNoInteractions(event)
-  }
 
-  it should "ignore a window closed event" in {
+  it should "ignore a window closed event" in:
     val helper = new MetaDataFilesControllerTestHelper
     val event = helper.windowEvent()
 
     helper.controller.windowClosed(event)
     verifyNoInteractions(event)
-  }
 
-  it should "ignore a window activated event" in {
+  it should "ignore a window activated event" in:
     val helper = new MetaDataFilesControllerTestHelper
     val event = helper.windowEvent()
 
     helper.controller.windowActivated(event)
     verifyNoInteractions(event)
-  }
 
-  it should "ignore a window de-activated event" in {
+  it should "ignore a window de-activated event" in:
     val helper = new MetaDataFilesControllerTestHelper
     val event = helper.windowEvent()
 
     helper.controller.windowDeactivated(event)
     verifyNoInteractions(event)
-  }
 
-  it should "ignore a window iconified event" in {
+  it should "ignore a window iconified event" in:
     val helper = new MetaDataFilesControllerTestHelper
     val event = helper.windowEvent()
 
     helper.controller.windowIconified(event)
     verifyNoInteractions(event)
-  }
 
   /**
     * A test helper class managing the dependencies of a test instance.
     */
-  private class MetaDataFilesControllerTestHelper extends ActionTestHelper with MockitoSugar {
+  private class MetaDataFilesControllerTestHelper extends ActionTestHelper with MockitoSugar:
     /** A mock for the message bus. */
     val messageBus: MessageBus = createMessageBus()
 
@@ -567,11 +529,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the window event
       */
-    def windowEvent(): WindowEvent = {
+    def windowEvent(): WindowEvent =
       val event = mock[WindowEvent]
       doReturn(window).when(event).getSourceWindow
       event
-    }
 
     /**
       * Returns the configuration used by the application.
@@ -586,11 +547,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def resetMocks(): MetaDataFilesControllerTestHelper = {
+    def resetMocks(): MetaDataFilesControllerTestHelper =
       reset(progressIndicator, application)
       resetActionStates()
       this
-    }
 
     /**
       * Sends an event about a newly opened window to the test controller.
@@ -599,11 +559,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def openWindow(): MetaDataFilesControllerTestHelper = {
+    def openWindow(): MetaDataFilesControllerTestHelper =
       prepareFileInfoRequest()
       controller windowOpened windowEvent()
       this
-    }
 
     /**
       * Sends an event to the test controller that the window is closing. This
@@ -611,20 +570,18 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def closeWindow(): MetaDataFilesControllerTestHelper = {
+    def closeWindow(): MetaDataFilesControllerTestHelper =
       controller windowClosing windowEvent()
       this
-    }
 
     /**
       * Generates a ''MetaDataFileInfo'' object with test data.
       *
       * @return the ''MetaDataFileInfo''
       */
-    def metaDataFileInfo(): MetaDataFileInfo = {
+    def metaDataFileInfo(): MetaDataFileInfo =
       val mediaData = (1 to MediaCount) map (i => (mediumID(i), checksum(i)))
       MetaDataFileInfo(mediaData.toMap, Set(OrphanedChecksum1, OrphanedChecksum2), Some(metaDataManager))
-    }
 
     /**
       * Verifies that the prepared actor request has been executed.
@@ -633,10 +590,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @tparam R the result type of the callback
       * @return this test helper
       */
-    def verifyActorRequestExecuted[R](implicit c: ClassTag[R]): MetaDataFilesControllerTestHelper = {
+    def verifyActorRequestExecuted[R](implicit c: ClassTag[R]): MetaDataFilesControllerTestHelper =
       verifyDataRequest(c)
       this
-    }
 
     /**
       * Prepares mock objects for a request to the meta data manager actor.
@@ -666,11 +622,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def expectAndAnswerActorRequest[R](result: Try[R])(implicit c: ClassTag[R]):
-    MetaDataFilesControllerTestHelper = {
+    MetaDataFilesControllerTestHelper =
       val callback = verifyDataRequest(c)
       callback(result)
       this
-    }
 
     /**
       * Verifies that no request for meta data files information has been
@@ -678,11 +633,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def expectNoDataRequest(): MetaDataFilesControllerTestHelper = {
+    def expectNoDataRequest(): MetaDataFilesControllerTestHelper =
       verify(application, never()).actorRequest(eqArg(metaDataManager),
         eqArg(GetMetaDataFileInfo))(any(classOf[Timeout]))
       this
-    }
 
     /**
       * Returns the registration for the archive available extension or fails
@@ -717,11 +671,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the ''Receive'' function
       */
-    def findMessageBusRegistration(): Receive = {
+    def findMessageBusRegistration(): Receive =
       val captor = ArgumentCaptor.forClass(classOf[Receive])
       verify(messageBus).registerListener(captor.capture())
       captor.getValue
-    }
 
     /**
       * Sends a message about available media to the test controller.
@@ -730,10 +683,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def sendAvailableMedia(avMedia: AvailableMedia = availableMedia()):
-    MetaDataFilesControllerTestHelper = {
+    MetaDataFilesControllerTestHelper =
       findAvailableMediaRegistration().callback(avMedia)
       this
-    }
 
     /**
       * Checks that no interactions with the message bus took place to register
@@ -741,10 +693,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def checkNoExtensionRegistration(): MetaDataFilesControllerTestHelper = {
+    def checkNoExtensionRegistration(): MetaDataFilesControllerTestHelper =
       busMessages.isEmpty shouldBe true
       this
-    }
 
     /**
       * Sends an archive availability message.
@@ -753,10 +704,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return this test helper
       */
     def sendArchiveAvailability(message: MediaFacade.MediaArchiveAvailabilityEvent):
-    MetaDataFilesControllerTestHelper = {
+    MetaDataFilesControllerTestHelper =
       findArchiveAvailableRegistration().callback(message)
       this
-    }
 
     /**
       * Sends an event about a meta data state change.
@@ -764,10 +714,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param event the event
       * @return this test helper
       */
-    def sendStateEvent(event: MetaDataStateEvent): MetaDataFilesControllerTestHelper = {
+    def sendStateEvent(event: MetaDataStateEvent): MetaDataFilesControllerTestHelper =
       findStateListenerRegistration().callback(event)
       this
-    }
 
     /**
       * Verifies that the specified action has been set to the given enabled
@@ -777,10 +726,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param enabled the expected enabled state
       * @return this test helper
       */
-    def verifyAction(name: String, enabled: Boolean): MetaDataFilesControllerTestHelper = {
+    def verifyAction(name: String, enabled: Boolean): MetaDataFilesControllerTestHelper =
       isActionEnabled(name) should be(enabled)
       this
-    }
 
     /**
       * Verifies that the status line has been set to the specified resource
@@ -799,10 +747,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param message the ''Message''
       * @return this test helper
       */
-    def verifyStatusText(message: Message): MetaDataFilesControllerTestHelper = {
+    def verifyStatusText(message: Message): MetaDataFilesControllerTestHelper =
       textStatus should be(message.toString)
       this
-    }
 
     /**
       * Verifies that the progress indicator has been set correctly.
@@ -810,10 +757,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param enabled the expected enabled flag
       * @return this test helper
       */
-    def verifyProgressIndicator(enabled: Boolean): MetaDataFilesControllerTestHelper = {
+    def verifyProgressIndicator(enabled: Boolean): MetaDataFilesControllerTestHelper =
       verify(progressIndicator, atLeastOnce()).setVisible(enabled)
       this
-    }
 
     /**
       * Verifies that a state has been set which disables the controller's
@@ -828,16 +774,14 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       */
     def verifyDisabledState(statusResID: String, verifyRequest: Boolean = true,
                             expectedProgressState: Boolean = true):
-    MetaDataFilesControllerTestHelper = {
+    MetaDataFilesControllerTestHelper =
       verifyAction("refreshAction", enabled = false)
       verifyAction("removeFilesAction", enabled = false)
       verifyStatusText(statusResID)
       verifyProgressIndicator(expectedProgressState)
-      if (verifyRequest) {
+      if verifyRequest then
         expectNoDataRequest()
-      }
       this
-    }
 
     /**
       * Sends a table selection change event to the test controller for the
@@ -846,11 +790,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param indices the selected indices of the table
       * @return this test helper
       */
-    def triggerTableSelection(indices: Array[Int]): MetaDataFilesControllerTestHelper = {
+    def triggerTableSelection(indices: Array[Int]): MetaDataFilesControllerTestHelper =
       when(tableHandler.getSelectedIndices).thenReturn(indices)
       controller.elementChanged(null)
       this
-    }
 
     /**
       * Prepares the table handler mock to return a selection that corresponds
@@ -859,11 +802,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param checksumSet the set with checksum values to be selected
       * @return this test helper
       */
-    def prepareTableSelection(checksumSet: Set[String]): MetaDataFilesControllerTestHelper = {
+    def prepareTableSelection(checksumSet: Set[String]): MetaDataFilesControllerTestHelper =
       val selection = checksumSet.map(s => TableModelData.indexWhere(s == _.checksum)).toArray
       when(tableHandler.getSelectedIndices).thenReturn(selection)
       this
-    }
 
     /**
       * Prepares mocks to expect an actor request from the controller.
@@ -872,11 +814,10 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param msg   the message to be sent
       * @return this test helper
       */
-    private def prepareActorRequest(actor: ActorRef, msg: Any): MetaDataFilesControllerTestHelper = {
+    private def prepareActorRequest(actor: ActorRef, msg: Any): MetaDataFilesControllerTestHelper =
       actorRequest = mock[ActorRequest]
       when(application.invokeActor(actor, msg)).thenReturn(actorRequest)
       this
-    }
 
     /**
       * Verifies that a request to the meta data actor has been sent and
@@ -886,12 +827,11 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @tparam R the result type of the request
       * @return the callback function for result processing
       */
-    private def verifyDataRequest[R](implicit c: ClassTag[R]): Try[R] => Unit = {
+    private def verifyDataRequest[R](implicit c: ClassTag[R]): Try[R] => Unit =
       val captor = ArgumentCaptor.forClass(classOf[Try[R] => Unit])
       verify(actorRequest).executeUIThread(captor.capture())(any(classOf[ClassTag[R]]))
       val res = captor.getValue
       res
-    }
 
     /**
       * Creates a mock message bus. All messages passed to the bus are stored
@@ -899,7 +839,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the mock message bus
       */
-    private def createMessageBus(): MessageBus = {
+    private def createMessageBus(): MessageBus =
       val bus = mock[MessageBus]
       doAnswer((invocation: InvocationOnMock) => {
         busMessages = invocation.getArguments.head :: busMessages
@@ -907,7 +847,6 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       }).when(bus).publish(any())
       when(bus.registerListener(any(classOf[Receive]))).thenReturn(MessageBusRegistrationID)
       bus
-    }
 
     /**
       * Creates a mock for the main application.
@@ -915,7 +854,7 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param bus the message bus
       * @return the mock application
       */
-    private def createApplication(bus: MessageBus): ArchiveAdminApp = {
+    private def createApplication(bus: MessageBus): ArchiveAdminApp =
       val app = mock[ArchiveAdminApp]
       val clientApplicationContext = mock[ClientApplicationContext]
       val facadeActors = MediaFacadeActors(mediaManager = unionMediaManager, metaDataManager = null)
@@ -924,18 +863,16 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       when(app.getUserConfiguration).thenReturn(new PropertiesConfiguration)
       when(app.mediaFacadeActors).thenReturn(facadeActors)
       app
-    }
 
     /**
       * Creates a mock for the table handler.
       *
       * @return the mock table handler
       */
-    private def createTableHandler(): TableHandler = {
+    private def createTableHandler(): TableHandler =
       val handler = mock[TableHandler]
       when(handler.getModel).thenReturn(tableModelList)
       handler
-    }
 
     /**
       * Creates a mock for the status line text handler which records the
@@ -943,14 +880,13 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the mock status handler
       */
-    private def createStatusTextHandler(): StaticTextHandler = {
+    private def createStatusTextHandler(): StaticTextHandler =
       val handler = mock[StaticTextHandler]
       doAnswer((invocation: InvocationOnMock) => {
         textStatus = invocation.getArguments.head.toString
         null
       }).when(handler).setText(anyString())
       handler
-    }
 
     /**
       * Initializes the mock actions used by this test class and creates a mock
@@ -958,10 +894,9 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the mock action store
       */
-    private def initActionStore(): ActionStore = {
+    private def initActionStore(): ActionStore =
       createActions("refreshAction", "removeFilesAction")
       createActionStore()
-    }
 
     /**
       * Creates a mock application context. The mock is prepared to answer
@@ -970,11 +905,8 @@ class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the mock application context
       */
-    private def createApplicationContext(): ApplicationContext = {
+    private def createApplicationContext(): ApplicationContext =
       val context = mock[ApplicationContext]
       when(context.getResourceText(any(classOf[Message]))).thenAnswer((invocation: InvocationOnMock) => invocation.getArguments.head.toString)
       context
-    }
-  }
 
-}

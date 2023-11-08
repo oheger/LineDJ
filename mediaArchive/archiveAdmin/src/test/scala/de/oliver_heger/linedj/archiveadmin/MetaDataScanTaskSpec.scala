@@ -28,8 +28,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''MetaDataScanTask''.
   */
-class MetaDataScanTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A MetaDataScanTask" should "correctly implement the action task" in {
+class MetaDataScanTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A MetaDataScanTask" should "correctly implement the action task" in:
     val facade = mock[MediaFacade]
     val action = mock[FormAction]
     val Message = new Object
@@ -38,21 +38,17 @@ class MetaDataScanTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     task.run(action, null)
     verify(facade).send(MediaActors.MediaManager, Message)
     verify(action).setEnabled(false)
-  }
 
-  "A StartMetaDataScanTask" should "initialize itself correctly" in {
+  "A StartMetaDataScanTask" should "initialize itself correctly" in:
     val facade = mock[MediaFacade]
     val task = new StartMetaDataScanTask(facade)
 
     task.facade should be(facade)
     task.message should be(ScanAllMedia)
-  }
 
-  "A CancelMetaDataScanTask" should "initialize itself correctly" in {
+  "A CancelMetaDataScanTask" should "initialize itself correctly" in:
     val facade = mock[MediaFacade]
     val task = new CancelMetaDataScanTask(facade)
 
     task.facade should be(facade)
     task.message should be(CloseRequest)
-  }
-}

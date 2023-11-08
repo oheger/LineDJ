@@ -26,7 +26,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object OpenValidationWindowCommand {
+object OpenValidationWindowCommand:
   /**
     * The name of the property under which the validation flow is stored in the
     * builder context.
@@ -56,11 +56,9 @@ object OpenValidationWindowCommand {
     * @param name the name of the element
     * @return the resulting name with the parent prefix
     */
-  def appendParent(uri: String, name: String): String = {
+  def appendParent(uri: String, name: String): String =
     val parentName = UriHelper.extractName(UriHelper.extractParent(uri))
     UriHelper.urlDecode(UriHelper.concat(parentName, name))
-  }
-}
 
 /**
   * A base class for a command that opens the validation dialog for a specific
@@ -76,7 +74,7 @@ object OpenValidationWindowCommand {
   * @tparam V the type of the validation flow used by this command
   */
 abstract class OpenValidationWindowCommand[V](scriptLocator: Locator, app: ClientApplication)
-  extends OpenWindowCommand(scriptLocator) {
+  extends OpenWindowCommand(scriptLocator):
 
   import OpenValidationWindowCommand._
 
@@ -92,10 +90,9 @@ abstract class OpenValidationWindowCommand[V](scriptLocator: Locator, app: Clien
     *             stores the flow under a well-known key in the builder
     *             context.
     */
-  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
     builderData.addProperty(PropFlow, createValidationFlow())
-  }
 
   /**
     * Creates the flow that does the actual validation.
@@ -103,7 +100,6 @@ abstract class OpenValidationWindowCommand[V](scriptLocator: Locator, app: Clien
     * @return the validation flow
     */
   protected def createValidationFlow(): ValidationFlow[V]
-}
 
 /**
   * A special command implementation to open the validation dialog for a simple
@@ -116,15 +112,14 @@ abstract class OpenValidationWindowCommand[V](scriptLocator: Locator, app: Clien
   * @param app           the current application
   */
 class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
-  extends OpenValidationWindowCommand[MediaFile](scriptLocator, app) {
+  extends OpenValidationWindowCommand[MediaFile](scriptLocator, app):
 
   override protected def createValidationFlow(): ValidationFlow[MediaFile] =
     Flow[List[MediaFile]].mapConcat(identity)
       .mapAsyncUnordered(parallelism) { file =>
-        Future {
+        Future:
           val valResult = MetaDataValidator.validateFile(file)
           ValidatedItem(file.mediumID, file.uri, createDisplayFunc(file), valResult)
-        }
       }
 
   /**
@@ -135,10 +130,9 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
     * @param file the file in question
     * @return the display function for this file
     */
-  private def createDisplayFunc(file: MediaFile): DisplayFunc = file.metaData.title match {
+  private def createDisplayFunc(file: MediaFile): DisplayFunc = file.metaData.title match
     case Some(t) => uri => OpenValidationWindowCommand.appendParent(uri, t)
     case None => uri => displayNameFromUri(uri)
-  }
 
   /**
     * Generates a display name from the file URI. This name consists of the
@@ -149,7 +143,6 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
     */
   private def displayNameFromUri(uri: String): String =
     OpenValidationWindowCommand.appendParent(uri, UriHelper extractName uri)
-}
 
 /**
   * A command implementation to open the validation dialog for an album-based
@@ -163,14 +156,13 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
   * @param app           the current application
   */
 class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplication)
-  extends OpenValidationWindowCommand[MediaAlbum](scriptLocator, app) {
+  extends OpenValidationWindowCommand[MediaAlbum](scriptLocator, app):
   override protected def createValidationFlow(): ValidationFlow[MediaAlbum] =
     Flow[List[MediaFile]].mapConcat(groupToAlbums)
       .mapAsyncUnordered(parallelism) { album =>
-        Future {
+        Future:
           val result = MetaDataValidator.validateAlbum(album)
           ValidatedItem(album.mediumID, album.uri, displayFunc, result)
-        }
       }
 
   /**
@@ -181,11 +173,10 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
     * @param files a list with all media files of a medium
     * @return a list with corresponding albums
     */
-  private def groupToAlbums(files: List[MediaFile]): List[MediaAlbum] = {
+  private def groupToAlbums(files: List[MediaFile]): List[MediaAlbum] =
     lazy val mid = files.head.mediumID // only executed if there are files
     val albumFiles = files.groupBy(f => parentUri(f.uri))
     albumFiles.map(e => MediaAlbum(mid, e._1, e._2 map (_.metaData))).toList
-  }
 
   /**
     * Determines the parent URI of the given URI. The last component is split.
@@ -204,4 +195,3 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
     */
   private def displayFunc(uri: String): String =
     OpenValidationWindowCommand.appendParent(uri, UriHelper extractName uri)
-}
