@@ -18,16 +18,16 @@ package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.test.MessageBusTestImpl
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{any, anyString}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
@@ -35,7 +35,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object LocalArchiveStartupSpec {
+object LocalArchiveStartupSpec:
   /** The configurations for the media archives to start. */
   private val ArchiveConfigs = MediaArchiveConfig(createArchiveConfiguration())
 
@@ -45,7 +45,7 @@ object LocalArchiveStartupSpec {
     *
     * @return the configuration
     */
-  private def createArchiveConfiguration(): HierarchicalConfiguration = {
+  private def createArchiveConfiguration(): HierarchicalConfiguration =
     val config = new HierarchicalConfiguration
     config.addProperty("media.localArchives.readerTimeout", 60)
     config.addProperty("media.localArchives.readerCheckInterval", 180)
@@ -70,41 +70,36 @@ object LocalArchiveStartupSpec {
     config.addProperty("media.localArchives.localArchive.archiveName", "Archive2")
 
     config
-  }
-}
 
 /**
   * Test class for ''LocalArchiveStartup''.
   */
 class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import LocalArchiveStartupSpec._
 
   def this() = this(ActorSystem("LocalArchiveStartupSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A LocalArchiveStartup" should "create actors for the local archive" in {
+  "A LocalArchiveStartup" should "create actors for the local archive" in:
     val helper = new LocalArchiveStartupTestHelper
 
     helper.activate()
       .verifyActorsCreated()
-  }
 
-  it should "stop actors of the local archive on deactivation" in {
+  it should "stop actors of the local archive on deactivation" in:
     val helper = new LocalArchiveStartupTestHelper
     helper.activate()
 
     helper.deactivate().verifyActorsStopped()
-  }
 
   /**
     * Test helper class managing a test instance and required dependencies.
     */
-  private class LocalArchiveStartupTestHelper {
+  private class LocalArchiveStartupTestHelper:
     /** Test probe for the archive group manager. */
     private val probeGroupActor = TestProbe()
 
@@ -131,52 +126,48 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return this test helper
       */
-    def activate(): LocalArchiveStartupTestHelper = {
+    def activate(): LocalArchiveStartupTestHelper =
       val facadeActors = MediaFacadeActors(probeUnionMediaManager.ref,
         probeUnionMetaDataManager.ref)
       startup initClientContext clientContext
       startup initMediaFacadeActors facadeActors
       startup activate mock[ComponentContext]
       this
-    }
 
     /**
       * Deactivates the test component.
       *
       * @return this test helper
       */
-    def deactivate(): LocalArchiveStartupTestHelper = {
+    def deactivate(): LocalArchiveStartupTestHelper =
       startup deactivate mock[ComponentContext]
       this
-    }
 
     /**
       * Checks whether all expected actors have been created correctly.
       *
       * @return this test helper
       */
-    def verifyActorsCreated(): LocalArchiveStartupTestHelper = {
+    def verifyActorsCreated(): LocalArchiveStartupTestHelper =
       createdActors should have size 1
       this
-    }
 
     /**
       * Checks whether the managed actors have been stopped.
       *
       * @return this test helper
       */
-    def verifyActorsStopped(): LocalArchiveStartupTestHelper = {
+    def verifyActorsStopped(): LocalArchiveStartupTestHelper =
       watch(probeGroupActor.ref)
       expectTerminated(probeGroupActor.ref)
       this
-    }
 
     /**
       * Creates a mock ''ClientApplicationContext''.
       *
       * @return the client context
       */
-    private def createClientContext(): ClientApplicationContext = {
+    private def createClientContext(): ClientApplicationContext =
       val actorFactory = createActorFactory()
       val clientContext = mock[ClientApplicationContext]
       when(clientContext.managementConfiguration).thenReturn(createArchiveConfiguration())
@@ -185,7 +176,6 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       when(clientContext.messageBus).thenReturn(messageBus)
       when(clientContext.mediaFacade).thenReturn(mock[MediaFacade])
       clientContext
-    }
 
     /**
       * Creates an actor factory mock that checks the creation of the actors
@@ -193,7 +183,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the actor factory mock
       */
-    private def createActorFactory(): ActorFactory = {
+    private def createActorFactory(): ActorFactory =
       val factory = mock[ActorFactory]
       when(factory.createActor(any(classOf[Props]), anyString()))
         .thenAnswer((invocation: InvocationOnMock) => {
@@ -208,7 +198,6 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
           }
         })
       factory
-    }
 
     /**
       * Simulates an actor creation through the actor factory and records the
@@ -217,12 +206,9 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param probe the probe representing the actor
       * @return the actor reference
       */
-    private def actorCreation(probe: TestProbe): ActorRef = {
+    private def actorCreation(probe: TestProbe): ActorRef =
       createdActors should not contain probe
       createdActors = createdActors + probe
       probe.ref
-    }
 
-  }
 
-}

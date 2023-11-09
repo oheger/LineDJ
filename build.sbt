@@ -437,12 +437,14 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveLocalStartup",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin)
+  ) dependsOn(platform, archive, archiveAdmin, test3 % "test->compile")
 
 /**
   * A project which is responsible for starting up an HTTP media archive in

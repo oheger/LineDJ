@@ -25,10 +25,9 @@ import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorRef
 import org.osgi.service.component.ComponentContext
 
-object LocalArchiveStartup {
+object LocalArchiveStartup:
   /** Name for the archive group actor. */
   val NameGroupActor = "archiveGroupActor"
-}
 
 /**
   * A class that starts a local media archive in an OSGi environment.
@@ -42,7 +41,7 @@ object LocalArchiveStartup {
   * application.
   */
 class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagementComponent {
+  with ActorManagementComponent:
 
   import LocalArchiveStartup._
 
@@ -58,19 +57,17 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     *
     * @param mfa the media facade actors
     */
-  def initMediaFacadeActors(mfa: MediaFacadeActors): Unit = {
+  def initMediaFacadeActors(mfa: MediaFacadeActors): Unit =
     facadeActors = mfa
-  }
 
   /**
     * @inheritdoc This implementation creates the registration for the
     *             archive available extension to monitor the archive state.
     */
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     log.info("Activating LocalArchiveStartup.")
     startLocalArchive(facadeActors.mediaManager, facadeActors.metaDataManager)
-  }
 
   /**
     * Creates and initializes the actors for the local media archive. A new
@@ -79,9 +76,7 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     * @param mediaUnionActor    the union media actor
     * @param metaDataUnionActor the union meta data actor
     */
-  private def startLocalArchive(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef): Unit = {
+  private def startLocalArchive(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef): Unit =
     val archiveConfigs = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
     createAndRegisterActor(ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs), NameGroupActor)
     log.info("Local archive started.")
-  }
-}
