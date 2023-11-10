@@ -24,7 +24,7 @@ import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 
-object MediaArchiveConfigSpec {
+object MediaArchiveConfigSpec:
   /** The reader check interval. */
   private val ReaderCheckInterval = 10.minutes
 
@@ -93,7 +93,7 @@ object MediaArchiveConfigSpec {
     * @return the modified configuration
     */
   private def addTestDataToConfig(config: HierarchicalConfiguration, key: String, index: Int):
-  HierarchicalConfiguration = {
+  HierarchicalConfiguration =
     config.addProperty(key + ".infoSizeLimit", InfoSizeLimit + index)
     config.addProperty(key + ".downloadTimeout", 60 + index)
     config.addProperty(key + ".downloadCheckInterval", ReaderCheckInterval.toSeconds + index)
@@ -117,7 +117,6 @@ object MediaArchiveConfigSpec {
     config.addProperty(key + ".scan.mediaBufferSize", ScanMediaBufferSize + index)
 
     config
-  }
 
   /**
     * Adds a new local archive element with test data to the given
@@ -127,10 +126,9 @@ object MediaArchiveConfigSpec {
     * @param index  the index to generate unique test data
     * @return the modified configuration
     */
-  private def addArchiveToConfig(config: HierarchicalConfiguration, index: Int): HierarchicalConfiguration = {
+  private def addArchiveToConfig(config: HierarchicalConfiguration, index: Int): HierarchicalConfiguration =
     config.addProperty("media.localArchives.localArchive(-1).archiveName", ArchiveName + index)
     addTestDataToConfig(config, "media.localArchives.localArchive", index)
-  }
 
   /**
     * Creates a hierarchical configuration with default test settings declaring
@@ -140,12 +138,11 @@ object MediaArchiveConfigSpec {
     */
   private def createDefaultHierarchicalConfig(): HierarchicalConfiguration =
     addArchiveToConfig(new HierarchicalConfiguration, 0)
-}
 
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
+class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
 
   import MediaArchiveConfigSpec._
 
@@ -158,11 +155,10 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     * @return the config object
     */
   private def createArchiveConfig(c: HierarchicalConfiguration = createDefaultHierarchicalConfig()):
-  MediaArchiveConfig = {
+  MediaArchiveConfig =
     val configs = MediaArchiveConfig(c, staticArchiveName)
     configs should have size 1
     configs.head
-  }
 
   /**
     * Checks whether the passed in configuration is equivalent to a test
@@ -171,7 +167,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     * @param config the configuration to check
     * @param index  the index determining the expected values
     */
-  private def checkArchiveConfig(config: MediaArchiveConfig, index: Int): Unit = {
+  private def checkArchiveConfig(config: MediaArchiveConfig, index: Int): Unit =
     config.downloadConfig.downloadCheckInterval should be(ReaderCheckInterval + index.seconds)
     config.downloadConfig.downloadTimeout should be((60 + index).seconds)
     config.downloadConfig.downloadChunkSize should be(DownloadChunkSize + index)
@@ -191,53 +187,46 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     config.infoParserTimeout.duration should be(InfoParserTimeout.duration + index.seconds)
     config.scanMediaBufferSize should be(ScanMediaBufferSize + index)
     config.contentFile should be(Some(Paths.get(TocFile + index)))
-  }
 
-  "A MediaArchiveConfig" should "create an instance from the application config" in {
+  "A MediaArchiveConfig" should "create an instance from the application config" in:
     checkArchiveConfig(createArchiveConfig(), 0)
-  }
 
-  it should "use a default value for the media buffer size for meta data extraction" in {
+  it should "use a default value for the media buffer size for meta data extraction" in:
     val c = createDefaultHierarchicalConfig()
     c clearProperty "media.localArchives.localArchive.metaDataExtraction.metaDataMediaBufferSize"
 
     createArchiveConfig(c).metaDataMediaBufferSize should be(MediaArchiveConfig
       .DefaultMetaDataMediaBufferSize)
-  }
 
-  it should "use a default processor count if undefined" in {
+  it should "use a default processor count if undefined" in:
     val c = createDefaultHierarchicalConfig()
     c.clearProperty("media.localArchives.localArchive.processorCount")
 
     createArchiveConfig(c).processorCount should be(MediaArchiveConfig.DefaultProcessorCount)
-  }
 
-  it should "use a default value for the ToC file" in {
+  it should "use a default value for the ToC file" in:
     val config = createDefaultHierarchicalConfig()
     config.clearProperty("media.localArchives.localArchive.metaDataPersistence.tocFile")
     val archiveConfig = createArchiveConfig(config)
 
     archiveConfig.contentFile shouldBe empty
-  }
 
-  it should "generate a default archive name using the resolver function" in {
+  it should "generate a default archive name using the resolver function" in:
     val appConfig = createDefaultHierarchicalConfig()
     appConfig.clearProperty("media.localArchives.localArchive.archiveName")
     val config = createArchiveConfig(appConfig)
 
     config.archiveName should be(ArchiveName + MediaArchiveConfig.DefaultNameSuffix)
-  }
 
-  it should "support a static name pattern without calling the resolver function" in {
+  it should "support a static name pattern without calling the resolver function" in:
     val count = new AtomicInteger
     val appConfig = createDefaultHierarchicalConfig()
     val config = MediaArchiveConfig(appConfig, "test" + count.incrementAndGet()).head
 
     config.archiveName should be(ArchiveName + 0)
     count.get() should be(0)
-  }
 
-  it should "handle exceptions thrown by the name resolver" in {
+  it should "handle exceptions thrown by the name resolver" in:
     def nameCrashed: String = throw new IllegalStateException("No name")
 
     val appConfig = createDefaultHierarchicalConfig()
@@ -245,25 +234,22 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
 
     val config = MediaArchiveConfig(appConfig, nameCrashed).head
     config.archiveName should be(MediaArchiveConfig.DefaultNamePattern)
-  }
 
-  it should "use a correct default value for the info parser timeout" in {
+  it should "use a correct default value for the info parser timeout" in:
     val c = createDefaultHierarchicalConfig()
     c.clearProperty("media.localArchives.localArchive.scan.parseInfoTimeout")
     val config = createArchiveConfig(c)
 
     config.infoParserTimeout should be(MediaArchiveConfig.DefaultInfoParserTimeout)
-  }
 
-  it should "use a correct default value for the media buffer size" in {
+  it should "use a correct default value for the media buffer size" in:
     val c = createDefaultHierarchicalConfig()
     c.clearProperty("media.localArchives.localArchive.scan.mediaBufferSize")
     val config = createArchiveConfig(c)
 
     config.scanMediaBufferSize should be(MediaArchiveConfig.DefaultScanMediaBufferSize)
-  }
 
-  it should "read multiple archive configurations" in {
+  it should "read multiple archive configurations" in:
     val appConfig = addArchiveToConfig(addArchiveToConfig(createDefaultHierarchicalConfig(), 1), 2)
     val configs = MediaArchiveConfig(appConfig, staticArchiveName)
 
@@ -271,9 +257,8 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     configs.zipWithIndex foreach { t =>
       checkArchiveConfig(t._1, t._2)
     }
-  }
 
-  it should "support default values for all archive configurations" in {
+  it should "support default values for all archive configurations" in:
     val appConfig = new HierarchicalConfiguration
     addTestDataToConfig(appConfig, "media.localArchives", 42)
     appConfig.addProperty("media.localArchives.localArchive.rootPath", RootPath.toString)
@@ -288,5 +273,3 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
     checkArchiveConfig(config1.copy(archiveName = ArchiveName + 42,
       rootPath = Paths.get(RootPath.toString + 42)), 42)
     checkArchiveConfig(configs(1), 2)
-  }
-}

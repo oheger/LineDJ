@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.io.stream.ActorSource
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult}
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.FileIO
 import org.apache.pekko.testkit.TestKit
@@ -30,7 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, Path, Paths}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
@@ -39,13 +39,12 @@ import scala.concurrent.{Await, ExecutionContextExecutor}
   * ''MediaFileDownloadActor'' and an ''ActorSource''.
   */
 class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("DownloadStreamSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Reads the content of a file as a byte array.
@@ -56,17 +55,16 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
   private def readFile(p: Path): Array[Byte] =
     Files readAllBytes p
 
-  "A media file download" should "be possible via a stream" in {
+  "A media file download" should "be possible via a stream" in:
     val ChunkSize = 2048
     val testPath = Paths get getClass.getResource("/test.mp3").toURI
     val target = createPathInDirectory("copy.mp3")
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     val downloadActor = system.actorOf(Props(classOf[MediaFileDownloadActor], testPath,
       ChunkSize, MediaFileDownloadActor.IdentityTransform))
-    val source = ActorSource[ByteString](downloadActor, DownloadData(ChunkSize)) {
+    val source = ActorSource[ByteString](downloadActor, DownloadData(ChunkSize)):
       case DownloadDataResult(data) => ActorDataResult(data)
       case DownloadComplete => ActorCompletionResult()
-    }
     val sink = FileIO.toPath(target)
 
     val streamResult = source.runWith(sink)
@@ -75,5 +73,3 @@ class DownloadStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val contentOrg = readFile(testPath)
     val contentCopy = readFile(target)
     contentCopy should be(contentOrg)
-  }
-}

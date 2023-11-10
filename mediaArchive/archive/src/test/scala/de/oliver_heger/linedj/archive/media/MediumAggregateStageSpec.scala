@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
@@ -28,9 +28,9 @@ import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Path, Paths}
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object MediumAggregateStageSpec {
+object MediumAggregateStageSpec:
   /** The name of the root directory in the test directory structure. */
   private val RootName = "archiveRoot"
 
@@ -111,14 +111,13 @@ object MediumAggregateStageSpec {
     * @param path the path
     * @return the relative URI for this path
     */
-  private def relativeUri(path: Path): String = {
+  private def relativeUri(path: Path): String =
     def toComponents(it: java.util.Iterator[Path]): List[String] =
-      if (it.hasNext) it.next().toString :: toComponents(it)
+      if it.hasNext then it.next().toString :: toComponents(it)
       else Nil
 
     val relativePath = RootPath.relativize(path)
     toComponents(relativePath.iterator).mkString("/")
-  }
 
   /**
     * Generates the ID of a medium based on the given path of the medium
@@ -127,11 +126,10 @@ object MediumAggregateStageSpec {
     * @param settingsPath the path to the settings file
     * @return the medium ID
     */
-  private def generateMediumID(settingsPath: Path): MediumID = {
+  private def generateMediumID(settingsPath: Path): MediumID =
     val mediumUri = relativeUri(settingsPath.getParent)
     val settingsUri = relativeUri(settingsPath)
     MediumID(mediumUri, Some(settingsUri), ArchiveName)
-  }
 
   /**
     * Generates a ''MediaScanResult'' object that contains the paths of the
@@ -141,10 +139,9 @@ object MediumAggregateStageSpec {
     * @param paths the list of paths
     * @return the scan result
     */
-  private def generateScanResult(mid: MediumID, paths: Path*): MediaScanResult = {
+  private def generateScanResult(mid: MediumID, paths: Path*): MediaScanResult =
     val files = paths.map(createFileData).toList
     MediaScanResult(RootPath, Map(mid -> files))
-  }
 
   /**
     * Combines the given results to a combined media scan result containing the
@@ -156,19 +153,17 @@ object MediumAggregateStageSpec {
     */
   private def combineScanResults(sr1: MediaScanResult, sr2: MediaScanResult): MediaScanResult =
     sr1.copy(mediaFiles = sr1.mediaFiles ++ sr2.mediaFiles)
-}
 
 /**
   * Test class for ''MediumAggregateStage''.
   */
 class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("MediumAggregateStageSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   import MediumAggregateStageSpec._
 
@@ -180,13 +175,12 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param expected the expected scan result
     * @param actual   the actual scan result
     */
-  private def checkScanResult(expected: MediaScanResult, actual: MediaScanResult): Unit = {
+  private def checkScanResult(expected: MediaScanResult, actual: MediaScanResult): Unit =
     actual.root should be(expected.root)
     actual.mediaFiles.keySet should contain theSameElementsAs expected.mediaFiles.keySet
     expected.mediaFiles.keys foreach { mid =>
       actual.mediaFiles(mid) should contain theSameElementsAs expected.mediaFiles(mid)
     }
-  }
 
   /**
     * Runs a stream with the stage under test using the given files as input
@@ -195,28 +189,25 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param files the files to be processed
     * @return the result from the sink
     */
-  private def runStream(files: List[Path]): List[MediaScanResult] = {
+  private def runStream(files: List[Path]): List[MediaScanResult] =
     val source = Source(files)
     val stage = new MediumAggregateStage(RootPath, ArchiveName, new PathUriConverter(RootPath), createFileData)
     val sink = Sink.fold[List[MediaScanResult], MediaScanResult](List.empty)((lst, res) =>
       res :: lst)
     val futStream = source.via(stage).runWith(sink)
     Await.result(futStream, 5.seconds).reverse
-  }
 
-  "A MediumAggregateStage" should "handle an empty directory structure" in {
+  "A MediumAggregateStage" should "handle an empty directory structure" in:
     val result = runStream(List.empty)
     result should be(List(MediaScanResult(RootPath, Map.empty)))
-  }
 
-  it should "use a correct default file data converter function" in {
+  it should "use a correct default file data converter function" in:
     val path = createDataFile()
     val stage = new MediumAggregateStage(RootPath, ArchiveName, new PathUriConverter(RootPath))
 
     stage.fileDataFactory(path) should be(FileData(path, FileTestHelper.TestData.length))
-  }
 
-  it should "aggregate the files of a single medium" in {
+  it should "aggregate the files of a single medium" in:
     val settingsPath = generateSettingsPath(1)
     val song1 = generateMediaFilePath(1, 1, 1)
     val song2 = generateMediaFilePath(1, 1, 2)
@@ -227,9 +218,8 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val result = runStream(List(settingsPath, song1, song2, song3))
     result should have size 1
     checkScanResult(expScanResult, result.head)
-  }
 
-  it should "aggregate the files of multiple media" in {
+  it should "aggregate the files of multiple media" in:
     val settings1 = generateSettingsPath(1)
     val settings2 = generateSettingsPath(2)
     val mid1 = generateMediumID(settings1)
@@ -244,9 +234,8 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     result should have size 2
     checkScanResult(generateScanResult(mid1, song1, song2), result.head)
     checkScanResult(generateScanResult(mid2, song3, song4, song5), result(1))
-  }
 
-  it should "deal with nested media" in {
+  it should "deal with nested media" in:
     val settings1 = generateSettingsPath(1)
     val settings2 = generateSettingsPath(1, subLevel = 1)
     val settings3 = generateSettingsPath(2)
@@ -264,9 +253,8 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
       generateScanResult(mid1, song1, song3))
     checkScanResult(expRes1, result.head)
     checkScanResult(generateScanResult(mid3, song4), result(1))
-  }
 
-  it should "support the undefined medium" in {
+  it should "support the undefined medium" in:
     val settings = generateSettingsPath(1)
     val mid = generateMediumID(settings)
     val song1 = RootPath resolve "TopLevelSong.mp3"
@@ -280,5 +268,3 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     checkScanResult(generateScanResult(mid, song2), result.head)
     val midUndef = MediumID(RootPath.toString, None, ArchiveName)
     checkScanResult(generateScanResult(midUndef, song1, song3, song4, song5), result(1))
-  }
-}

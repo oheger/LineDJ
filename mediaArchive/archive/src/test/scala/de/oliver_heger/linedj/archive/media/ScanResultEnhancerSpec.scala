@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,7 +26,7 @@ import org.scalatest.matchers.should.Matchers
 import java.nio.file.{Path, Paths}
 import scala.io.Source
 
-object ScanResultEnhancerSpec {
+object ScanResultEnhancerSpec:
   /** Constant for a medium directory. */
   private val Medium1 = "someMedium"
 
@@ -35,15 +35,13 @@ object ScanResultEnhancerSpec {
 
   /** The name of the file with the test medium content. */
   private val MediumFile = "test.plist"
-}
 
 /**
   * Test class for ''ScanResultEnhancer''.
   */
-class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with
-  FileTestHelper {
+class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper:
 
-  import ScanResultEnhancerSpec._
+  import ScanResultEnhancerSpec.*
 
   /**
     * Generates a medium ID based on the given directory name. The directory is
@@ -81,21 +79,19 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     * @param mid the test medium
     * @return the sequence with paths
     */
-  private def createContentList(mid: MediumID): List[FileData] = {
+  private def createContentList(mid: MediumID): List[FileData] =
     val rootPath = Paths get mid.mediumURI
     val source = Source.fromInputStream(getClass.getClassLoader.getResourceAsStream(MediumFile))
     (source.getLines() map (s => FileData(toPath(s, rootPath), s.length))).toList
-  }
 
   /**
     * Returns a map with file information for the first test medium.
     *
     * @return the map with file information for medium 1
     */
-  private def createMediaFileMap(): Map[MediumID, List[FileData]] = {
+  private def createMediaFileMap(): Map[MediumID, List[FileData]] =
     val mid = createMediumID(Medium1)
     Map(mid -> createContentList(mid))
-  }
 
   /**
     * Creates a scan result object with the specified media files.
@@ -106,7 +102,7 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
   private def createScanResult(media: Map[MediumID, List[FileData]] = createMediaFileMap()):
   MediaScanResult = MediaScanResult(testDirectory, media)
 
-  "A ScanResultEnhancer" should "calculate a correct checksum" in {
+  "A ScanResultEnhancer" should "calculate a correct checksum" in:
     val mid = createMediumID(Medium1)
     val esr = ScanResultEnhancer enhance createScanResult()
 
@@ -114,9 +110,8 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     checksum.checksum.length should be > 8
     val validChars = (('A' to 'F') ++ ('0' to '9')).toSet
     checksum.checksum.forall(validChars.contains) shouldBe true
-  }
 
-  it should "generate the same checksum for the same content" in {
+  it should "generate the same checksum for the same content" in:
     val mid = createMediumID(Medium1)
     val esr1 = ScanResultEnhancer enhance createScanResult()
     val esr2 = ScanResultEnhancer enhance createScanResult()
@@ -124,36 +119,32 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val checksum1 = esr1.checksumMapping(mid)
     val checksum2 = esr2.checksumMapping(mid)
     checksum1 should be(checksum2)
-  }
 
-  it should "generate the same checksum independent on absolute paths" in {
+  it should "generate the same checksum independent on absolute paths" in:
     val mid1 = createMediumID(Medium1)
     val mid2 = createMediumID(Medium2)
     val media = createMediaFileMap() + (mid2 -> createContentList(mid2))
     val esr = ScanResultEnhancer enhance createScanResult(media)
 
     esr.checksumMapping(mid1) should be(esr.checksumMapping(mid2))
-  }
 
-  it should "generate a checksum for a medium without a description file" in {
+  it should "generate a checksum for a medium without a description file" in:
     val mid1 = createMediumID(Medium1)
     val mid2 = createMediumIDForPath(testDirectory).copy(mediumDescriptionPath = None)
     val media = createMediaFileMap() + (mid2 -> createContentList(mid2))
     val esr = ScanResultEnhancer enhance createScanResult(media)
 
     esr.checksumMapping(mid1) should be(esr.checksumMapping(mid2))
-  }
 
-  it should "generate the same checksum independent on the order of media files" in {
+  it should "generate the same checksum independent on the order of media files" in:
     val mid1 = createMediumID(Medium1)
     val mid2 = createMediumID(Medium2)
     val media = createMediaFileMap() + (mid2 -> createContentList(mid2).reverse)
     val esr = ScanResultEnhancer enhance createScanResult(media)
 
     esr.checksumMapping(mid1) should be(esr.checksumMapping(mid2))
-  }
 
-  it should "generate the same checksum for medium IDs with relative paths" in {
+  it should "generate the same checksum for medium IDs with relative paths" in:
     val mid = createMediumID(Medium1)
     val midRelative = mid.copy(mediumDescriptionPath = Some(Paths.get(Medium1, "playlist.settings").toString))
     val mediaMap2 = Map(midRelative -> createContentList(mid).reverse)
@@ -162,9 +153,8 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val esr2 = ScanResultEnhancer enhance createScanResult(mediaMap2)
 
     esr1.checksumMapping(mid) should be(esr2.checksumMapping(midRelative))
-  }
 
-  it should "use file sizes for checksum generation" in {
+  it should "use file sizes for checksum generation" in:
     val mid1 = createMediumID(Medium1)
     val mid2 = createMediumIDForPath(testDirectory).copy(mediumDescriptionPath = None)
     val contentList = createContentList(mid2)
@@ -174,12 +164,9 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val esr = ScanResultEnhancer enhance createScanResult(media)
 
     esr.checksumMapping(mid1) should not be esr.checksumMapping(mid2)
-  }
 
-  it should "pass the scan result to the enhanced result" in {
+  it should "pass the scan result to the enhanced result" in:
     val scanResult = createScanResult()
 
     val esr = ScanResultEnhancer enhance scanResult
     esr.scanResult should be(scanResult)
-  }
-}

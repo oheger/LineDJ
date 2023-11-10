@@ -32,7 +32,7 @@ import scala.concurrent.Promise
 /**
   * Companion object.
   */
-object MediaScannerActor {
+object MediaScannerActor:
   /** Constant for the extension for medium description files. */
   private val SettingsExtension = ".settings"
 
@@ -97,7 +97,6 @@ object MediaScannerActor {
     extends MediaScannerActor(archiveName, exclusions, inclusions, maxBufSize,
       mediumInfoParser, parserTimeout) with ChildActorFactory
 
-}
 
 /**
   * An actor implementation which parses a directory structure for media
@@ -123,22 +122,21 @@ object MediaScannerActor {
   */
 class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions: Set[String],
                         maxBufSize: Int, mediumInfoParser: ActorRef, parserTimeout: Timeout)
-  extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport {
+  extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport:
   this: ChildActorFactory =>
 
   import MediaScannerActor._
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case req: ScanPath =>
       handleScanRequest(req)
-  }
 
   /**
     * Processes a scan request.
     *
     * @param req the request to be handled
     */
-  private def handleScanRequest(req: ScanPath): Unit = {
+  private def handleScanRequest(req: ScanPath): Unit =
     val promiseDone = Promise[Unit]()
     val sinkActor = createChildActor(Props(classOf[ScanSinkActor], sender(), promiseDone,
       maxBufSize, req.seqNo))
@@ -151,7 +149,6 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
       PathScanCompleted(req)
     }
     log.info("Started scan operation for {}.", req.path)
-  }
 
   /**
     * Creates the source for traversing the specified root file structure.
@@ -178,7 +175,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     *         processing
     */
   private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
-  KillSwitch = {
+  KillSwitch =
     implicit val infoParseTimeout: Timeout = parserTimeout
     val sinkScanResults = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.ScanResultsComplete, mapException)
@@ -206,7 +203,6 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
         ClosedShape
     })
     g.run()
-  }
 
   /**
     * Generates a request to parse a medium description file based on the path
@@ -226,11 +222,9 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     *
     * @return the filter for the directory source
     */
-  private def createFilter(): DirectoryStreamSource.PathFilter = {
-    val extFilter = if (inclusions.nonEmpty)
+  private def createFilter(): DirectoryStreamSource.PathFilter =
+    val extFilter = if inclusions.nonEmpty then
       DirectoryStreamSource.includeExtensionsFilter(inclusions +
         SettingsExtFilter.toUpperCase(Locale.ROOT))
     else DirectoryStreamSource.excludeExtensionsFilter(exclusions)
     extFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter
-  }
-}

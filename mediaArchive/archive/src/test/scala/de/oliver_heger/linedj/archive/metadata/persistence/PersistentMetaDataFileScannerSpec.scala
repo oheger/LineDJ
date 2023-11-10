@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumChecksum
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -26,25 +26,23 @@ import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import java.io.IOException
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
   * Test class for ''PersistentMetaDataFileScanner''.
   */
 class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfter with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with BeforeAndAfter with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("PersistentMetaDataFileScannerSpec"))
 
-  after {
+  after:
     tearDownTestFile()
-  }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A PersistentMetaDataFileScanner" should "find all meta data files in a directory" in {
+  "A PersistentMetaDataFileScanner" should "find all meta data files in a directory" in:
     val FileCount = 8
     val checkSumList = (1 to FileCount) map (i => MediumChecksum(s"checksum_$i"))
     val pathList = checkSumList map (s => writeFileContent(createPathInDirectory(s.checksum + ".mdt"),
@@ -59,15 +57,11 @@ class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit
     val futFileMap = scanner.scanForMetaDataFiles(testDirectory)
     val fileMap = Await.result(futFileMap, 5.seconds)
     fileMap should contain theSameElementsAs expMap
-  }
 
-  it should "return a failed futire if an IO exception is thrown" in {
+  it should "return a failed futire if an IO exception is thrown" in:
     import system.dispatcher
     val scanner = new PersistentMetaDataFileScanner
 
     val futFileMap = scanner.scanForMetaDataFiles(Paths get "nonExistingPath")
-    intercept[IOException] {
+    intercept[IOException]:
       Await.result(futFileMap, 5.seconds)
-    }
-  }
-}

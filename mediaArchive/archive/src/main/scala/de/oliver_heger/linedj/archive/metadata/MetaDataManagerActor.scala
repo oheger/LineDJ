@@ -32,7 +32,7 @@ import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 import java.nio.file.Path
 import scala.collection.immutable.Queue
 
-object MetaDataManagerActor {
+object MetaDataManagerActor:
 
   /**
     * A message sent by [[MetaDataManagerActor]] in response to scan results as
@@ -63,7 +63,6 @@ object MetaDataManagerActor {
             metaDataUnionActor: ActorRef, converter: PathUriConverter): Props =
     Props(classOf[MetaDataManagerActorImpl], config, persistenceManager, metaDataUnionActor, converter)
 
-}
 
 /**
   * The central actor class for managing meta data extraction for a local
@@ -93,7 +92,7 @@ object MetaDataManagerActor {
   * @param converter          the ''PathUriConverter''
   */
 class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef,
-                           metaDataUnionActor: ActorRef, converter: PathUriConverter) extends Actor with ActorLogging {
+                           metaDataUnionActor: ActorRef, converter: PathUriConverter) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
   /** The factory for extractor actors. */
@@ -126,22 +125,20 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** Stores the client of the current ongoing scan operation. */
   private var scanClient: Option[ActorRef] = None
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case MediaScanStarts(client) =>
-      if (!scanInProgress) {
+      if !scanInProgress then
         initiateNewScan(client)
-      }
       sender() ! ScanResultProcessed
 
     case result: MetaDataProcessingResult if !isCloseRequestInProgress =>
-      if (handleProcessingResult(result.mediumID, result)) {
+      if handleProcessingResult(result.mediumID, result) then
         metaDataUnionActor ! result
         checkAndHandleScanComplete()
-      }
 
     case UnresolvedMetaDataFiles(mid, files, result) =>
       val root = result.scanResult.root
-      val actorMap = if (processorActors contains root) processorActors
+      val actorMap = if processorActors contains root then processorActors
       else processorActors + (root -> createProcessorActor(root))
       actorMap(root) ! ProcessMediaFiles(mid, files, converter.pathToUri)
       processorActors = actorMap
@@ -181,12 +178,10 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       persistenceManager forward PersistentMetaDataManagerActor.FetchMetaDataFileInfo(self)
 
     case removeMsg: RemovePersistentMetaData =>
-      if (scanInProgress) {
+      if scanInProgress then
         sender() ! RemovePersistentMetaDataResult(removeMsg, Set.empty)
-      } else {
+      else
         persistenceManager forward removeMsg
-      }
-  }
 
   /**
     * Returns a flag whether a scan operation is currently in progress.
@@ -201,14 +196,12 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @param esr the new result object
     */
-  private def sendAckIfPossible(esr: EnhancedMediaScanResult): Unit = {
+  private def sendAckIfPossible(esr: EnhancedMediaScanResult): Unit =
     mediaInProgress ++= esr.scanResult.mediaFiles.keys
-    if (mediaInProgress.size <= config.metaDataMediaBufferSize) {
+    if mediaInProgress.size <= config.metaDataMediaBufferSize then
       sender() ! ScanResultProcessed
-    } else {
+    else
       pendingAck = pendingAck enqueue sender()
-    }
-  }
 
   /**
     * Creates a meta data processing actor for the specified root path.
@@ -225,14 +218,13 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @param client the client of the scan operation
     */
-  private def initiateNewScan(client: ActorRef): Unit = {
+  private def initiateNewScan(client: ActorRef): Unit =
     log.info("Starting new scan.")
     metaDataUnionActor ! UpdateOperationStarts(Some(self))
     persistenceManager ! ScanForMetaDataFiles
     mediaMap = Map.empty
     completedMedia = Set(MediumID.UndefinedMediumID)
     scanClient = Some(client)
-  }
 
   /**
     * Prepares the handler object for a medium. If this medium is already known,
@@ -242,12 +234,11 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @param e an entry from the map of media files from a scan result object
     */
-  private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit = {
+  private def prepareHandlerForMedium(e: (MediumID, List[FileData])): Unit =
     val mediumID = e._1
     val handler = mediaMap.getOrElse(mediumID, new MediumDataHandler(mediumID, converter))
     handler expectMediaFiles e._2
     mediaMap += mediumID -> handler
-  }
 
   /**
     * Handles a meta data processing result.
@@ -257,10 +248,9 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @return a flag whether this is a valid result
     */
   private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
-  Boolean = {
+  Boolean =
     val optHandler = mediaMap get mediumID
     optHandler.exists(processMetaDataResult(mediumID, result, _))
-  }
 
   /**
     * Processes a meta data result that has been produced by a child actor. The
@@ -274,12 +264,11 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
                                     handler: MediumDataHandler): Boolean =
-    if (handler.resultReceived(result)) {
-      if (handler.isComplete) {
+    if handler.resultReceived(result) then
+      if handler.isComplete then
         processPendingAck(mediumID)
-      }
       true
-    } else false
+    else false
 
   /**
     * Checks whether an ACK has to be sent after the specified medium has been
@@ -287,36 +276,31 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     *
     * @param mediumID the completed medium
     */
-  private def processPendingAck(mediumID: MediumID): Unit = {
+  private def processPendingAck(mediumID: MediumID): Unit =
     completedMedia += mediumID
     mediaInProgress -= mediumID
-    if (mediaInProgress.size <= config.metaDataMediaBufferSize) {
-      pendingAck.dequeueOption match {
+    if mediaInProgress.size <= config.metaDataMediaBufferSize then
+      pendingAck.dequeueOption match
         case Some((actor, queue)) =>
           actor ! ScanResultProcessed
           pendingAck = queue
         case _ =>
-      }
-    }
-  }
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the
     * case, the corresponding steps are done.
     */
-  private def checkAndHandleScanComplete(): Unit = {
-    if (allMediaProcessingResultsReceived) {
+  private def checkAndHandleScanComplete(): Unit =
+    if allMediaProcessingResultsReceived then
       persistenceManager ! PersistentMetaDataManagerActor.ScanCompleted
       scanClient foreach (_ ! MediaScanCompleted)
       completeScanOperation()
-    }
-  }
 
   /**
     * Performs all steps required to gracefully terminate the current scan
     * operation.
     */
-  private def completeScanOperation(): Unit = {
+  private def completeScanOperation(): Unit =
     scanClient = None
     availableMedia = None
     completedMedia = Set.empty
@@ -324,7 +308,6 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     processorActors = Map.empty
     metaDataUnionActor ! UpdateOperationCompleted(Some(self))
     log.info("Scan complete.")
-  }
 
   /**
     * Returns a flag whether the processing results for all media have been
@@ -335,4 +318,3 @@ class MetaDataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def allMediaProcessingResultsReceived: Boolean =
     availableMedia exists (m => m.keySet subsetOf completedMedia)
-}

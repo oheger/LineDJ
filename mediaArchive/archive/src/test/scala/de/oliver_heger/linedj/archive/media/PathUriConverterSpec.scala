@@ -25,17 +25,16 @@ import java.nio.file.Paths
 /**
   * Test class for ''PathUriConverter''.
   */
-class PathUriConverterSpec extends AnyFlatSpec with Matchers {
-  "PathUriConverter" should "convert a path to an URI" in {
+class PathUriConverterSpec extends AnyFlatSpec with Matchers:
+  "PathUriConverter" should "convert a path to an URI" in:
     val Root = Paths get "archiveRoot"
     val mediaPath = Root.resolve("rock/the artist/the album/the song.mp3")
     val converter = new PathUriConverter(Root)
 
     val uri = converter.pathToUri(mediaPath)
     uri should be(MediaFileUri("rock/the%20artist/the%20album/the%20song.mp3"))
-  }
 
-  it should "convert a URI to a path" in {
+  it should "convert a URI to a path" in:
     val Root = Paths.get("archiveRoot", "my media files")
     val uri = MediaFileUri("rock/the%20artist/the%20album/the%20song.mp3")
     val expPath = Paths.get("archiveRoot", "my media files", "rock", "the artist", "the album",
@@ -44,5 +43,3 @@ class PathUriConverterSpec extends AnyFlatSpec with Matchers {
 
     val path = converter.uriToPath(uri)
     path should be(expPath)
-  }
-}

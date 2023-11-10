@@ -33,7 +33,7 @@ import java.util.Locale
   *
   * @param config the configuration of the media archive
   */
-class ExtractorActorFactoryImpl(val config: MediaArchiveConfig) extends ExtractorActorFactory {
+class ExtractorActorFactoryImpl(val config: MediaArchiveConfig) extends ExtractorActorFactory:
   /**
     * @inheritdoc This implementation supports some special file extensions
     *             (case is irrelevant), for which corresponding ''Props''
@@ -41,11 +41,9 @@ class ExtractorActorFactoryImpl(val config: MediaArchiveConfig) extends Extracto
     *             ''None'' answer.
     */
   override def extractorProps(extension: String, receiver: ActorRef): Option[Props] =
-    extension.toLowerCase(Locale.ENGLISH) match {
+    extension.toLowerCase(Locale.ENGLISH) match
       case "mp3" =>
         Some(Mp3MetaDataExtractorActor(receiver, config.tagSizeLimit,
           config.metaDataReadChunkSize))
 
       case _ => None
-    }
-}

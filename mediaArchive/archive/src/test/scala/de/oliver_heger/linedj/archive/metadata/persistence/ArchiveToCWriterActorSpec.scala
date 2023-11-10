@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
@@ -31,9 +31,9 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object ArchiveToCWriterActorSpec {
+object ArchiveToCWriterActorSpec:
   /** The path of the content file written by the test actor. */
   private val ContentFile = Paths.get("content.json")
 
@@ -70,21 +70,19 @@ object ArchiveToCWriterActorSpec {
   private def generateContent(): List[(MediumID, String)] =
     List((mid("U%202"), "393839"), (mid("classics/my%20favorites"), "ccccc"),
       (mid("Prince"), "abc"))
-}
 
 /**
   * Test class for ''ArchiveToCWriterActor''.
   */
-class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("ArchiveToCWriterActorSpec"))
 
   import ArchiveToCWriterActorSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Extracts the text content from the specified source.
@@ -92,34 +90,30 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @param source the source
     * @return the content of the source as String
     */
-  private def readSource(source: Source[ByteString, Any]): String = {
+  private def readSource(source: Source[ByteString, Any]): String =
     val futSource = source.runFold(ByteString.empty)(_ ++ _)
     Await.result(futSource, 3.seconds).utf8String
-  }
 
-  "An ArchiveToCWriterActor" should "write a the correct ToC file" in {
+  "An ArchiveToCWriterActor" should "write a the correct ToC file" in:
     val helper = new WriterActorTestHelper
 
     val op = helper.sendWriteRequest().nextWriteOperation()
     op.target should be(ContentFile)
-  }
 
-  it should "use a source that produces the expected content" in {
+  it should "use a source that produces the expected content" in:
     val helper = new WriterActorTestHelper
     val op = helper.sendWriteRequest().nextWriteOperation()
 
     readSource(op.source) should be(DefaultToC)
-  }
 
-  it should "filter out entries without a description file" in {
+  it should "filter out entries without a description file" in:
     val contentList = (MediumID("noDesc", None), "bar") :: DefaultContentList
     val helper = new WriterActorTestHelper
     val op = helper.sendWriteRequest(content = contentList).nextWriteOperation()
 
     readSource(op.source) should be(DefaultToC)
-  }
 
-  it should "do nothing in the result propagation method" in {
+  it should "do nothing in the result propagation method" in:
     val targetFile = createFileReference()
     val helper = new WriterActorTestHelper(mockWrite = false)
 
@@ -127,9 +121,8 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val TestMsg = new Object
     testActor ! TestMsg
     expectMsg(TestMsg)
-  }
 
-  it should "not stop itself in case of a failure" in {
+  it should "not stop itself in case of a failure" in:
     val fileWrittenCount = new AtomicInteger
     val actor = system.actorOf(Props(new ArchiveToCWriterActor {
       override protected def propagateResult(client: ActorRef, result: Any): Unit = {
@@ -142,7 +135,6 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     actor ! ArchiveToCWriterActor.WriteToC(createFileReference(), DefaultContentList)
     awaitCond(fileWrittenCount.get() == 2)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
@@ -151,7 +143,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     * @param latchCount the initial count for the countdown latch
     */
   private class WriterActorTestHelper(mockWrite: Boolean = true,
-                                      latchCount: Int = 1) {
+                                      latchCount: Int = 1):
     /** A queue for keeping track of write operations. */
     private val queueWrites = new LinkedBlockingQueue[WriteOperation]
 
@@ -171,10 +163,9 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       */
     def sendWriteRequest(target: Path = ContentFile,
                          content: List[(MediumID, String)] = DefaultContentList):
-    WriterActorTestHelper = {
+    WriterActorTestHelper =
       writer ! ArchiveToCWriterActor.WriteToC(target, content)
       this
-    }
 
     /**
       * Returns information about the next write operation executed by the
@@ -182,21 +173,19 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       *
       * @return data about the next write operation
       */
-    def nextWriteOperation(): WriteOperation = {
+    def nextWriteOperation(): WriteOperation =
       val op = queueWrites.poll(3, TimeUnit.SECONDS)
       op should not be null
       op
-    }
 
     /**
       * Waits for the invocation of the result propagation method.
       *
       * @return this test helper
       */
-    def awaitPropagation(): WriterActorTestHelper = {
+    def awaitPropagation(): WriterActorTestHelper =
       latchPropagation.await(3, TimeUnit.SECONDS) shouldBe true
       this
-    }
 
     /**
       * Creates the test actor instance.
@@ -211,7 +200,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
           */
         override protected def writeFile(source: Source[ByteString, Any], target: Path,
                                          resultMsg: => Any, client: ActorRef): Unit = {
-          if (!mockWrite) {
+          if !mockWrite then {
             super.writeFile(source, target, resultMsg, client)
           }
           queueWrites offer WriteOperation(source, target, resultMsg, client)
@@ -226,9 +215,7 @@ class ArchiveToCWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSys
           latchPropagation.countDown()
         }
       }))
-  }
 
-}
 
 /**
   * A data class storing information about a write operation triggered by the

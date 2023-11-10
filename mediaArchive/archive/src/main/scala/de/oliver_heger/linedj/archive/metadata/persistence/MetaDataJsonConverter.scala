@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
-object MetaDataJsonConverter {
+object MetaDataJsonConverter:
   /**
     * Surrounds the specified string with quotation marks.
     *
@@ -26,7 +26,6 @@ object MetaDataJsonConverter {
     * @return the quoted string
     */
   private def quoteStr(s: String): String = s"\"${s.replace('"', '\'')}\""
-}
 
 /**
   * A converter class for transforming media meta data to JSON strings.
@@ -36,7 +35,7 @@ object MetaDataJsonConverter {
   * JSON object. This converter generates the JSON representation for a single
   * song.
   */
-class MetaDataJsonConverter {
+class MetaDataJsonConverter:
 
   import MetaDataJsonConverter._
 
@@ -47,27 +46,25 @@ class MetaDataJsonConverter {
     * @param data the metadata for this file
     * @return a string with the JSON representation of this data
     */
-  def convert(uri: String, data: MediaMetaData): String = {
+  def convert(uri: String, data: MediaMetaData): String =
 
     // Appends the specified property to the string builder
     def append(props: List[String], property: String, value: String, quote: Boolean):
-    List[String] = {
+    List[String] =
       val buf = new java.lang.StringBuilder(64)
       buf.append(quoteStr(property)).append(": ")
       val strValue = String.valueOf(value)
-      buf.append(if (quote) quoteStr(strValue) else strValue)
+      buf.append(if quote then quoteStr(strValue) else strValue)
       buf.toString :: props
-    }
 
     // Optionally appends a value to the string builder
     def appendOpt[V](props: List[String], property: String, value: Option[V], quote: Boolean):
     List[String] =
-      value match {
+      value match
         case Some(v) =>
           append(props, property, String.valueOf(v), quote)
         case None =>
           props
-      }
 
     val props = appendOpt(appendOpt(appendOpt(append(append(appendOpt(appendOpt(appendOpt(appendOpt(
       Nil, "inceptionYear", data.inceptionYear, quote = false),
@@ -80,5 +77,3 @@ class MetaDataJsonConverter {
       "artist", data.artist, quote = true),
       "album", data.album, quote = true)
     props.mkString("{\n", ",\n", "}\n")
-  }
-}

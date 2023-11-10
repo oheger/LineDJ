@@ -29,7 +29,7 @@ import java.nio.file.{Path, StandardOpenOption}
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-object PersistentMetaDataWriterActor {
+object PersistentMetaDataWriterActor:
 
   /**
     * A message processed by [[PersistentMetaDataWriterActor]] that tells it to
@@ -79,7 +79,6 @@ object PersistentMetaDataWriterActor {
     */
   private[persistence] case class MetaDataWritten(process: ProcessMedium, success: Boolean)
 
-}
 
 /**
   * An actor that produces meta data files for media while they are processed
@@ -101,7 +100,7 @@ object PersistentMetaDataWriterActor {
   */
 class PersistentMetaDataWriterActor(blockSize: Int,
                                     private[persistence] val resultHandler:
-                                    FutureIOResultHandler) extends Actor with ActorLogging {
+                                    FutureIOResultHandler) extends Actor with ActorLogging:
   def this(blockSize: Int) = this(blockSize, new FutureIOResultHandler)
 
   /** The JSON converter for meta data. */
@@ -124,7 +123,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     */
   private var writeInProgress = false
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case p: ProcessMedium =>
       p.metaDataManager ! GetMetaData(p.mediumID, registerAsListener = true, 0)
       mediaInProgress += p.mediumID -> MediumData(p, p.resolvedSize, Map.empty, sender())
@@ -132,37 +131,34 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     case MetaDataResponse(c, _) =>
       mediaInProgress.get(c.mediumID).foreach { mediumData =>
         val nextElements = mediumData.elements ++ c.data
-        val nextData = if (nextElements.size - mediumData.elementsWritten >= blockSize || c
-          .complete) {
+        val nextData = if nextElements.size - mediumData.elementsWritten >= blockSize || c
+          .complete then
           val d = mediumData.copy(elementsWritten = nextElements.size, elements = nextElements)
           mediaToBeWritten += c.mediumID -> d
           startWriteOperationIfPossible()
           d
-        } else mediumData.copy(elements = nextElements)
+        else mediumData.copy(elements = nextElements)
 
-        if (c.complete) mediaInProgress -= c.mediumID
+        if c.complete then mediaInProgress -= c.mediumID
         else mediaInProgress += (c.mediumID -> nextData)
       }
 
     case StreamOperationComplete =>
       writeInProgress = false
       startWriteOperationIfPossible()
-  }
 
   /**
     * Checks if a write operation can be started. If so, the write is
     * triggered.
     */
-  private def startWriteOperationIfPossible(): Unit = {
-    if (!writeInProgress && mediaToBeWritten.nonEmpty) {
+  private def startWriteOperationIfPossible(): Unit =
+    if !writeInProgress && mediaToBeWritten.nonEmpty then
       val mid = mediaToBeWritten.keys.head
       val mediumData = mediaToBeWritten(mid)
       val result = triggerWriteMetaDataFile(mediumData)
       resultHandler.handleFutureResult(context, result, self, log, mediumData)
       writeInProgress = true
       mediaToBeWritten -= mid
-    }
-  }
 
   /**
     * Triggers writing of a file with meta data. The specified map with meta
@@ -171,7 +167,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     * @param mediumData the object with data about the medium in question
     * @return a future for the result of the write operation
     */
-  private def triggerWriteMetaDataFile(mediumData: MediumData): Future[IOResult] = {
+  private def triggerWriteMetaDataFile(mediumData: MediumData): Future[IOResult] =
     import context.system
     log.info("Writing meta data file {}.", mediumData.process.target)
     val source = Source(mediumData.elements)
@@ -182,7 +178,6 @@ class PersistentMetaDataWriterActor(blockSize: Int,
       .runWith(FileIO.toPath(mediumData.process.target,
         Set(StandardOpenOption.CREATE, StandardOpenOption.WRITE,
           StandardOpenOption.TRUNCATE_EXISTING)))
-  }
 
   /**
     * Processes a single media file in the stream for writing media files.
@@ -195,7 +190,6 @@ class PersistentMetaDataWriterActor(blockSize: Int,
     */
   private def processElement(uri: String, data: MediaMetaData): String =
     metaDataConverter.convert(uri, data)
-}
 
 /**
   * An internally used helper class that handles the future with the IO result
@@ -204,7 +198,7 @@ class PersistentMetaDataWriterActor(blockSize: Int,
   * The main purpose of this class is to notify the owning actor when writing
   * of the stream is complete. Then the next write operation can be triggered.
   */
-private class FutureIOResultHandler {
+private class FutureIOResultHandler:
   /**
     * Handles the specified future IO result.
     *
@@ -216,12 +210,11 @@ private class FutureIOResultHandler {
     */
   def handleFutureResult(context: ActorContext, futureResult: Future[IOResult],
                          actor: ActorRef, log: LoggingAdapter,
-                         data: MediumData): Unit = {
+                         data: MediumData): Unit =
     import context._
     futureResult onComplete { r =>
       onResultComplete(r, actor, log, data)
     }
-  }
 
   /**
     * Callback method invoked when the future result completes. The method is
@@ -235,17 +228,15 @@ private class FutureIOResultHandler {
     * @param data   the data object for the write operation
     */
   protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter,
-                                 data: MediumData): Unit = {
+                                 data: MediumData): Unit =
     actor ! PersistentMetaDataWriterActor.StreamOperationComplete
-    result match {
+    result match
       case Failure(ex) =>
         log.error(ex, "Stream operation caused an exception!")
         notifyTriggerActor(data, actor, success = false)
       case Success(_) =>
         log.info("Meta data file written successfully.")
         notifyTriggerActor(data, actor, success = true)
-    }
-  }
 
   /**
     * Sends a notification message to the trigger actor about the result of the
@@ -256,7 +247,5 @@ private class FutureIOResultHandler {
     * @param actor   the owning actor
     * @param success a flag whether the operation was successful
     */
-  protected def notifyTriggerActor(data: MediumData, actor: ActorRef, success: Boolean): Unit = {
+  protected def notifyTriggerActor(data: MediumData, actor: ActorRef, success: Boolean): Unit =
     data.trigger.tell(MetaDataWritten(data.process, success), actor)
-  }
-}

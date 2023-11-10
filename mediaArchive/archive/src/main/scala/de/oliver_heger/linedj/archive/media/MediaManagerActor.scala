@@ -36,7 +36,7 @@ import java.nio.file.Files
 /**
   * Companion object.
   */
-object MediaManagerActor {
+object MediaManagerActor:
   /**
     * Constant for a prototype of a ''MediumFiles'' message for an unknown
     * medium.
@@ -75,11 +75,9 @@ object MediaManagerActor {
     *
     * @return the download transformation function
     */
-  private def downloadTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc = {
+  private def downloadTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc =
     case s if s matches "(?i)mp3" =>
       new ID3v2ProcessingStage(None)
-  }
-}
 
 /**
   * A specialized actor implementation for managing the media currently
@@ -108,7 +106,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
                         mediaUnionActor: ActorRef, groupManager: ActorRef,
                         private[media] val scanStateUpdateService: MediaScanStateUpdateService,
                         converter: PathUriConverter)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   me: ChildActorFactory with CloseSupport =>
 
   /**
@@ -147,16 +145,15 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
   private var scanState = MediaScanStateUpdateServiceImpl.InitialState
 
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     mediumInfoParserActor = createChildActor(Props(classOf[MediumInfoParserActor],
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(MediaScannerActor(config.archiveName,
       config.excludedFileExtensions, config.includedFileExtensions,
       config.scanMediaBufferSize, mediumInfoParserActor, config.infoParserTimeout))
     downloadManagerActor = createChildActor(DownloadMonitoringActor(config.downloadConfig))
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ScanAllMedia =>
       groupManager ! ScanAllMedia
 
@@ -201,7 +198,6 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     case CloseComplete =>
       updateStateAndSendMessages(scanStateUpdateService.handleScanCanceled())
       onCloseComplete()
-  }
 
   /**
     * Updates the state managed by this actor and returns the additional
@@ -211,11 +207,10 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @tparam A the type of the additional result
     * @return the result produced by the state update
     */
-  private def updateState[A](state: State[MediaScanState, A]): A = {
+  private def updateState[A](state: State[MediaScanState, A]): A =
     val (next, res) = state(scanState)
     scanState = next
     res
-  }
 
   /**
     * Updates the state managed by this actor and sends the resulting
@@ -223,33 +218,31 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     *
     * @param state the state monad for the update operation
     */
-  private def updateStateAndSendMessages(state: State[MediaScanState, ScanStateTransitionMessages]): Unit = {
+  private def updateStateAndSendMessages(state: State[MediaScanState, ScanStateTransitionMessages]): Unit =
     val messages = updateState(state)
     messages.unionArchiveMessage foreach mediaUnionActor.!
     messages.metaManagerMessage foreach metaDataManager.!
     messages.ack foreach (_ ! ScanSinkActor.Ack)
-  }
 
   /**
     * Handles a request to start a new scan operation.
     */
-  private def handleScanRequest(): Unit = {
+  private def handleScanRequest(): Unit =
     val scanMsg = updateState(scanStateUpdateService.triggerStartScan(config.rootPath, sender()))
     scanMsg foreach { m =>
       mediaScannerActor ! m
       updateStateAndSendMessages(scanStateUpdateService.startScanMessages(config.archiveName))
     }
-  }
 
   /**
     * Processes the request for a medium file.
     *
     * @param request the file request
     */
-  private def processFileRequest(request: MediumFileRequest): Unit = {
-    val response = fetchFileData(request) match {
+  private def processFileRequest(request: MediumFileRequest): Unit =
+    val response = fetchFileData(request) match
       case Some(fileData) =>
-        val transFunc = if (request.withMetaData) MediaFileDownloadActor.IdentityTransform
+        val transFunc = if request.withMetaData then MediaFileDownloadActor.IdentityTransform
         else downloadTransformationFunc
         val downloadActor = createChildActor(Props(classOf[MediaFileDownloadActor],
           fileData.path, config.downloadConfig.downloadChunkSize, transFunc))
@@ -259,10 +252,8 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
       case None =>
         MediumFileResponse(request, None, NonExistingFile.size)
-    }
 
     sender() ! response
-  }
 
   /**
     * Obtains the ''FileData'' object referred to by the given
@@ -291,4 +282,3 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     */
   private def filesForMedium(mediumID: MediumID): Option[Set[MediaFileUri]] =
     scanState.fileData.get(mediumID.copy(archiveComponentID = ""))
-}

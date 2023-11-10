@@ -23,17 +23,17 @@ import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
+import de.oliver_heger.linedj.test.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.{verify, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -43,9 +43,9 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object MediaManagerActorSpec {
+object MediaManagerActorSpec:
   /** Class for the directory scanner child actor. */
   private val ClsDirScanner: Class[_ <: Actor] = MediaScannerActor("", Set.empty,
     Set.empty, 100, null, Timeout(1.minute)).actorClass()
@@ -110,11 +110,10 @@ object MediaManagerActorSpec {
     *
     * @param probe the probe in question
     */
-  private def expectNoMessageReceived(probe: TestProbe): Unit = {
+  private def expectNoMessageReceived(probe: TestProbe): Unit =
     val msg = new Object
     probe.ref ! msg
     probe.expectMsg(msg)
-  }
 
   /**
     * Creates a request for a test medium file which is part of the test
@@ -136,18 +135,16 @@ object MediaManagerActorSpec {
     */
   private def addUri(fileData: Map[MediumID, Set[MediaFileUri]], uri: String): Map[MediumID, Set[MediaFileUri]] =
     Map(TestMedium -> (fileData(TestMedium) + MediaFileUri(uri)))
-}
 
 /**
   * Test class for ''MediaManagerActor''.
   */
 class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper:
   def this() = this(ActorSystem("MediaManagerActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import MediaManagerActorSpec._
 
@@ -164,7 +161,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     *
     * @return the mock configuration
     */
-  private def createConfiguration(): MediaArchiveConfig = {
+  private def createConfiguration(): MediaArchiveConfig =
     val downloadConfig = mock[DownloadConfig]
     val config = mock[MediaArchiveConfig]
     when(downloadConfig.downloadTimeout).thenReturn(60.seconds)
@@ -179,9 +176,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     when(config.rootPath).thenReturn(archiveRootPath)
     when(config.downloadConfig).thenReturn(downloadConfig)
     config
-  }
 
-  "A MediaManagerActor" should "create a correct Props object" in {
+  "A MediaManagerActor" should "create a correct Props object" in:
     val config = createConfiguration()
     val unionActor = TestProbe()
     val groupManager = TestProbe()
@@ -192,125 +188,104 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     classOf[MediaManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-  }
 
-  it should "use a default state update service" in {
+  it should "use a default state update service" in:
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
       testActor, TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager.underlyingActor.scanStateUpdateService should be(MediaScanStateUpdateServiceImpl)
-  }
 
-  it should "handle a close request" in {
+  it should "handle a close request" in:
     val helper = new MediaManagerTestHelper
 
     helper.post(CloseRequest)
       .expectMediaScannerMessage(AbstractStreamProcessingActor.CancelStreams)
       .expectCloseRequestProcessed()
-  }
 
-  it should "handle a close complete message" in {
+  it should "handle a close complete message" in:
     val probeAck = TestProbe()
     val messages = ScanStateTransitionMessages(ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
-      _.handleScanCanceled()
-    }
+    helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) { _.handleScanCanceled() }
       .post(CloseHandlerActor.CloseComplete)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectCloseCompleteProcessed()
     probeAck.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "forward a scan request to the group manager" in {
+  it should "forward a scan request to the group manager" in:
     val helper = new MediaManagerTestHelper
 
     helper.post(ScanAllMedia)
       .expectGroupManagerMessage(ScanAllMedia)
-  }
 
-  it should "handle a message to start a new scan operation" in {
+  it should "handle a message to start a new scan operation" in:
     val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg = MediaScannerActor.ScanPath(archiveRootPath, state1.seqNo)
     val initMsg = ScanStateTransitionMessages(unionArchiveMessage = Some("union"),
       metaManagerMessage = Some("meta"))
     val helper = new MediaManagerTestHelper
 
-    helper.stub(Option(scanMsg), state1) {
-      _.triggerStartScan(archiveRootPath, testActor)
-    }
-      .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) {
-        _.startScanMessages(ArchiveName)
-      }
+    helper.stub(Option(scanMsg), state1) { _.triggerStartScan(archiveRootPath, testActor) }
+      .stub(initMsg, MediaScanStateUpdateServiceImpl.InitialState) { _.startScanMessages(ArchiveName) }
       .post(StartMediaScan)
       .expectMediaScannerMessage(scanMsg)
       .expectUnionArchiveMessage(initMsg.unionArchiveMessage.get)
       .expectMetaDataMessage(initMsg.metaManagerMessage.get)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectStateUpdate(state1)
-  }
 
-  it should "handle a message to start a new scan operation if one is ongoing" in {
+  it should "handle a message to start a new scan operation if one is ongoing" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg: Option[MediaScannerActor.ScanPath] = None
     val helper = new MediaManagerTestHelper
 
-    helper.stub(scanMsg, state) {
-      _.triggerStartScan(archiveRootPath, testActor)
-    }
+    helper.stub(scanMsg, state) { _.triggerStartScan(archiveRootPath, testActor) }
       .post(StartMediaScan)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectNoScannerMessage()
       .expectNoUnionArchiveMessage()
       .expectNoMetaDataMessage()
-  }
 
-  it should "handle a removed confirmation from the union archive" in {
+  it should "handle a removed confirmation from the union archive" in:
     val probeAck = TestProbe()
     val messages = ScanStateTransitionMessages(metaManagerMessage = Some("message"),
       ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
     helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
-      _.handleRemovedFromUnionArchive(ArchiveName)
-    }
-      .send(RemovedArchiveComponentProcessed(ArchiveName))
+        _.handleRemovedFromUnionArchive(ArchiveName)
+      }.send(RemovedArchiveComponentProcessed(ArchiveName))
       .expectMetaDataMessage(messages.metaManagerMessage.get)
       .expectNoUnionArchiveMessage()
     probeAck.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "ignore a removed confirmation for another archive component" in {
+  it should "ignore a removed confirmation for another archive component" in:
     val helper = new MediaManagerTestHelper
 
     helper.send(RemovedArchiveComponentProcessed("some other ID"))
       .expectNoStateUpdate()
-  }
 
-  it should "handle an ACK from the meta data manager" in {
+  it should "handle an ACK from the meta data manager" in:
     val probeAck = TestProbe()
     val messages = ScanStateTransitionMessages(unionArchiveMessage = Some("message"),
       ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
     helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
-      _.handleAckFromMetaManager(ArchiveName)
-    }
-      .postAckFromMetaManager()
+        _.handleAckFromMetaManager(ArchiveName)
+      }.postAckFromMetaManager()
       .expectUnionArchiveMessage(messages.unionArchiveMessage.get)
       .expectNoMetaDataMessage()
     probeAck.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "ignore an ACK message from another source" in {
+  it should "ignore an ACK message from another source" in:
     val helper = new MediaManagerTestHelper
 
     helper.send(MetaDataManagerActor.ScanResultProcessed)
       .expectNoStateUpdate()
-  }
 
-  it should "handle an incoming result object" in {
+  it should "handle an incoming result object" in:
     val probeAck = TestProbe()
     val messages = ScanStateTransitionMessages(unionArchiveMessage = Some("message"),
       ack = Some(probeAck.ref), metaManagerMessage = Some("otherMessage"))
@@ -321,9 +296,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
       .verifyResultsReceivedUriFunc()
     probeAck.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "handle a scan completed message" in {
+  it should "handle a scan completed message" in:
     val completeMsg = MediaScannerActor.PathScanCompleted(
       MediaScannerActor.ScanPath(RootPath, 30))
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
@@ -331,21 +305,17 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val messages = ScanStateTransitionMessages(metaManagerMessage = Some("availableMedia"))
     val result = mock[ScanSinkActor.CombinedResults]
 
-    helper.stub(messages, state) {
-      _.handleScanComplete(completeMsg.request.seqNo, ArchiveName)
-    }
-      .stub(ScanStateTransitionMessages(), MediaScanStateUpdateServiceImpl.InitialState) {
+    helper.stub(messages, state) { _.handleScanComplete(completeMsg.request.seqNo, ArchiveName) }
+      .stub(ScanStateTransitionMessages(), MediaScanStateUpdateServiceImpl.InitialState):
         _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
-      }
       .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectMetaDataMessage(messages.metaManagerMessage.get)
       .post(result)
       .expectStateUpdate(state)
       .verifyResultsReceivedUriFunc()
-  }
 
-  it should "support queries for the files of a medium" in {
+  it should "support queries for the files of a medium" in:
     val actualMedium = TestMedium.copy(archiveComponentID = ArchiveName)
     val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(actualMedium, uri.uri) }
     val helper = new MediaManagerTestHelper
@@ -356,9 +326,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     msgFiles.mediumID should be(TestMedium)
     msgFiles.fileIDs should contain theSameElementsAs expectedIDs
     msgFiles.existing shouldBe true
-  }
 
-  it should "support queries for the files of a medium if the archive component ID is different" in {
+  it should "support queries for the files of a medium if the archive component ID is different" in:
     val requestedMedium = TestMedium.copy(archiveComponentID = "other")
     val actualMedium = TestMedium.copy(archiveComponentID = ArchiveName)
     val expectedIDs = TestFileData(TestMedium) map { uri => MediaFileID(actualMedium, uri.uri) }
@@ -370,9 +339,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     msgFiles.mediumID should be(requestedMedium)
     msgFiles.fileIDs should contain theSameElementsAs expectedIDs
     msgFiles.existing shouldBe true
-  }
 
-  it should "answer a query for the files of a non-existing medium" in {
+  it should "answer a query for the files of a non-existing medium" in:
     val mid = MediumID("nonExistingMedium", None)
     val helper = new MediaManagerTestHelper
 
@@ -381,32 +349,28 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     msgFiles.mediumID should be(mid)
     msgFiles.fileIDs shouldBe empty
     msgFiles.existing shouldBe false
-  }
 
-  it should "return a file response for an unknown medium ID" in {
+  it should "return a file response for an unknown medium ID" in:
     val helper = new MediaManagerTestHelper
 
     helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(MediumID("unknown medium", None),
       "unknown URI"), withMetaData = false))
-  }
 
-  it should "return a file response for a request with an unknown URI" in {
+  it should "return a file response for a request with an unknown URI" in:
     val helper = new MediaManagerTestHelper
     val (uri, _) = helper.createTestMediaFile()
 
     helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData = false))
-  }
 
-  it should "return a file response for a non-existing path" in {
+  it should "return a file response for a non-existing path" in:
     val helper = new MediaManagerTestHelper
     val (uri, file) = helper.createTestMediaFile()
     val testData = addUri(TestFileData, uri)
     Files delete file.path
 
     helper.checkUnknownFileRequest(MediumFileRequest(MediaFileID(TestMedium, uri), withMetaData = false), testData)
-  }
 
-  it should "return a correct download result" in {
+  it should "return a correct download result" in:
     val helper = new MediaManagerTestHelper
     val (uri, fileData) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = true)
@@ -418,9 +382,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     response.length should be(fileData.size)
     val downloadProps = helper.nextDownloadChildCreation().props
     downloadProps.args should be(List(fileData.path, DownloadChunkSize, MediaFileDownloadActor.IdentityTransform))
-  }
 
-  it should "specify a correct transform function in a media file request" in {
+  it should "specify a correct transform function in a media file request" in:
     val helper = new MediaManagerTestHelper
     val (uri, _) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = false)
@@ -433,9 +396,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     func("mp3") shouldBe a[ID3v2ProcessingStage]
     func("MP3") shouldBe a[ID3v2ProcessingStage]
     func isDefinedAt "mp4" shouldBe false
-  }
 
-  it should "return a correct download result even if a medium from another archive component is requested" in {
+  it should "return a correct download result even if a medium from another archive component is requested" in:
     val helper = new MediaManagerTestHelper
     val (uri, fileData) = helper.createTestMediaFile()
     val requestedMedium = TestMedium.copy(archiveComponentID = "fromAnotherArchiveComponent")
@@ -449,9 +411,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     response.length should be(fileData.size)
     val downloadProps = helper.nextDownloadChildCreation().props
     downloadProps.args should be(List(fileData.path, DownloadChunkSize, MediaFileDownloadActor.IdentityTransform))
-  }
 
-  it should "inform the download manager about newly created download actors" in {
+  it should "inform the download manager about newly created download actors" in:
     val helper = new MediaManagerTestHelper
     val (uri, _) = helper.createTestMediaFile()
     val request = createMediumFileRequest(uri, withMetaData = true)
@@ -462,22 +423,20 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectMsgType[MediumFileResponse]
     helper.expectDownloadMonitorMessage(DownloadMonitoringActor.DownloadOperationStarted(
       creation.probe.ref, testActor))
-  }
 
-  it should "forward a request for meta file info to the meta data manager" in {
+  it should "forward a request for meta file info to the meta data manager" in:
     val metaDataManager = ForwardTestActor()
     val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
       TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager ! GetMetaDataFileInfo
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
-  }
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
   private class MediaManagerTestHelper
-    extends StateTestHelper[MediaScanState, MediaScanStateUpdateService] {
+    extends StateTestHelper[MediaScanState, MediaScanStateUpdateService]:
     /** Mock for the state update service. */
     override val updateService: MediaScanStateUpdateService = mock[MediaScanStateUpdateService]
 
@@ -532,10 +491,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg the message
       * @return this test helper
       */
-    def post(msg: Any): MediaManagerTestHelper = {
+    def post(msg: Any): MediaManagerTestHelper =
       testManagerActor ! msg
       this
-    }
 
     /**
       * Sends the specified message to the test actor by passing it directly to
@@ -544,20 +502,18 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg the message
       * @return this test helper
       */
-    def send(msg: Any): MediaManagerTestHelper = {
+    def send(msg: Any): MediaManagerTestHelper =
       testManagerActor receive msg
       this
-    }
 
     /**
       * Simulates an ACK response from the meta data manager.
       *
       * @return this test helper
       */
-    def postAckFromMetaManager(): MediaManagerTestHelper = {
+    def postAckFromMetaManager(): MediaManagerTestHelper =
       testManagerActor.tell(MetaDataManagerActor.ScanResultProcessed, probeMetaDataManager.ref)
       this
-    }
 
     /**
       * Expects that the specified message has been sent to the media scanner
@@ -638,20 +594,18 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def expectCloseRequestProcessed(): MediaManagerTestHelper = {
+    def expectCloseRequestProcessed(): MediaManagerTestHelper =
       awaitCond(closeRequestCount.get() == 1)
       this
-    }
 
     /**
       * Expects that a close completed notification has been handled.
       *
       * @return this test helper
       */
-    def expectCloseCompleteProcessed(): MediaManagerTestHelper = {
+    def expectCloseCompleteProcessed(): MediaManagerTestHelper =
       awaitCond(closeCompleteCount.get() == 1)
       this
-    }
 
     /**
       * Checks that no state update was performed. This can be used together
@@ -660,10 +614,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def expectNoStateUpdate(): MediaManagerTestHelper = {
+    def expectNoStateUpdate(): MediaManagerTestHelper =
       stateQueue should have size 0
       this
-    }
 
     /**
       * Passes a message to the test actor and prepares the mock update
@@ -675,14 +628,12 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def passTestData(transitions: ScanStateTransitionMessages = ScanStateTransitionMessages(),
-                     data: Map[MediumID, Set[MediaFileUri]] = TestFileData): MediaManagerTestHelper = {
+                     data: Map[MediumID, Set[MediaFileUri]] = TestFileData): MediaManagerTestHelper =
       val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = data)
       val result = mock[ScanSinkActor.CombinedResults]
-      stub(transitions, state) {
+      stub(transitions, state):
         _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
-      }
       post(result)
-    }
 
     /**
       * Verifies the URI function that was passed to the update service when
@@ -691,14 +642,13 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def verifyResultsReceivedUriFunc(): MediaManagerTestHelper = {
+    def verifyResultsReceivedUriFunc(): MediaManagerTestHelper =
       val capture = ArgumentCaptor.forClass(classOf[Path => MediaFileUri])
       verify(updateService).handleResultsReceived(any(), any(), any())(capture.capture())
       val uriFunc = capture.getValue.asInstanceOf[Path => MediaFileUri]
       val testPath = RootPath.resolve("testPath")
       uriFunc(testPath) should be(converter.pathToUri(testPath))
       this
-    }
 
     /**
       * Returns information about the next child actor that has been created
@@ -706,11 +656,10 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return information about a child download actor
       */
-    def nextDownloadChildCreation(): DownloadChildCreation = {
+    def nextDownloadChildCreation(): DownloadChildCreation =
       val data = downloadActorsQueue.poll(3, TimeUnit.SECONDS)
       data should not be null
       data
-    }
 
     /**
       * Creates a media file in the test directory and returns its URI and
@@ -718,14 +667,13 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return a tuple with the URI and the ''FileData'' of the test file
       */
-    def createTestMediaFile(): (String, FileData) = {
+    def createTestMediaFile(): (String, FileData) =
       val path = archiveRootPath.resolve("some-medium")
         .resolve("someArtist")
         .resolve("someAlbum")
         .resolve("someGreatHit.mp3")
       val mediaFile = writeFileContent(path, FileTestHelper.TestData)
       (converter.pathToUri(mediaFile).uri, FileData(mediaFile, FileTestHelper.TestData.length))
-    }
 
     /**
       * Checks whether a request for a non-existing media file is handled
@@ -736,7 +684,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def checkUnknownFileRequest(request: MediumFileRequest, data: Map[MediumID, Set[MediaFileUri]] = TestFileData):
-    MediaManagerTestHelper = {
+    MediaManagerTestHelper =
       passTestData(data = data)
       post(request)
       val response = expectMsgType[MediumFileResponse]
@@ -744,7 +692,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       response.length should be(-1)
       response.contentReader shouldBe empty
       this
-    }
 
     /**
       * Helper method to check whether the specified message was sent to the
@@ -754,10 +701,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg   the expected message
       * @return this test helper
       */
-    private def expectProbeMessage(probe: TestProbe, msg: Any): MediaManagerTestHelper = {
+    private def expectProbeMessage(probe: TestProbe, msg: Any): MediaManagerTestHelper =
       probe expectMsg msg
       this
-    }
 
     /**
       * Helper method to check that the specified test prob did not receive a
@@ -766,17 +712,16 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param probe the probe
       * @return this test helper
       */
-    private def expectNoProbeMessage(probe: TestProbe): MediaManagerTestHelper = {
+    private def expectNoProbeMessage(probe: TestProbe): MediaManagerTestHelper =
       expectNoMessageReceived(probe)
       this
-    }
 
     /**
       * Creates a test actor instance as a test reference.
       *
       * @return the test reference
       */
-    private def createTestActor(): TestActorRef[MediaManagerActor] = {
+    private def createTestActor(): TestActorRef[MediaManagerActor] =
       TestActorRef[MediaManagerActor](Props(
         new MediaManagerActor(actorConfig, probeMetaDataManager.ref,
           probeUnionMediaActor.ref, probeGroupManager.ref, updateService, converter)
@@ -825,7 +770,4 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
             closeCompleteCount.incrementAndGet()
           }
         }))
-    }
-  }
 
-}

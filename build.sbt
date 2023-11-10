@@ -275,12 +275,13 @@ lazy val archive = (project in file("mediaArchive/archive"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon,
-  metaDataExtract, id3Extract)
+  ) dependsOn(shared, archiveCommon, metaDataExtract, id3Extract, test3 % "test->compile")
 
 /**
   * The media archive project. This contains code to manage the library with

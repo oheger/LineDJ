@@ -25,7 +25,7 @@ import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
 
 import java.nio.file.Path
 
-object PersistentMetaDataReaderActor {
+object PersistentMetaDataReaderActor:
 
   /**
     * A message processed by [[PersistentMetaDataReaderActor]] that tells the
@@ -48,7 +48,6 @@ object PersistentMetaDataReaderActor {
     */
   def apply(parent: ActorRef, chunkSize: Int): Props =
     Props(classOf[PersistentMetaDataReaderActor], parent, chunkSize)
-}
 
 /**
   * An actor that reads a file with persistent meta data for the media files of
@@ -73,8 +72,8 @@ object PersistentMetaDataReaderActor {
   * @param chunkSize the chunk size when reading the file
   */
 class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
-  extends Actor with ActorLogging {
-  override def receive: Receive = {
+  extends Actor with ActorLogging:
+  override def receive: Receive =
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
       import context.{dispatcher, system}
@@ -84,5 +83,3 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
       val flow = source.via(stage).toMat(sink)(Keep.right)
       val future = flow.run()
       future.onComplete(_ => context.stop(self))
-  }
-}

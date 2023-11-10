@@ -22,10 +22,9 @@ import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Path
 
-object MediumChecksum {
+object MediumChecksum:
   /** Constant representing an undefined checksum. */
   final val Undefined = MediumChecksum("")
-}
 
 /**
   * A value class representing a checksum calculated based on the content of a

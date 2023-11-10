@@ -31,36 +31,33 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
 
-object ArchiveActorFactorySpec {
+object ArchiveActorFactorySpec:
   /** The root path with media files for the test archive. */
   private val MediaRootPath = Paths get "ArchiveRootPath"
-}
 
 /**
   * Test class for ''ArchiveActorFactory''.
   */
 class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ArchiveActorFactorySpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import ArchiveActorFactorySpec._
 
-  "An ArchiveActorFactory" should "create all actors for a media archive" in {
+  "An ArchiveActorFactory" should "create all actors for a media archive" in:
     val helper = new FactoryTestHelper
 
     helper.createArchive()
-  }
 
   /**
     * A test helper class managing a test factory instance and its
     * dependencies.
     */
-  private class FactoryTestHelper {
+  private class FactoryTestHelper:
     /** Mock for the archive configuration. */
     private val archiveConfig = createArchiveConfig()
 
@@ -94,12 +91,11 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return this test helper
       */
-    def createArchive(): FactoryTestHelper = {
+    def createArchive(): FactoryTestHelper =
       factory.createArchiveActors(probeMediaUnionActor.ref, probeMetaDataUnionActor.ref,
         probeGroupManager.ref, archiveConfig) should be(probeMediaManager.ref)
       childActorsMap.isEmpty shouldBe true
       this
-    }
 
     /**
       * Creates a map that allows assigning test actor references to the
@@ -107,7 +103,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the map to control the child actor creation
       */
-    private def createChildActorsMap(): Map[Class[_], (Props => Boolean, ActorRef)] = {
+    private def createChildActorsMap(): Map[Class[_], (Props => Boolean, ActorRef)] =
       val propsPersistentManager = PersistentMetaDataManagerActor(archiveConfig, probeMetaDataUnionActor.ref, null)
       val propsMediaManager = MediaManagerActor(archiveConfig, probeMetaDataManager.ref,
         probeMediaUnionActor.ref, probeGroupManager.ref, null)
@@ -118,7 +114,6 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
           probeMetaDataManager.ref),
         propsPersistentManager.actorClass() -> (checkPersistenceManagerProps(propsPersistentManager),
           probePersistenceManager.ref))
-    }
 
     /**
       * Checks whether the correct Props for creating the persistent manager
@@ -171,21 +166,19 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return a flag whether this parameter is a valid ''PathUriConverter''
       */
     private def checkConverter(props: Props, paramIndex: Int): Boolean =
-      props.args(paramIndex) match {
+      props.args(paramIndex) match
         case c: PathUriConverter => c.rootPath == MediaRootPath
         case o => fail("Expected a PathUriConverter, but got: " + o)
-      }
 
     /**
       * Creates the configuration for the test archive.
       *
       * @return the archive configuration
       */
-    private def createArchiveConfig(): MediaArchiveConfig = {
+    private def createArchiveConfig(): MediaArchiveConfig =
       val config = mock[MediaArchiveConfig]
       when(config.rootPath).thenReturn(MediaRootPath)
       config
-    }
 
     /**
       * Creates the test factory instance. Installs a child actor factory that
@@ -193,7 +186,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the test archive actor factory
       */
-    private def createFactory(): ArchiveActorFactory = {
+    private def createFactory(): ArchiveActorFactory =
       val testFactory = TestActorRef[Actor with ArchiveActorFactory](Props(
         new ArchiveActorFactory with ChildActorFactory {
           override def createChildActor(p: Props): ActorRef = {
@@ -207,7 +200,4 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
         }
       ))
       testFactory.underlyingActor
-    }
-  }
 
-}

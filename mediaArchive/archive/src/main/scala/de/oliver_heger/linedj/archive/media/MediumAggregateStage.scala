@@ -24,8 +24,9 @@ import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import scalaz.State
 
 import java.nio.file.{Files, Path}
+import scala.collection.immutable.Seq
 
-object MediumAggregateStage {
+object MediumAggregateStage:
   /** Constant for the file extension for medium description files. */
   private val SettingsExtension = ".settings"
 
@@ -37,7 +38,7 @@ object MediumAggregateStage {
     * @param id    the ID of the medium
     * @param files the aggregated files on this medium
     */
-  private case class MediumAggregateData(path: Path, id: MediumID, files: List[FileData]) {
+  private case class MediumAggregateData(path: Path, id: MediumID, files: List[FileData]):
     /**
       * Checks whether the specified file is potentially in scope of the
       * medium represented by this instance. A result of '''false''' means that
@@ -66,7 +67,6 @@ object MediumAggregateStage {
       * @return an updated instance that contains this file
       */
     def addFile(file: FileData): MediumAggregateData = copy(files = file :: files)
-  }
 
   /**
     * Type alias for the state managed by this stage. The state consists of
@@ -93,11 +93,10 @@ object MediumAggregateStage {
     * @param converter    the ''PathUriConverter''
     * @return the ''MediumID'' for this settings file
     */
-  def mediumIDFromSettingsPath(settingsPath: Path, archiveName: String, converter: PathUriConverter): MediumID = {
+  def mediumIDFromSettingsPath(settingsPath: Path, archiveName: String, converter: PathUriConverter): MediumID =
     val mediumUri = converter.pathToUri(settingsPath.getParent).uri
     val settingsUri = converter.pathToUri(settingsPath).uri
     MediumID(mediumUri, Some(settingsUri), archiveName)
-  }
 
   /**
     * Converts the specified path to a ''FileData'' object.
@@ -105,10 +104,9 @@ object MediumAggregateStage {
     * @param p the path to be converted
     * @return the resulting ''FileData'' object
     */
-  private def toFileData(p: Path): FileData = {
+  private def toFileData(p: Path): FileData =
     val fileSize = Files size p
     FileData(p, fileSize)
-  }
 
   /**
     * Checks whether the specified path represents a medium description file.
@@ -136,15 +134,14 @@ object MediumAggregateStage {
   private def nextState(file: Path, root: Path, archiveName: String, converter: PathUriConverter,
                         fileDataFactory: FileDataFactory): State[MediaState, Option[MediaScanResult]] =
     State { s =>
-      if (isSettingsFile(file)) {
+      if isSettingsFile(file) then
         val mid: MediumID = mediumIDFromSettingsPath(file, archiveName, converter)
         val newAgg = MediumAggregateData(file.getParent, mid, Nil)
         val (completed, active) = s.span(!_.isInScope(file))
         (newAgg :: active, createScanResultForCompleteMedia(completed, root))
-      } else {
+      else
         val (next, completed) = processFile(s, file, fileDataFactory)
         (next, createScanResultForCompleteMedia(completed, root))
-      }
     }
 
   /**
@@ -158,22 +155,19 @@ object MediumAggregateStage {
     * @return the updated state and a sequence of completed media
     */
   private def processFile(state: MediaState, file: Path, converter: FileDataFactory):
-  (MediaState, List[MediumAggregateData]) = {
+  (MediaState, List[MediumAggregateData]) =
     val medium = state.head
-    if (state.size == 1)
+    if state.size == 1 then
       (List(medium addFile converter(file)), Nil)
-    else if (medium isInScope file) {
-      if (medium owns file)
+    else if medium isInScope file then
+      if medium owns file then
         (medium.addFile(converter(file)) :: state.tail, Nil)
-      else {
+      else
         val (tempState, complete) = processFile(state.tail, file, converter)
         (medium :: tempState, complete)
-      }
-    } else {
+    else
       val (nextState, complete) = processFile(state.tail, file, converter)
       (nextState, medium :: complete)
-    }
-  }
 
   /**
     * Converts a sequence of completed media to an optional scan result. All
@@ -186,15 +180,13 @@ object MediumAggregateStage {
     */
   private def createScanResultForCompleteMedia(media: Seq[MediumAggregateData], root: Path):
   Option[MediaScanResult] =
-    if (media.isEmpty) None
-    else {
+    if media.isEmpty then None
+    else
       val fileMap = media.filter(_.files.nonEmpty)
         .foldLeft(Map.empty[MediumID, List[FileData]]) { (map, medium) =>
           map + (medium.id -> medium.files)
         }
       Some(MediaScanResult(root, fileMap))
-    }
-}
 
 /**
   * A specialized flow stage used during scanning of media files that
@@ -220,14 +212,14 @@ private class MediumAggregateStage(val root: Path,
                                    val archiveName: String,
                                    val converter: PathUriConverter,
                                    val fileDataFactory: FileDataFactory = MediumAggregateStage.toFileData)
-  extends GraphStage[FlowShape[Path, MediaScanResult]] {
+  extends GraphStage[FlowShape[Path, MediaScanResult]]:
   val in: Inlet[Path] = Inlet[Path]("MediumAggregateStage.in")
   val out: Outlet[MediaScanResult] = Outlet[MediaScanResult]("MediumAggregateStage.out")
 
   override val shape: FlowShape[Path, MediaScanResult] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
 
       import MediumAggregateStage._
 
@@ -258,5 +250,3 @@ private class MediumAggregateStage(val root: Path,
           pull(in)
         }
       })
-    }
-}

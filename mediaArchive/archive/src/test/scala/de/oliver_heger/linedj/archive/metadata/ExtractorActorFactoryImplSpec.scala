@@ -26,39 +26,36 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object ExtractorActorFactoryImplSpec {
+object ExtractorActorFactoryImplSpec:
   /** The tag size limit. */
   private val TagSizeLimit = 8192
 
   /** The read chunk size. */
   private val ReadChunkSize = 16384
-}
 
 /**
   * Test class for ''ExtractorActorFactoryImpl''.
   */
 class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ExtractorActorFactoryImplSpec._
 
   def this() = this(ActorSystem("ExtractorActorFactoryImplSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates a config for the media archive that returns test values.
     *
     * @return the test config
     */
-  private def createConfig(): MediaArchiveConfig = {
+  private def createConfig(): MediaArchiveConfig =
     val config = mock[MediaArchiveConfig]
     when(config.tagSizeLimit).thenReturn(TagSizeLimit)
     when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
     config
-  }
 
   /**
     * Creates a factory instance from a mock configuration.
@@ -68,29 +65,24 @@ class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(tes
   private def createFactory(): ExtractorActorFactoryImpl =
     new ExtractorActorFactoryImpl(createConfig())
 
-  "An ExtractorActorFactoryImpl" should "return None for unsupported extensions" in {
+  "An ExtractorActorFactoryImpl" should "return None for unsupported extensions" in:
     createFactory().extractorProps("txt", TestProbe().ref) should be(None)
-  }
 
   /**
     * Checks whether an MP3 file is correctly handled.
     *
     * @param ext the concrete extension to be used
     */
-  private def checkMp3Extension(ext: String): Unit = {
+  private def checkMp3Extension(ext: String): Unit =
     val receiver = TestProbe().ref
     val expProps = Mp3MetaDataExtractorActor(receiver, TagSizeLimit, ReadChunkSize)
     val factory = createFactory()
 
     val props = factory.extractorProps(ext, receiver)
     props.get should be(expProps)
-  }
 
-  it should "return Props for MP3 meta data extraction" in {
+  it should "return Props for MP3 meta data extraction" in:
     checkMp3Extension("mp3")
-  }
 
-  it should "ignore case when evaluating file extensions" in {
+  it should "ignore case when evaluating file extensions" in:
     checkMp3Extension("mP3")
-  }
-}

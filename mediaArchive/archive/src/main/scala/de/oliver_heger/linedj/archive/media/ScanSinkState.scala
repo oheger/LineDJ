@@ -94,7 +94,7 @@ private case class ScanSinkState(scanResults: List[EnhancedMediaScanResult],
   * space in the buffer available or after a confirmation from downstream
   * arrives.
   */
-private trait ScanSinkUpdateService {
+private trait ScanSinkUpdateService:
   /**
     * Updates the state of the sink with a newly arrived
     * ''EnhancedMediaScanResult'' object. Unless there an ACK pending for scan
@@ -190,11 +190,11 @@ private trait ScanSinkUpdateService {
     * @return the updated ''State'' and the transition messages
     */
   def handleNewScanResult(result: EnhancedMediaScanResult, sender: ActorRef, maxBufferSize: Int):
-  State[ScanSinkState, SinkTransitionMessages] = for {
+  State[ScanSinkState, SinkTransitionMessages] = for
     _ <- addScanResult(result, sender)
     res <- combinedResults()
     ack <- actorsToAck(maxBufferSize)
-  } yield SinkTransitionMessages(res, ack, processingDone = false)
+  yield SinkTransitionMessages(res, ack, processingDone = false)
 
   /**
     * A composite function that updates the current state of the sink for a new
@@ -207,11 +207,11 @@ private trait ScanSinkUpdateService {
     * @return the updated ''State'' and the transition messages
     */
   def handleNewMediumInfo(info: MediumInfo, sender: ActorRef, maxBufferSize: Int):
-  State[ScanSinkState, SinkTransitionMessages] = for {
+  State[ScanSinkState, SinkTransitionMessages] = for
     _ <- addMediumInfo(info, sender)
     res <- combinedResults()
     ack <- actorsToAck(maxBufferSize)
-  } yield SinkTransitionMessages(res, ack, processingDone = false)
+  yield SinkTransitionMessages(res, ack, processingDone = false)
 
   /**
     * A composite function that updates the current state of the sink when an
@@ -222,12 +222,12 @@ private trait ScanSinkUpdateService {
     * @param maxBufferSize the maximum buffer size
     * @return the updated ''State'' and the transition messages
     */
-  def handleResultAck(maxBufferSize: Int): State[ScanSinkState, SinkTransitionMessages] = for {
+  def handleResultAck(maxBufferSize: Int): State[ScanSinkState, SinkTransitionMessages] = for
     _ <- resultAckReceived()
     res <- combinedResults()
     ack <- actorsToAck(maxBufferSize)
     done <- processingDone()
-  } yield SinkTransitionMessages(res, ack, done)
+  yield SinkTransitionMessages(res, ack, done)
 
   /**
     * A composite function that updates the current state of the sink when all
@@ -239,12 +239,12 @@ private trait ScanSinkUpdateService {
     * @return the updated ''State'' and the transition messages
     */
   def handleScanResultsDone(maxBufferSize: Int): State[ScanSinkState, SinkTransitionMessages] =
-    for {
+    for
       _ <- scanResultsDone()
       res <- combinedResults()
       ack <- actorsToAck(maxBufferSize)
       done <- processingDone()
-    } yield SinkTransitionMessages(res, ack, done)
+    yield SinkTransitionMessages(res, ack, done)
 
   /**
     * A composite function that updates the current state of the sink when all
@@ -256,71 +256,65 @@ private trait ScanSinkUpdateService {
     * @return the updated ''State'' and the transition messages
     */
   def handleMediaInfoDone(maxBufferSize: Int): State[ScanSinkState, SinkTransitionMessages] =
-    for {
+    for
       _ <- mediaInfoDone()
       res <- combinedResults()
       ack <- actorsToAck(maxBufferSize)
       done <- processingDone()
-    } yield SinkTransitionMessages(res, ack, done)
-}
+    yield SinkTransitionMessages(res, ack, done)
 
 /**
   * The default implementation of the ''ScanSinkUpdateService'' trait.
   */
-private object ScanSinkUpdateServiceImpl extends ScanSinkUpdateService {
+private object ScanSinkUpdateServiceImpl extends ScanSinkUpdateService:
   /** An initial state of the sink. */
   val InitialState: ScanSinkState = ScanSinkState(List.empty, Map.empty, resultAck = true,
     ackMediumFiles = None, ackMediumInfo = None, resultsDone = false, infoDone = false)
 
   override def addScanResult(result: EnhancedMediaScanResult, sender: ActorRef):
   State[ScanSinkState, Unit] = modify { s =>
-    s.ackMediumFiles match {
+    s.ackMediumFiles match
       case Some(_) => s // ACK pending
       case None =>
         s.copy(scanResults = result :: s.scanResults, ackMediumFiles = Some(sender))
-    }
   }
 
   override def addMediumInfo(info: MediumInfo, sender: ActorRef): State[ScanSinkState, Unit] =
     modify { s =>
-      s.ackMediumInfo match {
+      s.ackMediumInfo match
         case Some(_) => s // ACK pending
         case None =>
           s.copy(mediaInfo = s.mediaInfo + (info.mediumID -> info), ackMediumInfo = Some(sender))
-      }
     }
 
   override def actorsToAck(maxBufSize: Int): State[ScanSinkState, Iterable[ActorRef]] =
     State { s =>
-      if ((s.ackMediumFiles.isEmpty && s.ackMediumInfo.isEmpty) || bufferFilled(s, maxBufSize))
+      if (s.ackMediumFiles.isEmpty && s.ackMediumInfo.isEmpty) || bufferFilled(s, maxBufSize) then
         (s, Nil)
-      else {
+      else
         val (ackFiles, actors1) = handleAck(s.ackMediumFiles, Nil, s.scanResults, maxBufSize)
         val (ackInfo, actors2) = handleAck(s.ackMediumInfo, actors1, s.mediaInfo, maxBufSize)
         (s.copy(ackMediumFiles = ackFiles, ackMediumInfo = ackInfo), actors2)
-      }
     }
 
   override def combinedResults(): State[ScanSinkState, Iterable[CombinedMediaScanResult]] =
     State { s =>
-      if (!s.resultAck) (s, Nil)
-      else {
-        val results = if (allElementsReceived(s)) s.scanResults
+      if !s.resultAck then (s, Nil)
+      else
+        val results = if allElementsReceived(s) then s.scanResults
         else findCompleteResults(s.scanResults, s.mediaInfo)
-        if (results.isEmpty) (s, Nil)
-        else {
+        if results.isEmpty then (s, Nil)
+        else
           val media = results.flatMap(_.scanResult.mediaFiles.keys)
           val nextResults = s.scanResults filterNot results.contains
           val nextInfo = media.foldLeft(s.mediaInfo)((m, id) => m - id)
           (s.copy(scanResults = nextResults, mediaInfo = nextInfo, resultAck = false),
             results.map(createCombinedResult(_, s.mediaInfo)))
-        }
-      }
     }
 
   override def resultAckReceived(): State[ScanSinkState, Unit] =
     modify { s =>
-      if (s.resultAck) s else s.copy(resultAck = true)
+      if s.resultAck then s else s.copy(resultAck = true)
     }
 
   override def scanResultsDone(): State[ScanSinkState, Unit] =
@@ -329,9 +323,9 @@ private object ScanSinkUpdateServiceImpl extends ScanSinkUpdateService {
   override def mediaInfoDone(): State[ScanSinkState, Unit] =
     modify { s => s.copy(infoDone = true) }
 
-  override def processingDone(): State[ScanSinkState, Boolean] = for {
+  override def processingDone(): State[ScanSinkState, Boolean] = for
     s <- get[ScanSinkState]
-  } yield processingDoneState(s)
+  yield processingDoneState(s)
 
   /**
     * Checks whether the buffer for result objects is filled. If this is the
@@ -357,7 +351,7 @@ private object ScanSinkUpdateServiceImpl extends ScanSinkUpdateService {
     */
   private def handleAck(actor: Option[ActorRef], result: List[ActorRef], buf: Iterable[_],
                         maxBufSize: Int): (Option[ActorRef], List[ActorRef]) =
-    if (actor.isDefined && buf.size < maxBufSize) (None, actor.get :: result)
+    if actor.isDefined && buf.size < maxBufSize then (None, actor.get :: result)
     else (actor, result)
 
   /**
@@ -402,10 +396,8 @@ private object ScanSinkUpdateServiceImpl extends ScanSinkUpdateService {
     * @return the combined result
     */
   private def createCombinedResult(esr: EnhancedMediaScanResult,
-                                   info: Map[MediumID, MediumInfo]): CombinedMediaScanResult = {
+                                   info: Map[MediumID, MediumInfo]): CombinedMediaScanResult =
     val infoMap = esr.scanResult.mediaFiles.keys.
       foldLeft(Map.empty[MediumID, MediumInfo])((m, id) =>
         m + (id -> info.getOrElse(id, MediumInfoParserActor.DummyMediumSettingsData)))
     CombinedMediaScanResult(esr, infoMap)
-  }
-}

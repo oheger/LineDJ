@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import java.net.URI
 import java.nio.file.Path
 
-object PathUriConverter {
+object PathUriConverter:
   /**
     * Generates a ''MediaFileUri'' for the given path that is relative to the
     * provided root URI. It is expected that the root URI points to a parent
@@ -49,7 +49,6 @@ object PathUriConverter {
     */
   def pathToURI(path: Path): URI =
     new URI(UriEncodingHelper.encodeComponents(path.toUri.toString))
-}
 
 /**
   * A helper class that is responsible for converting between paths and URIs in
@@ -63,7 +62,7 @@ object PathUriConverter {
   *
   * @param rootPath the root path of the archive
   */
-class PathUriConverter(val rootPath: Path) {
+class PathUriConverter(val rootPath: Path):
 
   import de.oliver_heger.linedj.archive.media.PathUriConverter._
 
@@ -88,4 +87,3 @@ class PathUriConverter(val rootPath: Path) {
     */
   def uriToPath(uri: MediaFileUri): Path =
     rootPath.resolve(UriEncodingHelper.removeLeadingSeparator(UriEncodingHelper.decodeComponents(uri.uri)))
-}

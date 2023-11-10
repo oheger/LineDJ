@@ -30,7 +30,7 @@ import scala.concurrent.Future
 /**
   * Companion object.
   */
-object MediumInfoParserActor {
+object MediumInfoParserActor:
   /** The name of an unknown medium. */
   private val UnknownMedium = "unknown"
 
@@ -71,7 +71,6 @@ object MediumInfoParserActor {
     * @return a ''MediumInfo'' object for an undefined medium
     */
   def undefinedMediumInfo: MediumInfo = DummyMediumSettingsData
-}
 
 /**
   * An actor implementation which parses a medium description file.
@@ -91,28 +90,26 @@ object MediumInfoParserActor {
   * @param maxSize the maximum size of a file to be processed
   */
 class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
-  extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport {
+  extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport:
 
   import MediumInfoParserActor._
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case req: ParseMediumInfo =>
       handleParseRequest(req)
-  }
 
   /**
     * Handles a request to parse a medium description file.
     *
     * @param req the request to be processed
     */
-  private def handleParseRequest(req: ParseMediumInfo): Unit = {
+  private def handleParseRequest(req: ParseMediumInfo): Unit =
     val source = createSource(req.descriptionPath)
     val (ks, futParse) = runStream(req, source)
     processStreamResult(futParse, ks) { f =>
       log.error(f.exception, "Could not read medium info file " + req.descriptionPath)
       ParseMediumInfoResult(req, DummyMediumSettingsData.copy(mediumID = req.mediumID))
     }
-  }
 
   /**
     * Runs a stream to read and parse the specified medium description file.
@@ -122,7 +119,7 @@ class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
     * @return a tuple with the kill switch and the future stream result
     */
   private def runStream(req: ParseMediumInfo, source: Source[ByteString, Any]):
-  (KillSwitch, Future[ParseMediumInfoResult]) = {
+  (KillSwitch, Future[ParseMediumInfoResult]) =
     val sink: Sink[ByteString, Future[ByteString]] = Sink.fold(ByteString.empty)(_ ++ _)
     val (ks, futStream) = source
       .viaMat(KillSwitches.single)(Keep.right)
@@ -133,7 +130,6 @@ class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
       ParseMediumInfoResult(req, parser.parseMediumInfo(bs.toArray, req.mediumID).get)
     }
     (ks, futParse)
-  }
 
   /**
     * Creates the source for reading the file with medium info.
@@ -143,4 +139,3 @@ class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
     */
   private[media] def createSource(path: Path): Source[ByteString, Any] =
     FileIO.fromPath(path)
-}

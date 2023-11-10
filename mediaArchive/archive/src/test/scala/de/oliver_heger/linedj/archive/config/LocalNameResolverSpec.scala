@@ -26,14 +26,11 @@ import scala.util.{Failure, Success, Try}
 /**
   * Test class for ''LocalNameResolver''.
   */
-class LocalNameResolverSpec extends AnyFlatSpec with Matchers {
-  "A LocalNameResolver" should "resolve the local host name" in {
+class LocalNameResolverSpec extends AnyFlatSpec with Matchers:
+  "A LocalNameResolver" should "resolve the local host name" in:
     val localHost = Try(InetAddress.getLocalHost)
-    localHost match {
+    localHost match
       case Failure(_) =>
         println("Cannot resolve local host; skipping test.")
       case Success(address) =>
         LocalNameResolver.localHostName should be(address.getHostName)
-    }
-  }
-}

@@ -30,7 +30,7 @@ import org.apache.pekko.actor.ActorRef
   * of are created: the media manager, the meta data manager, and the manager
   * for persistent meta data.
   */
-trait ArchiveActorFactory {
+trait ArchiveActorFactory:
   this: ChildActorFactory =>
 
   /**
@@ -45,12 +45,10 @@ trait ArchiveActorFactory {
     * @return the new media manager actor
     */
   def createArchiveActors(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef, groupManager: ActorRef,
-                          archiveConfig: MediaArchiveConfig): ActorRef = {
+                          archiveConfig: MediaArchiveConfig): ActorRef =
     val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
       PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor, converter))
     val metaDataManager = createChildActor(MetaDataManagerActor(archiveConfig,
       persistentMetaDataManager, metaDataUnionActor, converter))
     createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))
-  }
-}

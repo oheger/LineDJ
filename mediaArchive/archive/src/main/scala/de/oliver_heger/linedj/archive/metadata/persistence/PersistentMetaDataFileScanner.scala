@@ -24,7 +24,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
-object PersistentMetaDataFileScanner {
+object PersistentMetaDataFileScanner:
   /** The file extension for persistent meta data files. */
   val MetaDataFileExtension = "MDT"
 
@@ -34,10 +34,9 @@ object PersistentMetaDataFileScanner {
     * @param p the path of the meta data file
     * @return the checksum for this file
     */
-  private def checksumFor(p: Path): MediumChecksum = {
+  private def checksumFor(p: Path): MediumChecksum =
     val name = p.getFileName.toString
     MediumChecksum(name.substring(0, name.lastIndexOf('.')))
-  }
 
   /**
     * The transformation function used by the directory source. Each meta data
@@ -51,7 +50,6 @@ object PersistentMetaDataFileScanner {
     */
   private def transformMetaDataFile(p: Path, dir: Boolean): (MediumChecksum, Path) =
     (checksumFor(p), p)
-}
 
 /**
   * An internally used helper class for scanning for files with persistent
@@ -64,7 +62,7 @@ object PersistentMetaDataFileScanner {
   * checksum from the file name and returns a map with checksums as keys and
   * corresponding paths as values.
   */
-private class PersistentMetaDataFileScanner {
+private class PersistentMetaDataFileScanner:
 
   import PersistentMetaDataFileScanner._
 
@@ -80,11 +78,9 @@ private class PersistentMetaDataFileScanner {
     * @return a future with a map with the results of the scan operation
     */
   def scanForMetaDataFiles(dir: Path)(implicit system: ActorSystem, ec: ExecutionContext):
-  Future[Map[MediumChecksum, Path]] = {
+  Future[Map[MediumChecksum, Path]] =
     val source = DirectoryStreamSource.newBFSSource(dir,
       filter = DirectoryStreamSource
         .includeExtensionsFilter(Set(MetaDataFileExtension)))(transformMetaDataFile)
     val sink = Sink.fold[Map[MediumChecksum, Path], (MediumChecksum, Path)](Map.empty)(_ + _)
     source runWith sink
-  }
-}

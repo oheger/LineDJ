@@ -16,20 +16,20 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWriterActor.{MediumData, ProcessMedium}
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserTypes}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.event.LoggingAdapter
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.mockito.ArgumentMatchers.{anyString, eq => eqArg}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{anyString, eq as eqArg}
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -39,10 +39,11 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
+import scala.collection.immutable.Seq
 import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
-object PersistentMetaDataWriterActorSpec {
+object PersistentMetaDataWriterActorSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("Test"))
 
@@ -92,36 +93,31 @@ object PersistentMetaDataWriterActorSpec {
     * @return the chunk of meta data
     */
   private def chunk(startIndex: Int, endIndex: Int, complete: Boolean, mediumID: MediumID =
-  TestMedium): MetaDataResponse = {
+  TestMedium): MetaDataResponse =
     val songMapping = (startIndex to endIndex) map (i => (uri(i), metaData(i)))
     MetaDataResponse(MetaDataChunk(mediumID, songMapping.toMap, complete), 0)
-  }
-}
 
 /**
   * Test class for ''PersistentMetaDataWriterActor''.
   */
 class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with
-  MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar:
 
   import PersistentMetaDataWriterActorSpec._
 
   def this() = this(ActorSystem("PersistentMetaDataWriterActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     tearDownTestFile()
-  }
 
-  "A PersistentMetaDataWriterActor" should "register at the meta data manager" in {
+  "A PersistentMetaDataWriterActor" should "register at the meta data manager" in:
     val msg = PersistentMetaDataWriterActor.ProcessMedium(TestMedium, createPathInDirectory("data.mdt"),
       testActor, 0)
     val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], 50))
 
     actor ! msg
     expectMsg(GetMetaData(TestMedium, registerAsListener = true, 0))
-  }
 
   /**
     * Creates a test reference to the test actor.
@@ -143,13 +139,12 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     MediumData(processMessage(null, TestMedium, 0), 0, Map.empty,
       optSenderActor getOrElse TestProbe().ref)
 
-  it should "create a default FutureIOResultHandler" in {
+  it should "create a default FutureIOResultHandler" in:
     val actor = createTestActorRef()
 
     actor.underlyingActor.resultHandler should not be null
-  }
 
-  it should "use a result handler that logs failures when creating the future" in {
+  it should "use a result handler that logs failures when creating the future" in:
     val log = mock[LoggingAdapter]
     val promise = Promise[IOResult]()
     val ex = new Exception("Test exception")
@@ -161,9 +156,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     promise complete Failure(ex)
     expectMsg(PersistentMetaDataWriterActor.StreamOperationComplete)
     verify(log).error(eqArg(ex), anyString())
-  }
 
-  it should "use a result handler that notifies the sender about failed operations" in {
+  it should "use a result handler that notifies the sender about failed operations" in:
     val log = mock[LoggingAdapter]
     val promise = Promise[IOResult]()
     val actor = createTestActorRef()
@@ -178,9 +172,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     response.msg should be(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
       success = false))
     response.sender should be(actor)
-  }
 
-  it should "use a result handler that notifies the sender about successful operations" in {
+  it should "use a result handler that notifies the sender about successful operations" in:
     val ioResult = IOResult(100L, Success(Done))
     val promise = Promise[IOResult]()
     val actor = createTestActorRef()
@@ -195,7 +188,6 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     response.msg should be(PersistentMetaDataWriterActor.MetaDataWritten(mediumData.process,
       success = true))
     response.sender should be(actor)
-  }
 
   /**
     * Checks whether the specified sequence of results contains all expected
@@ -207,11 +199,10 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @param mid        the medium ID
     */
   private def checkProcessingResults(results: Seq[MetaDataProcessingSuccess], startIndex: Int,
-                                     endIndex: Int, mid: MediumID = TestMedium): Unit = {
+                                     endIndex: Int, mid: MediumID = TestMedium): Unit =
     val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(mid, MediaFileUri(uri(i)),
       metaData(i)))
     results should contain theSameElementsAs expResults
-  }
 
   /**
     * Creates a test actor instance and sends it a ''ProcessMedium'' message.
@@ -223,11 +214,10 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the test actor
     */
   private def createActorForMedium(handler: FutureIOResultHandler, target: Path, mid: MediumID =
-  TestMedium, resolvedSize: Int = 0): ActorRef = {
+  TestMedium, resolvedSize: Int = 0): ActorRef =
     val actor = createTestActor(handler)
     actor ! processMessage(target, mid, resolvedSize)
     actor
-  }
 
   /**
     * Creates a test actor that uses the specified result handler.
@@ -257,12 +247,11 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return the extracted results
     */
   private def parseMetaData(file: Path, mid: MediumID = TestMedium):
-  Seq[MetaDataProcessingSuccess] = {
+  Seq[MetaDataProcessingSuccess] =
     val json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8)
     val (results, failure) = invokeParser(json, mid)
     failure shouldBe empty
     results
-  }
 
   /**
     * Actually parses a JSON string. This method simulates a real chunk-wise
@@ -274,18 +263,16 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @return a tuple with the results and the optional failure
     */
   private def invokeParser(json: String, mid: MediumID): (Seq[MetaDataProcessingSuccess],
-    Option[ParserTypes.Failure]) = {
+    Option[ParserTypes.Failure]) =
     val split = json.length > 1024
-    if (split) {
+    if split then
       val (res1, fail1) = Parser.processChunk(json.substring(0, 1024), mid, lastChunk = false, None)
       val (res2, fail2) = Parser.processChunk(json.substring(1024), mid, lastChunk = true, fail1)
       (res1.toList ::: res2.toList, fail2)
-    } else {
+    else
       Parser.processChunk(json, mid, lastChunk = true, None)
-    }
-  }
 
-  it should "write a meta data file when sufficient meta data is available" in {
+  it should "write a meta data file when sufficient meta data is available" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("meta.mdt")
     val actor = createActorForMedium(handler, target, resolvedSize = 10)
@@ -293,24 +280,20 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, 10 + BlockSize, complete = false)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 10 + BlockSize)
-  }
 
-  it should "pass a correct MediumData object to the future result handler" in {
+  it should "pass a correct MediumData object to the future result handler" in:
     val procMsg = processMessage(createPathInDirectory("metaData.mdt"), TestMedium, 0)
-    val handler = new TestFutureResultHandler(new CountDownLatch(1)) {
-      override protected def performChecks(data: MediumData): Unit = {
+    val handler = new TestFutureResultHandler(new CountDownLatch(1)):
+      override protected def performChecks(data: MediumData): Unit =
         data.process should be(procMsg)
         data.trigger should be(testActor)
-      }
-    }
     val actor = createTestActor(handler)
     actor ! procMsg
 
     actor ! chunk(1, 10 + BlockSize, complete = false)
     handler.await()
-  }
 
-  it should "not write a file before sufficient meta data is available" in {
+  it should "not write a file before sufficient meta data is available" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("other.mdt")
     val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"))
@@ -320,9 +303,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, BlockSize, complete = false)
     handler.await()
     Files exists target shouldBe false
-  }
 
-  it should "write a file for a chunk with complete flag set to true" in {
+  it should "write a file for a chunk with complete flag set to true" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("metaSmall.mdt")
     val actor = createActorForMedium(handler, target)
@@ -330,15 +312,13 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, BlockSize - 1, complete = true)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, BlockSize - 1)
-  }
 
-  it should "ignore a chunk for an unknown medium" in {
+  it should "ignore a chunk for an unknown medium" in:
     val actor = createTestActorRef()
 
     actor receive chunk(1, BlockSize, complete = false)
-  }
 
-  it should "handle multiple chunks for a medium" in {
+  it should "handle multiple chunks for a medium" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(2))
     val target = createPathInDirectory("metaMulti.mdt")
     val actor = createActorForMedium(handler, target, resolvedSize = 1)
@@ -348,9 +328,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(BlockSize + 6, 2 * BlockSize + 7, complete = false)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 2 * BlockSize + 7)
-  }
 
-  it should "take the initial resolved count into account" in {
+  it should "take the initial resolved count into account" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("otherUnresolved.mdt")
     val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"))
@@ -360,9 +339,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, BlockSize, complete = false)
     handler.await()
     Files exists target shouldBe false
-  }
 
-  it should "remove a medium from the process map when the last chunk was received" in {
+  it should "remove a medium from the process map when the last chunk was received" in:
     val handler = new TestFutureResultHandler(new CountDownLatch(2))
     val target = createPathInDirectory("metaRemoved.mdt")
     val target2 = createPathInDirectory("metaStandard.mdt")
@@ -374,22 +352,18 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, 2, complete = true, mediumID = OtherMedium)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 10)
-  }
 
-  it should "only write a single file at a given time" in {
+  it should "only write a single file at a given time" in:
     val counter = new AtomicInteger
     val target = createPathInDirectory("metaFirstMedium.mdt")
     val target2 = createPathInDirectory("metaSecondMedium.mdt")
-    val handler = new TestFutureResultHandler(new CountDownLatch(2)) {
+    val handler = new TestFutureResultHandler(new CountDownLatch(2)):
       /**
         * Checks that the 2nd file has not been created yet.
         */
-      override protected def performChecks(data: MediumData): Unit = {
-        if (counter.incrementAndGet() == 1) {
+      override protected def performChecks(data: MediumData): Unit =
+        if counter.incrementAndGet() == 1 then
           Files exists target2 shouldBe false
-        }
-      }
-    }
     val actor = createActorForMedium(handler, target)
     actor ! processMessage(target2, OtherMedium, resolvedSize = 0)
 
@@ -398,9 +372,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 64)
     checkProcessingResults(parseMetaData(target2, OtherMedium), 1, 1, OtherMedium)
-  }
 
-  it should "override existing files" in {
+  it should "override existing files" in:
     val target = writeFileContent(createFileReference(), FileTestHelper.TestData * 10)
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val actor = createActorForMedium(handler, target)
@@ -408,7 +381,6 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, 2, complete = true)
     handler.await()
     checkProcessingResults(parseMetaData(target), 1, 2)
-  }
 
   /**
     * A specialized ''FutureIOResultHandler'' implementation that can execute
@@ -417,13 +389,12 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     *
     * @param latch the latch for notifying test code
     */
-  private class TestFutureResultHandler(latch: CountDownLatch) extends FutureIOResultHandler {
+  private class TestFutureResultHandler(latch: CountDownLatch) extends FutureIOResultHandler:
     /**
       * Waits until the stream operation is complete.
       */
-    def await(): Unit = {
+    def await(): Unit =
       latch.await(5, TimeUnit.SECONDS) shouldBe true
-    }
 
     /**
       * @inheritdoc This implementation invokes the test code and triggers the
@@ -432,11 +403,10 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       */
     override protected def onResultComplete(result: Try[_], actor: ActorRef, log: LoggingAdapter,
                                             data: MediumData)
-    : Unit = {
+    : Unit =
       performChecks(data)
       super.onResultComplete(result, actor, log, data)
       latch.countDown()
-    }
 
     /**
       * @inheritdoc Overrides this method to not send any messages.
@@ -453,13 +423,12 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       */
     protected def performChecks(data: MediumData): Unit = {
     }
-  }
 
   /**
     * A helper class to verify whether the triggering actor is invoked
     * correctly.
     */
-  private class TriggerActorTestHelper {
+  private class TriggerActorTestHelper:
     /** A queue for storing messages sent to the trigger actor. */
     private val queue = new LinkedBlockingQueue[TriggerResponse]
 
@@ -486,11 +455,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
       *
       * @return information about the next message
       */
-    def nextMessage(): TriggerResponse = {
+    def nextMessage(): TriggerResponse =
       val msg = queue.poll(3, TimeUnit.SECONDS)
       msg should not be null
       msg
-    }
-  }
 
-}

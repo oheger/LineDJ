@@ -48,7 +48,7 @@ private case class GroupScanState(pendingScanRequests: Set[ActorRef],
   * and when a scan operation is completed. It records pending requests and
   * decides, which actors need to be sent a scan request.
   */
-private trait GroupScanStateService {
+private trait GroupScanStateService:
   /**
     * Type definition for a state update. The managed state type is
     * [[GroupScanState]]; each update can yield an additional result.
@@ -89,10 +89,10 @@ private trait GroupScanStateService {
     * @return the updated state and an ''Option'' with an actor to send a scan
     *         request
     */
-  def handleScanRequest(archiveActor: ActorRef): StateUpdate[Option[ActorRef]] = for {
+  def handleScanRequest(archiveActor: ActorRef): StateUpdate[Option[ActorRef]] = for
     _ <- scanRequested(archiveActor)
     nextRequest <- fetchNextScanRequest()
-  } yield nextRequest
+  yield nextRequest
 
   /**
     * Updates the state for a completed scan operation and returns an
@@ -103,16 +103,15 @@ private trait GroupScanStateService {
     * @return the updated state and an ''Option'' with an actor to send a scan
     *         request
     */
-  def handleScanCompleted(): StateUpdate[Option[ActorRef]] = for {
+  def handleScanCompleted(): StateUpdate[Option[ActorRef]] = for
     _ <- scanCompleted()
     nextRequest <- fetchNextScanRequest()
-  } yield nextRequest
-}
+  yield nextRequest
 
 /**
   * The default implementation of the ''GroupScanStateService'' trait.
   */
-private object GroupScanStateServiceImpl extends GroupScanStateService {
+private object GroupScanStateServiceImpl extends GroupScanStateService:
   /** Constant for an initial state object. */
   val InitialState: GroupScanState = GroupScanState(scanInProgress = false, pendingScanRequests = Set.empty,
     currentScanRequest = None)
@@ -124,7 +123,7 @@ private object GroupScanStateServiceImpl extends GroupScanStateService {
     * @return the updated state
     */
   override def scanRequested(archiveActor: ActorRef): StateUpdate[Unit] = State { s =>
-    (if (s.scanInProgress) s.copy(pendingScanRequests = s.pendingScanRequests + archiveActor)
+    (if s.scanInProgress then s.copy(pendingScanRequests = s.pendingScanRequests + archiveActor)
     else s.copy(scanInProgress = true, currentScanRequest = Some(archiveActor)), ())
   }
 
@@ -135,7 +134,7 @@ private object GroupScanStateServiceImpl extends GroupScanStateService {
     * @return the updated state
     */
   override def scanCompleted(): StateUpdate[Unit] = State { s =>
-    (if (s.pendingScanRequests.isEmpty)
+    (if s.pendingScanRequests.isEmpty then
       s.copy(scanInProgress = false)
     else {
       val nextRequest = s.pendingScanRequests.head
@@ -155,4 +154,3 @@ private object GroupScanStateServiceImpl extends GroupScanStateService {
   override def fetchNextScanRequest(): StateUpdate[Option[ActorRef]] = State { s =>
     (s.copy(currentScanRequest = None), s.currentScanRequest)
   }
-}

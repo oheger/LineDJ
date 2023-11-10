@@ -26,7 +26,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.Path
 
-object ArchiveToCWriterActor {
+object ArchiveToCWriterActor:
 
   /**
     * A message processed by [[ArchiveToCWriterActor]] telling it to write the
@@ -41,7 +41,6 @@ object ArchiveToCWriterActor {
     */
   case class WriteToC(target: Path, content: List[(MediumID, String)])
 
-}
 
 /**
   * An actor class that writes the table of content of a media archive.
@@ -56,11 +55,10 @@ object ArchiveToCWriterActor {
   * handling is implemented.
   */
 class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStreamSupport
-  with ActorLogging {
-  override protected def customReceive: Receive = {
+  with ActorLogging:
+  override protected def customReceive: Receive =
     case m@WriteToC(target, content) =>
       writeFile(createToCSource(content), target, m)
-  }
 
   /**
     * @inheritdoc This implementation does nothing. We do no result reporting,
@@ -79,7 +77,7 @@ class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStrea
     * @param content the content
     * @return the source which produces the ToC
     */
-  private def createToCSource(content: List[(MediumID, String)]): Source[ByteString, Any] = {
+  private def createToCSource(content: List[(MediumID, String)]): Source[ByteString, Any] =
     val cr = System.lineSeparator()
     val source = Source(content).filter(_._1.mediumDescriptionPath.isDefined)
       .map { t =>
@@ -87,9 +85,7 @@ class ArchiveToCWriterActor extends AbstractFileWriterActor with CancelableStrea
         val meta = s""""metaDataPath":"${t._2}.mdt"}"""
         desc + "," + meta
       }.scan(ByteString("[" + cr)) { (prev, e) =>
-      if (prev(0) != '[') ByteString("," + cr + e)
+      if prev(0) != '[' then ByteString("," + cr + e)
       else ByteString(e)
     }.concat(Source.single(ByteString(cr + "]" + cr)))
     source
-  }
-}

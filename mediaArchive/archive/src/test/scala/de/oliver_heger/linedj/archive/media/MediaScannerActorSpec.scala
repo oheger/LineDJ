@@ -1,17 +1,33 @@
+/*
+ * Copyright 2015-2023 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.pekko.util.Timeout
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -21,9 +37,9 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object MediaScannerActorSpec {
+object MediaScannerActorSpec:
   /** The root directory of the test folder structure. */
   private val RootPath = Paths get "musicArchive"
 
@@ -68,7 +84,7 @@ object MediaScannerActorSpec {
     *
     * @return a list with file data objects representing media
     */
-  private def testMediaFiles(): List[FileData] = {
+  private def testMediaFiles(): List[FileData] =
     val medium1 = RootPath resolve "medium1"
     val sub1 = medium1 resolve "songSub1"
     val sub1Sub = sub1 resolve "subSub"
@@ -90,7 +106,6 @@ object MediaScannerActorSpec {
       createFile(sub3, "medium3Song1.mp3"),
       createFile(medium3, "medium3.settings"),
       createFile(otherDir, "noMedium3.mp3"))
-  }
 
   /**
     * Generates a URI relative to the test root path that corresponds to the
@@ -99,14 +114,13 @@ object MediaScannerActorSpec {
     * @param path the path
     * @return the relative URI for this path
     */
-  private def relativeUri(path: Path): String = {
+  private def relativeUri(path: Path): String =
     def toComponents(it: java.util.Iterator[Path]): List[String] =
-      if (it.hasNext) it.next().toString :: toComponents(it)
+      if it.hasNext then it.next().toString :: toComponents(it)
       else Nil
 
     val relativePath = RootPath.relativize(path)
     toComponents(relativePath.iterator).mkString("/")
-  }
 
   /**
     * Returns a set with all defined medium IDs for the test directory
@@ -160,35 +174,30 @@ object MediaScannerActorSpec {
     * @return a tuple with the scan result and the medium information
     */
   private def findResultFor(results: List[ScanSinkActor.CombinedResults], mid: MediumID):
-  (EnhancedMediaScanResult, Option[MediumInfo]) = {
+  (EnhancedMediaScanResult, Option[MediumInfo]) =
     val optMediumRes = results.flatMap(_.results).find(
       _.result.scanResult.mediaFiles.contains(mid))
     val mediumRes = optMediumRes.get
     (mediumRes.result, mediumRes.info.get(mid))
-  }
-}
 
 /**
   * Test class for ''MediaScannerActor''.
   */
-class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
-  with FileTestHelper {
+class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar with FileTestHelper:
 
   import de.oliver_heger.linedj.archive.media.MediaScannerActorSpec._
 
   def this() = this(ActorSystem("MediaScannerActorSpec"))
 
-  override protected def beforeAll(): Unit = {
+  override protected def beforeAll(): Unit =
     resolveTestFiles() foreach { file =>
       writeFileContent(file.path, FileTestHelper.TestData.substring(file.size.toInt))
     }
-  }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Resolves all test files against the current temp directory.
@@ -212,7 +221,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   private def testMediumID(key: String): MediumID =
     DefinedMediumIDs.find(_.mediumURI contains key).get
 
-  "A MediaScannerActor" should "return correct creation Props" in {
+  "A MediaScannerActor" should "return correct creation Props" in:
     val exclusions = Set("FOO", "BAR")
     val inclusions = Set("BAZ")
     val parser = TestProbe().ref
@@ -224,24 +233,21 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ArchiveName, exclusions, inclusions, BufferSize,
       parser, parseTimeout))
-  }
 
-  it should "find all defined media in a directory structure" in {
+  it should "find all defined media in a directory structure" in:
     val helper = new ScannerActorTestHelper
 
     val results = helper.scanAndGetResults()
     extractMedia(results) should contain allElementsOf DefinedMediumIDs
-  }
 
-  it should "read the content of media" in {
+  it should "read the content of media" in:
     val helper = new ScannerActorTestHelper
     val results = helper.scanAndGetResults()
 
-    def filesFor(key: String): List[String] = {
+    def filesFor(key: String): List[String] =
       val mid = testMediumID(key)
       findResultFor(results, mid)._1.scanResult.mediaFiles(mid)
         .map(extractFileName)
-    }
 
     val m1Files = filesFor("medium1")
     m1Files should have size 3
@@ -252,9 +258,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val m3Files = filesFor("medium3")
     m3Files should have size 1
     m3Files should contain only "medium3Song1.mp3"
-  }
 
-  it should "read the content of the undefined medium" in {
+  it should "read the content of the undefined medium" in:
     val helper = new ScannerActorTestHelper
     val results = helper.scanAndGetResults()
 
@@ -266,9 +271,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val files = resUndef.result.scanResult.mediaFiles(mid).map(extractFileName)
     files should have size 3
     files forall (_.startsWith("noMedium")) shouldBe true
-  }
 
-  it should "obtain medium information for defined media" in {
+  it should "obtain medium information for defined media" in:
     val helper = new ScannerActorTestHelper
     val results = helper.scanAndGetResults()
 
@@ -279,18 +283,16 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       val expPath = testDirectory.resolve(RootPath).resolve(mid.mediumDescriptionPath.get)
       info.name should be(expPath.toString)
     }
-  }
 
-  it should "correctly handle an exception during a scan operation" in {
+  it should "correctly handle an exception during a scan operation" in:
     val helper = new ScannerActorTestHelper
 
     val results = helper.scan(Paths get "nonExistingPath")
       .waitForScanComplete()
       .fetchAllResults()
     results shouldBe empty
-  }
 
-  it should "support canceling a scan operation" in {
+  it should "support canceling a scan operation" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
         parserActor, InfoParserTimeout) with ChildActorFactory {
@@ -305,9 +307,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .waitForScanComplete()
       .fetchAllResults()
     extractMedia(results).size should be < 4
-  }
 
-  it should "unregister kill switches after stream processing" in {
+  it should "unregister kill switches after stream processing" in:
     val refKillSwitch = new AtomicReference[KillSwitch]
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set.empty, Set.empty, BufferSize,
@@ -315,7 +316,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         override private[media] def runStream(source: Source[Path, Any], root: Path,
                                               sinkActor: ActorRef): KillSwitch = {
           val res = super.runStream(source, root, sinkActor)
-          if (refKillSwitch.get() != null) res
+          if refKillSwitch.get() != null then res
           else {
             val ks = mock[KillSwitch]
             refKillSwitch set ks
@@ -329,9 +330,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .waitForScanComplete()
       .post(CancelStreams)
     verify(refKillSwitch.get(), never()).shutdown()
-  }
 
-  it should "support excluding files" in {
+  it should "support excluding files" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
         parserActor, InfoParserTimeout) with ChildActorFactory)
@@ -342,9 +342,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val m2Results = findResultFor(results, mid)
     val files = m2Results._1.scanResult.mediaFiles(mid).map(extractFileName)
     files should contain only "medium2Song1.mp3"
-  }
 
-  it should "support including files (with a higher preference than excluding)" in {
+  it should "support including files (with a higher preference than excluding)" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set("TXT"), BufferSize,
         parserActor, InfoParserTimeout) with ChildActorFactory)
@@ -355,9 +354,8 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val m2Results = findResultFor(results, mid)
     val files = m2Results._1.scanResult.mediaFiles(mid).map(extractFileName)
     files should contain only "medium2Text.txt"
-  }
 
-  it should "handle timeouts when parsing medium description files" in {
+  it should "handle timeouts when parsing medium description files" in:
     val fProps: ActorRef => Props = parserActor =>
       Props(new MediaScannerActor(ArchiveName, Set("TXT"), Set.empty, BufferSize,
         parserActor, Timeout(500.millis)) with ChildActorFactory)
@@ -365,14 +363,13 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     val results = helper.disableInfoParserActor().scanAndGetResults()
     results should have size 0
-  }
 
   /**
     * A test helper class managing a test actor and its dependencies.
     *
     * @param fProps a function to adapt the properties of the test actor
     */
-  private class ScannerActorTestHelper(fProps: ActorRef => Props = testActorProps) {
+  private class ScannerActorTestHelper(fProps: ActorRef => Props = testActorProps):
     /** The queue in which results are stored. */
     private val resultQueue = new LinkedBlockingQueue[ScanSinkActor.CombinedResults]
 
@@ -395,10 +392,9 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg the message
       * @return this test helper
       */
-    def post(msg: Any): ScannerActorTestHelper = {
+    def post(msg: Any): ScannerActorTestHelper =
       scanActor ! msg
       this
-    }
 
     /**
       * Starts a scan operation on the test directory.
@@ -406,22 +402,20 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param root optional root path to scan
       * @return this test helper
       */
-    def scan(root: Path = testDirectory resolve RootPath): ScannerActorTestHelper = {
+    def scan(root: Path = testDirectory resolve RootPath): ScannerActorTestHelper =
       scanActor.tell(ScanPath(root, SeqNo), resultConsumerActor)
       this
-    }
 
     /**
       * Returns the next result object that was received by the consumer actor.
       *
       * @return the next result object
       */
-    def nextResult(): ScanSinkActor.CombinedResults = {
+    def nextResult(): ScanSinkActor.CombinedResults =
       val res = resultQueue.poll(5, TimeUnit.SECONDS)
       res should not be null
       res.seqNo should be(SeqNo)
       res
-    }
 
     /**
       * Returns a flag whether more results are available. Note that this
@@ -438,14 +432,13 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return a sequence with all received result objects
       */
-    def fetchAllResults(): List[ScanSinkActor.CombinedResults] = {
+    def fetchAllResults(): List[ScanSinkActor.CombinedResults] =
       @tailrec def fetchNextResult(res: List[ScanSinkActor.CombinedResults]):
       List[ScanSinkActor.CombinedResults] =
-        if (hasMoreResults) fetchNextResult(nextResult() :: res)
+        if hasMoreResults then fetchNextResult(nextResult() :: res)
         else res
 
       fetchNextResult(Nil).reverse
-    }
 
     /**
       * Waits for the end of the current scan operation. This method waits
@@ -453,10 +446,9 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def waitForScanComplete(): ScannerActorTestHelper = {
+    def waitForScanComplete(): ScannerActorTestHelper =
       awaitCond(scanCompleted.get())
       this
-    }
 
     /**
       * Scans the test directory, waits for the completion of the scan
@@ -473,22 +465,18 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def disableInfoParserActor(): ScannerActorTestHelper = {
+    def disableInfoParserActor(): ScannerActorTestHelper =
       infoParser ! CloseRequest
       this
-    }
 
     /**
       * Creates an instance of the test actor.
       *
       * @return the test actor instance
       */
-    private def createTestActor(): ActorRef = {
+    private def createTestActor(): ActorRef =
       system.actorOf(fProps(infoParser))
-    }
-  }
 
-}
 
 /**
   * A test actor class simulating the media manager regarding results
@@ -502,16 +490,14 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   */
 class ResultsConsumerActor(resultsQueue: LinkedBlockingQueue[ScanSinkActor.CombinedResults],
                            completed: AtomicBoolean)
-  extends Actor {
-  override def receive: Receive = {
+  extends Actor:
+  override def receive: Receive =
     case r: ScanSinkActor.CombinedResults =>
       resultsQueue offer r
       sender() ! ScanSinkActor.Ack
 
     case MediaScannerActor.PathScanCompleted(req) if req.seqNo == MediaScannerActorSpec.SeqNo =>
       completed set true
-  }
-}
 
 /**
   * A mock implementation of an actor that parses a medium description file.
@@ -521,11 +507,11 @@ class ResultsConsumerActor(resultsQueue: LinkedBlockingQueue[ScanSinkActor.Combi
   * In order to test timeouts, an instance can be deactivated by sending it a
   * ''CloseRequest'' message. Then no answers are sent.
   */
-class MockMediumInfoParserActor extends Actor {
+class MockMediumInfoParserActor extends Actor:
   /** Flag whether this actor is active. */
   private var active = true
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) if active =>
       val info = MediumInfo(mediumID = mid, name = path.toString, description = "",
         orderMode = "", checksum = "0")
@@ -533,5 +519,3 @@ class MockMediumInfoParserActor extends Actor {
 
     case CloseRequest =>
       active = false
-  }
-}

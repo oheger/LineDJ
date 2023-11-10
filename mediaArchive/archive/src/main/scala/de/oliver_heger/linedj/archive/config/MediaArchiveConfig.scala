@@ -24,10 +24,11 @@ import org.apache.pekko.util.Timeout
 import java.nio.file.{Path, Paths}
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success, Try}
 
-object MediaArchiveConfig {
+object MediaArchiveConfig:
   /**
     * Constant for the section with configuration settings about local
     * archives.
@@ -194,14 +195,13 @@ object MediaArchiveConfig {
     * @return a sequence with the archive configurations extracted
     */
   def apply(config: Configuration,
-            nameResolver: => String = LocalNameResolver.localHostName): Seq[MediaArchiveConfig] = {
+            nameResolver: => String = LocalNameResolver.localHostName): Seq[MediaArchiveConfig] =
     val defDownloadConfig = DownloadConfig(config.subset(ArchivesSection))
     val archives = config.getList(ArchivesKey + "." + PropRootPath)
     (0 until archives.size()) map { idx =>
       val key = s"$ArchivesKey($idx)"
       extractMediaArchiveConfig(config, defDownloadConfig, key, nameResolver)
     }
-  }
 
   /**
     * Extracts the configuration for a single local archive from the given key
@@ -215,7 +215,7 @@ object MediaArchiveConfig {
     * @return the ''MediaArchiveConfig'' that has been constructed
     */
   private def extractMediaArchiveConfig(config: Configuration, defDownloadConfig: DownloadConfig,
-                                        keyPrefix: String, nameResolver: => String): MediaArchiveConfig = {
+                                        keyPrefix: String, nameResolver: => String): MediaArchiveConfig =
     val subConfig = config.subset(keyPrefix)
     new MediaArchiveConfig(metaDataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
       infoSizeLimit = intProperty(config, subConfig, PropInfoSizeLimit),
@@ -237,7 +237,6 @@ object MediaArchiveConfig {
       infoParserTimeout = durationProperty(config, subConfig, PropScanParseInfoTimeout,
         Some(DefaultInfoParserTimeout.duration)),
       scanMediaBufferSize = intProperty(config, subConfig, PropScanMediaBufferSize, Some(DefaultScanMediaBufferSize)))
-  }
 
   /**
     * Resolves the archive name using the resolver function. Also handles
@@ -247,17 +246,15 @@ object MediaArchiveConfig {
     * @param nameResolver the resolver function
     * @return the archive name
     */
-  private def resolveArchiveName(config: Configuration, nameResolver: => String): String = {
+  private def resolveArchiveName(config: Configuration, nameResolver: => String): String =
     val pattern = config.getString(PropArchiveName, DefaultNamePattern)
-    if (pattern contains PlaceholderHost)
-      Try(pattern.replace(PlaceholderHost, nameResolver)) match {
+    if pattern contains PlaceholderHost then
+      Try(pattern.replace(PlaceholderHost, nameResolver)) match
         case Success(name) => name
         case Failure(ex) =>
           Log.error("Could not resolve media archive name!", ex)
           pattern
-      }
     else pattern
-  }
 
   /**
     * Determines the value of a string property using the value from the
@@ -282,7 +279,7 @@ object MediaArchiveConfig {
     * @return the value of this int property
     */
   private def intProperty(c: Configuration, subConfig: Configuration, key: String, optDefault: Option[Int] = None):
-  Int = if (subConfig.containsKey(key)) subConfig getInt key
+  Int = if subConfig.containsKey(key) then subConfig getInt key
   else optDefault.fold(c.getInt(ArchivesSection + key)) { defValue =>
     c.getInt(ArchivesSection + key, defValue)
   }
@@ -299,15 +296,14 @@ object MediaArchiveConfig {
     * @return the resulting duration
     */
   private def durationProperty(c: Configuration, subConfig: Configuration, key: String,
-                               optDefault: Option[FiniteDuration] = None): FiniteDuration = {
+                               optDefault: Option[FiniteDuration] = None): FiniteDuration =
     def toDuration(secs: Long): FiniteDuration = FiniteDuration(secs, TimeUnit.SECONDS)
 
-    if (subConfig.containsKey(key)) toDuration(subConfig getLong key)
+    if subConfig.containsKey(key) then toDuration(subConfig getLong key)
     else optDefault.fold(toDuration(c.getLong(ArchivesSection + key))) { defValue =>
-      if (c.containsKey(ArchivesSection + key)) toDuration(c.getLong(ArchivesSection + key))
+      if c.containsKey(ArchivesSection + key) then toDuration(c.getLong(ArchivesSection + key))
       else defValue
     }
-  }
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -339,11 +335,10 @@ object MediaArchiveConfig {
     * @param key       the key to be evaluated
     * @return the set with exclusions
     */
-  private def obtainExtensionSet(c: Configuration, subConfig: Configuration, key: String): Set[String] = {
+  private def obtainExtensionSet(c: Configuration, subConfig: Configuration, key: String): Set[String] =
     import scala.jdk.CollectionConverters._
     val extensions = subConfig.getList(key, c.getList(ArchivesSection + key))
     extensions.asScala.map(_.toString.toUpperCase(Locale.ROOT)).toSet
-  }
 
   /**
     * Extracts the path for the file where to store the ToC (if any) from the
@@ -371,7 +366,6 @@ object MediaArchiveConfig {
     */
   case class MediaRootData(rootPath: Path, processorCount: Int, accessRestriction: Option[Int])
 
-}
 
 /**
   * A class for managing configuration data for the server-side actor system.

@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -27,7 +27,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Path, Paths}
 
-object PersistentMetaDataReaderActorSpec {
+object PersistentMetaDataReaderActorSpec:
   /** The name of the test meta data file. */
   private val MetaDataTestFile = "/metadata.mdt"
 
@@ -39,22 +39,19 @@ object PersistentMetaDataReaderActorSpec {
 
   /** The read chunk size. */
   private val ReadChunkSize = 2048
-}
 
 /**
   * Test class for ''PersistentMetaDataReaderActor''.
   */
-class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers
-  with FileTestHelper {
+class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
 
   import PersistentMetaDataReaderActorSpec._
 
   def this() = this(ActorSystem("PersistentMetaDataReaderActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Tests whether a valid meta data file can be read using a specific chunk
@@ -62,7 +59,7 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     *
     * @param chunkSize the chunk size
     */
-  private def checkReadFile(chunkSize: Int): Unit = {
+  private def checkReadFile(chunkSize: Int): Unit =
     val path = Paths.get(getClass.getResource(MetaDataTestFile).toURI)
     val helper = new PersistentMetaDataReaderTestHelper(chunkSize)
 
@@ -75,51 +72,44 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       "Ever Dream", "Wheels Of Fire", "Within Me", "Fragments Of Faith")
     val artists = metaData.map(_.metaData.artist.get)
     artists should contain allOf("Lacuna Coil", "Nightwish", "Manowar")
-  }
 
-  "A PersistentMetaDataReaderActor" should "read a file with meta data" in {
+  "A PersistentMetaDataReaderActor" should "read a file with meta data" in:
     checkReadFile(ReadChunkSize)
-  }
 
-  it should "read a file with meta data with a bigger chunk size" in {
+  it should "read a file with meta data with a bigger chunk size" in:
     checkReadFile(32768)
-  }
 
-  it should "process an empty data file" in {
+  it should "process an empty data file" in:
     val path = createFileReference()
     val helper = new PersistentMetaDataReaderTestHelper
 
     helper.readFile(path).expectTerminated()
-  }
 
-  it should "process a non JSON file" in {
+  it should "process a non JSON file" in:
     val path = createDataFile()
     val helper = new PersistentMetaDataReaderTestHelper
 
     helper.readFile(path).expectTerminated()
-  }
 
-  it should "handle a non-existing file" in {
+  it should "handle a non-existing file" in:
     val path = Paths.get("non-existing-file.nxt")
     val helper = new PersistentMetaDataReaderTestHelper
 
     helper.readFile(path).expectTerminated()
-  }
 
-  it should "create correct Props" in {
+  it should "create correct Props" in:
     val parent = TestProbe()
     val props = PersistentMetaDataReaderActor(parent.ref, ReadChunkSize)
 
     classOf[PersistentMetaDataReaderActor].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(parent.ref, ReadChunkSize))
-  }
 
   /**
     * A test helper class which manages the required dependencies.
     *
     * @param chunkSize the chunk size when reading data files
     */
-  private class PersistentMetaDataReaderTestHelper(chunkSize: Int = ReadChunkSize) {
+  private class PersistentMetaDataReaderTestHelper(chunkSize: Int = ReadChunkSize):
     /** A test probe for the parent actor. */
     val parent: TestProbe = TestProbe()
 
@@ -133,10 +123,9 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       * @param path the path to the file to be read
       * @return this test helper
       */
-    def readFile(path: Path): PersistentMetaDataReaderTestHelper = {
+    def readFile(path: Path): PersistentMetaDataReaderTestHelper =
       metaReaderActor ! PersistentMetaDataReaderActor.ReadMetaDataFile(path, TestMedium)
       this
-    }
 
     /**
       * Expects the given number of processing result messages sent to the
@@ -145,31 +134,26 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       * @param count the number of messages
       * @return a set with the received messages
       */
-    def expectMetaData(count: Int): Set[MetaDataProcessingSuccess] = {
+    def expectMetaData(count: Int): Set[MetaDataProcessingSuccess] =
       (1 to count).foldLeft(Set.empty[MetaDataProcessingSuccess]) { (s, _) =>
         s + parent.expectMsgType[MetaDataProcessingSuccess]
       }
-    }
 
     /**
       * Expects that the test actor has been stopped.
       *
       * @return this test helper
       */
-    def expectTerminated(): PersistentMetaDataReaderTestHelper = {
+    def expectTerminated(): PersistentMetaDataReaderTestHelper =
       parent watch metaReaderActor
       parent.expectMsgType[Terminated]
       this
-    }
 
     /**
       * Creates the properties for the test actor.
       *
       * @return creation properties
       */
-    private def createProps(): Props = {
+    private def createProps(): Props =
       PersistentMetaDataReaderActor(parent.ref, chunkSize)
-    }
-  }
 
-}

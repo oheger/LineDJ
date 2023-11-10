@@ -24,7 +24,7 @@ import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, Superv
 
 import java.nio.file.Path
 
-object MetaDataFileRemoveActor {
+object MetaDataFileRemoveActor:
 
   /**
     * A message processed by [[MetaDataFileRemoveActor]] telling it to remove
@@ -68,7 +68,6 @@ object MetaDataFileRemoveActor {
     * @return a ''Props'' object for creating a new actor
     */
   def apply(): Props = Props[MetaDataFileRemoveActorImpl]()
-}
 
 /**
   * An actor class which supports removing a set of meta data files.
@@ -80,7 +79,7 @@ object MetaDataFileRemoveActor {
   * one by one using a ''RemoveFileActor''. At the end of the operation, a
   * message is returned listing successful and failed operations.
   */
-class MetaDataFileRemoveActor extends Actor {
+class MetaDataFileRemoveActor extends Actor:
   this: ChildActorFactory =>
 
   /**
@@ -118,16 +117,14 @@ class MetaDataFileRemoveActor extends Actor {
     * A supervisor strategy which ensures that the child remove actor is
     * stopped when an error occurs.
     */
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case _ => Stop
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case req: RemoveMetaDataFiles =>
       requests = requests :+ RemoveRequestData(req, sender())
-      if (deleteList.isEmpty) {
+      if deleteList.isEmpty then
         processNextRequest()
-      }
 
     case RemoveFileActor.FileRemoved(path) if path == pathInProgress =>
       deletedFiles += deleteList.head
@@ -138,13 +135,12 @@ class MetaDataFileRemoveActor extends Actor {
       removeActorCache = None
       fileProcessed()
       processNextFile()
-  }
 
   /**
     * Processes the next file to be deleted.
     */
-  private def processNextFile(): Unit = {
-    deleteList match {
+  private def processNextFile(): Unit =
+    deleteList match
       case h :: _ =>
         val (removeActor, cache) = fetchRemoveActor(removeActorCache)
         pathInProgress = requests.head.request.pathMapping(h)
@@ -155,27 +151,23 @@ class MetaDataFileRemoveActor extends Actor {
           deletedFiles)
         requests = requests.tail
         processNextRequest()
-    }
-  }
 
   /**
     * Updates the actor's state after a file has been removed.
     */
-  private def fileProcessed(): Unit = {
+  private def fileProcessed(): Unit =
     pathInProgress = null
     deleteList = deleteList.tail
-  }
 
   /**
     * Processes the next request if there is any in the queue.
     */
-  private def processNextRequest(): Unit = {
+  private def processNextRequest(): Unit =
     requests.headOption foreach { d =>
       deleteList = fetchFilesToBeRemoved(d.request)
       deletedFiles = Set.empty
       processNextFile()
     }
-  }
 
   /**
     * Obtains a list of files to be deleted from the given request. This
@@ -197,11 +189,9 @@ class MetaDataFileRemoveActor extends Actor {
     * @return the child actor and the updated reference cache
     */
   private def fetchRemoveActor(childRef: Option[ActorRef]): (ActorRef, Option[ActorRef]) =
-  childRef match {
+  childRef match
     case Some(r) => (r, childRef)
     case None =>
       val child = createChildActor(Props[RemoveFileActor]())
       context watch child
       (child, Some(child))
-  }
-}

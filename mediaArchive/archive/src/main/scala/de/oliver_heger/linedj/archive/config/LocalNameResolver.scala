@@ -24,7 +24,7 @@ import java.net.InetAddress
   *
   * This is used to generate names for the media archive.
   */
-private object LocalNameResolver {
+private object LocalNameResolver:
   /**
     * Returns the name of the local host.
     *
@@ -32,4 +32,3 @@ private object LocalNameResolver {
     */
   def localHostName: String =
     InetAddress.getLocalHost.getHostName
-}

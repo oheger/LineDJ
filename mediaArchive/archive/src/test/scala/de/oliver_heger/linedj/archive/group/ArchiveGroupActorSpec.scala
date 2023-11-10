@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.group
 
-import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
+import de.oliver_heger.linedj.test.StateTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -31,15 +31,14 @@ import org.scalatestplus.mockito.MockitoSugar
   * Test class for ''ArchiveGroupActor''.
   */
 class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ArchiveGroupActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  "An ArchiveGroupActor" should "return correct Props" in {
+  "An ArchiveGroupActor" should "return correct Props" in:
     val mediaUnionActor = TestProbe().ref
     val metaDataUnionActor = TestProbe().ref
     val archiveConfigs = List(mock[MediaArchiveConfig], mock[MediaArchiveConfig])
@@ -53,15 +52,13 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     props.args(1) should be(metaDataUnionActor)
     props.args(2) should be(archiveConfigs)
     props.args(3) should be(GroupScanStateServiceImpl)
-  }
 
-  it should "create and initialize the archives in the group" in {
+  it should "create and initialize the archives in the group" in:
     val helper = new GroupActorTestHelper
 
     helper.verifyArchiveInitialization()
-  }
 
-  it should "handle a media scan request from the group" in {
+  it should "handle a media scan request from the group" in:
     val probeTarget = TestProbe()
     val state = GroupScanState(currentScanRequest = Some(probeTarget.ref), pendingScanRequests = Set.empty,
       scanInProgress = false)
@@ -71,9 +68,8 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(ScanAllMedia)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
     probeTarget.expectMsg(StartMediaScan)
-  }
 
-  it should "handle a media scan request if no scan should be triggered" in {
+  it should "handle a media scan request if no scan should be triggered" in:
     val state1 = GroupScanState(currentScanRequest = None, pendingScanRequests = Set.empty,
       scanInProgress = true)
     val state2 = GroupScanState(currentScanRequest = None, pendingScanRequests = Set(TestProbe().ref),
@@ -87,9 +83,8 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
       .post(ScanAllMedia, sender2)
       .expectStateUpdate(state1)
-  }
 
-  it should "handle a notification about a completed scan operation" in {
+  it should "handle a notification about a completed scan operation" in:
     val probeTarget = TestProbe()
     val state = GroupScanState(currentScanRequest = Some(probeTarget.ref), pendingScanRequests = Set.empty,
       scanInProgress = false)
@@ -99,12 +94,11 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(MediaScanCompleted)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
     probeTarget.expectMsg(StartMediaScan)
-  }
 
   /**
     * Test helper class that manages a test actor and its dependencies.
     */
-  private class GroupActorTestHelper extends StateTestHelper[GroupScanState, GroupScanStateService] {
+  private class GroupActorTestHelper extends StateTestHelper[GroupScanState, GroupScanStateService]:
     override val updateService: GroupScanStateService = mock[GroupScanStateService]
 
     /** The media manager of the union archive. */
@@ -128,11 +122,10 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /**
       * Verifies that all archives have been created and initialized.
       */
-    def verifyArchiveInitialization(): Unit = {
+    def verifyArchiveInitialization(): Unit =
       mediaManagers foreach { manager =>
         manager.expectMsg(ScanAllMedia)
       }
-    }
 
     /**
       * Passes the given message to the group test actor.
@@ -141,10 +134,9 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param caller the actor that sends the message
       * @return this test helper
       */
-    def post(msg: Any, caller: ActorRef = testActor): GroupActorTestHelper = {
+    def post(msg: Any, caller: ActorRef = testActor): GroupActorTestHelper =
       groupActor.tell(msg, caller)
       this
-    }
 
     /**
       * Creates the actor to be tested. It uses a mock archive actor factory to
@@ -160,11 +152,9 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
           refMediaUnionActor should be(mediaUnionActor)
           refMetaDataUnionActor should be(metaDataUnionActor)
           groupManager should be(self)
-          if (archiveConfig == archiveConfigs.head) mediaManagers.head.ref
-          else if (archiveConfig == archiveConfigs(1)) mediaManagers(1).ref
+          if archiveConfig == archiveConfigs.head then mediaManagers.head.ref
+          else if archiveConfig == archiveConfigs(1) then mediaManagers(1).ref
           else fail("Unexpected archive config: " + archiveConfig)
         }
       }))
-  }
 
-}

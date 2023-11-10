@@ -23,7 +23,7 @@ import scalaz.State
 
 import scala.concurrent.Promise
 
-object ScanSinkActor {
+object ScanSinkActor:
 
   /**
     * The initialization message. This message is sent from the stream to the
@@ -70,7 +70,6 @@ object ScanSinkActor {
   private[media] case class CombinedResults(results: Iterable[CombinedMediaScanResult],
                                             seqNo: Int)
 
-}
 
 /**
   * An actor serving as the sink for the stream that scans a media archive.
@@ -95,7 +94,7 @@ object ScanSinkActor {
   */
 class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBufferSize: Int,
                     seqNo: Int, private[media] val sinkUpdateService: ScanSinkUpdateService)
-  extends Actor {
+  extends Actor:
   /** The current state of the sink. */
   private var sinkState = ScanSinkUpdateServiceImpl.InitialState
 
@@ -114,7 +113,7 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
   def this(mediaManager: ActorRef, streamDone: Promise[Unit], maxBufferSize: Int, seqNo: Int) =
     this(mediaManager, streamDone, maxBufferSize, seqNo, ScanSinkUpdateServiceImpl)
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Init =>
       sender() ! Ack
 
@@ -136,7 +135,6 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
     case StreamFailure(ex) =>
       streamDone.failure(ex)
       context stop self
-  }
 
   /**
     * Uses the specified ''State'' to update this actor's internal state and
@@ -144,17 +142,13 @@ class ScanSinkActor(mediaManager: ActorRef, streamDone: Promise[Unit], maxBuffer
     *
     * @param state the ''State'' describing the transition
     */
-  private def switchState(state: State[ScanSinkState, SinkTransitionMessages]): Unit = {
+  private def switchState(state: State[ScanSinkState, SinkTransitionMessages]): Unit =
     val (next, msg) = state(sinkState)
     msg.actorsToAck foreach (_ ! Ack)
-    if (msg.results.nonEmpty) {
+    if msg.results.nonEmpty then
       mediaManager ! CombinedResults(msg.results, seqNo)
-    }
     sinkState = next
 
-    if (msg.processingDone) {
+    if msg.processingDone then
       streamDone.success(())
       context stop self
-    }
-  }
-}

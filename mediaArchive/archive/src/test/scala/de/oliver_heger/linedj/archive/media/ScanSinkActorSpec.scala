@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.test.StateTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -28,11 +28,11 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, Promise}
 import scala.util.Failure
 
-object ScanSinkActorSpec {
+object ScanSinkActorSpec:
   /** Maximum buffer size used by tests. */
   private val BufferSize = 42
 
@@ -45,10 +45,9 @@ object ScanSinkActorSpec {
     * @param idx the index
     * @return the test medium ID
     */
-  private def createMediumID(idx: Int): MediumID = {
+  private def createMediumID(idx: Int): MediumID =
     val uri = "/music/test/medium" + idx
     MediumID(uri, Some(uri + "/playlist.settings"))
-  }
 
   /**
     * Generates an enhanced scan result for the test medium with the given
@@ -57,12 +56,11 @@ object ScanSinkActorSpec {
     * @param idx the index
     * @return the scan result for this medium
     */
-  private def createScanResult(idx: Int): EnhancedMediaScanResult = {
+  private def createScanResult(idx: Int): EnhancedMediaScanResult =
     val mid = createMediumID(idx)
     val files = (1 to idx).map(i => FileData(Paths get s"${mid.mediumURI}/music/song$i.mp3", i * 10))
     val scanResult = MediaScanResult(Paths get mid.mediumURI, Map(mid -> files.toList))
     EnhancedMediaScanResult(scanResult, Map(mid -> MediumChecksum(s"foo_$idx")))
-  }
 
   /**
     * Creates a medium info object for the test medium with the given index.
@@ -80,10 +78,9 @@ object ScanSinkActorSpec {
     * @param idx the index of the test medium
     * @return the map with medium information for this test medium
     */
-  private def createMediaInfoMap(idx: Int): Map[MediumID, MediumInfo] = {
+  private def createMediaInfoMap(idx: Int): Map[MediumID, MediumInfo] =
     val info = createMediumInfo(idx)
     Map(info.mediumID -> info)
-  }
 
   /**
     * Creates a combined result object for the specified test medium.
@@ -99,55 +96,48 @@ object ScanSinkActorSpec {
     *
     * @param probe the test probe
     */
-  private def expectNoMessageToProbe(probe: TestProbe): Unit = {
+  private def expectNoMessageToProbe(probe: TestProbe): Unit =
     val Ping = new Object
     probe.ref ! Ping
     probe.expectMsg(Ping)
-  }
-}
 
 /**
   * Test class for ''ScanSinkActor''.
   */
 class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ScanSinkActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import ScanSinkActorSpec._
 
-  "A ScanSinkActor" should "use the default sink update service" in {
+  "A ScanSinkActor" should "use the default sink update service" in :
     val manager = TestProbe()
     val actor = TestActorRef[ScanSinkActor](Props(classOf[ScanSinkActor], manager.ref,
       Promise[Unit](), BufferSize, SeqNo))
 
     actor.underlyingActor.sinkUpdateService should be(ScanSinkUpdateServiceImpl)
-  }
 
-  it should "ACK an init message" in {
+  it should "ACK an init message" in :
     val helper = new SinkActorTestHelper
 
     helper post ScanSinkActor.Init
     expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "pass combined results for a new scan result to the manager" in {
+  it should "pass combined results for a new scan result to the manager" in :
     val res = createScanResult(1)
     val results = List(createCombinedResult(1), createCombinedResult(2))
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleNewScanResult(res, testActor, BufferSize)
-    }
-      .post(res)
+        _.handleNewScanResult(res, testActor, BufferSize)
+      }.post(res)
       .expectCombinedResults(results)
-  }
 
-  it should "send ACK messages to actors when receiving a new scan result" in {
+  it should "send ACK messages to actors when receiving a new scan result" in :
     val probeAck1 = TestProbe()
     val probeAck2 = TestProbe()
     val res = createScanResult(1)
@@ -157,14 +147,12 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
       _.handleNewScanResult(res, testActor, BufferSize)
-    }
-      .post(res)
+    }.post(res)
     probeAck1.expectMsg(ScanSinkActor.Ack)
     probeAck2.expectMsg(ScanSinkActor.Ack)
     helper.expectNoResults()
-  }
 
-  it should "handle the arrival of a medium information" in {
+  it should "handle the arrival of a medium information" in :
     val probeAck = TestProbe()
     val info = createMediumInfo(1)
     val results = List(createCombinedResult(1))
@@ -172,14 +160,12 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleNewMediumInfo(info, testActor, BufferSize)
-    }
-      .post(info)
+        _.handleNewMediumInfo(info, testActor, BufferSize)
+      }.post(info)
       .expectCombinedResults(results)
     probeAck.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "correctly manage its internal state" in {
+  it should "correctly manage its internal state" in :
     val res = createScanResult(1)
     val info = createMediumInfo(1)
     val results = List(createCombinedResult(1))
@@ -189,32 +175,29 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val helper = new SinkActorTestHelper
 
     helper.stub(messages1, state) {
-      _.handleNewScanResult(res, testActor, BufferSize)
-    }
+        _.handleNewScanResult(res, testActor, BufferSize)
+      }
       .stub(messages2, ScanSinkUpdateServiceImpl.InitialState) {
         _.handleNewMediumInfo(info, testActor, BufferSize)
-      }
-      .post(res)
+      }.post(res)
       .expectStateUpdate(ScanSinkUpdateServiceImpl.InitialState)
       .expectNoResults()
       .post(info)
       .expectStateUpdate(state)
       .expectCombinedResults(results)
-  }
 
-  it should "handle an ACK message from the management actor" in {
+  it should "handle an ACK message from the management actor" in :
     val actor = TestProbe()
     val messages = SinkTransitionMessages(Nil, List(actor.ref), processingDone = false)
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleResultAck(BufferSize)
-    }
+        _.handleResultAck(BufferSize)
+      }
       .postAckFromManager()
     actor.expectMsg(ScanSinkActor.Ack)
-  }
 
-  it should "ignore an ACK message from another sender" in {
+  it should "ignore an ACK message from another sender" in :
     val results1 = List(createCombinedResult(1))
     val results2 = List(createCombinedResult(2))
     val res = createScanResult(3)
@@ -223,66 +206,60 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     val helper = new SinkActorTestHelper
 
     helper.stub(messages1, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleResultAck(BufferSize)
-    }
+        _.handleResultAck(BufferSize)
+      }
       .stub(messages2, ScanSinkUpdateServiceImpl.InitialState) {
         _.handleNewScanResult(res, testActor, BufferSize)
-      }
-      .post(ScanSinkActor.Ack)
+      }.post(ScanSinkActor.Ack)
       .post(res)
       .expectCombinedResults(results2)
-  }
 
-  it should "handle a message about completed scan results" in {
+  it should "handle a message about completed scan results" in :
     val results = List(createCombinedResult(1))
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleScanResultsDone(BufferSize)
-    }
+        _.handleScanResultsDone(BufferSize)
+      }
       .post(ScanSinkActor.ScanResultsComplete)
       .expectCombinedResults(results)
-  }
 
-  it should "handle a message about completed media info" in {
+  it should "handle a message about completed media info" in :
     val results = List(createCombinedResult(1))
     val messages = SinkTransitionMessages(results, Nil, processingDone = false)
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleMediaInfoDone(BufferSize)
-    }
+        _.handleMediaInfoDone(BufferSize)
+      }
       .post(ScanSinkActor.MediaInfoComplete)
       .expectCombinedResults(results)
-  }
 
-  it should "handle processing done flag" in {
+  it should "handle processing done flag" in :
     val messages = SinkTransitionMessages(Nil, Nil, processingDone = true)
     val helper = new SinkActorTestHelper
 
     helper.stub(messages, ScanSinkUpdateServiceImpl.InitialState) {
-      _.handleResultAck(BufferSize)
-    }
+        _.handleResultAck(BufferSize)
+      }
       .postAckFromManager()
       .expectPromiseCompleted()
       .expectSinkActorStopped()
-  }
 
-  it should "handle a stream failure message" in {
+  it should "handle a stream failure message" in :
     val ex = new RuntimeException("Stream failure!")
     val helper = new SinkActorTestHelper
 
     helper.post(ScanSinkActor.StreamFailure(ex))
       .expectPromiseFailed(ex)
       .expectSinkActorStopped()
-  }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     */
   private class SinkActorTestHelper
-    extends StateTestHelper[ScanSinkState, ScanSinkUpdateService] {
+    extends StateTestHelper[ScanSinkState, ScanSinkUpdateService]:
     /** Mock for the scan sink update service. */
     override val updateService: ScanSinkUpdateService = mock[ScanSinkUpdateService]
 
@@ -301,10 +278,9 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @param msg the message to be sent
       * @return this test helper
       */
-    def post(msg: Any): SinkActorTestHelper = {
+    def post(msg: Any): SinkActorTestHelper =
       sinkActor ! msg
       this
-    }
 
     /**
       * Tests that a message with the specified results has been sent to the
@@ -314,42 +290,38 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @return this test helper
       */
     def expectCombinedResults(results: Iterable[CombinedMediaScanResult]):
-    SinkActorTestHelper = {
+    SinkActorTestHelper =
       probeManager.expectMsg(ScanSinkActor.CombinedResults(results, SeqNo))
       this
-    }
 
     /**
       * Checks that no message was sent to the manager actor.
       *
       * @return this test helper
       */
-    def expectNoResults(): SinkActorTestHelper = {
+    def expectNoResults(): SinkActorTestHelper =
       expectNoMessageToProbe(probeManager)
       this
-    }
 
     /**
       * Simulates an ACK message from the management actor.
       *
       * @return this test helper
       */
-    def postAckFromManager(): SinkActorTestHelper = {
+    def postAckFromManager(): SinkActorTestHelper =
       sinkActor.tell(ScanSinkActor.Ack, probeManager.ref)
       this
-    }
 
     /**
       * Tests that the test actor has been stopped.
       *
       * @return this test helper
       */
-    def expectSinkActorStopped(): SinkActorTestHelper = {
+    def expectSinkActorStopped(): SinkActorTestHelper =
       val probeWatcher = TestProbe()
       probeWatcher watch sinkActor
       probeWatcher.expectMsgType[Terminated]
       this
-    }
 
     /**
       * Checks whether the promise passed to the test actor has been completed
@@ -357,10 +329,9 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       *
       * @return this test helper
       */
-    def expectPromiseCompleted(): SinkActorTestHelper = {
+    def expectPromiseCompleted(): SinkActorTestHelper =
       Await.result(promise.future, 5.seconds)
       this
-    }
 
     /**
       * Checks whether the promise passed to the test actor has been completed
@@ -369,17 +340,15 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
       * @param ex the exception
       * @return this test helper
       */
-    def expectPromiseFailed(ex: Throwable): SinkActorTestHelper = {
+    def expectPromiseFailed(ex: Throwable): SinkActorTestHelper =
       import system.dispatcher
       val refEx = new AtomicReference[Throwable]
-      promise.future.onComplete {
+      promise.future.onComplete:
         case Failure(e) =>
           refEx set e
         case _ =>
-      }
       awaitCond(refEx.get() == ex)
       this
-    }
 
     /**
       * Creates a test actor instance.
@@ -389,6 +358,4 @@ class ScanSinkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     private def createSinkActor(): ActorRef =
       system.actorOf(Props(new ScanSinkActor(probeManager.ref, promise, BufferSize, SeqNo,
         updateService)))
-  }
 
-}

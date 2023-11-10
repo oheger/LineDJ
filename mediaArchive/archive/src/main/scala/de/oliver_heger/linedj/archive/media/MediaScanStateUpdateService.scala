@@ -34,12 +34,11 @@ import java.nio.file.Path
   * corresponding request to the union archive. With this enumeration the
   * status of this request can be tracked.
   */
-private object UnionArchiveRemoveState extends Enumeration {
+private object UnionArchiveRemoveState extends Enumeration:
   /** Type alias for the remove state. */
   type UnionArchiveRemoveState = Value
 
   val Initial, Pending, Removed = Value
-}
 
 import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
 
@@ -75,14 +74,13 @@ private case class MediaScanState(scanClient: Option[ActorRef],
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
                                   currentResults: List[EnhancedMediaScanResult],
-                                  currentMediaData: Map[MediumID, MediumInfo]) {
+                                  currentMediaData: Map[MediumID, MediumInfo]):
   /**
     * Returns a flag whether currently a scan is in progress.
     *
     * @return '''true''' if a scan is in progress, '''false''' otherwise
     */
   def scanInProgress: Boolean = scanClient.isDefined
-}
 
 /**
   * A case class defining messages to different components that need to be
@@ -114,7 +112,7 @@ private case class ScanStateTransitionMessages(unionArchiveMessage: Option[Any] 
   * update the state of the scan operation when specific life-cycle events
   * occur.
   */
-private trait MediaScanStateUpdateService {
+private trait MediaScanStateUpdateService:
   /**
     * Type alias for a state update. The update operation yields an updated
     * ''State'' and additional data of the specified type.
@@ -238,10 +236,10 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and messages to be sent
     */
   def handleRemovedFromUnionArchive(archiveName: String):
-  StateUpdate[ScanStateTransitionMessages] = for {
+  StateUpdate[ScanStateTransitionMessages] = for
     _ <- removedFromUnionArchive()
     msg <- fetchTransitionMessages(archiveName)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state when new results arrive and returns an object with
@@ -254,10 +252,10 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and messages to be sent
     */
   def handleResultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef, archiveName: String)
-                           (uriFunc: Path => MediaFileUri): StateUpdate[ScanStateTransitionMessages] = for {
+                           (uriFunc: Path => MediaFileUri): StateUpdate[ScanStateTransitionMessages] = for
     _ <- resultsReceived(results, sender)(uriFunc)
     msg <- fetchTransitionMessages(archiveName)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state when an ACK from the meta data manager actor arrives
@@ -267,10 +265,10 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and messages to be sent
     */
   def handleAckFromMetaManager(archiveName: String):
-  StateUpdate[ScanStateTransitionMessages] = for {
+  StateUpdate[ScanStateTransitionMessages] = for
     _ <- ackFromMetaManager()
     msg <- fetchTransitionMessages(archiveName)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state when the current scan operation is complete and returns
@@ -282,10 +280,10 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and messages to be sent
     */
   def handleScanComplete(seqNo: Int, archiveName: String):
-  StateUpdate[ScanStateTransitionMessages] = for {
+  StateUpdate[ScanStateTransitionMessages] = for
     _ <- scanComplete(seqNo)
     msg <- fetchTransitionMessages(archiveName)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state when the current scan operation is canceled and returns
@@ -294,10 +292,10 @@ private trait MediaScanStateUpdateService {
     *
     * @return the updated ''State'' and messages to be sent
     */
-  def handleScanCanceled(): StateUpdate[ScanStateTransitionMessages] = for {
+  def handleScanCanceled(): StateUpdate[ScanStateTransitionMessages] = for
     _ <- scanCanceled()
     ack <- actorToAck()
-  } yield ScanStateTransitionMessages(ack = ack)
+  yield ScanStateTransitionMessages(ack = ack)
 
   /**
     * Generates a ''ScanStateTransitionMessages'' object from the current
@@ -308,17 +306,16 @@ private trait MediaScanStateUpdateService {
     * @return the updated ''State'' and messages to be sent
     */
   private def fetchTransitionMessages(archiveName: String):
-  StateUpdate[ScanStateTransitionMessages] = for {
+  StateUpdate[ScanStateTransitionMessages] = for
     unionMsg <- unionArchiveMessage(archiveName)
     metaMsg <- metaDataMessage()
     ack <- actorToAck()
-  } yield ScanStateTransitionMessages(unionMsg, metaMsg, ack)
-}
+  yield ScanStateTransitionMessages(unionMsg, metaMsg, ack)
 
 /**
   * The default implementation of the ''MediaScanStateUpdateService'' trait.
   */
-private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateService {
+private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateService:
   /**
     * Constant for the initial scan state. When starting up a new media manager
     * actor this state is used.
@@ -344,18 +341,17 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def triggerStartScan(root: Path, client: ActorRef):
   StateUpdate[Option[MediaScannerActor.ScanPath]] = State { s =>
-    if (s.scanInProgress) (s, None)
-    else {
+    if s.scanInProgress then (s, None)
+    else
       val next = s.copy(scanClient = Some(client), fileData = Map.empty, mediaData = Nil,
         removeState = initRemoveState(s), startAnnounced = false)
       (next, Some(MediaScannerActor.ScanPath(root, s.seqNo)))
-    }
   }
 
   override def startScanMessages(archiveName: String):
   StateUpdate[ScanStateTransitionMessages] = State { s =>
-    if (!s.scanInProgress) (s, NoTransitionMessages)
-    else s.removeState match {
+    if !s.scanInProgress then (s, NoTransitionMessages)
+    else s.removeState match
       case Removed if !s.startAnnounced =>
         val next = s.copy(startAnnounced = true, ackMetaManager = false)
         val messages = ScanStateTransitionMessages(metaManagerMessage = generateScanStartsMessage(s))
@@ -366,11 +362,10 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
           Some(ArchiveComponentRemoved(archiveName)))
         (next, messages)
       case _ => (s, NoTransitionMessages)
-    }
   }
 
   override def removedFromUnionArchive(): StateUpdate[Unit] = modify { s =>
-    if (s.removeState == Pending) s.copy(removeState = Removed)
+    if s.removeState == Pending then s.copy(removeState = Removed)
     else s
   }
 
@@ -380,39 +375,38 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   override def resultsReceived(results: ScanSinkActor.CombinedResults, sender: ActorRef)
                               (uriFunc: Path => MediaFileUri): StateUpdate[Unit] = modify { s =>
-    if (s.ackPending.isDefined || results.seqNo != s.seqNo) s
-    else {
+    if s.ackPending.isDefined || results.seqNo != s.seqNo then s
+    else
       val resWithCheck = results.results map updateChecksumInfo
       s.copy(fileData = updateFileDataForResults(s.fileData, resWithCheck)(uriFunc),
         mediaData = updateMediaDataForResults(s.mediaData, resWithCheck),
         currentResults = extractCurrentResults(results.results),
         currentMediaData = extractCurrentMediaInfo(resWithCheck),
         ackPending = Some(sender))
-    }
   }
 
   override def actorToAck(): StateUpdate[Option[ActorRef]] = State { s =>
-    if (ackBlocked(s)) (s, None)
+    if ackBlocked(s) then (s, None)
     else (s.copy(ackPending = None), s.ackPending)
   }
 
   override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
-    if (!s.availableMediaSent) // clear media state, it is not needed by actor
+    if !s.availableMediaSent then // clear media state, it is not needed by actor
       (s.copy(availableMediaSent = true, mediaData = Nil),
         Some(AvailableMedia(s.mediaData)))
-    else if (metaDataMessageBlocked(s)) (s, None)
+    else if metaDataMessageBlocked(s) then (s, None)
     else generateMetaDataMessage(s)
   }
 
   override def unionArchiveMessage(archiveName: String): StateUpdate[Option[Any]] = State { s =>
-    if (s.currentMediaData.nonEmpty)
+    if s.currentMediaData.nonEmpty then
       (s.copy(currentMediaData = Map.empty),
         Some(AddMedia(s.currentMediaData, archiveName, None)))
     else (s, None)
   }
 
   override def scanComplete(seqNo: Int): StateUpdate[Unit] = modify { s =>
-    if (seqNo == s.seqNo)
+    if seqNo == s.seqNo then
       s.copy(scanClient = None, availableMediaSent = false, seqNo = s.seqNo + 1)
     else s
   }
@@ -430,7 +424,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @return the initial remove state
     */
   private def initRemoveState(s: MediaScanState): media.UnionArchiveRemoveState.Value =
-    if (s.seqNo == 0) Removed else Initial
+    if s.seqNo == 0 then Removed else Initial
 
   /**
     * Updates the data with media and their files for the given enhanced scan
@@ -485,12 +479,11 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @param result the result object
     * @return the modified result with updated checksum information
     */
-  private def updateChecksumInfo(result: CombinedMediaScanResult): CombinedMediaScanResult = {
+  private def updateChecksumInfo(result: CombinedMediaScanResult): CombinedMediaScanResult =
     val mediaMap = result.info map { e =>
       (e._1, e._2.copy(checksum = result.result.checksumMapping.getOrElse(e._1, MediumChecksum.Undefined).checksum))
     }
     result.copy(info = mediaMap)
-  }
 
   /**
     * Updates the data with media information for the given sequence of result
@@ -557,13 +550,12 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @return the updated ''State'' and an option with the message
     */
   private def generateMetaDataMessage(s: MediaScanState): (MediaScanState, Option[Any]) =
-    if (!s.startAnnounced)
+    if !s.startAnnounced then
       (s.copy(startAnnounced = true), generateScanStartsMessage(s))
-    else s.currentResults match {
+    else s.currentResults match
       case h :: t =>
         (s.copy(ackMetaManager = false, currentResults = t), Some(h))
       case _ => (s, None)
-    }
 
   /**
     * Generates a message indicating the start of a new scan operation. The
@@ -573,5 +565,4 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @return the optional message indicating a scan start
     */
   private def generateScanStartsMessage(state: MediaScanState): Option[MediaScanStarts] =
-    state.scanClient map MediaScanStarts
-}
+    state.scanClient map MediaScanStarts.apply

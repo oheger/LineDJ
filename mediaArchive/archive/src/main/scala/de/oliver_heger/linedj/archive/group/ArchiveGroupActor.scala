@@ -21,7 +21,9 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllM
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
-object ArchiveGroupActor {
+import scala.collection.immutable.Seq
+
+object ArchiveGroupActor:
   /**
     * Returns a ''Props'' object for creating an instance of this actor class.
     *
@@ -41,7 +43,6 @@ object ArchiveGroupActor {
     extends ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs, scanStateService)
       with ArchiveActorFactory with ChildActorFactory
 
-}
 
 /**
   * An actor that manages media archives that belong to a group.
@@ -62,7 +63,7 @@ object ArchiveGroupActor {
   */
 class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
                         archiveConfigs: Seq[MediaArchiveConfig],
-                        private val scanStateService: GroupScanStateService) extends Actor {
+                        private val scanStateService: GroupScanStateService) extends Actor:
   this: ArchiveActorFactory =>
 
   /** The current scan state of the archive group. */
@@ -72,21 +73,19 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
     * @inheritdoc This implementation creates the actors for the archives in
     *             the group and triggers an initial media scan.
     */
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
 
     archiveConfigs map { config =>
       createArchiveActors(mediaUnionActor, metaDataUnionActor, self, config)
     } foreach (_ ! ScanAllMedia)
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ScanAllMedia =>
       updateState(scanStateService.handleScanRequest(sender()))
 
     case MediaScanCompleted =>
       updateState(scanStateService.handleScanCompleted())
-  }
 
   /**
     * Updates the internal group scan state based on the passed in update
@@ -94,9 +93,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
     *
     * @param update the update object
     */
-  private def updateState(update: GroupScanStateServiceImpl.StateUpdate[Option[ActorRef]]): Unit = {
+  private def updateState(update: GroupScanStateServiceImpl.StateUpdate[Option[ActorRef]]): Unit =
     val (next, target) = update(scanState)
     target foreach (_ ! StartMediaScan)
     scanState = next
-  }
-}
