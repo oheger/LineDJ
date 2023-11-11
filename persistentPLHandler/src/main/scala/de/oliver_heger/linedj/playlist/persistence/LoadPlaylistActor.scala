@@ -26,7 +26,7 @@ import org.apache.pekko.util.ByteString
 import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
-object LoadPlaylistActor {
+object LoadPlaylistActor:
   /** A position that is used if the position file cannot be read. */
   private val DummyPosition = CurrentPlaylistPosition(0, 0, 0)
 
@@ -45,7 +45,6 @@ object LoadPlaylistActor {
   case class LoadPlaylistData(playlistPath: Path, positionPath: Path, maxFileSize: Int,
                               messageBus: MessageBus)
 
-}
 
 /**
   * An actor class that loads the persistent information about the current
@@ -60,35 +59,32 @@ object LoadPlaylistActor {
   * object on the system message bus. From there it is picked up by the
   * handler component which can then trigger additional actions.
   */
-class LoadPlaylistActor extends Actor with ActorLogging {
+class LoadPlaylistActor extends Actor with ActorLogging:
 
   import LoadPlaylistActor._
   import context.system
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case LoadPlaylistData(plPath, posPath, maxFileSize, bus) =>
       import context.dispatcher
       val futPlaylistItems = loadPlaylistFile(plPath, maxFileSize)
-        .recover {
+        .recover:
           case e =>
             log.error(e, s"Error when reading playlist file $plPath!")
             List.empty[PlaylistItem]
-        }
       val futPlaylistPos = loadPositionFile(posPath, maxFileSize)
-        .recover {
+        .recover:
           case e =>
             log.error(e, s"Error when reading position file $posPath!")
             DummyPosition
-        }
 
-      val playlist = for {items <- futPlaylistItems
+      val playlist = for items <- futPlaylistItems
                           pos <- futPlaylistPos
-      } yield PersistentPlaylistParser.generateFinalPlaylist(items, pos)
+      yield PersistentPlaylistParser.generateFinalPlaylist(items, pos)
       playlist foreach { pl =>
         bus publish LoadedPlaylist(pl)
         context stop self
       }
-  }
 
   /**
     * Loads a file with a persistent playlist.
@@ -97,7 +93,7 @@ class LoadPlaylistActor extends Actor with ActorLogging {
     * @param maxSize the maximum file size
     * @return a ''Future'' for the result of the load operation
     */
-  private def loadPlaylistFile(path: Path, maxSize: Int): Future[List[PlaylistItem]] = {
+  private def loadPlaylistFile(path: Path, maxSize: Int): Future[List[PlaylistItem]] =
     log.info("Loading persistent playlist from {}.", path)
     val source = FileIO.fromPath(path)
     val sink = Sink.fold[List[PlaylistItem], PlaylistItem](List.empty) { (lst, item) =>
@@ -106,7 +102,6 @@ class LoadPlaylistActor extends Actor with ActorLogging {
     source.via(new StreamSizeRestrictionStage(maxSize))
       .via(PersistentPlaylistParser.playlistParserStage)
       .runWith(sink)
-  }
 
   /**
     * Loads a file with position information about a playlist.
@@ -117,10 +112,8 @@ class LoadPlaylistActor extends Actor with ActorLogging {
     * @return a ''Future'' for the result of the load operation
     */
   private def loadPositionFile(path: Path, maxSize: Int)(implicit ec: ExecutionContext):
-  Future[CurrentPlaylistPosition] = {
+  Future[CurrentPlaylistPosition] =
     log.info("Loading playlist position from {}.", path)
     val source = FileIO.fromPath(path).via(new StreamSizeRestrictionStage(maxSize))
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     source.runWith(sink).map(bs => CurrentPositionParser.parsePosition(bs.utf8String))
-  }
-}

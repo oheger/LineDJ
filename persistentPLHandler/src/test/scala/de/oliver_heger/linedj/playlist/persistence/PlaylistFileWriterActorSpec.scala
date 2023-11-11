@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
@@ -30,16 +30,15 @@ import java.nio.file.Files
 /**
   * Test class for ''PlaylistFileWriterActor''.
   */
-class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("PlaylistFileWriterActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
-  "A PlaylistFileWriterActor" should "write a file" in {
+  "A PlaylistFileWriterActor" should "write a file" in:
     val target = createPathInDirectory("test.dat")
     val content = FileTestHelper.testBytes().grouped(32).map(a => ByteString(a))
     val src = Source[ByteString](content.toList)
@@ -48,9 +47,8 @@ class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     writer ! PlaylistFileWriterActor.WriteFile(src, target)
     expectMsg(PlaylistFileWriterActor.FileWritten(target, None))
     readDataFile(target) should be(FileTestHelper.TestData)
-  }
 
-  it should "handle an error when writing a file gracefully" in {
+  it should "handle an error when writing a file gracefully" in:
     val target = createPathInDirectory("error")
     Files createDirectory target
     val source = Source.single(ByteString("This will not work"))
@@ -65,5 +63,3 @@ class PlaylistFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     val source2 = Source.single(ByteString(FileTestHelper.TestData))
     writer ! PlaylistFileWriterActor.WriteFile(source2, target2)
     expectMsg(PlaylistFileWriterActor.FileWritten(target2, None))
-  }
-}

@@ -27,7 +27,7 @@ import scala.annotation.tailrec
   * A trait providing common functionality used by test classes related to
   * playlist processing.
   */
-trait PlaylistTestHelper {
+trait PlaylistTestHelper:
   /** A vector with test medium IDs. */
   val MediaIDs = Vector(MediumID("medium1", Some("medium1.settings"), "component1"),
     MediumID("medium2", None, "component2"),
@@ -66,9 +66,9 @@ trait PlaylistTestHelper {
     * @param currentIdx the index of the current song (0-based)
     * @return the resulting playlist
     */
-  def generatePlaylist(length: Int, currentIdx: Int): Playlist = {
+  def generatePlaylist(length: Int, currentIdx: Int): Playlist =
     @tailrec def moveToCurrent(pl: Playlist): Playlist =
-      if (pl.playedSongs.lengthCompare(currentIdx) < 0)
+      if pl.playedSongs.lengthCompare(currentIdx) < 0 then
         moveToCurrent(PlaylistService.moveForwards(pl).get)
       else pl
 
@@ -76,7 +76,6 @@ trait PlaylistTestHelper {
       fileId(i) :: lst
     }
     moveToCurrent(Playlist(songs, Nil))
-  }
 
   /**
     * Generates a test playlist in which all media file IDs have the specified
@@ -87,10 +86,9 @@ trait PlaylistTestHelper {
     * @param checksum   the checksum for the single IDs
     * @return the resulting playlist
     */
-  def generatePlaylistWithChecksum(length: Int, currentIdx: Int, checksum: String): Playlist = {
+  def generatePlaylistWithChecksum(length: Int, currentIdx: Int, checksum: String): Playlist =
     val pl = generatePlaylist(length, currentIdx)
     pl.copy(pendingSongs = pl.pendingSongs map (_.copy(checksum = Some(checksum))))
-  }
 
   /**
     * Generates a ''SetPlaylist'' command based on the given parameters.
@@ -105,4 +103,3 @@ trait PlaylistTestHelper {
                           timeOffset: Long = 0): SetPlaylist =
     SetPlaylist(playlist = generatePlaylist(length, currentIdx), positionOffset = positionOffset,
       timeOffset = timeOffset)
-}

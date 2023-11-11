@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
+import de.oliver_heger.linedj.test.StateTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
@@ -35,9 +35,9 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
 import java.time.LocalDateTime
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
+object PlaylistStateWriterActorSpec extends PlaylistTestHelper:
   /** Name of the file with playlist items. */
   private val PlaylistFileName = "playlist.json"
 
@@ -65,7 +65,7 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
     */
   private def createWriteFile(idx: Int): WriteFile =
     WriteFile(Source.single(ByteString(idx.toString)),
-      if (idx % 2 == 0) WriteConfig.pathPlaylist else WriteConfig.pathPosition)
+      if idx % 2 == 0 then WriteConfig.pathPlaylist else WriteConfig.pathPosition)
 
   /**
     * Creates a playback progress event with the relevant parts.
@@ -77,36 +77,32 @@ object PlaylistStateWriterActorSpec extends PlaylistTestHelper {
   private def createProgressEvent(posOfs: Long, timeOfs: Long): PlaybackProgressEvent =
     PlaybackProgressEvent(bytesProcessed = posOfs, playbackTime = timeOfs.seconds,
       currentSource = TestAudioSource, time = TimeStamp)
-}
 
 /**
   * Test class for ''PlaylistStateWriterActor''.
   */
 class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("PlaylistStateWriterActorSpec"))
 
   import PlaylistStateWriterActorSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A PlaylistStateWriterActor" should "create correct Props" in {
+  "A PlaylistStateWriterActor" should "create correct Props" in:
     val props = PlaylistStateWriterActor(WriteConfig)
 
     classOf[PlaylistStateWriterActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(WriteConfig))
-  }
 
-  it should "use a default state update service" in {
+  it should "use a default state update service" in:
     val actorRef = TestActorRef[PlaylistStateWriterActor](PlaylistStateWriterActor(WriteConfig))
 
     actorRef.underlyingActor.updateService should be(PlaylistWriteStateUpdateServiceImpl)
-  }
 
-  it should "store the initial playlist" in {
+  it should "store the initial playlist" in:
     val playlist = mock[Playlist]
     val PosOfs = 20180607220325L
     val TimeOfs = 220335
@@ -122,9 +118,8 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .sendInitPlaylist(SetPlaylist(playlist, positionOffset = PosOfs, timeOffset = TimeOfs))
       .send(createProgressEvent(PosOfs + 100, TimeOfs + 1))
       .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, state1)
-  }
 
-  it should "handle an audio player state update event" in {
+  it should "handle an audio player state update event" in:
     val playerState = mock[AudioPlayerState]
     val nextState = mock[PlaylistWriteState]
     val PosOfs = 20180607222036L
@@ -145,9 +140,8 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .expectWriteOperation(write2)
       .send(createProgressEvent(PosOfs, TimeOfs))
       .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, nextState)
-  }
 
-  it should "handle file written notifications" in {
+  it should "handle file written notifications" in:
     val write = createWriteFile(1)
     val otherPath = Paths get "someOtherPath.json"
     val stateTemp = mock[PlaylistWriteState]
@@ -165,9 +159,8 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       .expectNoWriteOperation()
       .expectStateUpdates(PlaylistWriteStateUpdateServiceImpl.InitialState, stateTemp)
       .expectCloseAck()
-  }
 
-  it should "handle a close request" in {
+  it should "handle a close request" in:
     val write = createWriteFile(2)
     val messages = WriteStateTransitionMessages(List(write), Some(testActor))
     val helper = new WriterActorTestHelper
@@ -177,13 +170,12 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
     }.sendCloseRequest()
       .expectWriteOperation(write)
       .expectCloseAck()
-  }
 
   /**
     * Helper class managing a test instance and its dependencies.
     */
   private class WriterActorTestHelper
-    extends StateTestHelper[PlaylistWriteState, PlaylistWriteStateUpdateService] {
+    extends StateTestHelper[PlaylistWriteState, PlaylistWriteStateUpdateService]:
     override val updateService: PlaylistWriteStateUpdateService = mock[PlaylistWriteStateUpdateService]
 
     /** Test probe for the file writer child actor. */
@@ -199,10 +191,9 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the message
       * @return this test helper
       */
-    def send(msg: Any): WriterActorTestHelper = {
+    def send(msg: Any): WriterActorTestHelper =
       writerActor receive msg
       this
-    }
 
     /**
       * Sends a message with the initial playlist to the test actor. This
@@ -212,10 +203,9 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the init message to be sent
       * @return this test helper
       */
-    def sendInitPlaylist(msg: SetPlaylist): WriterActorTestHelper = {
+    def sendInitPlaylist(msg: SetPlaylist): WriterActorTestHelper =
       send(msg)
       this
-    }
 
     /**
       * Expects that the given state updates were done.
@@ -223,24 +213,22 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @param states the states passed to the update service
       * @return this test helper
       */
-    def expectStateUpdates(states: PlaylistWriteState*): WriterActorTestHelper = {
+    def expectStateUpdates(states: PlaylistWriteState*): WriterActorTestHelper =
       states foreach { s =>
         nextUpdatedState().get should be(s)
       }
       this
-    }
 
     /**
       * Checks that no message was sent to the file writer actor.
       *
       * @return this test helper
       */
-    def expectNoWriteOperation(): WriterActorTestHelper = {
+    def expectNoWriteOperation(): WriterActorTestHelper =
       val testMsg = new Object
       probeFileWriter.ref ! testMsg
       probeFileWriter.expectMsg(testMsg)
       this
-    }
 
     /**
       * Expects that the specified write message was sent to the file writer
@@ -249,10 +237,9 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       * @param write the expected write operation
       * @return this test helper
       */
-    def expectWriteOperation(write: WriteFile): WriterActorTestHelper = {
+    def expectWriteOperation(write: WriteFile): WriterActorTestHelper =
       expectWriteOperation() should be(write)
       this
-    }
 
     /**
       * Expects that a write operation was triggered and returns the
@@ -269,20 +256,18 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return this test helper
       */
-    def sendCloseRequest(): WriterActorTestHelper = {
+    def sendCloseRequest(): WriterActorTestHelper =
       writerActor ! CloseRequest
       this
-    }
 
     /**
       * Checks that an Ack message for a close request is received.
       *
       * @return this test helper
       */
-    def expectCloseAck(): WriterActorTestHelper = {
+    def expectCloseAck(): WriterActorTestHelper =
       expectMsg(CloseAck(writerActor))
       this
-    }
 
     /**
       * Creates a test actor instance with a child actor factory implementation
@@ -300,6 +285,4 @@ class PlaylistStateWriterActorSpec(testSystem: ActorSystem) extends TestKit(test
         }
       }))
 
-  }
 
-}

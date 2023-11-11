@@ -25,7 +25,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.Path
 
-object PlaylistFileWriterActor {
+object PlaylistFileWriterActor:
 
   /**
     * A message processed by [[PlaylistFileWriterActor]] telling it to write
@@ -48,7 +48,6 @@ object PlaylistFileWriterActor {
     */
   case class FileWritten(target: Path, exception: Option[Throwable])
 
-}
 
 /**
   * An actor class that handles write operations for files that store
@@ -60,18 +59,14 @@ object PlaylistFileWriterActor {
   * not stop itself, but sends a response message to the caller. It is
   * important that for each write request a response is returned.
   */
-class PlaylistFileWriterActor extends AbstractFileWriterActor with CancelableStreamSupport with
-  ActorLogging {
-  override protected def customReceive: Receive = {
+class PlaylistFileWriterActor extends AbstractFileWriterActor with CancelableStreamSupport with ActorLogging:
+  override protected def customReceive: Receive =
     case WriteFile(source, target) =>
       writeFile(source, target, FileWritten(target, None))
-  }
 
   /**
     * @inheritdoc This implementation just sends a failure notification to the
     *             caller.
     */
-  override protected def handleFailure(client: ActorRef, failure: StreamFailure): Unit = {
+  override protected def handleFailure(client: ActorRef, failure: StreamFailure): Unit =
     client ! FileWritten(failure.path, Some(failure.ex))
-  }
-}

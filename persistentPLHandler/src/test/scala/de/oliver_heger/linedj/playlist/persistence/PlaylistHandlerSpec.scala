@@ -16,24 +16,23 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ShutdownHandler}
-import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
+import de.oliver_heger.linedj.test.{MessageBusTestImpl, StateTestHelper}
 import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, eq => argEq}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
+import org.mockito.Mockito.*
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -41,11 +40,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 import scala.reflect.ClassTag
 
-object PlaylistHandlerSpec {
+object PlaylistHandlerSpec:
   /** Path to the playlist file. */
   private val PathPlaylist = Paths get "persistedPlaylist.json"
 
@@ -69,50 +68,44 @@ object PlaylistHandlerSpec {
     * @return the ''Iterable'' with these messages
     */
   def messages(m: Any*): Iterable[Any] = List(m: _*)
-}
 
 /**
   * Test class for ''PlaylistHandler''.
   */
 class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("PlaylistHandlerSpec"))
 
   import PlaylistHandlerSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A PlaylistHandler" should "create a default update service" in {
+  "A PlaylistHandler" should "create a default update service" in:
     val handler = new PlaylistHandler
 
     handler.updateService should be(PersistentPlaylistStateUpdateServiceImpl)
-  }
 
-  it should "register itself at the message bus on activation" in {
+  it should "register itself at the message bus on activation" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .expectBusListenerRegistrationCount(1)
-  }
 
-  it should "remove the message bus listener registration on deactivation" in {
+  it should "remove the message bus listener registration on deactivation" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .deactivate()
       .expectBusListenerRegistrationCount(0)
-  }
 
-  it should "trigger a playlist load operation on activation" in {
+  it should "trigger a playlist load operation on activation" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .expectLoadPlaylistOperation()
-  }
 
-  it should "handle invalid configuration data" in {
+  it should "handle invalid configuration data" in:
     val helper = new HandlerTestHelper
     helper.config.clearProperty(PlaylistHandlerConfig.PropPositionPath)
 
@@ -121,16 +114,14 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .expectNoLoadPlaylistOperation()
       .deactivate()
     helper.numberOfCreatedActors should be(0)
-  }
 
-  it should "create the state writer actor during activation" in {
+  it should "create the state writer actor during activation" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .numberOfCreatedActors should be(2)
-  }
 
-  it should "invoke the update service correctly" in {
+  it should "invoke the update service correctly" in:
     val MsgActivate1 = "activate1"
     val MsgActivate2 = "activate2"
     val MsgPlaylist = "playlist arrived"
@@ -163,18 +154,16 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
     helper.expectUpdatedState(PersistentPlaylistStateUpdateServiceImpl.InitialState,
       stateActive, statePlaylist)
-  }
 
-  it should "remove all registrations on deactivate" in {
+  it should "remove all registrations on deactivate" in:
     val helper = new HandlerTestHelper
     helper.activate().deactivate()
 
     helper.expectMessageOnBus[AudioPlayerStateChangeUnregistration].id should be(helper.handlerComponentID)
     helper.expectMessageOnBus[AvailableMediaUnregistration].id should be(helper.handlerComponentID)
     helper.expectMessageOnBus[ShutdownHandler.RemoveShutdownObserver].observerID should be(helper.handlerComponentID)
-  }
 
-  it should "forward a state update event to the state writer actor" in {
+  it should "forward a state update event to the state writer actor" in:
     val Msg = "test_message"
     val TestList = mock[SetPlaylist]
     val state = AudioPlayerState(mock[Playlist], 42, playbackActive = true,
@@ -195,34 +184,30 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     }
     eventCallback(AudioPlayerStateChangedEvent(state))
     helper.expectStateWriterMsg(state)
-  }
 
-  it should "stop the state writer actor on deactivation" in {
+  it should "stop the state writer actor on deactivation" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .deactivate()
       .expectStateWriterActorStopped()
-  }
 
-  it should "forward a playback progress event to the state writer actor" in {
+  it should "forward a playback progress event to the state writer actor" in:
     val event = PlaybackProgressEvent(20171217, 214158.seconds, AudioSource("uri", 1000, 0, 0))
     val helper = new HandlerTestHelper
 
     helper.activate()
       .publishOnBus(event)
       .expectStateWriterMsg(event)
-  }
 
-  it should "send a close message to the state writer actor on shutdown" in {
+  it should "send a close message to the state writer actor on shutdown" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .triggerShutdown()
       .expectStateWriterMsg(CloseRequest)
-  }
 
-  it should "take the configured shutdown timeout into account" in {
+  it should "take the configured shutdown timeout into account" in:
     val Timeout = 500.millis
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
@@ -231,9 +216,8 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .disableCloseAckForStateWriter()
       .triggerShutdown()
       .expectShutdownCompletionNotification()
-  }
 
-  it should "wait for the close Ack of the state writer actor on deactivation" in {
+  it should "wait for the close Ack of the state writer actor on deactivation" in:
     val Timeout = 500.millis
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
@@ -242,35 +226,31 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .disableCloseAckForStateWriter()
       .triggerShutdown()
       .expectShutdownCompletionNotification(0)
-  }
 
-  it should "stop the state writer actor when handling the shutdown notification" in {
+  it should "stop the state writer actor when handling the shutdown notification" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .triggerShutdown()
       .expectStateWriterActorStopped()
-  }
 
-  it should "not stop the state writer actor in deactivate() after shutdown handling" in {
+  it should "not stop the state writer actor in deactivate() after shutdown handling" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
       .triggerShutdown()
       .deactivate()
     helper.numberOfStateWriterStops should be(1)
-  }
 
-  it should "not do any shutdown handling in deactivate() if the activation failed" in {
+  it should "not do any shutdown handling in deactivate() if the activation failed" in:
     val helper = new HandlerTestHelper
     helper.config.clearProperty(PlaylistHandlerConfig.PropPositionPath)
 
     helper.activate(stubActivation = false, expInitMessages = false)
       .deactivate()
       .expectNoMessageOnBus(time = 100.millis)
-  }
 
-  it should "shutdown the state writer actor in deactivate() if there was no shutdown message" in {
+  it should "shutdown the state writer actor in deactivate() if there was no shutdown message" in:
     val helper = new HandlerTestHelper
 
     helper.activate()
@@ -278,9 +258,8 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       .expectStateWriterMsg(CloseRequest)
       .expectStateWriterActorStopped()
     helper.numberOfStateWriterStops should be(1)
-  }
 
-  it should "take the configured shutdown timeout into account when doing shutdown in deactivate()" in {
+  it should "take the configured shutdown timeout into account when doing shutdown in deactivate()" in:
     val Timeout = 1.second
     val helper = new HandlerTestHelper
     helper.config.setProperty(PlaylistHandlerConfig.PropShutdownTimeout, Timeout.toMillis)
@@ -290,13 +269,12 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     import system.dispatcher
     val futDeactivate = Future(helper.deactivate())
     Await.ready(futDeactivate, 2.seconds)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
   private class HandlerTestHelper
-    extends StateTestHelper[PersistentPlaylistState, PersistentPlaylistStateUpdateService] {
+    extends StateTestHelper[PersistentPlaylistState, PersistentPlaylistStateUpdateService]:
     /** Mock for the playlist state update service. */
     override val updateService: PersistentPlaylistStateUpdateService = mock[PersistentPlaylistStateUpdateService]
 
@@ -339,33 +317,30 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *                        the component are expected on the message bus
       * @return this test helper
       */
-    def activate(stubActivation: Boolean = true, expInitMessages: Boolean = true): HandlerTestHelper = {
-      if (stubActivation) {
+    def activate(stubActivation: Boolean = true, expInitMessages: Boolean = true): HandlerTestHelper =
+      if stubActivation then
         stub(List.empty[Any]: Iterable[Any],
           PersistentPlaylistStateUpdateServiceImpl.InitialState) { s =>
           s.handleActivation(argEq(handlerComponentID), any())
         }
-      }
       handler initClientContext clientCtx
       handler.activate(mock[ComponentContext])
-      if (expInitMessages) {
+      if expInitMessages then
         val regMsg = messageBus.expectMessageType[ShutdownHandler.RegisterShutdownObserver]
         regMsg.observerID should be(handler.componentID)
         regMsg.observer should be(handler)
         messageBus.processNextMessage[PlaylistHandlerConfig]()
-      } else messageBus.expectNoMessage()
+      else messageBus.expectNoMessage()
       this
-    }
 
     /**
       * Deactivates the handler component under test.
       *
       * @return this test helper
       */
-    def deactivate(): HandlerTestHelper = {
+    def deactivate(): HandlerTestHelper =
       handler.deactivate(mock[ComponentContext])
       this
-    }
 
     /**
       * Tests that the given number of listeners is registered at the message
@@ -374,10 +349,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param count the expected number of listeners
       * @return this test helper
       */
-    def expectBusListenerRegistrationCount(count: Int): HandlerTestHelper = {
+    def expectBusListenerRegistrationCount(count: Int): HandlerTestHelper =
       messageBus.currentListeners should have size count
       this
-    }
 
     /**
       * Expects that the load actor was triggered to load the persistent
@@ -385,24 +359,22 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return this test helper
       */
-    def expectLoadPlaylistOperation(): HandlerTestHelper = {
+    def expectLoadPlaylistOperation(): HandlerTestHelper =
       val expMsg = LoadPlaylistActor.LoadPlaylistData(PathPlaylist, PathPosition, MaxFileSize,
         messageBus)
       probeLoader.expectMsg(expMsg)
       this
-    }
 
     /**
       * Checks that no playlist load operation took place.
       *
       * @return this test helper
       */
-    def expectNoLoadPlaylistOperation(): HandlerTestHelper = {
+    def expectNoLoadPlaylistOperation(): HandlerTestHelper =
       val pingMsg = new Object
       probeLoader.ref ! pingMsg
       probeLoader.expectMsg(pingMsg)
       this
-    }
 
     /**
       * Expects that the specified message was passed to the state writer
@@ -411,10 +383,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param msg the expected message
       * @return this test helper
       */
-    def expectStateWriterMsg(msg: Any): HandlerTestHelper = {
+    def expectStateWriterMsg(msg: Any): HandlerTestHelper =
       probeWriter.expectMsg(msg)
       this
-    }
 
     /**
       * Sens the specified message on the message bus. It should be retrieved
@@ -423,10 +394,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param msg the message
       * @return this test helper
       */
-    def publishOnBus(msg: Any): HandlerTestHelper = {
+    def publishOnBus(msg: Any): HandlerTestHelper =
       messageBus publishDirectly msg
       this
-    }
 
     /**
       * Expects that a message of the given type was published on the message
@@ -444,42 +414,38 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param time the time
       * @return this test helper
       */
-    def expectNoMessageOnBus(time: FiniteDuration = 10.millis): HandlerTestHelper = {
+    def expectNoMessageOnBus(time: FiniteDuration = 10.millis): HandlerTestHelper =
       messageBus.expectNoMessage(time)
       this
-    }
 
     /**
       * Checks that the state writer actor has been stopped.
       *
       * @return this test helper
       */
-    def expectStateWriterActorStopped(): HandlerTestHelper = {
+    def expectStateWriterActorStopped(): HandlerTestHelper =
       val probeWatcher = TestProbe()
       probeWatcher watch stateWriterActor
       probeWatcher.expectMsgType[Terminated]
       this
-    }
 
     /**
       * Configures the test state writer actor not to send a close Ack.
       *
       * @return this test helper
       */
-    def disableCloseAckForStateWriter(): HandlerTestHelper = {
+    def disableCloseAckForStateWriter(): HandlerTestHelper =
       stateWriterActor ! IgnoreCloseRequest
       this
-    }
 
     /**
       * Invokes the test handler to trigger a shutdown operation.
       *
       * @return this test helper
       */
-    def triggerShutdown(): HandlerTestHelper = {
+    def triggerShutdown(): HandlerTestHelper =
       handler.triggerShutdown(completionNotifier)
       this
-    }
 
     /**
       * Verifies that the mock for the completion notifier has been invoked
@@ -488,10 +454,9 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param expTimes the expected number of invocations
       * @return this test helper
       */
-    def expectShutdownCompletionNotification(expTimes: Int = 1): HandlerTestHelper = {
+    def expectShutdownCompletionNotification(expTimes: Int = 1): HandlerTestHelper =
       verify(completionNotifier, timeout(1000).times(expTimes)).shutdownComplete()
       this
-    }
 
     /**
       * Allows access to the configuration passed to the test handler. This can
@@ -522,12 +487,11 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param states the sequence of expected states
       * @return this test helper
       */
-    def expectUpdatedState(states: PersistentPlaylistState*): HandlerTestHelper = {
+    def expectUpdatedState(states: PersistentPlaylistState*): HandlerTestHelper =
       states foreach { s =>
         nextUpdatedState().get should be(s)
       }
       this
-    }
 
     /**
       * Returns a counter for the stop invocations of the state writer actor.
@@ -541,7 +505,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return the context
       */
-    private def createClientContext(): ClientApplicationContext = {
+    private def createClientContext(): ClientApplicationContext =
       val context = mock[ClientApplicationContext]
       when(context.messageBus).thenReturn(messageBus)
       when(context.actorSystem).thenReturn(system)
@@ -564,21 +528,19 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
         }
       })
       context
-    }
 
     /**
       * Creates the test configuration for the playlist handler component.
       *
       * @return the initialized configuration
       */
-    private def createConfig(): Configuration = {
+    private def createConfig(): Configuration =
       val config = new PropertiesConfiguration
       config.addProperty(PlaylistHandlerConfig.PropPlaylistPath, PathPlaylist.toString)
       config.addProperty(PlaylistHandlerConfig.PropPositionPath, PathPosition.toString)
       config.addProperty(PlaylistHandlerConfig.PropAutoSaveInterval, AutoSaveInterval.toSeconds)
       config.addProperty(PlaylistHandlerConfig.PropMaxFileSize, MaxFileSize)
       config
-    }
 
     /**
       * Creates the handler to be tested. This instance support some more
@@ -587,18 +549,14 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return the test handler instance
       */
     private def createHandler(): PlaylistHandler =
-      new PlaylistHandler(updateService) {
+      new PlaylistHandler(updateService):
         /**
           * @inheritdoc Records this invocation.
           */
-        override private[persistence] def stopStateWriterActor(act: ActorRef): Unit = {
+        override private[persistence] def stopStateWriterActor(act: ActorRef): Unit =
           stateWriterStops += 1
           super.stopStateWriterActor(act)
-        }
-      }
-  }
 
-}
 
 /**
   * A message which tells the state writer test actor to ignore a close
@@ -616,10 +574,10 @@ case object IgnoreCloseRequest
   *
   * @param probe the probe to forward messages to
   */
-private class StateWriterTestActor(probe: ActorRef) extends Actor {
+private class StateWriterTestActor(probe: ActorRef) extends Actor:
   private var acceptClose = true
 
-  override def receive: Actor.Receive = {
+  override def receive: Actor.Receive =
     case IgnoreCloseRequest =>
       acceptClose = false
 
@@ -629,5 +587,3 @@ private class StateWriterTestActor(probe: ActorRef) extends Actor {
 
     case msg =>
       probe ! msg
-  }
-}

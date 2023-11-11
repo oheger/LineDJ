@@ -53,7 +53,7 @@ case class PersistentPlaylistState(componentID: Option[ComponentID],
   * tracked. As soon as all referenced media are available, corresponding
   * messages to update the playlist are generated.
   */
-trait PersistentPlaylistStateUpdateService {
+trait PersistentPlaylistStateUpdateService:
   /**
     * Type alias for updates of the persistent playlist state.
     */
@@ -109,10 +109,10 @@ trait PersistentPlaylistStateUpdateService {
     */
   def handleActivation(compID: ComponentID,
                        callback: ConsumerSupport.ConsumerFunction[AvailableMedia]):
-  StateUpdate[Iterable[Any]] = for {
+  StateUpdate[Iterable[Any]] = for
     _ <- activate(compID, callback)
     msg <- fetchMessages()
-  } yield msg
+  yield msg
 
   /**
     * Handles the life-cycle event that the playlist has been loaded. Updates
@@ -125,10 +125,10 @@ trait PersistentPlaylistStateUpdateService {
   def handlePlaylistLoaded(playlist: SetPlaylist,
                            callback: ConsumerSupport
                            .ConsumerFunction[AudioPlayerStateChangedEvent]):
-  StateUpdate[Iterable[Any]] = for {
+  StateUpdate[Iterable[Any]] = for
     _ <- playlistLoaded(playlist, callback)
     msg <- fetchMessages()
-  } yield msg
+  yield msg
 
   /**
     * Handles a notification about available media. Updates the state
@@ -137,11 +137,10 @@ trait PersistentPlaylistStateUpdateService {
     * @param av the new available media
     * @return the updated state and the messages to be sent
     */
-  def handleNewAvailableMedia(av: AvailableMedia): StateUpdate[Iterable[Any]] = for {
+  def handleNewAvailableMedia(av: AvailableMedia): StateUpdate[Iterable[Any]] = for
     _ <- availableMediaArrived(av)
     msg <- fetchMessages()
-  } yield msg
-}
+  yield msg
 
 object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateUpdateService {
   /**
@@ -156,12 +155,11 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
   override def activate(compID: ComponentID, callback: ConsumerSupport
   .ConsumerFunction[AvailableMedia]): PersistentPlaylistStateUpdateServiceImpl
   .StateUpdate[Unit] = modify { s =>
-    s.componentID match {
+    s.componentID match
       case Some(_) => s
       case None =>
         s.copy(componentID = Some(compID),
           messages = List(AvailableMediaRegistration(compID, callback)))
-    }
   }
 
   /**
@@ -179,19 +177,19 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
       val referencedMediaIDs = extractReferencedMedia(playlist)
       val playlistActive = canActivatePlaylist(referencedMediaIDs, s.availableMediaIDs,
         s.availableChecksums)
-      val finalMessages = if (playlistActive) playlist :: messages else messages
+      val finalMessages = if playlistActive then playlist :: messages else messages
       s.copy(loadedPlaylist = Some(playlist),
-        referencedMediaIDs = if (playlistActive) None else Some(referencedMediaIDs),
+        referencedMediaIDs = if playlistActive then None else Some(referencedMediaIDs),
         messages = finalMessages)
     } getOrElse s
   }
 
   override def availableMediaArrived(av: AvailableMedia): StateUpdate[Unit] = modify { s =>
-    s.loadedPlaylist match {
+    s.loadedPlaylist match
       case Some(pl) =>
         val playlistActive = s.referencedMediaIDs.exists(m =>
           canActivatePlaylist(m, av.mediaIDs, extractChecksumSet(av)))
-        if (playlistActive)
+        if playlistActive then
           s.copy(messages = pl :: s.messages,
             availableMediaIDs = Set.empty, referencedMediaIDs = None)
         else s.copy(availableMediaIDs = Set.empty)
@@ -199,7 +197,6 @@ object PersistentPlaylistStateUpdateServiceImpl extends PersistentPlaylistStateU
       case None =>
         s.copy(availableMediaIDs = av.mediaIDs,
           availableChecksums = extractChecksumSet(av))
-    }
   }
 
   override def fetchMessages(): StateUpdate[Iterable[Any]] = State { s =>

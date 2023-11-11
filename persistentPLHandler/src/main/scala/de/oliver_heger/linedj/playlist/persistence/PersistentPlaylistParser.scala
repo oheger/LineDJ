@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.playlist.persistence
 
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.io.parser._
+import de.oliver_heger.linedj.io.parser.*
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
@@ -28,9 +28,10 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.charset.StandardCharsets
 import scala.annotation.tailrec
+import scala.collection.immutable.IndexedSeq
 import scala.util.{Success, Try}
 
-object PersistentPlaylistParser {
+object PersistentPlaylistParser:
   /** Property for the playlist index. */
   val PropIndex = "index"
 
@@ -81,15 +82,13 @@ object PersistentPlaylistParser {
     * @return the resulting ''Playlist''
     */
   def generateFinalPlaylist(items: List[PlaylistItem], position: CurrentPlaylistPosition):
-  SetPlaylist = {
-    if (Log.isInfoEnabled) {
+  SetPlaylist =
+    if Log.isInfoEnabled then
       items.filter(_.isFailure) foreach (f => Log.info("Could not parse playlist item: " + f))
-    }
     val songs = items.collect {
       case Success(item) => item
     }.sortWith(_._1 < _._1)
     applyPosition(songs, position)
-  }
 
   /**
     * Creates a playlist by applying position information to the given list
@@ -100,12 +99,12 @@ object PersistentPlaylistParser {
     * @return the resulting ''Playlist''
     */
   private def applyPosition(items: List[(Int, MediaFileID)],
-                            position: CurrentPlaylistPosition): SetPlaylist = {
+                            position: CurrentPlaylistPosition): SetPlaylist =
     @tailrec def splitAndConvert(currentItems: List[(Int, MediaFileID)],
                                  played: PlaylistService.SongList): SetPlaylist =
-      currentItems match {
+      currentItems match
         case h :: t =>
-          if (h._1 >= position.index)
+          if h._1 >= position.index then
             applyOffsets(Playlist(playedSongs = played,
               pendingSongs = h._2 :: (t map (_._2))), h._1, position)
           else splitAndConvert(t, h._2 :: played)
@@ -113,10 +112,8 @@ object PersistentPlaylistParser {
         case _ =>
           SetPlaylist(Playlist(playedSongs = played, pendingSongs = Nil),
             closePlaylist = played.nonEmpty)
-      }
 
     splitAndConvert(items, Nil)
-  }
 
   /**
     * Transforms a ''Playlist'' to a ''SetPlaylist'' command by applying
@@ -130,7 +127,7 @@ object PersistentPlaylistParser {
     */
   private def applyOffsets(pl: Playlist, curIdx: Int, position: CurrentPlaylistPosition):
   SetPlaylist =
-    if (curIdx == position.index)
+    if curIdx == position.index then
       SetPlaylist(playlist = pl, positionOffset = position.positionOffset,
         timeOffset = position.timeOffset)
     else SetPlaylist(playlist = pl)
@@ -143,7 +140,7 @@ object PersistentPlaylistParser {
     * @param obj the object to be converted
     * @return the result of the conversion
     */
-  private def convertItem(obj: Map[String, String]): PlaylistItem = Try {
+  private def convertItem(obj: Map[String, String]): PlaylistItem = Try:
     val idx = obj(PropIndex).toInt
     val mediumURI = obj(PropMediumURI)
     val mediumChecksum = obj get PropMediumChecksum
@@ -152,7 +149,6 @@ object PersistentPlaylistParser {
     val fileID = MediaFileID(MediumID(mediumURI, obj get PropMediumDescPath, compID), uri,
       checksum = mediumChecksum)
     (idx, fileID)
-  }
 
   /**
     * The function for parsing chunks of data.
@@ -166,7 +162,6 @@ object PersistentPlaylistParser {
                         lastChunk: Boolean):
   (Iterable[PlaylistItem], Option[Failure]) =
     ItemParser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), (), lastChunk, lastFailure)
-}
 
 /**
   * A class for parsing files with a JSON representation of a playlist.
@@ -180,11 +175,9 @@ object PersistentPlaylistParser {
   */
 class PersistentPlaylistParser private(chunkParser: ChunkParser[ParserTypes.Parser,
   ParserTypes.Result, Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[PlaylistItem, Unit](chunkParser, jsonParser) {
+  extends AbstractModelParser[PlaylistItem, Unit](chunkParser, jsonParser):
 
   import PersistentPlaylistParser._
 
-  override def convertJsonObjects(d: Unit, objects: IndexedSeq[Map[String, String]]):
-  IndexedSeq[PlaylistItem] =
+  override def convertJsonObjects(d: Unit, objects: IndexedSeq[Map[String, String]]): IndexedSeq[PlaylistItem] =
     objects map convertItem
-}

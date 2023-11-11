@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-object PlaylistHandlerConfigSpec {
+object PlaylistHandlerConfigSpec:
   /** Path to the playlist file. */
   private val PathPlaylist = Paths get "persistedPlaylist.json"
 
@@ -45,7 +45,7 @@ object PlaylistHandlerConfigSpec {
     *
     * @return the initialized configuration
     */
-  private def createFullConfig(): Configuration = {
+  private def createFullConfig(): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty(PlaylistHandlerConfig.PropPlaylistPath, PathPlaylist.toString)
     config.addProperty(PlaylistHandlerConfig.PropPositionPath, PathPosition.toString)
@@ -53,7 +53,6 @@ object PlaylistHandlerConfigSpec {
     config.addProperty(PlaylistHandlerConfig.PropAutoSaveInterval, AutoSaveInterval.toSeconds)
     config.addProperty(PlaylistHandlerConfig.PropShutdownTimeout, ShutdownTimeout.toMillis)
     config
-  }
 
   /**
     * Convenience function to remove a property from a configuration.
@@ -62,20 +61,18 @@ object PlaylistHandlerConfigSpec {
     * @param prop the property to be removed
     * @return the updated configuration
     */
-  private def without(c: Configuration, prop: String): Configuration = {
+  private def without(c: Configuration, prop: String): Configuration =
     c clearProperty prop
     c
-  }
-}
 
 /**
   * Test class for ''PlaylistHandlerConfig''.
   */
-class PlaylistHandlerConfigSpec extends AnyFlatSpec with Matchers {
+class PlaylistHandlerConfigSpec extends AnyFlatSpec with Matchers:
 
   import PlaylistHandlerConfigSpec._
 
-  "A PlaylistHandlerConfig" should "read all settings from a Configuration" in {
+  "A PlaylistHandlerConfig" should "read all settings from a Configuration" in:
     val config = PlaylistHandlerConfig(createFullConfig()).get
 
     config.pathPlaylist should be(PathPlaylist)
@@ -83,38 +80,31 @@ class PlaylistHandlerConfigSpec extends AnyFlatSpec with Matchers {
     config.maxFileSize should be(MaxFileSize)
     config.autoSaveInterval should be(AutoSaveInterval)
     config.shutdownTimeout should be(ShutdownTimeout)
-  }
 
-  it should "detect a missing playlist path" in {
+  it should "detect a missing playlist path" in:
     val settings = without(createFullConfig(), PlaylistHandlerConfig.PropPlaylistPath)
 
     PlaylistHandlerConfig(settings).isFailure shouldBe true
-  }
 
-  it should "detect a missing position path" in {
+  it should "detect a missing position path" in:
     val settings = without(createFullConfig(), PlaylistHandlerConfig.PropPositionPath)
 
     PlaylistHandlerConfig(settings).isFailure shouldBe true
-  }
 
-  it should "disable auto-save if the property is not defined" in {
+  it should "disable auto-save if the property is not defined" in:
     val settings = without(createFullConfig(), PlaylistHandlerConfig.PropAutoSaveInterval)
     val config = PlaylistHandlerConfig(settings).get
 
     config.autoSaveInterval.toSeconds should be(Integer.MAX_VALUE)
-  }
 
-  it should "disable the maximum file size check if the property is not defined" in {
+  it should "disable the maximum file size check if the property is not defined" in:
     val settings = without(createFullConfig(), PlaylistHandlerConfig.PropMaxFileSize)
     val config = PlaylistHandlerConfig(settings).get
 
     config.maxFileSize should be(Integer.MAX_VALUE)
-  }
 
-  it should "set a default value for shutdown timeout if the property is not defined" in {
+  it should "set a default value for shutdown timeout if the property is not defined" in:
     val settings = without(createFullConfig(), PlaylistHandlerConfig.PropShutdownTimeout)
     val config = PlaylistHandlerConfig(settings).get
 
     config.shutdownTimeout should be(PlaylistHandlerConfig.DefaultShutdownTimeout)
-  }
-}

@@ -28,6 +28,7 @@ import scalaz.State
 import scalaz.State._
 
 import java.nio.file.Path
+import scala.collection.immutable.Seq
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -94,7 +95,7 @@ case class WriteStateTransitionMessages(writes: Iterable[WriteFile], closeAck: O
   * to specific input events; for instance, messages to a file writer actor are
   * generated to save specific data files.
   */
-trait PlaylistWriteStateUpdateService {
+trait PlaylistWriteStateUpdateService:
   /**
     * Type alias for updates of the persistent playlist state.
     */
@@ -190,10 +191,10 @@ trait PlaylistWriteStateUpdateService {
   def handlePlayerStateChange(plService: PlaylistService[Playlist, MediaFileID],
                               playerState: AudioPlayerState,
                               writeConfig: PlaylistWriteConfig):
-  StateUpdate[WriteStateTransitionMessages] = for {
+  StateUpdate[WriteStateTransitionMessages] = for
     _ <- playerStateChange(plService, playerState, writeConfig)
     msg <- fetchMessages(writeConfig)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state for an incoming playback progress event and returns an
@@ -205,10 +206,10 @@ trait PlaylistWriteStateUpdateService {
     * @return the updated state and transition messages
     */
   def handlePlaybackProgress(posOfs: Long, timeOfs: Long, writeConfig: PlaylistWriteConfig):
-  StateUpdate[WriteStateTransitionMessages] = for {
+  StateUpdate[WriteStateTransitionMessages] = for
     _ <- playbackProgress(posOfs, timeOfs, writeConfig)
     msg <- fetchMessages(writeConfig)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state for an incoming file written notification and returns
@@ -219,10 +220,10 @@ trait PlaylistWriteStateUpdateService {
     * @return the updated state and transition messages
     */
   def handleFileWritten(path: Path, writeConfig: PlaylistWriteConfig):
-  StateUpdate[WriteStateTransitionMessages] = for {
+  StateUpdate[WriteStateTransitionMessages] = for
     _ <- fileWritten(path)
     msg <- fetchMessages(writeConfig)
-  } yield msg
+  yield msg
 
   /**
     * Updates the state for an incoming close request and returns an object
@@ -233,10 +234,10 @@ trait PlaylistWriteStateUpdateService {
     * @return the updated state and transition messages
     */
   def handleCloseRequest(client: ActorRef, writeConfig: PlaylistWriteConfig):
-  StateUpdate[WriteStateTransitionMessages] = for {
+  StateUpdate[WriteStateTransitionMessages] = for
     _ <- closeRequest(client, writeConfig)
     msg <- fetchMessages(writeConfig)
-  } yield msg
+  yield msg
 
   /**
     * Obtains the data to construct a ''WriteStateTransitionMessages'' object
@@ -246,11 +247,10 @@ trait PlaylistWriteStateUpdateService {
     * @return the state update for fetching transition messages
     */
   private def fetchMessages(writeConfig: PlaylistWriteConfig):
-  StateUpdate[WriteStateTransitionMessages] = for {
+  StateUpdate[WriteStateTransitionMessages] = for
     writes <- fileWriteMessages(writeConfig)
     ack <- closeActor()
-  } yield WriteStateTransitionMessages(writes, ack)
-}
+  yield WriteStateTransitionMessages(writes, ack)
 
 /**
   * The default implementation of ''PlaylistWriteStateUpdateService''.
@@ -278,50 +278,46 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
   override def initPlaylist(plService: PlaylistService[Playlist, MediaFileID],
                             playlist: Playlist, positionOffset: Long, timeOffset: Long):
   StateUpdate[Unit] = modify { s =>
-    s.initialPlaylist match {
+    s.initialPlaylist match
       case Some(_) => s
       case None =>
         val index = extractIndex(plService, playlist)
         val position = CurrentPlaylistPosition(index, positionOffset, timeOffset)
         s.copy(initialPlaylist = Some(playlist), currentPosition = position,
           updatedPosition = position)
-    }
   }
 
   override def playerStateChange(plService: PlaylistService[Playlist, MediaFileID],
                                  playerState: AudioPlayerState,
                                  writeConfig: PlaylistWriteConfig): StateUpdate[Unit] =
     modify { s =>
-      s.initialPlaylist match {
+      s.initialPlaylist match
         case Some(initPlaylist) if playerState.playlistActivated && s.closeRequest.isEmpty =>
           val optWritePlaylist = createWriteForPlaylist(plService, s, initPlaylist, playerState,
             writeConfig)
           val (pos, optWritePos) = createWriteForPosition(plService, s, playerState, writeConfig,
             optWritePlaylist.isDefined)
           val writes = List(optWritePlaylist, optWritePos).flatten
-          if (writes.nonEmpty) {
+          if writes.nonEmpty then
             val (mFiles, mPending) = updateWriteMaps(s, writes)
             s.copy(writesToTrigger = mFiles, pendingWriteOperations = mPending,
               playlistSeqNo = Some(playerState.playlistSeqNo), updatedPosition = pos)
-          }
           else s
         case _ => s
-      }
     }
 
   override def playbackProgress(posOfs: Long, timeOfs: Long, writeConfig: PlaylistWriteConfig):
   StateUpdate[Unit] = modify { s =>
-    if (s.initialPlaylist.isEmpty || s.closeRequest.isDefined) s
-    else {
+    if s.initialPlaylist.isEmpty || s.closeRequest.isDefined then s
+    else
       val updatedPos = s.updatedPosition.copy(positionOffset = posOfs, timeOffset = timeOfs)
-      val writes = if (timeOfs - s.currentPosition.timeOffset >=
-        writeConfig.autoSaveInterval.toSeconds)
+      val writes = if timeOfs - s.currentPosition.timeOffset >=
+        writeConfig.autoSaveInterval.toSeconds then
         List(WriteFile(createPositionSource(updatedPos), writeConfig.pathPosition))
       else List.empty[WriteFile]
       val (mFiles, mPending) = updateWriteMaps(s, writes)
       s.copy(updatedPosition = updatedPos, pendingWriteOperations = mPending,
         writesToTrigger = mFiles)
-    }
   }
 
   override def fileWritten(path: Path): StateUpdate[Unit] = modify { s =>
@@ -336,30 +332,28 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
 
   override def closeRequest(client: ActorRef, writeConfig: PlaylistWriteConfig):
   StateUpdate[Unit] = modify { s =>
-    s.closeRequest match {
+    s.closeRequest match
       case Some(_) => s
       case None =>
-        val writePos = if (s.currentPosition != s.updatedPosition)
+        val writePos = if s.currentPosition != s.updatedPosition then
           List(WriteFile(createPositionSource(s.updatedPosition), writeConfig.pathPosition))
         else List.empty[WriteFile]
         val (mFiles, mPending) = updateWriteMaps(s, writePos)
         val canClose = s.writesInProgress.isEmpty && mFiles.isEmpty
         s.copy(closeRequest = Some(client), writesToTrigger = mFiles,
           pendingWriteOperations = mPending, canClose = canClose)
-    }
   }
 
   override def fileWriteMessages(writeConfig: PlaylistWriteConfig):
   StateUpdate[Iterable[WriteFile]] = State { s =>
-    if (s.writesToTrigger.isEmpty) (s, Nil)
-    else {
+    if s.writesToTrigger.isEmpty then (s, Nil)
+    else
       val messages = s.writesToTrigger.values
-      val nextPos = if (s.writesToTrigger contains writeConfig.pathPosition)
+      val nextPos = if s.writesToTrigger contains writeConfig.pathPosition then
         s.updatedPosition else s.currentPosition
       val next = s.copy(writesToTrigger = Map.empty, currentPosition = nextPos,
         writesInProgress = s.writesInProgress ++ s.writesToTrigger.keys)
       (next, messages)
-    }
   }
 
   override def closeActor(): StateUpdate[Option[ActorRef]] = State { s =>
@@ -383,10 +377,10 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
                                      initPlaylist: Playlist,
                                      playerState: AudioPlayerState,
                                      writeConfig: PlaylistWriteConfig): Option[WriteFile] =
-    if (playlistChanged(plService, s, initPlaylist, playerState)) {
+    if playlistChanged(plService, s, initPlaylist, playerState) then
       val sourcePl = createPlaylistSource(plService, playerState.playlist)
       Some(WriteFile(sourcePl, writeConfig.pathPlaylist))
-    } else None
+    else None
 
   /**
     * Returns information about an updated position. The function returns an
@@ -406,14 +400,13 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
                                      playerState: AudioPlayerState,
                                      writeConfig: PlaylistWriteConfig,
                                      playlistChanged: Boolean):
-  (CurrentPlaylistPosition, Option[WriteFile]) = {
+  (CurrentPlaylistPosition, Option[WriteFile]) =
     val newIndex = extractIndex(plService, playerState.playlist)
-    val pos = if (playlistChanged || newIndex != s.currentPosition.index)
+    val pos = if playlistChanged || newIndex != s.currentPosition.index then
       CurrentPlaylistPosition(newIndex, 0, 0) else s.currentPosition
-    if (pos != s.currentPosition)
+    if pos != s.currentPosition then
       (pos, Some(WriteFile(createPositionSource(pos), writeConfig.pathPosition)))
     else (s.updatedPosition, None)
-  }
 
   /**
     * Determines the updated maps for write operations based on the given map
@@ -429,7 +422,7 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
   (Map[Path, WriteFile], Map[Path, WriteFile]) =
     writes.map(w => (w.target, w)).toMap
       .foldLeft((s.writesToTrigger, s.pendingWriteOperations)) { (ms, e) =>
-        if (s.writesInProgress contains e._1) (ms._1, ms._2 + e)
+        if s.writesInProgress contains e._1 then (ms._1, ms._2 + e)
         else (ms._1 + e, ms._2)
       }
 
@@ -468,12 +461,11 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
     * @return the source for writing out this playlist
     */
   private def createPlaylistSource(plService: PlaylistService[Playlist, MediaFileID],
-                                   playlist: Playlist): Source[ByteString, Any] = {
+                                   playlist: Playlist): Source[ByteString, Any] =
     val sourcePl = Source(plService.toSongList(playlist))
     val sepStage =
       new ListSeparatorStage[MediaFileID]("[\n", ",\n", "\n]\n")(convertItem)
     sourcePl.via(sepStage)
-  }
 
   /**
     * Creates the source for persisting position information.
@@ -491,7 +483,7 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
     * @param idx  the index of this item
     * @return a string representation of this item
     */
-  private def convertItem(item: MediaFileID, idx: Int): String = {
+  private def convertItem(item: MediaFileID, idx: Int): String =
     val descPath = generateDescriptionPath(item.mediumID)
     val checksum = generateMediumChecksum(item)
     s"""{
@@ -502,7 +494,6 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
        |"${PersistentPlaylistParser.PropURI}": "${item.uri}"
        |}
     """.stripMargin
-  }
 
   /**
     * Generates a string for the optional medium description path. If no

@@ -36,13 +36,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
-object PlaylistHandler {
+object PlaylistHandler:
   /** The name of the actor for loading the playlist. */
   private val LoaderActorName = "persistentPlaylistLoaderActor"
 
   /** The name of the actor for saving the playlist state. */
   private val WriterActorName = "persistentPlaylistStateWriterActor"
-}
 
 /**
   * The main OSGi component implementing playlist handling functionality.
@@ -68,7 +67,7 @@ object PlaylistHandler {
   * @param updateService the update service used by this instance
   */
 class PlaylistHandler private[persistence](val updateService: PersistentPlaylistStateUpdateService)
-  extends ClientContextSupport with MessageBusListener with Identifiable with ShutdownObserver {
+  extends ClientContextSupport with MessageBusListener with Identifiable with ShutdownObserver:
 
   /**
     * Creates a new instance of ''PlaylistHandler'' with default dependencies.
@@ -118,19 +117,17 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *             object and passes it via the message bus to the UI thread;
     *             from there, further actions are executed.
     */
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     log.info("Activating PlaylistHandler.")
 
-    PlaylistHandlerConfig(clientApplicationContext.managementConfiguration) match {
+    PlaylistHandlerConfig(clientApplicationContext.managementConfiguration) match
       case Failure(ex) =>
         log.error("Could not read configuration! Playlist handler is not active.", ex)
       case Success(config) =>
         busRegistrationID = bus registerListener receive
         bus publish ShutdownHandler.RegisterShutdownObserver(componentID, this)
         bus publish config
-    }
-  }
 
   /**
     * @inheritdoc This implementation does cleanup. Note that the default
@@ -139,26 +136,23 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *             (because this component has been stopped manually), it still
     *             has to be ensured that the managed data is saved properly.
     */
-  override def deactivate(componentContext: ComponentContext): Unit = {
+  override def deactivate(componentContext: ComponentContext): Unit =
     log.info("Deactivating PlaylistHandler.")
-    if (busRegistrationID != 0) {
+    if busRegistrationID != 0 then
       bus removeListener busRegistrationID
       bus publish AudioPlayerStateChangeUnregistration(componentID)
       removeAvailableMediaRegistration()
       bus publish ShutdownHandler.RemoveShutdownObserver(componentID)
 
-      if (!shutdownDone.get()) {
+      if !shutdownDone.get() then
         handleShutdownOnDeactivation()
-      }
-    }
 
     super.deactivate(componentContext)
-  }
 
   /**
     * The function for handling messages published on the message bus.
     */
-  override def receive: Receive = {
+  override def receive: Receive =
     case config: PlaylistHandlerConfig =>
       handleActivation(config)
 
@@ -168,16 +162,14 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
 
     case ev: PlaybackProgressEvent =>
       sendMsgToStateWriter(ev)
-  }
 
   /**
     * @inheritdoc This implementation triggers a graceful shutdown of this
     *             component.
     */
-  override def triggerShutdown(completionNotifier: ShutdownHandler.ShutdownCompletionNotifier): Unit = {
+  override def triggerShutdown(completionNotifier: ShutdownHandler.ShutdownCompletionNotifier): Unit =
     log.info("triggerShutdown() invoked.")
     stateWriterActor foreach (shutdownStateWriterActor(_, completionNotifier))
-  }
 
   /**
     * Stops the state writer actor. This has to be done in any case if this
@@ -187,16 +179,15 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *
     * @param act the actor to be stopped
     */
-  private[persistence] def stopStateWriterActor(act: ActorRef): Unit = {
+  private[persistence] def stopStateWriterActor(act: ActorRef): Unit =
     clientApplicationContext.actorSystem.stop(act)
-  }
 
   /**
     * Performs initialization during activation of this component.
     *
     * @param config the configuration
     */
-  private def handleActivation(config: PlaylistHandlerConfig): Unit = {
+  private def handleActivation(config: PlaylistHandlerConfig): Unit =
     handlerConfig = config
     val writeConfig = PlaylistWriteConfig(config.pathPlaylist, config.pathPosition,
       config.autoSaveInterval)
@@ -204,7 +195,6 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
       PlaylistStateWriterActor(writeConfig), WriterActorName))
     updateState(updateService.handleActivation(componentID, handleAvailableMedia))
     triggerLoadOfPersistentPlaylist(config)
-  }
 
   /**
     * Creates a [[LoadPlaylistActor]] and invokes it to load the files with the
@@ -213,12 +203,11 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *
     * @param config the configuration for this handler
     */
-  private def triggerLoadOfPersistentPlaylist(config: PlaylistHandlerConfig): Unit = {
+  private def triggerLoadOfPersistentPlaylist(config: PlaylistHandlerConfig): Unit =
     val loaderActor = clientApplicationContext.actorFactory.createActor(Props[LoadPlaylistActor](),
       LoaderActorName)
     loaderActor ! LoadPlaylistActor.LoadPlaylistData(config.pathPlaylist,
       config.pathPosition, config.maxFileSize, bus)
-  }
 
   /**
     * Callback for notifications about a changed audio player state. This
@@ -226,9 +215,8 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *
     * @param event the state change event
     */
-  private def handlePlaylistStateChange(event: AudioPlayerStateChangedEvent): Unit = {
+  private def handlePlaylistStateChange(event: AudioPlayerStateChangedEvent): Unit =
     sendMsgToStateWriter(event.state)
-  }
 
   /**
     * The consumer function for ''AvailableMedia'' notifications. This
@@ -238,9 +226,8 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     *
     * @param availableMedia the ''AvailableMedia'' data
     */
-  private def handleAvailableMedia(availableMedia: AvailableMedia): Unit = {
+  private def handleAvailableMedia(availableMedia: AvailableMedia): Unit =
     updateState(updateService.handleNewAvailableMedia(availableMedia))
-  }
 
   /**
     * Updates the state managed by this component and sends out corresponding
@@ -249,13 +236,12 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * @param update the update operation
     */
   private def updateState(update: PersistentPlaylistStateUpdateServiceImpl
-  .StateUpdate[Iterable[Any]]): Unit = {
+  .StateUpdate[Iterable[Any]]): Unit =
     val (nextState, messages) = update(currentState)
     currentState = nextState
     messages foreach bus.publish
-  }
 
-  private def handleShutdownOnDeactivation(): Unit = {
+  private def handleShutdownOnDeactivation(): Unit =
     // The actor has been created and used in the UI thread. As we are now
     // on the OSGi management thread, we have to synchronize to access it
     // safely.
@@ -263,25 +249,22 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     optStateWriter foreach { actor =>
       log.info("No shutdown message received. Saving state in deactivate().")
       val futClose = triggerStateWriterActorClose(actor)
-      try {
+      try
         Await.ready(futClose, handlerConfig.shutdownTimeout)
-      } catch {
+      catch
         case e: TimeoutException =>
           log.warn(s"Could not close state writer actor within the timeout of ${handlerConfig.shutdownTimeout}.",
             e)
-      }
       stopStateWriterActor(actor)
     }
-  }
 
   /**
     * Sends the specified message to the state writer actor.
     *
     * @param msg the message to be sent
     */
-  private def sendMsgToStateWriter(msg: Any): Unit = {
+  private def sendMsgToStateWriter(msg: Any): Unit =
     stateWriterActor foreach (_ ! msg)
-  }
 
   /**
     * Returns the implicit execution context for dealing with futures.
@@ -298,11 +281,10 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * @param act the state writer actor
     * @return the ''Future'' for the ACK response.
     */
-  private def triggerStateWriterActorClose(act: ActorRef): Future[Any] = {
+  private def triggerStateWriterActorClose(act: ActorRef): Future[Any] =
     log.info("Triggering close of state writer actor.")
     implicit val timeout: Timeout = Timeout(handlerConfig.shutdownTimeout)
     act ? CloseRequest
-  }
 
   /**
     * Sends a close request to the state writer actor and handles its response.
@@ -314,12 +296,11 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     */
   private def shutdownStateWriterActor(act: ActorRef, completionNotifier: ShutdownCompletionNotifier): Unit =
     triggerStateWriterActorClose(act) onComplete { t =>
-      t match {
+      t match
         case Failure(e) =>
           log.warn("Waiting for CloseAck of state writer actor failed!", e)
         case _ =>
           log.info("State writer actor closed.")
-      }
       shutdownDone set true
       stopStateWriterActor(act)
       completionNotifier.shutdownComplete()
@@ -332,9 +313,8 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * deactivated. (Note that it does not cause problems to remove a
     * registration multiple times.)
     */
-  private def removeAvailableMediaRegistration(): Unit = {
+  private def removeAvailableMediaRegistration(): Unit =
     bus publish AvailableMediaUnregistration(componentID)
-  }
 
   /**
     * Convenience method to access the message bus.
@@ -342,4 +322,3 @@ class PlaylistHandler private[persistence](val updateService: PersistentPlaylist
     * @return the message bus
     */
   private def bus: MessageBus = clientApplicationContext.messageBus
-}

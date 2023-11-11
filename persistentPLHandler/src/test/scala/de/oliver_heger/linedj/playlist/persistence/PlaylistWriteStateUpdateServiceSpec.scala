@@ -16,31 +16,31 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.playlist.persistence.LoadPlaylistActor.LoadPlaylistData
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.WriteFile
-import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec._
+import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec.*
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
+import de.oliver_heger.linedj.test.FileTestHelper
+import de.oliver_heger.linedj.test.MessageBusTestImpl
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.stream.scaladsl.{FileIO, Source}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.{Path, Paths}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
-object PlaylistWriteStateUpdateServiceSpec {
+object PlaylistWriteStateUpdateServiceSpec:
   /** Path to store the playlist. */
   private val PathPlaylist = Paths get "playlist.json"
 
@@ -107,10 +107,9 @@ object PlaylistWriteStateUpdateServiceSpec {
     * @param idx  an index to generate unique sources
     * @return the test write file message
     */
-  private def createWriteFile(path: Path, idx: Int): WriteFile = {
+  private def createWriteFile(path: Path, idx: Int): WriteFile =
     val source = Source.single(ByteString(s"Test $idx for $path."))
     WriteFile(source, path)
-  }
 
   /**
     * Creates a map with ''WriteFile'' objects for the specified paths.
@@ -149,23 +148,20 @@ object PlaylistWriteStateUpdateServiceSpec {
   private def modifyState(s: PlaylistWriteStateUpdateServiceImpl.StateUpdate[Unit],
                           oldState: PlaylistWriteState =
                           PlaylistWriteStateUpdateServiceImpl.InitialState):
-  PlaylistWriteState = {
+  PlaylistWriteState =
     val (next, _) = updateState(s, oldState)
     next
-  }
-}
 
 /**
   * Test class for ''PlaylistWriteStateUpdateService''.
   */
 class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper:
   def this() = this(ActorSystem("PlaylistWriteStateUpdateServiceSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   import PlaylistWriteStateUpdateServiceSpec._
 
@@ -193,10 +189,9 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     * @param target the target file to be written
     * @return the future with the write operation
     */
-  private def writeFile(src: Source[ByteString, Any], target: Path): Future[IOResult] = {
+  private def writeFile(src: Source[ByteString, Any], target: Path): Future[IOResult] =
     val sink = FileIO toPath target
     src.runWith(sink)
-  }
 
   /**
     * Creates files for the specified write messages and loads them again via a
@@ -206,7 +201,7 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     * @param writeMessages a sequence with messages to write files
     * @return the playlist obtained from the load actor
     */
-  private def saveAndLoadPlaylist(writeMessages: Iterable[WriteFile]): SetPlaylist = {
+  private def saveAndLoadPlaylist(writeMessages: Iterable[WriteFile]): SetPlaylist =
     implicit val ec: ExecutionContext = system.dispatcher
     val msgBus = new MessageBusTestImpl()
     val loadActor = system.actorOf(Props[LoadPlaylistActor]())
@@ -219,7 +214,6 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
         Integer.MAX_VALUE, msgBus)
     }
     msgBus.expectMessageType[LoadedPlaylist].setPlaylist
-  }
 
   /**
     * Persists the playlist defined by the write messages in the given state
@@ -230,12 +224,11 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     * @param expMsgCount the expected number of messages
     */
   private def checkPersistedPlaylist(state: PlaylistWriteState, expPlaylist: SetPlaylist,
-                                     expMsgCount: Int = 2): Unit = {
+                                     expMsgCount: Int = 2): Unit =
     state.writesToTrigger should have size expMsgCount
     saveAndLoadPlaylist(state.writesToTrigger.values) should be(expPlaylist)
-  }
 
-  "A PlaylistWriteStateUpdateService" should "have a correct initial state" in {
+  "A PlaylistWriteStateUpdateService" should "have a correct initial state" in:
     val state = PlaylistWriteStateUpdateServiceImpl.InitialState
 
     state.initialPlaylist shouldBe empty
@@ -247,9 +240,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     state.writesInProgress should have size 0
     state.closeRequest shouldBe empty
     state.canClose shouldBe false
-  }
 
-  it should "set the initial playlist if no current index is defined" in {
+  it should "set the initial playlist if no current index is defined" in:
     val playlist = mock[Playlist]
     val plService = mockPlaylistService()
     val PlaylistSize = 28
@@ -264,9 +256,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.currentPosition should be(CurrentPlaylistPosition(PlaylistSize, PositionOffset,
       TimeOffset))
     next.updatedPosition should be(next.currentPosition)
-  }
 
-  it should "set the initial playlist if it has a current index" in {
+  it should "set the initial playlist if it has a current index" in:
     val playlist = mock[Playlist]
     val plService = mockPlaylistService()
     val Index = 11
@@ -279,9 +270,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.initialPlaylist should be(Some(playlist))
     next.currentPosition should be(CurrentPlaylistPosition(Index, PositionOffset, TimeOffset))
     next.updatedPosition should be(next.currentPosition)
-  }
 
-  it should "ignore another request to set the initial playlist" in {
+  it should "ignore another request to set the initial playlist" in:
     val plService = mockPlaylistService()
     val state = PlaylistWriteStateUpdateServiceImpl.InitialState
       .copy(initialPlaylist = Some(mock[Playlist]))
@@ -289,9 +279,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.initPlaylist(plService,
       mock[Playlist], 20180527221030L, 221036), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "process a player event if the playlist is not activated" in {
+  it should "process a player event if the playlist is not activated" in:
     val plService = mockPlaylistService()
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.playerStateChange(plService,
@@ -299,9 +288,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       StateWithPlaylist)
     next should be theSameInstanceAs StateWithPlaylist
     verifyNoInteractions(plService)
-  }
 
-  it should "trigger a playlist write operation if the sequence number changes" in {
+  it should "trigger a playlist write operation if the sequence number changes" in:
     val plService = PlaylistService
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(1))
     val playerState = createPlayerState(InitialPlaylistSize + 1,
@@ -312,9 +300,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     checkPersistedPlaylist(next, SetPlaylist(playerState.playlist))
     next.updatedPosition should be(CurrentPlaylistPosition(InitialPlaylistIndex + 1, 0, 0))
     next.playlistSeqNo should be(Some(2))
-  }
 
-  it should "write the checksum of media file IDs if defined" in {
+  it should "write the checksum of media file IDs if defined" in:
     val plService = PlaylistService
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(1))
     val playlist = generatePlaylistWithChecksum(InitialPlaylistSize + 1,
@@ -326,9 +313,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     checkPersistedPlaylist(next, SetPlaylist(playerState.playlist))
     next.updatedPosition should be(CurrentPlaylistPosition(InitialPlaylistIndex + 1, 0, 0))
     next.playlistSeqNo should be(Some(2))
-  }
 
-  it should "ignore a player event if a close request is pending" in {
+  it should "ignore a player event if a close request is pending" in:
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(1),
       closeRequest = Some(TestProbe().ref))
     val playerState = createPlayerState(InitialPlaylistSize + 1,
@@ -337,9 +323,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playerStateChange(mockPlaylistService(), playerState, WriteConfig), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "ignore a player event if there is no initial playlist" in {
+  it should "ignore a player event if there is no initial playlist" in:
     val state = PlaylistWriteStateUpdateServiceImpl.InitialState
       .copy(playlistSeqNo = Some(1))
     val playerState = createPlayerState(InitialPlaylistSize + 1,
@@ -348,18 +333,16 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playerStateChange(mockPlaylistService(), playerState, WriteConfig), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "not trigger a write operation for a player event if there is no change" in {
+  it should "not trigger a write operation for a player event if there is no change" in:
     val playerState = createPlayerState(InitialPlaylistSize, currentIndex = InitialPlaylistIndex)
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(playerState.playlistSeqNo))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playerStateChange(PlaylistService, playerState, WriteConfig), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "trigger a playlist write operation if there is no seq number" in {
+  it should "trigger a playlist write operation if there is no seq number" in:
     val playerState = createPlayerState(InitialPlaylistSize + 1,
       currentIndex = InitialPlaylistIndex + 1)
 
@@ -368,17 +351,15 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     checkPersistedPlaylist(next, SetPlaylist(playerState.playlist))
     next.updatedPosition should be(CurrentPlaylistPosition(InitialPlaylistIndex + 1, 0, 0))
     next.playlistSeqNo should be(Some(playerState.playlistSeqNo))
-  }
 
-  it should "not trigger a playlist write operation if the init playlist stays the same" in {
+  it should "not trigger a playlist write operation if the init playlist stays the same" in:
     val playerState = createPlayerState(InitialPlaylistSize, currentIndex = InitialPlaylistIndex)
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.playerStateChange(PlaylistService,
       playerState, WriteConfig), StateWithPlaylist)
     next should be theSameInstanceAs StateWithPlaylist
-  }
 
-  it should "deal with a player event containing an exhausted playlist" in {
+  it should "deal with a player event containing an exhausted playlist" in:
     val playerState = createPlayerState(InitialPlaylistSize, seqNo = 5)
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(playerState.playlistSeqNo - 1))
     val plService = mockPlaylistService()
@@ -392,9 +373,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.writesToTrigger should have size 2
     val setPl = saveAndLoadPlaylist(next.writesToTrigger.values)
     PlaylistService.currentIndex(setPl.playlist) should be(None)
-  }
 
-  it should "not write the playlist if there are no changes" in {
+  it should "not write the playlist if there are no changes" in:
     val playerState = createPlayerState(InitialPlaylistSize,
       currentIndex = InitialPlaylistIndex + 1)
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(playerState.playlistSeqNo))
@@ -403,9 +383,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       playerState, WriteConfig), state)
     next.writesToTrigger.keys should contain only PathPosition
     next.updatedPosition.index should be(InitialPlaylistIndex + 1)
-  }
 
-  it should "not write the position if there are no changes" in {
+  it should "not write the position if there are no changes" in:
     val playerState = createPlayerState(InitialPlaylistSize + 1,
       currentIndex = InitialPlaylistIndex)
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(playerState.playlistSeqNo + 1))
@@ -413,9 +392,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.playerStateChange(PlaylistService,
       playerState, WriteConfig), state)
     next.writesToTrigger.keys should contain only PathPlaylist
-  }
 
-  it should "only trigger a write for the playlist if none is in progress" in {
+  it should "only trigger a write for the playlist if none is in progress" in:
     val mapWrites = createWriteFileMap(1, PathPlaylist, PathPosition)
     val mapPending = createWriteFileMap(2, PathPlaylist, PathPosition)
     val playerState = createPlayerState(InitialPlaylistSize + 1, seqNo = 28,
@@ -430,9 +408,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.writesToTrigger(PathPosition) should not be mapWrites(PathPosition)
     next.pendingWriteOperations(PathPosition) should be(mapPending(PathPosition))
     next.pendingWriteOperations(PathPlaylist) should not be mapPending(PathPlaylist)
-  }
 
-  it should "only trigger a write for the position if none is in progress" in {
+  it should "only trigger a write for the position if none is in progress" in:
     val mapWrites = createWriteFileMap(1, PathPlaylist, PathPosition)
     val mapPending = createWriteFileMap(2, PathPlaylist, PathPosition)
     val playerState = createPlayerState(InitialPlaylistSize + 1, seqNo = 28,
@@ -447,9 +424,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.writesToTrigger(PathPosition) should be(mapWrites(PathPosition))
     next.pendingWriteOperations(PathPosition) should not be mapPending(PathPosition)
     next.pendingWriteOperations(PathPlaylist) should be(mapPending(PathPlaylist))
-  }
 
-  it should "not trigger a position write if the auto save interval is not reached" in {
+  it should "not trigger a position write if the auto save interval is not reached" in:
     val PosOffset = 20180531211504L
     val TimeOffset = WriteConfig.autoSaveInterval.toSeconds - 1
 
@@ -458,57 +434,51 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.writesToTrigger should have size 0
     next.updatedPosition should be(CurrentPlaylistPosition(InitialPlaylistIndex, PosOffset,
       TimeOffset))
-  }
 
-  it should "ignore a progress event if there is no initial playlist" in {
+  it should "ignore a progress event if there is no initial playlist" in:
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playbackProgress(20180531212112L, 42, WriteConfig))
     next should be theSameInstanceAs PlaylistWriteStateUpdateServiceImpl.InitialState
-  }
 
-  it should "ignore a progress event if a close operation is in progress" in {
+  it should "ignore a progress event if a close operation is in progress" in:
     val state = StateWithPlaylist.copy(closeRequest = Some(TestProbe().ref))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playbackProgress(20180531212417L, 24, WriteConfig), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "trigger a position write if the auto interval is reached" in {
+  it should "trigger a position write if the auto interval is reached" in:
     val PosOffset = 20180601204850L
     val TimeOffset = WriteConfig.autoSaveInterval.toSeconds
     val playerState = createPlayerState(InitialPlaylistSize + 1)
     val expPlaylist = SetPlaylist(playerState.playlist, positionOffset = PosOffset,
       timeOffset = TimeOffset)
 
-    val update = for {_ <- PlaylistWriteStateUpdateServiceImpl
+    val update = for _ <- PlaylistWriteStateUpdateServiceImpl
       .playerStateChange(PlaylistService, playerState, WriteConfig)
                       _ <- PlaylistWriteStateUpdateServiceImpl.playbackProgress(PosOffset,
                         TimeOffset,
                         WriteConfig)
-    } yield ()
+    yield ()
     val next = modifyState(update, StateWithPlaylist)
     checkPersistedPlaylist(next, expPlaylist)
     next.pendingWriteOperations should have size 0
-  }
 
-  it should "check writes in progress when a progress event arrives" in {
+  it should "check writes in progress when a progress event arrives" in:
     val state = StateWithPlaylist.copy(writesInProgress = Set(PathPosition))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl
       .playbackProgress(20180601211405L, WriteConfig.autoSaveInterval.toSeconds,
         WriteConfig), state)
     next.pendingWriteOperations.keys should contain only PathPosition
-  }
 
-  it should "remove a file that was written from the writes in progress" in {
+  it should "remove a file that was written from the writes in progress" in:
     val state = StateWithPlaylist.copy(writesInProgress = Set(PathPlaylist, PathPosition))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.fileWritten(PathPlaylist), state)
     next.writesInProgress should contain only PathPosition
-  }
 
-  it should "trigger a new write when a file was written if possible" in {
+  it should "trigger a new write when a file was written if possible" in:
     val pendingWrites = createWriteFileMap(1, PathPosition, PathPlaylist)
     val state = StateWithPlaylist.copy(writesInProgress = Set(PathPosition),
       pendingWriteOperations = pendingWrites)
@@ -519,32 +489,28 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.writesToTrigger should have size 1
     next.writesToTrigger(PathPosition) should be(pendingWrites(PathPosition))
     next.canClose shouldBe false
-  }
 
-  it should "answer a close request if all files have been written" in {
+  it should "answer a close request if all files have been written" in:
     val state = StateWithPlaylist.copy(closeRequest = Some(TestProbe().ref),
       writesInProgress = Set(PathPlaylist))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.fileWritten(PathPlaylist), state)
     next.canClose shouldBe true
-  }
 
-  it should "only set the canClose flag if a close request is pending" in {
+  it should "only set the canClose flag if a close request is pending" in:
     val state = StateWithPlaylist.copy(writesInProgress = Set(PathPlaylist))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.fileWritten(PathPlaylist), state)
     next.canClose shouldBe false
-  }
 
-  it should "ignore a close request if there is already one" in {
+  it should "ignore a close request if there is already one" in:
     val state = StateWithPlaylist.copy(closeRequest = Some(TestProbe().ref))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.closeRequest(TestProbe().ref,
       WriteConfig), state)
     next should be(state)
-  }
 
-  it should "answer a close request directly if possible" in {
+  it should "answer a close request directly if possible" in:
     val client = TestProbe().ref
     val state = StateWithPlaylist.copy(updatedPosition = StateWithPlaylist.currentPosition)
 
@@ -552,9 +518,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       WriteConfig), state)
     next.closeRequest should be(Some(client))
     next.canClose shouldBe true
-  }
 
-  it should "not answer a close request if there are writes in progress" in {
+  it should "not answer a close request if there are writes in progress" in:
     val client = TestProbe().ref
     val state = StateWithPlaylist.copy(updatedPosition = StateWithPlaylist.currentPosition,
       writesInProgress = Set(PathPosition))
@@ -563,18 +528,16 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       state)
     next.closeRequest should be(Some(client))
     next.canClose shouldBe false
-  }
 
-  it should "not answer a close request if there are writes to trigger" in {
+  it should "not answer a close request if there are writes to trigger" in:
     val state = StateWithPlaylist.copy(updatedPosition = StateWithPlaylist.currentPosition,
       writesToTrigger = createWriteFileMap(1, PathPlaylist))
 
     val next = modifyState(PlaylistWriteStateUpdateServiceImpl.closeRequest(TestProbe().ref,
       WriteConfig), state)
     next.canClose shouldBe false
-  }
 
-  it should "write an updated position when receiving a close request" in {
+  it should "write an updated position when receiving a close request" in:
     val playerState = createPlayerState(InitialPlaylistSize + 1)
     val service = PlaylistWriteStateUpdateServiceImpl
     val s1 = modifyState(service.playerStateChange(PlaylistService, playerState, WriteConfig),
@@ -585,47 +548,42 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     playlist.positionOffset should be(StateWithPlaylist.updatedPosition.positionOffset)
     playlist.timeOffset should be(StateWithPlaylist.updatedPosition.timeOffset)
     next.canClose shouldBe false
-  }
 
-  it should "return the same state if there are no write messages" in {
+  it should "return the same state if there are no write messages" in:
     val (next, messages) = updateState(PlaylistWriteStateUpdateServiceImpl
       .fileWriteMessages(WriteConfig))
 
     next should be theSameInstanceAs PlaylistWriteStateUpdateServiceImpl.InitialState
     messages should have size 0
-  }
 
-  it should "return messages to be sent to the file writer actor" in {
+  it should "return messages to be sent to the file writer actor" in:
     val msgMap = createWriteFileMap(1, PathPlaylist, PathPosition)
     val state = StateWithPlaylist.copy(writesToTrigger = msgMap)
 
     val (next, messages) = updateState(PlaylistWriteStateUpdateServiceImpl
       .fileWriteMessages(WriteConfig), state)
-    messages should contain only (msgMap.values.toSeq: _*)
+    messages should contain theSameElementsAs msgMap.values
     next.writesToTrigger should have size 0
     next.writesInProgress should contain only(PathPosition, PathPlaylist)
     next.currentPosition should be(state.updatedPosition)
-  }
 
-  it should "update the current position only for a write of the position file" in {
+  it should "update the current position only for a write of the position file" in:
     val msgMap = createWriteFileMap(1, PathPlaylist)
     val state = StateWithPlaylist.copy(writesToTrigger = msgMap)
 
     val (next, _) = updateState(PlaylistWriteStateUpdateServiceImpl
       .fileWriteMessages(WriteConfig), state)
     next.currentPosition should be(state.currentPosition)
-  }
 
-  it should "return an Option with the actor to send a close ACK message" in {
+  it should "return an Option with the actor to send a close ACK message" in:
     val closeActor = TestProbe().ref
     val state = StateWithPlaylist.copy(closeRequest = Some(closeActor))
 
     val (next, act) = updateState(PlaylistWriteStateUpdateServiceImpl.closeActor(), state)
     act should be(Some(closeActor))
     next should be(state)
-  }
 
-  it should "handle a state change notification from the audio player" in {
+  it should "handle a state change notification from the audio player" in:
     val plService = PlaylistService
     val state = StateWithPlaylist.copy(playlistSeqNo = Some(1))
     val playerState = createPlayerState(InitialPlaylistSize + 1,
@@ -637,9 +595,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     messages.closeAck shouldBe empty
     next.playlistSeqNo should be(Some(2))
     next.writesToTrigger should have size 0
-  }
 
-  it should "handle a playback progress event" in {
+  it should "handle a playback progress event" in:
     val PosOffset = 20180604181640L
     val TimeOffset = WriteConfig.autoSaveInterval.toSeconds
     val playerState = createPlayerState(InitialPlaylistSize + 1)
@@ -647,15 +604,14 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       timeOffset = TimeOffset)
     val service = PlaylistWriteStateUpdateServiceImpl
 
-    val update = for {_ <- service.playerStateChange(PlaylistService, playerState, WriteConfig)
+    val update = for _ <- service.playerStateChange(PlaylistService, playerState, WriteConfig)
                       msg <- service.handlePlaybackProgress(PosOffset, TimeOffset, WriteConfig)
-    } yield msg
+    yield msg
     val (next, messages) = updateState(update, StateWithPlaylist)
     saveAndLoadPlaylist(messages.writes) should be(expPlaylist)
     next.pendingWriteOperations should have size 0
-  }
 
-  it should "handle a file written notification" in {
+  it should "handle a file written notification" in:
     val closeActor = TestProbe().ref
     val state = StateWithPlaylist.copy(writesInProgress = Set(PathPosition),
       closeRequest = Some(closeActor))
@@ -666,9 +622,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     messages.closeAck should be(Some(closeActor))
     next.writesInProgress should have size 0
     next.canClose shouldBe true
-  }
 
-  it should "handle a close request" in {
+  it should "handle a close request" in:
     val client = TestProbe().ref
     val state = StateWithPlaylist.copy(updatedPosition = StateWithPlaylist.currentPosition)
 
@@ -678,5 +633,3 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.canClose shouldBe true
     messages.writes should have size 0
     messages.closeAck should be(Some(client))
-  }
-}

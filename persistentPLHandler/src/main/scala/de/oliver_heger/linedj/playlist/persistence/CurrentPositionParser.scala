@@ -41,7 +41,7 @@ import scala.util.matching.Regex
   * are set for all properties (starting with the first song with 0 position
   * and time offset).
   */
-private object CurrentPositionParser {
+private object CurrentPositionParser:
   /** Name of the index property. */
   val PropIndex = "index"
 
@@ -70,7 +70,7 @@ private object CurrentPositionParser {
     * @param positionData a string with data about the current position
     * @return an object with current position data
     */
-  def parsePosition(positionData: String): CurrentPlaylistPosition = {
+  def parsePosition(positionData: String): CurrentPlaylistPosition =
     def parse(reg: Regex): String =
       reg.findFirstMatchIn(positionData).map(_.group(1)) getOrElse "0"
 
@@ -78,7 +78,6 @@ private object CurrentPositionParser {
     val position = parse(regPosition).toLong
     val time = parse(regTime).toLong
     CurrentPlaylistPosition(index, position, time)
-  }
 
   /**
     * Generates a regular expression that can parse the specified JSON
@@ -89,4 +88,3 @@ private object CurrentPositionParser {
     */
   private def regexForProperty(property: String): Regex =
     ("\"" + property + "\"\\s*:\\s*(\\d+)").r
-}

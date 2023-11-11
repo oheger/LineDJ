@@ -23,7 +23,7 @@ import org.apache.commons.configuration.Configuration
 import scala.concurrent.duration._
 import scala.util.Try
 
-object PlaylistHandlerConfig {
+object PlaylistHandlerConfig:
   /** Prefix of all configuration properties used by this module. */
   val ConfigPrefix = "audio.playlist.persistence."
 
@@ -85,14 +85,12 @@ object PlaylistHandlerConfig {
     * @param conf the ''Configuration'' object
     * @return a ''Try'' with the extracted configuration data
     */
-  def apply(conf: Configuration): Try[PlaylistHandlerConfig] = Try {
+  def apply(conf: Configuration): Try[PlaylistHandlerConfig] = Try:
     PlaylistHandlerConfig(Paths get conf.getString(PropPlaylistPath),
       Paths get conf.getString(PropPositionPath),
       conf.getInt(PropMaxFileSize, Integer.MAX_VALUE),
       conf.getInt(PropAutoSaveInterval, Integer.MAX_VALUE).seconds,
       conf.getLong(PropShutdownTimeout, DefaultShutdownTimeout.toMillis).millis)
-  }
-}
 
 /**
   * A class storing all configuration settings supported by the playlist

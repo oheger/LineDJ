@@ -23,7 +23,9 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID,
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
+import scala.collection.immutable.Seq
+
+object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper:
   /** Test component ID. */
   private val TestComponent = ComponentID()
 
@@ -50,13 +52,12 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
     * @param media the media to be contained
     * @return the resulting ''AvailableMedia'' object
     */
-  private def createAvailableMedia(media: Iterable[MediumID]): AvailableMedia = {
+  private def createAvailableMedia(media: Iterable[MediumID]): AvailableMedia =
     val mediaData = media map { m =>
       val info = MediumInfo(m.mediumURI, "desc", m, "", generateChecksum(m))
       m -> info
     }
     AvailableMedia(mediaData.toList)
-  }
 
   /**
     * Generates a checksum for the given medium.
@@ -81,7 +82,7 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
     * @return the resulting file ID
     */
   private def generateFileID(mid: MediumID, withChecksum: Boolean = true): MediaFileID =
-    MediaFileID(mid, null, if (withChecksum) Some(generateChecksum(mid)) else None)
+    MediaFileID(mid, null, if withChecksum then Some(generateChecksum(mid)) else None)
 
   /**
     * Generates a set of ''MediaFileID'' objects from the given collection of
@@ -128,20 +129,18 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper {
   private def modifyState(s: PersistentPlaylistStateUpdateServiceImpl.StateUpdate[Unit],
                           oldState: PersistentPlaylistState =
                           PersistentPlaylistStateUpdateServiceImpl.InitialState):
-  PersistentPlaylistState = {
+  PersistentPlaylistState =
     val (next, _) = updateState(s, oldState)
     next
-  }
-}
 
 /**
   * Test class for ''PersistentPlaylistStateUpdateServiceImpl''.
   */
-class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers {
+class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers:
 
   import PersistentPlaylistStateUpdateServiceSpec._
 
-  "A PersistentPlaylistStateUpdateService" should "define an initial state" in {
+  "A PersistentPlaylistStateUpdateService" should "define an initial state" in:
     val state = PersistentPlaylistStateUpdateServiceImpl.InitialState
 
     state.loadedPlaylist shouldBe empty
@@ -150,52 +149,46 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     state.availableMediaIDs shouldBe empty
     state.availableChecksums shouldBe empty
     state.messages shouldBe empty
-  }
 
-  it should "update the state when the component is activated" in {
+  it should "update the state when the component is activated" in:
     val callback = createCallback[AvailableMedia]()
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.activate(TestComponent,
       callback))
     next.componentID shouldBe Some(TestComponent)
     next.messages should contain only AvailableMediaRegistration(TestComponent, callback)
-  }
 
-  it should "ignore another activation" in {
+  it should "ignore another activation" in:
     val state = PersistentPlaylistStateUpdateServiceImpl.InitialState
       .copy(componentID = Some(ComponentID()))
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.activate(TestComponent,
       createCallback()), state)
     next shouldBe state
-  }
 
-  it should "update the state when a playlist arrives" in {
+  it should "update the state when a playlist arrives" in:
     val callback = createCallback[AudioPlayerStateChangedEvent]()
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(TestPlaylist,
       callback), ActiveState)
     next.loadedPlaylist shouldBe Some(TestPlaylist)
-    next.referencedMediaIDs.get should contain only (testFileIDs(withChecksum = false).toSeq: _*)
+    next.referencedMediaIDs.get should contain theSameElementsAs testFileIDs(withChecksum = false)
     next.messages should contain only AudioPlayerStateChangeRegistration(TestComponent, callback)
-  }
 
-  it should "ignore a playlist if the component is not activated" in {
+  it should "ignore a playlist if the component is not activated" in:
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(TestPlaylist,
       createCallback()))
 
     next shouldBe PersistentPlaylistStateUpdateServiceImpl.InitialState
-  }
 
-  it should "store available media that arrive before the playlist" in {
+  it should "store available media that arrive before the playlist" in:
     val av = createAvailableMedia(MediaIDs)
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.availableMediaArrived(av))
-    next.availableMediaIDs should contain only (MediaIDs: _*)
-    next.availableChecksums should contain only (testChecksumSeq: _*)
-  }
+    next.availableMediaIDs should contain theSameElementsAs MediaIDs
+    next.availableChecksums should contain theSameElementsAs testChecksumSeq
 
-  it should "activate the playlist when it arrives and all media are available" in {
+  it should "activate the playlist when it arrives and all media are available" in:
     val state = ActiveState.copy(availableMediaIDs = MediaIDs.toSet)
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl.playlistLoaded(TestPlaylist,
@@ -203,9 +196,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     next.referencedMediaIDs shouldBe empty
     next.messages should have size 2
     next.messages should contain(TestPlaylist)
-  }
 
-  it should "activate the playlist when it arrives and the checksum set can be matched" in {
+  it should "activate the playlist when it arrives and the checksum set can be matched" in:
     val Checksum = "testChecksum"
     val playlist = SetPlaylist(generatePlaylistWithChecksum(5, 0, Checksum))
     val state = ActiveState.copy(availableChecksums = Set(Checksum))
@@ -214,9 +206,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
       createCallback()), state)
     next.messages should have size 2
     next.messages should contain(playlist)
-  }
 
-  it should "activate the playlist when all referenced media become available" in {
+  it should "activate the playlist when all referenced media become available" in:
     val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))),
       loadedPlaylist = Some(TestPlaylist))
 
@@ -225,9 +216,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     next.messages should contain only TestPlaylist
     next.referencedMediaIDs shouldBe empty
     next.availableMediaIDs shouldBe empty
-  }
 
-  it should "activate the playlist when the checksum set can be matched" in {
+  it should "activate the playlist when the checksum set can be matched" in:
     val av = createAvailableMedia(Seq(MediumID("someUri", Some("settings"))))
     val Checksum = av.media.values.head.checksum
     val fileID = MediaFileID(MediumID("otherUri", Some("other_settings")), null, Some(Checksum))
@@ -237,9 +227,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
       .availableMediaArrived(av), state)
     next.messages should contain only TestPlaylist
-  }
 
-  it should "not activate the playlist before all media are available" in {
+  it should "not activate the playlist before all media are available" in:
     val state = ActiveState.copy(referencedMediaIDs = Some(testFileIDs()),
       availableMediaIDs = Set(MediaIDs.head), loadedPlaylist = Some(TestPlaylist),
       availableChecksums = Set(testChecksumSeq.head))
@@ -249,9 +238,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
       state)
     next.messages shouldBe empty
     next.availableMediaIDs shouldBe empty
-  }
 
-  it should "not activate the playlist if there is no checksum to match against" in {
+  it should "not activate the playlist if there is no checksum to match against" in:
     val state = ActiveState.copy(referencedMediaIDs = Some(testFileIDs(withChecksum = false)),
       loadedPlaylist = Some(TestPlaylist))
     val av = createAvailableMedia(MediaIDs take 2)
@@ -260,18 +248,16 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
       state)
     next.messages shouldBe empty
     next.availableMediaIDs shouldBe empty
-  }
 
-  it should "handle a state with referenced IDs, but no playlist gracefully" in {
+  it should "handle a state with referenced IDs, but no playlist gracefully" in:
     val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))))
 
     val next = modifyState(PersistentPlaylistStateUpdateServiceImpl
       .availableMediaArrived(createAvailableMedia(MediaIDs)), state)
     next.messages shouldBe empty
-    next.availableMediaIDs should contain only (MediaIDs: _*)
-  }
+    next.availableMediaIDs should contain theSameElementsAs MediaIDs
 
-  it should "fetch messages to be published" in {
+  it should "fetch messages to be published" in:
     val messages = List("foo", "bar", "baz")
     val state = ActiveState.copy(messages = messages.reverse)
 
@@ -279,9 +265,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
       state)
     res shouldBe messages
     next.messages shouldBe empty
-  }
 
-  it should "handle the component activation" in {
+  it should "handle the component activation" in:
     val callback = createCallback[AvailableMedia]()
 
     val (next, msg) = updateState(PersistentPlaylistStateUpdateServiceImpl
@@ -289,9 +274,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     next.componentID shouldBe Some(TestComponent)
     next.messages shouldBe empty
     msg should contain only AvailableMediaRegistration(TestComponent, callback)
-  }
 
-  it should "handle the arrival of the playlist" in {
+  it should "handle the arrival of the playlist" in:
     val callback = createCallback[AudioPlayerStateChangedEvent]()
     val state = ActiveState.copy(availableMediaIDs = MediaIDs.toSet)
 
@@ -302,9 +286,8 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
       AudioPlayerStateChangeRegistration(TestComponent, callback))
     next.messages shouldBe empty
     next.loadedPlaylist shouldBe Some(TestPlaylist)
-  }
 
-  it should "handle the arrival of new available media" in {
+  it should "handle the arrival of new available media" in:
     val state = ActiveState.copy(referencedMediaIDs = Some(generateFileIDs(MediaIDs.drop(1))),
       loadedPlaylist = Some(TestPlaylist))
 
@@ -314,5 +297,3 @@ class PersistentPlaylistStateUpdateServiceSpec extends AnyFlatSpec with Matchers
     next.messages shouldBe empty
     next.referencedMediaIDs shouldBe empty
     next.availableMediaIDs shouldBe empty
-  }
-}

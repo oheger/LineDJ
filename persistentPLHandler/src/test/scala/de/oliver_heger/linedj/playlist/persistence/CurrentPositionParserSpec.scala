@@ -22,8 +22,8 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''CurrentPositionParser''.
   */
-class CurrentPositionParserSpec extends AnyFlatSpec with Matchers {
-  "A CurrentPositionParser" should "parse valid position data" in {
+class CurrentPositionParserSpec extends AnyFlatSpec with Matchers:
+  "A CurrentPositionParser" should "parse valid position data" in:
     val data =
       """{ "index": 42, "position":20171202,
         | "time"    :   123456789
@@ -34,13 +34,10 @@ class CurrentPositionParserSpec extends AnyFlatSpec with Matchers {
     pos.index should be(42)
     pos.positionOffset should be(20171202)
     pos.timeOffset should be(123456789)
-  }
 
-  it should "return defaults for properties that could not be parsed" in {
+  it should "return defaults for properties that could not be parsed" in:
     val pos = CurrentPositionParser parsePosition ""
 
     pos.index should be(0)
     pos.positionOffset should be(0)
     pos.timeOffset should be(0)
-  }
-}

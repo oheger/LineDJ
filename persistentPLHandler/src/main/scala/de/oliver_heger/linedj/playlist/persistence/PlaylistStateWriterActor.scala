@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{File
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
-object PlaylistStateWriterActor {
+object PlaylistStateWriterActor:
   /**
     * Creates a ''Props'' object for the creation of a new actor instance.
     *
@@ -37,7 +37,6 @@ object PlaylistStateWriterActor {
   private class PlaylistStateWriterActorImpl(writeConfig: PlaylistWriteConfig)
     extends PlaylistStateWriterActor(writeConfig) with ChildActorFactory
 
-}
 
 /**
   * An actor responsible for storing the current state of a playlist.
@@ -66,7 +65,7 @@ object PlaylistStateWriterActor {
 class PlaylistStateWriterActor(private[persistence]
                                val updateService: PlaylistWriteStateUpdateService,
                                writeConfig: PlaylistWriteConfig) extends Actor
-  with ActorLogging {
+  with ActorLogging:
   me: ChildActorFactory =>
 
   def this(writeConfig: PlaylistWriteConfig) =
@@ -81,12 +80,11 @@ class PlaylistStateWriterActor(private[persistence]
   /** The state of the written playlist. */
   private var state = PlaylistWriteStateUpdateServiceImpl.InitialState
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     fileWriterActor = createChildActor(Props[PlaylistFileWriterActor]())
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case SetPlaylist(playlist, _, positionOffset, timeOffset) =>
       updateState(updateService.initPlaylist(plService, playlist, positionOffset, timeOffset))
 
@@ -102,7 +100,6 @@ class PlaylistStateWriterActor(private[persistence]
 
     case CloseRequest =>
       updateStateAndHandleMessages(updateService.handleCloseRequest(sender(), writeConfig))
-  }
 
   /**
     * Performs an update operation on the current state.
@@ -111,11 +108,10 @@ class PlaylistStateWriterActor(private[persistence]
     * @tparam A the type of the result of the update
     * @return the result of the update operation
     */
-  private def updateState[A](update: PlaylistWriteStateUpdateServiceImpl.StateUpdate[A]): A = {
+  private def updateState[A](update: PlaylistWriteStateUpdateServiceImpl.StateUpdate[A]): A =
     val (next, res) = update(state)
     state = next
     res
-  }
 
   /**
     * Performs an update operation of the current state and processes state
@@ -124,11 +120,10 @@ class PlaylistStateWriterActor(private[persistence]
     * @param update the update to be executed
     */
   private def updateStateAndHandleMessages(update: PlaylistWriteStateUpdateServiceImpl
-  .StateUpdate[WriteStateTransitionMessages]): Unit = {
+  .StateUpdate[WriteStateTransitionMessages]): Unit =
     val messages = updateState(update)
     messages.writes foreach callWriteActor
     messages.closeAck foreach (_ ! CloseAck(self))
-  }
 
   /**
     * Actually invokes the write actor with the specified data and records the
@@ -136,8 +131,6 @@ class PlaylistStateWriterActor(private[persistence]
     *
     * @param writeMsg the write message
     */
-  private def callWriteActor(writeMsg: WriteFile): Unit = {
+  private def callWriteActor(writeMsg: WriteFile): Unit =
     fileWriterActor ! writeMsg
     log.info("Saving playlist information to {}.", writeMsg.target)
-  }
-}
