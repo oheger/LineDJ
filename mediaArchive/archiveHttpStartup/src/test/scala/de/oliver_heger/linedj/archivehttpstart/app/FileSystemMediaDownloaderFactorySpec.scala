@@ -101,8 +101,39 @@ object FileSystemMediaDownloaderFactorySpec {
   /** The type of the folder content in the test file system. */
   type FolderContentType = Model.FolderContent[String, Model.File[String], Model.Folder[String]]
 
-  /** Type alias for the protocol spec used by these tests. */
-  type ProtocolSpecType = HttpArchiveProtocolSpec[String, FileType, FolderType]
+  /**
+    * A stub implementation of [[HttpArchiveProtocolSpec]] that can be
+    * configured to return a specific file system and other properties that can
+    * be customize.
+    *
+    * @param fileSystem the file system to be returned
+    */
+  class HttpArchiveTestProtocolSpec(fileSystem: ExtensibleFileSystem[String, FileType, FolderType, FolderContentType])
+    extends HttpArchiveProtocolSpec {
+    override type ID = String
+    override type File = FileType
+    override type Folder = FolderType
+
+    override def name: String = "testHttpArchiveProtocol"
+
+    override def requiresMultiHostSupport: Boolean = multiHostSupportFlag
+
+    /** A flag that controls whether multi-host support is required. */
+    var multiHostSupportFlag: Boolean = false
+
+    /** An exception to be raised when creating the file system. */
+    var creationException: Option[Throwable] = None
+
+    override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
+    Try[HttpArchiveFileSystem[ID, File, Folder]] = {
+      creationException.fold[Try[HttpArchiveFileSystem[ID, File, Folder]]](Try {
+        if (sourceUri != ArchiveUri) throw new AssertionError("Unexpected sourceUri: " + sourceUri)
+        if (timeout != ArchiveConfig.processorTimeout)
+          throw new AssertionError("Unexpected timeout: " + timeout)
+        HttpArchiveFileSystem[String, FileType, FolderType](fileSystem, Uri.Path(RootPath))
+      }) { exception => Failure(exception) }
+    }
+  }
 }
 
 /**
@@ -204,7 +235,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
 
     val downloader = helper.expectMultiHostSenderCreation(createSenderConfig())
       .prepareProtocolSpec { spec =>
-        when(spec.requiresMultiHostSupport).thenReturn(true)
+        spec.multiHostSupportFlag = true
       }.createDownloaderSuccess()
     downloader.httpSender should be(helper.probeRequestActor.ref)
     helper.checkFileSystem(downloader.archiveFileSystem.fileSystem)
@@ -243,8 +274,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
     val helper = new FactoryTestHelper
 
     helper.prepareProtocolSpec { spec =>
-      when(spec.createFileSystemFromConfig(ArchiveUri, ArchiveConfig.processorTimeout))
-        .thenReturn(Failure(exception))
+      spec.creationException = Some(exception)
     }.createDownloader() match {
       case Failure(ex) => ex should be(exception)
       case Success(value) => fail("Could create downloader: " + value)
@@ -306,7 +336,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       * @param f the initialization function
       * @return this test helper
       */
-    def prepareProtocolSpec(f: ProtocolSpecType => Unit): FactoryTestHelper = {
+    def prepareProtocolSpec(f: HttpArchiveTestProtocolSpec => Unit): FactoryTestHelper = {
       f(protocolSpec)
       this
     }
@@ -355,14 +385,7 @@ class FileSystemMediaDownloaderFactorySpec(testSystem: ActorSystem) extends Test
       *
       * @return the mock protocol spec
       */
-    private def createProtocolSpec(): ProtocolSpecType = {
-      val spec = mock[ProtocolSpecType]
-      when(spec.requiresMultiHostSupport).thenReturn(false)
-      val fsSpec = HttpArchiveFileSystem(fileSystem, Uri.Path(RootPath))
-      when(spec.createFileSystemFromConfig(ArchiveUri, ArchiveConfig.processorTimeout))
-        .thenReturn(Success(fsSpec))
-      spec
-    }
+    private def createProtocolSpec(): HttpArchiveTestProtocolSpec =
+      new HttpArchiveTestProtocolSpec(fileSystem)
   }
-
 }

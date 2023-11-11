@@ -39,7 +39,11 @@ object WebDavProtocolSpec {
   * pointing to the archive's root folder. All URIs for media files, metadata
   * files, or the content file are resolved relative to this folder.
   */
-class WebDavProtocolSpec extends HttpArchiveProtocolSpec[Uri, DavModel.DavFile, DavModel.DavFolder] {
+class WebDavProtocolSpec extends HttpArchiveProtocolSpec {
+  override type ID = Uri
+  override type File = DavModel.DavFile
+  override type Folder = DavModel.DavFolder
+
   override def name: String = WebDavProtocolName
 
   /**

@@ -46,9 +46,10 @@ trait MediaDownloaderFactory {
     * @param actorBaseName a base name for naming actors
     * @return a ''Try'' with the ''MediaDownloader'' for this archive
     */
-  def createDownloader[ID, FILE <: Model.File[ID],
-    FOLDER <: Model.Folder[ID]](protocolSpec: HttpArchiveProtocolSpec[ID, FILE, FOLDER],
-                                startupConfig: HttpArchiveStartupConfig, authConfig: AuthConfig,
-                                actorBaseName: String, optCryptKey: Option[Key])
-                               (implicit system: ActorSystem): Try[MediaDownloader]
+  def createDownloader(protocolSpec: HttpArchiveProtocolSpec,
+                       startupConfig: HttpArchiveStartupConfig,
+                       authConfig: AuthConfig,
+                       actorBaseName: String,
+                       optCryptKey: Option[Key])
+                      (implicit system: ActorSystem): Try[MediaDownloader]
 }

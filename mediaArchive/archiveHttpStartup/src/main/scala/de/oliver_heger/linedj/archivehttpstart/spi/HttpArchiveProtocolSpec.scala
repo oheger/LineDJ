@@ -20,19 +20,15 @@ import com.github.cloudfiles.core.Model
 import de.oliver_heger.linedj.archivehttp.io.HttpArchiveFileSystem
 import org.apache.pekko.util.Timeout
 
-import scala.language.existentials
 import scala.util.Try
 
 object HttpArchiveProtocolSpec {
   /**
     * Definition of a type to represent an [[HttpArchiveProtocolSpec]] with
     * consistent yet unknown type parameters.
+    * TODO: This is obsolete and should be dropped.
     */
-  type GenericHttpArchiveProtocolSpec = HttpArchiveProtocolSpec[ID, FILE, FOLDER] forSome {
-    type ID
-    type FILE <: Model.File[ID]
-    type FOLDER <: Model.Folder[ID]
-  }
+  type GenericHttpArchiveProtocolSpec = HttpArchiveProtocolSpec
 }
 
 /**
@@ -49,12 +45,17 @@ object HttpArchiveProtocolSpec {
   * metadata and construct a properly initialized ''FileSystem'' object. To
   * achieve the latter, they have to parse the URI defined in the configuration
   * of the associated HTTP archive.
-  *
-  * @tparam ID     the type of IDs in the file system
-  * @tparam FILE   the type of files in the file system
-  * @tparam FOLDER the type of folders in the file system
   */
-trait HttpArchiveProtocolSpec[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]] {
+trait HttpArchiveProtocolSpec {
+  /** The type of IDs in the file system. */
+  type ID
+
+  /** The type of files in the file system. */
+  type File <: Model.File[ID]
+
+  /** The type of folders in the file system. */
+  type Folder <: Model.Folder[ID]
+
   /**
     * Returns a name for the represented protocol. The name is used to find a
     * corresponding protocol implementation for a specific media archive.
@@ -89,5 +90,5 @@ trait HttpArchiveProtocolSpec[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder
     * @param timeout   a timeout for requests
     * @return a ''Try'' with an ''HttpArchiveFileSystem'' object
     */
-  def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[HttpArchiveFileSystem[ID, FILE, FOLDER]]
+  def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[HttpArchiveFileSystem[ID, File, Folder]]
 }

@@ -42,8 +42,11 @@ object OneDriveProtocolSpec {
   * ''path'' is the root path in this account (without the document with the
   * archive's content).
   */
-class OneDriveProtocolSpec
-  extends HttpArchiveProtocolSpec[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder] {
+class OneDriveProtocolSpec extends HttpArchiveProtocolSpec {
+  override type ID = String
+  override type File = OneDriveModel.OneDriveFile
+  override type Folder = OneDriveModel.OneDriveFolder
+
   override val name: String = OneDriveProtocolSpec.ProtocolName
 
   override val requiresMultiHostSupport: Boolean = true

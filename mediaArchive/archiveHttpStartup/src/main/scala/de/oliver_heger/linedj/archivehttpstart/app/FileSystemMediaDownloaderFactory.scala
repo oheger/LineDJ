@@ -45,10 +45,12 @@ import scala.util.Try
   */
 class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSenderFactory)
   extends MediaDownloaderFactory {
-  override def createDownloader[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
-  (protocolSpec: HttpArchiveProtocolSpec[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig,
-   authConfig: AuthConfig, actorBaseName: String, optCryptKey: Option[Key])
-  (implicit system: ActorSystem): Try[MediaDownloader] = {
+  override def createDownloader(protocolSpec: HttpArchiveProtocolSpec,
+                                startupConfig: HttpArchiveStartupConfig,
+                                authConfig: AuthConfig,
+                                actorBaseName: String,
+                                optCryptKey: Option[Key])
+                               (implicit system: ActorSystem): Try[MediaDownloader] = {
     protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveBaseUri.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
