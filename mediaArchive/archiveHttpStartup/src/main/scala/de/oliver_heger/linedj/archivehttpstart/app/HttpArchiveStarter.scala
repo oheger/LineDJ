@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
@@ -145,7 +145,7 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
     * @return a ''Future'' with the resources created for this archive
     */
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
-              config: Configuration, protocolSpec: GenericHttpArchiveProtocolSpec, credentials: UserCredentials,
+              config: Configuration, protocolSpec: HttpArchiveProtocolSpec, credentials: UserCredentials,
               optKey: Option[Key], actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
              (implicit ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] = for {
     authConf <- authConfigFactory.createAuthConfig(archiveData.realm, credentials)

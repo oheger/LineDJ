@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
@@ -222,7 +222,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     private val sourceConfig = createArchiveSourceConfig()
 
     /** Mock for the protocol to be used. */
-    private val protocolSpec = mock[GenericHttpArchiveProtocolSpec]
+    private val protocolSpec = mock[HttpArchiveProtocolSpec]
 
     /** The data object for the archive to be started. */
     private val archiveData = createArchiveData()

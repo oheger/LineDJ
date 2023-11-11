@@ -22,15 +22,6 @@ import org.apache.pekko.util.Timeout
 
 import scala.util.Try
 
-object HttpArchiveProtocolSpec {
-  /**
-    * Definition of a type to represent an [[HttpArchiveProtocolSpec]] with
-    * consistent yet unknown type parameters.
-    * TODO: This is obsolete and should be dropped.
-    */
-  type GenericHttpArchiveProtocolSpec = HttpArchiveProtocolSpec
-}
-
 /**
   * A trait defining an SPI to plug in different HTTP-based protocols to be
   * used for media archives.

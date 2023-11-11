@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.{HttpArchiveStateConnected, HttpArchiveStateResponse, HttpArchiveStateServerError}
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.support.{ActorClientSupport, ActorManagementComponent}
 import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.Identifiable
@@ -132,7 +132,7 @@ object HttpArchiveStartupApplication {
     *
     * @param spec the protocol spec affected
     */
-  private case class ProtocolSpecAdded(spec: GenericHttpArchiveProtocolSpec)
+  private case class ProtocolSpecAdded(spec: HttpArchiveProtocolSpec)
 
   /**
     * A message classed used internally to report that a protocol spec service
@@ -142,7 +142,7 @@ object HttpArchiveStartupApplication {
     *
     * @param spec the protocol affected
     */
-  private case class ProtocolSpecRemoved(spec: GenericHttpArchiveProtocolSpec)
+  private case class ProtocolSpecRemoved(spec: HttpArchiveProtocolSpec)
 
   /**
     * Maps an archive state returned by the management actor of an archive to
@@ -216,7 +216,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * A map storing the HTTP protocol specs currently available using the
     * protocol name as key.
     */
-  private var protocols = Map.empty[String, GenericHttpArchiveProtocolSpec]
+  private var protocols = Map.empty[String, HttpArchiveProtocolSpec]
 
   /** The object managing configuration data about HTTP archives. */
   private var configManager: HttpArchiveConfigManager = _
@@ -247,7 +247,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param protocolSpec the protocol service
     */
-  def addProtocolSpec(protocolSpec: GenericHttpArchiveProtocolSpec): Unit = {
+  def addProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit = {
     publish(ProtocolSpecAdded(protocolSpec))
   }
 
@@ -256,7 +256,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * All archives that use this protocol must be stopped. This method is
     * called by the declarative services runtime.
     */
-  def removeProtocolSpec(protocolSpec: GenericHttpArchiveProtocolSpec): Unit = {
+  def removeProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit = {
     publish(ProtocolSpecRemoved(protocolSpec))
   }
 
@@ -504,9 +504,15 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
         archiveIndexCounter += 1
         val currentArchiveIndex = archiveIndexCounter
         val protocol = protocols(e._2.protocol)
-        val futActors = archiveStarter.startup(mediaActors, e._2,
-          clientApplicationContext.managementConfiguration, protocol, realms(e._2.realm.name), archiveStates(e._1).optKey,
-          clientApplicationContext.actorFactory, currentArchiveIndex, clearTemp = currentArchiveIndex == 1)
+        val futActors = archiveStarter.startup(mediaActors,
+          e._2,
+          clientApplicationContext.managementConfiguration,
+          protocol,
+          realms(e._2.realm.name),
+          archiveStates(e._1).optKey,
+          clientApplicationContext.actorFactory,
+          currentArchiveIndex,
+          clearTemp = currentArchiveIndex == 1)
         futActors onCompleteUIThread { triedResult =>
           handleArchiveStartupResult(e._1, currentArchiveIndex, triedResult)
         }

@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates._
-import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec.GenericHttpArchiveProtocolSpec
+import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app._
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
@@ -329,8 +329,8 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     * @param name the protocol name
     * @return the mock for the protocol spec
     */
-  private def createProtocolSpecMock(name: String): GenericHttpArchiveProtocolSpec = {
-    val protocol = mock[GenericHttpArchiveProtocolSpec]
+  private def createProtocolSpecMock(name: String): HttpArchiveProtocolSpec = {
+    val protocol = mock[HttpArchiveProtocolSpec]
     when(protocol.name).thenReturn(name)
     protocol
   }
@@ -989,7 +989,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param spec the protocol spec
       * @return this test helper
       */
-    def addProtocol(spec: GenericHttpArchiveProtocolSpec): StartupTestHelper = {
+    def addProtocol(spec: HttpArchiveProtocolSpec): StartupTestHelper = {
       app addProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
@@ -1003,7 +1003,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @param spec the protocol spec
       * @return this test helper
       */
-    def removeProtocol(spec: GenericHttpArchiveProtocolSpec): StartupTestHelper = {
+    def removeProtocol(spec: HttpArchiveProtocolSpec): StartupTestHelper = {
       app removeProtocolSpec spec
       messageBus.processNextMessage[AnyRef]()
       this
@@ -1022,7 +1022,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initArchiveStartupResult(resources: HttpArchiveStarter.ArchiveResources, archiveIdx: Int,
-                                 realmIdx: Int, optProtocol: Option[GenericHttpArchiveProtocolSpec] = None,
+                                 realmIdx: Int, optProtocol: Option[HttpArchiveProtocolSpec] = None,
                                  optKey: Option[Key] = None): StartupTestHelper =
       initArchiveStartupResultFuture(archiveIdx, realmIdx, optProtocol, optKey) { invocation =>
         Future.successful(adaptActorNames(resources, invocation.getArguments()(7).asInstanceOf[Int]))
@@ -1041,7 +1041,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initArchiveStartupResultFuture(archiveIdx: Int, realmIdx: Int,
-                                       optProtocol: Option[GenericHttpArchiveProtocolSpec] = None,
+                                       optProtocol: Option[HttpArchiveProtocolSpec] = None,
                                        optKey: Option[Key] = None)
                                       (fResult: InvocationOnMock => Future[HttpArchiveStarter.ArchiveResources]):
     StartupTestHelper = {
@@ -1061,7 +1061,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     def initFailedArchiveStartupResult(exception: Throwable): StartupTestHelper = {
-      when(archiveStarter.startup(any(), any(), any(), any(classOf[GenericHttpArchiveProtocolSpec]), any(), any(),
+      when(archiveStarter.startup(any(), any(), any(), any(classOf[HttpArchiveProtocolSpec]), any(), any(),
         any(), anyInt(), anyBoolean())(any(), any())).thenReturn(Future.failed(exception))
       this
     }
@@ -1110,7 +1110,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       verify(archiveStarter, times(expectedInvocations))
         .startup(argEq(MediaFacadeActors(probeUnionMediaManager.ref,
           probeUnionMetaManager.ref)), any(classOf[HttpArchiveData]), argEq(archiveConfig),
-          any(classOf[GenericHttpArchiveProtocolSpec]),
+          any(classOf[HttpArchiveProtocolSpec]),
           any(classOf[UserCredentials]), any(), argEq(actorFactory), captorIdx.capture(),
           captorClear.capture())(any(), any())
       (captorIdx.getAllValues.asScala.toSeq, captorClear.getAllValues.asScala.toSeq)
@@ -1170,7 +1170,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
       * @return the stubbing object to define the behavior of the startup
       *         method
       */
-    private def expectStarterInvocation(archiveIdx: Int, spec: GenericHttpArchiveProtocolSpec, realmIdx: Int,
+    private def expectStarterInvocation(archiveIdx: Int, spec: HttpArchiveProtocolSpec, realmIdx: Int,
                                         optKey: Option[Key]):
     OngoingStubbing[Future[HttpArchiveStarter.ArchiveResources]] = {
       val archiveData = archiveConfigManager.archives(
