@@ -259,7 +259,6 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     libraryDependencies += collectionsDependency,
-    libraryDependencies += ("org.scala-lang.modules" %% "scala-xml" % "2.1.0"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
