@@ -25,10 +25,9 @@ import org.apache.pekko.util.Timeout
 
 import scala.util.{Failure, Success, Try}
 
-object OneDriveProtocolSpec {
+object OneDriveProtocolSpec:
   /** The name used for this protocol. */
   final val ProtocolName = "onedrive"
-}
 
 /**
   * Implementation of the OneDrive protocol to be used by HTTP archives.
@@ -42,7 +41,7 @@ object OneDriveProtocolSpec {
   * ''path'' is the root path in this account (without the document with the
   * archive's content).
   */
-class OneDriveProtocolSpec extends HttpArchiveProtocolSpec {
+class OneDriveProtocolSpec extends HttpArchiveProtocolSpec:
   override type ID = String
   override type File = OneDriveModel.OneDriveFile
   override type Folder = OneDriveModel.OneDriveFolder
@@ -53,21 +52,19 @@ class OneDriveProtocolSpec extends HttpArchiveProtocolSpec {
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
   Try[HttpArchiveFileSystem[String, OneDriveModel.OneDriveFile, OneDriveModel.OneDriveFolder]] =
-    if (UriEncodingHelper.hasLeadingSeparator(sourceUri))
+    if UriEncodingHelper.hasLeadingSeparator(sourceUri) then
       Failure(new IllegalArgumentException(s"Invalid archive URL '$sourceUri'. The URI must be of the form " +
         "<driveID>/<content root path>"))
-    else {
+    else
 
       val archiveUri = UriEncodingHelper.removeTrailingSeparator(sourceUri)
       val posPath = archiveUri.indexOf(UriEncodingHelper.UriSeparator)
-      val (driveID, rootPath) = if (posPath <= 0)
+      val (driveID, rootPath) = if posPath <= 0 then
         (archiveUri, Uri.Path.Empty)
       else
         (archiveUri.substring(0, posPath), Uri.Path(archiveUri.substring(posPath)))
 
-      val optRootPath = if (rootPath.isEmpty) None else Some(rootPath.toString())
+      val optRootPath = if rootPath.isEmpty then None else Some(rootPath.toString())
       val config = OneDriveConfig(driveID = driveID, optRootPath = optRootPath, timeout = timeout)
       val fileSystem = new OneDriveFileSystem(config)
       Success(HttpArchiveFileSystem(fileSystem, rootPath))
-    }
-}

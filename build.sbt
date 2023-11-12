@@ -352,14 +352,16 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-protocol-onedrive",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", archiveHttpStartup)
+  ) dependsOn(shared, archiveHttpStartup)
 
 /**
   * Project for the client platform. This project contains code shared by
