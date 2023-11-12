@@ -21,14 +21,15 @@ import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
+import org.apache.commons.configuration.XMLConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.util.ByteString
 
+import java.io.StringReader
 import java.security.SecureRandom
 import scala.concurrent.{ExecutionContext, Future}
-import scala.xml.{Elem, XML}
 
 /**
   * A default implementation of the [[OAuthStorageService]] trait.
@@ -77,12 +78,16 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
   override def loadConfig(storageConfig: OAuthStorageConfig)
                          (implicit ec: ExecutionContext, system: ActorSystem): Future[OAuthConfig] =
     loadAndMapFile(storageConfig, SuffixConfigFile) { buf =>
-      val nodeSeq = XML.loadString(buf.utf8String)
-      OAuthConfig(clientID = extractElem(nodeSeq, PropClientId),
-        authorizationEndpoint = extractElem(nodeSeq, PropAuthorizationEndpoint),
-        tokenEndpoint = extractElem(nodeSeq, PropTokenEndpoint),
-        scope = extractElem(nodeSeq, PropScope),
-        redirectUri = extractElem(nodeSeq, PropRedirectUri))
+      val reader = new StringReader(buf.utf8String)
+      val config = new XMLConfiguration
+      config.setThrowExceptionOnMissing(true)
+      config.load(reader)
+
+      OAuthConfig(clientID = config.getString(PropClientId),
+        authorizationEndpoint = config.getString(PropAuthorizationEndpoint),
+        tokenEndpoint = config.getString(PropTokenEndpoint),
+        scope = config.getString(PropScope),
+        redirectUri = config.getString(PropRedirectUri))
     }
 
   override def loadClientSecret(storageConfig: OAuthStorageConfig)
@@ -99,23 +104,6 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
         throw new IllegalArgumentException(s"Token file for ${storageConfig.baseName} has unexpected content.")
       OAuthTokenData(accessToken = parts(0), refreshToken = parts(1))
     }
-
-  /**
-    * Extracts the text content of the given child from an XML document. If the
-    * child cannot be resolved, an ''IllegalArgumentException'' is thrown; this
-    * indicates an invalid configuration file.
-    *
-    * @param elem  the parent XML element
-    * @param child the name of the desired child
-    * @return the text content of this child element
-    * @throws IllegalArgumentException if the child cannot be found
-    */
-  private def extractElem(elem: Elem, child: String): String = {
-    val text = (elem \ child).text.trim
-    if (text.isEmpty)
-      throw new IllegalArgumentException(s"Missing mandatory property '$child' in OAuth configuration.")
-    text
-  }
 
   /**
     * Returns a source for loading a file based on the given storage

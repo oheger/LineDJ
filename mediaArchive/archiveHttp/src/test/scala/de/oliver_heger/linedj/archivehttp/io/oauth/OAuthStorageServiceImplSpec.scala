@@ -20,6 +20,7 @@ import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import org.apache.commons.configuration.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -27,7 +28,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
 import java.nio.file.{Files, Path}
-import scala.xml.SAXParseException
 
 object OAuthStorageServiceImplSpec {
   /** The base name of the OAuth test provider. */
@@ -95,42 +95,46 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
     writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile),
       FileTestHelper.TestData)
 
-    expectFailedFuture[SAXParseException](OAuthStorageServiceImpl.loadConfig(storageConfig))
+    expectFailedFuture[ConfigurationException](OAuthStorageServiceImpl.loadConfig(storageConfig))
   }
 
   it should "handle loading an OAuth configuration with missing properties" in {
-    val xml = <oauth-config>
-      <foo>test</foo>
-      <invalid>true</invalid>
-    </oauth-config>
+    val xml =
+      """
+        |<oauth-config>
+        |  <foo>test</foo>
+        |  <invalid>true</invalid>
+        |</oauth-config>
+        |""".stripMargin
     val storageConfig = createStorageConfig("noProperties")
-    writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile),
-      xml.toString())
+    writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile), xml)
 
-    expectFailedFuture[IllegalArgumentException](OAuthStorageServiceImpl.loadConfig(storageConfig))
+    expectFailedFuture[NoSuchElementException](OAuthStorageServiceImpl.loadConfig(storageConfig))
   }
 
   it should "handle whitespace in XML correctly" in {
-    val xml = <oauth-config>
-      <client-id>
-        {TestConfig.clientID}
-      </client-id>
-      <authorization-endpoint>
-        {TestConfig.authorizationEndpoint}
-      </authorization-endpoint>
-      <token-endpoint>
-        {TestConfig.tokenEndpoint}
-      </token-endpoint>
-      <scope>
-        {TestConfig.scope}
-      </scope>
-      <redirect-uri>
-        {TestConfig.redirectUri}
-      </redirect-uri>
-    </oauth-config>
+    val xml =
+      s"""
+        |<oauth-config>
+        |      <client-id>
+        |        ${TestConfig.clientID}
+        |      </client-id>
+        |      <authorization-endpoint>
+        |        ${TestConfig.authorizationEndpoint}
+        |      </authorization-endpoint>
+        |      <token-endpoint>
+        |        ${TestConfig.tokenEndpoint}
+        |      </token-endpoint>
+        |      <scope>
+        |        ${TestConfig.scope}
+        |      </scope>
+        |      <redirect-uri>
+        |        ${TestConfig.redirectUri}
+        |      </redirect-uri>
+        |</oauth-config>
+        |""".stripMargin
     val storageConfig = createStorageConfig("formatted")
-    writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile),
-      xml.toString())
+    writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile), xml)
 
     val readConfig = futureResult(OAuthStorageServiceImpl.loadConfig(storageConfig))
     readConfig should be(TestConfig)
