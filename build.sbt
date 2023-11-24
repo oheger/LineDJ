@@ -23,12 +23,11 @@ import com.typesafe.sbt.osgi.OsgiKeys
 lazy val VersionAeron = "1.41.3"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
-lazy val VersionCloudFiles = "0.6"
+lazy val VersionCloudFiles = "0.7.1"
 lazy val VersionCommonsBeanutils = "1.9.4"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
-lazy val VersionJackson = "2.15.0"
-lazy val VersionJacksonCore = "2.15.1"
+lazy val VersionJackson = "2.16.0"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
@@ -100,7 +99,7 @@ lazy val pekkoHttpDependencies = Seq(
   */
 lazy val remotingDependencies = Seq(
   "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
-  "com.fasterxml.jackson.core" % "jackson-core" % VersionJacksonCore,
+  "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
   "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
