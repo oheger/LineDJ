@@ -332,14 +332,16 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-protocol-webdav",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", archiveHttpStartup)
+  ) dependsOn(shared, archiveHttpStartup)
 
 /**
   * The OneDrive protocol project. This is a module adding support for OneDrive

@@ -25,34 +25,28 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 import scala.util.Success
 
-class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers {
-  "WebDavProtocolSpec" should "return the correct name" in {
+class WebDavProtocolSpecSpec extends AnyFlatSpec with Matchers:
+  "WebDavProtocolSpec" should "return the correct name" in:
     val spec = new WebDavProtocolSpec
 
     spec.name should be("webdav")
-  }
 
-  it should "return the correct multi host flag" in {
+  it should "return the correct multi host flag" in:
     val spec = new WebDavProtocolSpec
 
     spec.requiresMultiHostSupport shouldBe false
-  }
 
-  it should "create a correct file system" in {
+  it should "create a correct file system" in:
     val RootPath = "https://my-archive.example.org/music"
     val timeout = Timeout(30.seconds)
     val spec = new WebDavProtocolSpec
 
-    spec.createFileSystemFromConfig(RootPath, timeout) match {
+    spec.createFileSystemFromConfig(RootPath, timeout) match
       case Success(fs) =>
         fs.rootPath should be(Uri.Path("/music"))
-        fs.fileSystem match {
+        fs.fileSystem match
           case dav: DavFileSystem =>
             dav.config.timeout should be(timeout)
             dav.config.rootUri should be(Uri(RootPath))
           case other => fail("Unexpected file system: " + other)
-        }
       case r => fail("Unexpected result: " + r)
-    }
-  }
-}

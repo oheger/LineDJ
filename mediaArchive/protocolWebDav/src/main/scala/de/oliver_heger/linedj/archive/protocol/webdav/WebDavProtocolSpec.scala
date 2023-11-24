@@ -25,10 +25,9 @@ import org.apache.pekko.util.Timeout
 
 import scala.util.{Success, Try}
 
-object WebDavProtocolSpec {
+object WebDavProtocolSpec:
   /** The name to be returned for this protocol. */
   final val WebDavProtocolName = "webdav"
-}
 
 /**
   * Implementation of the WebDav protocol to be used by HTTP archives.
@@ -39,7 +38,7 @@ object WebDavProtocolSpec {
   * pointing to the archive's root folder. All URIs for media files, metadata
   * files, or the content file are resolved relative to this folder.
   */
-class WebDavProtocolSpec extends HttpArchiveProtocolSpec {
+class WebDavProtocolSpec extends HttpArchiveProtocolSpec:
   override type ID = Uri
   override type File = DavModel.DavFile
   override type Folder = DavModel.DavFolder
@@ -53,10 +52,8 @@ class WebDavProtocolSpec extends HttpArchiveProtocolSpec {
   override def requiresMultiHostSupport: Boolean = false
 
   override def createFileSystemFromConfig(sourceUri: String, timeout: Timeout):
-  Try[HttpArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] = {
+  Try[HttpArchiveFileSystem[Uri, DavModel.DavFile, DavModel.DavFolder]] =
     val rootUri = Uri(sourceUri)
     val davConfig = DavConfig(rootUri = rootUri, timeout = timeout)
     val fs = new DavFileSystem(davConfig)
     Success(HttpArchiveFileSystem(fs, rootUri.path))
-  }
-}
