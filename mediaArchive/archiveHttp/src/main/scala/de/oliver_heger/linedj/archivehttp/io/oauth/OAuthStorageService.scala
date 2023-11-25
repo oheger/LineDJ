@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam CLIENT_SECRET  the type representing the client secret
   * @tparam TOKENS         the type representing token data
   */
-trait OAuthStorageService[STORAGE_CONFIG, CONFIG, CLIENT_SECRET, TOKENS] {
+trait OAuthStorageService[STORAGE_CONFIG, CONFIG, CLIENT_SECRET, TOKENS]:
   /**
     * Loads the ''OAuthConfig'' defined by the given storage config. If
     * successful, it can be obtained from the resulting future.
@@ -66,4 +66,3 @@ trait OAuthStorageService[STORAGE_CONFIG, CONFIG, CLIENT_SECRET, TOKENS] {
     */
   def loadTokens(storageConfig: STORAGE_CONFIG)
                 (implicit ec: ExecutionContext, system: ActorSystem): Future[TOKENS]
-}

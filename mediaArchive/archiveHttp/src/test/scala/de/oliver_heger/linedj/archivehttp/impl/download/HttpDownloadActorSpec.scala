@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
+import de.oliver_heger.linedj.test.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
@@ -36,15 +36,14 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
-object HttpDownloadActorSpec {
+object HttpDownloadActorSpec:
   /** A test transformation function passed to the test actor. */
-  private val TransformFunc: MediaFileDownloadActor.DownloadTransformFunc = {
+  private val TransformFunc: MediaFileDownloadActor.DownloadTransformFunc =
     case "mp3" => Flow[ByteString].map(bs => bs.map(b => (b + 1).toByte))
-  }
 
   /** A test request for a medium file. */
   private val TestMediaFileRequest = MediumFileRequest(MediaFileID(MediumID("someMediumUri", Some("path")),
@@ -59,23 +58,21 @@ object HttpDownloadActorSpec {
   /** The expected creation properties for the child download actor. */
   private val ExpectedFileDownloadActorProperties = HttpFileDownloadActor(DownloadDataSource,
     TestMediaFileRequest.fileID.uri, TransformFunc)
-}
 
 /**
   * Test class for ''HttpDownloadActor''.
   */
 class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("HttpDownloadActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import HttpDownloadActorSpec._
 
-  "HttpDownloadActor" should "create correct Props" in {
+  "HttpDownloadActor" should "create correct Props" in:
     val SkipSize = 20220325
     val helper = new DownloadActorTestHelper
     val config = helper.createConfig()
@@ -84,32 +81,28 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     classOf[HttpDownloadActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should contain theSameElementsInOrderAs List(config, TestMediaFileRequest, TransformFunc, SkipSize)
-  }
 
-  it should "forward an initial download request to a newly created download actor" in {
+  it should "forward an initial download request to a newly created download actor" in:
     val helper = new DownloadActorTestHelper
 
     helper.prepareDownloader()
       .sendRequestAndCheckForwarding()
-  }
 
-  it should "stop itself if the downloader returns a failed future" in {
+  it should "stop itself if the downloader returns a failed future" in:
     val helper = new DownloadActorTestHelper
 
     helper.prepareDownloader(optData = None)
       .downloadRequest(DownloadData(1024))
       .expectActorTerminated()
-  }
 
-  it should "forward further data requests to the managed download actor" in {
+  it should "forward further data requests to the managed download actor" in:
     val helper = new DownloadActorTestHelper
 
     helper.prepareDownloader()
       .sendRequestAndCheckForwarding()
       .sendRequestAndCheckForwarding()
-  }
 
-  it should "handle another download request while waiting for the server response" in {
+  it should "handle another download request while waiting for the server response" in:
     val promise = Promise[Source[ByteString, Any]]()
     val request1 = DownloadData(1024)
     val downloadResult = DownloadDataResult(ByteString("A result"))
@@ -126,9 +119,8 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.expectForwardedDownloadRequest(request1)
       .downloadResponse(downloadResult)
     expectMsg(downloadResult)
-  }
 
-  it should "stop itself when the wrapped actor terminates" in {
+  it should "stop itself when the wrapped actor terminates" in:
     val helper = new DownloadActorTestHelper
 
     helper.prepareDownloader()
@@ -136,9 +128,8 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .downloadRequest(DownloadData(128))
       .stopWrappedDownloadActor()
       .expectActorTerminated()
-  }
 
-  it should "support skipping data from the download source" in {
+  it should "support skipping data from the download source" in:
     val ChunkSize = 16
     val ChunksToSkip = 2
     val chunks = FileTestHelper.testBytes().grouped(ChunkSize).take(ChunksToSkip + 1).toVector
@@ -150,9 +141,8 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .handleMultipleRequests(request, chunks)
     expectMsg(DownloadDataResult(ByteString(chunks.last)))
     helper.checkRequestServed()
-  }
 
-  it should "support skipping data from the source actor if the chunk size does not fit the skip size" in {
+  it should "support skipping data from the source actor if the chunk size does not fit the skip size" in:
     val ChunkSize = 32
     val BytesToSkip = 50
     val expChunk = FileTestHelper.TestData.substring(BytesToSkip, 64)
@@ -165,27 +155,24 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .handleMultipleRequests(request, chunks)
     expectMsg(DownloadDataResult(ByteString(expChunk)))
     helper.checkRequestServed()
-  }
 
-  it should "stop itself when the wrapped actor terminates while skipping" in {
+  it should "stop itself when the wrapped actor terminates while skipping" in:
     val helper = new DownloadActorTestHelper(1024)
 
     helper.prepareDownloader()
       .sendRequestAndCheckForwarding()
       .stopWrappedDownloadActor()
       .expectActorTerminated()
-  }
 
-  it should "handle another download request while skipping" in {
+  it should "handle another download request while skipping" in:
     val helper = new DownloadActorTestHelper(2048)
 
     helper.prepareDownloader()
       .sendRequestAndCheckForwarding()
       .downloadRequest(DownloadData(42))
     expectMsg(MediaFileDownloadActor.ConcurrentRequestResponse)
-  }
 
-  it should "handle a download completion message while skipping" in {
+  it should "handle a download completion message while skipping" in:
     val request = DownloadData(27)
     val helper = new DownloadActorTestHelper(512)
 
@@ -196,14 +183,13 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectForwardedDownloadRequest(request)
       .sendDownloadComplete()
     expectMsg(DownloadComplete)
-  }
 
   /**
     * A test helper class managing a test instance and its dependencies.
     *
     * @param bytesToSkip the bytes to skip to pass to the test actor
     */
-  private class DownloadActorTestHelper(bytesToSkip: Long = 0) {
+  private class DownloadActorTestHelper(bytesToSkip: Long = 0):
     /** Mock for the downloader. */
     private val downloader = mock[MediaDownloader]
 
@@ -238,13 +224,12 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def prepareDownloader(optData: Option[Source[ByteString, Any]] = Some(DownloadDataSource)):
-    DownloadActorTestHelper = {
+    DownloadActorTestHelper =
       val futResult =
         optData.fold(Future.failed[Source[ByteString, Any]](new IOException("Error from HTTP archive!"))) { src =>
           Future.successful(src)
         }
       prepareDownloader(futResult)
-    }
 
     /**
       * Prepares the mock downloader to expect a download request, which is
@@ -253,10 +238,9 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param result the result of the download request
       * @return this test helper
       */
-    def prepareDownloader(result: Future[Source[ByteString, Any]]): DownloadActorTestHelper = {
+    def prepareDownloader(result: Future[Source[ByteString, Any]]): DownloadActorTestHelper =
       when(downloader.downloadMediaFile(MediaPath, TestMediaFileRequest.fileID.uri)).thenReturn(result)
       this
-    }
 
     /**
       * Passes the given download request to the test actor.
@@ -274,21 +258,19 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param request the expected request
       * @return this test helper
       */
-    def expectForwardedDownloadRequest(request: DownloadData): DownloadActorTestHelper = {
+    def expectForwardedDownloadRequest(request: DownloadData): DownloadActorTestHelper =
       probeFileDownloadActor.expectMsg(request)
       this
-    }
 
     /**
       * Combines sending a download request with expecting of the forwarding.
       *
       * @return this test helper
       */
-    def sendRequestAndCheckForwarding(): DownloadActorTestHelper = {
+    def sendRequestAndCheckForwarding(): DownloadActorTestHelper =
       val request = DownloadData(1234)
       downloadRequest(request)
       expectForwardedDownloadRequest(request)
-    }
 
     /**
       * Tests that no download request was forwarded to the wrapped download
@@ -296,12 +278,11 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def expectNoForwardedDownloadRequest(): DownloadActorTestHelper = {
+    def expectNoForwardedDownloadRequest(): DownloadActorTestHelper =
       val probeMsg = new Object
       probeFileDownloadActor.ref ! probeMsg
       probeFileDownloadActor.expectMsg(probeMsg)
       this
-    }
 
     /**
       * Simulates a result of a download request from the wrapped download
@@ -310,10 +291,9 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param result the result to be sent
       * @return this test helper
       */
-    def downloadResponse(result: DownloadDataResult): DownloadActorTestHelper = {
+    def downloadResponse(result: DownloadDataResult): DownloadActorTestHelper =
       probeFileDownloadActor.reply(result)
       this
-    }
 
     /**
       * Sends a message about a completed download to the test actor.
@@ -332,13 +312,12 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param chunks  the sequence of chunks
       * @return this test helper
       */
-    def handleMultipleRequests(request: DownloadData, chunks: Iterable[Array[Byte]]): DownloadActorTestHelper = {
+    def handleMultipleRequests(request: DownloadData, chunks: Iterable[Array[Byte]]): DownloadActorTestHelper =
       chunks.foreach { chunk =>
         expectForwardedDownloadRequest(request)
         downloadResponse(DownloadDataResult(ByteString(chunk)))
       }
       this
-    }
 
     /**
       * Tests whether the actor under test is in a state that it can handle
@@ -346,25 +325,23 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def checkRequestServed(): DownloadActorTestHelper = {
+    def checkRequestServed(): DownloadActorTestHelper =
       val nextResponse = DownloadDataResult(ByteString("more data"))
       sendRequestAndCheckForwarding()
       downloadResponse(nextResponse)
       expectMsg(nextResponse)
       this
-    }
 
     /**
       * Tests whether the actor under test has terminated.
       *
       * @return this test helper
       */
-    def expectActorTerminated(): DownloadActorTestHelper = {
+    def expectActorTerminated(): DownloadActorTestHelper =
       val watcherProbe = TestProbe()
       watcherProbe watch testDownloadActor
       watcherProbe.expectTerminated(testDownloadActor)
       this
-    }
 
     /**
       * Stops the wrapped download actor to test whether this scenario is
@@ -372,10 +349,9 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def stopWrappedDownloadActor(): DownloadActorTestHelper = {
+    def stopWrappedDownloadActor(): DownloadActorTestHelper =
       probeFileDownloadActor.stop()
       this
-    }
 
     /**
       * Sends the given message to the test actor.
@@ -383,10 +359,9 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg the message
       * @return this test helper
       */
-    private def sendMessage(msg: Any): DownloadActorTestHelper = {
+    private def sendMessage(msg: Any): DownloadActorTestHelper =
       testDownloadActor ! msg
       this
-    }
 
     /**
       * Creates a test actor instance.
@@ -402,5 +377,3 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
           probeFileDownloadActor.ref
         }
       }))
-  }
-}

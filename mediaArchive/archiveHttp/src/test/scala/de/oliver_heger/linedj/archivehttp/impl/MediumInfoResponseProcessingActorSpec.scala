@@ -40,7 +40,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Success
 
-object MediumInfoResponseProcessingActorSpec {
+object MediumInfoResponseProcessingActorSpec:
   /** Test medium ID. */
   private val TestMediumID = MediumID("mediumUri", Some("settings"))
 
@@ -102,21 +102,19 @@ object MediumInfoResponseProcessingActorSpec {
                      desc: HttpMediumDesc = TestDesc):
   (Future[Any], KillSwitch) =
     actor.underlyingActor.processSource(source, TestMediumID, desc, null, SeqNo)
-}
 
 /**
   * Test class for ''MediumInfoResponseProcessingActor''.
   */
 class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import MediumInfoResponseProcessingActorSpec._
 
   def this() = this(ActorSystem("MediumInfoResponseProcessingActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates a test actor reference to a test actor.
@@ -125,17 +123,15 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     * @return the test actor reference
     */
   private def createActor(parser: MediumInfoParser):
-  TestActorRef[MediumInfoResponseProcessingActorTestImpl] = {
+  TestActorRef[MediumInfoResponseProcessingActorTestImpl] =
     val props = Props(classOf[MediumInfoResponseProcessingActorTestImpl], parser)
     TestActorRef(props)
-  }
 
-  "A MediumInfoResponseProcessingActor" should "create a default parser" in {
+  "A MediumInfoResponseProcessingActor" should "create a default parser" in:
     val actor = TestActorRef[MediumInfoResponseProcessingActor](
       Props[MediumInfoResponseProcessingActor]())
 
     actor.underlyingActor.infoParser should not be null
-  }
 
   /**
     * Checks whether the actor produces a correct result based on the
@@ -143,7 +139,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     *
     * @param desc the medium description
     */
-  private def checkParseResult(desc: HttpMediumDesc): Unit = {
+  private def checkParseResult(desc: HttpMediumDesc): Unit =
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
       eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
@@ -152,18 +148,15 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     val (futureStream, _) = invoke(actor, desc = desc)
     val result = Await.result(futureStream, WaitTimeout)
     result should be(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
-  }
 
-  it should "produce a correct result" in {
+  it should "produce a correct result" in:
     checkParseResult(TestDesc)
-  }
 
-  it should "handle a medium description with a strange meta data file name" in {
+  it should "handle a medium description with a strange meta data file name" in:
     val desc = TestDesc.copy(metaDataPath = Checksum)
     checkParseResult(desc)
-  }
 
-  it should "handle a parsing error" in {
+  it should "handle a parsing error" in:
     val exception = new IllegalStateException("Simulated parsing exception")
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
@@ -174,9 +167,8 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     intercept[IllegalStateException] {
       Await.result(futureStream, WaitTimeout)
     } should be(exception)
-  }
 
-  it should "support canceling the stream" in {
+  it should "support canceling the stream" in:
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
       .thenReturn(Success(TestMediumInfo))
@@ -189,9 +181,8 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     val captor = ArgumentCaptor.forClass(classOf[Array[Byte]])
     verify(parser).parseMediumInfo(captor.capture(), eqArg(TestMediumID), anyString())
     captor.getValue.length should be < MediumInfoContent.length
-  }
 
-  it should "propagate the medium description correctly" in {
+  it should "propagate the medium description correctly" in:
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
       eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
@@ -201,8 +192,6 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
 
     actor ! msg
     expectMsg(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
-  }
-}
 
 /**
   * A test actor implementation which exposes the method for processing
@@ -211,11 +200,10 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
   * @param parser the ''MediumInfoParser''
   */
 class MediumInfoResponseProcessingActorTestImpl(parser: MediumInfoParser)
-  extends MediumInfoResponseProcessingActor(parser) {
+  extends MediumInfoResponseProcessingActor(parser):
   /**
     * Overridden to allow access from test code.
     */
   override def processSource(source: Source[ByteString, Any], mid: MediumID, desc: HttpMediumDesc,
                              config: HttpArchiveConfig, seqNo: Int): (Future[Any], KillSwitch) =
     super.processSource(source, mid, desc, config, seqNo)
-}

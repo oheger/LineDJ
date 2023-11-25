@@ -33,7 +33,7 @@ import scala.concurrent.Future
   * [[MetaDataProcessingSuccess]] objects. This sequence is then passed in a
   * [[MetaDataResponseProcessingResult]] message to the sender actor.
   */
-class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor {
+class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor:
   /**
     * @inheritdoc This implementation processes the content of a meta data
     *             file and parses it into a sequence of
@@ -42,7 +42,7 @@ class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor {
     */
   protected override def processSource(source: Source[ByteString, Any], mid: MediumID,
                                        desc: HttpMediumDesc, config: HttpArchiveConfig,
-                                       seqNo: Int): (Future[Any], KillSwitch) = {
+                                       seqNo: Int): (Future[Any], KillSwitch) =
     val sink = Sink.fold[List[MetaDataProcessingSuccess],
       MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
@@ -50,5 +50,3 @@ class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor {
       .toMat(sink)(Keep.both)
       .run()
     (futStream.map(MetaDataResponseProcessingResult(mid, _, seqNo)), killSwitch)
-  }
-}

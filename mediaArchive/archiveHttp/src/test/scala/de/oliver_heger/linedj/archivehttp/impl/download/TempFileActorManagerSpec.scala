@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
@@ -28,9 +28,9 @@ import org.scalatest.matchers.should.Matchers
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object TempFileActorManagerSpec {
+object TempFileActorManagerSpec:
   /** Test chunk size for download data requests. */
   private val DownloadChunkSize = 8192
 
@@ -66,35 +66,31 @@ object TempFileActorManagerSpec {
     */
   private def createDownloadResult(data: String = FileTestHelper.TestData): DownloadDataResult =
     DownloadDataResult(ByteString(data))
-}
 
 /**
   * Test class for ''TempFileActorManager''.
   */
 class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("TempFileActorManagerSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import TempFileActorManagerSpec._
 
-  "A TempFileActorManager" should "not handle a request if there is no data" in {
+  "A TempFileActorManager" should "not handle a request if there is no data" in:
     val helper = new TempFileManagerTestHelper
 
     helper.initiateClientRequest(expectedResult = false)
-  }
 
-  it should "handle a request if a write operation is pending" in {
+  it should "handle a request if a write operation is pending" in:
     val helper = new TempFileManagerTestHelper
 
     helper.pendingWriteOperation(1)
       .initiateClientRequest(expectedResult = true)
-  }
 
-  it should "create a child actor to handle a request" in {
+  it should "create a child actor to handle a request" in:
     val helper = new TempFileManagerTestHelper
 
     helper.pendingWriteOperation(1)
@@ -104,9 +100,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     creationData.path should be(createTempPath(1))
     helper.expectReadActorRequest(
       creationData.actorIdx) should be(DownloadData(DownloadChunkSize))
-  }
 
-  it should "send a read result to the client actor" in {
+  it should "send a read result to the client actor" in:
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1)
       .tempFileWritten(1)
@@ -115,16 +110,14 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.passDownloadResult(result)
       .expectClientMsg(result)
-  }
 
-  it should "return None for an unexpected download completed message" in {
+  it should "return None for an unexpected download completed message" in:
     val helper = new TempFileManagerTestHelper
 
     helper.passDownloadCompleted() should be(None)
     helper.verifyNoActorCreation()
-  }
 
-  it should "handle a download completed message if there is no more data" in {
+  it should "handle a download completed message if there is no more data" in:
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1)
       .tempFileWritten(1)
@@ -132,15 +125,13 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.passAndCheckDownloadCompleted(canHandle = false)
       .initiateClientRequest(expectedResult = false)
-  }
 
-  it should "ignore an unexpected download result message" in {
+  it should "ignore an unexpected download result message" in:
     val helper = new TempFileManagerTestHelper
 
     helper.passDownloadResult(createDownloadResult())
-  }
 
-  it should "not reset the reader actor for an unexpected download completed message" in {
+  it should "not reset the reader actor for an unexpected download completed message" in:
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).tempFileWritten(1)
       .pendingWriteOperation(2).tempFileWritten(2)
@@ -150,9 +141,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .passDownloadCompleted()
     helper.initiateClientRequest(expectedResult = true)
       .verifyNoActorCreation()
-  }
 
-  it should "manage multiple files" in {
+  it should "manage multiple files" in:
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).tempFileWritten(1)
     val result1 = createDownloadResult()
@@ -169,9 +159,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val data2 = helper.nextChildActor()
     helper.expectReadActorRequest(data2.actorIdx)
     helper.passDownloadResult(result2).expectClientMsg(result2)
-  }
 
-  it should "ignore a request if one is already in progress" in {
+  it should "ignore a request if one is already in progress" in:
     val helper = new TempFileManagerTestHelper
     val creationData = helper.pendingWriteOperation(1).tempFileWritten(1)
       .initiateClientRequest(expectedResult = true).nextChildActor()
@@ -179,9 +168,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.initiateClientRequest(expectedResult = true)
     helper.expectNoReadActorRequest()
-  }
 
-  it should "send an initiated request when the temporary file becomes available" in {
+  it should "send an initiated request when the temporary file becomes available" in:
     val helper = new TempFileManagerTestHelper
 
     val creationData = helper.pendingWriteOperation(1)
@@ -189,9 +177,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .tempFileWritten(1)
       .nextChildActor()
     helper.expectReadActorRequest(creationData.actorIdx) should be(DownloadData(DownloadChunkSize))
-  }
 
-  it should "not create a reader actor for a later temporary file" in {
+  it should "not create a reader actor for a later temporary file" in:
     val helper = new TempFileManagerTestHelper
 
     helper.pendingWriteOperation(1)
@@ -199,9 +186,8 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .pendingWriteOperation(2)
       .tempFileWritten(2)
       .verifyNoActorCreation()
-  }
 
-  it should "use the correct order for temporary files" in {
+  it should "use the correct order for temporary files" in:
     val helper = new TempFileManagerTestHelper
 
     helper.pendingWriteOperation(1).pendingWriteOperation(2).pendingWriteOperation(3)
@@ -209,24 +195,21 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .tempFileWritten(2).tempFileWritten(3).tempFileWritten(1)
     val creationData = helper.nextChildActor()
     creationData.path should be(createTempPath(1))
-  }
 
-  it should "not return temp paths before files have been created" in {
+  it should "not return temp paths before files have been created" in:
     val helper = new TempFileManagerTestHelper
 
     helper.tempPaths.isEmpty shouldBe true
-  }
 
-  it should "return pending temp paths" in {
+  it should "return pending temp paths" in:
     val expPaths = List(createTempPath(1), createTempPath(2))
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).pendingWriteOperation(2)
       .tempFileWritten(1).tempFileWritten(2)
 
     helper.tempPaths should contain theSameElementsAs expPaths
-  }
 
-  it should "include a path as pending that is currently read" in {
+  it should "include a path as pending that is currently read" in:
     val expPaths = List(createTempPath(1), createTempPath(2))
     val helper = new TempFileManagerTestHelper
     helper.pendingWriteOperation(1).tempFileWritten(1)
@@ -234,12 +217,11 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .initiateClientRequest(expectedResult = true)
 
     helper.tempPaths should contain theSameElementsAs expPaths
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
-  private class TempFileManagerTestHelper {
+  private class TempFileManagerTestHelper:
     /** Test probe for the owning download actor. */
     private val probeDownloadActor = TestProbe()
 
@@ -274,11 +256,10 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param expectedResult the expected result
       * @return this test helper
       */
-    def initiateClientRequest(expectedResult: Boolean): TempFileManagerTestHelper = {
+    def initiateClientRequest(expectedResult: Boolean): TempFileManagerTestHelper =
       manager.initiateClientRequest(probeClient.ref,
         DefaultRequest) shouldBe expectedResult
       this
-    }
 
     /**
       * Notifies the test instance about a pending write operation.
@@ -286,10 +267,9 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param seqNo the index number of the download file
       * @return this test helper
       */
-    def pendingWriteOperation(seqNo: Int): TempFileManagerTestHelper = {
+    def pendingWriteOperation(seqNo: Int): TempFileManagerTestHelper =
       manager pendingWriteOperation seqNo
       this
-    }
 
     /**
       * Returns information about the next child actor that has been
@@ -297,21 +277,19 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return data about a child actor
       */
-    def nextChildActor(): ReadOperationCreationData = {
+    def nextChildActor(): ReadOperationCreationData =
       val data = childActors.poll(TestTimeout.toSeconds, TimeUnit.SECONDS)
       data should not be null
       data
-    }
 
     /**
       * Checks that no child actor has been created.
       *
       * @return this test helper
       */
-    def verifyNoActorCreation(): TempFileManagerTestHelper = {
+    def verifyNoActorCreation(): TempFileManagerTestHelper =
       childActors shouldBe empty
       this
-    }
 
     /**
       * Notifies the test instance that a temporary file has been written.
@@ -319,10 +297,9 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param seqNo the index number of the download file
       * @return this test helper
       */
-    def tempFileWritten(seqNo: Int): TempFileManagerTestHelper = {
+    def tempFileWritten(seqNo: Int): TempFileManagerTestHelper =
       manager tempFileWritten createWriteResponse(seqNo)
       this
-    }
 
     /**
       * Passes the specified download result to the test instance.
@@ -330,10 +307,9 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param result the result object
       * @return this test helper
       */
-    def passDownloadResult(result: DownloadDataResult): TempFileManagerTestHelper = {
+    def passDownloadResult(result: DownloadDataResult): TempFileManagerTestHelper =
       manager downloadResultArrived result
       this
-    }
 
     /**
       * Passes a download completed message to the test instance and returns
@@ -353,15 +329,14 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def passAndCheckDownloadCompleted(canHandle: Boolean, pathIdx: Int = 1):
-    TempFileManagerTestHelper = {
-      val result = if (canHandle) None
+    TempFileManagerTestHelper =
+      val result = if canHandle then None
       else Some(DownloadRequestData(DefaultRequest, probeClient.ref))
       val opData = manager.downloadCompletedArrived().get
       opData.pendingRequest shouldBe result
       opData.operation.path should be(createTempPath(pathIdx))
       opData.operation.reader should be(nextChildActor().actor)
       this
-    }
 
     /**
       * Expects that a message has been sent to one of the child reader actors
@@ -370,11 +345,10 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param actorIdx the index of the child actor
       * @return the message received
       */
-    def expectReadActorRequest(actorIdx: Int): Any = {
+    def expectReadActorRequest(actorIdx: Int): Any =
       val msg = probeDownloadActor.expectMsgType[FileReadMsg]
       msg.actorIdx should be(actorIdx)
       msg.msg
-    }
 
     /**
       * Expects that the specified message was sent to the client actor.
@@ -382,10 +356,9 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param msg the message
       * @return this test helper
       */
-    def expectClientMsg(msg: Any): TempFileManagerTestHelper = {
+    def expectClientMsg(msg: Any): TempFileManagerTestHelper =
       probeClient.expectMsg(msg)
       this
-    }
 
     /**
       * Checks that no message was sent to a reader actor.
@@ -401,12 +374,11 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param actor the actor in question
       * @return this test helper
       */
-    private def expectNoActorMsg(actor: TestProbe): TempFileManagerTestHelper = {
+    private def expectNoActorMsg(actor: TestProbe): TempFileManagerTestHelper =
       val msg = new Object
       actor.ref ! msg
       actor.expectMsg(msg)
       this
-    }
 
     /**
       * Creates a dummy ''TempReadOperationHolder'' instance to be passed to
@@ -416,11 +388,11 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return the test ''TempReadOperationHolder''
       */
     private def createReadOperationHolder(): TempReadOperationHolder =
-      new TempReadOperationHolder {
+      new TempReadOperationHolder:
         override def currentReadOperation: Option[TempReadOperation] = readOperation
 
-        override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] = {
-          readOperation orElse {
+        override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] =
+          readOperation orElse:
             optPath map { path =>
               val actorIdx = childActorCount.incrementAndGet()
               val actor = system.actorOf(Props(classOf[SimulatedFileReaderActor], actorIdx))
@@ -430,15 +402,9 @@ class TempFileActorManagerSpec(testSystem: ActorSystem) extends TestKit(testSyst
               readOperation = Some(op)
               op
             }
-          }
-        }
 
-        override def resetReadOperation(): Unit = {
+        override def resetReadOperation(): Unit =
           readOperation = None
-        }
-      }
-  }
-}
 
 /**
   * A simple data class storing information about an actor that was created on
@@ -467,8 +433,6 @@ private case class FileReadMsg(msg: Any, actorIdx: Int)
   *
   * @param idx an index to identify the actor
   */
-class SimulatedFileReaderActor(idx: Int) extends Actor {
-  override def receive: Receive = {
+class SimulatedFileReaderActor(idx: Int) extends Actor:
+  override def receive: Receive =
     case m => sender() ! FileReadMsg(m, idx)
-  }
-}

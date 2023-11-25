@@ -309,18 +309,20 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-http",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-core" % VersionCloudFiles,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
+  ) dependsOn(shared, archiveCommon, id3Extract, test3 % "test->compile")
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav

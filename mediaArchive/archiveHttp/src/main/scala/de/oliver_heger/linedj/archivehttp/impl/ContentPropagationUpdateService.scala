@@ -73,7 +73,7 @@ case class ContentPropagationState(messages: List[MessageData],
   * This service takes care about this by providing corresponding update
   * functions for a propagation state object.
   */
-trait ContentPropagationUpdateService {
+trait ContentPropagationUpdateService:
   /** Type for a state update. */
   type StateUpdate[T] = State[ContentPropagationState, T]
 
@@ -122,10 +122,10 @@ trait ContentPropagationUpdateService {
     */
   def handleMediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
                             archiveID: String, remove: Boolean):
-  StateUpdate[Iterable[MessageData]] = for {
+  StateUpdate[Iterable[MessageData]] = for
     _ <- mediumProcessed(result, actors, archiveID, remove)
     msg <- messagesToSend()
-  } yield msg
+  yield msg
 
   /**
     * Handles an incoming confirmation of a removal request by updating the
@@ -134,16 +134,15 @@ trait ContentPropagationUpdateService {
     *
     * @return the updated state and messages to be sent
     */
-  def handleRemovalConfirmed(): StateUpdate[Iterable[MessageData]] = for {
+  def handleRemovalConfirmed(): StateUpdate[Iterable[MessageData]] = for
     _ <- removalConfirmed()
     msg <- messagesToSend()
-  } yield msg
-}
+  yield msg
 
 /**
   * The implementation of the ''ContentPropagationUpdateService''.
   */
-object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateService {
+object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateService:
   /** Constant for the initial propagation state. */
   val InitialState: ContentPropagationState =
     ContentPropagationState(messages = Nil, pendingMessages = Nil, removeAck = true)
@@ -151,23 +150,22 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
   override def mediumProcessed(result: MediumProcessingResult, actors: PropagationActors,
                                archiveID: String, remove: Boolean):
   StateUpdate[Unit] = modify { s =>
-    if (remove)
+    if remove then
       ContentPropagationState(messages = List(MessageData(actors.mediaManager,
         Seq(ArchiveComponentRemoved(archiveID)))), removeAck = false,
         pendingMessages = createMessagesForMedium(result, actors, archiveID, result.seqNo))
-    else {
-      val orgMessages = if (s.removeAck) s.messages else s.pendingMessages
+    else
+      val orgMessages = if s.removeAck then s.messages else s.pendingMessages
       val updateMessages = createMessagesForMedium(result, actors, archiveID,
         result.seqNo) ::: orgMessages
       val (newMessages, newPending) =
-        if (s.removeAck) (updateMessages, s.pendingMessages)
+        if s.removeAck then (updateMessages, s.pendingMessages)
         else (s.messages, updateMessages)
       s.copy(messages = newMessages, pendingMessages = newPending)
-    }
   }
 
   override def removalConfirmed(): StateUpdate[Unit] = modify { s =>
-    if (s.removeAck) s
+    if s.removeAck then s
     else ContentPropagationState(messages = s.pendingMessages, pendingMessages = Nil,
       removeAck = true)
   }
@@ -215,12 +213,11 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     * @return the ''MessageData'' object
     */
   private def createMetaDataMessages(result: MediumProcessingResult, actors: PropagationActors):
-  MessageData = {
+  MessageData =
     val files = result.metaData map (m => m.uri)
     val contribution = MediaContribution(Map(result.mediumInfo.mediumID -> files))
     val messages = contribution :: result.metaData.toList
     MessageData(actors.metaManager, messages)
-  }
 
   /**
     * Creates a ''MessageData'' object with an ACK message indicating that the
@@ -232,4 +229,3 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
     */
   private def createPropagatedMessage(seqNo: Int, actors: PropagationActors): MessageData =
     MessageData(actors.client, Seq(MediumPropagated(seqNo)))
-}

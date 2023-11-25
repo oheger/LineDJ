@@ -46,7 +46,7 @@ import org.apache.pekko.actor.{Actor, ActorRef}
   */
 class ContentPropagationActor(private[impl] val propagationService: ContentPropagationUpdateService,
                               mediaManager: ActorRef, metaDataManager: ActorRef,
-                              archiveID: String) extends Actor {
+                              archiveID: String) extends Actor:
   /**
     * Creates a new instance of ''ContentPropagationActor'' with the specified
     * parameters. The default content propagation service is used.
@@ -63,14 +63,13 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
   /** The propagation state managed by this actor. */
   private var state = ContentPropagationUpdateServiceImpl.InitialState
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case PropagateMediumResult(result, remove) =>
       updateStateAndSendMessages(propagationService.handleMediumProcessed(result, createActors(),
         archiveID, remove))
 
     case RemovedArchiveComponentProcessed(_) =>
       updateStateAndSendMessages(propagationService.handleRemovalConfirmed())
-  }
 
   /**
     * Updates the current propagation state accorind to the specified update
@@ -79,11 +78,10 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
     * @param update the object describing the state update
     */
   private def updateStateAndSendMessages(update: ContentPropagationUpdateServiceImpl
-  .StateUpdate[Iterable[MessageData]]): Unit = {
+  .StateUpdate[Iterable[MessageData]]): Unit =
     val (next, sendMsg) = update(state)
     state = next
     sendMsg foreach sendMessages
-  }
 
   /**
     * Handles the specified ''MessageData'' object by sending the messages to
@@ -91,9 +89,8 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
     *
     * @param data the ''MessageData''
     */
-  private def sendMessages(data: MessageData): Unit = {
+  private def sendMessages(data: MessageData): Unit =
     data.messages foreach data.target.!
-  }
 
   /**
     * Creates an object with the actors involved in a propagation operation.
@@ -102,4 +99,3 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
     */
   private def createActors(): PropagationActors =
     PropagationActors(mediaManager, metaDataManager, sender())
-}

@@ -22,30 +22,28 @@ import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object TempPathGeneratorSpec {
+object TempPathGeneratorSpec:
   /** A root path for temporary files. */
   private val Root = Paths get "downloadTempFiles"
 
   /** Name of a test archive. */
   private val Archive = "CoolMusicRemote"
-}
 
 /**
   * Test class for ''TempPathGenerator''.
   */
-class TempPathGeneratorSpec extends AnyFlatSpec with Matchers {
+class TempPathGeneratorSpec extends AnyFlatSpec with Matchers:
 
   import TempPathGeneratorSpec._
 
-  "A TempPathGenerator" should "generate a valid sub directory for an archive" in {
+  "A TempPathGenerator" should "generate a valid sub directory for an archive" in:
     val generator = TempPathGenerator(Root)
 
     val path = generator generateArchivePath Archive
     path.toString should include(Archive)
     path.getParent should be(Root)
-  }
 
-  it should "generate other directories depending on the start time" in {
+  it should "generate other directories depending on the start time" in:
     val time1 = Instant ofEpochSecond 42
     val time2 = Instant ofEpochSecond 41
     val gen1 = TempPathGenerator(Root, time1)
@@ -54,41 +52,36 @@ class TempPathGeneratorSpec extends AnyFlatSpec with Matchers {
     val path1 = gen1 generateArchivePath Archive
     val path2 = gen2 generateArchivePath Archive
     path1 should not be path2
-  }
 
-  it should "generate a valid path for a temporary download file" in {
+  it should "generate a valid path for a temporary download file" in:
     val gen = TempPathGenerator(Root)
 
     val path = gen.generateDownloadPath(Archive, 1, 1)
     path.getParent should be(gen.generateArchivePath(Archive))
     path.toString should endWith(".tmp")
-  }
 
-  it should "generate different download files for different downloads" in {
+  it should "generate different download files for different downloads" in:
     val gen = TempPathGenerator(Root)
 
     val path1 = gen.generateDownloadPath(Archive, 1, 1)
     val path2 = gen.generateDownloadPath(Archive, 2, 1)
     path1 should not be path2
-  }
 
-  it should "generate different download files for different file indices" in {
+  it should "generate different download files for different file indices" in:
     val gen = TempPathGenerator(Root)
 
     val path1 = gen.generateDownloadPath(Archive, 1, 1)
     val path2 = gen.generateDownloadPath(Archive, 1, 2)
     path1 should not be path2
-  }
 
-  it should "separate download index from file index" in {
+  it should "separate download index from file index" in:
     val gen = TempPathGenerator(Root)
 
     val path1 = gen.generateDownloadPath(Archive, 11, 1)
     val path2 = gen.generateDownloadPath(Archive, 1, 11)
     path1 should not be path2
-  }
 
-  it should "detect a removable path2" in {
+  it should "detect a removable path2" in:
     val gen1 = TempPathGenerator(Root, Instant ofEpochSecond 1)
     val gen2 = TempPathGenerator(Root, Instant ofEpochSecond 2)
     val path = gen2 generateArchivePath Archive
@@ -96,28 +89,23 @@ class TempPathGeneratorSpec extends AnyFlatSpec with Matchers {
 
     gen1 isRemovableTempPath path shouldBe true
     gen1 isRemovableTempPath file shouldBe true
-  }
 
-  it should "reject a removable path for the current run" in {
+  it should "reject a removable path for the current run" in:
     val gen = TempPathGenerator(Root)
     val path = gen generateArchivePath Archive
 
     gen isRemovableTempPath path shouldBe false
-  }
 
-  it should "not remove an unrelated file" in {
+  it should "not remove an unrelated file" in:
     val gen = TempPathGenerator(Root)
     val path = Root resolve "anotherFile.tmp"
 
     gen isRemovableTempPath path shouldBe false
-  }
 
-  it should "not remove an unrelated file in a download temp directory" in {
+  it should "not remove an unrelated file in a download temp directory" in:
     val gen1 = TempPathGenerator(Root, Instant ofEpochSecond 1)
     val dir = gen1 generateArchivePath Archive
     val path = dir resolve "noDownloadFile.tmp"
     val gen = TempPathGenerator(Root, Instant ofEpochSecond 2)
 
     gen isRemovableTempPath path shouldBe false
-  }
-}

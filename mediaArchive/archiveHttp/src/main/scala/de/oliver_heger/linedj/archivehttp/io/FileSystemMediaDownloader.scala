@@ -41,24 +41,21 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class FileSystemMediaDownloader[ID](val archiveFileSystem: HttpArchiveFileSystem[ID, _, _],
                                     val httpSender: ActorRef[HttpRequestSender.HttpCommand])
-                                   (implicit system: ActorSystem[_]) extends MediaDownloader {
-  override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] = {
+                                   (implicit system: ActorSystem[_]) extends MediaDownloader:
+  override def downloadMediaFile(path: Uri.Path): Future[Source[ByteString, Any]] =
     implicit val ec: ExecutionContext = system.executionContext
 
-    val op = for {
+    val op = for
       id <- archiveFileSystem.fileSystem.resolvePath(path.toString())
       entity <- archiveFileSystem.fileSystem.downloadFile(id)
-    } yield entity.dataBytes
+    yield entity.dataBytes
 
     op.run(httpSender)
-  }
 
   /**
     * @inheritdoc This implementation stops the HTTP sender actor used by this
     *             downloader and closes the file system.
     */
-  override def shutdown(): Unit = {
+  override def shutdown(): Unit =
     httpSender ! HttpRequestSender.Stop
     archiveFileSystem.fileSystem.close()
-  }
-}

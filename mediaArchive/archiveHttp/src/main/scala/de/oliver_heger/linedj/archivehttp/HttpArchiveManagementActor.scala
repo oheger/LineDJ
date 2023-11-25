@@ -38,7 +38,7 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.Future
 import scala.util.Success
 
-object HttpArchiveManagementActor {
+object HttpArchiveManagementActor:
   /** The size of the cache for request actors with multi-host support. */
   val MultiHostCacheSize = 32
 
@@ -100,13 +100,11 @@ object HttpArchiveManagementActor {
     * @return the corresponding ''HttpArchiveState''
     */
   private def stateFromException(ex: Throwable): HttpArchiveState =
-    ex match {
+    ex match
       case FailedResponseException(response) =>
         HttpArchiveStateFailedRequest(response.status)
       case _ =>
         HttpArchiveStateServerError(ex)
-    }
-}
 
 /**
   * An actor class responsible for integrating an HTTP media archive.
@@ -135,7 +133,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
                                  config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
                                  unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
                                  monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
-  with ActorLogging {
+  with ActorLogging:
   this: ChildActorFactory =>
 
   import HttpArchiveManagementActor._
@@ -171,7 +169,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
 
   import context.dispatcher
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor]())
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]()))
@@ -183,9 +181,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
       unionMetaDataManager, config.archiveName))
     updateArchiveState(HttpArchiveStateDisconnected)
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ScanAllMedia =>
       startArchiveProcessing()
 
@@ -209,12 +206,11 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       downloadManagementActor forward req
 
     case HttpArchiveStateRequest =>
-      archiveStateResponse match {
+      archiveStateResponse match
         case Some(response) =>
           sender() ! response
         case None =>
           pendingStateClients += sender()
-      }
 
     case alive: DownloadActorAlive =>
       monitoringActor ! alive
@@ -228,27 +224,23 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
       mediumInfoProcessor ! CancelStreams
       metaDataProcessor ! CancelStreams
       sender() ! CloseAck(self)
-  }
 
   /**
     * Starts processing of the managed HTTP archive.
     */
-  private def startArchiveProcessing(): Unit = {
-    if (updateState(processingService.processingStarts())) {
+  private def startArchiveProcessing(): Unit =
+    if updateState(processingService.processingStarts()) then
       unionMetaDataManager ! UpdateOperationStarts(None)
       archiveStateResponse = None
       val currentSeqNo = processingState.seqNo
       loadArchiveContent() map { data => createProcessArchiveRequest(data, currentSeqNo)
-      } onComplete {
+      } onComplete:
         case Success(req) =>
           archiveContentProcessor ! req
         case scala.util.Failure(ex) =>
           log.error(ex, "Could not load content document for archive " +
             config.archiveBaseUri)
           self ! HttpArchiveProcessingComplete(stateFromException(ex))
-      }
-    }
-  }
 
   /**
     * Creates a request to process an HTTP archive from the given response for
@@ -259,15 +251,14 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @return the processing request message
     */
   private def createProcessArchiveRequest(data: Source[ByteString, Any], curSeqNo: Int):
-  ProcessHttpArchiveRequest = {
+  ProcessHttpArchiveRequest =
     val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     val sink = Sink.actorRefWithBackpressure(self, HttpArchiveProcessingInit,
-      HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure)
+      HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure.apply)
     ProcessHttpArchiveRequest(archiveConfig = config, settingsProcessorActor = mediumInfoProcessor,
       metaDataProcessorActor = metaDataProcessor, sink = sink, mediaSource = data.via(parseStage),
       seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
       infoParallelism = InfoParallelism)
-  }
 
   /**
     * Loads the content document from the managed archive and returns a
@@ -285,14 +276,12 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @tparam A the type of the data produced by this update
     * @return the data produced by this update
     */
-  private def updateState[A](update: ContentProcessingUpdateServiceImpl.StateUpdate[A]): A = {
+  private def updateState[A](update: ContentProcessingUpdateServiceImpl.StateUpdate[A]): A =
     val (next, data) = update(processingState)
     processingState = next
-    if (next.contentInArchive) {
+    if next.contentInArchive then
       updateArchiveState(HttpArchiveStateConnected)
-    }
     data
-  }
 
   /**
     * Performs a state update using the specified update function and executes
@@ -301,11 +290,10 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     * @param update the update function
     */
   private def updateStateWithTransitions(update: ContentProcessingUpdateServiceImpl.
-  StateUpdate[ProcessingStateTransitionData]): Unit = {
+  StateUpdate[ProcessingStateTransitionData]): Unit =
     val transitionData = updateState(update)
     transitionData.propagateMsg foreach (propagationActor ! _)
     transitionData.actorToAck foreach (_ ! HttpArchiveMediumAck)
-  }
 
   /**
     * Updates the current archive state. If there are clients waiting for a
@@ -313,12 +301,10 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     *
     * @param state the new state
     */
-  private def updateArchiveState(state: HttpArchiveState): Unit = {
+  private def updateArchiveState(state: HttpArchiveState): Unit =
     log.debug("Next archive state: {}.", state)
     val response = HttpArchiveStateResponse(config.archiveName, state)
     archiveStateResponse = Some(response)
 
     pendingStateClients foreach (_ ! response)
     pendingStateClients = Set.empty
-  }
-}

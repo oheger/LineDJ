@@ -33,10 +33,11 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-object MetaDataResponseProcessingActorSpec {
+object MetaDataResponseProcessingActorSpec:
   /** Path prefix for the test online archive. */
   private val ArchivePath = "/test/music"
 
@@ -85,8 +86,7 @@ object MetaDataResponseProcessingActorSpec {
     * @param count  the number of meta data objects
     * @return the sequence with the produced meta data
     */
-  private def createProcessingResults(count: Int):
-  IndexedSeq[MetaDataProcessingSuccess] =
+  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingSuccess] =
     (1 to count) map ((idx: Int) => processingResult(idx))
 
   /**
@@ -122,23 +122,21 @@ object MetaDataResponseProcessingActorSpec {
     */
   private def createDataSource(data: String): Source[ByteString, Any] =
     Source.single(ByteString(data))
-}
 
 /**
   * Test class for ''MetaDataResponseProcessingActor''.
   */
 class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import MetaDataResponseProcessingActorSpec._
 
   def this() = this(ActorSystem("MetaDataResponseProcessingActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A MetaDataResponseProcessingActor" should "handle a successful response" in {
+  "A MetaDataResponseProcessingActor" should "handle a successful response" in:
     val metaDataResults = createProcessingResults(8)
     val source = createDataSource(generateJson(metaDataResults))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
@@ -148,18 +146,16 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     result.mediumID should be(TestMediumID)
     result.metaData should contain theSameElementsAs metaDataResults
     result.seqNo should be(SeqNo)
-  }
 
-  it should "apply a size restriction when processing a response" in {
+  it should "apply a size restriction when processing a response" in:
     val source = createDataSource(generateJson(createProcessingResults(32)))
     val actor = system.actorOf(Props[MetaDataResponseProcessingActor]())
 
     actor ! ProcessResponse(TestMediumID, null, source,
       DefaultArchiveConfig.copy(maxContentSize = 1), SeqNo)
     expectMsgType[Status.Failure]
-  }
 
-  it should "allow cancellation of the current stream" in {
+  it should "allow cancellation of the current stream" in:
     val responseData = generateJson(createProcessingResults(64))
     val jsonStrings = responseData.grouped(64)
       .map(ByteString(_))
@@ -174,9 +170,8 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
       DefaultArchiveConfig, SeqNo)
     actor ! CancelStreams
     expectMsgType[MetaDataResponseProcessingResult]
-  }
 
-  it should "unregister kill switches after stream completion" in {
+  it should "unregister kill switches after stream completion" in:
     val killSwitch = mock[KillSwitch]
     val Result = 42
     val props = Props(new MetaDataResponseProcessingActor {
@@ -193,5 +188,3 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
 
     actor receive CancelStreams
     verify(killSwitch, never()).shutdown()
-  }
-}

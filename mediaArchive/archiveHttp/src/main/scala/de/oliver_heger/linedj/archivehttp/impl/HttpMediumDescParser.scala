@@ -19,7 +19,9 @@ package de.oliver_heger.linedj.archivehttp.impl
 import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, ParserTypes}
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 
-object HttpMediumDescParser {
+import scala.collection.immutable.IndexedSeq
+
+object HttpMediumDescParser:
   /** Property for the path to a medium description file. */
   private val PropDescriptionPath = "mediumDescriptionPath"
 
@@ -35,7 +37,6 @@ object HttpMediumDescParser {
     */
   private def convertDescription(m: Map[String, String]): HttpMediumDesc =
     HttpMediumDesc(m(PropDescriptionPath), m(PropMetaDataPath))
-}
 
 /**
   * A class for parsing the content document of an HTTP archive.
@@ -49,7 +50,7 @@ object HttpMediumDescParser {
   */
 class HttpMediumDescParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
   Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[HttpMediumDesc, AnyRef](chunkParser, jsonParser) {
+  extends AbstractModelParser[HttpMediumDesc, AnyRef](chunkParser, jsonParser):
 
   import HttpMediumDescParser._
 
@@ -58,9 +59,7 @@ class HttpMediumDescParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTy
     *             type [[HttpMediumDesc]]. Only objects with all properties are
     *             taken into account. The data parameter is not needed here.
     */
-  override def convertJsonObjects(data: AnyRef, objects: IndexedSeq[Map[String, String]]):
-  IndexedSeq[HttpMediumDesc] =
+  override def convertJsonObjects(data: AnyRef, objects: IndexedSeq[Map[String, String]]): IndexedSeq[HttpMediumDesc] =
     objects filter { m =>
       m.contains(PropDescriptionPath) && m.contains(PropMetaDataPath)
     } map convertDescription
-}

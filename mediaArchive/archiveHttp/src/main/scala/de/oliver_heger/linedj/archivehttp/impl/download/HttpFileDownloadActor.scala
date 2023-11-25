@@ -25,7 +25,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.{Path, Paths}
 
-object HttpFileDownloadActor {
+object HttpFileDownloadActor:
   /**
     * A dummy chunk size to be passed to the super class. For this actor class
     * no chunk size is needed because the HTTP response takes care about this.
@@ -54,7 +54,6 @@ object HttpFileDownloadActor {
     */
   private def extractPathFromUri(uri: Uri): Path =
     Paths.get(uri.path.toString())
-}
 
 /**
   * An actor implementation for downloading files from an HTTP archive.
@@ -69,10 +68,9 @@ object HttpFileDownloadActor {
   * @param trans the transformation function
   */
 class HttpFileDownloadActor(dataSource: Source[ByteString, Any], path: Path, trans: DownloadTransformFunc)
-  extends MediaFileDownloadActor(path, HttpFileDownloadActor.DummyChunkSize, trans) {
+  extends MediaFileDownloadActor(path, HttpFileDownloadActor.DummyChunkSize, trans):
   /**
     * @inheritdoc This implementation just returns the source passed to the
     *             constructor.
     */
   override protected def createUntransformedSource(): Source[ByteString, Any] = dataSource
-}

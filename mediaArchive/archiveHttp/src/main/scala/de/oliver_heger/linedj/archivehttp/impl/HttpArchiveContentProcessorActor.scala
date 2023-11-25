@@ -29,7 +29,7 @@ import org.apache.pekko.util.ByteString
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
-object HttpArchiveContentProcessorActor {
+object HttpArchiveContentProcessorActor:
   /** Sequence number used for undefined results. */
   private val UndefinedSeqNo = -1
 
@@ -72,7 +72,6 @@ object HttpArchiveContentProcessorActor {
     */
   private def isValidResult(result: MediumProcessingResult): Boolean =
     result.mediumInfo.name.nonEmpty && result.metaData.nonEmpty
-}
 
 /**
   * An actor class that processes the content of an HTTP archive.
@@ -89,15 +88,14 @@ object HttpArchiveContentProcessorActor {
   * stream has been fully processed the manager actor is notified.
   */
 class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor with ActorLogging
-  with CancelableStreamSupport {
+  with CancelableStreamSupport:
 
   import HttpArchiveContentProcessorActor._
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case req: ProcessHttpArchiveRequest =>
       val (killSwitch, futStream) = materializeStream(req)
       processStreamResult(futStream, killSwitch)(identity)
-  }
 
   /**
     * Sends the specified result to the original caller. This method is called
@@ -108,9 +106,8 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @param client the client to receive the response
     * @param result the result message
     */
-  override protected def propagateResult(client: ActorRef, result: Any): Unit = {
+  override protected def propagateResult(client: ActorRef, result: Any): Unit =
     log.info("Stream processing completed.")
-  }
 
   /**
     * Creates the stream for processing the specified archive request.
@@ -126,7 +123,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return a ''Future'' when the stream is done and a ''KillSwitch''
     */
   private def materializeStream(req: ProcessHttpArchiveRequest):
-  (KillSwitch, Future[Any]) = {
+  (KillSwitch, Future[Any]) =
     val ks = KillSwitches.single[HttpMediumDesc]
     val filterDesc = Flow[HttpMediumDesc].filter(isFullyDefined)
     val infoReq = requestMappingFlow(req)(createMediumInfoRequest)
@@ -152,7 +149,6 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
         ClosedShape
     })
     g.run()
-  }
 
   /**
     * Returns a flow that produces a tuple to be passed to a request flow based
@@ -190,12 +186,11 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
                             (implicit tag: ClassTag[T])
   : Flow[(Uri.Path, String, RequestData), T, NotUsed] =
     Flow[(Uri.Path, String, RequestData)].mapAsync(parallelism) { t =>
-      (for {data <- req.archiveConfig.downloader.downloadMediaFile(t._1, t._2)
+      (for data <- req.archiveConfig.downloader.downloadMediaFile(t._1, t._2)
             procResp <- processHttpResponse(req, (data, t._3)).mapTo[T]
-            } yield procResp) fallbackTo Future {
+            yield procResp) fallbackTo Future:
         val mid = createMediumID(req, t._3.mediumDesc)
         fUndef(mid)
-      }
     }
 
   /**
@@ -231,11 +226,10 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @return a future for the message expected from the processor actor
     */
   private def processHttpResponse(req: ProcessHttpArchiveRequest,
-                                  t: (Source[ByteString, Any], RequestData)): Future[Any] = {
+                                  t: (Source[ByteString, Any], RequestData)): Future[Any] =
     val mediumID = createMediumID(req, t._2.mediumDesc)
     val msg = ProcessResponse(mediumID, t._2.mediumDesc, t._1, req.archiveConfig, req.seqNo)
     t._2.processorActor.ask(msg)(req.archiveConfig.processorTimeout)
-  }
 
   /**
     * Creates a medium ID from the given medium description.
@@ -244,9 +238,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     * @param md  the medium description
     * @return the ''MediumID''
     */
-  private def createMediumID(req: ProcessHttpArchiveRequest, md: HttpMediumDesc): MediumID = {
+  private def createMediumID(req: ProcessHttpArchiveRequest, md: HttpMediumDesc): MediumID =
     val pos = md.mediumDescriptionPath.lastIndexOf('/')
     val mediumURI = md.mediumDescriptionPath.substring(0, pos)
     MediumID(mediumURI, Some(md.mediumDescriptionPath), req.archiveConfig.archiveName)
-  }
-}

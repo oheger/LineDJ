@@ -37,7 +37,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
-object HttpDownloadManagementActorSpec {
+object HttpDownloadManagementActorSpec:
   /** The URI of a test file to be downloaded. */
   private val DownloadUri = "medium/song.mp3"
 
@@ -56,7 +56,6 @@ object HttpDownloadManagementActorSpec {
     */
   private case class ChildCreationData(child: TestProbe, props: Props)
 
-}
 
 /**
   * Test class for ''HttpDownloadManagementActor''.
@@ -67,11 +66,10 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
 
   import HttpDownloadManagementActorSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A HttpDownloadManagementActor" should "create correct Props" in {
+  "A HttpDownloadManagementActor" should "create correct Props" in:
     val config = mock[HttpArchiveConfig]
     val pathGen = mock[TempPathGenerator]
     val monitoringActor = TestProbe()
@@ -81,9 +79,8 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     classOf[HttpDownloadManagementActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(config, pathGen, monitoringActor.ref, removeActor.ref))
-  }
 
-  it should "execute a download request successfully" in {
+  it should "execute a download request successfully" in:
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest()
@@ -92,7 +89,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     downloadResponse.request should be(TestMediaFileRequest)
     downloadResponse.contentReader.get should be(timeoutData.child.ref)
     downloadResponse.length should be(0)
-  }
 
   /**
     * Sends a test request to the test actor and obtains the transformation
@@ -101,55 +97,49 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     * @param request the test request
     * @return the transformation function
     */
-  private def sendRequestAndFetchTransformFunc(request: MediumFileRequest): DownloadTransformFunc = {
+  private def sendRequestAndFetchTransformFunc(request: MediumFileRequest): DownloadTransformFunc =
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest(request)
     expectMsgType[MediumFileResponse]
     val creationData = helper.expectDownloadActorCreation(request)
     creationData.props.args(3).asInstanceOf[DownloadTransformFunc]
-  }
 
-  it should "use an identity transformation if meta data should be downloaded" in {
+  it should "use an identity transformation if meta data should be downloaded" in:
     val transformFunc = sendRequestAndFetchTransformFunc(TestMediaFileRequest)
 
     transformFunc should be(MediaFileDownloadActor.IdentityTransform)
-  }
 
-  it should "use a correct transformation function if meta data is to be stripped" in {
+  it should "use a correct transformation function if meta data is to be stripped" in:
     val request = TestMediaFileRequest.copy(withMetaData = false)
     val transformFunc = sendRequestAndFetchTransformFunc(request)
 
     transformFunc("Mp3") shouldBe a[ID3v2ProcessingStage]
-  }
 
-  it should "register the download actor at the monitoring actor" in {
+  it should "register the download actor at the monitoring actor" in:
     val helper = new DownloadManagementTestHelper
 
     helper.executeRequest()
     expectMsgType[MediumFileResponse]
     val creationData = helper.expectDownloadActorCreation()
     helper.expectMonitoringRegistration(creationData.child.ref)
-  }
 
-  it should "increment the download index per operation" in {
+  it should "increment the download index per operation" in:
     val helper = new DownloadManagementTestHelper
 
-    def checkDownloadIndex(expIdx: Int): Unit = {
+    def checkDownloadIndex(expIdx: Int): Unit =
       helper.executeRequest()
       expectMsgType[MediumFileResponse]
       val creationData = helper.expectDownloadActorCreation()
       creationData.props.args(6) should be(expIdx)
-    }
 
     checkDownloadIndex(1)
     checkDownloadIndex(2)
-  }
 
   /**
     * A test helper class managing a test actor and its dependencies.
     */
-  private class DownloadManagementTestHelper {
+  private class DownloadManagementTestHelper:
     /** The configuration for the HTTP archive. */
     private val config = createConfig()
 
@@ -174,10 +164,9 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @param request the request to be sent
       * @return this test helper
       */
-    def executeRequest(request: MediumFileRequest = TestMediaFileRequest): DownloadManagementTestHelper = {
+    def executeRequest(request: MediumFileRequest = TestMediaFileRequest): DownloadManagementTestHelper =
       downloadManager ! request
       this
-    }
 
     /**
       * Checks that a correct child actor for a download operation has been
@@ -187,7 +176,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @param expRequest the expected request
       * @return the creation data object for the child actor
       */
-    def expectDownloadActorCreation(expRequest: MediumFileRequest = TestMediaFileRequest): ChildCreationData = {
+    def expectDownloadActorCreation(expRequest: MediumFileRequest = TestMediaFileRequest): ChildCreationData =
       val timeoutActorCreation = nextChildActorCreation()
       classOf[TimeoutAwareHttpDownloadActor].isAssignableFrom(
         timeoutActorCreation.props.actorClass()) shouldBe true
@@ -200,7 +189,6 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       timeoutActorCreation.props.args(5) should be(probeRemoveActor.ref)
 
       timeoutActorCreation
-    }
 
     /**
       * Expects that a download actor was registered at the monitoring actor.
@@ -208,10 +196,9 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       * @param actor the actor to be registered
       * @return this test helper
       */
-    def expectMonitoringRegistration(actor: ActorRef): DownloadManagementTestHelper = {
+    def expectMonitoringRegistration(actor: ActorRef): DownloadManagementTestHelper =
       probeMonitoringActor.expectMsg(DownloadOperationStarted(actor, testActor))
       this
-    }
 
     /**
       * Returns information about the next child actor that has been created
@@ -220,11 +207,10 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
       *
       * @return a data object for the next child actor creation
       */
-    private def nextChildActorCreation(): ChildCreationData = {
+    private def nextChildActorCreation(): ChildCreationData =
       val data = childCreationQueue.poll(3, TimeUnit.SECONDS)
       data should not be null
       data
-    }
 
     /**
       * Creates a mock configuration for the HTTP archive.
@@ -258,6 +244,5 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
           creationData.child.ref
         }
       }))
-  }
 
 }

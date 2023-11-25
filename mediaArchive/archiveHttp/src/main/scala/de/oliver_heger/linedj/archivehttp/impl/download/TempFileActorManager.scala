@@ -24,7 +24,7 @@ import java.nio.file.Path
 import scala.collection.SortedSet
 import scala.collection.immutable.TreeSet
 
-private object TempFileActorManager {
+private object TempFileActorManager:
   /**
     * An internally used data class to store information about a temporary file
     * to be processed.
@@ -32,16 +32,14 @@ private object TempFileActorManager {
     * @param path  the path of the file
     * @param seqNo the sequence number of the download file
     */
-  private case class TempFileData(path: Path, seqNo: Int) extends Ordered[TempFileData] {
+  private case class TempFileData(path: Path, seqNo: Int) extends Ordered[TempFileData]:
     /**
       * @inheritdoc This implementation compares objects by their sequence
       *             number. This is used to ensure that temporary files are
       *             processed in correct order.
       */
     override def compare(that: TempFileData): Int = seqNo - that.seqNo
-  }
 
-}
 
 /**
   * An internally used helper class that manages information about temporary
@@ -62,7 +60,7 @@ private object TempFileActorManager {
   * @param operationHolder the object managing read operations
   */
 private class TempFileActorManager(val downloadActor: ActorRef,
-                                   val operationHolder: TempReadOperationHolder) {
+                                   val operationHolder: TempReadOperationHolder):
   /** A set with write operations that are currently pending. */
   private var pendingWrites: SortedSet[Int] = TreeSet.empty
 
@@ -78,11 +76,10 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *
     * @return an ''Iterable'' with paths to files that have not been read
     */
-  def pendingTempPaths: Iterable[Path] = {
+  def pendingTempPaths: Iterable[Path] =
     val currentPath = operationHolder.currentReadOperation.map(r => List(r.path)) getOrElse List.empty[Path]
     val waitingPaths = temporaryFiles.map(_.path).toList
     currentPath ::: waitingPaths
-  }
 
   /**
     * Handles a request from a client for a block of data if this is
@@ -96,22 +93,19 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @return a flag whether this request can be handled
     */
   def initiateClientRequest(client: ActorRef,
-                            request: DownloadData): Boolean = {
-    if (currentRequest.isDefined) true
-    else {
-      obtainCurrentReadOperation() match {
+                            request: DownloadData): Boolean =
+    if currentRequest.isDefined then true
+    else
+      obtainCurrentReadOperation() match
         case Some(TempReadOperation(actor, _)) =>
           currentRequest = Some(DownloadRequestData(request, client))
           sendDownloadRequest(actor, request)
           true
         case None =>
-          if (pendingWrites.nonEmpty) {
+          if pendingWrites.nonEmpty then
             currentRequest = Some(DownloadRequestData(request, client))
             true
-          } else false
-      }
-    }
-  }
+          else false
 
   /**
     * Notifies this object that a temporary file is going to be written. This
@@ -121,9 +115,8 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *
     * @param seqNo the sequence number of the temporary file
     */
-  def pendingWriteOperation(seqNo: Int): Unit = {
+  def pendingWriteOperation(seqNo: Int): Unit =
     pendingWrites = pendingWrites.union(Set(seqNo))
-  }
 
   /**
     * Notifies this object that a write operation for a temporary file has
@@ -131,13 +124,12 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *
     * @param fileData information about the write operation
     */
-  def tempFileWritten(fileData: WriteChunkActor.WriteResponse): Unit = {
+  def tempFileWritten(fileData: WriteChunkActor.WriteResponse): Unit =
     temporaryFiles = temporaryFiles.union(Set(TempFileData(fileData.request.target, fileData.request.seqNo)))
 
     currentRequest foreach { req =>
       obtainCurrentReadOperation() foreach (op => sendDownloadRequest(op.reader, req.request))
     }
-  }
 
   /**
     * Notifies this object that a request for data to a child reader actor
@@ -146,10 +138,9 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     *
     * @param result the result of the read operation
     */
-  def downloadResultArrived(result: DownloadDataResult): Unit = {
+  def downloadResultArrived(result: DownloadDataResult): Unit =
     currentRequest foreach (_.client ! result)
     currentRequest = None
-  }
 
   /**
     * Notifies this object that a file read operation is now complete. If
@@ -177,14 +168,13 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @return an ''Option'' with the currently pending request
     */
   private def obtainPendingRequest(): Option[DownloadRequestData] =
-    currentRequest match {
+    currentRequest match
       case Some(req) =>
         operationHolder.resetReadOperation()
         currentRequest = None
-        if (initiateClientRequest(req.client, req.request)) None
+        if initiateClientRequest(req.client, req.request) then None
         else Some(req)
       case None => None
-    }
 
   /**
     * Obtains a reference to the current reader actor if possible. If a reader
@@ -194,13 +184,12 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @return an ''Option'' for the current reader actor
     */
   private def obtainCurrentReadOperation(): Option[TempReadOperation] =
-    operationHolder.getOrCreateCurrentReadOperation {
+    operationHolder.getOrCreateCurrentReadOperation:
       temporaryFiles.headOption flatMap matchTempFileIndex map { t =>
         temporaryFiles = temporaryFiles.diff(Set(t))
         pendingWrites = pendingWrites.diff(Set(t.seqNo))
         t.path
       }
-    }
 
   /**
     * Sends a download request to a download actor for one of the managed
@@ -209,9 +198,8 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @param actor   the target actor
     * @param request the download request
     */
-  private def sendDownloadRequest(actor: ActorRef, request: DownloadData): Unit = {
+  private def sendDownloadRequest(actor: ActorRef, request: DownloadData): Unit =
     actor.tell(request, downloadActor)
-  }
 
   /**
     * Checks whether the sequence number of the first temporary file matches
@@ -223,9 +211,7 @@ private class TempFileActorManager(val downloadActor: ActorRef,
     * @param t the data object for the temporary file
     * @return an ''Option'' for the file to be used
     */
-  private def matchTempFileIndex(t: TempFileData): Option[TempFileData] = {
+  private def matchTempFileIndex(t: TempFileData): Option[TempFileData] =
     val firstPendingWriteIdx = pendingWrites.headOption.getOrElse(Integer.MAX_VALUE)
-    if (firstPendingWriteIdx == t.seqNo) Some(t)
+    if firstPendingWriteIdx == t.seqNo then Some(t)
     else None
-  }
-}

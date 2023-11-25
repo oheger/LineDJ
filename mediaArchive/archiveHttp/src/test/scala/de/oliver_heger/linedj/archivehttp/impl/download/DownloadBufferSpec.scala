@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,52 +26,45 @@ import scala.annotation.tailrec
 /**
   * Test class for ''DownloadBuffer''.
   */
-class DownloadBufferSpec extends AnyFlatSpec with Matchers {
-  "A DownloadBuffer" should "return a correct size of an empty buffer" in {
+class DownloadBufferSpec extends AnyFlatSpec with Matchers:
+  "A DownloadBuffer" should "return a correct size of an empty buffer" in:
     DownloadBuffer.empty.size should be(0)
-  }
 
-  it should "return correct chunks for an empty buffer" in {
+  it should "return correct chunks for an empty buffer" in:
     DownloadBuffer.empty.chunks.isEmpty shouldBe true
-  }
 
-  it should "correctly handle a fetch operation if it is empty" in {
+  it should "correctly handle a fetch operation if it is empty" in:
     val buffer = DownloadBuffer.empty
 
     val (data, buffer2) = buffer fetchData 1
     data should be(None)
     buffer2 should be theSameInstanceAs buffer
-  }
 
-  it should "allow adding and querying chunks" in {
+  it should "allow adding and querying chunks" in:
     val chunks = ByteString(FileTestHelper.TestData).grouped(32).toList
 
     val buffer = chunks.foldLeft(DownloadBuffer.empty)(_ addChunk _)
     buffer.size should be(FileTestHelper.TestData.length)
     buffer.chunks.toList should be(chunks)
 
-    @tailrec def queryChunk(count: Int, buf: DownloadBuffer, bs: ByteString): ByteString = {
-      if (count == 0) bs
-      else {
+    @tailrec def queryChunk(count: Int, buf: DownloadBuffer, bs: ByteString): ByteString =
+      if count == 0 then bs
+      else
         val (optBs, buf2) = buf.fetchData(32)
         queryChunk(count - 1, buf2, bs ++ optBs.get)
-      }
-    }
 
     val result = queryChunk(chunks.length, buffer, ByteString.empty)
     result.utf8String should be(FileTestHelper.TestData)
-  }
 
-  it should "support querying smaller chunks" in {
+  it should "support querying smaller chunks" in:
     val ChunkSize = 32
     val buffer = DownloadBuffer.empty addChunk ByteString(FileTestHelper.TestData)
 
     val (optChunk, buf2) = buffer fetchData ChunkSize
     buf2.size should be(FileTestHelper.TestData.length - ChunkSize)
     optChunk.get.utf8String should be(FileTestHelper.TestData.substring(0, ChunkSize))
-  }
 
-  it should "support querying multiple smaller chunks" in {
+  it should "support querying multiple smaller chunks" in:
     val ChunkSize = 16
     val buffer = DownloadBuffer.empty addChunk ByteString(FileTestHelper.TestData)
     val (_, buf2) = buffer fetchData ChunkSize
@@ -80,18 +73,16 @@ class DownloadBufferSpec extends AnyFlatSpec with Matchers {
     buf3.size should be(FileTestHelper.TestData.length - 2 * ChunkSize)
     optChunk2.get.utf8String should be(FileTestHelper.TestData
       .substring(ChunkSize, 2 * ChunkSize))
-  }
 
-  it should "correctly handle requests for larger blocks" in {
+  it should "correctly handle requests for larger blocks" in:
     val Data = "Small data"
     val buffer = DownloadBuffer.empty addChunk ByteString(Data)
 
     val (optChunk, buf2) = buffer fetchData 1000
     optChunk.get.utf8String should be(Data)
     buf2.size should be(0)
-  }
 
-  it should "return the head chunk in the chunks list" in {
+  it should "return the head chunk in the chunks list" in:
     val ChunkSize = 64
     val MoreData = "More text"
     val buffer = DownloadBuffer.empty
@@ -103,5 +94,3 @@ class DownloadBufferSpec extends AnyFlatSpec with Matchers {
     val remainingData = chunks.foldLeft(ByteString.empty)(_ ++ _)
     remainingData.utf8String should be(FileTestHelper
       .TestData.substring(ChunkSize) + MoreData)
-  }
-}

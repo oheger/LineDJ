@@ -29,7 +29,7 @@ import org.apache.pekko.util.ByteString
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-private object HttpDownloadActor {
+private object HttpDownloadActor:
   /**
     * Returns ''Props'' to create a new instance of this actor.
     *
@@ -63,7 +63,6 @@ private object HttpDownloadActor {
   private case class DownloadRequestCompleted(triedData: Try[Source[ByteString, Any]],
                                               initialRequest: DownloadData,
                                               client: ActorRef)
-}
 
 /**
   * An internally used helper actor class that allows downloading a specific
@@ -92,12 +91,12 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
                                 downloadRequest: MediumFileRequest,
                                 transformFunc: MediaFileDownloadActor.DownloadTransformFunc,
                                 bytesToSkip: Long)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   this: ChildActorFactory =>
   /** A counter storing the bytes to be skipped. */
   private var skipCount = bytesToSkip
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case request: DownloadData =>
       implicit val ec: ExecutionContext = context.dispatcher
       val client = sender()
@@ -106,7 +105,6 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
       config.downloader.downloadMediaFile(config.mediaPath, downloadRequest.fileID.uri) onComplete { result =>
         self ! DownloadRequestCompleted(result, request, client)
       }
-  }
 
   /**
     * Returns a message handler function that is active while the download of
@@ -115,29 +113,26 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
     *
     * @return the handler function to wait for the completed download
     */
-  private def waitForResponse: Receive = {
+  private def waitForResponse: Receive =
     case DownloadRequestCompleted(triedData, request, client) =>
-      triedData match {
+      triedData match
         case Success(source) =>
           val downloadActor =
             createChildActor(HttpFileDownloadActor(source, Uri(downloadRequest.fileID.uri), transformFunc))
           context watch downloadActor
-          if (skipCount > 0) {
+          if skipCount > 0 then
             context become skipping(downloadActor, request, client)
             downloadActor ! request
-          } else {
+          else
             context.become(downloadActive(downloadActor))
             self.tell(request, client)
-          }
 
         case Failure(exception) =>
           log.error(exception, "Download failed for {}.", downloadRequest.fileID)
           context.stop(self)
-      }
 
     case _: DownloadData =>
       sender() ! MediaFileDownloadActor.ConcurrentRequestResponse
-  }
 
   /**
     * Returns a message handler function that controls the phase in which a
@@ -151,17 +146,16 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
     * @param client        the client of the ongoing request
     * @return the handler function controlling the skip phase
     */
-  private def skipping(downloadActor: ActorRef, request: DownloadData, client: ActorRef): Receive = {
+  private def skipping(downloadActor: ActorRef, request: DownloadData, client: ActorRef): Receive =
     case result@DownloadDataResult(data) =>
-      if (skipCount >= data.size) {
+      if skipCount >= data.size then
         skipCount -= data.size
         downloadActor ! request
-      } else {
+      else
         context become downloadActive(downloadActor)
-        val remainingResult = if (skipCount == 0) result
+        val remainingResult = if skipCount == 0 then result
         else DownloadDataResult(data.drop(skipCount.toInt))
         client ! remainingResult
-      }
 
     case DownloadData(_) =>
       sender() ! MediaFileDownloadActor.ConcurrentRequestResponse
@@ -171,7 +165,6 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
 
     case Terminated(_) =>
       childActorTerminated()
-  }
 
   /**
     * Returns a message handler function that controls the actual download
@@ -181,20 +174,17 @@ private class HttpDownloadActor(config: HttpArchiveConfig,
     * @param downloadActor the managed download actor
     * @return the handler function controlling the download
     */
-  private def downloadActive(downloadActor: ActorRef): Receive = {
+  private def downloadActive(downloadActor: ActorRef): Receive =
     case downloadRequest: DownloadData =>
       downloadActor forward downloadRequest
 
     case Terminated(_) =>
       childActorTerminated()
-  }
 
   /**
     * Handles the case that the managed download child actor terminates. Then
     * this actor needs to be stopped as well.
     */
-  private def childActorTerminated(): Unit = {
+  private def childActorTerminated(): Unit =
     log.error("Managed HttpFileDownloadActor terminated.")
     context stop self
-  }
-}

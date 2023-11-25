@@ -20,7 +20,7 @@ import org.apache.pekko.util.ByteString
 
 import scala.collection.immutable.Queue
 
-private object DownloadBuffer {
+private object DownloadBuffer:
   /**
     * Returns an empty ''DownloadBuffer''.
     *
@@ -37,12 +37,10 @@ private object DownloadBuffer {
     * @return the string of the requested size and the optional remainder
     */
   private def splitBlock(bs: ByteString, length: Int): (ByteString, Option[ByteString]) =
-    if (bs.length <= length) (bs, None)
-    else {
+    if bs.length <= length then (bs, None)
+    else
       val (b1, b2) = bs.splitAt(length)
       (b1, Some(b2))
-    }
-}
 
 /**
   * An internally used helper class that manages the in-memory buffer during a
@@ -66,7 +64,7 @@ private object DownloadBuffer {
   *                      chunk
   */
 private class DownloadBuffer private(queue: Queue[ByteString], val size: Int,
-                                     optFirstBlock: Option[ByteString]) {
+                                     optFirstBlock: Option[ByteString]):
 
   import DownloadBuffer._
 
@@ -112,10 +110,9 @@ private class DownloadBuffer private(queue: Queue[ByteString], val size: Int,
     * @return a tuple with the block result and the updated buffer
     */
   private def fetchDataWithFirstBlock(blockSize: Int, bs: ByteString):
-  (Some[ByteString], DownloadBuffer) = {
+  (Some[ByteString], DownloadBuffer) =
     val (value, rest) = splitBlock(bs, blockSize)
     (Some(value), new DownloadBuffer(queue, size - value.length, rest))
-  }
 
   /**
     * Obtains a block with data of the requested size if all data of this
@@ -125,10 +122,8 @@ private class DownloadBuffer private(queue: Queue[ByteString], val size: Int,
     * @return a tuple with the block result and the updated buffer
     */
   private def fetchDataFromQueue(blockSize: Int): (Option[ByteString], DownloadBuffer) =
-    if (queue.isEmpty) (None, this)
-    else {
+    if queue.isEmpty then (None, this)
+    else
       val (bs, q2) = queue.dequeue
       val (value, rest) = splitBlock(bs, blockSize)
       (Some(value), new DownloadBuffer(q2, size - value.length, rest))
-    }
-}

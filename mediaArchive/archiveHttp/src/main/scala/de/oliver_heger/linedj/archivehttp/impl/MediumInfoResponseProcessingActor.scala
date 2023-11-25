@@ -45,7 +45,7 @@ import scala.concurrent.Future
   * @param infoParser the parser for medium info files
   */
 class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
-  extends AbstractResponseProcessingActor {
+  extends AbstractResponseProcessingActor:
   /**
     * Default constructor. This constructor creates an instance with a default
     * [[MediumInfoParser]] object.
@@ -63,7 +63,7 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     */
   override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
                                        desc: HttpMediumDesc, config: HttpArchiveConfig,
-                                       seqNo: Int): (Future[Any], KillSwitch) = {
+                                       seqNo: Int): (Future[Any], KillSwitch) =
     val sink = Sink.fold[ByteString, ByteString](ByteString())(_ ++ _)
     val (killSwitch, futureResult) = source
       .viaMat(KillSwitches.single)(Keep.right)
@@ -74,7 +74,6 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
         fetchChecksum(desc)).get, seqNo)
     }
     (futureInfo, killSwitch)
-  }
 
   /**
     * Obtains the checksum of the current medium from the medium description.
@@ -85,12 +84,10 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     * @param desc the medium description
     * @return the checksum to be used for this medium
     */
-  private def fetchChecksum(desc: HttpMediumDesc): String = {
+  private def fetchChecksum(desc: HttpMediumDesc): String =
     val lastSegmentPos = desc.metaDataPath lastIndexOf '/'
-    val lastSegment = if (lastSegmentPos >= 0) desc.metaDataPath.substring(lastSegmentPos + 1)
+    val lastSegment = if lastSegmentPos >= 0 then desc.metaDataPath.substring(lastSegmentPos + 1)
     else desc.metaDataPath
     val extPos = lastSegment lastIndexOf '.'
-    if (extPos > 0) lastSegment.substring(0, extPos)
+    if extPos > 0 then lastSegment.substring(0, extPos)
     else lastSegment
-  }
-}

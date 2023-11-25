@@ -28,7 +28,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-object HttpFileDownloadActorSpec {
+object HttpFileDownloadActorSpec:
   /** Test data to be sent during a simulated download operation. */
   private val Data = List(ByteString("This is"), ByteString(" test data "),
     ByteString("for an example"), ByteString(" download operation."))
@@ -61,26 +61,23 @@ object HttpFileDownloadActorSpec {
     *
     * @return the test transformation function
     */
-  private def testTransform: DownloadTransformFunc = {
+  private def testTransform: DownloadTransformFunc =
     case TransformedExtension =>
       Flow.fromFunction[ByteString, ByteString](_.filterNot(_ == ' '))
-  }
-}
 
 /**
   * Test class for ''HttpFileDownloadActor''.
   */
-class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("HttpFileDownloadActorSpec"))
 
   import HttpFileDownloadActorSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A HttpFileDownloadActor" should "provide data from a response" in {
+  "A HttpFileDownloadActor" should "provide data from a response" in:
     val actor = system.actorOf(HttpFileDownloadActor(testDataSource, downloadUriFor("txt"), testTransform))
 
     Data foreach { chunk =>
@@ -90,14 +87,11 @@ class HttpFileDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     }
     actor ! DownloadData(4096)
     expectMsg(DownloadComplete)
-  }
 
-  it should "pass a correct path object to the super class" in {
+  it should "pass a correct path object to the super class" in:
     val actor = system.actorOf(HttpFileDownloadActor(testDataSource, downloadUriFor(TransformedExtension),
       testTransform))
 
     actor ! DownloadData(8192)
     val result = expectMsgType[DownloadDataResult]
     result.data.utf8String should not include " "
-  }
-}

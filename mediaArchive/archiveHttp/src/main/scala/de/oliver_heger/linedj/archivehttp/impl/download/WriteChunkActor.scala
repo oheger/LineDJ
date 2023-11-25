@@ -24,7 +24,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.Path
 
-object WriteChunkActor {
+object WriteChunkActor:
 
   /**
     * A message to be processed by [[WriteChunkActor]] that triggers a write
@@ -45,7 +45,6 @@ object WriteChunkActor {
     * @param request reference to the original request
     */
   case class WriteResponse(request: WriteRequest)
-}
 
 /**
   * An actor class that writes chunks of a file to be downloaded to the local
@@ -65,15 +64,13 @@ object WriteChunkActor {
   * whole download should be aborted.
   */
 class WriteChunkActor extends AbstractFileWriterActor with CancelableStreamSupport
-  with ActorLogging {
+  with ActorLogging:
   /**
     * The custom receive function. Here derived classes can provide their own
     * message handling.
     *
     * @return the custom receive method
     */
-  override protected def customReceive: Receive = {
+  override protected def customReceive: Receive =
     case req: WriteRequest =>
       writeFile(req.source, req.target, WriteResponse(req))
-  }
-}

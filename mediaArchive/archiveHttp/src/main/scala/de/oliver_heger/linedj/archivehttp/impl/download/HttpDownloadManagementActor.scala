@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFil
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 
-object HttpDownloadManagementActor {
+object HttpDownloadManagementActor:
   /**
     * Returns a ''Props'' instance for creating an actor instance of this
     * class.
@@ -54,10 +54,9 @@ object HttpDownloadManagementActor {
     *
     * @return the download transformation function
     */
-  private val DropMetaDataTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc = {
+  private val DropMetaDataTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc =
     case s if s matches "(?i)mp3" =>
       new ID3v2ProcessingStage(None)
-  }
 
   /**
     * Returns the transformation function for a download operation based on
@@ -68,9 +67,8 @@ object HttpDownloadManagementActor {
     */
   private def downloadTransformationFunc(request: MediumFileRequest):
   MediaFileDownloadActor.DownloadTransformFunc =
-    if (request.withMetaData) MediaFileDownloadActor.IdentityTransform
+    if request.withMetaData then MediaFileDownloadActor.IdentityTransform
     else DropMetaDataTransformationFunc
-}
 
 /**
   * An actor class that manages download operations from an HTTP archive.
@@ -90,7 +88,7 @@ object HttpDownloadManagementActor {
   */
 class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
                                   monitoringActor: ActorRef, removeActor: ActorRef)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
   import HttpDownloadManagementActor._
@@ -106,10 +104,9 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
   /** A counter for download operations. */
   private var downloadIndex = 0
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case req: MediumFileRequest =>
       triggerFileDownload(req)
-  }
 
   /**
     * Requests a file to be downloaded from the HTTP archive. When the
@@ -117,7 +114,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     *
     * @param req the request for the file to be downloaded
     */
-  private def triggerFileDownload(req: MediumFileRequest): Unit = {
+  private def triggerFileDownload(req: MediumFileRequest): Unit =
     downloadIndex += 1
     log.debug("Starting download operation {} after receiving successful response.",
       downloadIndex)
@@ -126,5 +123,3 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
     monitoringActor ! DownloadOperationStarted(downloadActor = timeoutActor,
       client = sender())
     sender() ! MediumFileResponse(req, Some(timeoutActor), 0)
-  }
-}

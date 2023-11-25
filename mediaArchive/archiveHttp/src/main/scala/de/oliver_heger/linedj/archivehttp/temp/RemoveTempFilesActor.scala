@@ -24,7 +24,7 @@ import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 import java.nio.file.Path
 import scala.concurrent.Future
 
-object RemoveTempFilesActor {
+object RemoveTempFilesActor:
 
   /**
     * A message processed by [[RemoveTempFilesActor]] that causes the
@@ -83,9 +83,8 @@ object RemoveTempFilesActor {
     * @return the transformed stream element
     */
   private def transformByPathType(dirFlag: Boolean)(p: Path, isDir: Boolean): Option[Path] =
-    if (isDir == dirFlag) Some(p)
+    if isDir == dirFlag then Some(p)
     else None
-}
 
 /**
   * An actor class that allows removing of temporary download files.
@@ -113,7 +112,7 @@ object RemoveTempFilesActor {
   * @param blockingDispatcherName the name of the dispatcher to be used for
   *                               the remove child actor
   */
-class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with ActorLogging {
+class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
   import RemoveTempFilesActor._
@@ -122,14 +121,13 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
   /** The actor which actually removes files. */
   private var removeFileActor: ActorRef = _
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     removeFileActor = createChildActor(Props[RemoveFileActor]()
       .withDispatcher(blockingDispatcherName))
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case RemoveTempFiles(files) =>
-      files map RemoveFileActor.RemoveFile foreach removeFileActor.!
+      files map RemoveFileActor.RemoveFile.apply foreach removeFileActor.!
 
     case RemoveFileActor.FileRemoved(path) =>
       log.debug("Removed temporary file {}.", path)
@@ -141,7 +139,6 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
 
     case ClearDirectoriesFromTempDirectory(root, generator) =>
       processTempDirectory(root, generator, dirFlag = true)
-  }
 
   /**
     * Scans the specified root directories for temporary download files and
@@ -154,9 +151,7 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
     * @return a future for the stream result
     */
   private def processTempDirectory(root: Path, generator: TempPathGenerator,
-                                   dirFlag: Boolean): Future[Done] = {
+                                   dirFlag: Boolean): Future[Done] =
     val filter = DirectoryStreamSource.PathFilter(generator.isRemovableTempPath)
     val source = DirectoryStreamSource.newDFSSource(root, filter)(transformByPathType(dirFlag))
     source.runForeach(_ foreach (removeFileActor ! RemoveFileActor.RemoveFile(_)))
-  }
-}

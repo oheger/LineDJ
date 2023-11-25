@@ -20,10 +20,9 @@ import java.nio.file.Path
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
-object TempPathGenerator {
+object TempPathGenerator:
   /** A prefix used for download files and directories. */
   val DownloadPrefix = "download-"
-}
 
 /**
   * A helper class that generates path names for temporary files that are
@@ -48,7 +47,7 @@ object TempPathGenerator {
   * @param time     the startup time of the current run (this parameter is
   *                 normally not specified when creating an instance)
   */
-case class TempPathGenerator(rootPath: Path, time: Instant = Instant.now()) {
+case class TempPathGenerator(rootPath: Path, time: Instant = Instant.now()):
 
   import TempPathGenerator._
 
@@ -92,7 +91,5 @@ case class TempPathGenerator(rootPath: Path, time: Instant = Instant.now()) {
     * @param p the path to be checked
     * @return a flag whether this path is a candidate to be removed
     */
-  def isRemovableTempPath(p: Path): Boolean = {
+  def isRemovableTempPath(p: Path): Boolean =
     !p.toString.contains(timeComponent) && p.getFileName.toString.contains(DownloadPrefix)
-  }
-}

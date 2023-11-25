@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.temp
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.RemoveFileActor
+import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -30,25 +30,23 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.{Files, Path, Paths}
 
-object RemoveTempFilesActorSpec {
+object RemoveTempFilesActorSpec:
   /** The name to be used for the blocking dispatcher. */
   private val DispatcherName = "blockingDispatcher"
-}
 
 /**
   * Test class for ''RemoveTempFilesActor''.
   */
 class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with FileTestHelper:
 
   import RemoveTempFilesActorSpec._
 
   def this() = this(ActorSystem("RemoveTempFilesActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Creates a mock for a path generator that accepts the specified paths as
@@ -57,14 +55,13 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param acceptedPaths the paths that can be removed
     * @return the mock path generator
     */
-  private def createPathGeneratorMock(acceptedPaths: Path*): TempPathGenerator = {
+  private def createPathGeneratorMock(acceptedPaths: Path*): TempPathGenerator =
     val gen = mock[TempPathGenerator]
     when(gen.isRemovableTempPath(any())).thenReturn(false)
     acceptedPaths foreach { p =>
       when(gen.isRemovableTempPath(p)).thenReturn(true)
     }
     gen
-  }
 
   /**
     * Creates a directory for temporary download files.
@@ -75,15 +72,14 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   private def createTempDirectory(name: String): Path =
     Files.createDirectory(createPathInDirectory(name))
 
-  "A RemoveTempFilesActor" should "create correct Props" in {
+  "A RemoveTempFilesActor" should "create correct Props" in:
     val props = RemoveTempFilesActor(DispatcherName)
 
     classOf[RemoveTempFilesActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(DispatcherName))
-  }
 
-  it should "pass files to be removed to the child actor" in {
+  it should "pass files to be removed to the child actor" in:
     val Path1 = Paths get "tempFile1.tmp"
     val Path2 = Paths get "tempFile2.tmp"
     val Path3 = Paths get "tempFile3.tmp"
@@ -93,15 +89,13 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .expectRemoveRequestFor(Path1)
       .expectRemoveRequestFor(Path2)
       .expectRemoveRequestFor(Path3)
-  }
 
-  it should "handle confirmation messages for removed files" in {
+  it should "handle confirmation messages for removed files" in:
     val helper = new RemoveActorTestHelper
 
     helper send RemoveFileActor.FileRemoved(Paths get "somePath")
-  }
 
-  it should "clean the temporary download directory" in {
+  it should "clean the temporary download directory" in:
     val dir1 = createTempDirectory("downloadDir1")
     val dir2 = createTempDirectory("downloadDir2")
     val dir3 = createTempDirectory("anotherDir")
@@ -119,12 +113,11 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     removedFiles should contain only(file1, file2, file4)
     removedDirs should contain only(dir1, dir2)
     verify(generator, never()).isRemovableTempPath(file5)
-  }
 
   /**
     * Test helper class that manages a test instance and its dependencies.
     */
-  private class RemoveActorTestHelper {
+  private class RemoveActorTestHelper:
     /** Test probe for the remove child actor. */
     private val removeFileActor = TestProbe()
 
@@ -137,10 +130,9 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param msg the message to be sent
       * @return this test helper
       */
-    def send(msg: Any): RemoveActorTestHelper = {
+    def send(msg: Any): RemoveActorTestHelper =
       removeTempActor receive msg
       this
-    }
 
     /**
       * Checks whether the remove file actor was sent a request to remove the
@@ -149,10 +141,9 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param path the path
       * @return this test helper
       */
-    def expectRemoveRequestFor(path: Path): RemoveActorTestHelper = {
+    def expectRemoveRequestFor(path: Path): RemoveActorTestHelper =
       removeFileActor.expectMsg(RemoveFileActor.RemoveFile(path))
       this
-    }
 
     /**
       * Expects a given number of requests to remove temporary paths. The paths
@@ -180,6 +171,4 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
           removeFileActor.ref
         }
       }))
-  }
 
-}

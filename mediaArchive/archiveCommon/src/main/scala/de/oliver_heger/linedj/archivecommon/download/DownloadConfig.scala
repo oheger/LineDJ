@@ -88,6 +88,6 @@ object DownloadConfig {
   * @param downloadCheckInterval the check interval for download actors
   * @param downloadChunkSize     chunk size for download operations
   */
-case class DownloadConfig private(downloadTimeout: FiniteDuration,
-                                  downloadCheckInterval: FiniteDuration,
-                                  downloadChunkSize: Int)
+case class DownloadConfig(downloadTimeout: FiniteDuration,
+                          downloadCheckInterval: FiniteDuration,
+                          downloadChunkSize: Int)

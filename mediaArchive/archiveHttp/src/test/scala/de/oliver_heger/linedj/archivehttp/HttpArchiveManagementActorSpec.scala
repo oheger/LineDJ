@@ -17,27 +17,27 @@
 package de.oliver_heger.linedj.archivehttp
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
-import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.*
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
+import de.oliver_heger.linedj.test.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.test.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
-import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.pattern.{AskTimeoutException, ask}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.{ByteString, Timeout}
-import org.mockito.ArgumentMatchers.{any, eq => argEq}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -46,10 +46,10 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.IOException
 import java.nio.file.Paths
 import java.util.concurrent.LinkedBlockingQueue
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 
-object HttpArchiveManagementActorSpec {
+object HttpArchiveManagementActorSpec:
 
   /** The value of the propagation buffer size config property. */
   private val PropBufSize = 4
@@ -106,11 +106,10 @@ object HttpArchiveManagementActorSpec {
     *
     * @param probe the test probe
     */
-  private def expectNoMoreMsg(probe: TestProbe): Unit = {
+  private def expectNoMoreMsg(probe: TestProbe): Unit =
     val msg = new Object
     probe.ref ! msg
     probe.expectMsg(msg)
-  }
 
   /**
     * Creates a list with test medium descriptions.
@@ -146,29 +145,26 @@ object HttpArchiveManagementActorSpec {
     *
     * @return the data source with the content document
     */
-  private def createSuccessResponse(): Source[ByteString, Any] = {
+  private def createSuccessResponse(): Source[ByteString, Any] =
     val data = ByteString(createMediumDescriptionsJson()).grouped(128)
     Source(data.toList)
-  }
 
-}
 
 /**
   * Test class for ''HttpArchiveManagementActor''.
   */
 class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
-  with AsyncTestHelper {
+  with AsyncTestHelper:
 
   import HttpArchiveManagementActorSpec._
 
   def this() = this(ActorSystem("HttpArchiveManagementActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A HttpArchiveManagementActor" should "create correct Props" in {
+  "A HttpArchiveManagementActor" should "create correct Props" in:
     val mediaManager = TestProbe()
     val metaManager = TestProbe()
     val monitoringActor = TestProbe()
@@ -180,14 +176,13 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(ContentProcessingUpdateServiceImpl, ArchiveConfig, pathGenerator,
       mediaManager.ref, metaManager.ref, monitoringActor.ref, removeActor.ref))
-  }
 
   /**
     * Checks a processing operation on a test archive.
     *
     * @param helper the prepared helper
     */
-  private def checkProcessing(helper: HttpArchiveManagementActorTestHelper): Unit = {
+  private def checkProcessing(helper: HttpArchiveManagementActorTestHelper): Unit =
     val request = helper.stub((), ProgressState)(_.processingDone())
       .triggerScan().expectProcessingRequest()
     request.archiveConfig should be(helper.config)
@@ -198,7 +193,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       List.empty[HttpMediumDesc])((lst, md) => md :: lst)
     val descriptions = Await.result(futureDescriptions, 5.seconds)
     val expDescriptions = createMediumDescriptions()
-    descriptions should contain only (expDescriptions: _*)
+    descriptions should contain theSameElementsAs expDescriptions
 
     val result = mock[MediumProcessingResult]
     helper.stub(ProcessingStateTransitionData(None, None), mock[ContentProcessingState]) { svc =>
@@ -209,38 +204,33 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.expectStateUpdate(ContentProcessingUpdateServiceImpl.InitialState)
       .expectStateUpdate(ProgressState)
     verify(helper.updateService).handleResultAvailable(argEq(result), any(), argEq(PropBufSize))
-  }
 
-  it should "pass a process request to the content processor actor" in {
+  it should "pass a process request to the content processor actor" in:
     checkProcessing(new HttpArchiveManagementActorTestHelper)
-  }
 
-  it should "notify the union archive about a started scan operation" in {
+  it should "notify the union archive about a started scan operation" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub((), ProgressState)(_.processingDone())
       .triggerScan()
     helper.probeUnionMetaDataManager.expectMsg(UpdateOperationStarts(None))
-  }
 
-  it should "notify the union archive about a completed scan operation" in {
+  it should "notify the union archive about a completed scan operation" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub((), ProgressState)(_.processingDone())
       .post(HttpArchiveProcessingComplete(HttpArchiveStateConnected))
     helper.probeUnionMetaDataManager.expectMsg(UpdateOperationCompleted(None))
-  }
 
-  it should "not send a process request for a response error" in {
+  it should "not send a process request for a response error" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub((), ProgressState)(_.processingDone())
       .initFailedArchiveResponse(new Exception)
       .triggerScan(initSuccessResponse = false)
       .expectNoProcessingRequest()
-  }
 
-  it should "recover from an error, so that a new request can be processed" in {
+  it should "recover from an error, so that a new request can be processed" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub((), ProgressState)(_.processingDone())
@@ -248,25 +238,22 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan() // initializes a success response
       .triggerScan(stubProcStarts = false, initSuccessResponse = false)
       .expectProcessingRequest()
-  }
 
-  it should "ignore a process request if a scan is ongoing" in {
+  it should "ignore a process request if a scan is ongoing" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub(false, ProgressState)(_.processingStarts())
       .triggerScan(stubProcStarts = false)
       .expectNoProcessingRequest()
     expectNoMoreMsg(helper.probeUnionMetaDataManager)
-  }
 
-  it should "answer an archive processing init message" in {
+  it should "answer an archive processing init message" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(HttpArchiveProcessingInit)
     expectMsg(HttpArchiveMediumAck)
-  }
 
-  it should "handle incoming medium results" in {
+  it should "handle incoming medium results" in:
     val res1 = mock[MediumProcessingResult]
     val res2 = mock[MediumProcessingResult]
     val propRes = PropagateMediumResult(mock[MediumProcessingResult], removeContent = false)
@@ -284,9 +271,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .expectStateUpdate(ProgressState)
       .expectPropagation(propRes)
     expectMsg(HttpArchiveMediumAck)
-  }
 
-  it should "handle confirmation about propagated media" in {
+  it should "handle confirmation about propagated media" in:
     val res = mock[MediumProcessingResult]
     val propRes = PropagateMediumResult(res, removeContent = false)
     val state2 = ProgressState.copy(mediaInProgress = 28)
@@ -303,9 +289,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .post(res)
       .expectStateUpdate(ProgressState)
     expectMsg(HttpArchiveMediumAck)
-  }
 
-  it should "handle a stream end notification" in {
+  it should "handle a stream end notification" in:
     val state = ProgressState.copy(mediaInProgress = 3)
     val helper = new HttpArchiveManagementActorTestHelper
 
@@ -316,9 +301,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan(stubProcStarts = false)
       .expectStateUpdate(ProgressState)
       .checkArchiveState(HttpArchiveStateConnected)
-  }
 
-  it should "handle and propagate a cancel message" in {
+  it should "handle and propagate a cancel message" in:
     val helper = new HttpArchiveManagementActorTestHelper
     helper.triggerScan().expectProcessingRequest()
 
@@ -327,24 +311,21 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.probeContentProcessor.expectMsg(CancelStreams)
     helper.probeMediumInfoProcessor.expectMsg(CancelStreams)
     helper.probeMetaDataProcessor.expectMsg(CancelStreams)
-  }
 
-  it should "forward a file download request to the download manager" in {
+  it should "forward a file download request to the download manager" in:
     val request = MediumFileRequest(MediaFileID(MediumID("aMedium", None), "fileUri"),
       withMetaData = true)
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(request)
     expectMsg(ForwardedMessage(request))
-  }
 
-  it should "return the correct initial state" in {
+  it should "return the correct initial state" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.checkArchiveState(HttpArchiveStateDisconnected)
-  }
 
-  it should "switch to a success state as soon as data comes in" in {
+  it should "switch to a success state as soon as data comes in" in:
     val state = ProgressState.copy(contentInArchive = true)
     val result = mock[MediumProcessingResult]
     val helper = new HttpArchiveManagementActorTestHelper
@@ -356,20 +337,17 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan()
       .post(result)
     helper.checkArchiveState(HttpArchiveStateConnected)
-  }
 
-  it should "not answer a state request while loading data" in {
+  it should "not answer a state request while loading data" in:
     implicit val timeout: Timeout = Timeout(100.millis)
     val helper = new HttpArchiveManagementActorTestHelper
     helper.triggerScan()
 
     val futState = helper.manager ? HttpArchiveStateRequest
-    intercept[AskTimeoutException] {
+    intercept[AskTimeoutException]:
       Await.result(futState, 10.seconds)
-    }
-  }
 
-  it should "answer a state request when the state becomes available" in {
+  it should "answer a state request when the state becomes available" in:
     val probe = TestProbe()
     val result = mock[MediumProcessingResult]
     val state = ProgressState.copy(contentInArchive = true)
@@ -388,9 +366,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     expectMsg(expState)
     probe.expectMsg(expState)
     expectNoMoreMsg(probe) // check that message was sent only once
-  }
 
-  it should "reset the set of pending archive state clients" in {
+  it should "reset the set of pending archive state clients" in:
     val probe = TestProbe()
     val state = ProgressState.copy(contentInArchive = true)
     val helper = new HttpArchiveManagementActorTestHelper
@@ -404,9 +381,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     helper.post(MediumPropagated(SeqNo))
     expectNoMoreMsg(probe)
-  }
 
-  it should "return a server error state if the server could not be contacted" in {
+  it should "return a server error state if the server could not be contacted" in:
     val helper = new HttpArchiveManagementActorTestHelper
     val exception = new IOException("Crashed")
 
@@ -415,9 +391,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan(initSuccessResponse = false)
       .checkArchiveState(HttpArchiveStateServerError(exception))
     verify(helper.updateService).processingDone()
-  }
 
-  it should "return a request failed state if the request was not successful" in {
+  it should "return a request failed state if the request was not successful" in:
     val helper = new HttpArchiveManagementActorTestHelper
     val status = StatusCodes.Unauthorized
     val response = HttpResponse(status = status)
@@ -427,23 +402,20 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan(initSuccessResponse = false)
       .checkArchiveState(HttpArchiveStateFailedRequest(status))
     verify(helper.updateService).processingDone()
-  }
 
-  it should "forward a DownloadActorAlive notification to the monitoring actor" in {
+  it should "forward a DownloadActorAlive notification to the monitoring actor" in:
     val aliveMsg = DownloadActorAlive(TestProbe().ref,
       MediaFileID(MediumID("testMediumURI", Some("settings.set")), "someFileUri"))
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(aliveMsg)
       .expectDownloadMonitoringMessage(aliveMsg)
-  }
 
-  it should "answer a GetMetaDataFileInfo message with a dummy response" in {
+  it should "answer a GetMetaDataFileInfo message with a dummy response" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.post(GetMetaDataFileInfo)
     expectMsg(MetaDataFileInfo(Map.empty, Set.empty, None))
-  }
 
   /**
     * A test helper class managing all dependencies of a test actor instance.
@@ -451,7 +423,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     * @param archiveConfig the archive configuration to be used
     */
   private class HttpArchiveManagementActorTestHelper(archiveConfig: HttpArchiveConfig = ArchiveConfig)
-    extends StateTestHelper[ContentProcessingState, ContentProcessingUpdateService] {
+    extends StateTestHelper[ContentProcessingState, ContentProcessingUpdateService]:
     /** Mock for the update service. */
     override val updateService: ContentProcessingUpdateService = mock[ContentProcessingUpdateService]
 
@@ -503,10 +475,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param msg the message to be sent
       * @return this test helper
       */
-    def send(msg: Any): HttpArchiveManagementActorTestHelper = {
+    def send(msg: Any): HttpArchiveManagementActorTestHelper =
       manager receive msg
       this
-    }
 
     /**
       * Sends a message via the ! method to the test actor.
@@ -514,10 +485,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param msg the message to be sent
       * @return this test helper
       */
-    def post(msg: Any): HttpArchiveManagementActorTestHelper = {
+    def post(msg: Any): HttpArchiveManagementActorTestHelper =
       manager ! msg
       this
-    }
 
     /**
       * Sends a message to start a new scan to the test actor.
@@ -528,15 +498,12 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return this test helper
       */
     def triggerScan(stubProcStarts: Boolean = true, initSuccessResponse: Boolean = true):
-    HttpArchiveManagementActorTestHelper = {
-      if (stubProcStarts) {
+    HttpArchiveManagementActorTestHelper =
+      if stubProcStarts then
         stub(true, ProgressState) { svc => svc.processingStarts() }
-      }
-      if (initSuccessResponse) {
+      if initSuccessResponse then
         initSuccessArchiveResponse()
-      }
       send(ScanAllMedia)
-    }
 
     /**
       * Expects that a request to process the archive has been sent to the
@@ -553,10 +520,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       *
       * @return this test helper
       */
-    def expectNoProcessingRequest(): HttpArchiveManagementActorTestHelper = {
+    def expectNoProcessingRequest(): HttpArchiveManagementActorTestHelper =
       probeContentProcessor.expectNoMessage(1.second)
       this
-    }
 
     /**
       * Expects that a result was passed to the propagation actor.
@@ -564,10 +530,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param msg the propagation message
       * @return this test helper
       */
-    def expectPropagation(msg: PropagateMediumResult): HttpArchiveManagementActorTestHelper = {
+    def expectPropagation(msg: PropagateMediumResult): HttpArchiveManagementActorTestHelper =
       probeContentPropagationActor.expectMsg(msg)
       this
-    }
 
     /**
       * Prepares the mock request actor to return a successful response for a
@@ -595,13 +560,12 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param expState the expected state
       * @return this test helper
       */
-    def checkArchiveState(expState: HttpArchiveState): HttpArchiveManagementActorTestHelper = {
+    def checkArchiveState(expState: HttpArchiveState): HttpArchiveManagementActorTestHelper =
       post(HttpArchiveStateRequest)
       val stateResponse = expectMsgType[HttpArchiveStateResponse]
       stateResponse.archiveName should be(ArchiveName)
       stateResponse.state should be(expState)
       this
-    }
 
     /**
       * Expects a message to be passed to the download monitoring actor.
@@ -609,10 +573,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @param msg the expected message
       * @return this test helper
       */
-    def expectDownloadMonitoringMessage(msg: Any): HttpArchiveManagementActorTestHelper = {
+    def expectDownloadMonitoringMessage(msg: Any): HttpArchiveManagementActorTestHelper =
       probeMonitoringActor.expectMsg(msg)
       this
-    }
 
     /**
       * Prepares the mock for the downloader to handle a download request for
@@ -622,10 +585,9 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       * @return this test helper
       */
     private def initArchiveContentResponse(result: Future[Source[ByteString, Any]]):
-    HttpArchiveManagementActorTestHelper = {
+    HttpArchiveManagementActorTestHelper =
       when(downloader.downloadMediaFile(ArchiveConfig.contentPath)).thenReturn(result)
       this
-    }
 
     /**
       * Creates the test actor.
@@ -677,6 +639,4 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
           child
         }
       })
-  }
 
-}

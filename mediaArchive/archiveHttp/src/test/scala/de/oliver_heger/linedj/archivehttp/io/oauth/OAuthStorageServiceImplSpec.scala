@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.io.oauth
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.commons.configuration.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
@@ -29,7 +29,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
 import java.nio.file.{Files, Path}
 
-object OAuthStorageServiceImplSpec {
+object OAuthStorageServiceImplSpec:
   /** The base name of the OAuth test provider. */
   private val ProviderName = "TestProvider"
 
@@ -37,24 +37,21 @@ object OAuthStorageServiceImplSpec {
   private val TestConfig = OAuthConfig(authorizationEndpoint = "https://test-idp.org/auth",
     tokenEndpoint = "https://test.idp.org/token", scope = "foo bar baz",
     redirectUri = "http://my-endpoint/get_code", clientID = "my-client")
-}
 
 /**
   * Test class for ''OAuthStorageServiceImpl''.
   */
 class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper with AsyncTestHelper {
+  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper with AsyncTestHelper:
   def this() = this(ActorSystem("OAuthStorageServiceImplSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  override protected def afterEach(): Unit = {
+  override protected def afterEach(): Unit =
     tearDownTestFile()
     super.afterEach()
-  }
 
   import OAuthStorageServiceImplSpec._
   import system.dispatcher
@@ -77,28 +74,25 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
     * @param extension the file extension to be used
     * @return the path to the copied file
     */
-  private def copyProviderResource(name: String, extension: String): Path = {
+  private def copyProviderResource(name: String, extension: String): Path =
     val resFile = resolveResourceFile(name)
     Files.copy(resFile, createPathInDirectory(ProviderName + extension))
-  }
 
-  "OAuthStorageServiceImpl" should "load an OAuth configuration" in {
+  "OAuthStorageServiceImpl" should "load an OAuth configuration" in:
     copyProviderResource("OAuthConfig.xml", OAuthStorageServiceImpl.SuffixConfigFile)
 
 
     val config = futureResult(OAuthStorageServiceImpl.loadConfig(createStorageConfig("foo")))
     config should be(TestConfig)
-  }
 
-  it should "handle loading an invalid OAuth configuration" in {
+  it should "handle loading an invalid OAuth configuration" in:
     val storageConfig = createStorageConfig("invalid")
     writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile),
       FileTestHelper.TestData)
 
     expectFailedFuture[ConfigurationException](OAuthStorageServiceImpl.loadConfig(storageConfig))
-  }
 
-  it should "handle loading an OAuth configuration with missing properties" in {
+  it should "handle loading an OAuth configuration with missing properties" in:
     val xml =
       """
         |<oauth-config>
@@ -110,9 +104,8 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
     writeFileContent(storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixConfigFile), xml)
 
     expectFailedFuture[NoSuchElementException](OAuthStorageServiceImpl.loadConfig(storageConfig))
-  }
 
-  it should "handle whitespace in XML correctly" in {
+  it should "handle whitespace in XML correctly" in:
     val xml =
       s"""
         |<oauth-config>
@@ -138,28 +131,23 @@ class OAuthStorageServiceImplSpec(testSystem: ActorSystem) extends TestKit(testS
 
     val readConfig = futureResult(OAuthStorageServiceImpl.loadConfig(storageConfig))
     readConfig should be(TestConfig)
-  }
 
-  it should "load a client secret" in {
+  it should "load a client secret" in:
     copyProviderResource("OAuthSecret.sec", OAuthStorageServiceImpl.SuffixSecretFile)
 
     val secret = futureResult(OAuthStorageServiceImpl.loadClientSecret(createStorageConfig("secure_storage")))
     secret.secret should be("verySecretClient")
-  }
 
-  it should "load a file with token information" in {
+  it should "load a file with token information" in:
     copyProviderResource("OAuthTokens.toc", OAuthStorageServiceImpl.SuffixTokenFile)
     val TestTokens = OAuthTokenData(accessToken = "testAccessToken", refreshToken = "testRefreshToken")
 
     val tokenData = futureResult(OAuthStorageServiceImpl.loadTokens(createStorageConfig("secret_tokens")))
     tokenData should be(TestTokens)
-  }
 
-  it should "handle an invalid tokens file" in {
+  it should "handle an invalid tokens file" in:
     val storageConfig = createStorageConfig("wrong")
     val tokenFile = storageConfig.resolveFileName(OAuthStorageServiceImpl.SuffixTokenFile)
     writeFileContent(tokenFile, "foo")
 
     expectFailedFuture[IllegalStateException](OAuthStorageServiceImpl.loadTokens(storageConfig))
-  }
-}

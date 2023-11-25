@@ -45,7 +45,7 @@ import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
   */
 class ProcessingResultCombiningStage extends GraphStage[
   FlowShape[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult),
-    MediumProcessingResult]] {
+    MediumProcessingResult]]:
   val in: Inlet[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult)] =
     Inlet[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult)](
       "ProcessingResultCombiningStage.in")
@@ -56,7 +56,7 @@ class ProcessingResultCombiningStage extends GraphStage[
     MetaDataResponseProcessingResult), MediumProcessingResult] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       // map with description results to be combined
       var info = Map.empty[MediumID, MediumInfoResponseProcessingResult]
 
@@ -66,7 +66,7 @@ class ProcessingResultCombiningStage extends GraphStage[
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           val (resInfo, resMeta) = grab(in)
-          if (resInfo.mediumInfo.mediumID == resMeta.mediumID)
+          if resInfo.mediumInfo.mediumID == resMeta.mediumID then
             push(out, combine(resInfo, resMeta))
           else {
             val (tempInfo1, tempMeta1, optRes1) =
@@ -75,7 +75,7 @@ class ProcessingResultCombiningStage extends GraphStage[
               updateMapping(tempMeta1, tempInfo1, resMeta.mediumID, resMeta)
             info = tempInfo2
             meta = tempMeta2
-            if (optRes1.isDefined || optRes2.isDefined) {
+            if optRes1.isDefined || optRes2.isDefined then {
               val results = List(optRes1 map (m => combine(resInfo, m)),
                 optRes2 map (i => combine(i, resMeta))).flatten
               emitMultiple(out, results)
@@ -90,7 +90,6 @@ class ProcessingResultCombiningStage extends GraphStage[
           pull(in)
         }
       })
-    }
 
   /**
     * Combines partial result objects to a final result.
@@ -118,10 +117,8 @@ class ProcessingResultCombiningStage extends GraphStage[
   private def updateMapping[V1, V2](map1: Map[MediumID, V1], map2: Map[MediumID, V2],
                                     mid: MediumID, data: V1):
   (Map[MediumID, V1], Map[MediumID, V2], Option[V2]) =
-    map2 get mid match {
+    map2 get mid match
       case res@Some(_) =>
         (map1, map2 - mid, res)
       case None =>
         (map1 + (mid -> data), map2, None)
-    }
-}

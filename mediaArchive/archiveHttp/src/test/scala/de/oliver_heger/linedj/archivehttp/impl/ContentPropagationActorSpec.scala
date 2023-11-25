@@ -16,34 +16,32 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
+import de.oliver_heger.linedj.test.StateTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object ContentPropagationActorSpec {
+object ContentPropagationActorSpec:
   /** The URI of the test archive. */
   private val ArchiveID = "test-music-archive"
 
   /** The sequence number. */
   private val SeqNo = 20180619
-}
 
 /**
   * Test class for ''ContentPropagationActor''.
   */
 class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ContentPropagationActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import ContentPropagationActorSpec._
 
@@ -54,33 +52,30 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     * @param target   the receiving test probe
     * @param messages the expected messages
     */
-  private def verifyMessages(target: TestProbe, messages: MessageData): Unit = {
+  private def verifyMessages(target: TestProbe, messages: MessageData): Unit =
     messages.messages foreach { m =>
       target.expectMsg(m)
     }
-  }
 
   /**
     * Creates a mock for a ''MediumProcessingResult''.
     *
     * @return the mock result
     */
-  private def createResult(): MediumProcessingResult = {
+  private def createResult(): MediumProcessingResult =
     val result = mock[MediumProcessingResult]
     when(result.seqNo).thenReturn(SeqNo)
     result
-  }
 
-  "A ContentPropagationActor" should "use a correct propagation service" in {
+  "A ContentPropagationActor" should "use a correct propagation service" in:
     val mediaManager = TestProbe().ref
     val metaManager = TestProbe().ref
     val actor = TestActorRef[ContentPropagationActor](Props(classOf[ContentPropagationActor],
       mediaManager, metaManager, ArchiveID))
 
     actor.underlyingActor.propagationService should be(ContentPropagationUpdateServiceImpl)
-  }
 
-  it should "handle medium results" in {
+  it should "handle medium results" in:
     val result1 = createResult()
     val result2 = createResult()
     val helper = new PropagationActorTestHelper
@@ -104,9 +99,8 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     verifyMessages(helper.probeMediaManager, sendMsg1.head)
     verifyMessages(helper.probeMetaManager, sendMsg1(1))
     verifyMessages(helper.probeMetaManager, sendMsg2.head)
-  }
 
-  it should "handle a remove confirmation" in {
+  it should "handle a remove confirmation" in:
     val confirm = RemovedArchiveComponentProcessed(ArchiveID)
     val result = createResult()
     val helper = new PropagationActorTestHelper
@@ -125,13 +119,12 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
       .expectStateUpdate(state1)
     verifyMessages(helper.probeMediaManager, sendMsg1.head)
     verifyMessages(helper.probeMetaManager, sendMsg2.head)
-  }
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
   private class PropagationActorTestHelper
-    extends StateTestHelper[ContentPropagationState, ContentPropagationUpdateService] {
+    extends StateTestHelper[ContentPropagationState, ContentPropagationUpdateService]:
     /** The mock for the state update service to be used by tests. */
     override val updateService: ContentPropagationUpdateService = mock[ContentPropagationUpdateService]
 
@@ -156,10 +149,9 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param msg the message
       * @return this test helper
       */
-    def send(msg: Any): PropagationActorTestHelper = {
+    def send(msg: Any): PropagationActorTestHelper =
       propagationActor ! msg
       this
-    }
 
     /**
       * Creates a test actor instance.
@@ -169,6 +161,4 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     private def createTestActor(): ActorRef =
       system.actorOf(Props(classOf[ContentPropagationActor], updateService, probeMediaManager.ref,
         probeMetaManager.ref, ArchiveID))
-  }
 
-}

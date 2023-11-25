@@ -26,7 +26,7 @@ import java.nio.file.Path
   * bother about creating actor instances and required configuration
   * properties.
   */
-trait TempReadOperationHolder {
+trait TempReadOperationHolder:
   /**
     * Returns an ''Option'' with the currently active ''TempReadOperation''.
     *
@@ -48,4 +48,3 @@ trait TempReadOperationHolder {
     * is queried a new one is created.
     */
   def resetReadOperation(): Unit
-}

@@ -25,7 +25,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-object ContentPropagationUpdateServiceSpec {
+object ContentPropagationUpdateServiceSpec:
   /** The name of the archive. */
   private val ArchiveName = "TestArchive"
 
@@ -86,10 +86,9 @@ object ContentPropagationUpdateServiceSpec {
     * @param idx the index
     * @return the map with the content of this medium
     */
-  private def mediumContent(idx: Int): Map[MediumID, Iterable[MediaFileUri]] = {
+  private def mediumContent(idx: Int): Map[MediumID, Iterable[MediaFileUri]] =
     val files = (1 to idx).map(i => MediaFileUri(mediumFilePath(idx, i)))
     Map(mediumID(idx) -> files)
-  }
 
   /**
     * Generates a meta data processing result object for the specified test
@@ -99,11 +98,10 @@ object ContentPropagationUpdateServiceSpec {
     * @param fileIdx the file index
     * @return the test meta data processing result
     */
-  private def metaDataProcessingResult(medIdx: Int, fileIdx: Int): MetaDataProcessingSuccess = {
+  private def metaDataProcessingResult(medIdx: Int, fileIdx: Int): MetaDataProcessingSuccess =
     val filePath = mediumFilePath(medIdx, fileIdx)
     MetaDataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
       metaData = MediaMetaData(title = Some(filePath), size = fileSize(medIdx, fileIdx)))
-  }
 
   /**
     * Generates the sequence of meta data processing result objects for the
@@ -121,10 +119,9 @@ object ContentPropagationUpdateServiceSpec {
     * @param idx the index of the test medium
     * @return the processing result for this medium
     */
-  private def mediumResult(idx: Int): MediumProcessingResult = {
+  private def mediumResult(idx: Int): MediumProcessingResult =
     val metaData = metaDataProcessingResults(idx)
     MediumProcessingResult(mediumInfo(idx), metaData, SeqNo)
-  }
 
   /**
     * Generates a media contribution message for the given test medium.
@@ -142,10 +139,9 @@ object ContentPropagationUpdateServiceSpec {
     * @param actors actors involved in propagation
     * @return the ''AddMedia'' message
     */
-  private def addMedia(idx: Int, actors: PropagationActors): AddMedia = {
+  private def addMedia(idx: Int, actors: PropagationActors): AddMedia =
     val info = mediumInfo(idx)
     AddMedia(Map(info.mediumID -> info), ArchiveName, Some(actors.client))
-  }
 
   /**
     * Generates a ''MessageData'' object with the messages to be sent for the
@@ -166,11 +162,10 @@ object ContentPropagationUpdateServiceSpec {
     * @param actors actors involved in propagation
     * @return the ''MessageData'' object
     */
-  private def metaManagerMessages(idx: Int, actors: PropagationActors): MessageData = {
+  private def metaManagerMessages(idx: Int, actors: PropagationActors): MessageData =
     val results = metaDataProcessingResults(idx).toList
     val messages = mediaContribution(idx) :: results
     MessageData(actors.metaManager, messages)
-  }
 
   /**
     * Generates a ''MessageData'' object with the ACK message for propagation
@@ -217,22 +212,19 @@ object ContentPropagationUpdateServiceSpec {
   private def modifyState(s: ContentPropagationUpdateServiceImpl.StateUpdate[Unit],
                           oldState: ContentPropagationState =
                           ContentPropagationUpdateServiceImpl.InitialState):
-  ContentPropagationState = {
+  ContentPropagationState =
     val (next, _) = updateState(s, oldState)
     next
-  }
-}
 
 /**
   * Test class for ''ContentPropagationUpdateServiceImpl''.
   */
 class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("ContentPropagationUpdateServiceSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import ContentPropagationUpdateServiceSpec._
 
@@ -244,15 +236,14 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
   private def createActors(): PropagationActors =
     PropagationActors(TestProbe().ref, TestProbe().ref, TestProbe().ref)
 
-  "ContentPropagationUpdateServiceImpl" should "have a valid initial state" in {
+  "ContentPropagationUpdateServiceImpl" should "have a valid initial state" in:
     val state = ContentPropagationUpdateServiceImpl.InitialState
 
     state.messages shouldBe empty
     state.pendingMessages shouldBe empty
     state.removeAck shouldBe true
-  }
 
-  it should "process results if no removal ACK is pending" in {
+  it should "process results if no removal ACK is pending" in:
     val Idx = 1
     val actors = createActors()
     val expMessages = List(mediaManagerMessages(Idx, actors),
@@ -263,9 +254,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.pendingMessages shouldBe empty
     next.removeAck shouldBe true
     next.messages should contain theSameElementsInOrderAs expMessages
-  }
 
-  it should "append data for another medium to messages to be sent" in {
+  it should "append data for another medium to messages to be sent" in:
     val actors = createActors()
     val orgMessages = List(mediaManagerMessages(1, actors),
       metaManagerMessages(1, actors), ackMessage(actors))
@@ -277,9 +267,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val next = modifyState(ContentPropagationUpdateServiceImpl
       .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false), state)
     next.messages should contain theSameElementsInOrderAs expMessages
-  }
 
-  it should "append data to pending messages if remove is not confirmed" in {
+  it should "append data to pending messages if remove is not confirmed" in:
     val actors = createActors()
     val orgMessages = List(metaManagerMessages(2, actors))
     val newMessages = List(mediaManagerMessages(2, actors),
@@ -292,9 +281,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
       .mediumProcessed(mediumResult(2), actors, ArchiveName, remove = false), state)
     next.pendingMessages should contain theSameElementsInOrderAs expMessages
     next.messages shouldBe empty
-  }
 
-  it should "evaluate the remove parameter" in {
+  it should "evaluate the remove parameter" in:
     val actors = createActors()
     val orgMessages = List(mediaManagerMessages(1, actors),
       metaManagerMessages(1, actors), ackMessage(actors))
@@ -310,18 +298,16 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.removeAck shouldBe false
     next.messages should contain only removeMessage(actors)
     next.pendingMessages should contain theSameElementsInOrderAs newPending
-  }
 
-  it should "ignore a remove ACK if one already arrived" in {
+  it should "ignore a remove ACK if one already arrived" in:
     val actors = createActors()
     val state = ContentPropagationUpdateServiceImpl.InitialState
       .copy(messages = List(metaManagerMessages(1, actors)))
 
     val next = modifyState(ContentPropagationUpdateServiceImpl.removalConfirmed(), state)
     next should be theSameInstanceAs state
-  }
 
-  it should "update the state for a remove ACK" in {
+  it should "update the state for a remove ACK" in:
     val actors = createActors()
     val pending = List(metaManagerMessages(1, actors), mediaManagerMessages(1, actors),
       ackMessage(actors))
@@ -332,9 +318,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.removeAck shouldBe true
     next.messages should be(pending)
     next.pendingMessages shouldBe empty
-  }
 
-  it should "return the messages to be sent" in {
+  it should "return the messages to be sent" in:
     val actors = createActors()
     val messages = List(metaManagerMessages(1, actors), mediaManagerMessages(1, actors),
       ackMessage(actors))
@@ -346,9 +331,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     val (next, sendMsg) = updateState(ContentPropagationUpdateServiceImpl.messagesToSend(), state)
     sendMsg should be(messages)
     next should be(state.copy(messages = Nil))
-  }
 
-  it should "handle a notification about a processed medium" in {
+  it should "handle a notification about a processed medium" in:
     val Idx = 1
     val actors = createActors()
     val expMessages = List(mediaManagerMessages(Idx, actors),
@@ -360,9 +344,8 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.removeAck shouldBe true
     next.messages shouldBe empty
     sendMsg.toSeq should contain theSameElementsInOrderAs expMessages
-  }
 
-  it should "handle a removal confirmation" in {
+  it should "handle a removal confirmation" in:
     val actors = createActors()
     val pending = List(metaManagerMessages(1, actors), mediaManagerMessages(1, actors),
       ackMessage(actors))
@@ -375,5 +358,3 @@ class ContentPropagationUpdateServiceSpec(testSystem: ActorSystem) extends TestK
     next.messages shouldBe empty
     next.pendingMessages shouldBe empty
     sendMsg should be(pending)
-  }
-}

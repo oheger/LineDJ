@@ -23,6 +23,8 @@ import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, HttpCookiePair, `Set-Cookie`}
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse, StatusCodes}
 
+import scala.collection.immutable.Seq
+
 /**
   * An HTTP extension actor implementation that adds a special cookie handling
   * to support certain proxies.
@@ -34,7 +36,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, HttpRequest, HttpRespon
   * the response. The request was only successful if the cookie was passed in
   * the header. This kind of cookie management is implemented here.
   */
-object CookieManagementExtension {
+object CookieManagementExtension:
   /** The name of the header to set cookies. */
   private val SetCookieHeader = "set-cookie"
 
@@ -50,7 +52,7 @@ object CookieManagementExtension {
 
   private def handleRequests(requestSender: ActorRef[HttpRequestSender.HttpCommand], cookieHeader: Option[Cookie]):
   Behavior[HttpRequestSender.HttpCommand] =
-    Behaviors.receivePartial {
+    Behaviors.receivePartial:
       case (context, req: HttpRequestSender.SendRequest) =>
         val updatedRequest = cookieHeader.map(c => addCookieHeader(req, c)) getOrElse req.request
         HttpRequestSender.forwardRequest(context, requestSender, updatedRequest, req, req.discardEntityMode)
@@ -60,9 +62,9 @@ object CookieManagementExtension {
       data: HttpRequestSender.SendRequest, _, _), cause: FailedResponseException)))
         if canRetry(cause.response) =>
         val newCookies = extractCookies(cause.response)
-        if (cookieHeader.exists(_.cookies == newCookies)) {
+        if cookieHeader.exists(_.cookies == newCookies) then
           sendResult(result)
-        } else {
+        else
 
           implicit val mat: ActorSystem[Nothing] = context.system
           result.ensureResponseEntityDiscarded()
@@ -71,7 +73,6 @@ object CookieManagementExtension {
           val nextRequest = addCookieHeader(data, cookie)
           HttpRequestSender.forwardRequest(context, requestSender, nextRequest, data, data.discardEntityMode)
           handleRequests(requestSender, Some(cookie))
-        }
 
       case (_, ForwardedResult(result)) =>
         sendResult(result)
@@ -79,13 +80,11 @@ object CookieManagementExtension {
       case (_, HttpRequestSender.Stop) =>
         requestSender ! HttpRequestSender.Stop
         Behaviors.stopped
-    }
 
-  private def sendResult(srcResult: HttpRequestSender.Result): Behavior[HttpRequestSender.HttpCommand] = {
+  private def sendResult(srcResult: HttpRequestSender.Result): Behavior[HttpRequestSender.HttpCommand] =
     val result = HttpRequestSender.resultFromForwardedRequest(srcResult)
     result.request.replyTo ! result
     Behaviors.same
-  }
 
   /**
     * Returns a sequence with all the cookie information defined by the given
@@ -96,10 +95,9 @@ object CookieManagementExtension {
     */
   private def extractCookies(response: HttpResponse): List[HttpCookiePair] =
     response.headers.foldLeft(List.empty[HttpCookiePair]) { (lst, h) =>
-      h match {
+      h match
         case `Set-Cookie`(cookie) => HttpCookiePair(cookie.name, cookie.value) :: lst
         case _ => lst
-      }
     }
 
   /**
@@ -110,10 +108,9 @@ object CookieManagementExtension {
     * @return the filtered headers of this request
     */
   private def filterHeaders(request: HttpRequest): Seq[HttpHeader] =
-    request.headers.filter {
+    request.headers.filter:
       case Cookie(_) => false
       case _ => true
-    }
 
   /**
     * Adds the given cookie header to the request specified. The headers
@@ -123,10 +120,9 @@ object CookieManagementExtension {
     * @param cookie  the cookie header to be added
     * @return the updated request
     */
-  private def addCookieHeader(request: HttpRequestSender.SendRequest, cookie: Cookie): HttpRequest = {
+  private def addCookieHeader(request: HttpRequestSender.SendRequest, cookie: Cookie): HttpRequest =
     val nextHeaders = cookie :: filterHeaders(request.request).toList
     request.request.withHeaders(nextHeaders)
-  }
 
   /**
     * Checks whether a failed response can be retried. This is the case for
@@ -147,4 +143,3 @@ object CookieManagementExtension {
     */
   private def hasCookies(response: HttpResponse): Boolean =
     response.headers.exists(_.is(SetCookieHeader))
-}

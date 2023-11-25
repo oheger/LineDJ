@@ -38,7 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * in files with the same base name, but different suffixes. Sensitive
   * information can be encrypted if a password is provided.
   */
-object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData] {
+object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]:
   /** Constant for the suffix used for the file with the OAuth config. */
   final val SuffixConfigFile = ".xml"
 
@@ -98,9 +98,9 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
                          (implicit ec: ExecutionContext, system: ActorSystem): Future[OAuthTokenData] =
     loadAndMapFile(storageConfig, SuffixTokenFile, optPwd = Some(storageConfig.encPassword)) { buf =>
       val parts = buf.utf8String.split(TokenSeparator)
-      if (parts.length < 2)
+      if parts.length < 2 then
         throw new IllegalArgumentException(s"Token file for ${storageConfig.baseName} contains too few tokens.")
-      else if (parts.length > 2)
+      else if parts.length > 2 then
         throw new IllegalArgumentException(s"Token file for ${storageConfig.baseName} has unexpected content.")
       OAuthTokenData(accessToken = parts(0), refreshToken = parts(1))
     }
@@ -132,12 +132,11 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
     */
   private def loadAndMapFile[T](storageConfig: OAuthStorageConfig, suffix: String, optPwd: Option[Secret] = None)
                                (f: ByteString => T)
-                               (implicit ec: ExecutionContext, system: ActorSystem): Future[T] = {
+                               (implicit ec: ExecutionContext, system: ActorSystem): Future[T] =
     val file = fileSource(storageConfig, suffix)
     val source = optPwd.map(pwd => cryptSource(file, pwd)) getOrElse file
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     source.runWith(sink).map(f)
-  }
 
   /**
     * Returns a source that decrypts the passed in source. This is used to
@@ -147,8 +146,6 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
     * @param secret the password for decryption
     * @return the decorated source
     */
-  private def cryptSource[Mat](source: Source[ByteString, Mat], secret: Secret): Source[ByteString, Mat] = {
+  private def cryptSource[Mat](source: Source[ByteString, Mat], secret: Secret): Source[ByteString, Mat] =
     val key = Aes.keyFromString(secret.secret)
     CryptService.decryptSource(Aes, key, source)
-  }
-}

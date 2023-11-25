@@ -72,7 +72,7 @@ case class ProcessingStateTransitionData(propagateMsg: Option[PropagateMediumRes
   * archive is removed from the union archive before another scan operation
   * starts.
   */
-trait ContentProcessingUpdateService {
+trait ContentProcessingUpdateService:
   /** The type for updates of the internal state. */
   type StateUpdate[A] = State[ContentProcessingState, A]
 
@@ -140,10 +140,10 @@ trait ContentProcessingUpdateService {
     * @return the updated state and transition data
     */
   def handleResultAvailable(result: MediumProcessingResult, client: ActorRef, maxInProgress: Int):
-  StateUpdate[ProcessingStateTransitionData] = for {
+  StateUpdate[ProcessingStateTransitionData] = for
     _ <- resultAvailable(result, client, maxInProgress)
     data <- fetchTransitionData()
-  } yield data
+  yield data
 
   /**
     * Handles a result propagated confirmation by updating the state
@@ -154,11 +154,10 @@ trait ContentProcessingUpdateService {
     * @return the updated state and transition data
     */
   def handleResultPropagated(seqNo: Int, maxInProgress: Int):
-  StateUpdate[ProcessingStateTransitionData] = for {
+  StateUpdate[ProcessingStateTransitionData] = for
     _ <- resultPropagated(seqNo, maxInProgress)
     data <- fetchTransitionData()
-  } yield data
-}
+  yield data
 
 object ContentProcessingUpdateServiceImpl extends ContentProcessingUpdateService {
   /** Constant for the initial content processing state. */
@@ -167,7 +166,7 @@ object ContentProcessingUpdateServiceImpl extends ContentProcessingUpdateService
     contentInArchive = false, removeTriggered = true, seqNo = 0, scanInProgress = false)
 
   override def processingStarts(): StateUpdate[Boolean] = State { s =>
-    if (s.scanInProgress) (s, false)
+    if s.scanInProgress then (s, false)
     else (s.copy(mediaInProgress = 0, ack = None, propagateMsg = None, pendingClient = None,
       pendingResult = None, seqNo = s.seqNo + 1, removeTriggered = false,
       scanInProgress = true), true)
@@ -175,8 +174,8 @@ object ContentProcessingUpdateServiceImpl extends ContentProcessingUpdateService
 
   override def resultAvailable(result: MediumProcessingResult, client: ActorRef,
                                maxInProgress: Int): StateUpdate[Unit] = modify { s =>
-    if (s.propagateMsg.isDefined || s.pendingResult.isDefined || result.seqNo != s.seqNo) s
-    else if (s.mediaInProgress >= maxInProgress)
+    if s.propagateMsg.isDefined || s.pendingResult.isDefined || result.seqNo != s.seqNo then s
+    else if s.mediaInProgress >= maxInProgress then
       s.copy(pendingClient = Some(client), pendingResult = Some(result))
     else s.copy(mediaInProgress = s.mediaInProgress + 1, ack = Some(client),
       propagateMsg = Some(PropagateMediumResult(result, removeContent = shouldTriggerRemove(s))),
@@ -184,17 +183,15 @@ object ContentProcessingUpdateServiceImpl extends ContentProcessingUpdateService
   }
 
   override def resultPropagated(seqNo: Int, maxInProgress: Int): StateUpdate[Unit] = modify { s =>
-    if (seqNo == s.seqNo) {
+    if seqNo == s.seqNo then
       val nextInProgress = math.max(0, s.mediaInProgress - 1)
-      s.pendingResult match {
+      s.pendingResult match
         case Some(result) if nextInProgress < maxInProgress =>
           s.copy(ack = s.pendingClient, pendingClient = None,
             propagateMsg = Some(PropagateMediumResult(result, removeContent = false)),
             pendingResult = None)
         case _ =>
           s.copy(mediaInProgress = nextInProgress)
-      }
-    }
     else s
   }
 

@@ -23,7 +23,7 @@ import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 
-object MediaDownloader {
+object MediaDownloader:
   /**
     * Safely appends a suffix path to another path of a URI. This function
     * handles the cases that the path might or might not end with a separator,
@@ -34,8 +34,8 @@ object MediaDownloader {
     * @return the path with the suffix path appended
     */
   private[io] def appendPaths(path: Uri.Path, suffix: Uri.Path): Uri.Path =
-    if (path.endsWithSlash && suffix.startsWithSlash) path ++ suffix.tail
-    else if (path.endsWithSlash && !suffix.startsWithSlash || !path.endsWithSlash && suffix.startsWithSlash)
+    if path.endsWithSlash && suffix.startsWithSlash then path ++ suffix.tail
+    else if path.endsWithSlash && !suffix.startsWithSlash || !path.endsWithSlash && suffix.startsWithSlash then
       path ++ suffix
     else (path ?/ suffix.head.toString) ++ suffix.tail
 
@@ -50,7 +50,6 @@ object MediaDownloader {
     */
   private[io] def appendPaths(path: Uri.Path, suffixStr: String): Uri.Path =
     appendPaths(path, Uri.Path(suffixStr))
-}
 
 /**
   * A trait to abstract downloading of files from an HTTP archive.
@@ -59,7 +58,7 @@ object MediaDownloader {
   * from the archive. It provides a function that expects the URI to the file
   * to be loaded and returns a ''Future'' with a source of its content.
   */
-trait MediaDownloader {
+trait MediaDownloader:
   /**
     * The central function to download files from an HTTP media archive. The
     * passed in ''Path'' is resolved against the archive's root path and
@@ -94,4 +93,3 @@ trait MediaDownloader {
     * that all resources in use are properly released.
     */
   def shutdown(): Unit
-}

@@ -29,7 +29,7 @@ import java.nio.file.Path
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-object TimeoutAwareHttpDownloadActor {
+object TimeoutAwareHttpDownloadActor:
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
@@ -83,7 +83,6 @@ object TimeoutAwareHttpDownloadActor {
     * @return a flag whether data is contained in the result
     */
   private def dataDefined(res: DownloadDataResult): Boolean = res.data.nonEmpty
-}
 
 /**
   * An actor which implements the download actor protocol for downloads from an
@@ -123,7 +122,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
                                     removeFileActor: ActorRef,
                                     downloadIndex: Int,
                                     optTempManager: Option[TempFileActorManager])
-  extends Actor with ChildActorFactory with ActorLogging with TempReadOperationHolder {
+  extends Actor with ChildActorFactory with ActorLogging with TempReadOperationHolder:
   this: SchedulerSupport =>
 
   import TimeoutAwareHttpDownloadActor._
@@ -195,33 +194,28 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
 
   override def currentReadOperation: Option[TempReadOperation] = readOperation
 
-  override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] = {
-    readOperation = currentReadOperation orElse {
+  override def getOrCreateCurrentReadOperation(optPath: => Option[Path]): Option[TempReadOperation] =
+    readOperation = currentReadOperation orElse:
       optPath map { path =>
         val readActor = createAndWatchChildActor(Props(classOf[MediaFileDownloadActor], path,
           config.downloadReadChunkSize, MediaFileDownloadActor.IdentityTransform))
         TempReadOperation(readActor, path)
       }
-    }
     readOperation
-  }
 
-  override def resetReadOperation(): Unit = {
+  override def resetReadOperation(): Unit =
     readOperation = None
-  }
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     downloadActorAliveMsg = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
     tempFileActorManager = optTempManager getOrElse new TempFileActorManager(self, this)
     downloadFileActor = createChildDownloadActor(0)
     context watch downloadFileActor
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case req: DownloadData if currentRequest.isEmpty =>
-      if (!tempFileActorManager.initiateClientRequest(sender(), req)) {
+      if !tempFileActorManager.initiateClientRequest(sender(), req) then
         serveRequestFromBuffer(req, sender())
-      }
       downloadManagerActor ! downloadActorAliveMsg
 
     case res: DownloadDataResult if messageFromReaderActor() =>
@@ -262,22 +256,19 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
       // A write operation failed => stop this download actor
       log.error("Writing data to a temp file failed! Canceling download operation {}.", downloadIndex)
       context stop self
-  }
 
   /**
     * @inheritdoc This implementation does some cleanup: The wrapped download
     *             actor is stopped, and temporary files that have been written
     *             are removed.
     */
-  override def postStop(): Unit = {
+  override def postStop(): Unit =
     val tempPaths = tempFileActorManager.pendingTempPaths
-    if (tempPaths.nonEmpty) {
+    if tempPaths.nonEmpty then
       removeFileActor ! RemoveTempFilesActor.RemoveTempFiles(tempPaths)
-    }
     resetScheduler()
     context stop downloadFileActor
     super.postStop()
-  }
 
   /**
     * Creates a child actor using the specified ''Props'' and initiates death
@@ -286,11 +277,10 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * @param p the creation properties
     * @return the newly created actor
     */
-  private def createAndWatchChildActor(p: Props): ActorRef = {
+  private def createAndWatchChildActor(p: Props): ActorRef =
     val child = createChildActor(p)
     context watch child
     child
-  }
 
   /**
     * Creates a new download actor which performs the actual download.
@@ -310,7 +300,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     *
     * @param res the download data result
     */
-  private def handleDataFromDownloadActor(res: DownloadDataResult): Unit = {
+  private def handleDataFromDownloadActor(res: DownloadDataResult): Unit =
     bytesReceived += res.data.size
     bytesReceivedFromActor += res.data.size
     downloadBuffer = downloadBuffer addChunk res.data
@@ -321,15 +311,12 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
       downloadBuffer = buf
       currentRequest = None
     }
-    if (downloadBuffer.size >= config.downloadBufferSize) {
+    if downloadBuffer.size >= config.downloadBufferSize then
       writeTempFile()
-    }
     bytesToReadDuringTimeout = math.max(0, bytesToReadDuringTimeout - res.data.size)
-    if (!readDuringTimeout()) {
+    if !readDuringTimeout() then
       resetScheduler()
       scheduleForInactivityTimeout(config.downloadMaxInactivity)
-    }
-  }
 
   /**
     * Handles a download request that cannot be handled by the temp file
@@ -339,35 +326,30 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * @param req    the request
     * @param client the requesting client
     */
-  private def serveRequestFromBuffer(req: DownloadData, client: ActorRef): Unit = {
-    downloadBuffer fetchData req.size match {
+  private def serveRequestFromBuffer(req: DownloadData, client: ActorRef): Unit =
+    downloadBuffer fetchData req.size match
       case (Some(bs), buf) =>
         client ! DownloadDataResult(bs)
         downloadBuffer = buf
-        if (shouldResumeFailedDownload()) {
+        if shouldResumeFailedDownload() then
           resumeFailedDownload()
-        }
 
       case (None, _) =>
-        if (downloadComplete) {
+        if downloadComplete then
           client ! DownloadComplete
-        } else {
+        else
           downloadFileActor ! req
           currentRequest = Some(DownloadRequestData(req, client))
-        }
-    }
-  }
 
   /**
     * Writes a temporary file whose content is the current buffer.
     */
-  private def writeTempFile(): Unit = {
+  private def writeTempFile(): Unit =
     log.info("Creating new temporary file for download {}.", downloadIndex)
     fetchWriteActor() ! createWriteFileRequest()
     tempFileActorManager.pendingWriteOperation(tempFileIndex)
     tempFileIndex += 1
     downloadBuffer = DownloadBuffer.empty
-  }
 
   /**
     * Creates a request to write a temporary file.
@@ -386,7 +368,7 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     *
     * @param op an object describing the read operation
     */
-  private def handleCompletedReadOperation(op: CompletedTempReadOperation): Unit = {
+  private def handleCompletedReadOperation(op: CompletedTempReadOperation): Unit =
     op.pendingRequest foreach { r =>
       serveRequestFromBuffer(r.request, r.client)
     }
@@ -394,7 +376,6 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     removeFileActor ! RemoveTempFilesActor.RemoveTempFiles(List(op.operation.path))
     context unwatch op.operation.reader
     context stop op.operation.reader
-  }
 
   /**
     * Triggers a read operation after an inactivity timeout has been
@@ -403,11 +384,11 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * @return a flag whether there was still data to read
     */
   private def readDuringTimeout(): Boolean =
-    if (bytesToReadDuringTimeout > 0) {
+    if bytesToReadDuringTimeout > 0 then
       val chunkSize = math.min(bytesToReadDuringTimeout, config.downloadReadChunkSize)
       downloadFileActor ! DownloadData(chunkSize)
       true
-    } else false
+    else false
 
   /**
     * Schedules a message to receive a notification when an inactivity timeout
@@ -418,29 +399,25 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     *
     * @param delay the delay after which the timeout message is scheduled
     */
-  private def scheduleForInactivityTimeout(delay: FiniteDuration): Unit = {
+  private def scheduleForInactivityTimeout(delay: FiniteDuration): Unit =
     cancellable = Some(scheduleMessageOnce(delay, self, InactivityTimeout))
-  }
 
   /**
     * Resets a scheduled message if any.
     */
-  private def resetScheduler(): Unit = {
+  private def resetScheduler(): Unit =
     cancellable foreach (_.cancel())
     cancellable = None
-  }
 
   /**
     * Returns the write file actor. It is created on demand.
     *
     * @return the write file actor
     */
-  private def fetchWriteActor(): ActorRef = {
-    if (writeFileActor == null) {
+  private def fetchWriteActor(): ActorRef =
+    if writeFileActor == null then
       writeFileActor = createAndWatchChildActor(Props[WriteChunkActor]())
-    }
     writeFileActor
-  }
 
   /**
     * Checks whether the sender of the current message is the reader actor for
@@ -459,16 +436,14 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * retried either directly (if no temporary files are present) or later,
     * when the in-memory buffer is accessed.
     */
-  private def handleFailedResumableDownload(): Unit = {
+  private def handleFailedResumableDownload(): Unit =
     log.error("Download actor was terminated after sending {} bytes of data in download operation {}.",
       bytesReceivedFromActor, downloadIndex)
     downloadFileActor = createChildDownloadActor(bytesReceived)
     bytesReceivedFromActor = 0
     resetScheduler()
-    if (tempFileActorManager.pendingTempPaths.isEmpty) {
+    if tempFileActorManager.pendingTempPaths.isEmpty then
       resumeFailedDownload()
-    }
-  }
 
   /**
     * Returns a flag whether the current download has failed and should now be
@@ -487,8 +462,6 @@ class TimeoutAwareHttpDownloadActor(config: HttpArchiveConfig,
     * basically means that the scheduler for inactivity timeouts is activated
     * again.
     */
-  private def resumeFailedDownload(): Unit = {
+  private def resumeFailedDownload(): Unit =
     scheduleForInactivityTimeout(RetryDelay)
     log.info("Resuming failed download {}, skipping {} bytes of data.", downloadIndex, bytesReceived)
-  }
-}

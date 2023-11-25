@@ -55,7 +55,7 @@ case class UserCredentials(userName: String, password: Secret)
   */
 case class OAuthStorageConfig(rootDir: Path,
                               baseName: String,
-                              encPassword: Secret) {
+                              encPassword: Secret):
   /**
     * Returns a path in the root directory that is derived from the base name
     * with the given suffix. This is useful to locate concrete files related to
@@ -66,7 +66,6 @@ case class OAuthStorageConfig(rootDir: Path,
     */
   def resolveFileName(suffix: String): Path =
     rootDir.resolve(baseName + suffix)
-}
 
 /**
   * A class defining the configuration settings to be applied for an HTTP

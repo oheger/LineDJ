@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
@@ -29,14 +29,13 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''WriteChunkActor''.
   */
-class WriteChunkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class WriteChunkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("WriteChunkActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Creates a source with test data.
@@ -46,7 +45,7 @@ class WriteChunkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   private def createTestSource(): Source[ByteString, NotUsed] =
     Source[ByteString](ByteString(FileTestHelper.testBytes()).grouped(16).toList)
 
-  "A WriteChunkActor" should "write data to a target file" in {
+  "A WriteChunkActor" should "write data to a target file" in:
     val target = createPathInDirectory("writeTest.txt")
     val source = createTestSource()
     val request = WriteChunkActor.WriteRequest(target, source, 42)
@@ -57,5 +56,3 @@ class WriteChunkActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     response.request should be(request)
     val content = readDataFile(target)
     content should be(FileTestHelper.TestData)
-  }
-}

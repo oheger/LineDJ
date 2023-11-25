@@ -40,12 +40,11 @@ import scala.concurrent.Future
   * downloaded and to produce the results to be sent back to the caller.
   */
 abstract class AbstractResponseProcessingActor
-  extends AbstractStreamProcessingActor with CancelableStreamSupport {
+  extends AbstractStreamProcessingActor with CancelableStreamSupport:
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case ProcessResponse(mid, desc, data, config, seqNo) =>
       handleHttpResponse(mid, desc, data, config, seqNo)
-  }
 
   /**
     * Processes the specified source with the content of the response entity
@@ -92,11 +91,9 @@ abstract class AbstractResponseProcessingActor
     */
   private def handleHttpResponse(mid: MediumID, desc: HttpMediumDesc,
                                  responseData: Source[ByteString, Any], config: HttpArchiveConfig,
-                                 seqNo: Int): Unit = {
+                                 seqNo: Int): Unit =
     val (futureStream, killSwitch) = processSource(
       createResponseDataSource(responseData, config), mid, desc, config, seqNo)
     processStreamResult(futureStream, killSwitch) { f =>
       Status.Failure(f.exception)
     }
-  }
-}

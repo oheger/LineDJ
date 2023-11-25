@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object HttpMediumDescParserSpec {
+object HttpMediumDescParserSpec:
   /**
     * Converts a medium description object to a map.
     *
@@ -38,25 +38,23 @@ object HttpMediumDescParserSpec {
     */
   private def createParser(): HttpMediumDescParser =
     new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-}
 
 /**
   * Test class for ''HttpMediumDescParser''.
   */
-class HttpMediumDescParserSpec extends AnyFlatSpec with Matchers {
+class HttpMediumDescParserSpec extends AnyFlatSpec with Matchers:
 
   import HttpMediumDescParserSpec._
 
-  "A HttpMediumDescParser" should "produce correct result objects" in {
+  "A HttpMediumDescParser" should "produce correct result objects" in:
     val descs = Vector(HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
       HttpMediumDesc("medium2/playlist.settings", "metadata/med2.mdt"),
       HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt"))
 
     val result = createParser().convertJsonObjects(null, descs map toMap)
     result should be(descs)
-  }
 
-  it should "filter out incomplete medium descriptions" in {
+  it should "filter out incomplete medium descriptions" in:
     val valid = Vector(HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
       HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt"))
     val descs = Map("mediumDescriptionPath" -> "somePath") +: valid.map(toMap)
@@ -64,5 +62,3 @@ class HttpMediumDescParserSpec extends AnyFlatSpec with Matchers {
 
     val result = createParser().convertJsonObjects(null, moreDescs)
     result should be(valid)
-  }
-}
