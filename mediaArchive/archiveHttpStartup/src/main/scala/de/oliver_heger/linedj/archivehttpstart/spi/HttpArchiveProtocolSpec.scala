@@ -37,7 +37,7 @@ import scala.util.Try
   * achieve the latter, they have to parse the URI defined in the configuration
   * of the associated HTTP archive.
   */
-trait HttpArchiveProtocolSpec {
+trait HttpArchiveProtocolSpec:
   /** The type of IDs in the file system. */
   type ID
 
@@ -82,4 +82,3 @@ trait HttpArchiveProtocolSpec {
     * @return a ''Try'' with an ''HttpArchiveFileSystem'' object
     */
   def createFileSystemFromConfig(sourceUri: String, timeout: Timeout): Try[HttpArchiveFileSystem[ID, File, Folder]]
-}

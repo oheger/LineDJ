@@ -42,7 +42,7 @@ import scala.concurrent.duration._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
-object HttpArchiveStartupApplication {
+object HttpArchiveStartupApplication:
   /** Property for the initialization timeout of the local archive. */
   final val PropArchiveInitTimeout = "media.initTimeout"
 
@@ -90,7 +90,7 @@ object HttpArchiveStartupApplication {
   private case class ArchiveStateData(state: HttpArchiveStateChanged,
                                       resources: Option[HttpArchiveStarter.ArchiveResources],
                                       archiveIndex: Int,
-                                      optKey: Option[Key]) {
+                                      optKey: Option[Key]):
     /**
       * Returns a flag whether this archive is currently started.
       *
@@ -105,11 +105,10 @@ object HttpArchiveStartupApplication {
       * @param shortName the short name of the archive in question
       * @return an ''Option'' with the resolved management actor
       */
-    def managerActor(shortName: String): Option[ActorRef] = {
+    def managerActor(shortName: String): Option[ActorRef] =
       val mgrName = HttpArchiveStarter.archiveActorName(shortName,
         HttpArchiveStarter.ManagementActorName, archiveIndex)
       resources flatMap (_.actors get mgrName)
-    }
 
     /**
       * Returns a new ''ArchiveStateData'' object based on this one, but with
@@ -120,7 +119,6 @@ object HttpArchiveStartupApplication {
       */
     def deactivate(newState: HttpArchiveStateChanged): ArchiveStateData =
       copy(state = newState, resources = None, archiveIndex = 0)
-  }
 
   /**
     * A message class used internally to report the availability of a new
@@ -154,16 +152,13 @@ object HttpArchiveStartupApplication {
     */
   private def mapArchiveStartedState(arcName: String,
                                      state: de.oliver_heger.linedj.archivehttp.HttpArchiveState):
-  HttpArchiveStateChanged = {
-    val mappedState = state match {
+  HttpArchiveStateChanged =
+    val mappedState = state match
       case HttpArchiveStateConnected =>
         HttpArchiveStateAvailable
       case s =>
         HttpArchiveErrorState(s)
-    }
     HttpArchiveStateChanged(arcName, mappedState)
-  }
-}
 
 /**
   * An application class for stating up an HTTP archive.
@@ -178,7 +173,7 @@ object HttpArchiveStartupApplication {
   */
 class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartup")
   with ApplicationAsyncStartup with Identifiable with ActorClientSupport
-  with ActorManagementComponent {
+  with ActorManagementComponent:
 
   import HttpArchiveStartupApplication._
 
@@ -228,18 +223,16 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @inheritdoc This implementation adds some registrations for the message
     *             bus and archive extensions.
     */
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
-  }
 
   /**
     * @inheritdoc This implementation removes registrations at the message
     *             bus.
     */
-  override def deactivate(componentContext: ComponentContext): Unit = {
+  override def deactivate(componentContext: ComponentContext): Unit =
     removeRegistrations()
     super.deactivate(componentContext)
-  }
 
   /**
     * Notifies this object that a protocol spec service is available. This
@@ -247,18 +240,16 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param protocolSpec the protocol service
     */
-  def addProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit = {
+  def addProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit =
     publish(ProtocolSpecAdded(protocolSpec))
-  }
 
   /**
     * Notifies this object that a protocol spec service is no longer available.
     * All archives that use this protocol must be stopped. This method is
     * called by the declarative services runtime.
     */
-  def removeProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit = {
+  def removeProtocolSpec(protocolSpec: HttpArchiveProtocolSpec): Unit =
     publish(ProtocolSpecRemoved(protocolSpec))
-  }
 
   /**
     * @inheritdoc This implementation directly registers a listener at the
@@ -266,23 +257,21 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *             added events are missed (which can arrive as soon as
     *             ''activate()'' is invoked).
     */
-  override def initClientContext(context: ClientApplicationContext): Unit = {
+  override def initClientContext(context: ClientApplicationContext): Unit =
     super.initClientContext(context)
     messageBusRegistrationID.set(messageBus registerListener messageBusReceive)
-  }
 
   /**
     * @inheritdoc This implementation reads information from the application's
     *             configuration about the HTTP archives to be managed.
     */
-  override def createApplicationContext(): ApplicationContext = {
+  override def createApplicationContext(): ApplicationContext =
     val context = super.createApplicationContext()
     configManager = HttpArchiveConfigManager(clientApplicationContext.managementConfiguration)
     archiveStates = createInitialArchiveState()
     addBeanDuringApplicationStartup(BeanConfigManager, configManager)
     publish(ArchiveAvailabilityRegistration(componentID, archiveAvailabilityChanged))
     context
-  }
 
   /**
     * Invokes the ''SuperPasswordStorageService'' provided to store information
@@ -295,11 +284,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @return a future with the result of the write operation
     */
   private[archivehttpstart] def saveArchiveCredentials(storageService: SuperPasswordStorageService, target: Path,
-                                                       superPassword: String): Future[Path] = {
+                                                       superPassword: String): Future[Path] =
     val lockData = archiveStates.filter(_._2.optKey.isDefined)
       .map { e => (e._1, e._2.optKey.get) }
     storageService.writeSuperPasswordFile(target, superPassword, realms, lockData)
-  }
 
   /**
     * Creates the initial state for all managed archives that no union archive
@@ -318,27 +306,25 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * Removes the registrations for message bus listeners and consumers. This
     * method is invoked when the application is deactivated.
     */
-  private def removeRegistrations(): Unit = {
+  private def removeRegistrations(): Unit =
     messageBus removeListener messageBusRegistrationID.get()
     publish(ArchiveAvailabilityUnregistration(componentID))
-  }
 
   /**
     * Returns the message processing function for the UI bus.
     *
     * @return the message processing function
     */
-  private def messageBusReceive: Receive = {
+  private def messageBusReceive: Receive =
     case HttpArchiveStateRequest =>
       publishArchiveStates()
 
     case ProtocolSpecAdded(protocol) =>
       protocols += (protocol.name -> protocol)
       // the notification may come in before the application is fully initialized
-      if (configManager != null) {
+      if configManager != null then
         updateArchiveStates()
         triggerArchiveStartIfPossible()
-      }
 
     case ProtocolSpecRemoved(protocol) =>
       protocols -= protocol.name
@@ -368,19 +354,17 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
 
     case not@HttpArchiveStateChanged(_, HttpArchiveStateInitializing) =>
       queryAndPublishArchiveState(not)
-  }
 
   /**
     * Stops all actors that have been created for the given archive.
     *
     * @param archiveData the data of the archive affected
     */
-  private def stopArchiveActors(archiveData: ArchiveStateData): Unit = {
+  private def stopArchiveActors(archiveData: ArchiveStateData): Unit =
     archiveData.resources foreach { res =>
       res.actors.keys foreach unregisterAndStopActor
       unregisterAndStopActor(res.httpActorName)
     }
-  }
 
   /**
     * Determines the current state of the archive referred to by the given
@@ -389,7 +373,7 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param stateChange the state change notification
     */
-  private def queryAndPublishArchiveState(stateChange: HttpArchiveStateChanged): Unit = {
+  private def queryAndPublishArchiveState(stateChange: HttpArchiveStateChanged): Unit =
     val archiveName = configManager.archives(stateChange.archiveName).shortName
     val optMgrActor = archiveStates(stateChange.archiveName).managerActor(archiveName)
     optMgrActor foreach { mgrActor =>
@@ -399,23 +383,20 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
       val futState = mgrActor ? de.oliver_heger.linedj.archivehttp.HttpArchiveStateRequest
       futState.mapTo[HttpArchiveStateResponse]
         .map(r => mapArchiveStartedState(r.archiveName, r.state))
-        .onComplete {
+        .onComplete:
           case Success(st) => publish(st)
           case Failure(ex) =>
             log.warn("Timeout when querying archive state.", ex)
             publish(stateChange)
-        }
     }
-  }
 
   /**
     * Publishes the current states of all managed HTTP archives.
     */
-  private def publishArchiveStates(): Unit = {
+  private def publishArchiveStates(): Unit =
     configManager.archives.keySet foreach { n =>
       publish(archiveStates(n).state)
     }
-  }
 
   /**
     * The consumer function for archive availability events
@@ -423,65 +404,56 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @param availabilityEvent the availability event
     */
   private def archiveAvailabilityChanged(availabilityEvent: MediaArchiveAvailabilityEvent):
-  Unit = {
-    if (availabilityEvent != unionArchiveAvailability) {
+  Unit =
+    if availabilityEvent != unionArchiveAvailability then
       unionArchiveAvailability = availabilityEvent
-      availabilityEvent match {
+      availabilityEvent match
         case MediaFacade.MediaArchiveAvailable =>
           onUnionArchiveAvailable()
 
         case MediaFacade.MediaArchiveUnavailable =>
           onUnionArchiveUnavailable()
-      }
-    }
-  }
 
   /**
     * Handles the notification that the union archive is now available. This
     * changes the state for all archives for which no login credentials are
     * available. The other ones can now be started.
     */
-  private def onUnionArchiveAvailable(): Unit = {
+  private def onUnionArchiveAvailable(): Unit =
     updateArchiveStates()
     triggerArchiveStartIfPossible()
-  }
 
   /**
     * Handles a notification that the union archive is no longer available.
     * This causes the state of all HTTP archives to be reset, and all actors
     * created by this application are stopped.
     */
-  private def onUnionArchiveUnavailable(): Unit = {
+  private def onUnionArchiveUnavailable(): Unit =
     stopActors()
     archiveStates = createInitialArchiveState()
     publishArchiveStates()
-  }
 
   /**
     * Checks whether the union archive is available as precondition for the
     * start of HTTP archives. If this is the case, all archives for which
     * login credentials are available are now started.
     */
-  private def triggerArchiveStartIfPossible(): Unit = {
-    if (isMediaArchiveAvailable && archivesToBeStarted.nonEmpty) {
+  private def triggerArchiveStartIfPossible(): Unit =
+    if isMediaArchiveAvailable && archivesToBeStarted.nonEmpty then
       triggerArchiveStart()
-    }
-  }
 
   /**
     * Triggers the start of all HTTP archives for which login information is
     * available.
     */
-  private def triggerArchiveStart(): Unit = {
+  private def triggerArchiveStart(): Unit =
     implicit val timeout: Timeout = fetchInitializationTimeout()
-    clientApplicationContext.mediaFacade.requestFacadeActors().onCompleteUIThread {
+    clientApplicationContext.mediaFacade.requestFacadeActors().onCompleteUIThread:
       case Success(actors) =>
         startupHttpArchives(actors)
       case Failure(ex) =>
         log.error("Could not obtain media facade actors!", ex)
         onUnionArchiveUnavailable()
-    }
-  }
 
   /**
     * Starts all HTTP archives with defined credentials using the provided
@@ -495,8 +467,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param mediaActors the object with the actors of the union archive
     */
-  private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit = {
-    if (isMediaArchiveAvailable) {
+  private def startupHttpArchives(mediaActors: MediaFacade.MediaFacadeActors): Unit =
+    if isMediaArchiveAvailable then
       val archiveStarter = archiveStarterBean
       archivesToBeStarted foreach { e =>
         log.info(s"Starting HTTP archive '${e._1}'.")
@@ -517,8 +489,6 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
           handleArchiveStartupResult(e._1, currentArchiveIndex, triedResult)
         }
       }
-    }
-  }
 
   /**
     * Evaluates the result of starting up an archive. In case of success,
@@ -532,10 +502,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @param triedResult the result of the startup operation
     */
   private def handleArchiveStartupResult(name: String, index: Int,
-                                         triedResult: Try[HttpArchiveStarter.ArchiveResources]): Unit = {
+                                         triedResult: Try[HttpArchiveStarter.ArchiveResources]): Unit =
     archivesStarting -= name
     val orgState = archiveStates(name)
-    val nextData = triedResult match {
+    val nextData = triedResult match
       case Success(resources) =>
         log.info(s"Archive '$name' has been started.")
         resources.actors foreach (e => registerActor(e._1, e._2))
@@ -546,10 +516,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
         log.error(s"Could not start archive '$name'.", exception)
         val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
         orgState.deactivate(HttpArchiveStateChanged(name, state))
-    }
     publish(nextData.state)
     archiveStates += name -> nextData
-  }
 
   /**
     * Checks whether the media archive is currently available. This is the
@@ -578,10 +546,9 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param realm the name of the realm affected
     */
-  private def removeRealmCredentials(realm: String): Unit = {
+  private def removeRealmCredentials(realm: String): Unit =
     realms -= realm
     updateArchiveStates()
-  }
 
   /**
     * Calculates the state of an archive based on the current application
@@ -592,10 +559,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @return the new state of this archive
     */
   private def archiveState(name: String, data: HttpArchiveData): HttpArchiveState =
-    if (!isMediaArchiveAvailable) HttpArchiveStateNoUnionArchive
-    else if (!protocols.contains(data.protocol)) HttpArchiveStateNoProtocol
-    else if (!realms.contains(data.realm.name)) HttpArchiveStateNotLoggedIn
-    else if (data.encrypted && archiveStates(name).optKey.isEmpty) HttpArchiveStateLocked
+    if !isMediaArchiveAvailable then HttpArchiveStateNoUnionArchive
+    else if !protocols.contains(data.protocol) then HttpArchiveStateNoProtocol
+    else if !realms.contains(data.realm.name) then HttpArchiveStateNotLoggedIn
+    else if data.encrypted && archiveStates(name).optKey.isEmpty then HttpArchiveStateLocked
     else HttpArchiveStateAvailable
 
   /**
@@ -608,20 +575,16 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * @param name the name of the archive affected
     * @param data the data of this archive
     */
-  private def updateArchiveState(name: String, data: HttpArchiveData): Unit = {
+  private def updateArchiveState(name: String, data: HttpArchiveData): Unit =
     val nextState = archiveState(name, data)
     val state = HttpArchiveStateChanged(name, nextState)
     val lastData = archiveStates(name)
-    if (state != lastData.state) {
-      if (!nextState.isStarted) {
-        if (lastData.isStarted) {
+    if state != lastData.state then
+      if !nextState.isStarted then
+        if lastData.isStarted then
           stopArchiveActors(lastData)
-        }
         archiveStates += name -> lastData.deactivate(state)
         publish(state)
-      }
-    }
-  }
 
   /**
     * Updates the states of all archives after a change in the application
@@ -630,11 +593,10 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     * that this method does not start any archives. This has to be triggered
     * explicitly.
     */
-  private def updateArchiveStates(): Unit = {
+  private def updateArchiveStates(): Unit =
     configManager.archives foreach { e =>
       updateArchiveState(e._1, e._2)
     }
-  }
 
   /**
     * Fetches the initialization timeout from the management configuration. If
@@ -658,9 +620,8 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     *
     * @param msg the message to be published
     */
-  private def publish(msg: Any): Unit = {
+  private def publish(msg: Any): Unit =
     messageBus publish msg
-  }
 
   /**
     * Obtains the ''HttpArchiveStarter'' from the bean context.
@@ -669,4 +630,3 @@ class HttpArchiveStartupApplication extends ClientApplication("httpArchiveStartu
     */
   private def archiveStarterBean: HttpArchiveStarter =
     getApplicationContext.getBeanContext.getBean(classOf[HttpArchiveStarter])
-}

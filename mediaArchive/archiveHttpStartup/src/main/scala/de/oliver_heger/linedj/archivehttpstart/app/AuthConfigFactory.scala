@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param oauthStorageService the service to access OAuth credentials
   */
 class AuthConfigFactory(val oauthStorageService:
-                        OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]) {
+                        OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]):
   /**
     * Returns an ''AuthConfig'' for the given realm and credentials. The steps
     * necessary to obtain all the information required for the correct type of
@@ -48,19 +48,16 @@ class AuthConfigFactory(val oauthStorageService:
     * @return a ''Future'' with the ''AuthConfig'' that was created
     */
   def createAuthConfig(realm: ArchiveRealm, credentials: UserCredentials)
-                      (implicit system: ActorSystem): Future[AuthConfig] = {
-    realm match {
+                      (implicit system: ActorSystem): Future[AuthConfig] =
+    realm match
       case _: BasicAuthRealm =>
         Future.successful(BasicAuthConfig(credentials.userName, credentials.password))
       case r: OAuthRealm =>
         implicit val ec: ExecutionContext = system.dispatcher
         val storageConfig = r.createIdpConfig(credentials.password)
-        for {
+        for
           config <- oauthStorageService.loadConfig(storageConfig)
           secret <- oauthStorageService.loadClientSecret(storageConfig)
           tokens <- oauthStorageService.loadTokens(storageConfig)
-        } yield CloudOAuthConfig(tokenEndpoint = config.tokenEndpoint, redirectUri = config.redirectUri,
+        yield CloudOAuthConfig(tokenEndpoint = config.tokenEndpoint, redirectUri = config.redirectUri,
           clientID = config.clientID, clientSecret = secret, initTokenData = tokens)
-    }
-  }
-}

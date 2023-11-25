@@ -44,30 +44,29 @@ import scala.util.Try
   * @param requestSenderFactory the factory for request actors
   */
 class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSenderFactory)
-  extends MediaDownloaderFactory {
+  extends MediaDownloaderFactory:
   override def createDownloader(protocolSpec: HttpArchiveProtocolSpec,
                                 startupConfig: HttpArchiveStartupConfig,
                                 authConfig: AuthConfig,
                                 actorBaseName: String,
                                 optCryptKey: Option[Key])
-                               (implicit system: ActorSystem): Try[MediaDownloader] = {
+                               (implicit system: ActorSystem): Try[MediaDownloader] =
     protocolSpec.createFileSystemFromConfig(startupConfig.archiveConfig.archiveBaseUri.toString(),
       startupConfig.archiveConfig.processorTimeout) map { fs =>
       val fsCrypt = optCryptKey.fold(fs)(wrapWithCryptFileSystem(fs, startupConfig, _))
 
       val senderConfig = createSenderConfig(startupConfig, authConfig, actorBaseName)
       val spawner: Spawner = system
-      val sender = if (protocolSpec.requiresMultiHostSupport)
+      val sender = if protocolSpec.requiresMultiHostSupport then
         requestSenderFactory.createMultiHostRequestSender(spawner, senderConfig)
       else requestSenderFactory.createRequestSender(spawner, startupConfig.archiveConfig.archiveBaseUri, senderConfig)
-      val cookieSender = if (startupConfig.needsCookieManagement)
+      val cookieSender = if startupConfig.needsCookieManagement then
         spawner.spawn(CookieManagementExtension(sender), optName = Some(actorBaseName + "_cookie"))
       else sender
 
       implicit val typedSystem: typed.ActorSystem[Nothing] = system.toTyped
       new FileSystemMediaDownloader(fsCrypt, cookieSender)
     }
-  }
 
   /**
     * Extends the given file system with functionality to encrypt the content
@@ -83,7 +82,7 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     */
   private def wrapWithCryptFileSystem[ID, FILE <: Model.File[ID], FOLDER <: Model.Folder[ID]]
   (fs: HttpArchiveFileSystem[ID, FILE, FOLDER], startupConfig: HttpArchiveStartupConfig, cryptKey: Key)
-  (implicit system: ActorSystem): HttpArchiveFileSystem[ID, FILE, FOLDER] = {
+  (implicit system: ActorSystem): HttpArchiveFileSystem[ID, FILE, FOLDER] =
     val cryptConfig = CryptConfig(Aes, cryptKey, cryptKey, new SecureRandom)
     val namesConfig = CryptNamesConfig(cryptConfig = cryptConfig, ignoreUnencrypted = true)
     implicit val timeout: Timeout = startupConfig.archiveConfig.processorTimeout
@@ -92,7 +91,6 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
     val cryptNamesFs = new CryptNamesFileSystem(fs.fileSystem, namesConfig, resolver)
     val cryptContentFs = new CryptContentFileSystem(cryptNamesFs, cryptConfig)
     fs.copy(fileSystem = cryptContentFs)
-  }
 
   /**
     * Creates the configuration for the HTTP sender actor to be passed to the
@@ -107,5 +105,4 @@ class FileSystemMediaDownloaderFactory(val requestSenderFactory: HttpRequestSend
                                  actorBaseName: String): HttpRequestSenderConfig =
     HttpRequestSenderConfig(actorName = Some(actorBaseName),
       queueSize = startupConfig.requestQueueSize, authConfig = authConfig,
-      retryAfterConfig = if (startupConfig.needsRetrySupport) Some(RetryAfterConfig()) else None)
-}
+      retryAfterConfig = if startupConfig.needsRetrySupport then Some(RetryAfterConfig()) else None)

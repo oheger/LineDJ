@@ -30,7 +30,7 @@ import java.nio.file.Path
   * they use the same authentication mechanism (e.g. if they are located on the
   * same physical server).
   */
-sealed trait ArchiveRealm {
+sealed trait ArchiveRealm:
   /**
     * Returns a name for this realm. The name is used to reference the realm
     * from the declaration of the archive. Names are arbitrary strings, but
@@ -48,7 +48,6 @@ sealed trait ArchiveRealm {
     * @return a flag whether a user ID is required during login
     */
   def needsUserID: Boolean
-}
 
 /**
   * Concrete realm implementation that represents the basic auth mechanism.
@@ -59,13 +58,12 @@ sealed trait ArchiveRealm {
   *
   * @param name the name of this realm
   */
-case class BasicAuthRealm(override val name: String) extends ArchiveRealm {
+case class BasicAuthRealm(override val name: String) extends ArchiveRealm:
   /**
     * @inheritdoc This implementation returns '''true''' as the user ID is
     *             part of the basic auth credentials.
     */
   override def needsUserID: Boolean = true
-}
 
 /**
   * Concrete realm implementation that represents the OAuth 2 authentication
@@ -82,7 +80,7 @@ case class BasicAuthRealm(override val name: String) extends ArchiveRealm {
   */
 case class OAuthRealm(override val name: String,
                       rootDir: Path,
-                      idpName: String) extends ArchiveRealm {
+                      idpName: String) extends ArchiveRealm:
   /**
     * @inheritdoc This implementation returns '''false''' because only a
     *             password is needed to decrypt IDP-related information.
@@ -98,7 +96,6 @@ case class OAuthRealm(override val name: String,
     */
   def createIdpConfig(secret: Secret): OAuthStorageConfig =
     OAuthStorageConfig(rootDir, idpName, secret)
-}
 
 /**
   * A data class collecting information about a single HTTP archive to be

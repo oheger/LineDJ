@@ -27,7 +27,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object ArchiveStatusHelperSpec {
+object ArchiveStatusHelperSpec:
   /** A test text to be displayed in the status line. */
   private val StatusText = "Correct state of archive"
 
@@ -45,86 +45,75 @@ object ArchiveStatusHelperSpec {
 
   /** An icon for the unlocked state. */
   private val IconUnlocked = new Object
-}
 
 /**
   * Test class for ''StatusLineHandler''.
   */
-class ArchiveStatusHelperSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ArchiveStatusHelperSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import ArchiveStatusHelperSpec._
 
-  "An ArchiveStatusHelper" should "handle the union archive not available state" in {
+  "An ArchiveStatusHelper" should "handle the union archive not available state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateNoUnionArchive, new Message("state_no_archive"))
-  }
 
-  it should "handle the not logged in state" in {
+  it should "handle the not logged in state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateNotLoggedIn, new Message("state_no_login"))
-  }
 
-  it should "handle the locked state" in {
+  it should "handle the locked state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateLocked, new Message("state_locked"))
-  }
 
-  it should "handle the protocol unavailable state" in {
+  it should "handle the protocol unavailable state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateNoProtocol, new Message("state_no_protocol"))
-  }
 
-  it should "handle the available state" in {
+  it should "handle the available state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateAvailable, new Message("state_active"))
-  }
 
-  it should "handle the error state for a failed request" in {
+  it should "handle the error state for a failed request" in:
     val statusCode = StatusCodes.Unauthorized
     val state = HttpArchiveErrorState(HttpArchiveStateFailedRequest(statusCode))
     val message = new Message(null, "state_failed_request", statusCode.toString)
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(state, message)
-  }
 
-  it should "handle the error state for a server error" in {
+  it should "handle the error state for a server error" in:
     val exception = new Exception("Some internal error!")
     val state = HttpArchiveErrorState(HttpArchiveStateServerError(exception))
     val message = new Message(null, "state_server_error", exception.getMessage)
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(state, message)
-  }
 
-  it should "handle an unexpected state" in {
+  it should "handle an unexpected state" in:
     val state = HttpArchiveErrorState(HttpArchiveStateDisconnected)
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(state, new Message("state_invalid"))
-  }
 
-  it should "handle the initializing state" in {
+  it should "handle the initializing state" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineText(HttpArchiveStateInitializing, new Message("state_initializing"))
-  }
 
-  it should "clear the status line" in {
+  it should "clear the status line" in:
     val helper = new ArchiveStatusTestHelper
 
     helper.checkStatusLineCleared()
-  }
 
   /**
     * A test helper class managing the dependencies of a test instance.
     */
-  private class ArchiveStatusTestHelper {
+  private class ArchiveStatusTestHelper:
     /** Mock for the application context. */
     private val appContext = mock[ApplicationContext]
 
@@ -141,19 +130,17 @@ class ArchiveStatusHelperSpec extends AnyFlatSpec with Matchers with MockitoSuga
       * @param state   the archive state
       * @param message the expected message
       */
-    def checkStatusLineText(state: HttpArchiveState, message: Message): Unit = {
+    def checkStatusLineText(state: HttpArchiveState, message: Message): Unit =
       when(appContext.getResourceText(message)).thenReturn(StatusText)
       handler.updateStatusLine(state)
       verify(staticHandler).setText(StatusText)
-    }
 
     /**
       * Checks that the status line can be cleared.
       */
-    def checkStatusLineCleared(): Unit = {
+    def checkStatusLineCleared(): Unit =
       handler.clearStatusLine()
       verify(staticHandler).setText(null)
-    }
 
     /**
       * Creates a handler instance to be tested.
@@ -163,6 +150,4 @@ class ArchiveStatusHelperSpec extends AnyFlatSpec with Matchers with MockitoSuga
     private def createHandler(): ArchiveStatusHelper =
       new ArchiveStatusHelper(appContext, staticHandler, IconInactive, IconActive, IconPending,
         IconLocked, IconUnlocked)
-  }
 
-}

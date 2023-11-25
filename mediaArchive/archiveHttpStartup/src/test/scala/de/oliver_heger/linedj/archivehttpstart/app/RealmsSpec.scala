@@ -25,20 +25,18 @@ import java.nio.file.Paths
 /**
   * Test class for the different implementations of archive realms.
   */
-class RealmsSpec extends AnyFlatSpec with Matchers {
-  "BasicAuthRealm" should "return the correct user ID flag" in {
+class RealmsSpec extends AnyFlatSpec with Matchers:
+  "BasicAuthRealm" should "return the correct user ID flag" in:
     val realm = BasicAuthRealm("foo")
 
     realm.needsUserID shouldBe true
-  }
 
-  "OAuthRealm" should "return the correct user ID flag" in {
+  "OAuthRealm" should "return the correct user ID flag" in:
     val realm = OAuthRealm("foo", Paths.get("/data"), "my-IDP")
 
     realm.needsUserID shouldBe false
-  }
 
-  it should "create a correct IDP config" in {
+  it should "create a correct IDP config" in:
     val IdpDir = Paths.get("idp-data")
     val IdpName = "MyIdp"
     val Password = "IdpAccess"
@@ -48,5 +46,3 @@ class RealmsSpec extends AnyFlatSpec with Matchers {
     config.rootDir should be(IdpDir)
     config.baseName should be(IdpName)
     config.encPassword.secret should be(Password)
-  }
-}

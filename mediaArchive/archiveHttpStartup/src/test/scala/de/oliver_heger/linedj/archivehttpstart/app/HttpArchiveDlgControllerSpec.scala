@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.crypt.alg.aes.Aes
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.test.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
@@ -28,9 +28,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.security.Key
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object HttpArchiveDlgControllerSpec {
+object HttpArchiveDlgControllerSpec:
   /** Constant for a test user name. */
   private val UserName = "scott"
 
@@ -48,37 +48,33 @@ object HttpArchiveDlgControllerSpec {
 
   /** Constant for the label for writing the super password file. */
   private val LabelSuperPasswordWrite = "save data to the file"
-}
 
 /**
   * Test class for the dialog controllers for HTTP archives.
   */
-class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import HttpArchiveDlgControllerSpec._
 
-  "An HttpArchiveLoginDlgController" should "have dummy window listener implementations" in {
+  "An HttpArchiveLoginDlgController" should "have dummy window listener implementations" in:
     val helper = new LoginControllerTestHelper
 
     helper.checkWindowEvents()
-  }
 
-  it should "initialize the field for the realm name" in {
+  it should "initialize the field for the realm name" in:
     val helper = new LoginControllerTestHelper
 
     helper.openWindow()
       .verifyPromptTextInitialized(Realm)
       .verifyUserNameEnabledState()
-  }
 
-  it should "support disabling the user input field" in {
+  it should "support disabling the user input field" in:
     val helper = new LoginControllerTestHelper(withUserName = false)
 
     helper.openWindow()
       .verifyUserNameEnabledState()
-  }
 
-  it should "handle a click on the login button" in {
+  it should "handle a click on the login button" in:
     val helper = new LoginControllerTestHelper
 
     helper.openWindow()
@@ -89,34 +85,30 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     msg.realm should be(Realm)
     msg.credentials.get.userName should be(UserName)
     msg.credentials.get.password.secret should be(Password)
-  }
 
-  it should "handle a click on the cancel button" in {
+  it should "handle a click on the cancel button" in:
     val helper = new LoginControllerTestHelper
 
     helper.openWindow()
       .cancelClicked()
       .verifyWindowClosed()
     helper.messageBus.expectNoMessage(10.millis)
-  }
 
-  "An HttpArchiveUnlockDlgController" should "initialize the field for the archive name" in {
+  "An HttpArchiveUnlockDlgController" should "initialize the field for the archive name" in:
     val helper = new UnlockControllerTestHelper
 
     helper.openWindow()
       .verifyPromptTextInitialized(Archive)
-  }
 
-  it should "handle a click on the cancel button" in {
+  it should "handle a click on the cancel button" in:
     val helper = new UnlockControllerTestHelper
 
     helper.openWindow()
       .cancelClicked()
       .verifyWindowClosed()
     helper.messageBus.expectNoMessage(10.millis)
-  }
 
-  it should "handle a click on the unlock button" in {
+  it should "handle a click on the unlock button" in:
     val helper = new UnlockControllerTestHelper
 
     helper.openWindow()
@@ -125,32 +117,28 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       .verifyWindowClosed()
     helper.messageBus.expectMessageType[LockStateChanged] should be(LockStateChanged(Archive,
       Some(helper.key)))
-  }
 
-  "An HttpArchiveSuperPasswordDlgController" should "initialize the label in read mode" in {
+  "An HttpArchiveSuperPasswordDlgController" should "initialize the label in read mode" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
 
     helper.openWindow()
       .verifyPromptTextInitialized(LabelSuperPasswordRead)
-  }
 
-  it should "initialize the label in write mode" in {
+  it should "initialize the label in write mode" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeWrite)
 
     helper.openWindow()
       .verifyPromptTextInitialized(LabelSuperPasswordWrite)
-  }
 
-  it should "handle a click on the cancel button" in {
+  it should "handle a click on the cancel button" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
 
     helper.openWindow()
       .cancelClicked()
       .verifyWindowClosed()
     helper.messageBus.expectNoMessage(10.millis)
-  }
 
-  it should "handle a click on the OK button in read mode" in {
+  it should "handle a click on the OK button in read mode" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeRead)
 
     helper.openWindow()
@@ -158,9 +146,8 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       .okClicked()
       .verifyWindowClosed()
     helper.messageBus.expectMessageType[SuperPasswordEnteredForRead].password should be(Password)
-  }
 
-  it should "handle a click on the OK button in write mode" in {
+  it should "handle a click on the OK button in write mode" in:
     val helper = new SuperPasswordControllerTestHelper(OpenDlgCommand.SuperPasswordModeWrite)
 
     helper.openWindow()
@@ -168,7 +155,6 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       .okClicked()
       .verifyWindowClosed()
     helper.messageBus.expectMessageType[SuperPasswordEnteredForWrite].password should be(Password)
-  }
 
   /**
     * A test helper base class managing dependencies for the controller under
@@ -176,7 +162,7 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     * by tests for controllers. Derived classes only have to make sure that a
     * correct test controller instance is created.
     */
-  private abstract class DlgControllerTestHelper {
+  private abstract class DlgControllerTestHelper:
     /** The message bus. */
     val messageBus = new MessageBusTestImpl
 
@@ -201,10 +187,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def openWindow(): this.type = {
+    def openWindow(): this.type =
       controller windowOpened windowEvent()
       this
-    }
 
     /**
       * Simulates a click on the OK button.
@@ -227,10 +212,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def verifyWindowClosed(): this.type = {
+    def verifyWindowClosed(): this.type =
       verify(window).close(false)
       this
-    }
 
     /**
       * Checks that the text field for the name has been initialized.
@@ -238,10 +222,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       * @param name the expected name
       * @return this test helper
       */
-    def verifyPromptTextInitialized(name: String): this.type = {
+    def verifyPromptTextInitialized(name: String): this.type =
       verify(realmHandler).setText(name)
       this
-    }
 
     /**
       * Invokes all window listener methods and checks that they do not have
@@ -249,7 +232,7 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def checkWindowEvents(): this.type = {
+    def checkWindowEvents(): this.type =
       val event = windowEvent()
       controller windowActivated event
       controller windowClosing event
@@ -259,7 +242,6 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       controller windowIconified event
       verifyNoInteractions(event)
       this
-    }
 
     /**
       * Creates the test controller instance using the given parameters.
@@ -279,11 +261,10 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return the mock window event
       */
-    private def windowEvent(): WindowEvent = {
+    private def windowEvent(): WindowEvent =
       val event = mock[WindowEvent]
       doReturn(window).when(event).getSourceWindow
       event
-    }
 
     /**
       * Invokes the action listener method of the test controller simulating a
@@ -292,19 +273,17 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       * @param btn the button to be simulated
       * @return this test helper
       */
-    private def simulateButtonClick(btn: ComponentHandler[Boolean]): this.type = {
+    private def simulateButtonClick(btn: ComponentHandler[Boolean]): this.type =
       val event = new FormActionEvent(this, btn, "someButton", "someCmd")
       controller actionPerformed event
       this
-    }
-  }
 
   /**
     * A concrete test helper class for ''HttpArchiveLoginDlgController''.
     *
     * @param withUserName flag whether the user name needs to be entered
     */
-  private class LoginControllerTestHelper(withUserName: Boolean = true) extends DlgControllerTestHelper {
+  private class LoginControllerTestHelper(withUserName: Boolean = true) extends DlgControllerTestHelper:
     /** Mock for the user input field. */
     private val txtUser = mock[ComponentHandler[String]]
 
@@ -316,11 +295,10 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def prepareCredentials(): LoginControllerTestHelper = {
+    def prepareCredentials(): LoginControllerTestHelper =
       when(txtUser.getData).thenReturn(UserName)
       when(txtPassword.getData).thenReturn(Password)
       this
-    }
 
     /**
       * Verifies that the correct enabled state has been set for the user input
@@ -328,10 +306,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def verifyUserNameEnabledState(): LoginControllerTestHelper = {
+    def verifyUserNameEnabledState(): LoginControllerTestHelper =
       verify(txtUser).setEnabled(withUserName)
       this
-    }
 
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
@@ -343,18 +320,16 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return the mock realm
       */
-    private def createRealm(): ArchiveRealm = {
+    private def createRealm(): ArchiveRealm =
       val realm = mock[ArchiveRealm]
       when(realm.name).thenReturn(Realm)
       when(realm.needsUserID).thenReturn(withUserName)
       realm
-    }
-  }
 
   /**
     * A concrete test helper class for ''HttpArchiveUnlockDlgController''.
     */
-  private class UnlockControllerTestHelper extends DlgControllerTestHelper {
+  private class UnlockControllerTestHelper extends DlgControllerTestHelper:
     /** Mock for the password input field. */
     private val txtPassword = mock[ComponentHandler[String]]
 
@@ -365,10 +340,9 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return the mock key that corresponds to the test password
       */
-    def preparePassword(): UnlockControllerTestHelper = {
+    def preparePassword(): UnlockControllerTestHelper =
       when(txtPassword.getData).thenReturn(Password)
       this
-    }
 
     /**
       * Returns the key for crypt operations that is used by the mock key
@@ -381,7 +355,6 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
       new HttpArchiveUnlockDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, Archive)
-  }
 
   /**
     * A concrete test helper class for
@@ -389,7 +362,7 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
     *
     * @param mode the super password mode
     */
-  private class SuperPasswordControllerTestHelper(mode: String) extends DlgControllerTestHelper {
+  private class SuperPasswordControllerTestHelper(mode: String) extends DlgControllerTestHelper:
     /** Mock for the password input field. */
     private val txtPassword = mock[ComponentHandler[String]]
 
@@ -399,15 +372,12 @@ class HttpArchiveDlgControllerSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def preparePassword(): SuperPasswordControllerTestHelper = {
+    def preparePassword(): SuperPasswordControllerTestHelper =
       when(txtPassword.getData).thenReturn(Password)
       this
-    }
 
     override protected def createController(btnOk: ComponentHandler[_], btnCancel: ComponentHandler[_],
                                             txtPrompt: StaticTextHandler): HttpArchiveDlgController =
       new HttpArchiveSuperPasswordDlgController(messageBus, txtPassword, btnOk, btnCancel, txtPrompt, mode,
         LabelSuperPasswordRead, LabelSuperPasswordWrite)
-  }
 
-}

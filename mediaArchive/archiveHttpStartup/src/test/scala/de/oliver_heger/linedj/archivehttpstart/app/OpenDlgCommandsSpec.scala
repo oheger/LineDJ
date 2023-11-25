@@ -28,15 +28,14 @@ import java.util.concurrent.atomic.AtomicReference
 /**
   * Test class for the commands that open dialogs related to archives.
   */
-class OpenDlgCommandsSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An OpenLoginDlgCommand" should "pass the locator to the super class" in {
+class OpenDlgCommandsSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An OpenLoginDlgCommand" should "pass the locator to the super class" in:
     val locator = mock[Locator]
     val command = new OpenLoginDlgCommand(locator, new AtomicReference[ArchiveRealm])
 
     command.getLocator should be(locator)
-  }
 
-  it should "store the current realm in the builder data" in {
+  it should "store the current realm in the builder data" in:
     val Realm = mock[ArchiveRealm]
     val builderData = mock[ApplicationBuilderData]
     val realmRef = new AtomicReference(Realm)
@@ -44,16 +43,14 @@ class OpenDlgCommandsSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     command.prepareBuilderData(builderData)
     verify(builderData).addProperty(OpenDlgCommand.PropertyRealm, Realm)
-  }
 
-  "An OpenUnlockDlgCommand" should "pass the locator to the super class" in {
+  "An OpenUnlockDlgCommand" should "pass the locator to the super class" in:
     val locator = mock[Locator]
     val command = new OpenUnlockDlgCommand(locator, new AtomicReference[String])
 
     command.getLocator should be(locator)
-  }
 
-  it should "store the current archive name in the builder data" in {
+  it should "store the current archive name in the builder data" in:
     val Archive = "MyTestArchive"
     val builderData = mock[ApplicationBuilderData]
     val archiveRef = new AtomicReference(Archive)
@@ -61,20 +58,16 @@ class OpenDlgCommandsSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     command.prepareBuilderData(builderData)
     verify(builderData).addProperty(OpenDlgCommand.PropertyArchiveName, Archive)
-  }
 
-  "An OpenSuperPasswordDlgCommand" should "pass the locator to the super class" in {
+  "An OpenSuperPasswordDlgCommand" should "pass the locator to the super class" in:
     val locator = mock[Locator]
     val command = new OpenSuperPasswordDlgCommand(locator, OpenDlgCommand.SuperPasswordModeRead)
 
     command.getLocator should be(locator)
-  }
 
-  it should "store the super password mode in the builder data" in {
+  it should "store the super password mode in the builder data" in:
     val builderData = mock[ApplicationBuilderData]
     val command = new OpenSuperPasswordDlgCommand(mock[Locator], OpenDlgCommand.SuperPasswordModeWrite)
 
     command.prepareBuilderData(builderData)
     verify(builderData).addProperty(OpenDlgCommand.PropertySuperPasswordMode, OpenDlgCommand.SuperPasswordModeWrite)
-  }
-}

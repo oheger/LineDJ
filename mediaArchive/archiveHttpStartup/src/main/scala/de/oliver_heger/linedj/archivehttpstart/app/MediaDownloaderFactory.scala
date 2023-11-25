@@ -33,7 +33,7 @@ import scala.util.Try
   * on the properties of a [[HttpArchiveProtocolSpec]] and the current
   * configuration of the application.
   */
-trait MediaDownloaderFactory {
+trait MediaDownloaderFactory:
   /**
     * Creates a fully initialized ''MediaDownloader'' that can download media
     * files via a specific protocol from a specific HTTP archive. The operation
@@ -52,4 +52,3 @@ trait MediaDownloaderFactory {
                        actorBaseName: String,
                        optCryptKey: Option[Key])
                       (implicit system: ActorSystem): Try[MediaDownloader]
-}

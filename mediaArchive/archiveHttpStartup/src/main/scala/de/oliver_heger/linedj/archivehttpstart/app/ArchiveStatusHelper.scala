@@ -46,7 +46,7 @@ import net.sf.jguiraffe.resources.Message
 class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: StaticTextHandler,
                           val iconInactive: AnyRef, val iconActive: AnyRef,
                           val iconPending: AnyRef, val iconLocked: AnyRef,
-                          val iconUnlocked: AnyRef) {
+                          val iconUnlocked: AnyRef):
   /**
     * Displays a text in the status line that corresponds to the specified
     * archive state. This method is called when the user selects an archive in
@@ -54,18 +54,16 @@ class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: Sta
     *
     * @param state the state to be displayed in the status line
     */
-  def updateStatusLine(state: HttpArchiveState): Unit = {
+  def updateStatusLine(state: HttpArchiveState): Unit =
     val msg = getStatusTextRes(state)
     val text = appContext getResourceText msg
     handlerStatusLine setText text
-  }
 
   /**
     * Clears the text which is currently displayed in the status line.
     */
-  def clearStatusLine(): Unit = {
+  def clearStatusLine(): Unit =
     handlerStatusLine setText null
-  }
 
   /**
     * Returns the resource message for the text to be displayed in the status
@@ -75,7 +73,7 @@ class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: Sta
     * @return the ''Message'' defining the text to be displayed
     */
   private def getStatusTextRes(state: HttpArchiveState): Message =
-    state match {
+    state match
       case HttpArchiveStateInitializing =>
         new Message("state_initializing")
       case HttpArchiveStateAvailable =>
@@ -94,5 +92,3 @@ class ArchiveStatusHelper(appContext: ApplicationContext, handlerStatusLine: Sta
         new Message(null, "state_server_error", ex.getMessage)
       case HttpArchiveErrorState(_) =>
         new Message("state_invalid")
-    }
-}

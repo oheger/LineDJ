@@ -48,7 +48,7 @@ abstract class HttpArchiveDlgController(bus: UIBus,
                                         btnCancel: ComponentHandler[_],
                                         txtPrompt: StaticTextHandler,
                                         name: String)
-  extends WindowListener with FormActionListener {
+  extends WindowListener with FormActionListener:
   /** Stores the managed window. */
   private var window: Window = _
 
@@ -70,10 +70,9 @@ abstract class HttpArchiveDlgController(bus: UIBus,
     *
     * @param event the window event
     */
-  override def windowOpened(event: WindowEvent): Unit = {
+  override def windowOpened(event: WindowEvent): Unit =
     window = WindowUtils.windowFromEventEx(event)
     txtPrompt setText name
-  }
 
   /**
     * Handles action events sent by the buttons in the form (OK or cancel).
@@ -82,15 +81,13 @@ abstract class HttpArchiveDlgController(bus: UIBus,
     *
     * @param e the action event
     */
-  override def actionPerformed(e: FormActionEvent): Unit = {
-    e.getHandler match {
+  override def actionPerformed(e: FormActionEvent): Unit =
+    e.getHandler match
       case `btnOk` =>
         handleLogin()
 
       case `btnCancel` =>
         handleCancel()
-    }
-  }
 
   /**
     * Generates the message that is published on the message bus when the OK
@@ -104,26 +101,22 @@ abstract class HttpArchiveDlgController(bus: UIBus,
     * Handles a login operation. This is invoked when the login button was
     * clicked.
     */
-  private def handleLogin(): Unit = {
+  private def handleLogin(): Unit =
     bus publish generateOkMessage()
     closeDialog()
-  }
 
   /**
     * Handles a cancel operation. This is invoked when the logout button was
     * clicked. The dialog is just closed.
     */
-  private def handleCancel(): Unit = {
+  private def handleCancel(): Unit =
     closeDialog()
-  }
 
   /**
     * Closes this dialog window.
     */
-  private def closeDialog(): Unit = {
+  private def closeDialog(): Unit =
     window.close(false)
-  }
-}
 
 /**
   * A controller class for the login form into an HTTP archive.
@@ -155,26 +148,23 @@ class HttpArchiveLoginDlgController(bus: UIBus, txtUser: ComponentHandler[String
                                     btnCancel: ComponentHandler[_],
                                     txtRealm: StaticTextHandler,
                                     realm: ArchiveRealm)
-  extends HttpArchiveDlgController(bus, btnLogin, btnCancel, txtRealm, realm.name) {
+  extends HttpArchiveDlgController(bus, btnLogin, btnCancel, txtRealm, realm.name):
 
   /**
     * @inheritdoc This implementation does some more initializations on input
     *             components.
     */
-  override def windowOpened(event: WindowEvent): Unit = {
+  override def windowOpened(event: WindowEvent): Unit =
     super.windowOpened(event)
     txtUser setEnabled realm.needsUserID
-  }
 
   /**
     * @inheritdoc This implementation produces a ''LoginStateChanged'' message
     *             with the credentials entered in this dialog.
     */
-  override protected def generateOkMessage(): Any = {
+  override protected def generateOkMessage(): Any =
     val credentials = UserCredentials(txtUser.getData, Secret(txtPassword.getData))
     LoginStateChanged(realm.name, Some(credentials))
-  }
-}
 
 /**
   * A controller class for the unlock dialog for HTTP archives.
@@ -200,16 +190,14 @@ class HttpArchiveUnlockDlgController(bus: UIBus,
                                      btnCancel: ComponentHandler[_],
                                      txtPrompt: StaticTextHandler,
                                      archiveName: String)
-  extends HttpArchiveDlgController(bus, btnOk, btnCancel, txtPrompt, archiveName) {
+  extends HttpArchiveDlgController(bus, btnOk, btnCancel, txtPrompt, archiveName):
   /**
     * @inheritdoc This implementation produces a ''LockStateChanged'' message
     *             with the crypt key generated from the entered password.
     */
-  override protected def generateOkMessage(): Any = {
+  override protected def generateOkMessage(): Any =
     val key = Aes.keyFromString(txtPassword.getData)
     LockStateChanged(archiveName, Some(key))
-  }
-}
 
 /**
   * A controller class allowing to enter the "super password".
@@ -241,20 +229,17 @@ class HttpArchiveSuperPasswordDlgController(bus: UIBus,
                                             labelRead: String,
                                             labelWrite: String)
   extends HttpArchiveDlgController(bus, btnOk, btnCancel, txtPrompt,
-    if (superPasswordMode == OpenDlgCommand.SuperPasswordModeRead) labelRead
-    else labelWrite) {
+    if superPasswordMode == OpenDlgCommand.SuperPasswordModeRead then labelRead
+    else labelWrite):
   /**
     * @inheritdoc This implementation generates one of the
     *             ''SuperPasswordEntered'' messages, depending on the current
     *             super password mode.
     */
-  override protected def generateOkMessage(): Any = {
+  override protected def generateOkMessage(): Any =
     val password = txtPassword.getData
-    superPasswordMode match {
+    superPasswordMode match
       case OpenDlgCommand.SuperPasswordModeWrite =>
         SuperPasswordEnteredForWrite(password)
       case _ =>
         SuperPasswordEnteredForRead(txtPassword.getData)
-    }
-  }
-}

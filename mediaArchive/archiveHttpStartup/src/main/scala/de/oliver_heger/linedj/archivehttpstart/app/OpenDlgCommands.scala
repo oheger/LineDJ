@@ -21,7 +21,7 @@ import net.sf.jguiraffe.locators.Locator
 
 import java.util.concurrent.atomic.AtomicReference
 
-object OpenDlgCommand {
+object OpenDlgCommand:
   /** The name of the Jelly property with the current realm. */
   final val PropertyRealm = "realm"
 
@@ -40,7 +40,6 @@ object OpenDlgCommand {
 
   /** Constant indicating that the super password file is to be written. */
   final val SuperPasswordModeWrite = "writeSuperPasswordFile"
-}
 
 /**
   * A base class for commands that open dialogs for gathering state information
@@ -57,12 +56,10 @@ object OpenDlgCommand {
   * @param property the name of the property to be added to the Jelly context
   */
 abstract class OpenDlgCommand(locator: Locator, refName: AtomicReference[_], property: String)
-  extends OpenWindowCommand(locator) {
-  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  extends OpenWindowCommand(locator):
+  override def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
     builderData.addProperty(property, refName.get())
-  }
-}
 
 /**
   * A command for opening the login dialog for a specific realm.

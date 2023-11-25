@@ -24,12 +24,10 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''LogoutAllTask''.
   */
-class LogoutAllTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A LogoutAllTask" should "delegate to the controller" in {
+class LogoutAllTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A LogoutAllTask" should "delegate to the controller" in:
     val controller = mock[HttpArchiveOverviewController]
     val task = new LogoutAllTask(controller)
 
     task.run()
     verify(controller).logoutAllRealms()
-  }
-}

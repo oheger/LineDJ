@@ -54,7 +54,7 @@ case class LockStateChanged(archive: String, optKey: Option[Key]) extends Archiv
 /**
   * An object defining the possible states of an HTTP archive.
   */
-object HttpArchiveStates {
+object HttpArchiveStates:
 
   /**
     * Representation of the state of an HTTP archive.
@@ -128,7 +128,6 @@ object HttpArchiveStates {
   case class HttpArchiveErrorState(state: de.oliver_heger.linedj.archivehttp.HttpArchiveState)
     extends HttpArchiveState("Error", isActive = false, isStarted = true)
 
-}
 
 /**
   * A message indicating a change of the state of an HTTP archive.

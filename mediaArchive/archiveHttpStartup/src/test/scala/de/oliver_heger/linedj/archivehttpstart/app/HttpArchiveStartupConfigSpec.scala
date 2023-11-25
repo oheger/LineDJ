@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-object HttpArchiveStartupConfigSpec {
+object HttpArchiveStartupConfigSpec:
   /** The URI to the HTTP archive. */
   private val ArchiveUri = "https://music.archive.org/music/test/"
 
@@ -101,7 +101,7 @@ object HttpArchiveStartupConfigSpec {
     * @param at the path to the properties
     * @return the test configuration
     */
-  private def createConfiguration(at: String = Prefix): Configuration = {
+  private def createConfiguration(at: String = Prefix): Configuration =
     val c = new PropertiesConfiguration
     c.addProperty(at + ".archiveUri", ArchiveUri)
     c.addProperty(at + ".contentPath", "/" + ContentPath)
@@ -127,7 +127,6 @@ object HttpArchiveStartupConfigSpec {
     c.addProperty(at + ".cryptUriCacheSize", CryptCacheSize)
     c.addProperty(at + ".cryptNamesChunkSize", CryptChunkSize)
     c
-  }
 
   /**
     * Clears the value of the specified property from the configuration.
@@ -136,17 +135,15 @@ object HttpArchiveStartupConfigSpec {
     * @param key the (relative) property key
     * @return the configuration
     */
-  private def clearProperty(c: Configuration, key: String): Configuration = {
+  private def clearProperty(c: Configuration, key: String): Configuration =
     c.clearProperty(Prefix + "." + key)
     c
-  }
-}
 
 
 /**
   * Test class for ''HttpArchiveStartupConfig''.
   */
-class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
+class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers:
 
   import HttpArchiveStartupConfigSpec._
 
@@ -157,8 +154,8 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
     * @param triedConfig a ''Try'' for the config to check
     * @return the configuration
     */
-  private def checkConfig(triedConfig: Try[HttpArchiveStartupConfig]): HttpArchiveConfig = {
-    triedConfig match {
+  private def checkConfig(triedConfig: Try[HttpArchiveStartupConfig]): HttpArchiveConfig =
+    triedConfig match
       case Success(startUpConfig) =>
         val config = startUpConfig.archiveConfig
         config.archiveBaseUri should be(Uri(ArchiveUri))
@@ -182,8 +179,6 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
         config
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
   /**
     * Creates a test startup configuration with default properties.
@@ -194,199 +189,163 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers {
   private def createStartupConfig(c: Configuration): Try[HttpArchiveStartupConfig] =
     HttpArchiveStartupConfig(c, Prefix, DownloadData)
 
-  "An HttpArchiveStartupConfig" should "process a valid configuration" in {
+  "An HttpArchiveStartupConfig" should "process a valid configuration" in:
     val c = createConfiguration()
 
     checkConfig(createStartupConfig(c))
-  }
 
-  it should "initialize a correct download configuration" in {
+  it should "initialize a correct download configuration" in:
     val c = createConfiguration()
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.downloadConfig should be(DownloadData)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "support alternative configuration paths" in {
+  it should "support alternative configuration paths" in:
     val Key = "an.alternative.path"
     val c = createConfiguration(Key)
 
     checkConfig(HttpArchiveStartupConfig(c, Key, DownloadData))
-  }
 
-  it should "handle a prefix key that ends with a separator" in {
+  it should "handle a prefix key that ends with a separator" in:
     val c = createConfiguration()
 
     checkConfig(HttpArchiveStartupConfig(c, Prefix + '.', DownloadData))
-  }
 
-  it should "derive the archive name from the URI" in {
+  it should "derive the archive name from the URI" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropArchiveName)
     c.setProperty(Prefix + "." + HttpArchiveStartupConfig.PropArchiveUri, ArchiveUri)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.archiveName should be("music_archive_org_music_test")
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default content path" in {
+  it should "set a default content path" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropContentPath)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.contentPath should be(Uri.Path(HttpArchiveStartupConfig.DefaultContentPath))
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default media path" in {
+  it should "set a default media path" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMediaPath)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.mediaPath should be(Uri.Path.Empty)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default meta data path" in {
+  it should "set a default meta data path" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMetaDataPath)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.metaDataPath should be(Uri.Path.Empty)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default processor count if unspecified" in {
+  it should "set a default processor count if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropProcessorCount)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.processorCount should be(HttpArchiveStartupConfig.DefaultProcessorCount)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default processor timeout if unspecified" in {
+  it should "set a default processor timeout if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropProcessorTimeout)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.processorTimeout should be(HttpArchiveStartupConfig.DefaultProcessorTimeout)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default maximum content size if unspecified" in {
+  it should "set a default maximum content size if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMaxContentSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.maxContentSize should be(HttpArchiveStartupConfig.DefaultMaxContentSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default download read chunk size if unspecified" in {
+  it should "set a default download read chunk size if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropDownloadReadChunkSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.downloadReadChunkSize should be(HttpArchiveStartupConfig.DefaultDownloadReadChunkSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default propagation buffer size if none is specified" in {
+  it should "set a default propagation buffer size if none is specified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropPropagationBufSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.archiveConfig.propagationBufSize should be(HttpArchiveStartupConfig.DefaultPropagationBufSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default request queue size if unspecified" in {
+  it should "set a default request queue size if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropRequestQueueSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.requestQueueSize should be(HttpArchiveStartupConfig.DefaultRequestQueueSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "fail for an undefined archive URI" in {
+  it should "fail for an undefined archive URI" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropArchiveUri)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(_) =>
         fail("Could read invalid config!")
       case Failure(e) =>
         e shouldBe a[IllegalArgumentException]
-    }
-  }
 
-  it should "use a default value for the cookie management flag" in {
+  it should "use a default value for the cookie management flag" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropNeedsCookieManagement)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.needsCookieManagement shouldBe false
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "use a default value for the retry support flag" in {
+  it should "use a default value for the retry support flag" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropNeedsRetrySupport)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.needsRetrySupport shouldBe false
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default crypt cache size if unspecified" in {
+  it should "set a default crypt cache size if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropCryptUriCacheSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.cryptCacheSize should be(HttpArchiveStartupConfig.DefaultCryptUriCacheSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
 
-  it should "set a default crypt chunk size if unspecified" in {
+  it should "set a default crypt chunk size if unspecified" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropCryptNamesChunkSize)
 
-    createStartupConfig(c) match {
+    createStartupConfig(c) match
       case Success(config) =>
         config.cryptChunkSize should be(HttpArchiveStartupConfig.DefaultCryptNamesChunkSize)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
-    }
-  }
-}

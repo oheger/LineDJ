@@ -33,7 +33,7 @@ import java.nio.file.Paths
 import java.security.Key
 import scala.concurrent.{ExecutionContext, Future}
 
-object HttpArchiveStarter {
+object HttpArchiveStarter:
   /** The name of the HTTP archive management actor. */
   final val ManagementActorName = "httpArchiveManagementActor"
 
@@ -96,7 +96,6 @@ object HttpArchiveStarter {
   private def createPathGenerator(config: Configuration): TempPathGenerator =
     TempPathGenerator(Paths get config.getString(PropTempDirectory,
       System.getProperty(SysPropTempDir)))
-}
 
 /**
   * A helper class that takes care that an HTTP archive is started correctly.
@@ -123,7 +122,7 @@ object HttpArchiveStarter {
   * @param authConfigFactory the factory for the auth configuration
   */
 class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
-                         val authConfigFactory: AuthConfigFactory) {
+                         val authConfigFactory: AuthConfigFactory):
 
   import HttpArchiveStarter._
 
@@ -147,17 +146,16 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
   def startup(unionArchiveActors: MediaFacadeActors, archiveData: HttpArchiveData,
               config: Configuration, protocolSpec: HttpArchiveProtocolSpec, credentials: UserCredentials,
               optKey: Option[Key], actorFactory: ActorFactory, index: Int, clearTemp: Boolean)
-             (implicit ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] = for {
+             (implicit ec: ExecutionContext, system: ActorSystem): Future[ArchiveResources] = for
     authConf <- authConfigFactory.createAuthConfig(archiveData.realm, credentials)
     httpActorName = archiveActorName(archiveData.shortName, HttpRequestActorName, index)
     downloader <- Future.fromTry(downloaderFactory.createDownloader(protocolSpec, archiveData.config,
       authConf, httpActorName, optKey))
-  } yield {
+  yield
     val archiveConfig = archiveData.config.archiveConfig.copy(downloader = downloader)
     val actors = createArchiveActors(unionArchiveActors, actorFactory, archiveConfig, config,
       archiveData.shortName, index, clearTemp)
     ArchiveResources(actors, downloader, httpActorName)
-  }
 
   /**
     * Creates the actors for the HTTP archive and ensures that anything is
@@ -175,7 +173,7 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
   private def createArchiveActors(unionArchiveActors: MediaFacadeActors,
                                   actorFactory: ActorFactory, archiveConfig: HttpArchiveConfig,
                                   config: Configuration, shortName: String, index: Int, clearTemp: Boolean):
-  Map[String, ActorRef] = {
+  Map[String, ActorRef] =
     def actorName(n: String): String = archiveActorName(shortName, n, index)
 
     val managerName = actorName(ManagementActorName)
@@ -191,12 +189,9 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
       monitoringActor, removeActor), managerName)
 
     managerActor ! ScanAllMedia
-    if (clearTemp) {
+    if clearTemp then
       removeActor ! RemoveTempFilesActor.ClearTempDirectory(pathGenerator.rootPath, pathGenerator)
-    }
 
     Map(managerName -> managerActor,
       monitorName -> monitoringActor,
       removeName -> removeActor)
-  }
-}

@@ -11,7 +11,7 @@ import org.apache.commons.configuration.Configuration
   * This functionality is required by multiple test classes. Therefore, it has
   * been extracted into a separate test helper class.
   */
-object StartupConfigTestHelper {
+object StartupConfigTestHelper:
   /** The prefix key for configuration settings about archives. */
   val KeyArchives = "media.archives.archive"
 
@@ -48,10 +48,9 @@ object StartupConfigTestHelper {
     * @param idx the index of the archive
     * @return the short name
     */
-  def shortName(idx: Int): String = {
+  def shortName(idx: Int): String =
     val prefix = "Http+Archive+Tes"
-    if (idx > 1) prefix + (idx - 1) else prefix
-  }
+    if idx > 1 then prefix + (idx - 1) else prefix
 
   /**
     * Allows adding a complex structure to the given configuration.
@@ -61,7 +60,7 @@ object StartupConfigTestHelper {
     * @param props     a map with key-value pairs to be added
     * @return the configuration
     */
-  def addToConfig(c: Configuration, keyPrefix: String, props: Map[String, Any]): Configuration = {
+  def addToConfig(c: Configuration, keyPrefix: String, props: Map[String, Any]): Configuration =
     val propsList = props.toList
     val pair1 = propsList.head
     val prefix = keyPrefix + "."
@@ -70,7 +69,6 @@ object StartupConfigTestHelper {
       c.addProperty(prefix + p._1, p._2)
     }
     c
-  }
 
   /**
     * Adds properties for a test HTTP archive to the specified configuration.
@@ -84,7 +82,7 @@ object StartupConfigTestHelper {
     */
   def addArchiveToConfig(c: Configuration, idx: Int, realm: Option[String] = None,
                          protocol: Option[String] = None, encrypted: Boolean = false):
-  Configuration = {
+  Configuration =
     c.addProperty("media.mediaArchive." + DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
     val propsBase = Map(HttpArchiveStartupConfig.PropArchiveName -> archiveName(idx),
       HttpArchiveStartupConfig.PropArchiveUri -> archiveUri(idx),
@@ -93,9 +91,8 @@ object StartupConfigTestHelper {
       HttpArchiveStartupConfig.PropTimeoutReadSize -> 128 * 1024,
       "realm" -> realm.getOrElse(realmName(idx)))
     val propsProto = protocol.fold(propsBase)(p => propsBase + ("protocol" -> p))
-    val propsEnc = if (encrypted) propsProto + ("encrypted" -> true) else propsProto
+    val propsEnc = if encrypted then propsProto + ("encrypted" -> true) else propsProto
     addToConfig(c, KeyArchives, propsEnc)
-  }
 
   /**
     * Adds a number of properties for a set of HTTP archives to the given
@@ -109,4 +106,3 @@ object StartupConfigTestHelper {
     */
   def addConfigs(c: Configuration, fromIdx: Int, toIdx: Int): Configuration =
     (fromIdx to toIdx).foldLeft(c)((c, i) => addArchiveToConfig(c, i))
-}

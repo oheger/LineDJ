@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.util.Try
 
-object HttpArchiveStartupConfig {
+object HttpArchiveStartupConfig:
   /** The configuration property for the archive URI. */
   final val PropArchiveUri: String = "archiveUri"
 
@@ -293,15 +293,14 @@ object HttpArchiveStartupConfig {
     * @param downloadConfig the download configuration
     * @return a ''Try'' with the extracted archive configuration
     */
-  def apply(c: Configuration, prefix: String, downloadConfig: DownloadConfig): Try[HttpArchiveStartupConfig] = Try {
-    val Path = if (prefix endsWith Separator) prefix else prefix + Separator
+  def apply(c: Configuration, prefix: String, downloadConfig: DownloadConfig): Try[HttpArchiveStartupConfig] = Try:
+    val Path = if prefix endsWith Separator then prefix else prefix + Separator
     val uri = c.getString(Path + PropArchiveUri)
-    if (uri == null) {
+    if uri == null then
       throw new IllegalArgumentException("No URI for HTTP archive configured!")
-    }
 
     val archiveConfig = HttpArchiveConfig(processorCount = c.getInt(Path + PropProcessorCount, DefaultProcessorCount),
-      processorTimeout = if (c.containsKey(Path + PropProcessorTimeout))
+      processorTimeout = if c.containsKey(Path + PropProcessorTimeout) then
         Timeout(c.getInt(Path + PropProcessorTimeout), TimeUnit.SECONDS)
       else DefaultProcessorTimeout,
       propagationBufSize = c.getInt(Path + PropPropagationBufSize, DefaultPropagationBufSize),
@@ -323,7 +322,6 @@ object HttpArchiveStartupConfig {
       cryptChunkSize = c.getInt(Path + PropCryptNamesChunkSize, DefaultCryptNamesChunkSize),
       needsCookieManagement = c.getBoolean(Path + PropNeedsCookieManagement, false),
       needsRetrySupport = c.getBoolean(Path + PropNeedsRetrySupport, false))
-  }
 
   /**
     * Extracts the name for the archive from the configuration. If not
@@ -333,15 +331,13 @@ object HttpArchiveStartupConfig {
     * @param prefix the prefix for configuration keys
     * @return the archive name
     */
-  private def extractArchiveName(c: Configuration, prefix: String): String = {
+  private def extractArchiveName(c: Configuration, prefix: String): String =
     val name = c.getString(prefix + PropArchiveName)
-    if (name != null) name
-    else {
+    if name != null then name
+    else
       val uri = Uri(c.getString(prefix + PropArchiveUri))
       uri.authority.host.address().replace('.', '_') +
         UriEncodingHelper.removeTrailingSeparator(uri.path.toString()).replace('/', '_')
-    }
-  }
 
   /**
     * Extracts a relative path to the archive's base URI from the
@@ -352,7 +348,7 @@ object HttpArchiveStartupConfig {
     * @return the resulting path
     */
   private def extractSubPath(c: Configuration, key: String): Uri.Path =
-    if (c.containsKey(key)) Uri.Path(UriEncodingHelper.removeLeadingSeparator(c.getString(key)))
+    if c.containsKey(key) then Uri.Path(UriEncodingHelper.removeLeadingSeparator(c.getString(key)))
     else Uri.Path.Empty
 
   /**
@@ -364,7 +360,6 @@ object HttpArchiveStartupConfig {
     */
   private def extractContentPath(c: Configuration, key: String): Uri.Path =
     Uri.Path(UriEncodingHelper.removeLeadingSeparator(c.getString(key, HttpArchiveStartupConfig.DefaultContentPath)))
-}
 
 /**
   * A data class defining configuration settings available for an HTTP archive.

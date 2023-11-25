@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
@@ -33,9 +33,10 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
 import java.security.Key
 import java.util.Base64
+import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
 
-object SuperPasswordStorageServiceSpec {
+object SuperPasswordStorageServiceSpec:
   /** The password for crypt operations. */
   private val SuperPassword = "SuperDuperPwd!"
 
@@ -159,29 +160,25 @@ object SuperPasswordStorageServiceSpec {
     * @return the transformed list
     */
   private def comparableMessages(messages: Iterable[ArchiveStateChangedMessage]): Iterable[Any] =
-    messages map {
+    messages map:
       case LoginStateChanged(realm, Some(credentials)) =>
         s"LoginStateChanged($realm, {${credentials.userName}, ${credentials.password.secret})"
       case m => m
-    }
-}
 
 /**
   * Test class for ''SuperPasswordStorageService''.
   */
 class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper with AsyncTestHelper {
+  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper with AsyncTestHelper:
   def this() = this(ActorSystem("SuperPasswordStorageServiceSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  override protected def afterEach(): Unit = {
+  override protected def afterEach(): Unit =
     tearDownTestFile()
     super.afterEach()
-  }
 
   import SuperPasswordStorageServiceSpec._
   import system.dispatcher
@@ -196,10 +193,9 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     * @return a future with the path to the file that was written
     */
   private def writeFile(realms: Iterable[(String, UserCredentials)], lockData: Iterable[(String, Key)],
-                        optPath: Option[Path] = None): Future[Path] = {
+                        optPath: Option[Path] = None): Future[Path] =
     val path = optPath.getOrElse(createFileReference())
     SuperPasswordStorageServiceImpl.writeSuperPasswordFile(path, SuperPassword, realms, lockData)
-  }
 
   /**
     * Invokes the service under test to generate an encrypted file with the
@@ -209,10 +205,9 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     * @param data the data source for the file to write
     * @return the path to the file that was written
     */
-  private def writeFileWithContent(data: Source[ByteString, Any]): Path = {
+  private def writeFileWithContent(data: Source[ByteString, Any]): Path =
     val path = createFileReference()
     futureResult(SuperPasswordStorageServiceImpl.runEncryptStream(data, path, SuperPassword).map(_ => path))
-  }
 
   /**
     * Invokes the service under test to read the file with the given path.
@@ -223,17 +218,16 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
   private def readFile(target: Path): Future[Iterable[ArchiveStateChangedMessage]] =
     SuperPasswordStorageServiceImpl.readSuperPasswordFile(target, SuperPassword)
 
-  "SuperPasswordStorageServiceImpl" should "support a round-trip with the super password file" in {
-    val futMessages = for {
+  "SuperPasswordStorageServiceImpl" should "support a round-trip with the super password file" in:
+    val futMessages = for
       path <- writeFile(generateTestRealms(4), generateLockData(6))
       msg <- readFile(path)
-    } yield msg
+    yield msg
 
     val messages = comparableMessages(futureResult(futMessages))
     messages should contain theSameElementsAs comparableMessages(generateStateMessages(4, 6))
-  }
 
-  it should "encrypt the password file" in {
+  it should "encrypt the password file" in:
     val realms = generateTestRealms(8)
     val lockData = generateLockData(12)
 
@@ -242,43 +236,37 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val data1 = readDataFile(path1)
     val data2 = readDataFile(path2)
     data1 should not be data2
-  }
 
-  it should "handle an invalid entry" in {
+  it should "handle an invalid entry" in:
     val line = ByteString("invalid,foo,bar\n")
     val path = writeFileWithContent(Source.single(line))
 
     expectFailedFuture[IllegalStateException](readFile(path))
-  }
 
-  it should "handle a login entry with an unexpected number of fields" in {
+  it should "handle a login entry with an unexpected number of fields" in:
     val line = ByteString("LOGIN,realm,user,password,additional")
     val path = writeFileWithContent(Source.single(line))
 
     expectFailedFuture[IllegalStateException](readFile(path))
-  }
 
-  it should "handle an unlock entry with an unexpected number of fields" in {
+  it should "handle an unlock entry with an unexpected number of fields" in:
     val line = ByteString("UNLOCK,archive")
     val path = writeFileWithContent(Source.single(line))
 
     expectFailedFuture[IllegalStateException](readFile(path))
-  }
 
-  it should "handle a file that is not correctly encoded" in {
+  it should "handle a file that is not correctly encoded" in:
     val path = createDataFile()
 
     expectFailedFuture[IllegalStateException](readFile(path))
-  }
 
-  it should "handle a file that is not correctly encrypted" in {
+  it should "handle a file that is not correctly encrypted" in:
     val data =
       Base64.getEncoder.encode("This is Base64-encoded, but not encrypted.\n".getBytes(StandardCharsets.UTF_8))
     val line = ByteString(data)
     val path = writeFileWithContent(Source.single(line))
 
     expectFailedFuture[IllegalStateException](readFile(path))
-  }
 
   /**
     * Checks whether separator characters in specific strings are correctly
@@ -288,66 +276,57 @@ class SuperPasswordStorageServiceSpec(testSystem: ActorSystem) extends TestKit(t
     * @param user      the user name
     * @param password  the password
     */
-  private def checkLoginDecoding(realmName: String, user: String, password: String): Unit = {
+  private def checkLoginDecoding(realmName: String, user: String, password: String): Unit =
     val credentials = UserCredentials(user, Secret(password))
     val realms = generateTestRealms(3) ++ IndexedSeq((realmName, credentials))
     val expMessages = generateStateMessages(3, 0) ++
       IndexedSeq(LoginStateChanged(realmName, Some(credentials)))
-    val futMessages = for {
+    val futMessages = for
       path <- writeFile(realms, List.empty)
       msg <- readFile(path)
-    } yield msg
+    yield msg
 
     val messages = comparableMessages(futureResult(futMessages))
     messages should contain theSameElementsAs comparableMessages(expMessages)
-  }
 
-  it should "handle a separator character in a user name" in {
+  it should "handle a separator character in a user name" in:
     checkLoginDecoding(PrefixRealm, "strange,user", "a_secret")
-  }
 
-  it should "handle a separator character in a password" in {
+  it should "handle a separator character in a password" in:
     checkLoginDecoding(PrefixRealm, "theUser", "a,secret")
-  }
 
-  it should "handle a separator character in a realm name" in {
+  it should "handle a separator character in a realm name" in:
     checkLoginDecoding("oh,my realm", PrefixUser, PrefixPassword)
-  }
 
-  it should "handle a separator character in an archive name" in {
+  it should "handle a separator character in an archive name" in:
     val archiveName = "oh,my-archive"
     val archiveKey = generateKey(42)
     val lockData = generateLockData(3) ++ IndexedSeq((archiveName, archiveKey))
     val expMessages = generateStateMessages(0, 3) ++
       IndexedSeq(LockStateChanged(archiveName, Some(archiveKey)))
-    val futMessages = for {
+    val futMessages = for
       path <- writeFile(List.empty, lockData)
       msg <- readFile(path)
-    } yield msg
+    yield msg
 
     val messages = futureResult(futMessages)
     messages should contain theSameElementsAs expMessages
-  }
 
-  it should "handle a non-existing file when reading" in {
+  it should "handle a non-existing file when reading" in:
     expectFailedFuture[IOException](readFile(Paths.get("non-existing-file")))
-  }
 
-  it should "handle a non-existing directory when writing" in {
+  it should "handle a non-existing directory when writing" in:
     val target = Paths.get("path", "to", "non", "existing", "file")
     val futWrite = writeFile(generateTestRealms(1), generateLockData(1), Some(target))
 
     expectFailedFuture[IOException](futWrite)
-  }
 
-  it should "override an existing super password file" in {
+  it should "override an existing super password file" in:
     val target = createDataFile()
-    val futMessages = for {
+    val futMessages = for
       path <- writeFile(generateTestRealms(1), generateLockData(1), Some(target))
       msg <- readFile(path)
-    } yield msg
+    yield msg
 
     val messages = comparableMessages(futureResult(futMessages))
     messages should contain theSameElementsAs comparableMessages(generateStateMessages(1, 1))
-  }
-}

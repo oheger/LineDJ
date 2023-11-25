@@ -24,7 +24,7 @@ import org.apache.pekko.actor.Actor.Receive
 import java.nio.file.{Path, Paths}
 import scala.util.{Failure, Success}
 
-object SuperPasswordController {
+object SuperPasswordController:
   /** Resource ID for the title of dialogs related to the super password. */
   final val ResSuperPasswordTitle = "super_password_title"
 
@@ -66,7 +66,6 @@ object SuperPasswordController {
       .getString(HttpArchiveStartupApplication.PropSuperPasswordFilePath))
       .map(sPath => Paths get sPath)
       .getOrElse(Paths.get(System.getProperty("user.home"), DefaultSuperPasswordFileName))
-}
 
 /**
   * A controller class responsible for actions related to the ''super
@@ -82,7 +81,7 @@ object SuperPasswordController {
   * @param superPasswordService the service for handling the password file
   */
 class SuperPasswordController(val application: HttpArchiveStartupApplication,
-                              val superPasswordService: SuperPasswordStorageService) extends MessageBusListener {
+                              val superPasswordService: SuperPasswordStorageService) extends MessageBusListener:
 
   import SuperPasswordController._
   import application.toUIFuture
@@ -92,29 +91,26 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     *
     * @return the message handling function
     */
-  override def receive: Receive = {
+  override def receive: Receive =
     case SuperPasswordEnteredForWrite(password) =>
       writeSuperPasswordFile(password)
     case SuperPasswordEnteredForRead(password) =>
       readSuperPasswordFile(password)
-  }
 
   /**
     * Handles a request to write the super password file.
     *
     * @param superPassword the super password
     */
-  private def writeSuperPasswordFile(superPassword: String): Unit = {
+  private def writeSuperPasswordFile(superPassword: String): Unit =
     val path = superPasswordPath(application)
     application.saveArchiveCredentials(superPasswordService, path, superPassword)
-      .onCompleteUIThread {
+      .onCompleteUIThread:
         case Success(path) =>
           val message = new Message(null, ResSuperPasswordFileWritten, path.toString)
           messageBox(message, MessageOutput.MESSAGE_INFO)
         case Failure(exception) =>
           showErrorMessage(ResErrIO, exception)
-      }
-  }
 
   /**
     * Handles a request to read the super password file and open all the
@@ -122,18 +118,16 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     *
     * @param superPassword the super password
     */
-  private def readSuperPasswordFile(superPassword: String): Unit = {
+  private def readSuperPasswordFile(superPassword: String): Unit =
     val path = superPasswordPath(application)
     superPasswordService.readSuperPasswordFile(path,
-      superPassword)(application.clientApplicationContext.actorSystem) onCompleteUIThread {
+      superPassword)(application.clientApplicationContext.actorSystem) onCompleteUIThread:
       case Success(stateMessages) =>
         stateMessages foreach application.clientApplicationContext.messageBus.publish
       case Failure(exception: IllegalStateException) =>
         showErrorMessage(ResErrFormat, exception)
       case Failure(exception) =>
         showErrorMessage(ResErrIO, exception)
-    }
-  }
 
   /**
     * Displays an error message with a specific resource ID for the given
@@ -142,10 +136,9 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     * @param resID     the resource ID
     * @param exception the exception
     */
-  private def showErrorMessage(resID: String, exception: Throwable): Unit = {
+  private def showErrorMessage(resID: String, exception: Throwable): Unit =
     val message = new Message(null, resID, exception)
     messageBox(message, MessageOutput.MESSAGE_ERROR)
-  }
 
   /**
     * Convenience method to display a message box with some default settings.
@@ -153,7 +146,5 @@ class SuperPasswordController(val application: HttpArchiveStartupApplication,
     * @param message     the message to be displayed
     * @param messageType the message type
     */
-  private def messageBox(message: Message, messageType: Int): Unit = {
+  private def messageBox(message: Message, messageType: Int): Unit =
     application.getApplicationContext.messageBox(message, ResSuperPasswordTitle, messageType, MessageOutput.BTN_OK)
-  }
-}

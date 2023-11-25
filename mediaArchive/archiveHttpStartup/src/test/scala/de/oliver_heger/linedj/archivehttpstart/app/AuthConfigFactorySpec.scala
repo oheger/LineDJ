@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.core.http.Secret
-import com.github.cloudfiles.core.http.auth.{BasicAuthConfig, OAuthTokenData, OAuthConfig => CloudOAuthConfig}
-import de.oliver_heger.linedj.AsyncTestHelper
+import com.github.cloudfiles.core.http.auth.{BasicAuthConfig, OAuthTokenData, OAuthConfig as CloudOAuthConfig}
 import de.oliver_heger.linedj.archivehttp.config.{OAuthStorageConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.oauth.{OAuthConfig, OAuthStorageService}
+import de.oliver_heger.linedj.test.AsyncTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -32,7 +32,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}
 
-object AuthConfigFactorySpec {
+object AuthConfigFactorySpec:
   /** The user ID to access a test archive. */
   private val User = "myArchiveUser"
 
@@ -41,23 +41,21 @@ object AuthConfigFactorySpec {
 
   /** Name of a realm used by tests. */
   private val RealmName = "myTestReal"
-}
 
 /**
   * Test class for ''AuthConfigFactory''.
   */
 class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
   def this() = this(ActorSystem("AuthConfigFactorySpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import AuthConfigFactorySpec._
 
-  "AuthConfigFactory" should "create a configuration for BasicAuth" in {
+  "AuthConfigFactory" should "create a configuration for BasicAuth" in:
     val service = mock[OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]]
     val realm = BasicAuthRealm(RealmName)
     val credentials = UserCredentials(User, Password)
@@ -65,9 +63,8 @@ class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     val authConfig = futureResult(factory.createAuthConfig(realm, credentials))
     authConfig should be(BasicAuthConfig(User, Password))
-  }
 
-  it should "create a configuration for OAuth" in {
+  it should "create a configuration for OAuth" in:
     val IdpName = "MyIDP"
     val StoragePath = Paths.get("/my/idp/data")
     val service = mock[OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]]
@@ -88,5 +85,3 @@ class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     val authConfig = futureResult(factory.createAuthConfig(realm, credentials))
     authConfig should be(expConfig)
-  }
-}

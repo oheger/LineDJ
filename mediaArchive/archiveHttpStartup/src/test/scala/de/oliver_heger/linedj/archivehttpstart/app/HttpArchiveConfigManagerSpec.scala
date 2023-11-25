@@ -26,15 +26,14 @@ import java.nio.file.Paths
 /**
   * Test class for ''HttpArchiveConfigManager''.
   */
-class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
-  "An HttpArchiveConfigManager" should "handle an empty configuration" in {
+class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
+  "An HttpArchiveConfigManager" should "handle an empty configuration" in:
     val config = new HierarchicalConfiguration
 
     val manager = HttpArchiveConfigManager(config)
     manager.archives should have size 0
-  }
 
-  it should "provide basic data about all managed archives" in {
+  it should "provide basic data about all managed archives" in:
     val Count = 8
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count)
     val manager = HttpArchiveConfigManager(config)
@@ -49,18 +48,16 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
       archiveData.encrypted shouldBe false
       archiveData.protocol should be(HttpArchiveConfigManager.DefaultProtocolName)
     }
-  }
 
-  it should "filter out archives with an invalid configuration" in {
+  it should "filter out archives with an invalid configuration" in:
     val Count = 2
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count)
     config.clearProperty(StartupConfigTestHelper.KeyArchives + "(0).archiveUri")
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(2)
-  }
 
-  it should "generate default realms from the configuration" in {
+  it should "generate default realms from the configuration" in:
     val Count = 2
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count)
     val manager = HttpArchiveConfigManager(config)
@@ -69,17 +66,15 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
       val data = manager.archives(StartupConfigTestHelper.archiveName(i))
       data.realm should be(BasicAuthRealm(StartupConfigTestHelper.realmName(i)))
     }
-  }
 
-  it should "filter out archives without a realm" in {
+  it should "filter out archives without a realm" in:
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, 2)
     config.clearProperty(StartupConfigTestHelper.KeyArchives + "(1).realm")
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(1)
-  }
 
-  it should "extract realm data from the configuration" in {
+  it should "extract realm data from the configuration" in:
     val OAuthPath = Paths get "/oauth/data"
     val ProviderName = "TestIDP"
     val OAuthRealmName = "oauthRealm"
@@ -99,7 +94,6 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     basicData.realm should be(BasicAuthRealm(BasicAuthRealmName))
     val oauthData = manager.archives(StartupConfigTestHelper.archiveName(2))
     oauthData.realm should be(OAuthRealm(OAuthRealmName, OAuthPath, ProviderName))
-  }
 
   /**
     * Checks the handling of invalid realm data and that archives linked to an
@@ -107,7 +101,7 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     *
     * @param realmProps the properties of the realm
     */
-  private def checkArchiveIsFilteredOutForInvalidRealmData(realmProps: Map[String, Any]): Unit = {
+  private def checkArchiveIsFilteredOutForInvalidRealmData(realmProps: Map[String, Any]): Unit =
     val RealmName = "InvalidTestRealm"
     val fullProps = realmProps + ("name" -> RealmName)
     val config = new HierarchicalConfiguration
@@ -117,36 +111,31 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives.keySet should contain only StartupConfigTestHelper.archiveName(2)
-  }
 
-  it should "detect an invalid realm type" in {
+  it should "detect an invalid realm type" in:
     val props = Map("path" -> "/my/data", "idp" -> "myIdp", "type" -> "unknownType")
 
     checkArchiveIsFilteredOutForInvalidRealmData(props)
-  }
 
-  it should "detect an OAuth realm with a missing path" in {
+  it should "detect an OAuth realm with a missing path" in:
     val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "idp" -> "IDPName")
 
     checkArchiveIsFilteredOutForInvalidRealmData(props)
-  }
 
-  it should "detect an OAuth realm with a missing IDP name" in {
+  it should "detect an OAuth realm with a missing IDP name" in:
     val props = Map("type" -> HttpArchiveConfigManager.RealmTypeOAuth, "path" -> "testPath")
 
     checkArchiveIsFilteredOutForInvalidRealmData(props)
-  }
 
-  it should "generate unique short names for archives" in {
+  it should "generate unique short names for archives" in:
     val Count = 4
     val config = StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count)
     val expShortNames = (1 to Count) map StartupConfigTestHelper.shortName
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives.values.map(_.shortName) should contain theSameElementsAs expShortNames
-  }
 
-  it should "handle an archive name shorter than the limit for short names" in {
+  it should "handle an archive name shorter than the limit for short names" in:
     val ShortName = "Arc"
     val config = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration, 1)
     config.setProperty(StartupConfigTestHelper.KeyArchives + "." +
@@ -154,18 +143,16 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(ShortName).shortName should be(ShortName)
-  }
 
-  it should "set a correct download config" in {
+  it should "set a correct download config" in:
     val config = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration, 1)
     val manager = HttpArchiveConfigManager(config)
 
     val data = manager.archives(StartupConfigTestHelper.archiveName(1))
     data.config.archiveConfig.downloadConfig
       .downloadChunkSize should be(StartupConfigTestHelper.DownloadChunkSize)
-  }
 
-  it should "allow selecting all archives for a specific realm" in {
+  it should "allow selecting all archives for a specific realm" in:
     val Realm = StartupConfigTestHelper.realmName(1)
     val config = StartupConfigTestHelper.addArchiveToConfig(
       StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, 4), 42, Some(Realm))
@@ -175,9 +162,8 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
 
     manager.archivesForRealm(Realm)
       .map(_.config.archiveConfig.archiveName) should contain theSameElementsAs expNames
-  }
 
-  it should "evaluate the encrypted flag for archives" in {
+  it should "evaluate the encrypted flag for archives" in:
     val Count = 4
     val config = StartupConfigTestHelper.addArchiveToConfig(
       StartupConfigTestHelper.addConfigs(new HierarchicalConfiguration, 1, Count - 1),
@@ -186,9 +172,8 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(archiveName).encrypted shouldBe true
-  }
 
-  it should "evaluate the protocol property for archives" in {
+  it should "evaluate the protocol property for archives" in:
     val Index = 42
     val TestProtocol = "test"
     val config = StartupConfigTestHelper.addArchiveToConfig(
@@ -198,5 +183,3 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers {
     val manager = HttpArchiveConfigManager(config)
 
     manager.archives(archiveName).protocol should be(TestProtocol)
-  }
-}

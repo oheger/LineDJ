@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.crypt.alg.aes.Aes
-import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
@@ -28,11 +27,12 @@ import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
+import de.oliver_heger.linedj.test.AsyncTestHelper
 import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -46,7 +46,7 @@ import scala.concurrent.Future
 import scala.language.existentials
 import scala.util.{Failure, Try}
 
-object HttpArchiveStarterSpec {
+object HttpArchiveStarterSpec:
   /** Test user name. */
   private val UserName = "scott"
 
@@ -71,36 +71,32 @@ object HttpArchiveStarterSpec {
     *
     * @return the configuration
     */
-  private def createArchiveSourceConfig(): Configuration = {
+  private def createArchiveSourceConfig(): Configuration =
     val props = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration(), 1)
     props.addProperty(HttpArchiveStarter.PropTempDirectory, PathTempDir.toString)
     props
-  }
 
   /**
     * Checks that no message has been sent to the specified test probe.
     *
     * @param probe the test probe
     */
-  private def expectNoMessageToProbe(probe: TestProbe): Unit = {
+  private def expectNoMessageToProbe(probe: TestProbe): Unit =
     val Ping = new Object
     probe.ref ! Ping
     probe.expectMsg(Ping)
-  }
-}
 
 /**
   * Test class for ''HttpArchiveStarter''.
   */
 class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
   import HttpArchiveStarterSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Starts the HTTP archive and obtains the temp path generator from the
@@ -109,51 +105,45 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param helper the test helper
     * @return the ''TempPathGenerator''
     */
-  private def fetchPathGenerator(helper: StarterTestHelper): TempPathGenerator = {
+  private def fetchPathGenerator(helper: StarterTestHelper): TempPathGenerator =
     val creationProps = helper.startArchiveAndCheckActors().actorCreationProps
     creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
       .args(2).asInstanceOf[TempPathGenerator]
-  }
 
-  "A HttpArchiveStarter" should "create correct actors for the archive" in {
+  "A HttpArchiveStarter" should "create correct actors for the archive" in:
     val helper = new StarterTestHelper
 
     helper.startArchiveAndCheckActors()
       .checkActorProps()
-  }
 
-  it should "create correct actors for an encrypted archive" in {
+  it should "create correct actors for an encrypted archive" in:
     val helper = new StarterTestHelper(encryptedArchive = true)
 
     helper.startArchiveAndCheckActors()
       .checkActorProps()
-  }
 
-  it should "return a failure if the downloader cannot be constructed" in {
+  it should "return a failure if the downloader cannot be constructed" in:
     val exception = new IOException("Invalid archive URI")
     val helper = new StarterTestHelper(optExDownloader = Some(exception))
 
     expectFailedFuture[IOException](helper.invokeStartup())
-  }
 
-  it should "generate unique actor names based on the numeric index" in {
+  it should "generate unique actor names based on the numeric index" in:
     val OtherIndex = ArcIndex + 1
     val helper = new StarterTestHelper(OtherIndex)
 
     val actors = helper.startArchive(createArchiveSourceConfig())
     actors.actors.contains(helper.actorName(HttpArchiveStarter.ManagementActorName,
       OtherIndex)) shouldBe true
-  }
 
-  it should "create a correct temp path generator" in {
+  it should "create a correct temp path generator" in:
     val helper = new StarterTestHelper
     val pathGen = fetchPathGenerator(helper)
 
     pathGen.rootPath should be(PathTempDir)
     java.time.Duration.between(pathGen.time, Instant.now()).toMillis should be < 3000L
-  }
 
-  it should "use the default temp dir for the path generator if not specified" in {
+  it should "use the default temp dir for the path generator if not specified" in:
     val config = createArchiveSourceConfig()
     config clearProperty HttpArchiveStarter.PropTempDirectory
     val helper = new StarterTestHelper
@@ -162,35 +152,29 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val pathGen = creationProps(helper.actorName(HttpArchiveStarter.ManagementActorName))
       .args(2).asInstanceOf[TempPathGenerator]
     val tempFile = Files.createTempFile("Test", ".tmp")
-    try {
+    try
       pathGen.rootPath should be(tempFile.getParent)
-    } finally {
-      if (Files exists tempFile) {
+    finally
+      if Files exists tempFile then
         Files delete tempFile
-      }
-    }
-  }
 
-  it should "start a scan after creating the archive actors" in {
+  it should "start a scan after creating the archive actors" in:
     val helper = new StarterTestHelper
 
     helper.startArchiveAndCheckActors()
       .expectScanStarted()
-  }
 
-  it should "start a clear temp files operation" in {
+  it should "start a clear temp files operation" in:
     val helper = new StarterTestHelper
     val pathGen = fetchPathGenerator(helper)
 
     helper.expectClearTempDirectory(pathGen)
-  }
 
-  it should "not start a clear temp files operation if disabled" in {
+  it should "not start a clear temp files operation if disabled" in:
     val helper = new StarterTestHelper(clearTemp = false)
 
     helper.startArchiveAndCheckActors()
       .expectNoClearTempDirectory()
-  }
 
   /**
     * A test helper class managing a test instance and its dependencies.
@@ -205,7 +189,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
   private class StarterTestHelper(index: Int = ArcIndex, clearTemp: Boolean = true,
                                   encryptedArchive: Boolean = false,
                                   optRealm: Option[ArchiveRealm] = None,
-                                  optExDownloader: Option[Throwable] = None) {
+                                  optExDownloader: Option[Throwable] = None):
     /** Test probe for the archive management actor. */
     private val probeManagerActor = TestProbe()
 
@@ -275,7 +259,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param c the configuration to be used
       * @return this test helper
       */
-    def startArchiveAndCheckActors(c: Configuration = sourceConfig): StarterTestHelper = {
+    def startArchiveAndCheckActors(c: Configuration = sourceConfig): StarterTestHelper =
       val resources = startArchive(c)
       resources.actors should have size 3
       resources.actors(actorName(HttpArchiveStarter.ManagementActorName)) should be(probeManagerActor.ref)
@@ -285,7 +269,6 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       resources.httpActorName should be(actorName(HttpArchiveStarter.HttpRequestActorName))
       resources.downloader should be(mediaDownloader)
       this
-    }
 
     /**
       * Returns a map with properties for the actors created by the starter
@@ -300,7 +283,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return this test helper
       */
-    def checkActorProps(): StarterTestHelper = {
+    def checkActorProps(): StarterTestHelper =
       val expConfig = expectedArchiveConfig()
       val propsManager = actorCreationProps(actorName(HttpArchiveStarter.ManagementActorName))
       classOf[HttpArchiveManagementActor].isAssignableFrom(propsManager.actorClass()) shouldBe true
@@ -321,7 +304,6 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       propsRemove should be(RemoveTempFilesActor(ClientApplication.BlockingDispatcherName))
 
       this
-    }
 
     /**
       * Expects that the archive management actor was sent a message to start a
@@ -329,10 +311,9 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return this test helper
       */
-    def expectScanStarted(): StarterTestHelper = {
+    def expectScanStarted(): StarterTestHelper =
       probeManagerActor.expectMsg(ScanAllMedia)
       this
-    }
 
     /**
       * Expects that the remove actor was sent a message to clear the temp
@@ -341,11 +322,10 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param pathGenerator the expected path generator
       * @return this test helper
       */
-    def expectClearTempDirectory(pathGenerator: TempPathGenerator): StarterTestHelper = {
+    def expectClearTempDirectory(pathGenerator: TempPathGenerator): StarterTestHelper =
       probeRemoveActor.expectMsg(RemoveTempFilesActor.ClearTempDirectory(PathTempDir,
         pathGenerator))
       this
-    }
 
     /**
       * Checks that no message to clear the temp directory has been sent to the
@@ -353,10 +333,9 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return this test helper
       */
-    def expectNoClearTempDirectory(): StarterTestHelper = {
+    def expectNoClearTempDirectory(): StarterTestHelper =
       expectNoMessageToProbe(probeRemoveActor)
       this
-    }
 
     /**
       * Generates a full actor name based on its suffix.
@@ -373,11 +352,10 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the test archive data
       */
-    private def createArchiveData(): HttpArchiveData = {
+    private def createArchiveData(): HttpArchiveData =
       val manager = HttpArchiveConfigManager(sourceConfig)
       val data = manager.archives(StartupConfigTestHelper.archiveName(1))
       optRealm map (realm => data.copy(realm = realm)) getOrElse data
-    }
 
     /**
       * Returns the expected final configuration that should be passed to the
@@ -403,7 +381,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @return the parameter for the decryption key
       */
     private def cryptKeyParam: Option[Key] =
-      if (encryptedArchive) Some(CryptKey) else None
+      if encryptedArchive then Some(CryptKey) else None
 
     /**
       * Creates an actor factory object that returns the predefined test
@@ -411,19 +389,16 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the actor factory
       */
-    private def createActorFactory(): ActorFactory = {
+    private def createActorFactory(): ActorFactory =
       val probes = Map(
         actorName(HttpArchiveStarter.ManagementActorName, index) -> probeManagerActor.ref,
         actorName(HttpArchiveStarter.RemoveFileActorName, index) -> probeRemoveActor.ref,
         actorName(HttpArchiveStarter.DownloadMonitoringActorName, index)
           -> probeMonitoringActor.ref)
-      new ActorFactory(system) {
-        override def createActor(props: Props, name: String): ActorRef = {
+      new ActorFactory(system):
+        override def createActor(props: Props, name: String): ActorRef =
           creationProps += name -> props
           probes(name)
-        }
-      }
-    }
 
     /**
       * Creates the mock for the downloader factory. The mock is prepared to
@@ -431,14 +406,13 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the mock downloader factory
       */
-    private def createMediaDownloaderFactory(): MediaDownloaderFactory = {
+    private def createMediaDownloaderFactory(): MediaDownloaderFactory =
       val factory = mock[MediaDownloaderFactory]
       val result = optExDownloader.fold(Try(mediaDownloader))(ex => Failure(ex))
       when(factory.createDownloader(protocolSpec, archiveData.config, authConfig,
         actorName(HttpArchiveStarter.HttpRequestActorName, index), cryptKeyParam))
         .thenReturn(result)
       factory
-    }
 
     /**
       * Creates the mock for the auth config factory. It is prepared for a
@@ -446,12 +420,9 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return the mock for the auth factory
       */
-    private def createAuthFactory(): AuthConfigFactory = {
+    private def createAuthFactory(): AuthConfigFactory =
       val factory = mock[AuthConfigFactory]
       when(factory.createAuthConfig(archiveData.realm, ArchiveCredentials))
         .thenReturn(Future.successful(authConfig))
       factory
-    }
-  }
 
-}

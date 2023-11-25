@@ -25,8 +25,6 @@ package de.oliver_heger.linedj.archivehttpstart.app
   *
   * @param controller the controller
   */
-class LogoutTask(controller: HttpArchiveOverviewController) extends Runnable {
-  override def run(): Unit = {
+class LogoutTask(controller: HttpArchiveOverviewController) extends Runnable:
+  override def run(): Unit =
     controller.logoutCurrentRealm()
-  }
-}

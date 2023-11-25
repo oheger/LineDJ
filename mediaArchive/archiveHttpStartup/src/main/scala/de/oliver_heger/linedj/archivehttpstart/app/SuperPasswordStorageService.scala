@@ -48,7 +48,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * The file is always encrypted using the AES algorithm and the password
   * provided to the functions.
   */
-trait SuperPasswordStorageService {
+trait SuperPasswordStorageService:
   /**
     * Writes an encrypted file containing the specified information about
     * realms and their credentials and archives and their unlock passwords.
@@ -78,12 +78,11 @@ trait SuperPasswordStorageService {
     */
   def readSuperPasswordFile(target: Path, superPassword: String)
                            (implicit system: ActorSystem): Future[Iterable[ArchiveStateChangedMessage]]
-}
 
 /**
   * The implementation of the [[SuperPasswordStorageService]] trait.
   */
-object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
+object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService:
   /** Prefix for an entry with login information in the password file. */
   private val LoginEntry = "LOGIN"
 
@@ -99,7 +98,7 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
   override def writeSuperPasswordFile(target: Path, superPassword: String,
                                       realms: Iterable[(String, UserCredentials)],
                                       lockData: Iterable[(String, Key)])
-                                     (implicit system: ActorSystem): Future[Path] = {
+                                     (implicit system: ActorSystem): Future[Path] =
     val loginEntries = realms map realmDataToString
     val unlockEntries = lockData map { lock =>
       lockDataToString(lock)
@@ -114,24 +113,21 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
         case e: IOOperationIncompleteException =>
           Future.failed(new IOException(e))
       }(system.dispatcher)
-  }
 
   override def readSuperPasswordFile(target: Path, superPassword: String)
-                                    (implicit system: ActorSystem): Future[Iterable[ArchiveStateChangedMessage]] = {
+                                    (implicit system: ActorSystem): Future[Iterable[ArchiveStateChangedMessage]] =
     val source = decryptSource(target, superPassword)
     val sink = Sink.fold[List[ArchiveStateChangedMessage],
       ArchiveStateChangedMessage](List.empty[ArchiveStateChangedMessage]) { (lst, msg) => msg :: lst }
     source.map { line =>
       val fields = line.utf8String.split(",")
-      fields.head match {
+      fields.head match
         case LoginEntry =>
           createLoginStateChanged(fields)
         case UnlockEntry =>
           createLockStateChanged(fields)
         case e => throw new IllegalStateException("Unsupported entry: " + e)
-      }
     }.runWith(sink)
-  }
 
   /**
     * Runs a stream that processes the provided data source and writes its
@@ -144,13 +140,12 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @return a ''Future'' with the result of stream processing
     */
   private[archivehttpstart] def runEncryptStream(data: Source[ByteString, Any], target: Path, superPassword: String)
-                                                (implicit system: ActorSystem): Future[IOResult] = {
+                                                (implicit system: ActorSystem): Future[IOResult] =
     val cryptSource = CryptService.encryptSource(Aes, Aes.keyFromString(superPassword), data)
     val sink = Flow[ByteString].map { bs =>
       ByteString(Base64.getEncoder.encodeToString(bs.toArray) + EntrySeparator)
     }.toMat(FileIO.toPath(target))(Keep.right)
     cryptSource.runWith(sink)
-  }
 
 
   /**
@@ -177,12 +172,11 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param realm the tuple with realm information
     * @return the string for this realm
     */
-  private def realmDataToString(realm: (String, UserCredentials)): String = {
+  private def realmDataToString(realm: (String, UserCredentials)): String =
     val realmEnc = encodeBase64(realm._1)
     val userEnc = encodeBase64(realm._2.userName)
     val pwdEnc = encodeBase64(realm._2.password.secret)
     s"$LoginEntry,$realmEnc,$userEnc,$pwdEnc"
-  }
 
   /**
     * Converts the given data for unlocking an archive to a string to be
@@ -191,11 +185,10 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param lock the tuple with information about unlocking an archive
     * @return
     */
-  private def lockDataToString(lock: (String, Key)): String = {
+  private def lockDataToString(lock: (String, Key)): String =
     val archiveEnc = encodeBase64(lock._1)
     val keyEnc = encodeKey(lock._2)
     s"$UnlockEntry,$archiveEnc,$keyEnc"
-  }
 
   /**
     * Creates a ''LoginStateChanged'' message from the values provided.
@@ -203,13 +196,12 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param fields the array with the data
     * @return the resulting ''LoginStateChanged''
     */
-  private def createLoginStateChanged(fields: Array[String]): LoginStateChanged = {
+  private def createLoginStateChanged(fields: Array[String]): LoginStateChanged =
     checkFieldCount(fields, 4)
     val realmDec = decodeBase64Str(fields(1))
     val userDec = decodeBase64Str(fields(2))
     val pwdDec = decodeBase64Str(fields(3))
     LoginStateChanged(realmDec, Some(UserCredentials(userDec, Secret(pwdDec))))
-  }
 
   /**
     * Create a ''LockStateChanged'' message from the values provided.
@@ -217,11 +209,10 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param fields the array with the data
     * @return the resulting ''LockStateChanged''
     */
-  private def createLockStateChanged(fields: Array[String]): LockStateChanged = {
+  private def createLockStateChanged(fields: Array[String]): LockStateChanged =
     checkFieldCount(fields, 3)
     val archiveDec = decodeBase64Str(fields(1))
     LockStateChanged(archiveDec, Some(decodeKey(fields(2))))
-  }
 
   /**
     * Checks whether the given array has the expected number of elements.
@@ -230,11 +221,9 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param array    the array to check
     * @param expCount the expected number of elements
     */
-  private def checkFieldCount(array: Array[String], expCount: Int): Unit = {
-    if (array.length != expCount) {
+  private def checkFieldCount(array: Array[String], expCount: Int): Unit =
+    if array.length != expCount then
       throw new IllegalStateException(s"Expected $expCount fields in line, but got ${array.length}.")
-    }
-  }
 
   /**
     * Returns a Base64-encoded form of the given key.
@@ -251,10 +240,9 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @param encKeyData the encoded data of the key
     * @return the resulting key
     */
-  private def decodeKey(encKeyData: String): Key = {
+  private def decodeKey(encKeyData: String): Key =
     val decodedData = Base64.getDecoder.decode(encKeyData)
     new SecretKeySpec(decodedData, Aes.AlgorithmName)
-  }
 
   /**
     * Decodes data with the Base64 decoder with error handling.
@@ -263,12 +251,11 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     * @return the decoded data
     */
   private def decodeBase64(data: Array[Byte]): Array[Byte] =
-    try {
+    try
       Base64.getDecoder.decode(data)
-    } catch {
+    catch
       case e: IllegalArgumentException =>
         throw new IllegalStateException("Invalid file content: Not Base64-encoded.", e)
-    }
 
   /**
     * Convenience function to decode a Base64 string.
@@ -287,4 +274,3 @@ object SuperPasswordStorageServiceImpl extends SuperPasswordStorageService {
     */
   private def encodeBase64(s: String): String =
     Base64.getEncoder.encodeToString(s.getBytes(StandardCharsets.UTF_8))
-}

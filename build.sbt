@@ -462,17 +462,19 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveHttpStartup",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= jguiraffeDependencies,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles,
-    libraryDependencies += "com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles,
-    libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", archiveHttp)
+  ) dependsOn(platform, archiveHttp, test3 % "test->compile")
 
 /**
   * A project which implements an admin UI for the media archive.

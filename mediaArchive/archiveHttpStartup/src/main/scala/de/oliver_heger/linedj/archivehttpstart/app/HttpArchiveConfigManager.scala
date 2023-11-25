@@ -27,7 +27,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.util.{Failure, Success, Try}
 
-private object HttpArchiveConfigManager {
+private object HttpArchiveConfigManager:
   /**
     * The default name of the HTTP protocol associated with an archive. This
     * name is used for the protocol if the configuration of an archive does not
@@ -98,14 +98,13 @@ private object HttpArchiveConfigManager {
     * @param c the configuration
     * @return the manager initialized from the configuration
     */
-  def apply(c: Configuration): HttpArchiveConfigManager = {
+  def apply(c: Configuration): HttpArchiveConfigManager =
     val realmNames = c.getList(KeyRealms + KeyRealmName)
     val realms = extractRealms(c, realmNames.size() - 1, Map.empty)
     val archiveNames = c.getList(KeyArchiveNames)
     val downloadConfig = DownloadConfig(c.subset(SectionMediaArchive))
     new HttpArchiveConfigManager(addArchive(c, downloadConfig, realms, archiveNames.size() - 1,
       TreeMap.empty, Set.empty))
-  }
 
   /**
     * Iterates over the configuration data for all defined archives and
@@ -123,14 +122,13 @@ private object HttpArchiveConfigManager {
                                   realms: Map[String, Try[ArchiveRealm]], idx: Int,
                                   data: SortedMap[String, HttpArchiveData], names: Set[String]):
   SortedMap[String, HttpArchiveData] =
-    if (idx < 0) data
-    else {
+    if idx < 0 then data
+    else
       val currentKey = KeyArchives + s"($idx)"
       val optNextData = createArchiveData(c, downloadConfig, realms, currentKey, names) map (d =>
         (data + (d.config.archiveConfig.archiveName -> d), names + d.shortName))
       val nextData = optNextData getOrElse(data, names)
       addArchive(c, downloadConfig, realms, idx - 1, nextData._1, nextData._2)
-    }
 
   /**
     * Tries to create an ''HttpArchiveData'' object for a specific HTTP
@@ -148,10 +146,10 @@ private object HttpArchiveConfigManager {
                                 realms: Map[String, Try[ArchiveRealm]],
                                 currentKey: String, names: Set[String]):
   Option[HttpArchiveData] =
-    for {config <- HttpArchiveStartupConfig(c, currentKey, downloadConfig).toOption
+    for config <- HttpArchiveStartupConfig(c, currentKey, downloadConfig).toOption
          realmName <- Option(c.getString(currentKey + KeyRealm))
          realm <- realmForArchive(realms, realmName, config)
-         } yield HttpArchiveData(config, realm, generateShortName(config, names),
+         yield HttpArchiveData(config, realm, generateShortName(config, names),
       encrypted = c.getBoolean(currentKey + KeyEncrypted, false),
       protocol = c.getString(currentKey + KeyProtocol, DefaultProtocolName))
 
@@ -163,18 +161,16 @@ private object HttpArchiveConfigManager {
     * @param names  a set with the names already in use
     * @return the short name for this archive
     */
-  private def generateShortName(config: HttpArchiveStartupConfig, names: Set[String]): String = {
+  private def generateShortName(config: HttpArchiveStartupConfig, names: Set[String]): String =
     val prefix = URLEncoder.encode(extractShortName(config),
       StandardCharsets.UTF_8.name())
 
-    @tailrec def generateUniqueName(idx: Int): String = {
-      val name = if (idx > 1) prefix + (idx - 1) else prefix
-      if (!names.contains(name)) name
+    @tailrec def generateUniqueName(idx: Int): String =
+      val name = if idx > 1 then prefix + (idx - 1) else prefix
+      if !names.contains(name) then name
       else generateUniqueName(idx + 1)
-    }
 
     generateUniqueName(1)
-  }
 
   /**
     * Extracts the short name from the archive name applying a length
@@ -184,7 +180,7 @@ private object HttpArchiveConfigManager {
     * @return the short name derived from the archive name
     */
   private def extractShortName(config: HttpArchiveStartupConfig): String =
-    if (config.archiveConfig.archiveName.length <= LengthShortName) config.archiveConfig.archiveName
+    if config.archiveConfig.archiveName.length <= LengthShortName then config.archiveConfig.archiveName
     else config.archiveConfig.archiveName.substring(0, LengthShortName)
 
   /**
@@ -200,14 +196,13 @@ private object HttpArchiveConfigManager {
     */
   private def realmForArchive(realms: Map[String, Try[ArchiveRealm]], realmName: String,
                               archiveConfig: HttpArchiveStartupConfig): Option[ArchiveRealm] =
-    realms.getOrElse(realmName, Success(BasicAuthRealm(realmName))) match {
+    realms.getOrElse(realmName, Success(BasicAuthRealm(realmName))) match
       case Success(realm) =>
         Some(realm)
       case Failure(ex) =>
         log.error(s"Could not create archive for ${archiveConfig.archiveConfig.archiveBaseUri}. " +
           "It references an invalid realm.", ex)
         None
-    }
 
   /**
     * Iterates over the configuration properties that declare realm objects and
@@ -222,12 +217,11 @@ private object HttpArchiveConfigManager {
     */
   @tailrec private def extractRealms(c: Configuration, idx: Int, realms: Map[String, Try[ArchiveRealm]]):
   Map[String, Try[ArchiveRealm]] =
-    if (idx < 0) realms
-    else {
+    if idx < 0 then realms
+    else
       val currentKey = s"$KeyRealms($idx)"
       val tRealm = createRealm(c, currentKey)
       extractRealms(c, idx - 1, realms + tRealm)
-    }
 
   /**
     * Extracts information about a realm from the configuration. This can fail
@@ -239,19 +233,18 @@ private object HttpArchiveConfigManager {
     * @param currentKey the base key
     * @return a tuple with the realm name and a ''Try'' with the realm data
     */
-  private def createRealm(c: Configuration, currentKey: String): (String, Try[ArchiveRealm]) = {
+  private def createRealm(c: Configuration, currentKey: String): (String, Try[ArchiveRealm]) =
     val name = c.getString(currentKey + KeyRealmName)
 
-    def mandatoryProperty(key: String): String = {
+    def mandatoryProperty(key: String): String =
       val value = c.getString(currentKey + key)
-      if (value == null)
+      if value == null then
         throw new ArchiveConfigException(s"Missing mandatory property $key for realm $name.")
       value
-    }
 
-    val realm = Try {
+    val realm = Try:
       val archiveType = c.getString(currentKey + KeyRealmType)
-      archiveType match {
+      archiveType match
         case RealmTypeBasicAuth =>
           BasicAuthRealm(name)
         case RealmTypeOAuth =>
@@ -260,11 +253,7 @@ private object HttpArchiveConfigManager {
             mandatoryProperty(KeyOAuthRealmIdp))
         case t =>
           throw new ArchiveConfigException(s"Unknown archive type: $t.")
-      }
-    }
     (name, realm)
-  }
-}
 
 /**
   * An internally used helper class that is responsible for the management of
@@ -286,7 +275,7 @@ private object HttpArchiveConfigManager {
   * @param archives a map with data about the managed archives; key is the
   *                 archive name (the map is sorted by archive names)
   */
-private case class HttpArchiveConfigManager(archives: SortedMap[String, HttpArchiveData]) {
+private case class HttpArchiveConfigManager(archives: SortedMap[String, HttpArchiveData]):
   /**
     * Returns a collection with data about archives that belong to the
     * specified realm.
@@ -296,4 +285,3 @@ private case class HttpArchiveConfigManager(archives: SortedMap[String, HttpArch
     */
   def archivesForRealm(realm: String): Iterable[HttpArchiveData] =
     archives.values.filter(_.realm.name == realm)
-}
