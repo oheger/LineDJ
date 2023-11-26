@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated}
 
-object DownloadMonitoringActor {
+object DownloadMonitoringActor:
 
   /**
     * A message processed by [[DownloadMonitoringActor]] notifying it about a new
@@ -59,7 +59,6 @@ object DownloadMonitoringActor {
     */
   def apply(config: DownloadConfig): Props =
     Props(classOf[DownloadMonitoringActorImpl], config)
-}
 
 /**
   * An actor class which monitors download operations.
@@ -83,7 +82,7 @@ object DownloadMonitoringActor {
   */
 class DownloadMonitoringActor(config: DownloadConfig,
                               private[download] val downloadData: DownloadActorData)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   me: SchedulerSupport =>
 
   import DownloadMonitoringActor._
@@ -100,21 +99,18 @@ class DownloadMonitoringActor(config: DownloadConfig,
     */
   def this(config: DownloadConfig) = this(config, new DownloadActorData)
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     timeoutCheckCancelable = scheduleMessage(config.downloadCheckInterval,
       config.downloadCheckInterval, self, CheckDownloadTimeout)
-  }
 
-  override def postStop(): Unit = {
+  override def postStop(): Unit =
     timeoutCheckCancelable.cancel()
     super.postStop()
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case DownloadOperationStarted(downloadActor, client) =>
-      if (downloadData.findReadersForClient(client).isEmpty) {
+      if downloadData.findReadersForClient(client).isEmpty then
         context watch client
-      }
       downloadData.add(downloadActor, client, now())
       context watch downloadActor
       log.info("Registered download actor.")
@@ -127,7 +123,6 @@ class DownloadMonitoringActor(config: DownloadConfig,
 
     case t: Terminated =>
       handleActorTermination(t.actor)
-  }
 
   /**
     * Handles an actor terminated message. We have to determine which type of
@@ -138,14 +133,12 @@ class DownloadMonitoringActor(config: DownloadConfig,
     *
     * @param actor the affected actor
     */
-  private def handleActorTermination(actor: ActorRef): Unit = {
-    if (downloadData hasActor actor) {
+  private def handleActorTermination(actor: ActorRef): Unit =
+    if downloadData hasActor actor then
       handleDownloadActorTermination(actor)
-    } else {
+    else
       val downloadActors = downloadData.findReadersForClient(actor)
       downloadActors foreach context.stop
-    }
-  }
 
   /**
     * Handles the termination of a reader actor. We can stop watching
@@ -154,15 +147,13 @@ class DownloadMonitoringActor(config: DownloadConfig,
     *
     * @param actor the terminated actor
     */
-  private def handleDownloadActorTermination(actor: ActorRef): Unit = {
+  private def handleDownloadActorTermination(actor: ActorRef): Unit =
     log.info("Removing terminated download actor from mapping.")
     val optClient = downloadData remove actor
     optClient foreach { c =>
-      if (downloadData.findReadersForClient(c).isEmpty) {
+      if downloadData.findReadersForClient(c).isEmpty then
         context unwatch c
-      }
     }
-  }
 
   /**
     * Checks all currently active download actors for timeouts. This method is
@@ -170,18 +161,15 @@ class DownloadMonitoringActor(config: DownloadConfig,
     * been updated during a configurable interval. This typically indicates a
     * crash of the corresponding client.
     */
-  private def checkForDownloadActorTimeout(): Unit = {
+  private def checkForDownloadActorTimeout(): Unit =
     downloadData.findTimeouts(now(), config.downloadTimeout) foreach
       stopDownloadActor
-  }
 
   /**
     * Stops a download actor when the timeout was reached.
     *
     * @param actor the actor to be stopped
     */
-  private def stopDownloadActor(actor: ActorRef): Unit = {
+  private def stopDownloadActor(actor: ActorRef): Unit =
     context stop actor
     log.warning("Download actor {} stopped because of timeout!", actor.path)
-  }
-}

@@ -255,13 +255,15 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-common",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     libraryDependencies += collectionsDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn (shared, test3 % "test->compile")
 
 /**
   * The media archive project. This contains code to scan a local folder

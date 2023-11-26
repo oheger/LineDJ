@@ -25,7 +25,7 @@ import scala.util.Try
 /**
   * Companion object for ''MediumInfoParser''.
   */
-private object MediumInfoParser {
+private object MediumInfoParser:
   /**
     * Constant for an undefined checksum for a medium. This value is set by the
     * parser for the ''checksum'' property of generated description objects if
@@ -49,12 +49,11 @@ private object MediumInfoParser {
     * @param data the array with the content of the medium description
     * @return the [[Configuration]] with the parsed medium description
     */
-  private def parseMediumDescription(data: Array[Byte]): Configuration = {
+  private def parseMediumDescription(data: Array[Byte]): Configuration =
     val stream = new ByteArrayInputStream(data)
     val config = new XMLConfiguration()
     config.load(stream)
     config
-  }
 
   /**
     * Extracts information about a medium from the given [[Configuration]] and
@@ -71,7 +70,6 @@ private object MediumInfoParser {
       orderMode = config.getString(ElemOrderMode),
       mediumID = mediumID,
       checksum = checksum)
-}
 
 /**
   * An internally used helper class for parsing XML files with meta data about
@@ -81,7 +79,7 @@ private object MediumInfoParser {
   * (using the typical format). The XML is passed in as a byte array because
   * this is the result produced by a file loader actor.
   */
-class MediumInfoParser {
+class MediumInfoParser:
 
   import MediumInfoParser._
 
@@ -97,4 +95,3 @@ class MediumInfoParser {
   def parseMediumInfo(data: Array[Byte], mediumID: MediumID,
                       checksum: String = ChecksumUndefined): Try[MediumInfo] =
     Try(extractMediumInfo(mediumID, checksum, parseMediumDescription(data)))
-}

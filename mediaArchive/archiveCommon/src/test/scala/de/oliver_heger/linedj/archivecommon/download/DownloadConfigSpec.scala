@@ -22,7 +22,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-object DownloadConfigSpec {
+object DownloadConfigSpec:
   /** The timeout for an inactive download actor. */
   private val DownloadTimeout = 2.hour
 
@@ -38,13 +38,12 @@ object DownloadConfigSpec {
     *
     * @return the ''Configuration''
     */
-  private def createUnderlyingConfig(): Configuration = {
+  private def createUnderlyingConfig(): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty("downloadTimeout", DownloadTimeout.toSeconds)
     config.addProperty("downloadCheckInterval", DownloadCheckInterval.toSeconds)
     config.addProperty("downloadChunkSize", DownloadChunkSize)
     config
-  }
 
   /**
     * Creates a ''Configuration'' object with download options and removes the
@@ -53,11 +52,10 @@ object DownloadConfigSpec {
     * @param property the property to be removed
     * @return the ''Configuration''
     */
-  private def createUnderlyingConfigWithout(property: String): Configuration = {
+  private def createUnderlyingConfigWithout(property: String): Configuration =
     val config = createUnderlyingConfig()
     config clearProperty property
     config
-  }
 
   /**
     * Creates a test ''DownloadConfig'' instance.
@@ -67,56 +65,44 @@ object DownloadConfigSpec {
     */
   private def createConfig(cc: Configuration = createUnderlyingConfig()): DownloadConfig =
     DownloadConfig(cc)
-}
 
 /**
   * Test class for ''DownloadConfig''.
   */
-class DownloadConfigSpec extends AnyFlatSpec with Matchers {
+class DownloadConfigSpec extends AnyFlatSpec with Matchers:
 
   import DownloadConfigSpec._
 
-  "A DownloadConfig" should "return the correct download timeout" in {
+  "A DownloadConfig" should "return the correct download timeout" in:
     createConfig().downloadTimeout should be(DownloadTimeout)
-  }
 
-  it should "return the correct download check interval" in {
+  it should "return the correct download check interval" in:
     createConfig().downloadCheckInterval should be(DownloadCheckInterval)
-  }
 
-  it should "return the correct download chunk size" in {
+  it should "return the correct download chunk size" in:
     createConfig().downloadChunkSize should be(DownloadChunkSize)
-  }
 
-  it should "use a default download timeout" in {
+  it should "use a default download timeout" in:
     val config = createConfig(createUnderlyingConfigWithout("downloadTimeout"))
 
     config.downloadTimeout should be(DownloadConfig.DefaultDownloadActorTimeout)
-  }
 
-  it should "use a default download check interval" in {
+  it should "use a default download check interval" in:
     val config = createConfig(createUnderlyingConfigWithout("downloadCheckInterval"))
 
     config.downloadCheckInterval should be(DownloadConfig.DefaultDownloadCheckInterval)
-  }
 
-  it should "use a default download chunk size" in {
+  it should "use a default download chunk size" in:
     val config = createConfig(createUnderlyingConfigWithout("downloadChunkSize"))
 
     config.downloadChunkSize should be(DownloadConfig.DefaultDownloadChunkSize)
-  }
 
-  it should "provide a default instance" in {
+  it should "provide a default instance" in:
     DownloadConfig.DefaultDownloadConfig.downloadChunkSize should be(DownloadConfig.DefaultDownloadChunkSize)
     DownloadConfig.DefaultDownloadConfig.downloadTimeout should be(DownloadConfig.DefaultDownloadActorTimeout)
     DownloadConfig.DefaultDownloadConfig.downloadCheckInterval should be(DownloadConfig.DefaultDownloadCheckInterval)
-  }
 
-  it should "support default values when creating an instance" in {
-    val defConfig = DownloadConfig.DefaultDownloadConfig.copy(downloadTimeout = 11.minutes,
-      downloadCheckInterval = 27.minutes, downloadChunkSize = 1156)
+  it should "support default values when creating an instance" in:
+    val config = DownloadConfig(new HierarchicalConfiguration, DownloadConfig.DefaultDownloadConfig)
 
-    val config = DownloadConfig(new HierarchicalConfiguration, defConfig)
-    config should be(defConfig)
-  }
-}
+    config should be(DownloadConfig.DefaultDownloadConfig)

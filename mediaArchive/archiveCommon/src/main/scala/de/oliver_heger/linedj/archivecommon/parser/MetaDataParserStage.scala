@@ -24,7 +24,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.charset.StandardCharsets
 
-object MetaDataParserStage {
+object MetaDataParserStage:
   /** The object for parsing meta data processing results. */
   private val parser = new MetaDataParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
 
@@ -41,7 +41,6 @@ object MetaDataParserStage {
                                        lastChunk: Boolean):
   (Iterable[MetaDataProcessingSuccess], Option[Failure]) =
     parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), mid, lastChunk, lastFailure)
-}
 
 /**
   * A specialized [[ParserStage]] implementation for parsing a stream with

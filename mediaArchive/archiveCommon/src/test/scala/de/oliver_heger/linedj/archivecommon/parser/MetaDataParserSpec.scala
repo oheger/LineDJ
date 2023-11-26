@@ -27,7 +27,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object MetaDataParserSpec {
+object MetaDataParserSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("someTestMedium", Some("test"))
 
@@ -51,10 +51,9 @@ object MetaDataParserSpec {
     * @return the test parser
     */
   private def expectSuccessResult(parser: MetaDataParser, chunkIndex: Int, results: JSONParser
-  .JSONData): MetaDataParser = {
+  .JSONData): MetaDataParser =
     expectParserRun(parser, chunkIndex).thenReturn(ParserTypes.Success(results, 1))
     parser
-  }
 
   /**
     * Expects an invocation of the chunk parser with the given parameters.
@@ -67,10 +66,9 @@ object MetaDataParserSpec {
     */
   private def expectParserRun(parser: MetaDataParser, chunkIndex: Int, lastChunk: Boolean = false,
                               optFailure: Option[Failure] = None):
-  OngoingStubbing[Result[JSONData]] = {
+  OngoingStubbing[Result[JSONData]] =
     when(parser.chunkParser.runChunk(parser.jsonParser)(generateChunk(chunkIndex),
       lastChunk, optFailure))
-  }
 
   /**
     * Creates a number of result objects that can be returned by the mock
@@ -79,19 +77,17 @@ object MetaDataParserSpec {
     *
     * @return the sequence with result objects
     */
-  private def createResultObjects(): Vector[Map[String, String]] = {
+  private def createResultObjects(): Vector[Map[String, String]] =
     val props1 = Map(MetaDataParser.PropTitle -> "Title1")
     val props2 = Map(MetaDataParser.PropArtist -> "Artist")
     val props3 = Map(MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri3.mp3")
     Vector(props1, props2, props3)
-  }
-}
 
 /**
   * Test class for ''MetaDataParser''.
   */
-class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import MetaDataParserSpec._
 
@@ -119,15 +115,14 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @param p the test parser
     * @return the result returned by the parser
     */
-  private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingSuccess = {
+  private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingSuccess =
     val (data, failure) = p.processChunk(generateChunk(1), TestMedium, lastChunk = false,
       optFailure = None)
     failure shouldBe empty
     data should have size 1
     data.head
-  }
 
-  "A MetaDataParser" should "convert a JSON map to a MediaMetaData object" in {
+  "A MetaDataParser" should "convert a JSON map to a MediaMetaData object" in:
     val props = Map(MetaDataParser.PropAlbum -> "Album",
       MetaDataParser.PropArtist -> "Artist",
       MetaDataParser.PropDuration -> "180",
@@ -149,9 +144,8 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     result.metaData.size should be(20160303212850L)
     result.metaData.title.get should be("Title")
     result.metaData.trackNumber.get should be(15)
-  }
 
-  it should "handle invalid Int properties correctly" in {
+  it should "handle invalid Int properties correctly" in:
     val props = Map(MetaDataParser.PropDuration -> "> 180",
       MetaDataParser.PropInceptionYear -> "MCMLXXXIV",
       MetaDataParser.PropSize -> "20160303213928",
@@ -163,26 +157,23 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     result.metaData.duration shouldBe empty
     result.metaData.inceptionYear shouldBe empty
     result.metaData.trackNumber shouldBe empty
-  }
 
-  it should "handle an invalid size property" in {
+  it should "handle an invalid size property" in:
     val props = Map(MetaDataParser.PropSize -> "large",
       MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
     result.metaData.size should be(-1)
-  }
 
-  it should "handle a missing size correctly" in {
+  it should "handle a missing size correctly" in:
     val props = Map(MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
     result.metaData.size should be(-1)
-  }
 
-  it should "return multiple results if available" in {
+  it should "return multiple results if available" in:
     val props1 = Map(MetaDataParser.PropTitle -> "Title1",
       MetaDataParser.PropUri -> "song://uri1.mp3")
     val props2 = Map(MetaDataParser.PropArtist -> "Artist",
@@ -196,17 +187,15 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     data.head.metaData.title.get should be("Title1")
     data(1).metaData.title shouldBe empty
     data(1).uri.uri should be("song://uri2.mp3")
-  }
 
-  it should "filter out results that have no URI" in {
+  it should "filter out results that have no URI" in:
     val objects = createResultObjects()
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1,
       objects))
     result.metaData.title.get should be("Title")
-  }
 
-  it should "handle a Failure without partial results" in {
+  it should "handle a Failure without partial results" in:
     val failureIn = Some(Failure(ParseError(Nil), isCommitted = false, Nil))
     val failureOut = Some(Failure(ParseError(), isCommitted = true, Nil))
     val parser = createParser()
@@ -216,9 +205,8 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       failureIn)
     data should have size 0
     optFailure should be(failureOut)
-  }
 
-  it should "extract results from the partial data of a Failure result" in {
+  it should "extract results from the partial data of a Failure result" in:
     val partialData = List("foo", "bar",
       ParserImpl.ManyPartialData[Map[String, String]](createResultObjects().toList), "other")
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
@@ -231,9 +219,8 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     data.head.metaData.title.get should be("Title")
     optFailure.get should be(failureOut.copy(partialData = List("foo", "bar", ParserImpl
       .ManyPartialData(Nil), "other")))
-  }
 
-  it should "handle a ManyPartialData object without content" in {
+  it should "handle a ManyPartialData object without content" in:
     val partialData = List(ParserImpl.ManyPartialData[Map[String, String]](Nil))
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
     val parser = createParser()
@@ -243,9 +230,8 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       None)
     data should have size 0
     optFailure.get should be(failureOut)
-  }
 
-  it should "handle a ManyPartialData object with a non-result data type" in {
+  it should "handle a ManyPartialData object with a non-result data type" in:
     val partialData = List(ParserImpl.ManyPartialData[String](List("test")))
     val failureOut = Failure(ParseError(), isCommitted = true, partialData)
     val parser = createParser()
@@ -255,8 +241,6 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       None)
     data should have size 0
     optFailure.get should be(failureOut)
-  }
-}
 
 /**
   * A specialized chunk parser type which makes handling the complex type

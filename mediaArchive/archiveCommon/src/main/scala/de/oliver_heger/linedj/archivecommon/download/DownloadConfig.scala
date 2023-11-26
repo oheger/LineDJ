@@ -22,31 +22,32 @@ import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
 
-object DownloadConfig {
+object DownloadConfig:
   /** The configuration property for the reader timeout. */
-  val PropDownloadActorTimeout: String = "downloadTimeout"
+  final val PropDownloadActorTimeout: String = "downloadTimeout"
 
   /** The configuration property for the interval for reader timeout checks. */
-  val PropDownloadCheckInterval: String = "downloadCheckInterval"
+  final val PropDownloadCheckInterval: String = "downloadCheckInterval"
 
   /** The configuration property for the download chunk size. */
-  val PropDownloadChunkSize: String = "downloadChunkSize"
+  final val PropDownloadChunkSize: String = "downloadChunkSize"
 
   /** The default timeout for download actors. */
-  val DefaultDownloadActorTimeout: FiniteDuration = 1.hour
+  final val DefaultDownloadActorTimeout: FiniteDuration = 1.hour
 
   /** The default check interval for download operations. */
-  val DefaultDownloadCheckInterval: FiniteDuration = 30.minutes
+  final val DefaultDownloadCheckInterval: FiniteDuration = 30.minutes
 
   /** The default chunk size for download operations. */
-  val DefaultDownloadChunkSize = 16384
+  final val DefaultDownloadChunkSize = 16384
 
   /**
     * Constant for a ''DownloadConfig'' instance that is initialized only with
     * default values.
     */
-  val DefaultDownloadConfig: DownloadConfig = new DownloadConfig(DefaultDownloadActorTimeout,
-    DefaultDownloadCheckInterval, DefaultDownloadChunkSize)
+  final val DefaultDownloadConfig: DownloadConfig = new DownloadConfig(DefaultDownloadActorTimeout,
+    DefaultDownloadCheckInterval,
+    DefaultDownloadChunkSize)
 
   /**
     * Creates a new instance of ''DownloadConfig'' based on the passed in
@@ -78,7 +79,6 @@ object DownloadConfig {
   private def durationProperty(config: Configuration, key: String, defValue: Long):
   FiniteDuration =
     FiniteDuration(config.getLong(key, defValue), TimeUnit.SECONDS)
-}
 
 /**
   * A class managing the configuration options related to download operations

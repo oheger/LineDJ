@@ -23,7 +23,9 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.logging.log4j.LogManager
 
-object MetaDataParser {
+import scala.collection.immutable.IndexedSeq
+
+object MetaDataParser:
   /** The property for the song title. */
   final val PropTitle = "title"
 
@@ -67,13 +69,12 @@ object MetaDataParser {
     * @param obj the map with object properties
     * @return the extracted meta data
     */
-  private def createMetaData(obj: Map[String, String]): MediaMetaData = {
+  private def createMetaData(obj: Map[String, String]): MediaMetaData =
     MediaMetaData(artist = obj get PropArtist, album = obj get PropAlbum,
       title = obj get PropTitle, inceptionYear = intProperty(obj, PropInceptionYear),
       trackNumber = intProperty(obj, PropTrackNumber),
       duration = intProperty(obj, PropDuration),
       formatDescription = obj get PropFormatDescription, size = sizeProperty(obj))
-  }
 
   /**
     * Converts a JSON object to a processing result.
@@ -93,14 +94,12 @@ object MetaDataParser {
     * @param prop the property to be extracted
     * @return the extracted numeric value
     */
-  private def intProperty(obj: Map[String, String], prop: String): Option[Int] = {
+  private def intProperty(obj: Map[String, String], prop: String): Option[Int] =
     try obj.get(prop) map (_.toInt)
-    catch {
+    catch
       case _: NumberFormatException =>
         log.warn(s"Invalid value for property $prop: '${obj(prop)}'; ignoring.")
         None
-    }
-  }
 
   /**
     * Extracts the size from the given object map. The size can be invalid or
@@ -109,16 +108,13 @@ object MetaDataParser {
     * @param obj the map with object properties
     * @return the extracted size
     */
-  private def sizeProperty(obj: Map[String, String]): Long = {
+  private def sizeProperty(obj: Map[String, String]): Long =
     try obj.get(PropSize).map(_.toLong) getOrElse UnknownFileSize
-    catch {
+    catch
       case _: NumberFormatException =>
         log.warn(s"Invalid value for property size: '${obj(PropSize)}'.")
         UnknownFileSize
-    }
-  }
 
-}
 
 /**
   * A class for parsing files with metadata about songs.
@@ -145,14 +141,12 @@ object MetaDataParser {
   */
 class MetaDataParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
   Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[MetaDataProcessingSuccess, MediumID](chunkParser, jsonParser) {
+  extends AbstractModelParser[MetaDataProcessingSuccess, MediumID](chunkParser, jsonParser):
 
   import MetaDataParser._
 
   override def convertJsonObjects(mediumID: MediumID, objects: IndexedSeq[Map[String, String]]):
-  IndexedSeq[MetaDataProcessingSuccess] = {
+  IndexedSeq[MetaDataProcessingSuccess] =
     objects filter {
       m => m.contains(PropUri)
     } map (createProcessingResult(_, mediumID))
-  }
-}

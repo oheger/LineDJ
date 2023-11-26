@@ -31,10 +31,9 @@ import java.nio.file.Paths
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object MetaDataParserStageSpec {
+object MetaDataParserStageSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("testMedium", Some("test.settings"), "foo")
-}
 
 /**
   * Test class for ''MetaDataParserStage''. This class only tests basic
@@ -42,12 +41,11 @@ object MetaDataParserStageSpec {
   * testing logic.
   */
 class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("MetaDataParserStateSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   import MetaDataParserStageSpec._
 
@@ -57,15 +55,14 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
     * @param src the source
     * @return the resulting list of processing results
     */
-  private def parse(src: Source[ByteString, Any]): List[MetaDataProcessingSuccess] = {
+  private def parse(src: Source[ByteString, Any]): List[MetaDataProcessingSuccess] =
     val stage = new MetaDataParserStage(TestMedium)
 
     val futureStream = src.via(stage)
       .runFold(List.empty[MetaDataProcessingSuccess])((lst, r) => r :: lst)
     Await.result(futureStream, 3.seconds)
-  }
 
-  "A MetaDataParserStage" should "process a source with JSON data" in {
+  "A MetaDataParserStage" should "process a source with JSON data" in:
     val json =
       s"""[{
          |"title":"Fire Water Burn",
@@ -87,12 +84,9 @@ class MetaDataParserStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val titles = lstMetaData map (_.metaData.title.get)
     titles should contain only("Fire Water Burn", "When the Night Comes")
     lstMetaData.map(_.mediumID).toSet should contain only TestMedium
-  }
 
-  it should "process a real-life meta data file" in {
+  it should "process a real-life meta data file" in:
     val filePath = Paths.get(getClass.getResource("/metadata.mdt").toURI)
 
     val lstMetaData = parse(FileIO.fromPath(filePath, chunkSize = 512))
     lstMetaData should have size 67
-  }
-}

@@ -27,7 +27,7 @@ import org.apache.pekko.util.ByteString
 
 import java.nio.file.Path
 
-object MediaFileDownloadActor {
+object MediaFileDownloadActor:
   /**
     * Constant for a response that is sent for a concurrent [[DownloadData]]
     * message.
@@ -59,14 +59,12 @@ object MediaFileDownloadActor {
     * no matter which file extension is passed in. Actually, it is a partial
     * function that is defined nowhere.
     */
-  object IdentityTransform extends DownloadTransformFunc {
+  object IdentityTransform extends DownloadTransformFunc:
     override def isDefinedAt(x: String): Boolean = false
 
     override def apply(ext: String): Flow[ByteString, ByteString, Any] =
       throw new UnsupportedOperationException("apply() not supported for IdentityTransform!")
-  }
 
-}
 
 /**
   * An actor handling the download of a specific media file from the media
@@ -97,7 +95,7 @@ object MediaFileDownloadActor {
   */
 class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransformFunc,
                              optManagerActor: Option[ActorRef])
-  extends StreamPullModeratorActor with ActorLogging {
+  extends StreamPullModeratorActor with ActorLogging:
 
   def this(path: Path, chunkSize: Int, trans: DownloadTransformFunc) =
     this(path, chunkSize, trans, None)
@@ -105,11 +103,10 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   /** A message to notify the download manager when there is activity. */
   private var aliveMessage: Any = _
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     log.info("Starting download of {}.", path)
     super.preStart()
     aliveMessage = DownloadActorAlive(self, MediaFileID(MediumID.UndefinedMediumID, ""))
-  }
 
   /**
     * Creates the source for the stream. This is a source which reads the
@@ -120,7 +117,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
   protected final def createSource(): Source[ByteString, Any] =
     applyTransformation(createUntransformedSource())
 
-  override protected def customReceive: Receive = {
+  override protected def customReceive: Receive =
     case DownloadData(size) =>
       dataRequested(size)
       optManagerActor foreach (_ ! aliveMessage)
@@ -128,7 +125,6 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     case ErrorMsg(exception) =>
       log.error(exception, "Error when downloading file " + path)
       context stop self
-  }
 
   override protected def convertStreamError(exception: Throwable): Any = ErrorMsg(exception)
 
@@ -155,9 +151,7 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     * @param source the source to be transformed
     * @return the transformed source
     */
-  private def applyTransformation(source: Source[ByteString, Any]): Source[ByteString, Any] = {
+  private def applyTransformation(source: Source[ByteString, Any]): Source[ByteString, Any] =
     val extension = PathUtils extractExtension path.toString
-    if (trans isDefinedAt extension) source.via(trans(extension))
+    if trans isDefinedAt extension then source.via(trans(extension))
     else source
-  }
-}

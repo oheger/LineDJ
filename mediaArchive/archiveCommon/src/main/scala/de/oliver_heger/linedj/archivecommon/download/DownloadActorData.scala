@@ -37,7 +37,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
  * indicates the crash of a client. These actors can then be stopped by the
  * archive.
  */
-class DownloadActorData {
+class DownloadActorData:
   /** A mapping from processing actors to the client actors that read data. */
   private val clientMapping = collection.mutable.Map.empty[ActorRef, ActorRef]
 
@@ -54,11 +54,10 @@ class DownloadActorData {
    * @return this object
    */
   def add(downloadActor: ActorRef, client: ActorRef, timestamp: Long):
-  DownloadActorData = {
+  DownloadActorData =
     clientMapping += downloadActor -> client
     timestamps += downloadActor -> timestamp
     this
-  }
 
   /**
    * Checks whether information about the specified download actor is contained
@@ -86,10 +85,9 @@ class DownloadActorData {
     * @param ref the actor reference that is to be removed
     * @return an ''Option'' with the associated client actor
     */
-  def remove(ref: ActorRef): Option[ActorRef] = {
+  def remove(ref: ActorRef): Option[ActorRef] =
     timestamps remove ref
     clientMapping remove ref
-  }
 
   /**
    * Determines all actor references for which a timeout occurred. These
@@ -116,14 +114,11 @@ class DownloadActorData {
    * @return a flag whether the update was successful; '''false''' indicates
    *         that the actor was unknown
    */
-  def updateTimestamp(ref: ActorRef, timestamp: Long): Boolean = {
-    timestamps get ref match {
+  def updateTimestamp(ref: ActorRef, timestamp: Long): Boolean =
+    timestamps get ref match
       case Some(_) =>
         timestamps += ref -> timestamp
         true
 
       case None =>
         false
-    }
-  }
-}
