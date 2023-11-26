@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
+import de.oliver_heger.linedj.test.ForwardTestActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
@@ -30,7 +30,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.atomic.AtomicInteger
 
-object MediaUnionActorSpec {
+object MediaUnionActorSpec:
   /** Prefix string for archive component IDs. */
   private val ComponentPrefix = "ArchiveComponent_"
 
@@ -81,25 +81,22 @@ object MediaUnionActorSpec {
     * @param componentIdx the index of the archive component
     * @return the mapping
     */
-  private def mediaMapping(idx: Int, componentIdx: Int): (MediumID, MediumInfo) = {
+  private def mediaMapping(idx: Int, componentIdx: Int): (MediumID, MediumInfo) =
     val mid = mediumID(idx, componentIdx)
     mid -> mediumInfo(mid, idx)
-  }
-}
 
 /**
   * Test class for ''MediaUnionActor''.
   */
-class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
 
   import MediaUnionActorSpec._
 
   def this() = this(ActorSystem("MediaUnionActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Stops the specified actor and waits until the death watch notification
@@ -108,14 +105,13 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * @param actor the actor to be stopped
     * @return the received ''Terminated'' message
     */
-  private def stopActor(actor: ActorRef): Terminated = {
+  private def stopActor(actor: ActorRef): Terminated =
     system stop actor
     val watcher = TestProbe()
     watcher watch actor
     watcher.expectMsgType[Terminated]
-  }
 
-  "A MediaUnionActor" should "create correct properties" in {
+  "A MediaUnionActor" should "create correct properties" in:
     val metaDataActor = TestProbe().ref
     val props = MediaUnionActor(metaDataActor)
 
@@ -123,24 +119,21 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     classOf[MediaUnionActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
-  }
 
-  it should "have an empty initial map of media" in {
+  it should "have an empty initial map of media" in:
     val helper = new MediaUnionActorTestHelper
 
     val availableMedia = helper.queryMedia()
     availableMedia.media should have size 0
-  }
 
-  it should "allow adding media information" in {
+  it should "allow adding media information" in:
     val mediaMap = Map(mediaMapping(1, 1), mediaMapping(2, 1), mediaMapping(3, 1))
     val helper = new MediaUnionActorTestHelper
 
     helper.addMedia(mediaMap, 1)
     helper.queryMedia().media should be(mediaMap)
-  }
 
-  it should "construct a union of available media" in {
+  it should "construct a union of available media" in:
     val mediaMap1 = Map(mediaMapping(1, 1), mediaMapping(2, 1), mediaMapping(3, 1))
     val mediaMap2 = Map(mediaMapping(1, 2), mediaMapping(2, 2))
     val helper = new MediaUnionActorTestHelper
@@ -149,9 +142,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.addMedia(mediaMap2, 2)
     val mediaMap = helper.queryMedia().media
     mediaMap should be(mediaMap1 ++ mediaMap2)
-  }
 
-  it should "handle a request for a medium file" in {
+  it should "handle a request for a medium file" in:
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
     val request = MediumFileRequest(MediaFileID(mid, "someFile"), withMetaData = false)
@@ -161,9 +153,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     expectMsg(ForwardTestActor.ForwardedMessage(request))
-  }
 
-  it should "evaluate the checksum in a medium file request" in {
+  it should "evaluate the checksum in a medium file request" in:
     val mediaMap1 = Map(mediaMapping(1, 1))
     val mediaMap2 = Map(mediaMapping(2, 2))
     val mid = mediumID(2, 1)
@@ -176,9 +167,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     expectMsg(ForwardTestActor.ForwardedMessage(request))
-  }
 
-  it should "handle a medium file request for a non-existing controller actor" in {
+  it should "handle a medium file request for a non-existing controller actor" in:
     val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
 
@@ -186,9 +176,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val response = expectMsgType[MediumFileResponse]
     response.request should be(request)
     response.length should be(-1)
-  }
 
-  it should "fallback to the medium ID if the checksum of a file request cannot be resolved" in {
+  it should "fallback to the medium ID if the checksum of a file request cannot be resolved" in:
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
     val request = MediumFileRequest(MediaFileID(mid, "someFile", Some(checksum(2))),
@@ -199,18 +188,16 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     expectMsg(ForwardTestActor.ForwardedMessage(request))
-  }
 
-  it should "return an undefined reader actor for an invalid file request" in {
+  it should "return an undefined reader actor for an invalid file request" in:
     val request = MediumFileRequest(MediaFileID(mediumID(1, 1), "someFile"), withMetaData = true)
     val helper = new MediaUnionActorTestHelper
 
     helper.manager ! request
     val response = expectMsgType[MediumFileResponse]
     response.contentReader shouldBe empty
-  }
 
-  it should "reset the checksum mapping if new media data is added" in {
+  it should "reset the checksum mapping if new media data is added" in:
     val mediaMap1 = Map(mediaMapping(1, 1))
     val mediaMap2 = Map(mediaMapping(2, 2))
     val mid = mediumID(1, 1)
@@ -224,9 +211,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val ctrl2 = helper.addMedia(mediaMap2, 2)
     helper.manager ! request
     ctrl2.expectMsg(request)
-  }
 
-  it should "handle a DownloadActorAlive message" in {
+  it should "handle a DownloadActorAlive message" in:
     val mediaMap = Map(mediaMapping(1, 1))
     val mid = mediumID(1, 1)
     val request = DownloadActorAlive(null, MediaFileID(mid, "someUri"))
@@ -236,9 +222,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     expectMsg(ForwardTestActor.ForwardedMessage(request))
-  }
 
-  it should "evaluate the checksum when handling a DownloadActorAlive message" in {
+  it should "evaluate the checksum when handling a DownloadActorAlive message" in:
     val mediaMap1 = Map(mediaMapping(1, 1))
     val mediaMap2 = Map(mediaMapping(2, 2))
     val mid = mediumID(2, 1)
@@ -250,25 +235,22 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! request
     expectMsg(ForwardTestActor.ForwardedMessage(request))
-  }
 
-  it should "ignore a DownloadActorAlive message for an unknown component" in {
+  it should "ignore a DownloadActorAlive message for an unknown component" in:
     val helper = new MediaUnionActorTestHelper
     val request = DownloadActorAlive(null, MediaFileID(mediumID(42, 28), "file"))
 
     helper.manager receive request
-  }
 
-  it should "forward a scan request to all controller actors" in {
+  it should "forward a scan request to all controller actors" in:
     val helper = new MediaUnionActorTestHelper
     val ctrl1 = helper.addMedia(Map(mediaMapping(1, 1)), 1)
     val ctrl2 = helper.addMedia(Map(mediaMapping(1, 2)), 2)
 
     helper.manager ! ScanAllMedia
     List(ctrl1, ctrl2).foreach(_.expectMsg(ScanAllMedia))
-  }
 
-  it should "remove the media of a controller when it terminates" in {
+  it should "remove the media of a controller when it terminates" in:
     val mediaMap1 = Map(mediaMapping(1, 1), mediaMapping(2, 1), mediaMapping(3, 1))
     val mediaMap2 = Map(mediaMapping(1, 2), mediaMapping(2, 2))
     val helper = new MediaUnionActorTestHelper
@@ -277,9 +259,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     stopActor(ctrl.ref)
     awaitCond(helper.queryMedia().media == mediaMap2)
-  }
 
-  it should "reset the checksum mapping if an archive component is removed" in {
+  it should "reset the checksum mapping if an archive component is removed" in:
     val mediaMap1 = Map(mediaMapping(1, 1))
     val mediaMap2 = Map(mediaMapping(2, 2))
     val mid = mediumID(1, 1)
@@ -295,9 +276,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     awaitCond(helper.queryMedia().media.size == 1)
     helper.manager ! request
     probe1.expectMsg(request)
-  }
 
-  it should "remove the media of a controller on request" in {
+  it should "remove the media of a controller on request" in:
     val mediaMap1 = Map(mediaMapping(1, 1), mediaMapping(2, 1), mediaMapping(3, 1))
     val mediaMap2 = Map(mediaMapping(1, 2), mediaMapping(2, 2))
     val helper = new MediaUnionActorTestHelper
@@ -306,9 +286,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! ArchiveComponentRemoved(componentID(1))
     helper.queryMedia().media should be(mediaMap2)
-  }
 
-  it should "remove a terminated controller actor from the mapping" in {
+  it should "remove a terminated controller actor from the mapping" in:
     val mediaMap = Map(mediaMapping(1, 1))
     val helper = new MediaUnionActorTestHelper
     val ctrl = helper.addMedia(mediaMap, 1)
@@ -316,17 +295,15 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     stopActor(ctrl.ref)
     helper.manager ! MediumFileRequest(MediaFileID(mediumID(1, 1), "someUri"), withMetaData = true)
     expectMsgType[MediumFileResponse].contentReader shouldBe empty
-  }
 
-  it should "use the sender as controller actor if not specified explicitly" in {
+  it should "use the sender as controller actor if not specified explicitly" in:
     val helper = new MediaUnionActorTestHelper
 
     helper.manager ! AddMedia(Map(mediaMapping(1, 1)), componentID(1), None)
     helper.manager ! ScanAllMedia
     expectMsg(ScanAllMedia)
-  }
 
-  it should "not override a controller with another actor" in {
+  it should "not override a controller with another actor" in:
     val mediaMap1 = Map(mediaMapping(1, 1))
     val mediaMap2 = Map(mediaMapping(2, 1))
     val helper = new MediaUnionActorTestHelper
@@ -341,39 +318,34 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       withMetaData = false)
     helper.manager ! request
     ctrl1.expectMsg(request)
-  }
 
-  it should "process a CloseRequest message" in {
+  it should "process a CloseRequest message" in:
     val helper = new MediaUnionActorTestHelper
     val ctrl1 = helper.addMedia(Map(mediaMapping(1, 1)), 1)
     val ctrl2 = helper.addMedia(Map(mediaMapping(1, 2)), 2)
 
     helper.initCloseActors(ctrl1.ref, ctrl2.ref).triggerAndExpectCloseHandling()
-  }
 
-  it should "process a CloseComplete message" in {
+  it should "process a CloseComplete message" in:
     val helper = new MediaUnionActorTestHelper
 
     helper.triggerAndExpectCompletedClose()
-  }
 
-  it should "notify the meta data actor about a scan request" in {
+  it should "notify the meta data actor about a scan request" in:
     val helper = new MediaUnionActorTestHelper
     helper.manager ! ScanAllMedia
 
     helper.metaDataActor.expectMsg(ScanAllMedia)
-  }
 
-  it should "notify the meta data actor about a removed archive component" in {
+  it should "notify the meta data actor about a removed archive component" in:
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(Map(mediaMapping(1, 1)), 1)
     val ctrl2 = helper.addMedia(Map(mediaMapping(1, 2)), 2)
 
     system stop ctrl2.ref
     helper.metaDataActor.expectMsg(ArchiveComponentRemoved(componentID(2)))
-  }
 
-  it should "notify the meta data actor about a request to remove a component" in {
+  it should "notify the meta data actor about a request to remove a component" in:
     val helper = new MediaUnionActorTestHelper
     helper.metaDataActor.setAutoPilot((sender: ActorRef, msg: Any) => {
       sender ! ForwardTestActor.ForwardedMessage(msg)
@@ -383,9 +355,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! msg
     expectMsg(ForwardTestActor.ForwardedMessage(msg))
-  }
 
-  it should "process and forward a GetFilesMetaData message" in {
+  it should "process and forward a GetFilesMetaData message" in:
     def fileID(mid: MediumID, checkIdx: Int): MediaFileID =
       MediaFileID(mid, "someFile", Some(checksum(checkIdx)))
 
@@ -406,9 +377,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val fwdMsg = helper.metaDataActor.expectMsgType[MetaDataUnionActor.GetFilesMetaDataWithMapping]
     fwdMsg.request should be(request)
     fwdMsg.idMapping should be(expMapping)
-  }
 
-  it should "forward a GetArchiveMetaDataFileInfo message to the archive controller actor" in {
+  it should "forward a GetArchiveMetaDataFileInfo message to the archive controller actor" in:
     val mediaMap = Map(mediaMapping(1, 1))
     val controller = ForwardTestActor()
     val helper = new MediaUnionActorTestHelper
@@ -416,9 +386,8 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.manager ! GetArchiveMetaDataFileInfo(componentID(1))
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
-  }
 
-  it should "handle a GetArchiveMEtaDataFileInfo request for an unknown archive" in {
+  it should "handle a GetArchiveMEtaDataFileInfo request for an unknown archive" in:
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(Map(mediaMapping(1, 1)), 1)
 
@@ -426,12 +395,11 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val response = expectMsgType[Status.Failure]
     response.cause shouldBe a[NoSuchElementException]
     response.cause.getMessage should include(componentID(42))
-  }
 
   /**
     * A test helper class managing all dependencies of the test actor.
     */
-  private class MediaUnionActorTestHelper {
+  private class MediaUnionActorTestHelper:
     /** Test probe for the meta data manager actor. */
     val metaDataActor: TestProbe = TestProbe()
 
@@ -453,10 +421,9 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return the currently available media
       */
-    def queryMedia(): AvailableMedia = {
+    def queryMedia(): AvailableMedia =
       manager ! GetAvailableMedia
       expectMsgType[AvailableMedia]
-    }
 
     /**
       * Sends a message to the test actor which adds the specified media
@@ -466,11 +433,10 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param componentIdx the index of the archive component
       * @return the test probe for the controlling actor
       */
-    def addMedia(data: Map[MediumID, MediumInfo], componentIdx: Int): TestProbe = {
+    def addMedia(data: Map[MediumID, MediumInfo], componentIdx: Int): TestProbe =
       val probe = TestProbe()
       addMedia(data, componentIdx, probe.ref)
       probe
-    }
 
     /**
       * Sends a message to the test actor which adds the specified media
@@ -482,10 +448,9 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @return this test helper
       */
     def addMedia(data: Map[MediumID, MediumInfo], componentIdx: Int, actor: ActorRef):
-    MediaUnionActorTestHelper = {
+    MediaUnionActorTestHelper =
       manager ! AddMedia(data, componentID(componentIdx), Some(actor))
       this
-    }
 
     /**
       * Initializes the actors to be taken into account when processing a close
@@ -494,10 +459,9 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       * @param actors the actors to be closed
       * @return this test helper
       */
-    def initCloseActors(actors: ActorRef*): MediaUnionActorTestHelper = {
+    def initCloseActors(actors: ActorRef*): MediaUnionActorTestHelper =
       closeActors = metaDataActor.ref :: actors.toList
       this
-    }
 
     /**
       * Sends a close request to the test actor and checks that close handling
@@ -505,11 +469,10 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return this test helper
       */
-    def triggerAndExpectCloseHandling(): MediaUnionActorTestHelper = {
+    def triggerAndExpectCloseHandling(): MediaUnionActorTestHelper =
       manager ! CloseRequest
       awaitCond(closeRequestCount.get() == 1)
       this
-    }
 
     /**
       * Returns the number of completed close requests.
@@ -524,11 +487,10 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       *
       * @return this test helper
       */
-    def triggerAndExpectCompletedClose(): MediaUnionActorTestHelper = {
+    def triggerAndExpectCompletedClose(): MediaUnionActorTestHelper =
       manager ! CloseHandlerActor.CloseComplete
       awaitCond(numberOfCloseCompleted() == 1)
       this
-    }
 
     /**
       * Creates the test actor reference.
@@ -556,6 +518,4 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
           */
         override def onCloseComplete(): Unit = closeCompleteCount.incrementAndGet()
       }))
-  }
 
-}

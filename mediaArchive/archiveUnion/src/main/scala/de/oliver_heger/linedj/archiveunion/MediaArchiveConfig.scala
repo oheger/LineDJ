@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archiveunion
 
 import org.apache.commons.configuration.Configuration
 
-object MediaArchiveConfig {
+object MediaArchiveConfig:
   /** Constant for the common prefix for configuration options. */
   private val ConfigPrefix = "media."
 
@@ -42,7 +42,6 @@ object MediaArchiveConfig {
     new MediaArchiveConfig(
       metaDataUpdateChunkSize = config getInt PropMetaDataUpdateChunkSize,
       initMetaDataMaxMsgSize = config getInt PropMetaDataMaxMessageSize)
-}
 
 /**
   * A class for managing configuration data for the union media archive.
@@ -67,7 +66,7 @@ object MediaArchiveConfig {
   *                                update chunk size
   */
 case class MediaArchiveConfig private(metaDataUpdateChunkSize: Int,
-                                      initMetaDataMaxMsgSize: Int) {
+                                      initMetaDataMaxMsgSize: Int):
   /** The maximum size of meta data chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
@@ -78,8 +77,6 @@ case class MediaArchiveConfig private(metaDataUpdateChunkSize: Int,
     *
     * @return the maximum meta data chunk message size
     */
-  private def calcMaxMessageSize(): Int = {
-    if (initMetaDataMaxMsgSize % metaDataUpdateChunkSize == 0) initMetaDataMaxMsgSize
+  private def calcMaxMessageSize(): Int =
+    if initMetaDataMaxMsgSize % metaDataUpdateChunkSize == 0 then initMetaDataMaxMsgSize
     else (initMetaDataMaxMsgSize / metaDataUpdateChunkSize + 1) * metaDataUpdateChunkSize
-  }
-}

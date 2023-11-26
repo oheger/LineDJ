@@ -20,6 +20,8 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess}
 
+import scala.collection.immutable.Seq
+
 /**
   * An internally used helper class for storing and managing the meta data
   * of a medium.
@@ -31,7 +33,7 @@ import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, Me
   *
   * @param mediumID the medium ID
   */
-private class MediumDataHandler(mediumID: MediumID) {
+private class MediumDataHandler(mediumID: MediumID):
   /**
     * A set with the URIs of all files in this medium. This is used to
     * determine whether all data has been fetched.
@@ -51,9 +53,8 @@ private class MediumDataHandler(mediumID: MediumID) {
     *
     * @param files the files that are going to be processed
     */
-  def expectMediaFiles(files: Iterable[MediaFileUri]): Unit = {
+  def expectMediaFiles(files: Iterable[MediaFileUri]): Unit =
     mediumUris ++= files
-  }
 
   /**
     * Stores the specified result in this object. If the specified chunk size
@@ -70,13 +71,12 @@ private class MediumDataHandler(mediumID: MediumID) {
     *         evaluate the lazy meta data chunk expression)
     */
   def storeResult(result: MetaDataProcessingResult, chunkSize: Int, maxChunkSize: Int)
-                 (f: (=> MetaDataChunk) => Unit): Boolean = {
+                 (f: (=> MetaDataChunk) => Unit): Boolean =
     mediumUris -= result.uri
     val complete = isComplete
     nextChunkData = updateNextChunkData(result)
 
     processNextChunkData(chunkSize, maxChunkSize, complete, f)
-  }
 
   /**
     * Returns a flag whether all meta data for the represented medium has been
@@ -97,10 +97,9 @@ private class MediumDataHandler(mediumID: MediumID) {
     * Resets the data of this handler. This method can be called at the start
     * of another scan operation.
     */
-  def reset(): Unit = {
+  def reset(): Unit =
     currentData = initialData()
     nextChunkData = Map.empty
-  }
 
   /**
     * Returns the meta data for the specified URI if available.
@@ -108,11 +107,9 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @param uri the URI of the file in question
     * @return an ''Option'' with the meta data for this file
     */
-  def metaDataFor(uri: String): Option[MediaMetaData] = {
-    nextChunkData.get(uri) orElse {
+  def metaDataFor(uri: String): Option[MediaMetaData] =
+    nextChunkData.get(uri) orElse:
       currentData.find(_.data.contains(uri)) map (_.data(uri))
-    }
-  }
 
   /**
     * Extracts the URI to be used when storing the specified result. The URI is
@@ -133,15 +130,14 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return the new data object to be stored
     */
   protected def updateCurrentResult(data: Map[String, MediaMetaData], complete: Boolean,
-                                    maxSize: Int): List[MetaDataChunk] = {
+                                    maxSize: Int): List[MetaDataChunk] =
     val currentChunk = currentData.head.copy(data = currentData.head.data ++ data,
       complete = complete)
     val nextData = currentChunk :: currentData.tail
-    val result = if(currentChunk.data.size >= maxSize && !complete)
+    val result = if currentChunk.data.size >= maxSize && !complete then
       createInitialChunk() :: nextData
     else nextData
-    if(complete) result.reverse else result
-  }
+    if complete then result.reverse else result
 
   /**
     * Processes the currently built-up chunk of data. If the chunk has now
@@ -155,14 +151,13 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return the complete flag
     */
   protected def processNextChunkData(chunkSize: Int, maxChunkSize: Int, complete: Boolean,
-                                     f: (=> MetaDataChunk) => Unit): Boolean = {
-    if (nextChunkData.size >= chunkSize || complete) {
+                                     f: (=> MetaDataChunk) => Unit): Boolean =
+    if nextChunkData.size >= chunkSize || complete then
       f(MetaDataChunk(mediumID, nextChunkData, complete))
       currentData = updateCurrentResult(nextChunkData, complete, maxChunkSize)
       nextChunkData = Map.empty
       complete
-    } else false
-  }
+    else false
 
   /**
     * Updates the map with data for the next chunk with a received result.
@@ -171,11 +166,10 @@ private class MediumDataHandler(mediumID: MediumID) {
     * @return the updated next chunk data
     */
   private def updateNextChunkData(result: MetaDataProcessingResult): Map[String, MediaMetaData] =
-    result match {
+    result match
       case result@MetaDataProcessingSuccess(_, _, metaData) =>
         nextChunkData + (extractUri(result) -> metaData)
       case _ => nextChunkData
-    }
 
   /**
     * Creates an initial chunk of meta data.
@@ -192,4 +186,3 @@ private class MediumDataHandler(mediumID: MediumID) {
     */
   private def initialData(): List[MetaDataChunk] =
     List(createInitialChunk())
-}

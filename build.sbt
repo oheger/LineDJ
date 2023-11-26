@@ -292,12 +292,14 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-union",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn (shared, test3 % "test->compile")
 
 /**
   * The HTTP archive project. Via this project media files can be managed that

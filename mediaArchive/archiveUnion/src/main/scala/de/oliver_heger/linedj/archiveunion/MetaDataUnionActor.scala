@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.metadata._
 import de.oliver_heger.linedj.shared.archive.union._
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Terminated}
 
-object MetaDataUnionActor {
+object MetaDataUnionActor:
 
   /**
     * A message processed by ''MetaDataUnionActor'' that allows an enhanced
@@ -65,7 +65,7 @@ object MetaDataUnionActor {
   private case class ComponentCounters(mediumCount: Int,
                                        songCount: Int,
                                        size: Long,
-                                       duration: Long) {
+                                       duration: Long):
     /**
       * Updates the counters in this instance based on the passed in result
       * object. For a success result, the counters are incremented accordingly.
@@ -74,12 +74,11 @@ object MetaDataUnionActor {
       * @return the updated ''ComponentCounters'' instance
       */
     def update(result: MetaDataProcessingResult): ComponentCounters =
-      result match {
+      result match
         case success: MetaDataProcessingSuccess =>
           copy(songCount = songCount + 1, size = size + success.metaData.size,
             duration = duration + success.metaData.duration.getOrElse(0))
         case _ => this
-      }
 
     /**
       * Returns an updated instance with an incremented counter for the media.
@@ -87,7 +86,6 @@ object MetaDataUnionActor {
       * @return the updated ''ComponentCounters'' instance
       */
     def mediumCompleted(): ComponentCounters = copy(mediumCount = mediumCount + 1)
-  }
 
   /** Constant for an initial counters object. */
   private val InitialComponentCounters = ComponentCounters(0, 0, 0, 0)
@@ -101,9 +99,8 @@ object MetaDataUnionActor {
     * @return the chunk with this complete state
     */
   private def chunkWithCompletionState(chunk: MetaDataChunk, complete: Boolean): MetaDataChunk =
-    if (chunk.complete == complete) chunk
+    if chunk.complete == complete then chunk
     else chunk.copy(complete = complete)
-}
 
 /**
   * An actor class responsible for managing a union of the meta data for all
@@ -154,7 +151,7 @@ object MetaDataUnionActor {
   * determine when such an operation is in progress and send corresponding
   * event notifications.)
   */
-class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLogging {
+class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLogging:
 
   import MetaDataUnionActor._
 
@@ -195,14 +192,13 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   /** A counters object for the whole union archive. */
   private var totalCounters = InitialComponentCounters
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case UpdateOperationStarts(processor) =>
       val procRef = obtainProcessorActor(processor)
       context watch procRef
       processorActors += procRef
-      if (processorActors.size == 1) {
+      if processorActors.size == 1 then
         fireStateEvent(MetaDataUpdateInProgress)
-      }
 
     case UpdateOperationCompleted(processor) =>
       val procRef = obtainProcessorActor(processor)
@@ -211,21 +207,18 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
     case MediaContribution(files) =>
       log.info("Received MediaContribution.")
-      if (!scanInProgress) {
+      if !scanInProgress then
         scanInProgress = true
         fireStateEvent(MetaDataScanStarted)
         log.info("Scan starts.")
-      }
       files foreach prepareHandlerForMedium
 
     case result: MetaDataProcessingResult if scanInProgress =>
       val completedMediaSize = completedMedia.size
-      if (handleProcessingResult(result.mediumID, result)) {
+      if handleProcessingResult(result.mediumID, result) then
         updateStatistics(result)
-      }
-      if (completedMedia.size != completedMediaSize) {
+      if completedMedia.size != completedMediaSize then
         checkAndHandleScanComplete()
-      }
 
     case ScanAllMedia if !scanInProgress =>
       initiateNewScan()
@@ -239,11 +232,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     case RemoveMediumListener(mediumID, listener) =>
       val listeners = mediumListeners.getOrElse(mediumID, Nil)
       val updatedListeners = listeners filterNot (_._1 == listener)
-      if (updatedListeners.nonEmpty) {
+      if updatedListeners.nonEmpty then
         mediumListeners(mediumID) = updatedListeners
-      } else {
+      else
         mediumListeners remove mediumID
-      }
 
     case AddMetaDataStateListener(listener) =>
       stateListeners = stateListeners + listener
@@ -252,10 +244,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       log.info("Added state listener.")
 
     case RemoveMetaDataStateListener(listener) =>
-      if (removeStateListenerActor(listener)) {
+      if removeStateListenerActor(listener) then
         context unwatch listener
         log.info("Removed state listener.")
-      }
 
     case req: GetFilesMetaData =>
       handleFilesMetaDataRequest(req, Map.empty)
@@ -271,22 +262,18 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       handleStatsRequest(archiveComponentID)
 
     case CloseRequest =>
-      if (scanInProgress) {
+      if scanInProgress then
         fireStateEvent(MetaDataScanCanceled)
         mediumListeners.clear()
         completeScanOperation()
-      }
       sender() ! CloseAck(self)
 
     case Terminated(actor) =>
       // a state listener or processor actor died, so remove it from the set(s)
-      if (removeStateListenerActor(actor)) {
+      if removeStateListenerActor(actor) then
         log.warning("State listener terminated. Removed from collection.")
-      }
-      if (removeProcessorActor(actor)) {
+      if removeProcessorActor(actor) then
         log.warning("A processor actor terminated. Removed from collection.")
-      }
-  }
 
   /**
     * Handles a request for meta data for the undefined medium. For this
@@ -296,18 +283,17 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param registerAsListener flag whether a listener is to be registered
     * @param registrationID     the registration ID
     */
-  private def handleGetMetaDataForUndefinedMedium(registerAsListener: Boolean, registrationID: Int): Unit = {
+  private def handleGetMetaDataForUndefinedMedium(registerAsListener: Boolean, registrationID: Int): Unit =
     val chunks = mediaMap.filter(_._1.isArchiveUndefinedMedium)
       .flatMap(_._2.metaData)
-    if (chunks.isEmpty) {
-      if (scanInProgress && registerAsListener) {
+    if chunks.isEmpty then
+      if scanInProgress && registerAsListener then
         registerUndefinedMediumListener(registrationID)
-      } else {
+      else
         sender() ! UnknownMedium(MediumID.UndefinedMediumID)
-      }
 
-    } else {
-      val (first, last) = if (scanInProgress) (chunks, None)
+    else
+      val (first, last) = if scanInProgress then (chunks, None)
       else (chunks.init, chunks.lastOption)
       first foreach { c =>
         sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = false), registrationID)
@@ -316,11 +302,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         sendMetaDataResponse(sender(), chunkWithCompletionState(c, complete = true), registrationID)
       }
 
-      if (registerAsListener && scanInProgress) {
+      if registerAsListener && scanInProgress then
         registerUndefinedMediumListener(registrationID)
-      }
-    }
-  }
 
   /**
     * Handles a request for meta data for a specific medium.
@@ -329,22 +312,18 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param registerAsListener flag whether a listener is to be registered
     * @param registrationID     the registration ID
     */
-  private def handleGetMetaData(mediumID: MediumID, registerAsListener: Boolean, registrationID: Int): Unit = {
-    mediaMap get mediumID match {
+  private def handleGetMetaData(mediumID: MediumID, registerAsListener: Boolean, registrationID: Int): Unit =
+    mediaMap get mediumID match
       case None =>
-        if (scanInProgress && registerAsListener) {
+        if scanInProgress && registerAsListener then
           registerMediumListener(mediumID, registrationID)
-        } else {
+        else
           sender() ! UnknownMedium(mediumID)
-        }
 
       case Some(handler) =>
         handler.metaData foreach (sendMetaDataResponse(sender(), _, registrationID))
-        if (registerAsListener && !handler.isComplete) {
+        if registerAsListener && !handler.isComplete then
           registerMediumListener(mediumID, registrationID)
-        }
-    }
-  }
 
   /**
     * Adds a registration for a medium listener.
@@ -352,19 +331,17 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param mediumID       the ID of the medium in question
     * @param registrationID the registration ID
     */
-  private def registerMediumListener(mediumID: MediumID, registrationID: Int): Unit = {
+  private def registerMediumListener(mediumID: MediumID, registrationID: Int): Unit =
     val newListeners = (sender(), registrationID) :: mediumListeners.getOrElse(mediumID, Nil)
     mediumListeners(mediumID) = newListeners
-  }
 
   /**
     * Adds a listener registration for the global undefined medium.
     *
     * @param registrationID the registration ID
     */
-  private def registerUndefinedMediumListener(registrationID: Int): Unit = {
+  private def registerUndefinedMediumListener(registrationID: Int): Unit =
     undefinedMediumListeners = (sender(), registrationID) :: undefinedMediumListeners
-  }
 
   /**
     * Returns a set with the currently registered state listeners. This is
@@ -394,28 +371,25 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param processor the processor actor to be removed
     * @return a flag whether the actor could be removed
     */
-  private def removeProcessorActor(processor: ActorRef): Boolean = {
+  private def removeProcessorActor(processor: ActorRef): Boolean =
     val nextProcessors = processorActors - processor
-    if (nextProcessors != processorActors) {
+    if nextProcessors != processorActors then
       processorActors = nextProcessors
-      if (nextProcessors.isEmpty) {
+      if nextProcessors.isEmpty then
         fireStateEvent(MetaDataUpdateCompleted)
-      }
       true
-    } else false
-  }
+    else false
 
   /**
     * Prepares a new scan operation. Initializes some internal state.
     */
-  private def initiateNewScan(): Unit = {
+  private def initiateNewScan(): Unit =
     fireStateEvent(MetaDataScanStarted)
     mediaMap.clear()
     scanInProgress = true
     totalCounters = InitialComponentCounters
     completedMedia = Set.empty
     archiveComponentStats = Map.empty
-  }
 
   /**
     * Prepares the handler object for a medium. If this medium is already known,
@@ -425,11 +399,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param e an entry from the map of media files from a scan result object
     */
-  private def prepareHandlerForMedium(e: (MediumID, Iterable[MediaFileUri])): Unit = {
+  private def prepareHandlerForMedium(e: (MediumID, Iterable[MediaFileUri])): Unit =
     val mediumID = e._1
     val handler = mediaMap.getOrElseUpdate(mediumID, new MediumDataHandler(mediumID))
     handler expectMediaFiles e._2
-  }
 
   /**
     * Handles a meta data processing result.
@@ -440,12 +413,11 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     */
   private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
   Boolean =
-    mediaMap.get(mediumID) match {
+    mediaMap.get(mediumID) match
       case Some(handler) =>
         processMetaDataResult(mediumID, result, handler)
         true
       case None => false
-    }
 
   /**
     * Processes a meta data result that has been produced by a child actor. The
@@ -457,17 +429,15 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param handler  the handler for this medium
     */
   private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
-                                    handler: MediumDataHandler): Unit = {
-    if (handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
-    (handleCompleteChunk(mediumID))) {
+                                    handler: MediumDataHandler): Unit =
+    if handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
+    (handleCompleteChunk(mediumID)) then
       mediumListeners remove mediumID
       completedMedia += mediumID
       totalCounters = totalCounters.mediumCompleted()
       updateComponentStats(mediumID.archiveComponentID)(_.mediumCompleted())
       fireStateEvent(MediumMetaDataCompleted(mediumID))
       fireStateEvent(createStateUpdatedEvent())
-    }
-  }
 
   /**
     * Handles a new chunk of mata data that became available. This method
@@ -476,29 +446,26 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param mediumID the ID of the affected medium
     * @param chunk    the chunk
     */
-  private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit = {
+  private def handleCompleteChunk(mediumID: MediumID)(chunk: => MetaDataChunk): Unit =
     lazy val chunkMsg = chunk
     mediumListeners get mediumID foreach { l =>
       l foreach (t => sendMetaDataResponse(t._1, chunkMsg, t._2))
     }
 
-    if (mediumID.isArchiveUndefinedMedium) {
+    if mediumID.isArchiveUndefinedMedium then
       lazy val incompleteChunkMsg = chunkWithCompletionState(chunkMsg, complete = false)
       undefinedMediumListeners foreach { t =>
         sendMetaDataResponse(t._1, incompleteChunkMsg, t._2)
       }
-    }
-  }
 
   /**
     * Updates statistics for a newly received processing result.
     *
     * @param result the processing result
     */
-  private def updateStatistics(result: MetaDataProcessingResult): Unit = {
+  private def updateStatistics(result: MetaDataProcessingResult): Unit =
     totalCounters = totalCounters.update(result)
     updateComponentStats(result.mediumID.archiveComponentID)(_.update(result))
-  }
 
   /**
     * Obtains the ''ComponentCounters'' object for the given component ID. On
@@ -519,37 +486,32 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param componentID the component ID
     * @param f           the function to update the counters
     */
-  private def updateComponentStats(componentID: String)(f: ComponentCounters => ComponentCounters): Unit = {
+  private def updateComponentStats(componentID: String)(f: ComponentCounters => ComponentCounters): Unit =
     val counters = fetchComponentStats(componentID)
     archiveComponentStats += componentID -> f(counters)
-  }
 
   /**
     * Checks whether the scan for meta data is now complete. If this is the
     * case, the corresponding steps are done.
     */
-  private def checkAndHandleScanComplete(): Unit = {
-    if (allMediaProcessingResultsReceived) {
+  private def checkAndHandleScanComplete(): Unit =
+    if allMediaProcessingResultsReceived then
       completeScanOperation()
-    }
-  }
 
   /**
     * Performs all steps required to gracefully terminate the current scan
     * operation.
     */
-  private def completeScanOperation(): Unit = {
+  private def completeScanOperation(): Unit =
     scanInProgress = false
     log.info("Scan stopped.")
     mediumListeners.remove(MediumID.UndefinedMediumID)
-    if (hasUndefinedMedium) {
+    if hasUndefinedMedium then
       fireStateEvent(MediumMetaDataCompleted(MediumID.UndefinedMediumID))
-    }
     handlePendingMediumListeners()
     fireStateEvent(createStateUpdatedEvent()) // a final update event
     fireStateEvent(MetaDataScanCompleted)
     updateForRemovedArchiveComponent()
-  }
 
   /**
     * Takes care that pending medium listeners receive a final response
@@ -558,7 +520,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * such a final message, because as long as the scan is in progress, there
     * can always be a new archive-specific undefined medium.
     */
-  private def handlePendingMediumListeners(): Unit = {
+  private def handlePendingMediumListeners(): Unit =
     mediumListeners.foreach { e =>
       lazy val chunk = MetaDataChunk(e._1, Map.empty, complete = true)
       e._2 foreach (l => sendMetaDataResponse(l._1, chunk, l._2))
@@ -570,7 +532,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       sendMetaDataResponse(t._1, lastUndefinedMediumChunk, t._2)
     }
     undefinedMediumListeners = Nil
-  }
 
   /**
     * Checks whether the current list of completed media contains at least one
@@ -587,7 +548,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param archiveCompID the ID of the removed component
     */
-  private def handleRemovedArchiveComponent(archiveCompID: String): Unit = {
+  private def handleRemovedArchiveComponent(archiveCompID: String): Unit =
     val media = mediaMap.keys.filter(_.archiveComponentID == archiveCompID)
     media foreach mediaMap.remove
     completedMedia --= media
@@ -596,12 +557,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     archiveComponentStats -= archiveCompID
 
     removedComponentData = RemovedComponentData(archiveCompID, sender(), counter) :: removedComponentData
-    if (!scanInProgress) {
+    if !scanInProgress then
       updateForRemovedArchiveComponent()
-    } else {
+    else
       checkAndHandleScanComplete()
-    }
-  }
 
   /**
     * Actually handles removed archive components. Here the required operations
@@ -609,7 +568,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * Therefore, data about removed components is stored and processed at the
     * end of a scan.
     */
-  private def updateForRemovedArchiveComponent(): Unit = {
+  private def updateForRemovedArchiveComponent(): Unit =
     removedComponentData foreach { c =>
       totalCounters = totalCounters.copy(mediumCount = totalCounters.mediumCount - c.counters.mediumCount,
         songCount = totalCounters.songCount - c.counters.songCount,
@@ -621,7 +580,6 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     fireStateEvent(createStateUpdatedEvent())
     fireStateEvent(MetaDataScanCompleted)
     removedComponentData = List.empty
-  }
 
   /**
     * Returns a flag whether the processing results for all media have been
@@ -631,7 +589,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *         otherwise
     */
   private def allMediaProcessingResultsReceived: Boolean =
-    (mediaMap.keySet - MediumID.UndefinedMediumID) subsetOf completedMedia
+    (mediaMap.keySet.diff(Set(MediumID.UndefinedMediumID))) subsetOf completedMedia
 
   /**
     * Sends a meta data response message to the specified actor.
@@ -640,9 +598,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param chunk the chunk of data to be sent
     * @param regID the actor's registration ID
     */
-  private def sendMetaDataResponse(actor: ActorRef, chunk: MetaDataChunk, regID: Int): Unit = {
+  private def sendMetaDataResponse(actor: ActorRef, chunk: MetaDataChunk, regID: Int): Unit =
     actor ! MetaDataResponse(chunk, regID)
-  }
 
   /**
     * Creates a ''MetaDataStateUpdated'' event with the current statistics
@@ -661,10 +618,9 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param event the event to be sent
     */
-  private def fireStateEvent(event: => MetaDataStateEvent): Unit = {
+  private def fireStateEvent(event: => MetaDataStateEvent): Unit =
     lazy val msg = event
     registeredStateListeners foreach (_ ! msg)
-  }
 
   /**
     * Removes a state listener actor from the internal collection. Result is
@@ -673,11 +629,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param actor the listener actor
     * @return a flag whether this listener actor was removed
     */
-  private def removeStateListenerActor(actor: ActorRef): Boolean = {
+  private def removeStateListenerActor(actor: ActorRef): Boolean =
     val oldListeners = stateListeners
     stateListeners = stateListeners filterNot (_ == actor)
     oldListeners != stateListeners
-  }
 
   /**
     * Handles a request for meta data for files. Sends a response with the
@@ -687,9 +642,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param mapping a mapping for medium IDs
     */
   private def handleFilesMetaDataRequest(req: GetFilesMetaData,
-                                         mapping: Map[MediaFileID, MediumID]): Unit = {
+                                         mapping: Map[MediaFileID, MediumID]): Unit =
     sender() ! FilesMetaDataResponse(req, resolveFilesMetaData(req, mapping))
-  }
 
   /**
     * Resolves meta data for requested files by querying the data structures
@@ -714,14 +668,12 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param archiveComponentID the archive component ID
     */
-  private def handleStatsRequest(archiveComponentID: String): Unit = {
-    val stats = if (archiveComponentStats contains archiveComponentID) {
+  private def handleStatsRequest(archiveComponentID: String): Unit =
+    val stats = if archiveComponentStats contains archiveComponentID then
       val counters = archiveComponentStats(archiveComponentID)
       ArchiveComponentStatistics(archiveComponentID = archiveComponentID,
         mediaCount = counters.mediumCount, songCount = counters.songCount,
         size = counters.size, duration = counters.duration)
-    } else
+    else
       ArchiveComponentStatistics(archiveComponentID, -1, -1, -1, -1)
     sender() ! stats
-  }
-}

@@ -26,7 +26,7 @@ import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Ter
 
 import scala.util.{Failure, Success, Try}
 
-object MediaUnionActor {
+object MediaUnionActor:
 
   private class MediaUnionActorImpl(metaDataUnionActor: ActorRef)
     extends MediaUnionActor(metaDataUnionActor) with ChildActorFactory with CloseSupport
@@ -48,7 +48,6 @@ object MediaUnionActor {
     */
   private def createChecksumMapping(media: List[(MediumID, MediumInfo)]): Map[String, MediumID] =
     media.map(e => e._2.checksum -> e._1).toMap
-}
 
 /**
   * An actor responsible for constructing a union of all media contributed to
@@ -105,7 +104,7 @@ object MediaUnionActor {
   *
   * @param metaDataUnionActor the actor managing the union of meta data
   */
-class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging {
+class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
   import MediaUnionActor._
@@ -119,7 +118,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
   /** A mapping from media checksum strings to medium IDs. */
   private var optChecksumMap: Option[Map[String, MediumID]] = None
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case GetAvailableMedia =>
       sender() ! availableMedia
 
@@ -127,21 +126,19 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       availableMedia = AvailableMedia(availableMedia.mediaList ++ media)
       optChecksumMap = None
       log.info(s"Received AddMedia message from component $compID.")
-      if (!controllerMap.contains(compID)) {
+      if !controllerMap.contains(compID) then
         val controller = optCtrlActor getOrElse sender()
         controllerMap += compID -> controller
         context watch controller
         log.info("Added controller actor.")
-      }
 
     case fileReq: MediumFileRequest =>
       val mid = resolveMediumID(fileReq.fileID)
-      controllerMap.get(mid.archiveComponentID) match {
+      controllerMap.get(mid.archiveComponentID) match
         case Some(ctrl) =>
           ctrl forward fileReq
         case None =>
           sender() ! undefinedMediumFileResponse(fileReq)
-      }
 
     case req@GetFilesMetaData(files, _) =>
       val adaptedReq = MetaDataUnionActor.GetFilesMetaDataWithMapping(request = req,
@@ -158,12 +155,11 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       controllerMap.values foreach (_ ! ScanAllMedia)
 
     case GetArchiveMetaDataFileInfo(archiveCompID) =>
-      Try(controllerMap(archiveCompID)) match {
+      Try(controllerMap(archiveCompID)) match
         case Success(controller) =>
           controller forward GetMetaDataFileInfo
         case Failure(exception) =>
           sender() ! Status.Failure(exception)
-      }
 
     case Terminated(actor) =>
       val optMapping = controllerMap.find(t => t._2 == actor)
@@ -183,7 +179,6 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
 
     case CloseComplete =>
       onCloseComplete()
-  }
 
   /**
     * Resolves a medium ID from a ''MediaFileID'' taking the checksum into
@@ -231,10 +226,9 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     * @param componentID the archive component ID
     * @return an instance with data from this component removed
     */
-  private def removeMediaFrom(media: AvailableMedia, componentID: String): AvailableMedia = {
+  private def removeMediaFrom(media: AvailableMedia, componentID: String): AvailableMedia =
     optChecksumMap = None
     AvailableMedia(media.mediaList filterNot (t => t._1.archiveComponentID == componentID))
-  }
 
   /**
     * Obtains the mapping from a medium checksum to a medium ID. The map is
@@ -243,11 +237,9 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     *
     * @return the checksum to medium ID mapping
     */
-  private def checksumMap: Map[String, MediumID] = optChecksumMap match {
+  private def checksumMap: Map[String, MediumID] = optChecksumMap match
     case Some(map) => map
     case None =>
       val map = createChecksumMapping(availableMedia.mediaList)
       optChecksumMap = Some(map)
       map
-  }
-}

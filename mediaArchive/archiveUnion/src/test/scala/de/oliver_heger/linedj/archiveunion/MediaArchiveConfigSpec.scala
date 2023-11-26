@@ -20,7 +20,7 @@ import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object MediaArchiveConfigSpec {
+object MediaArchiveConfigSpec:
   /** Test value for the chunk size of a meta data notification. */
   private val MetaDataChunkSize = 10
 
@@ -34,12 +34,11 @@ object MediaArchiveConfigSpec {
     * @param updateChunkSize value for the meta data update chunk size
     * @return the configuration object
     */
-  private def createConfiguration(updateChunkSize: Int = MetaDataChunkSize): Configuration = {
+  private def createConfiguration(updateChunkSize: Int = MetaDataChunkSize): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", updateChunkSize)
     config.addProperty("media.mediaArchive.metaDataMaxMessageSize", MetaDataMaxMsgSize)
     config
-  }
 
   /**
     * Creates a ''MediaArchiveConfig'' object initialized from a test
@@ -50,26 +49,21 @@ object MediaArchiveConfigSpec {
     */
   private def createMediaConfig(updateChunkSize: Int = MetaDataChunkSize): MediaArchiveConfig =
     MediaArchiveConfig(createConfiguration(updateChunkSize))
-}
 
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers {
+class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
 
   import MediaArchiveConfigSpec._
 
-  "A MediaArchiveConfig" should "return the correct update chunk size" in {
+  "A MediaArchiveConfig" should "return the correct update chunk size" in:
     createMediaConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
-  }
 
-  it should "return the correct maximum message size" in {
+  it should "return the correct maximum message size" in:
     createMediaConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
-  }
 
-  it should "adapt the maximum message size if necessary" in {
+  it should "adapt the maximum message size if necessary" in:
     val config = createMediaConfig(updateChunkSize = 8)
 
     config.metaDataMaxMessageSize should be(152)
-  }
-}
