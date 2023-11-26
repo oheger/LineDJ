@@ -38,8 +38,7 @@ import org.osgi.service.component.ComponentContext
   * dependencies. Afterwards, the media archive can be accessed via the
   * current implementation of the ''MediaFacade'' trait.
   */
-class MediaArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagementComponent {
+class MediaArchiveStartup extends PlatformComponent with ClientContextSupport with ActorManagementComponent:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -49,12 +48,10 @@ class MediaArchiveStartup extends PlatformComponent with ClientContextSupport
     *
     * @param compCtx the ''ComponentContext''
     */
-  override def activate(compCtx: ComponentContext): Unit = {
+  override def activate(compCtx: ComponentContext): Unit =
     super.activate(compCtx)
     log.info("Starting up media archive.")
     val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
     val metaDataManager = createAndRegisterActor(Props(classOf[MetaDataUnionActor],
       archiveConfig), MediaActors.MetaDataManager.name)
     createAndRegisterActor(MediaUnionActor(metaDataManager), MediaActors.MediaManager.name)
-  }
-}

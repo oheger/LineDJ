@@ -424,6 +424,8 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveStartup",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=

@@ -31,7 +31,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object MediaArchiveStartupSpec {
+object MediaArchiveStartupSpec:
   /** The reference configuration for the media archive. */
   private val ArchiveConfig = MediaArchiveConfig(createArchiveConfiguration())
 
@@ -41,45 +41,40 @@ object MediaArchiveStartupSpec {
     *
     * @return the configuration
     */
-  private def createArchiveConfiguration(): Configuration = {
+  private def createArchiveConfiguration(): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", 8192)
     config.addProperty("media.mediaArchive.metaDataMaxMessageSize", 32768)
 
     config
-  }
-}
 
 /**
   * Test class for ''MediaArchiveStartup''.
   */
 class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import MediaArchiveStartupSpec._
 
   def this() = this(ActorSystem("MediaArchiveStartupSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A MediaArchiveStartup" should "create the expected actors" in {
+  "A MediaArchiveStartup" should "create the expected actors" in:
     new MediaArchiveStartupTestHelper().createAndActivateStartup().verifyActorsCreated()
-  }
 
-  it should "register the newly created actors" in {
+  it should "register the newly created actors" in:
     val helper = new MediaArchiveStartupTestHelper
     val startup = helper.activateStartup(helper.createStartup())
 
     startup getActor "metaDataManager" should be(helper.probeMetaDataManager.ref)
     startup getActor "mediaManager" should be(helper.probeMediaManager.ref)
-  }
 
   /**
     * A helper class that manages dependencies used by the class under test.
     */
-  private class MediaArchiveStartupTestHelper {
+  private class MediaArchiveStartupTestHelper:
     /** Test probe for the media manager actor. */
     val probeMediaManager: TestProbe = TestProbe()
 
@@ -94,11 +89,10 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the ''MediaArchiveStartup''
       */
-    def createStartup(): MediaArchiveStartup = {
+    def createStartup(): MediaArchiveStartup =
       val startup = new MediaArchiveStartup
       startup initClientContext createClientContext()
       startup
-    }
 
     /**
       * Invokes ''activate()'' on the specified startup object.
@@ -106,11 +100,10 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param startup the object to be activated
       * @return the same startup object
       */
-    def activateStartup(startup: MediaArchiveStartup): MediaArchiveStartup = {
+    def activateStartup(startup: MediaArchiveStartup): MediaArchiveStartup =
       val compCtx = mock[ComponentContext]
       startup activate compCtx
       startup
-    }
 
     /**
       * Creates and activates a ''MediaArchiveStartup'' object. Typically,
@@ -119,30 +112,27 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return this test helper
       */
-    def createAndActivateStartup(): MediaArchiveStartupTestHelper = {
+    def createAndActivateStartup(): MediaArchiveStartupTestHelper =
       activateStartup(createStartup())
       this
-    }
 
     /**
       * Checks whether all expected actors have been created correctly.
       */
-    def verifyActorsCreated(): Unit = {
+    def verifyActorsCreated(): Unit =
       createdActors should have size 2
-    }
 
     /**
       * Creates a mock ''ClientApplicationContext''.
       *
       * @return the client context
       */
-    private def createClientContext(): ClientApplicationContext = {
+    private def createClientContext(): ClientApplicationContext =
       val actorFactory = createActorFactory()
       val clientContext = mock[ClientApplicationContext]
       when(clientContext.managementConfiguration).thenReturn(createArchiveConfiguration())
       when(clientContext.actorFactory).thenReturn(actorFactory)
       clientContext
-    }
 
     /**
       * Creates an actor factory mock that allows and checks the creation of
@@ -150,7 +140,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       *
       * @return the actor factory mock
       */
-    private def createActorFactory(): ActorFactory = {
+    private def createActorFactory(): ActorFactory =
       val factory = mock[ActorFactory]
       when(factory.createActor(any(classOf[Props]), anyString()))
         .thenAnswer((invocation: InvocationOnMock) => {
@@ -167,7 +157,6 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
           }
         })
       factory
-    }
 
     /**
       * Simulates an actor creation through the actor factory and records the
@@ -176,11 +165,8 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @param probe the probe representing the actor
       * @return the actor reference
       */
-    private def actorCreation(probe: TestProbe): ActorRef = {
+    private def actorCreation(probe: TestProbe): ActorRef =
       createdActors should not contain probe
       createdActors = createdActors + probe
       probe.ref
-    }
-  }
 
-}
