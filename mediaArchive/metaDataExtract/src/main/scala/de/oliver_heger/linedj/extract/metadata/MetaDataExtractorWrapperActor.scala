@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, Me
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
-object MetaDataExtractorWrapperActor {
+object MetaDataExtractorWrapperActor:
   /**
     * Creates a processing result for a media file which is not supported.
     * This result contains only a minimum set of information.
@@ -32,11 +32,10 @@ object MetaDataExtractorWrapperActor {
     * @param p the process request
     * @return the minimum result
     */
-  private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingSuccess = {
+  private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingSuccess =
     val data = MediaMetaData(size = p.fileData.size)
     val result = p.resultTemplate.copy(metaData = data)
     result
-  }
 
   /**
     * A function for handling a request to process a media file. The function
@@ -58,7 +57,6 @@ object MetaDataExtractorWrapperActor {
     */
   def apply(extractorFactory: ExtractorActorFactory): Props =
     Props(classOf[MetaDataExtractorWrapperActorImpl], extractorFactory)
-}
 
 /**
   * An actor that wraps actors for actually extracting meta data from media
@@ -78,7 +76,7 @@ object MetaDataExtractorWrapperActor {
   * @param extractorFactory the factory for extractor actors
   */
 class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) extends Actor
-  with ActorLogging {
+  with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
   import MetaDataExtractorWrapperActor._
@@ -97,16 +95,15 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
   /**
     * Receive function for normal processing mode.
     */
-  private def receiveProcessing: Receive = {
+  private def receiveProcessing: Receive =
     case p: ProcessMetaDataFile =>
       log.info("Meta data processing request for {}.", p.fileData.path)
       val ext = PathUtils extractExtension p.fileData.path.toString
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
       a ! m
-      if (f) {
+      if f then
         requests += p.resultTemplate.uri -> sender()
-      }
 
     case result: MetaDataProcessingResult =>
       log.info("Received processing result for {}.", result.uri)
@@ -117,16 +114,14 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
       onCloseRequest(subject = self, target = sender(), factory = this,
         deps = cache.extractors)
       context become receiveClosed
-  }
 
   /**
     * Receive function after the actor has been closed. In this state no more
     * requests and results are accepted.
     */
-  private def receiveClosed: Receive = {
+  private def receiveClosed: Receive =
     case CloseComplete =>
       onCloseComplete()
-  }
 
   /**
     * Returns a cache object that can handle the given file extension. If
@@ -136,18 +131,15 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     * @param c   the current cache
     * @return the updated cache
     */
-  private def ensureExtensionCanBeHandled(ext: String, c: ProcessFuncCache): ProcessFuncCache = {
-    if (c canHandle ext) c
-    else {
+  private def ensureExtensionCanBeHandled(ext: String, c: ProcessFuncCache): ProcessFuncCache =
+    if c canHandle ext then c
+    else
       val optProps = extractorFactory.extractorProps(ext, self)
-      optProps match {
+      optProps match
         case Some(props) =>
           c.updateForExtractor(ext, props, createChildActor(props))
         case None =>
           c updateForUnsupportedExtension ext
-      }
-    }
-  }
 
   /**
     * A process function for unsupported file extensions. This function sends
@@ -183,7 +175,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     */
   private case class ProcessFuncCache(functions: Map[String, ProcessFunc],
                                       extractorMapping: Map[Props, ProcessFunc],
-                                      extractors: List[ActorRef]) {
+                                      extractors: List[ActorRef]):
     /**
       * Checks whether the specified file extension is already known to this
       * cache.
@@ -204,9 +196,9 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
       * @return the updated instance
       */
     def updateForExtractor(ext: String, props: Props, extractor: => ActorRef):
-    ProcessFuncCache = {
+    ProcessFuncCache =
       lazy val extRef = extractor
-      extractorMapping get props match {
+      extractorMapping get props match
         case Some(f) =>
           copy(functions = functions + (ext -> f))
         case None =>
@@ -214,8 +206,6 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
           ProcessFuncCache(functions = functions + (ext -> func),
             extractorMapping = extractorMapping + (props -> func),
             extractors = extRef :: extractors)
-      }
-    }
 
     /**
       * Returns an updated instance with the specified unsupported file
@@ -226,6 +216,4 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
       */
     def updateForUnsupportedExtension(ext: String): ProcessFuncCache =
       copy(functions = functions + (ext -> unsupportedProcessFunc))
-  }
 
-}

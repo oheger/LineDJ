@@ -24,7 +24,7 @@ package de.oliver_heger.linedj.extract.metadata
  * queried without having to respect a specific version. Because all tags
  * may be absent the methods return ''Option'' objects.
  */
-trait MetaDataProvider {
+trait MetaDataProvider:
   /**
    * Returns the title of the song.
    * @return an option for the song title
@@ -77,12 +77,9 @@ trait MetaDataProvider {
    * @param value the value of the property as a string
    * @return an option for the corresponding numeric value
    */
-  private def parseNumericProperty(value: String): Option[Int] = {
+  private def parseNumericProperty(value: String): Option[Int] =
     val numericValue = value takeWhile Character.isDigit
-    if (numericValue.isEmpty) {
+    if numericValue.isEmpty then
       None
-    } else {
+    else
       Some(numericValue.toInt)
-    }
-  }
-}

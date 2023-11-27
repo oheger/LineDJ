@@ -223,10 +223,12 @@ lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-extract",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn shared
 
 /**
   * A project with classes that can extract meta data from mp3 audio files.

@@ -21,57 +21,47 @@ import org.scalatest.matchers.should.Matchers
 /**
  * Test class for ''ID3TagProvider''.
  */
-class MetaDataProviderSpec extends AnyFlatSpec with Matchers {
-  "An ID3TagProvider" should "parse a numeric inception year" in {
+class MetaDataProviderSpec extends AnyFlatSpec with Matchers:
+  "An ID3TagProvider" should "parse a numeric inception year" in:
     val provider = new MetaDataProviderTestImpl(inceptionYearString = Some("1984"))
     provider.inceptionYear.get should be(1984)
-  }
 
-  it should "return None for a non-numeric inception year" in {
+  it should "return None for a non-numeric inception year" in:
     val provider = new MetaDataProviderTestImpl(
       inceptionYearString = Some("Nineteeneightyfour"))
     provider.inceptionYear shouldBe empty
-  }
 
-  it should "handle a non existing inception year" in {
+  it should "handle a non existing inception year" in:
     val provider = new MetaDataProviderTestImpl
     provider.inceptionYear shouldBe empty
-  }
 
-  it should "convert a track number if it is fully numeric" in {
+  it should "convert a track number if it is fully numeric" in:
     val provider = new MetaDataProviderTestImpl(trackNoString = Some("42"))
     provider.trackNo.get should be(42)
-  }
 
-  it should "convert a partly numeric track number" in {
+  it should "convert a partly numeric track number" in:
     val provider = new MetaDataProviderTestImpl(trackNoString = Some("42 / 100"))
     provider.trackNo.get should be(42)
-  }
 
-  it should "return None for a non-numeric track number" in {
+  it should "return None for a non-numeric track number" in:
     val provider = new MetaDataProviderTestImpl(trackNoString = Some("NaN"))
     provider.trackNo shouldBe empty
-  }
 
-  it should "handle an undefined track number" in {
+  it should "handle an undefined track number" in:
     val provider = new MetaDataProviderTestImpl
     provider.trackNo shouldBe empty
-  }
 
-  it should "handle a track number that is empty" in {
+  it should "handle a track number that is empty" in:
     val provider = new MetaDataProviderTestImpl(trackNoString = Some(""))
     provider.trackNo shouldBe empty
-  }
 
   /**
    * A concrete test implementation of ID3TagProvider.
    */
   private class MetaDataProviderTestImpl(val inceptionYearString: Option[String] = None,
                                          val trackNoString: Option[String] = None) extends
-  MetaDataProvider {
+  MetaDataProvider:
     val title: Option[String] = None
     val artist: Option[String] = None
     val album: Option[String] = None
-  }
 
-}

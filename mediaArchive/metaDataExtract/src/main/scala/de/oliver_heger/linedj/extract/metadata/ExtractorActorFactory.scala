@@ -30,7 +30,7 @@ import org.apache.pekko.actor.{ActorRef, Props}
   * extension is not supported, an implementation can return ''None''; in
   * this case only dummy meta data is generated.
   */
-trait ExtractorActorFactory {
+trait ExtractorActorFactory:
   /**
     * Returns an option with a ''Props'' object to create an actor that can
     * extract meta data from a file with the given extension. This method is
@@ -46,4 +46,3 @@ trait ExtractorActorFactory {
     * @return optional ''Props'' to create the extractor actor
     */
   def extractorProps(extension: String, receiver: ActorRef): Option[Props]
-}

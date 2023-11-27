@@ -32,7 +32,7 @@ import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
 
-object MetaDataExtractionActor {
+object MetaDataExtractionActor:
 
   private class MetaDataExtractionActorImpl(metaDataManager: ActorRef,
                                             extractorFactory: ExtractorActorFactory,
@@ -57,7 +57,6 @@ object MetaDataExtractionActor {
     Props(classOf[MetaDataExtractionActorImpl], metaDataManager, extractorFactory,
       asyncCount, asyncTimeout)
 
-}
 
 /**
   * An actor class that manages the extraction of meta data from a set of media
@@ -95,7 +94,7 @@ object MetaDataExtractionActor {
 class MetaDataExtractionActor(metaDataManager: ActorRef,
                               extractorFactory: ExtractorActorFactory, asyncCount: Int,
                               asyncTimeout: Timeout)
-  extends AbstractStreamProcessingActor with CancelableStreamSupport {
+  extends AbstractStreamProcessingActor with CancelableStreamSupport:
   this: ChildActorFactory with CloseSupport =>
 
   /** The extractor wrapper child actor. */
@@ -115,12 +114,11 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
   /** A flag whether this actor has been closed. */
   private var closed = false
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     extractorWrapperActor = createChildActor(MetaDataExtractorWrapperActor(extractorFactory))
-  }
 
-  override def customReceive: Receive = {
+  override def customReceive: Receive =
     case p: ProcessMediaFiles if !closed =>
       pendingRequests = p :: pendingRequests
       startStreamIfPossible()
@@ -133,31 +131,26 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
 
     case CloseComplete =>
       onCloseComplete()
-  }
 
   /**
     * @inheritdoc This implementation does not send a result, but starts the
     *             next stream if possible.
     */
-  override protected def propagateResult(client: ActorRef, result: Any): Unit = {
+  override protected def propagateResult(client: ActorRef, result: Any): Unit =
     streamInProgress = false
     startStreamIfPossible()
-    if (closed) {
+    if closed then
       onConditionSatisfied()
-    }
-  }
 
   /**
     * Checks whether there are pending requests and no ongoing stream
     * processing. If so, a new stream is started for a request.
     */
-  private def startStreamIfPossible(): Unit = {
-    if (!streamInProgress && pendingRequests.nonEmpty) {
+  private def startStreamIfPossible(): Unit =
+    if !streamInProgress && pendingRequests.nonEmpty then
       val request = pendingRequests.head
       pendingRequests = pendingRequests.tail
       processMediaFiles(request.mediumID, request.files, request.uriMappingFunc)
-    }
-  }
 
   /**
     * Creates the source for a stream that processes the specified media files.
@@ -177,7 +170,7 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     * @param uriMappingFunc the function to generate URIs for files
     */
   private def processMediaFiles(mediumID: MediumID, files: List[FileData],
-                                uriMappingFunc: Path => MediaFileUri): Unit = {
+                                uriMappingFunc: Path => MediaFileUri): Unit =
     implicit val timeout: Timeout = asyncTimeout
     val source = createSource(files)
     val sink = Sink.foreach(metaDataManager.!)
@@ -185,15 +178,13 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
       .map(fd => processRequest(mediumID, fd, uriMappingFunc))
       .viaMat(KillSwitches.single)(Keep.right)
       .mapAsyncUnordered(asyncCount) { p =>
-        (extractorWrapperActor ? p) recover {
+        (extractorWrapperActor ? p) recover:
           case e => p.resultTemplate.toError(e)
-        }
       }
       .toMat(sink)(Keep.both)
       .run()
     processStreamResult(futStream, ks)(identity)
     streamInProgress = true
-  }
 
   /**
     * Creates a request to process the specified file.
@@ -206,4 +197,3 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
   private def processRequest(mediumID: MediumID, fd: FileData,
                              uriMappingFunc: Path => MediaFileUri): ProcessMetaDataFile =
     ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, uriMappingFunc(fd.path), MediaMetaData()))
-}

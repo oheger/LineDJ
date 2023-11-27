@@ -36,7 +36,7 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
-object MetaDataExtractorWrapperActorSpec {
+object MetaDataExtractorWrapperActorSpec:
   /** File extension for supported files. */
   private val SupportedFileExtension = "mp3"
 
@@ -82,12 +82,11 @@ object MetaDataExtractorWrapperActorSpec {
     * @param ext  the extension
     * @return the process request message
     */
-  private def createProcessRequest(name: String, ext: String): ProcessMetaDataFile = {
+  private def createProcessRequest(name: String, ext: String): ProcessMetaDataFile =
     val path = testPath(name, ext)
     val fileData = FileData(path, fileSize(path))
     val template = MetaDataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetaData())
     ProcessMetaDataFile(fileData, template)
-  }
 
   /**
     * Creates a processing result object for a test file.
@@ -96,29 +95,26 @@ object MetaDataExtractorWrapperActorSpec {
     * @param ext  the extension
     * @return the processing result
     */
-  private def createProcessingResult(name: String, ext: String): MetaDataProcessingSuccess = {
+  private def createProcessingResult(name: String, ext: String): MetaDataProcessingSuccess =
     val path = testPath(name, ext)
     val data = MediaMetaData(size = fileSize(path), title = Some(name),
       artist = Some("Artist for " + name), album = Some(name + " album"))
     MetaDataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metaData = data)
-  }
-}
 
 /**
   * Test class for ''MetaDataExtractorWrapperActor''.
   */
 class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import MetaDataExtractorWrapperActorSpec._
 
   def this() = this(ActorSystem("MetaDataExtractorWrapperActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A MetaDataExtractorActor" should "return correct Props" in {
+  "A MetaDataExtractorActor" should "return correct Props" in:
     val factory = mock[ExtractorActorFactory]
     val props = MetaDataExtractorWrapperActor(factory)
 
@@ -126,9 +122,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(factory))
-  }
 
-  it should "return a dummy result for an unsupported extension" in {
+  it should "return a dummy result for an unsupported extension" in:
     val helper = new ExtractorActorTestHelper
     val TestName = "UnsupportedMediaFile"
     val expData = MediaMetaData(size = fileSize(testPath(TestName, UnsupportedFileExtension)))
@@ -137,17 +132,15 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
     helper.postProcessRequest(TestName, UnsupportedFileExtension)
     expectMsg(expResult)
-  }
 
-  it should "delegate a process request to an extractor actor" in {
+  it should "delegate a process request to an extractor actor" in:
     val helper = new ExtractorActorTestHelper
     val TestName = "CoolSong"
 
     helper.postProcessRequest(TestName, SupportedFileExtension)
       .expectDelegationToExtractor(TestName, SupportedFileExtension)
-  }
 
-  it should "record the result of the extractor factory" in {
+  it should "record the result of the extractor factory" in:
     val helper = new ExtractorActorTestHelper
 
     helper.postProcessRequest("file1", UnsupportedFileExtension)
@@ -155,9 +148,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     expectMsgType[MetaDataProcessingSuccess]
     expectMsgType[MetaDataProcessingSuccess]
     helper.verifyExtractorFactoryRequest(UnsupportedFileExtension)
-  }
 
-  it should "support multiple extractor actors" in {
+  it should "support multiple extractor actors" in:
     val probeExtractor2 = TestProbe()
     val props = Props(classOf[MetaDataExtractorWrapperActor], mock[ExtractorActorFactory])
     val File1 = "Song1"
@@ -171,9 +163,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       .postProcessRequest(File2, Ext2)
       .expectDelegationToExtractor(File1, SupportedFileExtension)
     probeExtractor2.expectMsg(createProcessRequest(File2, Ext2))
-  }
 
-  it should "handle files without an extension" in {
+  it should "handle files without an extension" in:
     val fileData = FileData(Paths get "PathWithoutExtension", 28)
     val msg = ProcessMetaDataFile(fileData,
       MetaDataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetaData()))
@@ -182,9 +173,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     helper.addFileExtension("", None)
       .post(msg)
     expectMsgType[MetaDataProcessingSuccess]
-  }
 
-  it should "propagate a processing result to the caller" in {
+  it should "propagate a processing result to the caller" in:
     val File = "ProcessedMetaDataFile"
     val result = createProcessingResult(File, SupportedFileExtension)
     val helper = new ExtractorActorTestHelper
@@ -192,9 +182,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     helper.postProcessRequest(File, SupportedFileExtension)
       .post(result)
     expectMsg(result)
-  }
 
-  it should "handle multiple callers" in {
+  it should "handle multiple callers" in:
     val File1 = "mediaFile1"
     val File2 = "nextMediaFile"
     val result1 = createProcessingResult(File1, SupportedFileExtension)
@@ -208,9 +197,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       .post(result2)
     expectMsg(result1)
     probe.expectMsg(result2)
-  }
 
-  it should "handle error processing results" in {
+  it should "handle error processing results" in:
     val File = "errorFile"
     val errResult = MetaDataProcessingError(TestMediumID, testUri(File, SupportedFileExtension),
       new Exception("failed"))
@@ -219,15 +207,13 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     helper.postProcessRequest(File, SupportedFileExtension)
       .post(errResult)
     expectMsg(errResult)
-  }
 
-  it should "ignore result messages for unknown requests" in {
+  it should "ignore result messages for unknown requests" in:
     val helper = new ExtractorActorTestHelper
 
     helper send createProcessingResult("unknownFile", SupportedFileExtension)
-  }
 
-  it should "remove completed requests from the in-progress map" in {
+  it should "remove completed requests from the in-progress map" in:
     val File1 = "firstFile"
     val File2 = "secondMediaFile"
     val result1 = createProcessingResult(File1, SupportedFileExtension)
@@ -241,9 +227,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       .post(result2)
     expectMsg(result1)
     expectMsg(result2)
-  }
 
-  it should "not add unsupported requests to the in-progress map" in {
+  it should "not add unsupported requests to the in-progress map" in:
     val helper = new ExtractorActorTestHelper
     val File = "media"
     helper.postProcessRequest(File, UnsupportedFileExtension)
@@ -252,9 +237,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     helper send createProcessingResult(File, UnsupportedFileExtension)
     testActor ! Ping
     expectMsg(Ping)
-  }
 
-  it should "not create multiple extractor actors for same Props" in {
+  it should "not create multiple extractor actors for same Props" in:
     val Ext2 = SupportedFileExtension toUpperCase Locale.ENGLISH
     val File1 = "mediaFile1"
     val File2 = "otherMediaFile"
@@ -265,9 +249,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       .postProcessRequest(File2, Ext2)
       .expectDelegationToExtractor(File1, SupportedFileExtension)
       .expectDelegationToExtractor(File2, Ext2)
-  }
 
-  it should "handle a close request" in {
+  it should "handle a close request" in:
     val probeExtractor2 = TestProbe()
     val props = Props(classOf[MetaDataExtractorWrapperActor], mock[ExtractorActorFactory])
     val Ext2 = "ogg"
@@ -280,28 +263,25 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
     helper.post(CloseRequest)
       .numberOfCloseRequests should be(1)
-  }
 
-  it should "no longer accept requests after it was canceled" in {
+  it should "no longer accept requests after it was canceled" in:
     val helper = new ExtractorActorTestHelper
 
     helper.post(CloseRequest)
       .send(createProcessRequest("file", SupportedFileExtension))
       .expectNoDelegationToExtractor()
-  }
 
-  it should "process a close complete message" in {
+  it should "process a close complete message" in:
     val helper = new ExtractorActorTestHelper
 
     helper.post(CloseRequest)
       .send(CloseHandlerActor.CloseComplete)
       .numberOfCloseCompletes should be(1)
-  }
 
   /**
     * A test helper class managing a test actor and its dependencies.
     */
-  private class ExtractorActorTestHelper {
+  private class ExtractorActorTestHelper:
     /** A test Props instance returned by the factory mock. */
     private val extractorProps = Props(classOf[MetaDataExtractorWrapperActor],
       mock[ExtractorActorFactory])
@@ -334,10 +314,9 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @param sender the sender of the message
       * @return this test helper
       */
-    def post(msg: Any, sender: ActorRef = testActor): ExtractorActorTestHelper = {
+    def post(msg: Any, sender: ActorRef = testActor): ExtractorActorTestHelper =
       testExtractor.tell(msg, sender)
       this
-    }
 
     /**
       * Passes the specified message directly to the test actor's ''receive''
@@ -346,10 +325,9 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @param msg the message
       * @return this test helper
       */
-    def send(msg: Any): ExtractorActorTestHelper = {
+    def send(msg: Any): ExtractorActorTestHelper =
       testExtractor receive msg
       this
-    }
 
     /**
       * Posts a processing request to the test actor.
@@ -382,21 +360,19 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @param ext  the extension
       * @return this test helper
       */
-    def expectDelegationToExtractor(name: String, ext: String): ExtractorActorTestHelper = {
+    def expectDelegationToExtractor(name: String, ext: String): ExtractorActorTestHelper =
       probeExtractor.expectMsg(createProcessRequest(name, ext))
       this
-    }
 
     /**
       * Checks that the extractor actor did not receive a message.
       *
       * @return this test helper
       */
-    def expectNoDelegationToExtractor(): ExtractorActorTestHelper = {
+    def expectNoDelegationToExtractor(): ExtractorActorTestHelper =
       probeExtractor.ref ! Ping
       probeExtractor.expectMsg(Ping)
       this
-    }
 
     /**
       * Verifies that the extractor factory has been invoked once for the given
@@ -405,10 +381,9 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @param ext the file extension
       * @return this test helper
       */
-    def verifyExtractorFactoryRequest(ext: String): ExtractorActorTestHelper = {
+    def verifyExtractorFactoryRequest(ext: String): ExtractorActorTestHelper =
       verify(extractorFactory).extractorProps(ext, testExtractor)
       this
-    }
 
     /**
       * Expects a child creation with the provided data.
@@ -417,10 +392,9 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @param child the child actor
       * @return this test helper
       */
-    def expectChildCreation(props: Props, child: ActorRef): ExtractorActorTestHelper = {
+    def expectChildCreation(props: Props, child: ActorRef): ExtractorActorTestHelper =
       childActorMapping.put(props, child)
       this
-    }
 
     /**
       * Returns the number of close requests handled by the test actor.
@@ -442,12 +416,11 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       *
       * @return the mock factory
       */
-    private def createFactoryMock(): ExtractorActorFactory = {
+    private def createFactoryMock(): ExtractorActorFactory =
       val factory = mock[ExtractorActorFactory]
       expectExtractorRequest(factory, SupportedFileExtension, Some(extractorProps))
       expectExtractorRequest(factory, UnsupportedFileExtension, None)
       factory
-    }
 
     /**
       * Prepares the specified mock extractor to expect a request for the given
@@ -459,21 +432,20 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
       * @return this test helper
       */
     private def expectExtractorRequest(factory: ExtractorActorFactory, extension: String,
-                                       props: Option[Props]): ExtractorActorTestHelper = {
+                                       props: Option[Props]): ExtractorActorTestHelper =
       when(factory.extractorProps(argEq(extension), any(classOf[ActorRef])))
         .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments()(1) should be(testExtractor)
           props
         })
       this
-    }
 
     /**
       * Creates a test actor instance.
       *
       * @return the test actor instance
       */
-    private def createTestActor(): TestActorRef[MetaDataExtractorWrapperActor] = {
+    private def createTestActor(): TestActorRef[MetaDataExtractorWrapperActor] =
       expectChildCreation(extractorProps, probeExtractor.ref)
       TestActorRef(Props(new MetaDataExtractorWrapperActor(extractorFactory)
         with ChildActorFactory with CloseSupport {
@@ -499,7 +471,4 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
           */
         override def onCloseComplete(): Unit = closeCompleteCount.incrementAndGet()
       }))
-    }
-  }
 
-}
