@@ -37,7 +37,7 @@ import org.apache.pekko.util.ByteString
   * @param size   the size of the block to be collected by this object
   * @param buffer the buffer with current data managed by this instance
   */
-case class TailBuffer(size: Int, buffer: ByteString = ByteString.empty) {
+case class TailBuffer(size: Int, buffer: ByteString = ByteString.empty):
   /**
     * Returns an updated instance of ''TailBuffer'' with the passed in block
     * of data added to the internal state.
@@ -46,7 +46,7 @@ case class TailBuffer(size: Int, buffer: ByteString = ByteString.empty) {
     * @return the updated buffer
     */
   def addData(data: ByteString): TailBuffer =
-    copy(buffer = if (data.length >= size) data
+    copy(buffer = if data.length >= size then data
     else buffer.takeRight(size - data.length) ++ data)
 
   /**
@@ -60,4 +60,3 @@ case class TailBuffer(size: Int, buffer: ByteString = ByteString.empty) {
     */
   def tail(): ByteString =
     buffer takeRight size
-}

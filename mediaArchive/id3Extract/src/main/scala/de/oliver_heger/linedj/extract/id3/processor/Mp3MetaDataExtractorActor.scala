@@ -26,7 +26,7 @@ import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 import org.apache.pekko.util.ByteString
 
-object Mp3MetaDataExtractorActor {
+object Mp3MetaDataExtractorActor:
 
   private class Mp3MetaDataExtractorActorImpl(metaDataActor: ActorRef, tagSizeLimit: Int,
                                               readChunkSize: Int)
@@ -43,7 +43,6 @@ object Mp3MetaDataExtractorActor {
     */
   def apply(metaDataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int): Props =
     Props(classOf[Mp3MetaDataExtractorActorImpl], metaDataActor, tagSizeLimit, readChunkSize)
-}
 
 /**
   * The main actor for extracting meta data from MP3 files.
@@ -67,7 +66,7 @@ object Mp3MetaDataExtractorActor {
   * @param readChunkSize the chunk size for read operations
   */
 class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int)
-  extends Actor {
+  extends Actor:
   this: ChildActorFactory with CancelableStreamSupport =>
 
   /**
@@ -80,7 +79,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
   /** Stores the sender of a close request. */
   private var closeRequest: Option[ActorRef] = None
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ProcessMetaDataFile(file, result) =>
       val (actor, killSwitch) = startProcessingStream(file, result)
       val ksID = registerKillSwitch(killSwitch)
@@ -97,7 +96,6 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
       activeFiles -= actor
       optKs foreach unregisterKillSwitch
       sendCloseAckIfPossible()
-  }
 
   /**
     * Starts a stream for processing a single MP3 file.
@@ -107,7 +105,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * @return the new processing actor and a kill switch
     */
   private def startProcessingStream(file: FileData, result: MetaDataProcessingSuccess):
-  (ActorRef, KillSwitch) = {
+  (ActorRef, KillSwitch) =
     import context.system
     val actor = createChildActor(Mp3FileProcessorActor(metaDataActor, tagSizeLimit,
       file, result))
@@ -119,11 +117,10 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
       .viaMat(KillSwitches.single)(Keep.right)
       .via(id3v2Stage)
       .via(id3v1Stage)
-      .map(ProcessMp3Data)
+      .map(ProcessMp3Data.apply)
       .toMat(sink)(Keep.left)
       .run()
     (actor, ks)
-  }
 
   /**
     * Creates the source for processing an MP3 stream. This source just reads
@@ -152,10 +149,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * the corresponding message. The close operation is done if there are no
     * more active streams.
     */
-  private def sendCloseAckIfPossible(): Unit = {
-    if (activeFiles.isEmpty) {
+  private def sendCloseAckIfPossible(): Unit =
+    if activeFiles.isEmpty then
       closeRequest foreach (_ ! CloseAck(self))
       closeRequest = None
-    }
-  }
-}

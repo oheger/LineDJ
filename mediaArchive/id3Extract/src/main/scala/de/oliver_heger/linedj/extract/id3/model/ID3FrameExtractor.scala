@@ -19,7 +19,9 @@ package de.oliver_heger.linedj.extract.id3.model
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import org.apache.pekko.util.ByteString
 
-object ID3FrameExtractor {
+import scala.collection.immutable.IndexedSeq
+
+object ID3FrameExtractor:
   /** An array with tag names for ID3v2.2 frames. */
   private val TagsV2 = Vector("TT2", "TP1", "TAL", "TYE", "TRK")
 
@@ -34,7 +36,7 @@ object ID3FrameExtractor {
     * if no data is left from the processing of a previous chunk. This object has
     * no internal state and thus can be shared and reused.
     */
-  private val DirectFrameDataHandler = new FrameDataHandler {
+  private val DirectFrameDataHandler = new FrameDataHandler:
     /**
       * @inheritdoc This implementation just returns the passed in data.
       */
@@ -44,7 +46,6 @@ object ID3FrameExtractor {
       * @inheritdoc This implementation always returns '''true'''.
       */
     override def canProcess(nextChunk: ByteString): Boolean = true
-  }
 
   /**
     * Extracts all tags from the given ID3v2 frame (in binary form) using the given
@@ -59,7 +60,7 @@ object ID3FrameExtractor {
     *         processing the next chunk
     */
   private def processFrame(data: ByteString, tagSizeLimit: Int, complete: Boolean, versionData:
-  VersionData, tagList: List[(String, ID3Tag)]): (List[(String, ID3Tag)], FrameDataHandler) = {
+  VersionData, tagList: List[(String, ID3Tag)]): (List[(String, ID3Tag)], FrameDataHandler) =
     var tags = tagList
     var nextHandler: FrameDataHandler = DirectFrameDataHandler
     var index = 0
@@ -67,39 +68,32 @@ object ID3FrameExtractor {
 
     def bytesToRead: Int = data.length - index
 
-    while (bytesToRead >= versionData.headerLength && !padding) {
+    while bytesToRead >= versionData.headerLength && !padding do
       val headerPos = index
       index += versionData.headerLength
       padding = data(headerPos) == 0
-      if (!padding) {
+      if !padding then
         val tagSize = versionData.extractSize(data, headerPos)
-        if (tagSize > tagSizeLimit) {
+        if tagSize > tagSizeLimit then
           index += tagSize
-          if (index > data.length) {
+          if index > data.length then
             nextHandler = new SkipFrameDataHandler(data.length - index)
-          }
-        } else {
+        else
 
-          if (complete || tagSize <= bytesToRead) {
+          if complete || tagSize <= bytesToRead then
             val actSize = math.min(bytesToRead, tagSize)
             val tagData = data.slice(index, index + actSize)
             val tag = ID3Tag(versionData.extractTagName(data, headerPos), tagData)
             tags = (tag.name -> tag) :: tags
-          } else {
+          else
             nextHandler = new IncompleteFrameDataHandler(data drop headerPos, tagSize +
               versionData.headerLength)
 
-          }
           index += tagSize
-        }
-      }
-    }
 
-    if (bytesToRead > 0) {
+    if bytesToRead > 0 then
       nextHandler = new IncompleteFrameDataHandler(data drop index, versionData.headerLength)
-    }
     (tags, nextHandler)
-  }
 
   /**
     * Creates a map which associates versions of ID3v2 frames with
@@ -131,7 +125,7 @@ object ID3FrameExtractor {
     */
   private case class VersionData(nameLength: Int, sizeLength: Int,
                                  headerLength: Int, tagNames: IndexedSeq[String],
-                                 sizeShift: Int = SizeByteShift) {
+                                 sizeShift: Int = SizeByteShift):
     /**
       * Extracts the tag name from the given header buffer.
       *
@@ -161,7 +155,6 @@ object ID3FrameExtractor {
       */
     def createProvider(frame: ID3Frame): MetaDataProvider =
       new ID3v2TagProvider(frame, tagNames)
-  }
 
   /**
     * An internally used trait that manages the data available for the currently
@@ -169,7 +162,7 @@ object ID3FrameExtractor {
     * Then it can be the case that a tag cannot be processed directly because
     * part of its data is the next chunk.
     */
-  private trait FrameDataHandler {
+  private trait FrameDataHandler:
     /**
       * Checks whether processing is now possible with the data of the next
       * chunk.
@@ -189,7 +182,6 @@ object ID3FrameExtractor {
       * @return the data to be used for the upcoming processing step
       */
     def frameData(nextChunk: ByteString): ByteString
-  }
 
   /**
     * A ''FrameDataHandler'' that is used when a tag cannot be processed because
@@ -200,7 +192,7 @@ object ID3FrameExtractor {
     * @param tagLength        the actual length of the tag
     */
   private class IncompleteFrameDataHandler(truncatedContent: ByteString, tagLength: Int) extends
-    FrameDataHandler {
+    FrameDataHandler:
     /** A buffer for constructing the full tag content. */
     private var buffer = truncatedContent
 
@@ -208,16 +200,14 @@ object ID3FrameExtractor {
       * @inheritdoc This implementation checks whether now the complete content
       *             of the current tag is available
       */
-    override def canProcess(nextChunk: ByteString): Boolean = {
+    override def canProcess(nextChunk: ByteString): Boolean =
       buffer ++= nextChunk
       buffer.size >= tagLength
-    }
 
     /**
       * @inheritdoc This implementation returns the content collected so far.
       */
     override def frameData(nextChunk: ByteString): ByteString = buffer
-  }
 
   /**
     * A ''FrameDataHandler'' that is used to skip a tag whose size is larger
@@ -227,7 +217,7 @@ object ID3FrameExtractor {
     * @param skipBytes the negative number of bytes that have to be skipped;
     *                  skipping is done when this counter reaches 0
     */
-  private class SkipFrameDataHandler(skipBytes: Int) extends FrameDataHandler {
+  private class SkipFrameDataHandler(skipBytes: Int) extends FrameDataHandler:
     /** The current skip counter. */
     private var count = skipBytes
 
@@ -236,10 +226,9 @@ object ID3FrameExtractor {
       *             internal counter. If the counter is now greater than 0,
       *             processing can continue.
       */
-    override def canProcess(nextChunk: ByteString): Boolean = {
+    override def canProcess(nextChunk: ByteString): Boolean =
       count += nextChunk.length
       count > 0
-    }
 
     /**
       * @inheritdoc This implementation returns the part of the given array
@@ -248,11 +237,9 @@ object ID3FrameExtractor {
       *             for the last chunk.
       */
     override def frameData(nextChunk: ByteString): ByteString =
-      if (count <= 0) ByteString()
+      if count <= 0 then ByteString()
       else nextChunk.drop(nextChunk.length - count)
-  }
 
-}
 
 /**
   * A class for extracting ID3v2 frames from audio files.
@@ -280,7 +267,7 @@ object ID3FrameExtractor {
   * @param header       the header of the frame to be processed
   * @param tagSizeLimit an optional limit for the size of a tag
   */
-class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.MAX_VALUE) {
+class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.MAX_VALUE):
 
   import ID3FrameExtractor._
 
@@ -305,17 +292,15 @@ class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.M
     * @param complete a flag whether this is the last chunk
     * @return a reference to this extractor for method chaining
     */
-  def addData(data: ByteString, complete: Boolean = true): ID3FrameExtractor = {
-    if (dataHandler.canProcess(data) || complete) {
+  def addData(data: ByteString, complete: Boolean = true): ID3FrameExtractor =
+    if dataHandler.canProcess(data) || complete then
       versionData foreach { v =>
         val processingResult = processFrame(dataHandler frameData data, tagSizeLimit, complete,
           v, tagList)
         tagList = processingResult._1
         dataHandler = processingResult._2
       }
-    }
     this
-  }
 
   /**
     * Creates an ''ID3Frame'' object with the data extracted so far by this
@@ -335,7 +320,6 @@ class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.M
     */
   def createTagProvider(): Option[MetaDataProvider] =
     versionData map (_.createProvider(createFrame()))
-}
 
 
 /**

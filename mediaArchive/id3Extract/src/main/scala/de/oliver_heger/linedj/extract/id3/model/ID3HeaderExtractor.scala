@@ -23,7 +23,7 @@ import java.nio.charset.StandardCharsets
 /**
   * Companion object for ''ID3DataExtractor''.
   */
-object ID3HeaderExtractor {
+object ID3HeaderExtractor:
   /** Constant for the size of an ID3 header. */
   val ID3HeaderSize = 10
 
@@ -70,7 +70,6 @@ object ID3HeaderExtractor {
     */
   private def id3Size(header: ByteString): Int =
     extractSizeInt(header, IdxSize, SizeLength)
-}
 
 /**
   * A class for evaluating and extracting ID3-header information from audio
@@ -83,7 +82,7 @@ object ID3HeaderExtractor {
   * Implementation note: Instances of this class can safely be shared between
   * multiple threads; they are state-less.
   */
-class ID3HeaderExtractor {
+class ID3HeaderExtractor:
 
   import ID3HeaderExtractor._
 
@@ -96,9 +95,8 @@ class ID3HeaderExtractor {
     * @return an option with the extracted header
     */
   def extractID3Header(data: ByteString): Option[ID3Header] =
-    if (isID3Header(data)) Some(createID3Header(data))
+    if isID3Header(data) then Some(createID3Header(data))
     else None
-}
 
 /**
   * A class representing the header of an ID3v2 tag as used within MP3 audio

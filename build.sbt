@@ -239,10 +239,12 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-id3extract",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", metaDataExtract)
+  ) dependsOn(shared, metaDataExtract, test3 % "test->compile")
 
 /**
   * An utility project providing common functionality needed by multiple

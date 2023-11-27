@@ -25,7 +25,7 @@ import org.apache.pekko.util.ByteString
 
 import scala.annotation.tailrec
 
-object ID3v2ProcessingStage {
+object ID3v2ProcessingStage:
 
   /**
     * Internal data class representing the result of a single ID3 extraction
@@ -54,7 +54,7 @@ object ID3v2ProcessingStage {
     * has to be determined. (Extracted ID3 data is not passed downstream,
     * but audio data which comes after the ID3 frames.)
     */
-  private sealed trait ProcessingState {
+  private sealed trait ProcessingState:
     /**
       * Handles the specified chunk of data.
       *
@@ -73,7 +73,6 @@ object ID3v2ProcessingStage {
       * @return an optional completion message to the processor actor
       */
     def completionMessage: Option[Any] = None
-  }
 
   /**
     * A processing state indicating that the header of an ID3 frame is
@@ -83,14 +82,14 @@ object ID3v2ProcessingStage {
     * @param dataAvailable the current data available
     */
   private class ProcessingStateFrameSearch(dataAvailable: ByteString = ByteString.empty)
-    extends ProcessingState {
+    extends ProcessingState:
     override def handleChunk(extractor: ID3HeaderExtractor,
-                             data: ByteString): ChunkProcessingResult = {
+                             data: ByteString): ChunkProcessingResult =
       val chunk = dataAvailable ++ data
-      if (chunk.length < ID3HeaderExtractor.ID3HeaderSize)
+      if chunk.length < ID3HeaderExtractor.ID3HeaderSize then
         ChunkProcessingResult(new ProcessingStateFrameSearch(chunk))
-      else {
-        extractor extractID3Header chunk match {
+      else
+        extractor extractID3Header chunk match
           case Some(header) =>
             ChunkProcessingResult(new ProcessingStateFrameFound(header),
               processingDone = false,
@@ -98,10 +97,6 @@ object ID3v2ProcessingStage {
           case None =>
             ChunkProcessingResult(ProcessingStatePassThrough, processingDone = false,
               downStreamData = Some(chunk))
-        }
-      }
-    }
-  }
 
   /**
     * A processing state indicating that currently an ID3 frame is processed.
@@ -112,39 +107,35 @@ object ID3v2ProcessingStage {
     * @param bytesProcessed the number of bytes already processed
     */
   private class ProcessingStateFrameFound(header: ID3Header, bytesProcessed: Int = 0)
-    extends ProcessingState {
+    extends ProcessingState:
     override def handleChunk(extractor: ID3HeaderExtractor, data: ByteString):
-    ChunkProcessingResult = {
+    ChunkProcessingResult =
       val remaining = header.size - bytesProcessed
       val msg = ProcessID3FrameData(header, data take remaining,
         lastChunk = remaining <= data.length)
-      if (data.length < remaining)
+      if data.length < remaining then
         ChunkProcessingResult(new ProcessingStateFrameFound(header,
           bytesProcessed + data.length), resultMsg = Some(msg))
       else ChunkProcessingResult(new ProcessingStateFrameSearch(),
         processingDone = false, resultMsg = Some(msg),
         downStreamData = Some(data drop remaining))
-    }
 
     /**
       * @inheritdoc This implementation returns a message indicating an
       *             incomplete ID3 frame.
       */
     override def completionMessage = Some(IncompleteID3Frame(header))
-  }
 
   /**
     * A processing state indicating that no more ID3 frames are expected. The
     * remaining data passed through the stage is normal audio data and has to
     * be passed downstream.
     */
-  private object ProcessingStatePassThrough extends ProcessingState {
+  private object ProcessingStatePassThrough extends ProcessingState:
     override def handleChunk(extractor: ID3HeaderExtractor, data: ByteString):
     ChunkProcessingResult =
       ChunkProcessingResult(ProcessingStatePassThrough, downStreamData = Some(data))
-  }
 
-}
 
 /**
   * A stage implementation which can process ID3v2 tags in a binary stream of
@@ -162,14 +153,14 @@ object ID3v2ProcessingStage {
   * @param procActor an optional processor actor reference
   */
 class ID3v2ProcessingStage(procActor: Option[ActorRef])
-  extends GraphStage[FlowShape[ByteString, ByteString]] {
+  extends GraphStage[FlowShape[ByteString, ByteString]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("ID3v2ProcessingStage.in")
   val out: Outlet[ByteString] = Outlet[ByteString]("ID3v2ProcessingStage.out")
 
   override def shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       /** The extractor for ID3 headers. */
       private val headerExtractor = new ID3HeaderExtractor
 
@@ -180,7 +171,7 @@ class ID3v2ProcessingStage(procActor: Option[ActorRef])
         override def onPush(): Unit = {
           val result = handleChunk(state, grab(in))
           state = result.nextState
-          if (result.downStreamData.isDefined)
+          if result.downStreamData.isDefined then
             push(out, result.downStreamData.get)
           else pull(in)
         }
@@ -208,12 +199,11 @@ class ID3v2ProcessingStage(procActor: Option[ActorRef])
         * @return an object with the results of the processing step
         */
       @tailrec private def handleChunk(currentState: ProcessingState, chunk: ByteString):
-      ChunkProcessingResult = {
+      ChunkProcessingResult =
         val result = currentState.handleChunk(headerExtractor, chunk)
         notifyProcessorActor(result.resultMsg)
-        if (result.processingDone) result
+        if result.processingDone then result
         else handleChunk(result.nextState, result.downStreamData getOrElse ByteString.empty)
-      }
 
       /**
         * Sends the message for a processing step to the processor actor if it
@@ -221,10 +211,7 @@ class ID3v2ProcessingStage(procActor: Option[ActorRef])
         *
         * @param msg an option for the message to be sent
         */
-      private def notifyProcessorActor(msg: Option[Any]): Unit = {
-        for {a <- procActor
+      private def notifyProcessorActor(msg: Option[Any]): Unit =
+        for a <- procActor
              m <- msg
-        } a ! m
-      }
-    }
-}
+        do a ! m

@@ -15,8 +15,8 @@
  */
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +24,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.{Files, Paths}
 
-object ID3v1ExtractorSpec {
+object ID3v1ExtractorSpec:
   /**
     * Writes the given text byte-wise into the specified array. This method can
     * be used to populate an array which can then be processed by the extractor.
@@ -34,37 +34,32 @@ object ID3v1ExtractorSpec {
     * @param pos the optional start position
     * @return the array
     */
-  private def fillArray(buf: Array[Byte], txt: String, pos: Int = 0): Array[Byte] = {
+  private def fillArray(buf: Array[Byte], txt: String, pos: Int = 0): Array[Byte] =
     val txtBytes = FileTestHelper toBytes txt
     System.arraycopy(txtBytes, 0, buf, pos, txtBytes.length)
     buf
-  }
-}
 
 /**
   * Test class for ''ID3v1Extractor''.
   */
-class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import ID3v1ExtractorSpec._
 
-  "An ID3v1Extractor" should "reject an empty frame" in {
+  "An ID3v1Extractor" should "reject an empty frame" in:
     ID3v1Extractor.providerFor(TailBuffer(128)) shouldBe empty
-  }
 
-  it should "reject a frame which is too small" in {
+  it should "reject a frame which is too small" in:
     val data = new Array[Byte](127)
     val buffer = TailBuffer(128, ByteString(fillArray(data, "TAG")))
 
     ID3v1Extractor.providerFor(buffer) shouldBe empty
-  }
 
-  it should "reject a frame with no valid ID" in {
+  it should "reject a frame with no valid ID" in:
     val data = new Array[Byte](128)
     val buffer = TailBuffer(128, ByteString(fillArray(data, "TAJ")))
 
     ID3v1Extractor.providerFor(buffer) shouldBe empty
-  }
 
   /**
     * Reads the content of the given test file and adds it to a tail buffer.
@@ -73,14 +68,13 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @param fileName the name of the test file
     * @return the populated tail buffer
     */
-  private def bufferForFile(fileName: String): TailBuffer = {
+  private def bufferForFile(fileName: String): TailBuffer =
     val uri = getClass.getResource("/" + fileName)
     val path = Paths get uri.toURI
     val content = Files readAllBytes path
     TailBuffer(128, ByteString(content))
-  }
 
-  it should "extract data from a valid frame" in {
+  it should "extract data from a valid frame" in:
     val provider = ID3v1Extractor.providerFor(bufferForFile("test.mp3")).get
 
     provider.artist.get should be("Testinterpret")
@@ -88,15 +82,13 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     provider.album.get should be("A Test Collection")
     provider.inceptionYear.get should be(2006)
     provider.trackNo shouldBe empty
-  }
 
-  it should "extract the track number if defined" in {
+  it should "extract the track number if defined" in:
     val provider =
       ID3v1Extractor.providerFor(bufferForFile("testMP3id3v1.mp3")).get
 
     provider.title.get should be("Test Title")
     provider.trackNo.get should be(1)
-  }
 
   /**
     * Creates a tail buffer and prepares it for a test about string extraction.
@@ -106,28 +98,23 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @param txt the text
     * @return the tag provider
     */
-  private def providerFromStringExtractionTest(txt: String): MetaDataProvider = {
+  private def providerFromStringExtractionTest(txt: String): MetaDataProvider =
     val data = new Array[Byte](128)
     fillArray(data, "TAG")
     fillArray(data, txt, 3)
     ID3v1Extractor.providerFor(TailBuffer(128, ByteString(data))).get
-  }
 
-  it should "ignore a string consisting only of 0 bytes" in {
+  it should "ignore a string consisting only of 0 bytes" in:
     val provider = providerFromStringExtractionTest("")
 
     provider.title shouldBe empty
-  }
 
-  it should "ignore a string consisting only of whitespace" in {
+  it should "ignore a string consisting only of whitespace" in:
     val provider = providerFromStringExtractionTest(" " * 32)
 
     provider.title shouldBe empty
-  }
 
-  it should "trim text data" in {
+  it should "trim text data" in:
     val provider = providerFromStringExtractionTest(" Leading +   trailing Space!!   ")
 
     provider.title.get should be("Leading +   trailing Space!!")
-  }
-}

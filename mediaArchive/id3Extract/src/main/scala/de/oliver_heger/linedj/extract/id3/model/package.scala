@@ -26,7 +26,7 @@ import scala.annotation.tailrec
   * This object contains some utility functions which are used by multiple
   * classes.
   */
-package object model {
+package object model:
   /** Factor for shifting a byte position in an integer representing size. */
   val SizeByteShift = 7
 
@@ -60,12 +60,10 @@ package object model {
     * @param shift  the factor for shifting bytes
     * @return the extracted size value
     */
-  def extractSizeInt(buf: ByteString, ofs: Int, length: Int, shift: Int = SizeByteShift): Int = {
+  def extractSizeInt(buf: ByteString, ofs: Int, length: Int, shift: Int = SizeByteShift): Int =
     @tailrec def extractSizeByte(value: Int, pos: Int): Int =
-      if (pos >= length) value
+      if pos >= length then value
       else extractSizeByte((value << shift) +
         extractByte(buf, ofs + pos), pos + 1)
 
     extractSizeByte(0, 0)
-  }
-}

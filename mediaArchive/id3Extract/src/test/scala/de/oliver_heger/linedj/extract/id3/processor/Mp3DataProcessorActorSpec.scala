@@ -27,7 +27,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import scala.util.Random
 
-object Mp3DataProcessorActorSpec {
+object Mp3DataProcessorActorSpec:
   /** An object for generating random chunks of data. */
   private val random = new Random
 
@@ -36,45 +36,40 @@ object Mp3DataProcessorActorSpec {
     *
     * @return the test data
     */
-  private def generateChunk(): ByteString = {
+  private def generateChunk(): ByteString =
     val size = random.nextInt(1023) + 1
     val buf = new Array[Byte](size)
     random.nextBytes(buf)
     ByteString(buf)
-  }
-}
 
 /**
   * Test class for ''Mp3DataProcessorActor''.
   */
 class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar:
 
   import Mp3DataProcessorActorSpec._
 
   def this() = this(ActorSystem("Mp3DataProcessorActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "An Mp3DataProcessorActor" should "create a default extractor" in {
+  "An Mp3DataProcessorActor" should "create a default extractor" in:
     val ref = TestActorRef[Mp3DataProcessorActor](Props[Mp3DataProcessorActor]())
 
     ref.underlyingActor.extractor should not be null
     ref.underlyingActor.extractor.getFrameCount should be(0)
-  }
 
-  it should "pass a chunk of data to the extractor" in {
+  it should "pass a chunk of data to the extractor" in:
     val data = generateChunk()
     val helper = new Mp3DataProcessorTestHelper
 
     helper.postMessage(ProcessMp3Data(data))
     expectMsg(Mp3DataProcessed)
     helper.verifyExtractorFilled(data)
-  }
 
-  it should "pass results to the collector when the file has been fully read" in {
+  it should "pass results to the collector when the file has been fully read" in:
     val metaData = Mp3MetaData(version = 1, layer = 3, sampleRate = 111,
       minimumBitRat = 96000, maximumBitRate = 128000, duration = 60000)
     val helper = new Mp3DataProcessorTestHelper
@@ -82,12 +77,11 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     helper.prepareMetaDataQuery(metaData)
       .postMessage(Mp3MetaDataRequest)
     expectMsg(metaData)
-  }
 
   /**
     * A helper class managing some objects needed by test cases.
     */
-  private class Mp3DataProcessorTestHelper {
+  private class Mp3DataProcessorTestHelper:
     /** A mock for the data extractor. */
     private val extractor: Mp3DataExtractor = mock[Mp3DataExtractor]
 
@@ -101,10 +95,9 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @param msg the message to be sent
       * @return this test helper
       */
-    def postMessage(msg: Any): Mp3DataProcessorTestHelper = {
+    def postMessage(msg: Any): Mp3DataProcessorTestHelper =
       actor ! msg
       this
-    }
 
     /**
       * Verifies that the specified chunk of data has been passed to the
@@ -113,10 +106,9 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @param data the expected data
       * @return this test helper
       */
-    def verifyExtractorFilled(data: ByteString): Mp3DataProcessorTestHelper = {
+    def verifyExtractorFilled(data: ByteString): Mp3DataProcessorTestHelper =
       verify(extractor).addData(data)
       this
-    }
 
     /**
       * Prepares the mock extractor to return the data specified by the given
@@ -125,7 +117,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @param metaData the meta data
       * @return this test helper
       */
-    def prepareMetaDataQuery(metaData: Mp3MetaData): Mp3DataProcessorTestHelper = {
+    def prepareMetaDataQuery(metaData: Mp3MetaData): Mp3DataProcessorTestHelper =
       when(extractor.getVersion).thenReturn(metaData.version)
       when(extractor.getLayer).thenReturn(metaData.layer)
       when(extractor.getSampleRate).thenReturn(metaData.sampleRate)
@@ -133,7 +125,6 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       when(extractor.getMaxBitRate).thenReturn(metaData.maximumBitRate)
       when(extractor.getDuration).thenReturn(metaData.duration.toFloat)
       this
-    }
 
     /**
       * Creates the test actor reference.
@@ -142,6 +133,4 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       */
     private def createTestActor(): TestActorRef[Mp3DataProcessorActor] =
       TestActorRef[Mp3DataProcessorActor](Props(classOf[Mp3DataProcessorActor], extractor))
-  }
 
-}

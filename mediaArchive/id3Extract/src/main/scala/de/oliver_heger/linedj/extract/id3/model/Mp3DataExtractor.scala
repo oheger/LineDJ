@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.id3.model
 
 import org.apache.pekko.util.ByteString
 
-object Mp3DataExtractor {
+object Mp3DataExtractor:
   /** Constant for the MPEG version 1. */
   final val MpegV1 = 3
 
@@ -89,20 +89,17 @@ object Mp3DataExtractor {
     * @param code    the code for the bit rate
     * @return the bit rate in bit per second
     */
-  private def calculateBitRate(mpegVer: Int, layer: Int, code: Int): Int = {
+  private def calculateBitRate(mpegVer: Int, layer: Int, code: Int): Int =
     val arr =
-      if (mpegVer == MpegV1) {
-        layer match {
+      if mpegVer == MpegV1 then
+        layer match
           case Layer1 => BitRateMpeg1L1
           case Layer2 => BitRateMpeg1L2
           case Layer3 => BitRateMpeg1L3
-        }
-      } else {
-        if (layer == Layer1) BitRateMpeg2L1
+      else
+        if layer == Layer1 then BitRateMpeg2L1
         else BitRateMpeg2L2
-      }
     arr(code)
-  }
 
   /**
     * Calculates the sample rate based on the given parameters.
@@ -124,12 +121,11 @@ object Mp3DataExtractor {
     * @return the length of the frame in bytes
     */
   private def calculateFrameLength(layer: Int, bitRate: Int, sampleRate: Int,
-                                   padding: Int): Int = {
-    if (layer == Layer1)
+                                   padding: Int): Int =
+    if layer == Layer1 then
       (12 * bitRate / sampleRate + padding) * 4
     else
       144 * bitRate / sampleRate + padding
-  }
 
   /**
     * Calculates the duration of a MPEG frame based on the given parameters.
@@ -138,24 +134,22 @@ object Mp3DataExtractor {
     * @param sampleRate the sample rate
     * @return the duration of this frame in milliseconds
     */
-  private def calculateDuration(layer: Int, sampleRate: Int): Float = {
-    val sampleCount = if (layer == Layer1) SampleCountL1
+  private def calculateDuration(layer: Int, sampleRate: Int): Float =
+    val sampleCount = if layer == Layer1 then SampleCountL1
     else SampleCountL2
     (1000.0f / sampleRate) * sampleCount
-  }
 
   /**
     * Creates the complete array for the sample rate mapping.
     *
     * @return the table for the sample rates
     */
-  private def createSampleRateTable(): Array[Array[Int]] = {
+  private def createSampleRateTable(): Array[Array[Int]] =
     val arr = new Array[Array[Int]](4)
     arr(MpegV1) = SampleRateMpeg1
     arr(MpegV2) = SampleRateMpeg2
     arr(MpegV2_5) = SampleRateMpeg2_5
     arr
-  }
 
   /**
     * A class representing the bit field of an MPEG header. It allows convenient
@@ -163,7 +157,7 @@ object Mp3DataExtractor {
     *
     * @param data the array with the bytes of the header
     */
-  private class HeaderBitField(data: Array[Byte]) {
+  private class HeaderBitField(data: Array[Byte]):
     /** The internal value. */
     private val value = calculateValue()
 
@@ -175,11 +169,10 @@ object Mp3DataExtractor {
       * @param to   the to index
       * @return the value of this group of bits
       */
-    def apply(from: Int, to: Int): Int = {
+    def apply(from: Int, to: Int): Int =
       val shiftVal = value >> from
       val mask = (1 << (to - from + 1)) - 1
       shiftVal & mask
-    }
 
     /**
       * Returns the value of the bit with the given index. The bit index is
@@ -198,11 +191,9 @@ object Mp3DataExtractor {
     private def calculateValue(): Int =
       data.foldLeft(0)(appendByte)
 
-    private def appendByte(current: Int, b: Byte): Int = {
+    private def appendByte(current: Int, b: Byte): Int =
       val next = (current << 8) | toUnsignedInt(b)
       next
-    }
-  }
 
   /**
     * An internally data class containing meta data about an MPEG frame.
@@ -217,7 +208,6 @@ object Mp3DataExtractor {
   private case class MpegHeader(length: Int, mpegVersion: Int, layer: Int, bitRate: Int,
                                 sampleRate: Int, duration: Float)
 
-}
 
 /**
   * A class for extracting meta data from mp3 audio files.
@@ -234,7 +224,7 @@ object Mp3DataExtractor {
   * Implementation note: This class is not thread-safe. Adding of data chunks
   * and querying meta data can be performed in a single thread only.
   */
-class Mp3DataExtractor {
+class Mp3DataExtractor:
 
   import Mp3DataExtractor._
 
@@ -329,10 +319,9 @@ class Mp3DataExtractor {
     * @param data the data to be processed
     * @return a reference to this object
     */
-  def addData(data: ByteString): Mp3DataExtractor = {
+  def addData(data: ByteString): Mp3DataExtractor =
     buffer ++= data
     handleNewData()
-  }
 
   /**
     * Handles new data that has been added to the internal data buffer. If
@@ -340,12 +329,10 @@ class Mp3DataExtractor {
     *
     * @return a reference to this object
     */
-  private def handleNewData(): Mp3DataExtractor = {
-    if (handleSkip()) {
+  private def handleNewData(): Mp3DataExtractor =
+    if handleSkip() then
       process()
-    }
     this
-  }
 
   /**
     * Performs a skip operation if necessary. The return value indicates whether
@@ -354,49 +341,43 @@ class Mp3DataExtractor {
     *
     * @return a flag whether all bytes could be skipped
     */
-  private def handleSkip(): Boolean = {
-    if (bytesToSkip > 0) {
-      if (bytesToSkip >= buffer.length) {
+  private def handleSkip(): Boolean =
+    if bytesToSkip > 0 then
+      if bytesToSkip >= buffer.length then
         bytesToSkip -= buffer.length
         buffer = ByteString.empty
         false
-      } else {
+      else
         buffer = buffer drop bytesToSkip
         bytesToSkip = 0
         true
-      }
-    } else true
-  }
+    else true
 
   /**
     * Processes the data currently available.
     */
-  private def process(): Unit = {
+  private def process(): Unit =
     var syncPos = 0
     var exhausted = false
-    do {
+    while !exhausted do
       syncPos = sync(syncPos)
-      if (syncPos >= 0) {
-        readHeader(syncPos) match {
+      if syncPos >= 0 then
+        readHeader(syncPos) match
           case Some(header) =>
             syncFound = false
             val optProcessed = createHeader(new HeaderBitField(header)) map processFrameHeader
             syncPos += optProcessed getOrElse 0
-            if (syncPos >= buffer.length) {
+            if syncPos >= buffer.length then
               exhausted = true
               bytesToSkip = syncPos - buffer.length
-            }
 
           case None =>
             exhausted = true
             syncPos -= 1 // reset sync position to try again here
-        }
 
-      } else exhausted = true
-    } while (!exhausted)
+      else exhausted = true
 
     buffer = buffer drop syncPos
-  }
 
   /**
     * Tries to find the next synchronization byte in the buffer.
@@ -404,11 +385,10 @@ class Mp3DataExtractor {
     * @param pos the current position in the buffer
     * @return the index of the next sync byte or -1
     */
-  private def sync(pos: Int): Int = {
+  private def sync(pos: Int): Int =
     val idx = buffer.indexOf(SyncByte, pos)
-    if (idx < 0) -1
+    if idx < 0 then -1
     else idx + 1
-  }
 
   /**
     * Tries to read the bytes for a frame header. If this is not possible -
@@ -417,12 +397,11 @@ class Mp3DataExtractor {
     * @param pos the current position in the buffer
     * @return an option with the bytes of the header
     */
-  private def readHeader(pos: Int): Option[Array[Byte]] = {
-    if (buffer.length >= pos + HeaderLength) {
+  private def readHeader(pos: Int): Option[Array[Byte]] =
+    if buffer.length >= pos + HeaderLength then
       val header = buffer.slice(pos, pos + HeaderLength).toArray
       Some(header)
-    } else None
-  }
+    else None
 
   /**
     * Creates an ''MpegHeader'' object based on the given header field. If the
@@ -431,18 +410,18 @@ class Mp3DataExtractor {
     * @param bits the header bit field
     * @return the ''MpegHeader''
     */
-  private def createHeader(bits: HeaderBitField): Option[MpegHeader] = {
-    if (bits(21, 23) != 7) None
-    else {
+  private def createHeader(bits: HeaderBitField): Option[MpegHeader] =
+    if bits(21, 23) != 7 then None
+    else
       val mpegVer = bits(19, 20)
       val layer = bits(17, 18)
       val bitRateCode = bits(12, 15)
       val sampleRateCode = bits(10, 11)
       val padding = bits(9)
 
-      if (mpegVer == 1 || layer == 0 || bitRateCode == 0 || bitRateCode == 15 ||
-        sampleRateCode == 3) None
-      else {
+      if mpegVer == 1 || layer == 0 || bitRateCode == 0 || bitRateCode == 15 ||
+        sampleRateCode == 3 then None
+      else
         val bitRate = calculateBitRate(mpegVer, layer, bitRateCode)
         val sampleRate = calculateSampleRate(mpegVer, sampleRateCode)
         val length = calculateFrameLength(layer, bitRate,
@@ -450,9 +429,6 @@ class Mp3DataExtractor {
         val duration = calculateDuration(layer, sampleRate)
         Some(MpegHeader(bitRate = bitRate, sampleRate = sampleRate, layer = layer,
           mpegVersion = mpegVer, length = length, duration = duration))
-      }
-    }
-  }
 
   /**
     * Processes a header that could be successfully decoded. This method updates
@@ -462,17 +438,15 @@ class Mp3DataExtractor {
     * @param header the data object representing the header
     * @return the number of bytes that need to be skipped
     */
-  private def processFrameHeader(header: MpegHeader): Int = {
+  private def processFrameHeader(header: MpegHeader): Int =
     syncFound = false
     frameCount += 1
     sampleRate = header.sampleRate
     maxBitRate = math.max(maxBitRate, header.bitRate)
-    minBitRate = if (minBitRate == 0) header.bitRate
+    minBitRate = if minBitRate == 0 then header.bitRate
     else math.min(minBitRate, header.bitRate)
     version = header.mpegVersion
     layer = header.layer
     duration += header.duration
 
     header.length - 1 // 1 byte of header already read
-  }
-}

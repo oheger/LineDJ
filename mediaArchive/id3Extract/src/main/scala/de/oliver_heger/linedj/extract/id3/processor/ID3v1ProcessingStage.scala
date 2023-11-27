@@ -37,14 +37,14 @@ import org.apache.pekko.util.ByteString
   * @param procActor the processing actor to be notified
   */
 class ID3v1ProcessingStage(procActor: ActorRef)
-  extends GraphStage[FlowShape[ByteString, ByteString]] {
+  extends GraphStage[FlowShape[ByteString, ByteString]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("ID3v1ProcessingStage.in")
   val out: Outlet[ByteString] = Outlet[ByteString]("ID3v1ProcessingStage.out")
 
   override def shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       var tailBuffer = TailBuffer(128)
 
       setHandler(in, new InHandler {
@@ -65,5 +65,3 @@ class ID3v1ProcessingStage(procActor: ActorRef)
           pull(in)
         }
       })
-    }
-}

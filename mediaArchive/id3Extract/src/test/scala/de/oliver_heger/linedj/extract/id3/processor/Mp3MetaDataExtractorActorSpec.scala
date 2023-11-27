@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
@@ -34,9 +34,9 @@ import org.scalatest.matchers.should.Matchers
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object Mp3MetaDataExtractorActorSpec {
+object Mp3MetaDataExtractorActorSpec:
   /** A tag size limit. */
   private val TagSizeLimit = 4096
 
@@ -60,22 +60,20 @@ object Mp3MetaDataExtractorActorSpec {
     */
   private case class ExpectedChildActorCreation(child: ActorRef, fileData: FileData)
 
-}
 
 /**
   * Test class for ''Mp3MetaDataExtractorActor''.
   */
-class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
 
   import Mp3MetaDataExtractorActorSpec._
 
   def this() = this(ActorSystem("Mp3MetaDataExtractorActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Copies the test file from class path resources to a temporary file. This
@@ -85,24 +83,20 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     * @param name the name of the test file
     * @return the path under which the file can be accessed
     */
-  private def copyTestFile(name: String): Path = {
+  private def copyTestFile(name: String): Path =
     val path = createPathInDirectory(name)
-    if (!Files.exists(path)) {
+    if !Files.exists(path) then
       val stream = getClass.getResourceAsStream("/" + name)
       val out = Files.newOutputStream(path)
-      try {
+      try
         val buf = new Array[Byte](4096)
         var len = stream.read(buf)
-        while (len >= 0) {
+        while len >= 0 do
           out.write(buf, 0, len)
           len = stream.read(buf)
-        }
-      } finally {
+      finally
         out.close()
-      }
-    }
     path
-  }
 
   /**
     * Returns a basic partial function to be used when fishing for a message
@@ -112,16 +106,15 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     *
     * @return the base fishing function
     */
-  private def basicFishingFunc: PartialFunction[Any, Boolean] = {
+  private def basicFishingFunc: PartialFunction[Any, Boolean] =
     case Mp3StreamInit => false
     case _: ProcessMp3Data => false
     case _: ProcessID3FrameData => false
     case _: IncompleteID3Frame => false
     case _: ID3v1MetaData => false
     case Mp3StreamCompleted => true
-  }
 
-  "An Mp3MetaDataExtractorActor" should "create correct Props" in {
+  "An Mp3MetaDataExtractorActor" should "create correct Props" in:
     val metaDataActor = TestProbe().ref
     val props = Mp3MetaDataExtractorActor(metaDataActor, TagSizeLimit, ReadChunkSize)
 
@@ -129,91 +122,80 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CancelableStreamSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(metaDataActor, TagSizeLimit, ReadChunkSize))
-  }
 
-  it should "send an init message when processing a file" in {
+  it should "send an init message when processing a file" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     helper.fishForStreamingMessage("test.mp3") {
       case Mp3StreamInit => true
     } should be(Mp3StreamInit)
-  }
 
-  it should "send messages to process MP3 frames" in {
+  it should "send messages to process MP3 frames" in:
     val chunkSize = new AtomicInteger
     val frameCount = new AtomicInteger
     val helper = new Mp3MetaDataExtractorTestHelper
 
     helper.fishForStreamingMessage("test2.mp3") {
       case mp3Data: ProcessMp3Data =>
-        if (chunkSize.get() < mp3Data.data.length) {
+        if chunkSize.get() < mp3Data.data.length then
           chunkSize.set(mp3Data.data.length)
-        }
         frameCount.incrementAndGet()
         false
     } should be(Mp3StreamCompleted)
     chunkSize.get() should be(ReadChunkSize)
     frameCount.get() should be(53)
-  }
 
-  it should "send messages to process ID3v2 frames" in {
+  it should "send messages to process ID3v2 frames" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     val msg = helper.fishForStreamingMessage("test.mp3") {
       case _: ProcessID3FrameData => true
     }.asInstanceOf[ProcessID3FrameData]
     msg.frameHeader.version should be(3)
-  }
 
-  it should "send messages to process ID3v1 frames" in {
+  it should "send messages to process ID3v1 frames" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     val msg = helper.fishForStreamingMessage("testMP3id3v1.mp3") {
       case _: ID3v1MetaData => true
     }.asInstanceOf[ID3v1MetaData]
     msg.metaData.get.title should be(Some("Test Title"))
-  }
 
-  it should "send an error message if there is a processing failure" in {
+  it should "send an error message if there is a processing failure" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     helper.fishForStreamingMessage(FileData(Paths get "non/existing/file.mp3", 42)) {
       case Mp3StreamFailure(_) => true
     } shouldBe a[Mp3StreamFailure]
-  }
 
-  it should "handle a cancel request if no stream is active" in {
+  it should "handle a cancel request if no stream is active" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     helper.postMessage(CloseRequest)
       .expectCloseAck()
-  }
 
-  it should "cancel active streams on receiving a cancel request" in {
+  it should "cancel active streams on receiving a cancel request" in:
     val source = Source(List(ByteString("These are"), ByteString(" test "),
       ByteString("byte strings."))).delay(1.second, DelayOverflowStrategy.backpressure)
     val chunkCount = new AtomicInteger
     val helper = new Mp3MetaDataExtractorTestHelper(optStreamSource = Some(source))
 
-    helper.fishForStreamingMessage("test.mp3") {
+    helper.fishForStreamingMessage("test.mp3"):
       case _: ProcessMp3Data =>
         chunkCount.incrementAndGet()
         false
-    }
     helper.postMessage(CloseRequest)
     expectNoMessage(1.second)
     chunkCount.get() should be < 3
-  }
 
-  it should "remove kill switch registrations when processing is done" in {
+  it should "remove kill switch registrations when processing is done" in:
     val helper = new Mp3MetaDataExtractorTestHelper
 
     helper.fishForStreamingMessage("test.mp3")(basicFishingFunc)
     helper.stopProcessingActors()
       .expectKillSwitchUnRegistration()
-  }
 
-  it should "send a CloseAck when all active streams are done" in {
+  it should "send a CloseAck when all active streams are done" in:
     val helper = new Mp3MetaDataExtractorTestHelper
     helper.fishForStreamingMessage("test.mp3")(basicFishingFunc)
     helper.fishForStreamingMessage("testMP3id3v1.mp3")(basicFishingFunc)
@@ -221,9 +203,8 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     helper.postMessage(CloseRequest)
       .stopProcessingActors()
       .expectCloseAck()
-  }
 
-  it should "reset a pending close operation after it is done" in {
+  it should "reset a pending close operation after it is done" in:
     val helper = new Mp3MetaDataExtractorTestHelper
     helper.fishForStreamingMessage("test.mp3")(basicFishingFunc)
     helper.postMessage(CloseRequest).stopProcessingActors().expectCloseAck()
@@ -231,13 +212,12 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     helper.fishForStreamingMessage("testMP3id3v1.mp3")(basicFishingFunc)
     helper.stopProcessingActors()
     expectNoMessage(1.second)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
   private class Mp3MetaDataExtractorTestHelper(optStreamSource: Option[Source[ByteString, Any]]
-                                               = None) {
+                                               = None):
     /** A queue for keeping track on newly created child actors. */
     private val childActorQueue = new LinkedBlockingQueue[ExpectedChildActorCreation]
 
@@ -265,11 +245,10 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       * @param f    the fishing function (will be extended by the basic function)
       * @return the retrieved message
       */
-    def fishForStreamingMessage(file: String)(f: PartialFunction[Any, Boolean]): Any = {
+    def fishForStreamingMessage(file: String)(f: PartialFunction[Any, Boolean]): Any =
       val testPath = copyTestFile(file)
       val size = Files.size(testPath)
       fishForStreamingMessage(FileData(testPath, size))(f)
-    }
 
     /**
       * Starts a processing operation for the specified file and fishes for
@@ -279,7 +258,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       * @param f        the fishing function (will be extended by the basic function)
       * @return the retrieved message
       */
-    def fishForStreamingMessage(fileData: FileData)(f: PartialFunction[Any, Boolean]): Any = {
+    def fishForStreamingMessage(fileData: FileData)(f: PartialFunction[Any, Boolean]): Any =
       val msgQueue = new LinkedBlockingQueue[AnyRef]
       val fishingFunc = f orElse basicFishingFunc
       val child = system.actorOf(Props(classOf[Mp3FileProcessorTestActor],
@@ -291,7 +270,6 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       val foundMsg = msgQueue.poll(3, TimeUnit.SECONDS)
       foundMsg should not be null
       foundMsg
-    }
 
     /**
       * Posts the specified message to the test actor.
@@ -299,10 +277,9 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       * @param msg the message
       * @return this test helper
       */
-    def postMessage(msg: Any): Mp3MetaDataExtractorTestHelper = {
+    def postMessage(msg: Any): Mp3MetaDataExtractorTestHelper =
       mp3Extractor ! msg
       this
-    }
 
     /**
       * Expects a CloseAck message from the test actor sent to the implicit
@@ -310,10 +287,9 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       *
       * @return this test helper
       */
-    def expectCloseAck(): Mp3MetaDataExtractorTestHelper = {
+    def expectCloseAck(): Mp3MetaDataExtractorTestHelper =
       expectMsg(CloseAck(mp3Extractor))
       this
-    }
 
     /**
       * Stops all processing actors that have been created by this helper so
@@ -321,11 +297,10 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       *
       * @return this test helper
       */
-    def stopProcessingActors(): Mp3MetaDataExtractorTestHelper = {
+    def stopProcessingActors(): Mp3MetaDataExtractorTestHelper =
       processorActors foreach system.stop
       processorActors = Nil
       this
-    }
 
     /**
       * Checks that kill switches are un-registered after processing of their
@@ -333,11 +308,10 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       *
       * @return this test helper
       */
-    def expectKillSwitchUnRegistration(): Mp3MetaDataExtractorTestHelper = {
+    def expectKillSwitchUnRegistration(): Mp3MetaDataExtractorTestHelper =
       registeredKillSwitches.get().size should be > 0
       awaitCond(removedKillSwitches.get() == registeredKillSwitches.get())
       this
-    }
 
     /**
       * Creates a test actor instance.
@@ -401,9 +375,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
           super.unregisterKillSwitch(ksID)
         }
       })
-  }
 
-}
 
 /**
   * An actor class simulating an MP3 file processor actor. This class is used
@@ -420,14 +392,10 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
   * @param f     the partial function selecting the messages to look for
   */
 class Mp3FileProcessorTestActor(queue: LinkedBlockingQueue[Any],
-                                f: PartialFunction[Any, Boolean]) extends Actor {
-  override def receive: Receive = {
+                                f: PartialFunction[Any, Boolean]) extends Actor:
+  override def receive: Receive =
     case m =>
-      if (m == Mp3StreamInit || m.isInstanceOf[ProcessMp3Data]) {
+      if m == Mp3StreamInit || m.isInstanceOf[ProcessMp3Data] then
         sender() ! Mp3ChunkAck
-      }
-      if (!f.isDefinedAt(m) || f(m)) {
+      if !f.isDefinedAt(m) || f(m) then
         queue offer m
-      }
-  }
-}

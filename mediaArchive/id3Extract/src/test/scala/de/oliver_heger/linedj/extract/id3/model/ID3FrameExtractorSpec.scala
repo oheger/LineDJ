@@ -1,6 +1,22 @@
+/*
+ * Copyright 2015-2023 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -8,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import java.io.{ByteArrayOutputStream, OutputStream}
 import java.nio.file.{Files, Paths}
 
-object ID3FrameExtractorSpec {
+object ID3FrameExtractorSpec:
 
   /**
     * Writes an ID3v2.2 tag into the given output stream.
@@ -20,16 +36,15 @@ object ID3FrameExtractorSpec {
     * @return the size of this tag including header
     */
   private def writeV2Tag(out: OutputStream, name: String, content: String,
-                         tagSize: Int = -1): Int = {
+                         tagSize: Int = -1): Int =
     out.write(name.getBytes)
-    val size = if (tagSize >= 0) tagSize else content.length + 1
+    val size = if tagSize >= 0 then tagSize else content.length + 1
     out.write(0)
     out.write(size >> 8)
     out.write(size & 0xFF)
     out.write(content.getBytes)
     out.write(0)
     size + 6
-  }
 
   /**
     * Creates test data for an ID3v2.2 frame. Both the header and the binary
@@ -37,7 +52,7 @@ object ID3FrameExtractorSpec {
     *
     * @return the data
     */
-  private def createV2Data(): (ID3Header, ByteString) = {
+  private def createV2Data(): (ID3Header, ByteString) =
     val tagsOut = new ByteArrayOutputStream
     var size = 0
     size += writeV2Tag(tagsOut, "TT2", "Tit")
@@ -46,13 +61,11 @@ object ID3FrameExtractorSpec {
     size += writeV2Tag(tagsOut, "TYE", "2012")
     size += writeV2Tag(tagsOut, "TRK", "1")
     (ID3Header(2, size), ByteString(tagsOut.toByteArray))
-  }
-}
 
 /**
   * Test class for ''ID3FrameExtract''.
   */
-class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
+class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
 
   import ID3FrameExtractorSpec._
 
@@ -63,10 +76,9 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     * @param tagName the name of the tag in question
     * @param exp     the expected content of this tag
     */
-  private def checkID3Tag(frame: ID3Frame, tagName: String, exp: String): Unit = {
+  private def checkID3Tag(frame: ID3Frame, tagName: String, exp: String): Unit =
     val tag = frame.tags(tagName)
     tag.asString should be(exp)
-  }
 
   /**
     * Reads a file from the test resources and returns its content as an array
@@ -75,11 +87,10 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     * @param name the resource name of the file to be read
     * @return the content of the file
     */
-  private def readResourceFile(name: String): ByteString = {
+  private def readResourceFile(name: String): ByteString =
     val fileURI = getClass.getResource("/" + name).toURI
     val path = Paths get fileURI
     ByteString(Files readAllBytes path)
-  }
 
   /**
     * Reads a file from the test resources and parses it using a new frame
@@ -88,7 +99,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     * @param name the resource name of the file to be read
     * @return the ''ID3FrameExtractor''
     */
-  private def extractorFromResourceFile(name: String): ID3FrameExtractor = {
+  private def extractorFromResourceFile(name: String): ID3FrameExtractor =
     val content = readResourceFile(name)
     val headerExtractor = new ID3HeaderExtractor
     val optHeader = headerExtractor extractID3Header content
@@ -98,9 +109,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
       + optHeader.get.size)
     val extractor = new ID3FrameExtractor(optHeader.get)
     extractor addData frameData
-  }
 
-  "An ID3FrameExtractor" should "be able to process an ID3v2.2 frame" in {
+  "An ID3FrameExtractor" should "be able to process an ID3v2.2 frame" in:
     val (header, data) = createV2Data()
     val extractor = new ID3FrameExtractor(header)
 
@@ -111,9 +121,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "TAL", "Alb")
     checkID3Tag(frame, "TYE", "2012")
     checkID3Tag(frame, "TRK", "1")
-  }
 
-  it should "handle truncated frames" in {
+  it should "handle truncated frames" in:
     val out = new ByteArrayOutputStream
     writeV2Tag(out, "TT2", "X")
     val extractor = new ID3FrameExtractor(ID3Header(version = 2, size = 128))
@@ -121,9 +130,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     extractor addData ByteString(out.toByteArray)
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TT2", "X")
-  }
 
-  it should "handle truncated tags" in {
+  it should "handle truncated tags" in:
     val out = new ByteArrayOutputStream
     writeV2Tag(out, "TT2", "X", 250)
     val extractor = new ID3FrameExtractor(ID3Header(version = 2, size = 250))
@@ -131,9 +139,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     extractor addData ByteString(out.toByteArray)
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TT2", "X")
-  }
 
-  it should "deal with an unsupported ID3 version" in {
+  it should "deal with an unsupported ID3 version" in:
     val frameSize = 100
     val header = ID3Header(size = frameSize, version = 127)
     val extractor = new ID3FrameExtractor(header)
@@ -142,9 +149,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     extractor addData data
     val frame = extractor.createFrame()
     frame.tags shouldBe empty
-  }
 
-  it should "be able to process an ID3v2.3 frame" in {
+  it should "be able to process an ID3v2.3 frame" in:
     val extractor = extractorFromResourceFile("test.mp3")
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TIT2", "Testtitle")
@@ -152,9 +158,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "TALB", "A Test Collection")
     checkID3Tag(frame, "TYER", "2006")
     checkID3Tag(frame, "TRCK", "01/10")
-  }
 
-  it should "be able to process an ID3v2.4 frame" in {
+  it should "be able to process an ID3v2.4 frame" in:
     val extractor = extractorFromResourceFile("testMP3id3v24.mp3")
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TIT2", "Test Title")
@@ -163,24 +168,21 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "TRCK", "11")
     checkID3Tag(frame, "TCOM", "Harry Hirsch")
     checkID3Tag(frame, "TPE2", "Test Band")
-  }
 
-  it should "process an ID3v2.4 frame with a large tag" in {
+  it should "process an ID3v2.4 frame with a large tag" in:
     val extractor = extractorFromResourceFile("testLongTitle_v4.mp3")
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TALB",
       "Mozart: The Violin Sonatas [Mutter & Orkis], Disc 2")
-  }
 
-  it should "process an ID3v2.3 frame with a large tag" in {
+  it should "process an ID3v2.3 frame with a large tag" in:
     val extractor = extractorFromResourceFile("testLongTag_v3.mp3")
     val frame = extractor.createFrame()
     checkID3Tag(frame, "TALB", "Heroes Of Nature")
     checkID3Tag(frame, "TIT2", "Intro")
     checkID3Tag(frame, "TPE2", "Smoke City")
-  }
 
-  it should "create an ID3TagProvider for an ID3v2.2 frame" in {
+  it should "create an ID3TagProvider for an ID3v2.2 frame" in:
     val (header, data) = createV2Data()
     val extractor = new ID3FrameExtractor(header)
     extractor addData data
@@ -191,9 +193,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     provider.album.get should be("Alb")
     provider.inceptionYear.get should be(2012)
     provider.trackNo.get should be(1)
-  }
 
-  it should "create an ID3TagProvider for an ID3v2.3 frame" in {
+  it should "create an ID3TagProvider for an ID3v2.3 frame" in:
     val extractor = extractorFromResourceFile("test.mp3")
 
     val provider = extractor.createTagProvider().get
@@ -202,9 +203,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     provider.album.get should be("A Test Collection")
     provider.inceptionYear.get should be(2006)
     provider.trackNo.get should be(1)
-  }
 
-  it should "create an ID3TagProvider for an ID3v2.4 frame" in {
+  it should "create an ID3TagProvider for an ID3v2.4 frame" in:
     val extractor = extractorFromResourceFile("testMP3id3v24.mp3")
 
     val provider = extractor.createTagProvider().get
@@ -213,9 +213,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     provider.album.get should be("Test Album")
     provider.trackNo.get should be(11)
     provider.inceptionYear shouldBe empty
-  }
 
-  it should "be able to process frame data chunk-wise" in {
+  it should "be able to process frame data chunk-wise" in:
     val (header, data) = createV2Data()
     val extractor = new ID3FrameExtractor(header)
 
@@ -226,7 +225,6 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "TAL", "Alb")
     checkID3Tag(frame, "TYE", "2012")
     checkID3Tag(frame, "TRK", "1")
-  }
 
   /**
     * Adds the content of the given output stream to the extractor in single
@@ -237,13 +235,12 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     * @param extractor the extractor
     */
   private def appendChunkWise(out: ByteArrayOutputStream, chunkSize: Int, extractor:
-  ID3FrameExtractor): Unit = {
+  ID3FrameExtractor): Unit =
     val chunks = ByteString(out.toByteArray).grouped(chunkSize).toList
     chunks dropRight 1 foreach (extractor.addData(_, complete = false))
     extractor addData chunks.last
-  }
 
-  it should "handle large tags spanning multiple chunks" in {
+  it should "handle large tags spanning multiple chunks" in:
     val out = new ByteArrayOutputStream
     val size = writeV2Tag(out, "tst", FileTestHelper.TestData)
     val header = ID3Header(size = size, version = 2)
@@ -251,9 +248,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
 
     appendChunkWise(out, 32, extractor)
     checkID3Tag(extractor.createFrame(), "tst", FileTestHelper.TestData)
-  }
 
-  it should "process the last chunk of a large tag even if truncated" in {
+  it should "process the last chunk of a large tag even if truncated" in:
     val out = new ByteArrayOutputStream
     val size = writeV2Tag(out, "tst", FileTestHelper.TestData)
     val header = ID3Header(size = size, version = 2)
@@ -266,9 +262,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     extractor addData lastChunk.dropRight(1)
     // the trailing 0 was dropped, so the text is complete
     checkID3Tag(extractor.createFrame(), "tst", FileTestHelper.TestData)
-  }
 
-  it should "skip a tag in a single chunk if it is too big" in {
+  it should "skip a tag in a single chunk if it is too big" in:
     val out = new ByteArrayOutputStream
     var size = writeV2Tag(out, "tg1", "tag1")
     size += writeV2Tag(out, "skp", "This is tag with a long content!")
@@ -280,9 +275,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "tg1", "tag1")
     checkID3Tag(frame, "tg2", "tag2")
     frame.tags.contains("skp") shouldBe false
-  }
 
-  it should "skip a tag at the end of a chunk if it is too big" in {
+  it should "skip a tag at the end of a chunk if it is too big" in:
     val out = new ByteArrayOutputStream
     var size = writeV2Tag(out, "tg1", "tag1")
     size += writeV2Tag(out, "skp", "This is tag with a long content!")
@@ -292,9 +286,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     val frame = extractor.createFrame()
     checkID3Tag(frame, "tg1", "tag1")
     frame.tags.contains("skp") shouldBe false
-  }
 
-  it should "skip a tag over multiple chunks if it is too big" in {
+  it should "skip a tag over multiple chunks if it is too big" in:
     val out = new ByteArrayOutputStream
     var size = writeV2Tag(out, "tg1", "tag1")
     size += writeV2Tag(out, "skp", FileTestHelper.TestData)
@@ -306,9 +299,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     checkID3Tag(frame, "tg1", "tag1")
     checkID3Tag(frame, "tg2", "tag2")
     frame.tags.contains("skp") shouldBe false
-  }
 
-  it should "skip the last tag over multiple chunks if it is too big" in {
+  it should "skip the last tag over multiple chunks if it is too big" in:
     val out = new ByteArrayOutputStream
     var size = writeV2Tag(out, "tg1", "tag1")
     size += writeV2Tag(out, "skp", FileTestHelper.TestData)
@@ -318,5 +310,3 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers {
     val frame = extractor.createFrame()
     checkID3Tag(frame, "tg1", "tag1")
     frame.tags.contains("skp") shouldBe false
-  }
-}

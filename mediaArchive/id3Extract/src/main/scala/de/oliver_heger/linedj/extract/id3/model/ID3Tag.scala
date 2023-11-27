@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.id3.model
 
 import org.apache.pekko.util.ByteString
 
-object ID3Tag {
+object ID3Tag:
   /** Text encoding ISO-88559-1. */
   private val EncISO88591 = TextEncoding("ISO-8859-1", doubleByte = false)
 
@@ -63,9 +63,8 @@ object ID3Tag {
     */
   private def extractString(buf: ByteString, ofs: Int, len: Int,
                             enc: String): String =
-    if (len <= 0) Blank
+    if len <= 0 then Blank
     else buf.slice(ofs, ofs + len).decodeString(enc)
-}
 
 /**
   * A data class describing a single tag in an ID3v2 frame. These tags contain
@@ -76,7 +75,7 @@ object ID3Tag {
   *             the ID3v2 specification)
   * @param data an object with the content of this tag
   */
-case class ID3Tag(name: String, data: ByteString) {
+case class ID3Tag(name: String, data: ByteString):
 
   import ID3Tag._
 
@@ -95,19 +94,17 @@ case class ID3Tag(name: String, data: ByteString) {
     *
     * @return the content of this tag as string
     */
-  def asString: String = {
-    if (data.isEmpty) Blank
-    else {
+  def asString: String =
+    if data.isEmpty then Blank
+    else
       var ofs = 0
       val encFlag = extractByte(data, 0)
-      val encoding = if (encFlag < Encodings.length) {
+      val encoding = if encFlag < Encodings.length then
         ofs = 1
         Encodings(encFlag)
-      } else Encodings(0)
+      else Encodings(0)
       val len = calcStringLength(encoding.doubleByte) - ofs
       extractString(data, ofs, len, encoding.encName)
-    }
-  }
 
   /**
     * Determines the length of this tag's string content by skipping 0 bytes at
@@ -115,20 +112,15 @@ case class ID3Tag(name: String, data: ByteString) {
     *
     * @param doubleByte a flag whether a double byte encoding is used
     */
-  private def calcStringLength(doubleByte: Boolean): Int = {
+  private def calcStringLength(doubleByte: Boolean): Int =
     var length = data.length
-    if (doubleByte) {
-      while (length >= 2 && data(length - 1) == 0 && data(length - 2) == 0) {
+    if doubleByte then
+      while length >= 2 && data(length - 1) == 0 && data(length - 2) == 0 do
         length -= 2
-      }
-    } else {
-      while (length >= 1 && data(length - 1) == 0) {
+    else
+      while length >= 1 && data(length - 1) == 0 do
         length -= 1
-      }
-    }
     length
-  }
-}
 
 /**
   * A simple data class representing a text encoding.

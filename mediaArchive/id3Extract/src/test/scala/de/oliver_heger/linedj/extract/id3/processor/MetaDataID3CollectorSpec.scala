@@ -21,7 +21,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object MetaDataID3CollectorSpec {
+object MetaDataID3CollectorSpec:
   /** A test title. */
   private val Title = "Bat Out Of Hell"
 
@@ -76,12 +76,11 @@ object MetaDataID3CollectorSpec {
     * @return the test track number
     */
   private def track(version: Int): Option[Int] = Some(Track + version)
-}
 
 /**
   * Test class for ''MetaDataID3Collector''.
   */
-class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import MetaDataID3CollectorSpec._
 
@@ -97,7 +96,7 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     */
   private def createMockProvider(title: Option[String] = None, artist: Option[String] = None,
                                  album: Option[String] = None, year: Option[Int] = None, track:
-                                 Option[Int] = None): MetaDataProvider = {
+                                 Option[Int] = None): MetaDataProvider =
     val provider = mock[MetaDataProvider]
     when(provider.album).thenReturn(album)
     when(provider.artist).thenReturn(artist)
@@ -105,9 +104,8 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     when(provider.title).thenReturn(title)
     when(provider.trackNoString).thenReturn(track map (_.toString))
     provider
-  }
 
-  "A MetaDataID3Collector" should "return a dummy provider if not data is defined" in {
+  "A MetaDataID3Collector" should "return a dummy provider if not data is defined" in:
     val collector = new MetaDataID3Collector
     val provider = collector.createCombinedID3TagProvider()
 
@@ -116,9 +114,8 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     provider.inceptionYearString shouldBe empty
     provider.title shouldBe empty
     provider.trackNoString shouldBe empty
-  }
 
-  it should "return the data from an added provider" in {
+  it should "return the data from an added provider" in:
     val provider = createMockProvider(title = title(1), artist = artist(1), album = album(1),
       year = year(1), track = track(1))
     val collector = new MetaDataID3Collector
@@ -130,9 +127,8 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     combinedProvider.inceptionYear should be(year(1))
     combinedProvider.title should be(title(1))
     combinedProvider.trackNo should be(track(1))
-  }
 
-  it should "combine data from multiple providers" in {
+  it should "combine data from multiple providers" in:
     val collector = new MetaDataID3Collector
     collector.addProvider(1, createMockProvider(title = title(1), artist = artist(1)))
     collector.addProvider(2, createMockProvider(album = album(2), year = year(2)))
@@ -144,9 +140,8 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     combinedProvider.inceptionYear should be(year(2))
     combinedProvider.title should be(title(1))
     combinedProvider.trackNo should be(track(3))
-  }
 
-  it should "take ID3 version into account when combining providers" in {
+  it should "take ID3 version into account when combining providers" in:
     val collector = new MetaDataID3Collector
     collector.addProvider(2, createMockProvider(album = album(2), year = year(2), title = title(2)))
     collector.addProvider(1, createMockProvider(title = title(1), artist = artist(1), year = year
@@ -159,5 +154,3 @@ class MetaDataID3CollectorSpec extends AnyFlatSpec with Matchers with MockitoSug
     combinedProvider.inceptionYear should be(year(2))
     combinedProvider.title should be(title(3))
     combinedProvider.trackNo should be(track(3))
-  }
-}

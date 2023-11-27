@@ -33,17 +33,15 @@ import org.apache.pekko.actor.{Actor, ActorRef}
   * @param collector the actor collecting processing results
   * @param extractor the extractor for ID3 frame data
   */
-class ID3FrameProcessorActor(collector: ActorRef, extractor: ID3FrameExtractor) extends Actor {
-  override def receive: Receive = {
+class ID3FrameProcessorActor(collector: ActorRef, extractor: ID3FrameExtractor) extends Actor:
+  override def receive: Receive =
     case ProcessID3FrameData(header, data, lastChunk) if checkHeader(header) =>
       extractor.addData(data, lastChunk)
-      if (lastChunk) {
+      if lastChunk then
         collector ! ID3FrameMetaData(header, extractor.createTagProvider())
-      }
 
     case IncompleteID3Frame(header) if checkHeader(header) =>
       collector ! ID3FrameMetaData(header, extractor.createTagProvider())
-  }
 
   /**
     * Checks whether the passed in header is the expected one.
@@ -53,4 +51,3 @@ class ID3FrameProcessorActor(collector: ActorRef, extractor: ID3FrameExtractor) 
     */
   private def checkHeader(header: ID3Header): Boolean =
     header == extractor.header
-}

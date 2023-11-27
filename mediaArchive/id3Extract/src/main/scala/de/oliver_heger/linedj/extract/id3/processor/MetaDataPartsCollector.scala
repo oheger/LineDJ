@@ -46,7 +46,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * @param id3Collector the helper object for collecting ID3 data
   */
 private class MetaDataPartsCollector(val file: FileData,
-                                     private[processor] val id3Collector: MetaDataID3Collector) {
+                                     private[processor] val id3Collector: MetaDataID3Collector):
   /** Stores MP3-related meta data when it arrives. */
   private var mp3MetaData: Option[Mp3MetaData] = None
 
@@ -72,10 +72,9 @@ private class MetaDataPartsCollector(val file: FileData,
     * @param mp3Data MP3-related meta data
     * @return an option for the resulting meta data
     */
-  def setMp3MetaData(mp3Data: Mp3MetaData): Option[MediaMetaData] = {
+  def setMp3MetaData(mp3Data: Mp3MetaData): Option[MediaMetaData] =
     mp3MetaData = Some(mp3Data)
     createFinalMetaDataIfComplete()
-  }
 
   /**
     * Sets meta data for ID3 version 1. This method is called for each media
@@ -98,9 +97,8 @@ private class MetaDataPartsCollector(val file: FileData,
     *
     * @param version the version of the ID3 frame
     */
-  def expectID3Data(version: Int): Unit = {
+  def expectID3Data(version: Int): Unit =
     outstandingID3Data += version
-  }
 
   /**
     * Notifies this object that processing of an ID3 frame has ended. The
@@ -123,11 +121,10 @@ private class MetaDataPartsCollector(val file: FileData,
     * @return an option for the resulting meta data
     */
   private def id3MetaDataAdded(version: Int, data: Option[MetaDataProvider]): Option[MediaMetaData]
-  = {
+  =
     data foreach (id3Collector.addProvider(version, _))
     outstandingID3Data -= version
     createFinalMetaDataIfComplete()
-  }
 
   /**
     * Returns an option with the final meta data. If all required data is
@@ -136,8 +133,8 @@ private class MetaDataPartsCollector(val file: FileData,
     *
     * @return an option for the resulting meta data
     */
-  private def createFinalMetaDataIfComplete(): Option[MediaMetaData] = {
-    mp3MetaData match {
+  private def createFinalMetaDataIfComplete(): Option[MediaMetaData] =
+    mp3MetaData match
       case Some(data) if outstandingID3Data.isEmpty =>
         val combinedID3TagProvider = id3Collector.createCombinedID3TagProvider()
         Some(MediaMetaData(title = combinedID3TagProvider.title, artist = combinedID3TagProvider
@@ -147,8 +144,6 @@ private class MetaDataPartsCollector(val file: FileData,
           size = file.size))
 
       case _ => None
-    }
-  }
 
   /**
     * Generates a format description for an MP3 audio file based on the given
@@ -157,7 +152,5 @@ private class MetaDataPartsCollector(val file: FileData,
     * @param data the meta data for the MP3 file
     * @return the format description
     */
-  private def generateFormatDescription(data: Mp3MetaData): String = {
+  private def generateFormatDescription(data: Mp3MetaData): String =
     s"${data.maximumBitRate / 1000} kbps"
-  }
-}

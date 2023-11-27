@@ -28,7 +28,7 @@ import org.apache.pekko.util.ByteString
   * assumes that the ID3v1 frame has already been obtained using a
   * [[TailBuffer]] object.
   */
-object ID3v1Extractor {
+object ID3v1Extractor:
   /** Constant for the size of a binary buffer containing a valid ID3v1 frame. */
   val FrameSize = 128
 
@@ -74,12 +74,11 @@ object ID3v1Extractor {
     * @param tailBuffer the buffer with the ID3v1 data
     * @return an option of an ''ID3TagProvider'' for extracting tag information
     */
-  def providerFor(tailBuffer: TailBuffer): Option[MetaDataProvider] = {
+  def providerFor(tailBuffer: TailBuffer): Option[MetaDataProvider] =
     val buf = tailBuffer.tail()
-    if (buf.startsWith("TAG") && buf.length == FrameSize)
+    if buf.startsWith("TAG") && buf.length == FrameSize then
       Some(createProviderFromBuffer(buf))
     else None
-  }
 
   /**
     * Extracts ID3 tags if a valid frame was detected.
@@ -105,25 +104,21 @@ object ID3v1Extractor {
     * @param length the maximum length of the string
     * @return an option with the extracted string
     */
-  private def extractString(buf: ByteString, start: Int, length: Int): Option[String] = {
+  private def extractString(buf: ByteString, start: Int, length: Int): Option[String] =
     val endIdx = start + length
     var firstNonSpace = -1
     var lastNonSpace = -1
     var pos = start
 
-    while (pos < endIdx && buf(pos) != 0) {
-      if (buf(pos) != Space) {
+    while pos < endIdx && buf(pos) != 0 do
+      if buf(pos) != Space then
         lastNonSpace = pos
-        if (firstNonSpace < 0) {
+        if firstNonSpace < 0 then
           firstNonSpace = pos
-        }
-      }
       pos += 1
-    }
 
-    if (firstNonSpace < 0) None
+    if firstNonSpace < 0 then None
     else Some(buf.slice(firstNonSpace, lastNonSpace + 1).decodeString(Encoding))
-  }
 
   /**
     * Extracts information about the track number. The track number is available
@@ -133,12 +128,11 @@ object ID3v1Extractor {
     * @param buf the buffer with the binary data
     * @return an Option for the track number as string
     */
-  private def extractTrackNo(buf: ByteString): Option[String] = {
-    if (buf(TrackNoPos) != 0 && buf(TrackNoPos - 1) == 0) {
+  private def extractTrackNo(buf: ByteString): Option[String] =
+    if buf(TrackNoPos) != 0 && buf(TrackNoPos - 1) == 0 then
       val trackNo = extractByte(buf, TrackNoPos)
       Some(trackNo.toString)
-    } else None
-  }
+    else None
 
   /**
     * A simple implementation of the ''ID3TagProvider'' interface based on a
@@ -150,4 +144,3 @@ object ID3v1Extractor {
                                       Option[String])
     extends MetaDataProvider
 
-}

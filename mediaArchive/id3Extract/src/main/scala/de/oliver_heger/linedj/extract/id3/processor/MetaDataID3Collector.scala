@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
-object MetaDataID3Collector {
+object MetaDataID3Collector:
   /**
     * Creates a ''MetaDataProvider'' for all ID3 frames available. This
     * method orders the providers available by their version and creates a
@@ -28,10 +28,9 @@ object MetaDataID3Collector {
     * @param providers a list with providers available
     * @return a combined meta data provider
     */
-  private def createCombinedProvider(providers: List[ProviderData]): MetaDataProvider = {
+  private def createCombinedProvider(providers: List[ProviderData]): MetaDataProvider =
     val orderedProviders = providers sortWith (_.id3Version > _.id3Version) map (_.provider)
     new CombinedID3TagProvider(orderedProviders)
-  }
 
   /**
     * A data class for storing information about ID3 providers together with
@@ -50,7 +49,7 @@ object MetaDataID3Collector {
     *
     * @param providers the list with the managed providers
     */
-  private class CombinedID3TagProvider(providers: List[MetaDataProvider]) extends MetaDataProvider {
+  private class CombinedID3TagProvider(providers: List[MetaDataProvider]) extends MetaDataProvider:
     override def title: Option[String] = property(_.title)
 
     override def inceptionYearString: Option[String] = property(_.inceptionYearString)
@@ -69,13 +68,10 @@ object MetaDataID3Collector {
       * @param p a function selecting a property
       * @return the value of the property selected by the function
       */
-    private def property(p: MetaDataProvider => Option[String]): Option[String] = {
+    private def property(p: MetaDataProvider => Option[String]): Option[String] =
       val definingProvider = providers find (p(_).isDefined)
       definingProvider flatMap p
-    }
-  }
 
-}
 
 /**
   * An internally used helper class for collecting meta data extracted from ID3
@@ -93,7 +89,7 @@ object MetaDataID3Collector {
   * with a higher version take precedence. (Well, this is an arbitrary
   * decision, but some algorithm has to be used to resolve redundancies.)
   */
-private class MetaDataID3Collector {
+private class MetaDataID3Collector:
 
   import MetaDataID3Collector._
 
@@ -110,10 +106,9 @@ private class MetaDataID3Collector {
     * @param provider   the provider to be added
     * @return this object
     */
-  def addProvider(id3Version: Int, provider: MetaDataProvider): MetaDataID3Collector = {
+  def addProvider(id3Version: Int, provider: MetaDataProvider): MetaDataID3Collector =
     providers = ProviderData(provider = provider, id3Version = id3Version) :: providers
     this
-  }
 
   /**
     * Creates an ''ID3TagProvider'' object that collects the data of all
@@ -121,7 +116,5 @@ private class MetaDataID3Collector {
     *
     * @return an ''ID3TagProvider'' with accumulated data
     */
-  def createCombinedID3TagProvider(): MetaDataProvider = {
+  def createCombinedID3TagProvider(): MetaDataProvider =
     createCombinedProvider(providers)
-  }
-}

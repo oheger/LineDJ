@@ -29,7 +29,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import scala.util.Random
 
-object ID3FrameProcessorActorSpec {
+object ID3FrameProcessorActorSpec:
   /** Constant for a test ID3 frame header. */
   private val Header = ID3Header(2, 64)
 
@@ -41,29 +41,26 @@ object ID3FrameProcessorActorSpec {
     *
     * @return the test data
     */
-  private def generateChunk(): ByteString = {
+  private def generateChunk(): ByteString =
     val size = random.nextInt(1023) + 1
     val buf = new Array[Byte](size)
     random.nextBytes(buf)
     ByteString(buf)
-  }
-}
 
 /**
   * Test class for ''ID3FrameProcessorActor''.
   */
-class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar {
+class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar:
 
   import ID3FrameProcessorActorSpec._
 
   def this() = this(ActorSystem("ID3FrameProcessorActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "An ID3FrameProcessorActor" should "handle the first processing message" in {
+  "An ID3FrameProcessorActor" should "handle the first processing message" in:
     val data = generateChunk()
     val msg = ProcessID3FrameData(Header, data, lastChunk = false)
     val helper = new ID3FrameProcessorTestHelper
@@ -71,9 +68,8 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     helper.sendMessage(msg)
       .verifyExtractorFilled(data, complete = false)
       .expectNoMetaDataMessage()
-  }
 
-  it should "handle the last processing message" in {
+  it should "handle the last processing message" in:
     val data = generateChunk()
     val metaData = mock[MetaDataProvider]
     val msg = ProcessID3FrameData(Header, data, lastChunk = true)
@@ -83,38 +79,34 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       .sendMessage(msg)
       .verifyExtractorFilled(data, complete = true)
       .expectMetaDataMessage(metaData)
-  }
 
-  it should "handle an incomplete ID3 frame message" in {
+  it should "handle an incomplete ID3 frame message" in:
     val metaData = mock[MetaDataProvider]
     val helper = new ID3FrameProcessorTestHelper
 
     helper.prepareProviderCreation(metaData)
       .sendMessage(IncompleteID3Frame(Header))
       .expectMetaDataMessage(metaData)
-  }
 
-  it should "ignore frame data with an unexpected header" in {
+  it should "ignore frame data with an unexpected header" in:
     val OtherHeader = ID3Header(Header.version + 1, 111)
     val helper = new ID3FrameProcessorTestHelper
 
     helper.sendMessage(ProcessID3FrameData(OtherHeader, generateChunk(), lastChunk = false))
       .verifyExtractorNotTouched()
-  }
 
-  it should "ignore incomplete frame messages with an unexpected header" in {
+  it should "ignore incomplete frame messages with an unexpected header" in:
     val OtherHeader = ID3Header(Header.version + 1, 111)
     val helper = new ID3FrameProcessorTestHelper
 
     helper.sendMessage(IncompleteID3Frame(OtherHeader))
       .verifyExtractorNotTouched()
       .expectNoMetaDataMessage()
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
-  private class ID3FrameProcessorTestHelper {
+  private class ID3FrameProcessorTestHelper:
     /** The mock extractor for ID3 frame data. */
     private val extractor = createExtractor()
 
@@ -130,10 +122,9 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param msg the message to be sent
       * @return this test helper
       */
-    def sendMessage(msg: Any): ID3FrameProcessorTestHelper = {
+    def sendMessage(msg: Any): ID3FrameProcessorTestHelper =
       processor receive msg
       this
-    }
 
     /**
       * Checks whether the extractor has been called to add the specified data.
@@ -142,21 +133,19 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param complete the completion flag
       * @return this test helper
       */
-    def verifyExtractorFilled(data: ByteString, complete: Boolean): ID3FrameProcessorTestHelper = {
+    def verifyExtractorFilled(data: ByteString, complete: Boolean): ID3FrameProcessorTestHelper =
       verify(extractor).addData(data, complete)
       this
-    }
 
     /**
       * Verifies that no interaction took place with the extractor.
       *
       * @return this test helper
       */
-    def verifyExtractorNotTouched(): ID3FrameProcessorTestHelper = {
+    def verifyExtractorNotTouched(): ID3FrameProcessorTestHelper =
       verify(extractor, never()).addData(any(classOf[ByteString]), anyBoolean())
       verify(extractor, never()).createTagProvider()
       this
-    }
 
     /**
       * Prepares the mock extractor to return the specified meta data provider.
@@ -164,10 +153,9 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param provider the provider
       * @return this test helper
       */
-    def prepareProviderCreation(provider: MetaDataProvider): ID3FrameProcessorTestHelper = {
+    def prepareProviderCreation(provider: MetaDataProvider): ID3FrameProcessorTestHelper =
       when(extractor.createTagProvider()).thenReturn(Some(provider))
       this
-    }
 
     /**
       * Expects that a meta data message has been passed to the collector
@@ -176,10 +164,9 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param provider the expected meta data provider
       * @return this test helper
       */
-    def expectMetaDataMessage(provider: MetaDataProvider): ID3FrameProcessorTestHelper = {
+    def expectMetaDataMessage(provider: MetaDataProvider): ID3FrameProcessorTestHelper =
       collector.expectMsg(ID3FrameMetaData(Header, Some(provider)))
       this
-    }
 
     /**
       * Checks that no message with meta data has been sent to the collector
@@ -187,23 +174,21 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       *
       * @return this test helper
       */
-    def expectNoMetaDataMessage(): ID3FrameProcessorTestHelper = {
+    def expectNoMetaDataMessage(): ID3FrameProcessorTestHelper =
       val msg = new Object
       collector.ref ! msg
       collector.expectMsg(msg)
       this
-    }
 
     /**
       * Creates a mock for an ID3 frame extractor.
       *
       * @return the extractor mock
       */
-    private def createExtractor(): ID3FrameExtractor = {
+    private def createExtractor(): ID3FrameExtractor =
       val extr = mock[ID3FrameExtractor]
       when(extr.header).thenReturn(Header)
       extr
-    }
 
     /**
       * Creates a test reference to the test actor.
@@ -213,6 +198,4 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createTestActor(): TestActorRef[ID3FrameProcessorActor] =
       TestActorRef[ID3FrameProcessorActor](Props(classOf[ID3FrameProcessorActor],
         collector.ref, extractor))
-  }
 
-}

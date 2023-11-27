@@ -22,7 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import java.io.ByteArrayOutputStream
 import java.util
 
-object Mp3DataExtractorSpec {
+object Mp3DataExtractorSpec:
   /**
     * Writes a byte repeatedly in an output stream.
     *
@@ -30,11 +30,10 @@ object Mp3DataExtractorSpec {
     * @param byte  the byte to be written
     * @param count the repeat count
     */
-  private def writeBytes(bos: ByteArrayOutputStream, byte: Int, count: Int): Unit = {
+  private def writeBytes(bos: ByteArrayOutputStream, byte: Int, count: Int): Unit =
     val data = new Array[Byte](count)
     util.Arrays.fill(data, byte.toByte)
     bos write data
-  }
 
   /**
     * Convenience method for writing the bytes of a frame header in a single
@@ -45,22 +44,20 @@ object Mp3DataExtractorSpec {
     * @param b3  byte 3
     * @param b4  byte 4
     */
-  private def writeFrame(bos: ByteArrayOutputStream, b2: Int, b3: Int, b4: Int): Unit = {
+  private def writeFrame(bos: ByteArrayOutputStream, b2: Int, b3: Int, b4: Int): Unit =
     bos.write(0xFF)
     bos.write(b2)
     bos.write(b3)
     bos.write(b4)
-  }
-}
 
 /**
   * Test class for ''Mp3DataExtractor''.
   */
-class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
+class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers:
 
   import Mp3DataExtractorSpec._
 
-  "A Mp3DataExtractor" should "have meaningful start values" in {
+  "A Mp3DataExtractor" should "have meaningful start values" in:
     val extractor = new Mp3DataExtractor
     extractor.getLayer should be(0)
     extractor.getVersion should be(-1)
@@ -68,7 +65,6 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     extractor.getMaxBitRate should be(0)
     extractor.getMinBitRate should be(0)
     extractor.getDuration should be(0)
-  }
 
   /**
     * Helper method for checking whether the default properties have been
@@ -77,13 +73,12 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     * @param bos the stream containing the audio data
     * @return the test extractor
     */
-  private def checkDefaultProperties(bos: ByteArrayOutputStream): Mp3DataExtractor = {
+  private def checkDefaultProperties(bos: ByteArrayOutputStream): Mp3DataExtractor =
     val extractor = new Mp3DataExtractor
     extractor addData ByteString(bos.toByteArray) should be(extractor)
 
     checkDefaultProperties(extractor)
     extractor
-  }
 
   /**
     * Helper method for checking whether the specified extractor has extracted
@@ -91,15 +86,14 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     *
     * @param extractor the extractor to be checked
     */
-  private def checkDefaultProperties(extractor: Mp3DataExtractor): Unit = {
+  private def checkDefaultProperties(extractor: Mp3DataExtractor): Unit =
     extractor.getVersion should be(Mp3DataExtractor.MpegV2)
     extractor.getLayer should be(Mp3DataExtractor.Layer3)
     extractor.getMaxBitRate should be(80000)
     extractor.getMinBitRate should be(80000)
     extractor.getSampleRate should be(24000)
-  }
 
-  it should "find the start of the next frame" in {
+  it should "find the start of the next frame" in:
     val bos = new ByteArrayOutputStream
     writeBytes(bos, 0xFF, 32)
     writeBytes(bos, 0, 16)
@@ -109,9 +103,8 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     bos.write(0)
 
     checkDefaultProperties(bos)
-  }
 
-  it should "skip invalid headers" in {
+  it should "skip invalid headers" in:
     val bos = new ByteArrayOutputStream
     writeFrame(bos, 0xEB, 0x96, 0)
     writeFrame(bos, 0xF9, 0x96, 0)
@@ -122,13 +115,12 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
 
     val extractor = checkDefaultProperties(bos)
     extractor.getFrameCount should be(1)
-  }
 
   /**
     * Tests a search for another frame which is interrupted because the stream
     * ends.
     */
-  it should "handle incomplete frames" in {
+  it should "handle incomplete frames" in:
     val bos = new ByteArrayOutputStream
     bos.write(0xFF)
     bos.write(0xFF)
@@ -142,7 +134,6 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     extractor addData ByteString(new Array[Byte](1))
     extractor.getFrameCount should be(1)
     checkDefaultProperties(extractor)
-  }
 
   /**
     * Reads the content of a file and passes it to an extractor. The extractor
@@ -151,21 +142,18 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     * @param name the name of the file to be processed
     * @return the extractor
     */
-  private def processFile(name: String): Mp3DataExtractor = {
+  private def processFile(name: String): Mp3DataExtractor =
     val extractor = new Mp3DataExtractor
     val in = getClass getResourceAsStream "/" + name
-    try {
+    try
       val buf = new Array[Byte](37)
       var len = in read buf
-      while (len > 0) {
+      while len > 0 do
         extractor addData ByteString(buf.take(len))
         len = in read buf
-      }
-    } finally {
+    finally
       in.close()
-    }
     extractor
-  }
 
   /**
     * Processes the specified file and checks whether the expected duration was
@@ -175,21 +163,18 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     * @param expected the expected duration
     * @return the extractor used for the test
     */
-  private def checkDuration(fileName: String, expected: Int): Mp3DataExtractor = {
+  private def checkDuration(fileName: String, expected: Int): Mp3DataExtractor =
     val extractor = processFile(fileName)
     math.round(extractor.getDuration) should be(expected +- 100)
     extractor
-  }
 
-  it should "calculate the correct duration of a test file" in {
+  it should "calculate the correct duration of a test file" in:
     checkDuration("test.mp3", 10842)
-  }
 
-  it should "calculate the correct duration of another test file" in {
+  it should "calculate the correct duration of another test file" in:
     checkDuration("test2.mp3", 6734)
-  }
 
-  it should "handle a variable bit rate" in {
+  it should "handle a variable bit rate" in:
     val bos = new ByteArrayOutputStream
     writeFrame(bos, 0xF3, 0x96, 0)
     writeBytes(bos, 1, 481) // content of frame 1
@@ -203,5 +188,3 @@ class Mp3DataExtractorSpec extends AnyFlatSpec with Matchers {
     extractor.getFrameCount should be(3)
     extractor.getMinBitRate should be(64000)
     extractor.getMaxBitRate should be(96000)
-  }
-}

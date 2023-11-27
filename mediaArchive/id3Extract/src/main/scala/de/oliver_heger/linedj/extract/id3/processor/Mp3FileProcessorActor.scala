@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 
-object Mp3FileProcessorActor {
+object Mp3FileProcessorActor:
 
   private class Mp3FileProcessorActorImpl(metaDataActor: ActorRef, tagSizeLimit: Int,
                                           collector: MetaDataPartsCollector,
@@ -48,7 +48,6 @@ object Mp3FileProcessorActor {
             resultData: MetaDataProcessingSuccess): Props =
     Props(classOf[Mp3FileProcessorActorImpl], metaDataActor, tagSizeLimit,
       new MetaDataPartsCollector(mp3File), resultData)
-}
 
 /**
   * An actor class responsible for processing a whole mp3 file and extracting
@@ -68,7 +67,7 @@ object Mp3FileProcessorActor {
   */
 class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
                             collector: MetaDataPartsCollector,
-                            resultTemplate: MetaDataProcessingSuccess) extends Actor {
+                            resultTemplate: MetaDataProcessingSuccess) extends Actor:
   this: ChildActorFactory =>
 
   /** The reference to the MP3 data processor actor. */
@@ -100,37 +99,33 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     * throws an exception, we expect that the file is corrupt and send an
     * error message to the meta data receiving actor.
     */
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case e: Throwable =>
       childActorError = e
       Stop
-  }
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     mp3DataActor = createChildActor(Props(classOf[Mp3DataProcessorActor],
       new Mp3DataExtractor()))
     context watch mp3DataActor
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Mp3StreamInit =>
       sender() ! Mp3ChunkAck
 
     case mp3Data: ProcessMp3Data =>
       mp3DataActor ! mp3Data
       chunksInProgress += 1
-      if (chunksInProgress == 1) {
+      if chunksInProgress == 1 then
         sender() ! Mp3ChunkAck
-      } else {
+      else
         ackActor = sender()
-      }
 
     case Mp3DataProcessed =>
       chunksInProgress -= 1
-      if (chunksInProgress == 1) {
+      if chunksInProgress == 1 then
         ackActor ! Mp3ChunkAck
-      }
 
     case mp3Data: Mp3MetaData =>
       sendResultIfAvailable(collector setMp3MetaData mp3Data)
@@ -142,7 +137,7 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
       val id3Actor = optID3ProcessorActor getOrElse createID3ProcessorActor(procMsg)
       id3Actor ! procMsg
       collector.expectID3Data(procMsg.frameHeader.version)
-      optID3ProcessorActor = if (procMsg.lastChunk) None else Some(id3Actor)
+      optID3ProcessorActor = if procMsg.lastChunk then None else Some(id3Actor)
 
     case id3Inc: IncompleteID3Frame if optID3ProcessorActor.isDefined =>
       optID3ProcessorActor.get ! id3Inc
@@ -161,7 +156,6 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
 
     case Terminated(_) =>
       handleProcessingError(childActorError)
-  }
 
   /**
     * Checks whether meta data processing is complete. If so, the meta data is
@@ -181,18 +175,16 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     *
     * @param exception the exception to be sent
     */
-  private def handleProcessingError(exception: Throwable): Unit = {
+  private def handleProcessingError(exception: Throwable): Unit =
     metaDataActor ! createProcessingErrorMsg(exception)
     stopSelf()
-  }
 
   /**
     * Stops this actor. This is done when processing is complete - either
     * successfully or in case of an error.
     */
-  private def stopSelf(): Unit = {
+  private def stopSelf(): Unit =
     context stop self
-  }
 
   /**
     * Creates a child actor for processing of ID3v2 frames.
@@ -200,12 +192,11 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     * @param procMsg the message to process an ID3 frame
     * @return the new child actor
     */
-  private def createID3ProcessorActor(procMsg: ProcessID3FrameData): ActorRef = {
+  private def createID3ProcessorActor(procMsg: ProcessID3FrameData): ActorRef =
     val actor = createChildActor(Props(classOf[ID3FrameProcessorActor], self,
       new ID3FrameExtractor(procMsg.frameHeader, tagSizeLimit)))
     context watch actor
     actor
-  }
 
   /**
     * Creates a message about a processing error.
@@ -215,4 +206,3 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     */
   private def createProcessingErrorMsg(exception: Throwable): MetaDataProcessingError =
     MetaDataProcessingError(resultTemplate.mediumID, resultTemplate.uri, exception)
-}

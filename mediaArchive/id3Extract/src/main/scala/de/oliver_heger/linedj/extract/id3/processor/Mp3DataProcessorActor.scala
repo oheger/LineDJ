@@ -31,26 +31,23 @@ import org.apache.pekko.actor.Actor
   * @param extractor the meta data extractor object (the default constructor
   *                  creates a default extractor)
   */
-class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) extends Actor {
+class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) extends Actor:
   def this() = this(new Mp3DataExtractor)
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ProcessMp3Data(data) =>
       extractor addData data
       sender() ! Mp3DataProcessed
 
     case Mp3MetaDataRequest =>
       sender() ! createMetaData()
-  }
 
   /**
     * Creates the meta data result based on the current state of the extractor.
     *
     * @return the meta data object
     */
-  private def createMetaData(): Mp3MetaData = {
+  private def createMetaData(): Mp3MetaData =
     Mp3MetaData(version = extractor.getVersion, layer = extractor.getLayer,
       sampleRate = extractor.getSampleRate, minimumBitRat = extractor.getMinBitRate,
       maximumBitRate = extractor.getMaxBitRate, duration = extractor.getDuration.toInt)
-  }
-}
