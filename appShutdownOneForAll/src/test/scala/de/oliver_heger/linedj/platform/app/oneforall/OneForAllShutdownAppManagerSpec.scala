@@ -25,41 +25,37 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''OneForAllShutdownAppManager''.
   */
-class OneForAllShutdownAppManagerSpec extends AnyFlatSpec with Matchers {
-  "A OneForAllShutdownManager" should "trigger shutdown on application shutdown" in {
+class OneForAllShutdownAppManagerSpec extends AnyFlatSpec with Matchers:
+  "A OneForAllShutdownManager" should "trigger shutdown on application shutdown" in:
     val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager onApplicationShutdown null
     manager.shutdownCount should be(1)
-  }
 
-  it should "trigger shutdown on window closing" in {
+  it should "trigger shutdown on window closing" in:
     val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager onWindowClosing null
     manager.shutdownCount should be(1)
-  }
 
-  it should "correctly activate the component" in {
+  it should "correctly activate the component" in:
     val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager activate null
     manager.setUpCount should be(1)
-  }
 
-  it should "correctly deactivate the component" in {
+  it should "correctly deactivate the component" in:
     val manager = new OneForAllShutdownAppManagerTestImpl
 
     manager deactivate null
     manager.tearDownCount should be(1)
-  }
 
   /**
     * A test implementation of the shutdown manager. This class provides access
     * to protected methods and allows tracking invocations of the
     * ''triggerShutdown()'' method.
     */
-  private class OneForAllShutdownAppManagerTestImpl extends OneForAllShutdownAppManager {
+  private class OneForAllShutdownAppManagerTestImpl extends OneForAllShutdownAppManager:
     /** Counter for ''triggerShutdown()'' invocations. */
     var shutdownCount: Int = 0
 
@@ -72,23 +68,20 @@ class OneForAllShutdownAppManagerSpec extends AnyFlatSpec with Matchers {
     /**
       * @inheritdoc Records this invocation.
       */
-    override def setUp(): Unit = {
+    override def setUp(): Unit =
       setUpCount += 1
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override def tearDown(): Unit = {
+    override def tearDown(): Unit =
       tearDownCount += 1
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override protected def triggerShutdown(): Unit = {
+    override protected def triggerShutdown(): Unit =
       shutdownCount += 1
-    }
 
     /**
       * @inheritdoc Increases visibility of this method.
@@ -113,6 +106,4 @@ class OneForAllShutdownAppManagerSpec extends AnyFlatSpec with Matchers {
       */
     override  def deactivate(compCtx: ComponentContext): Unit =
       super.deactivate(compCtx)
-  }
 
-}

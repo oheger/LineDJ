@@ -903,6 +903,8 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-shutdownOneForAll",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.oneforall.*"
@@ -910,7 +912,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (platform % "compile->compile;test->test")
+  ) dependsOn platform
 
 /**
   * Project for the ''window hiding'' application manager. This project

@@ -33,16 +33,15 @@ import org.osgi.service.component.ComponentContext
   * installed. When such an event is received from an application the shutdown
   * of the platform is initiated.
   */
-class OneForAllShutdownAppManager extends BaseApplicationManager {
+class OneForAllShutdownAppManager extends BaseApplicationManager:
   /**
     * Activates this component. Delegates to the activation method of the
     * base trait.
     *
     * @param compCtx the component context
     */
-  protected def activate(compCtx: ComponentContext): Unit = {
+  protected def activate(compCtx: ComponentContext): Unit =
     setUp()
-  }
 
   /**
     * Deactivates this component. Delegates to the deactivation method of the
@@ -50,21 +49,17 @@ class OneForAllShutdownAppManager extends BaseApplicationManager {
     *
     * @param compCtx the component context
     */
-  protected def deactivate(compCtx: ComponentContext): Unit = {
+  protected def deactivate(compCtx: ComponentContext): Unit =
     tearDown()
-  }
 
   /**
     * @inheritdoc This implementation triggers a shutdown.
     */
-  override protected def onApplicationShutdown(app: ClientApplication): Unit = {
+  override protected def onApplicationShutdown(app: ClientApplication): Unit =
     triggerShutdown()
-  }
 
   /**
     * @inheritdoc This implementation triggers a shutdown.
     */
-  override protected def onWindowClosing(window: Window): Unit = {
+  override protected def onWindowClosing(window: Window): Unit =
     triggerShutdown()
-  }
-}
