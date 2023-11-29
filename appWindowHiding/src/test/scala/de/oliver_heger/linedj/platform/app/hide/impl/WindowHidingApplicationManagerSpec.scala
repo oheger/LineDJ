@@ -16,21 +16,22 @@
 
 package de.oliver_heger.linedj.platform.app.hide.impl
 
-import de.oliver_heger.linedj.platform.app.hide._
-import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContextImpl}
+import de.oliver_heger.linedj.platform.app.hide.*
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
+import de.oliver_heger.linedj.test.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object WindowHidingApplicationManagerSpec {
+object WindowHidingApplicationManagerSpec:
   /** A test application name. */
   private val AppName = "testApplication"
 
@@ -43,19 +44,17 @@ object WindowHidingApplicationManagerSpec {
     * @return the configuration
     */
   private def initWindowManagementConfig(config: Configuration,
-                                         invisibleApps: String*): Configuration = {
+                                         invisibleApps: String*): Configuration =
     config.addProperty("platform.windowManagement.config", true)
     invisibleApps foreach { n =>
       config.addProperty("platform.windowManagement.apps." + n, false)
     }
     config
-  }
-}
 
 /**
   * Test class for ''WindowHidingApplicationManager''.
   */
-class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   import WindowHidingApplicationManagerSpec._
 
   /**
@@ -75,14 +74,13 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     * @param name the name of the application
     * @return the application mock
     */
-  private def createApplicationMock(name: String = AppName): ClientApplication = {
+  private def createApplicationMock(name: String = AppName): ClientApplication =
     val app = mock[ClientApplication]
     val window = mock[Window]
     when(app.optMainWindow).thenReturn(Some(window))
     when(app.getUserConfiguration).thenReturn(new HierarchicalConfiguration)
     when(app.appName).thenReturn(name)
     app
-  }
 
   /**
     * Creates mock data about applications. A number of application mocks is
@@ -94,15 +92,14 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
   private def createApplicationData(appCount: Int): List[(ClientApplication, String)] =
     (1 to appCount).map(i => (createApplicationMock(AppName + i), "AppTitle" + i)).toList
 
-  "A WindowHidingApplicationManager" should "have an empty initial state" in {
+  "A WindowHidingApplicationManager" should "have an empty initial state" in:
     val reg = createRegistration()
     val manager = new WindowHidingAppManagerTestImpl
 
     manager sendMessage reg
     verify(reg.callback).apply(ApplicationWindowState(List.empty, Set.empty))
-  }
 
-  it should "notify consumers about a new application" in {
+  it should "notify consumers about a new application" in:
     val reg = createRegistration()
     val data = createApplicationData(1)
     val app = data.head._1
@@ -111,9 +108,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager.initAppData(data).sendMessage(ApplicationManager.ApplicationRegistered(app))
     verify(reg.callback).apply(ApplicationWindowState(data, Set(app)))
-  }
 
-  it should "notify consumers about a removed application" in {
+  it should "notify consumers about a removed application" in:
     val reg = createRegistration()
     val data = createApplicationData(1)
     val app = createApplicationMock()
@@ -124,9 +120,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager.initAppData(data).sendMessage(ApplicationManager.ApplicationRemoved(app))
     verify(reg.callback).apply(ApplicationWindowState(data, Set(data.head._1)))
-  }
 
-  it should "notify consumers about an updated title" in {
+  it should "notify consumers about an updated title" in:
     val reg = createRegistration()
     val data = createApplicationData(4)
     val manager = new WindowHidingAppManagerTestImpl
@@ -134,9 +129,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager.sendMessage(reg).initAppData(data)
       .sendMessage(ApplicationManager.ApplicationTitleUpdated(data(1)._1, data(1)._2))
     verify(reg.callback).apply(ApplicationWindowState(data, Set.empty))
-  }
 
-  it should "allow removing a consumer" in {
+  it should "allow removing a consumer" in:
     val reg = createRegistration()
     val manager = new WindowHidingAppManagerTestImpl
     manager.sendMessage(reg)
@@ -145,9 +139,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager.sendMessage(WindowStateConsumerUnregistration(reg.id))
       .addApplications(createApplicationData(2))
     verifyNoInteractions(reg.callback)
-  }
 
-  it should "process a message to hide an application window" in {
+  it should "process a message to hide an application window" in:
     val reg = createRegistration()
     val data = createApplicationData(2)
     val app = data(1)._1
@@ -157,9 +150,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
       .sendMessage(HideApplicationWindow(app))
     verify(app).showMainWindow(false)
     verify(reg.callback).apply(ApplicationWindowState(data, Set(data.head._1)))
-  }
 
-  it should "only hide an application window if it is visible" in {
+  it should "only hide an application window if it is visible" in:
     val reg = createRegistration()
     val data = createApplicationData(4)
     val app = createApplicationMock()
@@ -169,9 +161,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
       .sendMessage(HideApplicationWindow(app))
     verify(reg.callback).apply(ApplicationWindowState(data, data.map(_._1).toSet))
     verify(app, never()).showMainWindow(false)
-  }
 
-  it should "process a message to show an application window" in {
+  it should "process a message to show an application window" in:
     val reg = createRegistration()
     val data = createApplicationData(2)
     val manager = new WindowHidingAppManagerTestImpl
@@ -181,9 +172,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager.sendMessage(ShowApplicationWindow(data.head._1))
     verify(data.head._1).showMainWindow(true)
     verify(reg.callback).apply(ApplicationWindowState(data, Set(data.head._1)))
-  }
 
-  it should "only show an application window that is not already visible" in {
+  it should "only show an application window that is not already visible" in:
     val reg = createRegistration()
     val data = createApplicationData(1)
     val app = data.head._1
@@ -193,9 +183,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
       .sendMessage(ShowApplicationWindow(app))
     verify(reg.callback).apply(ApplicationWindowState(data, Set(app)))
     verify(app, never()).showMainWindow(true)
-  }
 
-  it should "only show the window of a known application" in {
+  it should "only show the window of a known application" in:
     val reg = createRegistration()
     val data = createApplicationData(4)
     val app = createApplicationMock()
@@ -206,17 +195,15 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     verify(reg.callback, never()).apply(ApplicationWindowState(data,
       data.map(_._1).toSet + app))
     verify(app, never()).showMainWindow(true)
-  }
 
-  it should "hide an application window when the application is shutdown" in {
+  it should "hide an application window when the application is shutdown" in:
     val app = createApplicationMock()
     val manager = new WindowHidingAppManagerTestImpl
 
     manager onApplicationShutdown app
     manager.publishedMessages should contain only HideApplicationWindow(app)
-  }
 
-  it should "hide an application window when it is closed" in {
+  it should "hide an application window when it is closed" in:
     val data = createApplicationData(2)
     val app = data.head._1
     val manager = new WindowHidingAppManagerTestImpl
@@ -224,17 +211,15 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager onWindowClosing app.optMainWindow.get
     manager.publishedMessages should contain only HideApplicationWindow(app)
-  }
 
-  it should "ignore a window closing event for an unknown window" in {
+  it should "ignore a window closing event for an unknown window" in:
     val manager = new WindowHidingAppManagerTestImpl
     manager.initAppData(createApplicationData(4))
 
     manager onWindowClosing mock[Window]
     manager.publishedMessages should have size 0
-  }
 
-  it should "handle apps without a window when processing a window closed event" in {
+  it should "handle apps without a window when processing a window closed event" in:
     val Count = 8
     val data = createApplicationData(Count)
     when(data(1)._1.optMainWindow).thenReturn(None)
@@ -244,23 +229,20 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager onWindowClosing app.optMainWindow.get
     manager.publishedMessages should contain only HideApplicationWindow(app)
-  }
 
-  it should "process an ExitPlatform message" in {
+  it should "process an ExitPlatform message" in:
     val manager = new WindowHidingAppManagerTestImpl
 
     manager.sendMessage(ExitPlatform(manager))
     manager.shutdownTriggerCount should be(1)
-  }
 
-  it should "ignore an invalid ExitPlatform message" in {
+  it should "ignore an invalid ExitPlatform message" in:
     val manager = new WindowHidingAppManagerTestImpl
 
     manager.sendMessage(ExitPlatform(null))
     manager.shutdownTriggerCount should be(0)
-  }
 
-  it should "obtain a window configuration from the client app context" in {
+  it should "obtain a window configuration from the client app context" in:
     val manager = new WindowHidingAppManagerTestImpl
     initWindowManagementConfig(manager.clientApplicationContext
       .managementConfiguration, AppName)
@@ -274,9 +256,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     val captor = ArgumentCaptor.forClass(classOf[ApplicationWindowState])
     verify(reg.callback).apply(captor.capture())
     captor.getValue.visibleApps shouldBe empty
-  }
 
-  it should "obtain a window configuration from a registered application" in {
+  it should "obtain a window configuration from a registered application" in:
     val data = createApplicationData(2)
     val AppName2 = AppName + "_2"
     val app = data.head._1
@@ -289,9 +270,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     verify(app).showMainWindow(false)
     verify(data(1)._1, never()).showMainWindow(false)
     verify(reg.callback).apply(ApplicationWindowState(data, Set(data(1)._1)))
-  }
 
-  it should "adapt window visible states when receiving a new configuration" in {
+  it should "adapt window visible states when receiving a new configuration" in:
     val data = createApplicationData(3)
     val app = createApplicationMock()
     initWindowManagementConfig(app.getUserConfiguration, AppName + "1",
@@ -306,9 +286,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     verify(data.head._1).showMainWindow(false)
     verify(data(2)._1).showMainWindow(false)
     verify(reg.callback).apply(ApplicationWindowState(data, Set(data(1)._1)))
-  }
 
-  it should "not hide a main application" in {
+  it should "not hide a main application" in:
     val app = createApplicationMock()
     val config = initWindowManagementConfig(app.getUserConfiguration, AppName)
     config.addProperty("platform.windowManagement.main.name", AppName)
@@ -316,9 +295,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager.sendMessage(ApplicationManager.ApplicationRegistered(app))
     verify(app, never()).showMainWindow(false)
-  }
 
-  it should "update the window configuration if a window is shown" in {
+  it should "update the window configuration if a window is shown" in:
     val data = createApplicationData(2)
     val app = data.head._1
     val config = initWindowManagementConfig(app.getUserConfiguration, app.appName)
@@ -327,9 +305,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager.addApplications(data)
       .sendMessage(ShowApplicationWindow(app))
     config.containsKey("platform.windowManagement.apps." + app.appName) shouldBe false
-  }
 
-  it should "update the window configuration if a window is hidden" in {
+  it should "update the window configuration if a window is hidden" in:
     val data = createApplicationData(2)
     val app = data.head._1
     val config = initWindowManagementConfig(app.getUserConfiguration)
@@ -338,35 +315,30 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager.addApplications(data)
       .sendMessage(HideApplicationWindow(app))
     config.getBoolean("platform.windowManagement.apps." + app.appName) shouldBe false
-  }
 
-  it should "correctly activate the component" in {
+  it should "correctly activate the component" in:
     val manager = new WindowHidingAppManagerTestImpl
 
     manager activate null
     manager.setupCount should be(1)
-  }
 
-  it should "correctly deactivate the component" in {
+  it should "correctly deactivate the component" in:
     val manager = new WindowHidingAppManagerTestImpl
 
     manager deactivate null
     manager.tearDownCount should be(1)
-  }
 
-  it should "create a correct un-registration object for a registration" in {
+  it should "create a correct un-registration object for a registration" in:
     val reg = createRegistration()
 
     val unReg = reg.unRegistration
     unReg should be(WindowStateConsumerUnregistration(reg.id))
-  }
-}
 
 /**
   * A test implementation of the application manager allowing advanced mocking
   * facilities.
   */
-private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationManager {
+private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationManager:
   /** Stores mock application data. */
   private var appData: Iterable[(ClientApplication, String)] = List.empty
 
@@ -391,10 +363,9 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     * @return this instance
     */
   def initAppData(data: Iterable[(ClientApplication, String)]):
-  WindowHidingAppManagerTestImpl = {
+  WindowHidingAppManagerTestImpl =
     appData = data
     this
-  }
 
   /**
     * Initializes the mock application data of this instance and registers all
@@ -404,10 +375,9 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     * @return this instance
     */
   def addApplications(data: Iterable[(ClientApplication, String)]):
-  WindowHidingAppManagerTestImpl = {
+  WindowHidingAppManagerTestImpl =
     data foreach (d => sendMessage(ApplicationManager.ApplicationRegistered(d._1)))
     initAppData(data)
-  }
 
   /**
     * Sends the specified message to this application manager.
@@ -415,10 +385,9 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     * @param msg the message to be sent
     * @return this instance
     */
-  def sendMessage(msg: Any): WindowHidingAppManagerTestImpl = {
+  def sendMessage(msg: Any): WindowHidingAppManagerTestImpl =
     onMessage(msg)
     this
-  }
 
   /**
     * Returns a list with messages published on the message bus.
@@ -442,23 +411,20 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
   /**
     * Records this invocation.
     */
-  override protected def triggerShutdown(): Unit = {
+  override protected def triggerShutdown(): Unit =
     shutdownTriggerCount += 1
-  }
 
   /**
     * Records this invocation.
     */
-  override def setUp(): Unit = {
+  override def setUp(): Unit =
     setupCount += 1
-  }
 
   /**
     * Records this invocation.
     */
-  override def tearDown(): Unit = {
+  override def tearDown(): Unit =
     tearDownCount += 1
-  }
 
   /**
     * Increases visibility.
@@ -477,7 +443,7 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     *
     * @return the client application context
     */
-  private def createClientAppContext(): ClientApplicationContextImpl = {
+  private def createClientAppContext(): ClientApplicationContextImpl =
     val ctx = new ClientApplicationContextImpl
     doAnswer((invocation: InvocationOnMock) => {
       publishedMessagesList = invocation.getArguments.head :: publishedMessagesList
@@ -485,5 +451,3 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
     }).when(ctx.messageBus).publish(any())
     initApplicationContext(ctx)
     ctx
-  }
-}

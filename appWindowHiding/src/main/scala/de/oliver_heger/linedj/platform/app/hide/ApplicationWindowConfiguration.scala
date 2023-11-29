@@ -35,7 +35,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
   * number of auxiliary applications; the latter one can be made invisible, but
   * closing the main application means that the user wants to exit.
   */
-trait ApplicationWindowConfiguration {
+trait ApplicationWindowConfiguration:
   /**
     * Returns the visibility state of the specified application. This method is
     * called when an application registers itself to set its initial state.
@@ -64,4 +64,3 @@ trait ApplicationWindowConfiguration {
     * @return a flag whether this is a main application
     */
   def isMainApplication(app: ClientApplication): Boolean
-}

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.hide.ApplicationWindowConfiguration
 import org.apache.commons.configuration.Configuration
 
-object AppConfigWindowConfiguration {
+object AppConfigWindowConfiguration:
   /**
     * Constant for the key prefix for the window management section in the
     * underlying configuration.
@@ -64,10 +64,9 @@ object AppConfigWindowConfiguration {
     * @return an option with an ''ApplicationWindowConfiguration'' instance
     */
   def apply(config: Configuration): Option[ApplicationWindowConfiguration] =
-    if (config.getBoolean(KeyConfig, false))
+    if config.getBoolean(KeyConfig, false) then
       Some(new AppConfigWindowConfiguration(config))
     else None
-}
 
 /**
   * An implementation of the ''ApplicationWindowConfiguration'' trait that is
@@ -97,7 +96,7 @@ object AppConfigWindowConfiguration {
   * @param configuration the underlying configuration
   */
 class AppConfigWindowConfiguration private(configuration: Configuration)
-  extends ApplicationWindowConfiguration {
+  extends ApplicationWindowConfiguration:
 
   import AppConfigWindowConfiguration._
 
@@ -119,11 +118,10 @@ class AppConfigWindowConfiguration private(configuration: Configuration)
     * @param app     the application in question
     * @param visible the new visible state of this application
     */
-  override def setWindowVisible(app: ClientApplication, visible: Boolean): Unit = {
+  override def setWindowVisible(app: ClientApplication, visible: Boolean): Unit =
     val key = appVisibleKey(app)
-    if (visible) configuration.clearProperty(key)
+    if visible then configuration.clearProperty(key)
     else configuration.setProperty(key, visible)
-  }
 
   /**
     * Returns a flag whether the specified application is a ''main
@@ -135,4 +133,3 @@ class AppConfigWindowConfiguration private(configuration: Configuration)
     */
   override def isMainApplication(app: ClientApplication): Boolean =
     configuration.getList(KeyMainApps) contains app.appName
-}

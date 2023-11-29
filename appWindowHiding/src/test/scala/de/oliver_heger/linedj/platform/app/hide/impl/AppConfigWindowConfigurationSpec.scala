@@ -24,7 +24,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object AppConfigWindowConfigurationSpec {
+object AppConfigWindowConfigurationSpec:
   /** A name for a configuration. */
   private val AppName = "MyTestApp"
 
@@ -35,11 +35,10 @@ object AppConfigWindowConfigurationSpec {
     * @param enabled flag whether the storage key should be set to true
     * @return the configuration
     */
-  def initConfig(enabled: Boolean = true): HierarchicalConfiguration = {
+  def initConfig(enabled: Boolean = true): HierarchicalConfiguration =
     val config = new HierarchicalConfiguration
     config.addProperty("platform.windowManagement.config", enabled)
     config
-  }
 
   /**
     * Convenience method that returns a sub configuration pointing on the
@@ -51,12 +50,11 @@ object AppConfigWindowConfigurationSpec {
     */
   def subConfig(config: HierarchicalConfiguration): HierarchicalConfiguration =
     config.configurationAt("platform.windowManagement")
-}
 
 /**
   * Test class for ''AppConfigWindowConfiguration''.
   */
-class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import AppConfigWindowConfigurationSpec._
 
@@ -76,65 +74,57 @@ class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with Mo
     * @param name the application name
     * @return the mock application
     */
-  private def applicationMock(name: String = AppName): ClientApplication = {
+  private def applicationMock(name: String = AppName): ClientApplication =
     val app = mock[ClientApplication]
     when(app.appName).thenReturn(name)
     app
-  }
 
-  "An AppConfigWindowConfiguration" should "ignore a config without storage key" in {
+  "An AppConfigWindowConfiguration" should "ignore a config without storage key" in:
     val config = new PropertiesConfiguration
 
     AppConfigWindowConfiguration(config) shouldBe empty
-  }
 
-  it should "ignore a config with the storage key disabled" in {
+  it should "ignore a config with the storage key disabled" in:
     val config = initConfig(enabled = false)
 
     AppConfigWindowConfiguration(config) shouldBe empty
-  }
 
-  it should "consider an undefined application as visible" in {
+  it should "consider an undefined application as visible" in:
     val config = windowConfigFor(initConfig())
 
     config.isWindowVisible(applicationMock()) shouldBe true
-  }
 
-  it should "consider an application invisible if it is listed in the configuration" in {
+  it should "consider an application invisible if it is listed in the configuration" in:
     val data = initConfig()
     val sub = subConfig(data)
     val config = windowConfigFor(data)
 
     sub.addProperty("apps." + AppName, false)
     config.isWindowVisible(applicationMock()) shouldBe false
-  }
 
-  it should "evaluate the value of the app visibile state property" in {
+  it should "evaluate the value of the app visibile state property" in:
     val data = initConfig()
     val sub = subConfig(data)
     val config = windowConfigFor(data)
 
     sub.addProperty("apps." + AppName, true)
     config.isWindowVisible(applicationMock()) shouldBe true
-  }
 
-  it should "store the visible state of an invisible application" in {
+  it should "store the visible state of an invisible application" in:
     val data = initConfig()
     val config = windowConfigFor(data)
 
     config.setWindowVisible(applicationMock(), visible = false)
     subConfig(data).getBoolean("apps." + AppName) shouldBe false
-  }
 
-  it should "remove the key for a visible application" in {
+  it should "remove the key for a visible application" in:
     val data = initConfig()
     val config = windowConfigFor(data)
 
     config.setWindowVisible(applicationMock(), visible = true)
     subConfig(data).containsKey("apps." + AppName) shouldBe false
-  }
 
-  it should "recognize main applications" in {
+  it should "recognize main applications" in:
     val data = initConfig()
     val sub = subConfig(data)
     val OtherAppName = "Some other app"
@@ -143,11 +133,8 @@ class AppConfigWindowConfigurationSpec extends AnyFlatSpec with Matchers with Mo
 
     config.isMainApplication(applicationMock()) shouldBe true
     config.isMainApplication(applicationMock(OtherAppName)) shouldBe false
-  }
 
-  it should "handle an undefined key for main applications" in {
+  it should "handle an undefined key for main applications" in:
     val config = windowConfigFor(initConfig())
 
     config.isMainApplication(applicationMock()) shouldBe false
-  }
-}

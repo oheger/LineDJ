@@ -57,7 +57,7 @@ import org.osgi.service.component.ComponentContext
   * persisted, so that it can be restored after a restart of the application.
   */
 class WindowHidingApplicationManager extends BaseApplicationManager
-  with ConsumerSupport[ApplicationWindowState, AnyRef] {
+  with ConsumerSupport[ApplicationWindowState, AnyRef]:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -78,13 +78,11 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     *             configuration contains information about the window
     *             visibility state.
     */
-  override def initApplicationContext(context: ClientApplicationContext): Unit = {
+  override def initApplicationContext(context: ClientApplicationContext): Unit =
     super.initApplicationContext(context)
     optWindowConfig = AppConfigWindowConfiguration(context.managementConfiguration)
-    if (optWindowConfig.isDefined) {
+    if optWindowConfig.isDefined then
       log.info("Using window configuration from management app.")
-    }
-  }
 
   /**
     * Activates this component. This method is called by the declarative
@@ -93,10 +91,9 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     *
     * @param compCtx the component context (unused)
     */
-  def activate(compCtx: ComponentContext): Unit = {
+  def activate(compCtx: ComponentContext): Unit =
     setUp()
     log.info("Activated WindowHidingApplicationManager.")
-  }
 
   /**
     * Deactivates this component. This method is called by the declarative
@@ -105,25 +102,23 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     *
     * @param compCtx the component context (unused)
     */
-  def deactivate(compCtx: ComponentContext): Unit = {
+  def deactivate(compCtx: ComponentContext): Unit =
     tearDown()
     log.info("Deactivated WindowHidingApplicationManager.")
-  }
 
   /**
     * @inheritdoc This implementation passes the current state to the new
     *             consumer.
     */
   override def onConsumerAdded(cons: ConsumerFunction[ApplicationWindowState], key: AnyRef,
-                               first: Boolean): Unit = {
+                               first: Boolean): Unit =
     cons(applicationWindowState)
-  }
 
   /**
     * @inheritdoc This implementation reacts on specific messages related to
     *             applications and their main windows.
     */
-  override protected def onMessage: Receive = {
+  override protected def onMessage: Receive =
     case reg: WindowStateConsumerRegistration =>
       addConsumer(reg)
 
@@ -131,14 +126,12 @@ class WindowHidingApplicationManager extends BaseApplicationManager
       removeConsumer(id)
 
     case ApplicationRegistered(app) =>
-      if (optWindowConfig.isEmpty) {
+      if optWindowConfig.isEmpty then
         optWindowConfig = updateWindowConfig(app)
-      }
-      if (isAppVisible(windowConfig, app)) {
+      if isAppVisible(windowConfig, app) then
         visibleApplications += app
-      } else {
+      else
         app showMainWindow false
-      }
       notifyConsumers()
 
     case ApplicationRemoved(app) =>
@@ -149,42 +142,37 @@ class WindowHidingApplicationManager extends BaseApplicationManager
       notifyConsumers()
 
     case HideApplicationWindow(app) =>
-      if (visibleApplications contains app) {
+      if visibleApplications contains app then
         log.info("Hiding application window {}.", app)
         visibleApplications -= app
         updateAppVisibility(app, state = false)
-      }
 
     case ShowApplicationWindow(app) =>
-      if (!visibleApplications.contains(app) && getApplications.exists(_ == app)) {
+      if !visibleApplications.contains(app) && getApplications.exists(_ == app) then
         log.info("Showing application window {}.", app)
         visibleApplications += app
         updateAppVisibility(app, state = true)
-      }
 
     case ExitPlatform(applicationManager) =>
       log.info("Received ExitPlatform message.")
-      if (this eq applicationManager) triggerShutdown()
+      if this eq applicationManager then triggerShutdown()
       else log.warn("Ignoring invalid ExitPlatform message!")
-  }
 
   /**
     * @inheritdoc This implementation sends a message to hide this
     *             application's main window.
     */
-  override protected def onApplicationShutdown(app: ClientApplication): Unit = {
+  override protected def onApplicationShutdown(app: ClientApplication): Unit =
     publishMessage(HideApplicationWindow(app))
-  }
 
   /**
     * @inheritdoc This implementation searches for the application to which
     *             this window belongs. If it is found, a message is sent to
     *             hide this applications's main window.
     */
-  override protected def onWindowClosing(window: Window): Unit = {
+  override protected def onWindowClosing(window: Window): Unit =
     val optApp = getApplications.find(_.optMainWindow.orNull == window)
     optApp foreach (app => publishMessage(HideApplicationWindow(app)))
-  }
 
   /**
     * Updates the visibility state of the given application. The window is
@@ -194,11 +182,10 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     * @param app   the application
     * @param state the new visibility state
     */
-  private def updateAppVisibility(app: ClientApplication, state: Boolean): Unit = {
+  private def updateAppVisibility(app: ClientApplication, state: Boolean): Unit =
     app showMainWindow state
     windowConfig.setWindowVisible(app, state)
     notifyConsumers()
-  }
 
   /**
     * Returns the current window configuration. If one has been set, it is
@@ -219,7 +206,7 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     * @return an option with the new window configuration
     */
   private def updateWindowConfig(app: ClientApplication):
-  Option[ApplicationWindowConfiguration] = {
+  Option[ApplicationWindowConfiguration] =
     val config = AppConfigWindowConfiguration(app.getUserConfiguration)
     config foreach { c =>
       log.info("Using window configuration from {}.", app.appName)
@@ -229,12 +216,11 @@ class WindowHidingApplicationManager extends BaseApplicationManager
       visibleApplications = appsToUpdate.foldLeft(visibleApplications) { (s, t) =>
         val (app, state) = t
         app.showMainWindow(!state)
-        if (state) s - app
+        if state then s - app
         else s + app
       }
     }
     config
-  }
 
   /**
     * Consults the given configuration to determine whether the specified
@@ -253,9 +239,8 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     * Notifies all registered consumers about an updated application window
     * state.
     */
-  private def notifyConsumers(): Unit = {
+  private def notifyConsumers(): Unit =
     invokeConsumers(applicationWindowState)
-  }
 
   /**
     * Returns an ''ApplicationWindowState'' object with the current status.
@@ -264,7 +249,6 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     */
   private def applicationWindowState: ApplicationWindowState =
     ApplicationWindowState(getApplicationsWithTitles, visibleApplications)
-}
 
 /**
   * A default implementation of ''ApplicationWindowConfiguration''.
@@ -274,7 +258,7 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   * and ignores updates of the visibility state.
   */
 private object DefaultApplicationWindowConfiguration
-  extends ApplicationWindowConfiguration {
+  extends ApplicationWindowConfiguration:
   /**
     * @inheritdoc This implementation always returns '''true'''.
     */
@@ -291,4 +275,3 @@ private object DefaultApplicationWindowConfiguration
     *             never be invoked.)
     */
   override def isMainApplication(app: ClientApplication): Boolean = false
-}

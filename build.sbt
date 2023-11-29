@@ -927,6 +927,8 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-windowHiding",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
@@ -939,7 +941,7 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (platform % "compile->compile;test->test")
+  ) dependsOn (platform, test3 % "test->compile")
 
 lazy val trayWindowList = (project in file("trayWindowList"))
   .enablePlugins(SbtSpiFly)
