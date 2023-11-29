@@ -22,13 +22,14 @@ import java.util.ResourceBundle
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.ImageIcon
 
-import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication,
-ClientApplicationContext}
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.app.hide._
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import org.osgi.service.component.ComponentContext
 
-object TrayWindowList {
+import scala.collection.immutable.Seq
+
+object TrayWindowList:
   /** The name of the resource bundle used by this class. */
   private val ResourceBundleName = "windowList-resources"
 
@@ -40,7 +41,6 @@ object TrayWindowList {
 
   /** Resource key for the exit menu item. */
   private val ResExit = "exit_cmd"
-}
 
 /**
   * A class adding an icon to the system tray that allows controlling the
@@ -59,7 +59,7 @@ object TrayWindowList {
   * @param sync        the object for synchronizing with the AWT thread
   */
 class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
-                     private[wndlist] val sync: TraySynchronizer) {
+                     private[wndlist] val sync: TraySynchronizer):
 
   import TrayWindowList._
 
@@ -89,9 +89,8 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     *
     * @param clientContext the ''ClientApplicationContext''
     */
-  def initClientApplicationContext(clientContext: ClientApplicationContext): Unit = {
+  def initClientApplicationContext(clientContext: ClientApplicationContext): Unit =
     clientApplicationContext = clientContext
-  }
 
   /**
     * Initializes the ''ApplicationManager'' reference. This method is called
@@ -99,26 +98,23 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     *
     * @param appMan the ''ApplicationManager''
     */
-  def initApplicationManager(appMan: ApplicationManager): Unit = {
+  def initApplicationManager(appMan: ApplicationManager): Unit =
     applicationManager = appMan
-  }
 
   /**
     * Activates this component. This method is called by the SCR.
     *
     * @param componentContext the component context
     */
-  def activate(componentContext: ComponentContext): Unit = {
-    sync.schedule {
+  def activate(componentContext: ComponentContext): Unit =
+    sync.schedule:
       val bundle = ResourceBundle getBundle ResourceBundleName
       val image = new ImageIcon(getClass.getResource(IconPath)).getImage
       trayHandler.addIcon(image, bundle.getString(ResToolTip)) foreach { h =>
         trayIconHandlerRef.set(h)
-        exitMenuItem = createExitMenutItem(bundle)
+        exitMenuItem = createExitMenuItem(bundle)
         publish(Registration)
       }
-    }
-  }
 
   /**
     * Deactivates this component. This method is called by the SCR. If a tray
@@ -126,31 +122,26 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     *
     * @param componentContext the component context
     */
-  def deactivate(componentContext: ComponentContext): Unit = {
+  def deactivate(componentContext: ComponentContext): Unit =
     val handler = trayIconHandlerRef.get()
-    if (handler != null) {
-      sync.schedule {
+    if handler != null then
+      sync.schedule:
         handler.remove()
-      }
       publish(WindowStateConsumerUnregistration(Registration.id))
-    }
-  }
 
   /**
     * The consumer function receiving updates of the application window state.
     *
     * @param state the updated state
     */
-  private def windowStateChanged(state: ApplicationWindowState): Unit = {
-    sync.schedule {
+  private def windowStateChanged(state: ApplicationWindowState): Unit =
+    sync.schedule:
       val items = createItemsForApps(state)
       val popup = new PopupMenu
       items foreach popup.add
       popup.addSeparator()
       popup.add(exitMenuItem)
       trayIconHandlerRef.get() updateMenu popup
-    }
-  }
 
   /**
     * Creates menu items for the currently installed applications.
@@ -158,14 +149,13 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     * @param state the current window state
     * @return a sequence with the menu items for the applications
     */
-  private def createItemsForApps(state: ApplicationWindowState): Seq[CheckboxMenuItem] = {
+  private def createItemsForApps(state: ApplicationWindowState): Seq[CheckboxMenuItem] =
     val sortedApps = state.appsWithTitle.toSeq.sortWith { (e1, e2) =>
       e1._2.compareToIgnoreCase(e2._2) < 0
     }
     sortedApps map { t =>
       createCheckboxItem(t._1, t._2, state.visibleApps contains t._1)
     }
-  }
 
   /**
     * Creates a checkbox menu item for an application. Via this menu item the
@@ -177,17 +167,14 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     * @return the menu item for this application
     */
   private def createCheckboxItem(app: ClientApplication, title: String,
-                                 visible: Boolean): CheckboxMenuItem = {
+                                 visible: Boolean): CheckboxMenuItem =
     val item = new CheckboxMenuItem(title, visible)
-    item.addItemListener(new ItemListener {
-      override def itemStateChanged(e: ItemEvent): Unit = {
-        val msg = if (e.getStateChange == ItemEvent.SELECTED) ShowApplicationWindow(app)
-        else HideApplicationWindow(app)
-        publish(msg)
-      }
+    item.addItemListener((e: ItemEvent) => {
+      val msg = if e.getStateChange == ItemEvent.SELECTED then ShowApplicationWindow(app)
+      else HideApplicationWindow(app)
+      publish(msg)
     })
     item
-  }
 
   /**
     * Creates the menu item for exiting the platform.
@@ -195,22 +182,15 @@ class TrayWindowList(private[wndlist] val trayHandler: TrayHandler,
     * @param bundle the resource bundle
     * @return the exit menu item
     */
-  private def createExitMenutItem(bundle: ResourceBundle): MenuItem = {
+  private def createExitMenuItem(bundle: ResourceBundle): MenuItem =
     val item = new MenuItem(bundle getString ResExit)
-    item addActionListener new ActionListener {
-      override def actionPerformed(e: ActionEvent): Unit = {
-        publish(ExitPlatform(applicationManager))
-      }
-    }
+    item addActionListener ((e: ActionEvent) => publish(ExitPlatform(applicationManager)))
     item
-  }
 
   /**
     * Publishes the specified message on the message bus.
     *
     * @param msg the message
     */
-  private def publish(msg: Any): Unit = {
+  private def publish(msg: Any): Unit =
     clientApplicationContext.messageBus publish msg
-  }
-}

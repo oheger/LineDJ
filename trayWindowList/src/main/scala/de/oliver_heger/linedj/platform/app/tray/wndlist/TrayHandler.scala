@@ -26,7 +26,7 @@ import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
   * This trait is used rather than direct access to the tray, which typically
   * requires static method calls. When using the trait code is easier to test.
   */
-private trait TrayHandler {
+private trait TrayHandler:
   /**
     * Adds an icon to the tray and returns a handler object that can be used to
     * manipulate it later. If it is not possible to add the icon, ''None'' is
@@ -37,12 +37,11 @@ private trait TrayHandler {
     * @return an option for the icon handler
     */
   def addIcon(icon: Image, tip: String): Option[TrayIconHandler]
-}
 
 /**
   * Default implementation of the ''TrayHandler'' trait.
   */
-private object TrayHandlerImpl extends TrayHandler {
+private object TrayHandlerImpl extends TrayHandler:
   /** Logger. */
   private val Log = LogManager.getLogger(getClass)
 
@@ -67,18 +66,16 @@ private object TrayHandlerImpl extends TrayHandler {
     * @param tip  the tool tip
     * @return the icon handler
     */
-  def addIconToTray(tray: SystemTray, icon: Image, tip: String): Option[TrayIconHandler] = {
+  def addIconToTray(tray: SystemTray, icon: Image, tip: String): Option[TrayIconHandler] =
     Log.info("Adding system tray icon.")
     val trayIcon = new TrayIcon(icon, tip)
-    try {
+    try
       tray add trayIcon
       Some(new TrayIconHandler(trayIcon, tray))
-    } catch {
+    catch
       case ex: Exception =>
         Log.error("Could not add system tray icon!", ex)
         None
-    }
-  }
 
   /**
     * Tries to obtain the system tray. If it is not supported, result is
@@ -88,12 +85,10 @@ private object TrayHandlerImpl extends TrayHandler {
     */
   private def fetchSystemTray(): Option[SystemTray] =
     try Some(SystemTray.getSystemTray)
-    catch {
+    catch
       case ex: Exception =>
         Log.error("Could not obtain system tray!", ex)
         None
-    }
-}
 
 /**
   * A wrapper around a ''TrayIcon'' object.
@@ -105,15 +100,13 @@ private object TrayHandlerImpl extends TrayHandler {
   * @param tray the ''SystemTray''
   */
 private class TrayIconHandler(val icon: TrayIcon, val tray: SystemTray) {
-  def updateMenu(menu: PopupMenu): Unit = {
+  def updateMenu(menu: PopupMenu): Unit =
     icon setPopupMenu menu
-  }
 
   /**
     * Removes the wrapped icon from the system tray. This method should be
     * called once when the icon is no longer needed.
     */
-  def remove(): Unit = {
+  def remove(): Unit =
     tray remove icon
-  }
 }

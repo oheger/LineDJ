@@ -947,6 +947,8 @@ lazy val trayWindowList = (project in file("trayWindowList"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-trayWindowList",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.tray.wndlist.*"
@@ -954,7 +956,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", appWindowHiding)
+  ) dependsOn(platform, appWindowHiding, test3 % "test->compile")
 
 /**
   * Project for the audio platform. This project provides basic services for

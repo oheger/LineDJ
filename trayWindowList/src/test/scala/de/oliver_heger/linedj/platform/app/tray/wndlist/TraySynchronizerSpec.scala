@@ -25,15 +25,12 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''TraySynchronizer''.
   */
-class TraySynchronizerSpec extends AnyFlatSpec with Matchers {
-  "A TraySynchronizer" should "schedule an action on AWT thread" in {
+class TraySynchronizerSpec extends AnyFlatSpec with Matchers:
+  "A TraySynchronizer" should "schedule an action on AWT thread" in:
     val queue = new SynchronousQueue[Boolean]
     val sync = new TraySynchronizer
 
-    sync.schedule {
+    sync.schedule:
       queue.put(SwingUtilities.isEventDispatchThread)
-    }
     val result = queue.poll(10, TimeUnit.SECONDS)
     result shouldBe true
-  }
-}

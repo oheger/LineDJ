@@ -26,15 +26,13 @@ import javax.swing.SwingUtilities
   * dispatch thread. This class is responsible for scheduling operations on
   * this thread.
   */
-private class TraySynchronizer {
+private class TraySynchronizer:
   /**
     * Runs the specified action on the AWT event dispatch thread.
     *
     * @param f the action to be executed
     */
-  def schedule(f: => Unit): Unit = {
+  def schedule(f: => Unit): Unit =
     SwingUtilities.invokeLater(new Runnable {
       override def run(): Unit = f
     })
-  }
-}

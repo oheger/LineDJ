@@ -26,7 +26,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object TrayHandlerSpec {
+object TrayHandlerSpec:
   /** A test tool tip. */
   private val Tip = "Tray Tool Tip"
 
@@ -35,20 +35,18 @@ object TrayHandlerSpec {
     *
     * @return the image
     */
-  private def createImage(): Image = {
+  private def createImage(): Image =
     val url = classOf[TrayHandler].getResource("/icon.png")
     new ImageIcon(url).getImage
-  }
-}
 
 /**
   * Test class for ''TrayHandler''.
   */
-class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import TrayHandlerSpec._
 
-  "TrayHandlerImpl" should "create a correct icon handler" in {
+  "TrayHandlerImpl" should "create a correct icon handler" in:
     val tray = mock[SystemTray]
     val image = createImage()
 
@@ -59,37 +57,31 @@ class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     handler.icon should be(captor.getValue)
     handler.icon.getImage should be(image)
     handler.icon.getToolTip should be(Tip)
-  }
 
-  it should "handle an exception when adding the icon to the tray" in {
+  it should "handle an exception when adding the icon to the tray" in:
     val tray = mock[SystemTray]
     when(tray.add(any(classOf[TrayIcon]))).thenThrow(new IllegalArgumentException)
 
     TrayHandlerImpl.addIconToTray(tray, createImage(), Tip) shouldBe empty
-  }
 
-  it should "do a complete add icon operation" in {
+  it should "do a complete add icon operation" in:
     // as the tray may not be available, we can only check that no exception
     // is thrown
     val handler = TrayHandlerImpl.addIcon(createImage(), Tip)
     handler foreach (_.remove())
-  }
 
-  "A TrayIconHandler" should "remove the icon from the tray" in {
+  "A TrayIconHandler" should "remove the icon from the tray" in:
     val tray = mock[SystemTray]
     val icon = mock[TrayIcon]
     val handler = new TrayIconHandler(icon, tray)
 
     handler.remove()
     verify(tray).remove(icon)
-  }
 
-  it should "set the icon's popup menu" in {
+  it should "set the icon's popup menu" in:
     val icon = new TrayIcon(createImage())
     val menu = new PopupMenu
     val handler = new TrayIconHandler(icon, mock[SystemTray])
 
     handler updateMenu menu
     icon.getPopupMenu should be(menu)
-  }
-}
