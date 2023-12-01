@@ -204,6 +204,7 @@ lazy val test3 = (project in file("test3"))
     libraryDependencies ++= Seq(
       ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
       ("org.apache.pekko" %% "pekko-testkit" % VersionPekko).cross(CrossVersion.for3Use2_13),
+      ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko).cross(CrossVersion.for3Use2_13),
       "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe classifier "tests",
       "org.scalatest" %% "scalatest" % VersionScalaTest,
       "org.scalatestplus" %% "mockito-4-11" % VersionScalaTestMockito,
