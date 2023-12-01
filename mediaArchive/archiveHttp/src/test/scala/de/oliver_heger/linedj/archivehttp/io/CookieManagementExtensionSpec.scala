@@ -19,12 +19,12 @@ package de.oliver_heger.linedj.archivehttp.io
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.HttpRequestSender.DiscardEntityMode.DiscardEntityMode
 import com.github.cloudfiles.core.http.HttpRequestSender.{DiscardEntityMode, FailedResponseException}
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, BehaviorTestKit}
+import de.oliver_heger.linedj.test.ActorTestKitSupport
+import org.apache.pekko.actor.testkit.typed.scaladsl.BehaviorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, HttpCookie, HttpCookiePair, `Set-Cookie`}
 import org.mockito.Mockito.{never, verify}
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -90,10 +90,8 @@ object CookieManagementExtensionSpec:
 /**
   * Test class for ''CookieManagementExtension''.
   */
-class CookieManagementExtensionSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with MockitoSugar:
-  private val testKit = ActorTestKit()
+class CookieManagementExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar with ActorTestKitSupport:
   import CookieManagementExtensionSpec.*
-  import testKit.given
 
   /**
     * Checks the data that was passed when forwarding a request.

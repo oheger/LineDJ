@@ -19,13 +19,12 @@ package de.oliver_heger.linedj.archivehttp.io
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
-import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
+import de.oliver_heger.linedj.test.{ActorTestKitSupport, AsyncTestHelper, FileTestHelper}
+import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import org.mockito.Mockito.*
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -60,11 +59,8 @@ object FileSystemMediaDownloaderSpec:
 /**
   * Test class for ''FileSystemMediaDownloader''.
   */
-class FileSystemMediaDownloaderSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers
-  with MockitoSugar with AsyncTestHelper:
-
-  private val testKit = ActorTestKit()
-  import testKit.given
+class FileSystemMediaDownloaderSpec extends AnyFlatSpec with Matchers with MockitoSugar with ActorTestKitSupport
+  with AsyncTestHelper:
 
   import FileSystemMediaDownloaderSpec.*
 
