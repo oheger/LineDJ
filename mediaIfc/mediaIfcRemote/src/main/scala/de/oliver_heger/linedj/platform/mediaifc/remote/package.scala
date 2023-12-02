@@ -21,7 +21,7 @@ import org.apache.commons.configuration.Configuration
 /**
   * Package object for the ''remote'' package.
   */
-package object remote {
+package object remote:
   /**
     * Configuration property for the host of the remote media archive.
     */
@@ -77,4 +77,3 @@ package object remote {
     */
   def readActorSystemName(config: Configuration): String =
   config.getString(PropMediaArchiveSystemName, DefaultActorSystemName)
-}

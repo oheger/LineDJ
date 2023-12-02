@@ -23,18 +23,15 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''RemoteMediaIfcConfigData''.
   */
-class RemoteMediaIfcConfigDataSpec extends AnyFlatSpec with Matchers {
-  "A RemoteMediaIfcConfigData" should "return the correct class loader" in {
+class RemoteMediaIfcConfigDataSpec extends AnyFlatSpec with Matchers:
+  "A RemoteMediaIfcConfigData" should "return the correct class loader" in:
     val data = new RemoteMediaIfcConfigData
 
     data.configClassLoader should be(classOf[RemoteMediaIfcConfigData].getClassLoader)
-  }
 
-  it should "return a correct locator to the configuration script" in {
+  it should "return a correct locator to the configuration script" in:
     val data = new RemoteMediaIfcConfigData
 
     val locator = data.configScriptLocator.asInstanceOf[ClassPathLocator]
     locator.getResourceName should be("remoteconfig.jelly")
     locator.getClassLoader should be(data.configClassLoader)
-  }
-}

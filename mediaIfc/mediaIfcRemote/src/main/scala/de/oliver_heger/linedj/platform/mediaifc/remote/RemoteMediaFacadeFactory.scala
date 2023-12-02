@@ -25,9 +25,8 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem}
   * An implementation of [[MediaFacadeFactory]] that creates an instance of
   * [[RemoteMediaFacade]].
   */
-class RemoteMediaFacadeFactory extends ActorBasedMediaFacadeFactory {
+class RemoteMediaFacadeFactory extends ActorBasedMediaFacadeFactory:
 
   override protected[remote] def createFacadeImpl(relayActor: ActorRef, system: ActorSystem,
                                                   bus: MessageBus): MediaFacade =
     new RemoteMediaFacade(relayActor, system, bus)
-}

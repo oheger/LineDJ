@@ -26,7 +26,7 @@ import net.sf.jguiraffe.locators.{ClassPathLocator, Locator}
   * This class exposes properties to access the Jelly script with the specific
   * configuration dialog.
   */
-class RemoteMediaIfcConfigData extends MediaIfcConfigData {
+class RemoteMediaIfcConfigData extends MediaIfcConfigData:
   /**
     * @inheritdoc This implementation returns the class loader of this class.
     */
@@ -38,4 +38,3 @@ class RemoteMediaIfcConfigData extends MediaIfcConfigData {
     */
   override val configScriptLocator: Locator =
   ClassPathLocator.getInstance("remoteconfig.jelly", configClassLoader)
-}

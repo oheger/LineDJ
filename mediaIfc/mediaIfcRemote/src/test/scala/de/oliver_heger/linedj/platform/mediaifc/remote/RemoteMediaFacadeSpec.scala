@@ -26,17 +26,16 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''RemoteMediaFacade''.
   */
-class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A RemoteMediaFacade" should "pass constructor arguments to its base class" in {
+class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A RemoteMediaFacade" should "pass constructor arguments to its base class" in:
     val helper = new RemoteMediaFacadeTestHelper
     val facade = helper.createFacade()
 
     facade.relayActor should be(helper.relayActor)
     facade.actorSystem should be(helper.actorSystem)
     facade.bus should be(helper.messageBus)
-  }
 
-  it should "create a path prefix from configuration settings" in {
+  it should "create a path prefix from configuration settings" in:
     val config = new PropertiesConfiguration
     config.addProperty("media.host", "myTestHost")
     config.addProperty("media.port", 1234)
@@ -45,19 +44,17 @@ class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     val path = facade.createActorPathPrefix(config)
     path should be("pekko://testSystem@myTestHost:1234/user/")
-  }
 
-  it should "use defaults for missing configuration settings" in {
+  it should "use defaults for missing configuration settings" in:
     val facade = new RemoteMediaFacadeTestHelper().createFacade()
 
     val path = facade.createActorPathPrefix(new PropertiesConfiguration)
     path should be("pekko://LineDJ-Server@127.0.0.1:2552/user/")
-  }
 
   /**
     * A test helper class which manages dependencies.
     */
-  private class RemoteMediaFacadeTestHelper {
+  private class RemoteMediaFacadeTestHelper:
     /** Mock for the relay actor. */
     val relayActor: ActorRef = mock[ActorRef]
 
@@ -74,6 +71,4 @@ class RemoteMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       */
     def createFacade(): RemoteMediaFacade =
     new RemoteMediaFacade(relayActor, actorSystem, messageBus)
-  }
 
-}

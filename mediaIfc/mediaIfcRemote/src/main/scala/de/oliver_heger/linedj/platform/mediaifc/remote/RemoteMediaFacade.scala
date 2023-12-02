@@ -29,7 +29,7 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem}
   * configuration and generates corresponding lookup path prefixes.
   */
 class RemoteMediaFacade(relayActor: ActorRef, system: ActorSystem, bus: MessageBus)
-  extends ActorBasedMediaFacade(relayActor, system, bus) {
+  extends ActorBasedMediaFacade(relayActor, system, bus):
   /**
     * @inheritdoc This implementation reads configuration settings for the
     *             media archive server and generates a corresponding lookup
@@ -38,4 +38,3 @@ class RemoteMediaFacade(relayActor: ActorRef, system: ActorSystem, bus: MessageB
     */
   override protected[remote] def createActorPathPrefix(config: Configuration): String =
     s"pekko://${readActorSystemName(config)}@${readHost(config)}:${readPort(config)}/user/"
-}

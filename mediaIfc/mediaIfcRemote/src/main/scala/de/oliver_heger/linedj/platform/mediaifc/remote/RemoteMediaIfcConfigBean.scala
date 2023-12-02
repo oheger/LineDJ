@@ -31,7 +31,7 @@ import org.apache.commons.configuration.Configuration
   * configuration object. This makes it possible to store configuration for the
   * media archive in the configuration of the hosting application.
   */
-class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerFormListener {
+class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerFormListener:
   /** The underlying configuration for this bean. */
   private var configuration: Configuration = _
 
@@ -50,9 +50,8 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @param host the host address
     */
-  def setHost(host: String): Unit = {
+  def setHost(host: String): Unit =
     configuration.setProperty(PropMediaArchiveHost, host)
-  }
 
   /**
     * Returns the port under which the media archive can be reached.
@@ -66,9 +65,8 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @param port the port
     */
-  def setPort(port: Int): Unit = {
+  def setPort(port: Int): Unit =
     configuration.setProperty(PropMediaArchivePort, port)
-  }
 
   /**
     * Initializes this bean with the current application. This method is called
@@ -76,10 +74,9 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @param app the current application
     */
-  override def setApplication(app: Application): Unit = {
+  override def setApplication(app: Application): Unit =
     application = app.asInstanceOf[ClientApplication]
     configuration = application.clientApplicationContext.managementConfiguration
-  }
 
   /**
     * Notifies this object that the associated form has been closed. If the
@@ -88,10 +85,7 @@ class RemoteMediaIfcConfigBean extends ApplicationClient with FormControllerForm
     *
     * @param event the form event
     */
-  override def formClosed(event: FormControllerFormEvent): Unit = {
-    if (event.getType == FormControllerFormEvent.Type.FORM_COMMITTED) {
+  override def formClosed(event: FormControllerFormEvent): Unit =
+    if event.getType == FormControllerFormEvent.Type.FORM_COMMITTED then
       val facade = application.clientApplicationContext.mediaFacade
       facade initConfiguration configuration
-    }
-  }
-}

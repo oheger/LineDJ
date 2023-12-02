@@ -844,6 +844,8 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-remote-MediaIfc",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.remote.*"
