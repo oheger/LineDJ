@@ -27,28 +27,26 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''EmbeddedMediaFacade''.
   */
-class EmbeddedMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An EmbeddedMediaFacade" should "pass constructor arguments to the super class" in {
+class EmbeddedMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An EmbeddedMediaFacade" should "pass constructor arguments to the super class" in:
     val helper = new EmbeddedMediaFacadeTestHelper
     val facade = helper.createFacade()
 
     facade.relayActor should be(helper.relayActor)
     facade.actorSystem should be(helper.actorSystem)
     facade.bus should be(helper.messageBus)
-  }
 
-  it should "return the correct path prefix" in {
+  it should "return the correct path prefix" in:
     val config = mock[Configuration]
     val facade = new EmbeddedMediaFacadeTestHelper().createFacade()
 
     facade.createActorPathPrefix(config) should be("/user/")
     verifyNoInteractions(config)
-  }
 
   /**
     * A test helper class that manages the required dependencies.
     */
-  private class EmbeddedMediaFacadeTestHelper {
+  private class EmbeddedMediaFacadeTestHelper:
     /** Reference to the relay actor. */
     val relayActor: ActorRef = mock[ActorRef]
 
@@ -65,6 +63,4 @@ class EmbeddedMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
       */
     def createFacade(): EmbeddedMediaFacade =
     new EmbeddedMediaFacade(relayActor, actorSystem, messageBus)
-  }
 
-}

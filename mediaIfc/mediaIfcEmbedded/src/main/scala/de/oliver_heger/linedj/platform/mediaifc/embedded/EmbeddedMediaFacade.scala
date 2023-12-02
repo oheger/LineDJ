@@ -40,11 +40,10 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem}
   * @param bus        the UI message bus
   */
 class EmbeddedMediaFacade(relayActor: ActorRef, system: ActorSystem, bus: MessageBus)
-  extends ActorBasedMediaFacade(relayActor, system, bus) {
+  extends ActorBasedMediaFacade(relayActor, system, bus):
   /**
     * @inheritdoc This implementation returns a prefix for a direct lookup of a
     *             local actor. The passed in configuration is not used.
     */
   override protected[embedded] def createActorPathPrefix(config: Configuration): String =
   "/user/"
-}

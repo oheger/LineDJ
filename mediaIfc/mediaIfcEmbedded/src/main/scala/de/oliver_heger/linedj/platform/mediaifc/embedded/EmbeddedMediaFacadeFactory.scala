@@ -26,8 +26,7 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem}
   * [[de.oliver_heger.linedj.platform.mediaifc.MediaFacadeFactory]] that creates
   * an [[EmbeddedMediaFacade]].
   */
-class EmbeddedMediaFacadeFactory extends ActorBasedMediaFacadeFactory {
+class EmbeddedMediaFacadeFactory extends ActorBasedMediaFacadeFactory:
   override protected[embedded] def createFacadeImpl(relayActor: ActorRef, system: ActorSystem,
                                                     bus: MessageBus): MediaFacade =
     new EmbeddedMediaFacade(relayActor, system, bus)
-}

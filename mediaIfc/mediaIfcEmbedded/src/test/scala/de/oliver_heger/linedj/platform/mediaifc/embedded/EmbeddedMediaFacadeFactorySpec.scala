@@ -25,8 +25,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''EmbeddedMediaFacadeFactory''.
   */
-class EmbeddedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An EmbeddedMediaFacadeFactory" should "create a correct facade" in {
+class EmbeddedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An EmbeddedMediaFacadeFactory" should "create a correct facade" in:
     val relayActor = mock[ActorRef]
     val actorSystem = mock[ActorSystem]
     val messageBus = mock[MessageBus]
@@ -37,5 +37,3 @@ class EmbeddedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with Mock
     facade.relayActor should be(relayActor)
     facade.actorSystem should be(actorSystem)
     facade.bus should be(messageBus)
-  }
-}
