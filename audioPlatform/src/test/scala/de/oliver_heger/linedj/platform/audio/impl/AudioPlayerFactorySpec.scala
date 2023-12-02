@@ -16,17 +16,17 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
+import de.oliver_heger.linedj.test.AsyncTestHelper
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -39,22 +39,20 @@ import java.util.concurrent.atomic.AtomicReference
   * Test class for ''AudioPlayerFactory''.
   */
 class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
   def this() = this(ActorSystem("AudioPlayerFactorySpec"))
 
   import system.dispatcher
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "An AudioPlayerFactory" should "create a correct default config factory" in {
+  "An AudioPlayerFactory" should "create a correct default config factory" in:
     val factory = new AudioPlayerFactory
 
     factory.playerConfigFactory should not be null
-  }
 
-  it should "create a correct audio player" in {
+  it should "create a correct audio player" in:
     val configFactory = mock[PlayerConfigFactory]
     val clientAppContext = mock[ClientApplicationContext]
     val mediaManager = TestProbe()
@@ -62,11 +60,10 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     val BufSize = 8888
     val appConfig = new PropertiesConfiguration
     val refCreator = new AtomicReference[ActorCreator]
-    val management = new ActorManagementComponent {
+    val management = new ActorManagementComponent:
       override def initClientContext(context: ClientApplicationContext): Unit = {}
 
       override val clientApplicationContext: ClientApplicationContext = clientAppContext
-    }
 
     when(clientAppContext.actorFactory).thenReturn(new ActorFactory(system))
     when(configFactory.createPlayerConfig(eqArg(appConfig), eqArg(Prefix),
@@ -82,9 +79,6 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     val player = futureResult(factory.createAudioPlayer(appConfig, Prefix, mediaManager.ref, management))
 
     player should not be null
-    refCreator.get() match {
+    refCreator.get() match
       case c: ManagingActorCreator => c.actorManagement should be(management)
       case o => fail("Unexpected actor creator: " + o)
-    }
-  }
-}

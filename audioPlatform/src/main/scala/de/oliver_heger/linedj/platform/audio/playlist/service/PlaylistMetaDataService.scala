@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * Implementation of the playlist meta data service.
   */
 object PlaylistMetaDataService
-  extends de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataService {
+  extends de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataService:
   /** Constant for undefined meta data. */
   private val EmptyMetaData = MediaMetaData()
 
@@ -38,23 +38,21 @@ object PlaylistMetaDataService
 
   override def processPlaylistUpdate(playlist: Playlist, seqNo: Int, state: MetaDataResolveState)
   : SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState) = { factory =>
-    if (state.seqNo == seqNo) (EmptyDelta, state)
+    if state.seqNo == seqNo then (EmptyDelta, state)
     else processNewPlaylist(playlist, seqNo, state, factory)
   }
 
   override def processMetaDataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
-  SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState) = {
+  SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState) =
     factory => {
       val (resolved, unresolved) = state.unresolvedSongs.partition(data.data contains _._1)
-      if (resolved.isEmpty) (EmptyDelta, state.copy(metaData = data.data))
-      else {
+      if resolved.isEmpty then (EmptyDelta, state.copy(metaData = data.data))
+      else
         val rangeList = calcUpdatedIndices(resolved)
         val resolvedSongs = resolved.map(e => (factory.createSongData(e._1, data.data(e._1)), e._2))
         (MetaDataResolveDelta(resolvedSongs, rangeList, fullUpdate = false),
           state.copy(metaData = data.data, unresolvedSongs = unresolved))
-      }
     }
-  }
 
   /**
     * Handles a changed playlist. In this case, ''SongData'' objects with
@@ -70,14 +68,13 @@ object PlaylistMetaDataService
     */
   private def processNewPlaylist(playlist: Playlist, seqNo: Int, state: MetaDataResolveState,
                                  factory: SongDataFactory):
-  (MetaDataResolveDelta, MetaDataResolveState) = {
+  (MetaDataResolveDelta, MetaDataResolveState) =
     val songs = PlaylistService.toSongList(playlist)
       .map(s => factory.createSongData(s, state.metaData.getOrElse(s, EmptyMetaData)))
       .zipWithIndex
     val unresolved = songs.map(e => (e._1.id, e._2))
     (MetaDataResolveDelta(resolvedSongs = songs, updatedRanges = List((0, songs.size - 1)),
       fullUpdate = true), state.copy(seqNo = seqNo, unresolvedSongs = unresolved))
-  }
 
   /**
     * Determines a list with indices to update based on a list of resolved
@@ -88,17 +85,15 @@ object PlaylistMetaDataService
     * @param resolved the list with resolved songs and their indices
     * @return a list with ranges that cover the indices of updated songs
     */
-  private def calcUpdatedIndices(resolved: List[(MediaFileID, Int)]): List[(Int, Int)] = {
+  private def calcUpdatedIndices(resolved: List[(MediaFileID, Int)]): List[(Int, Int)] =
     val init = (List.empty[(Int, Int)], (-1, 0))
     val (ranges, last) = resolved.foldLeft(init) { (s, e) =>
       val (lst, (i1, idxLast)) = s
       val curIdx = e._2
-      val idxStart = if (i1 < 0) curIdx else i1
-      if (idxLast + 1 != e._2) {
-        if (i1 < 0) (lst, (curIdx, curIdx))
+      val idxStart = if i1 < 0 then curIdx else i1
+      if idxLast + 1 != e._2 then
+        if i1 < 0 then (lst, (curIdx, curIdx))
         else ((idxStart, idxLast) :: lst, (curIdx, curIdx))
-      } else (lst, (idxStart, curIdx))
+      else (lst, (idxStart, curIdx))
     }
     last :: ranges
-  }
-}

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{PlayerCr
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.{PlaybackContextFactory, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.PlayerEvent
 import org.apache.pekko.actor.typed.Behavior
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * implementation handles these aspects; by making use of the actor model,
   * messing with threads manually can be avoided.
   */
-object AudioPlayerManagerActor {
+object AudioPlayerManagerActor:
   /**
     * Type definition of a function that can create an
     * [[AudioPlayerController]] instance asynchronously.
@@ -65,27 +65,23 @@ object AudioPlayerManagerActor {
     * @return the behavior to create an actor instance
     */
   def apply(messageBus: MessageBus)(creator: ControllerCreationFunc)
-           (implicit ec: ExecutionContext): Behavior[PlayerManagementCommand] = {
+           (implicit ec: ExecutionContext): Behavior[PlayerManagementCommand] =
     val stateCreator: PlayerCreationFunc[AudioPlayerState] = () => {
       creator() map (ctrl => AudioPlayerState(ctrl, 0))
     }
 
-    val manager = new PlayerManagerActor[AudioPlayerState, PlayerEvent] {
+    val manager = new PlayerManagerActor[AudioPlayerState, PlayerEvent]:
       override protected def getPlayer(state: AudioPlayerState): PlayerControl[PlayerEvent] =
         state.controller.player
 
-      override protected def onInit(state: AudioPlayerState): AudioPlayerState = {
+      override protected def onInit(state: AudioPlayerState): AudioPlayerState =
         val regID = registerController(messageBus, state.controller)
         state.copy(messageBusRegistration = regID)
-      }
 
-      override protected def onClose(state: AudioPlayerState): Unit = {
+      override protected def onClose(state: AudioPlayerState): Unit =
         messageBus removeListener state.messageBusRegistration
         messageBus publish UnregisterService(ControllerDependency)
-      }
-    }
     manager.behavior(messageBus)(stateCreator)
-  }
 
   /**
     * Performs all necessary steps to register the given controller as a
@@ -95,8 +91,7 @@ object AudioPlayerManagerActor {
     * @param controller the controller
     * @return the message bus listener ID
     */
-  private def registerController(messageBus: MessageBus, controller: AudioPlayerController): Int = {
+  private def registerController(messageBus: MessageBus, controller: AudioPlayerController): Int =
+    val regId = messageBus registerListener controller.receive
     messageBus publish RegisterService(ControllerDependency)
-    messageBus registerListener controller.receive
-  }
-}
+    regId

@@ -25,10 +25,8 @@ package de.oliver_heger.linedj.platform.audio.model
   * case). Songs belonging to the same artist are ordered by
   * [[SongAlbumOrdering]].
   */
-object SongArtistOrdering extends Ordering[SongData] {
-  override def compare(x: SongData, y: SongData): Int = {
+object SongArtistOrdering extends Ordering[SongData]:
+  override def compare(x: SongData, y: SongData): Int =
     val c = x.artist compareToIgnoreCase y.artist
-    if (c != 0) c
+    if c != 0 then c
     else SongAlbumOrdering.compare(x, y)
-  }
-}

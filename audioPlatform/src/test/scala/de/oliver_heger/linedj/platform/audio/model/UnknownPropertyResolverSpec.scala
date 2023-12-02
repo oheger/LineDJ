@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
   * Test class for ''UnknownPropertyResolver'' and concrete
   * ''SongTitleProcessor'' implementations.
   */
-class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
+class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers:
   /**
     * Creates a test resolver instance. It is possible to specify a list of
     * song title processors. If defined, the processors are injected into the
@@ -35,14 +35,13 @@ class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
     */
   private def createResolver(processors: Option[List[SongTitleProcessor]] = None):
   UnknownPropertyResolver =
-    new UnknownPropertyResolver {
+    new UnknownPropertyResolver:
       override def resolveAlbumName(songID: MediaFileID): String = "Album " + songID
 
       override def resolveArtistName(songID: MediaFileID): String = "Artist " + songID
 
       override def titleProcessors: List[SongTitleProcessor] =
         processors getOrElse super.titleProcessors
-    }
 
   /**
     * Creates a song ID from the specified URI.
@@ -53,14 +52,13 @@ class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
   private def createSongID(uri: String): MediaFileID =
     MediaFileID(MediumID("someMedium", None), uri)
 
-  "An UnknownPropertyResolver" should "return the URI as title" in {
+  "An UnknownPropertyResolver" should "return the URI as title" in:
     val uri = "C:\\music\\song.mp3"
     val resolver = createResolver()
 
     resolver.resolveTitle(createSongID(uri)) should be(uri)
-  }
 
-  it should "apply all title processors" in {
+  it should "apply all title processors" in:
     def processor(index: Int): SongTitleProcessor =
       (title: String) => title + "," + index
 
@@ -69,59 +67,50 @@ class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
     val resolver = createResolver(processors = Some(processors))
 
     resolver.resolveTitle(createSongID(uri)) should be(uri + ",1,2,3")
-  }
 
-  "SongTitlePathProcessor" should "extract the title from a very simple URI" in {
+  "SongTitlePathProcessor" should "extract the title from a very simple URI" in:
     val uri = "OnlyAName"
 
     SongTitlePathProcessor.processTitle(uri) should be(uri)
-  }
 
-  it should "extract the title from an URI with prefix" in {
+  it should "extract the title from an URI with prefix" in:
     val uri = "song://TestSong"
 
     SongTitlePathProcessor.processTitle(uri) should be("TestSong")
-  }
 
-  it should "handle an empty URI when extracting the title" in {
+  it should "handle an empty URI when extracting the title" in:
     SongTitlePathProcessor.processTitle("") should be("")
-  }
 
-  it should "support backslash as path separator" in {
+  it should "support backslash as path separator" in:
     val uri = "C:\\Temp\\test\\song.mp3"
 
     SongTitlePathProcessor.processTitle(uri) should be("song.mp3")
-  }
 
-  "SongTitleExtensionProcessor" should "handle a title without extension" in {
+  "SongTitleExtensionProcessor" should "handle a title without extension" in:
     val title = "Title without extension"
 
     SongTitleExtensionProcessor.processTitle(title) should be(title)
-  }
 
-  it should "remove an existing file extension" in {
+  it should "remove an existing file extension" in:
     val ext = ".mp3"
     val title = "1. Song"
 
     SongTitleExtensionProcessor.processTitle(title + ext) should be(title)
-  }
 
-  "SongTitleDecodeProcessor" should "URL-decode the title" in {
+  "SongTitleDecodeProcessor" should "URL-decode the title" in:
     val title = "My%20test%20song%20%28nice%29%2A%2b%2C%2d%2E%2F.mp3"
     val expTitle = "My test song (nice)*+,-./.mp3"
 
     SongTitleDecodeProcessor.processTitle(title) should be(expTitle)
-  }
 
-  it should "only apply URL encoding if necessary" in {
+  it should "only apply URL encoding if necessary" in:
     val uris = List("Song + Test = 80 %", "%xy", "% 100", "%20Test%20%%30", "%1")
 
     uris foreach { uri =>
       SongTitleDecodeProcessor.processTitle(uri) should be(uri)
     }
-  }
 
-  "SongTitleRemoveTrackProcessor" should "remove a leading track number" in {
+  "SongTitleRemoveTrackProcessor" should "remove a leading track number" in:
     val title = "The title"
     val prefixes = List("01 ", "2-", "03 - ", "04   -   ", "5.", "06. ")
     val processor = new SongTitleRemoveTrackProcessor(100)
@@ -129,28 +118,23 @@ class UnknownPropertyResolverSpec extends AnyFlatSpec with Matchers {
     prefixes foreach { p =>
       processor.processTitle(p + title) should be(title)
     }
-  }
 
-  it should "not modify other titles" in {
+  it should "not modify other titles" in:
     val titles = List("A title", "CD1 - 02 - song", "My 100 favorites", "3Steps", "88")
     val processor = new SongTitleRemoveTrackProcessor(100)
 
     titles foreach { t =>
       processor.processTitle(t) should be(t)
     }
-  }
 
-  it should "take the maximum track number into account" in {
+  it should "take the maximum track number into account" in:
     val title = "99 Air Balloons"
     val processor = new SongTitleRemoveTrackProcessor(98)
 
     processor.processTitle(title) should be(title)
-  }
 
-  it should "handle number conversion errors" in {
+  it should "handle number conversion errors" in:
     val title = "999999999999999999 Air Balloons"
     val processor = new SongTitleRemoveTrackProcessor(98)
 
     processor.processTitle(title) should be(title)
-  }
-}

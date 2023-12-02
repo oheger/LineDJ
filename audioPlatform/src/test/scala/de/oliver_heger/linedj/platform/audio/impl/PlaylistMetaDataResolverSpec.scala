@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio._
+import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.metadata.*
+import de.oliver_heger.linedj.test.MessageBusTestImpl
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout
@@ -30,9 +30,9 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object PlaylistMetaDataResolverSpec {
+object PlaylistMetaDataResolverSpec:
   /** The chunk size for meta data requests. */
   private val RequestChunkSize = 4
 
@@ -79,12 +79,11 @@ object PlaylistMetaDataResolverSpec {
     * @param ranges a sequence of ranges for the files in the map
     * @return a list containing test meta data for these files
     */
-  private def metaDataList(ranges: (Int, Int)*): List[(MediaFileID, MediaMetaData)] = {
+  private def metaDataList(ranges: (Int, Int)*): List[(MediaFileID, MediaMetaData)] =
     val rangeLists = ranges map { r =>
       (r._1 to r._2) map (i => (fileID(i), metaData(i)))
     }
     rangeLists.flatten.toList
-  }
 
   /**
     * Generates a request for meta data for a number of files. The files are
@@ -121,11 +120,10 @@ object PlaylistMetaDataResolverSpec {
     * @return a tuple with the request and the response
     */
   private def metaDataQuery(seqNo: Int, ranges: (Int, Int)*):
-  (GetFilesMetaData, FilesMetaDataResponse) = {
+  (GetFilesMetaData, FilesMetaDataResponse) =
     val req = request(seqNo, ranges: _*)
     val resp = response(req, ranges: _*)
     (req, resp)
-  }
 
   /**
     * Generates a change event for a player state that consists of the
@@ -139,12 +137,11 @@ object PlaylistMetaDataResolverSpec {
   private def playlistChangeEvent(pendingIDs: List[MediaFileID],
                                   playedIDs: List[MediaFileID],
                                   seqNo: Int = 1):
-  AudioPlayerStateChangedEvent = {
+  AudioPlayerStateChangedEvent =
     val playlist = Playlist(pendingSongs = pendingIDs, playedSongs = playedIDs)
     val state = AudioPlayerState(playlist = playlist, playbackActive = false,
       playlistClosed = false, playlistSeqNo = seqNo, playlistActivated = false)
     AudioPlayerStateChangedEvent(state)
-  }
 
   /**
     * Completes the specified list by adding undefined meta data to the indices
@@ -156,38 +153,34 @@ object PlaylistMetaDataResolverSpec {
     * @return the filled list
     */
   private def fillUndefined(dataList: List[(MediaFileID, MediaMetaData)], from: Int, to: Int):
-  List[(MediaFileID, MediaMetaData)] = {
+  List[(MediaFileID, MediaMetaData)] =
     val data = dataList.toMap
     (from to to).foldLeft(data) { (m, i) =>
       val key = fileID(i)
-      if (m contains key) m else m + (key -> MediaMetaData())
+      if m contains key then m else m + (key -> MediaMetaData())
     }.toList
-  }
-}
 
 /**
   * Test class for ''PlaylistMetaDataResolver''.
   */
 class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("PlaylistMetaDataResolverSpec"))
 
   import PlaylistMetaDataResolverSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A PlaylistMetaDataResolver" should "resolve meta data in a small playlist" in {
+  "A PlaylistMetaDataResolver" should "resolve meta data in a small playlist" in:
     val (req, resp) = metaDataQuery(0, (1, RequestChunkSize))
     val helper = new ResolverTestHelper
 
     helper.prepareMetaDataRequest(req, resp)
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .expectMetaDataUpdate(resp.data)
-  }
 
-  it should "report the current meta data to new consumers" in {
+  it should "report the current meta data to new consumers" in:
     val (req, resp) = metaDataQuery(0, (1, 2))
     val playlistMetaData = PlaylistMetaData(resp.data.toMap)
     var metaDataReceived: PlaylistMetaData = null
@@ -199,9 +192,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .processMessageOnBus()
       .send(reg)
     metaDataReceived should be(playlistMetaData)
-  }
 
-  it should "use the chunk size when sending requests for meta data" in {
+  it should "use the chunk size when sending requests for meta data" in:
     val size = RequestChunkSize + 1
     val (req1, resp1) = metaDataQuery(0, (1, RequestChunkSize))
     val (req2, resp2) = metaDataQuery(0, (size, size))
@@ -212,9 +204,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, size), Nil))
       .expectMetaDataUpdate(resp1.data)
       .expectMetaDataUpdate(metaDataList((1, size)))
-  }
 
-  it should "also resolve the files in the played list" in {
+  it should "also resolve the files in the played list" in:
     val size = 2 * RequestChunkSize
     val playedFiles = RequestChunkSize + 1
     val (req1, resp1) = metaDataQuery(0, (playedFiles + 1, size), (1, 1))
@@ -227,9 +218,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
         fileIDs(1, playedFiles)))
       .expectMetaDataUpdate(resp1.data)
       .expectMetaDataUpdate(metaDataList((1, size)))
-  }
 
-  it should "handle files which cannot be resolved" in {
+  it should "handle files which cannot be resolved" in:
     val req = request(0, (1, RequestChunkSize))
     val resp = response(req, (1, 2))
     val data = fillUndefined(metaDataList((1, 2)), 1, RequestChunkSize)
@@ -238,9 +228,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     helper.prepareMetaDataRequest(req, resp)
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .expectMetaDataUpdate(data)
-  }
 
-  it should "cache meta data that has already been resolved" in {
+  it should "cache meta data that has already been resolved" in:
     val commonSize = 2
     val (req1, resp1) = metaDataQuery(0, (1, RequestChunkSize))
     val (req2, resp2) = metaDataQuery(1, (RequestChunkSize + 1, RequestChunkSize +
@@ -256,9 +245,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(range2._1, range2._2), Nil, seqNo = 2))
       .expectMetaDataUpdate(metaDataList((commonSize + 1, RequestChunkSize)))
       .expectMetaDataUpdate(data)
-  }
 
-  it should "apply the restriction of the cache size" in {
+  it should "apply the restriction of the cache size" in:
     val range1 = (1, RequestChunkSize)
     val range2 = (RequestChunkSize + 1, 2 * RequestChunkSize)
     val (req1, resp1) = metaDataQuery(0, range1)
@@ -274,17 +262,15 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .processMessageOnBus()
     val metaData = helper.sendStateChangeEvent(event).nextMetaDataUpdate
     metaData.data should have size (CacheSize - RequestChunkSize)
-  }
 
-  it should "handle a timeout from the meta data actor" in {
+  it should "handle a timeout from the meta data actor" in:
     val data = (1 to RequestChunkSize).map(i => (fileID(i), MediaMetaData())).toList
     val helper = new ResolverTestHelper(timeout = 100.millis)
 
     helper.sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .expectMetaDataUpdate(data)
-  }
 
-  it should "take over data from an outdated response if possible" in {
+  it should "take over data from an outdated response if possible" in:
     val index = 2 * RequestChunkSize - 1
     val (req1, resp1) = metaDataQuery(0, (1, 2), (index, index))
     val req2 = request(1, (2, 2 + RequestChunkSize - 1))
@@ -305,9 +291,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .expectMetaDataUpdate(metaDataList((2, 2), (index, index)))
       .processMessageOnBus()
       .expectMetaDataUpdate(endData)
-  }
 
-  it should "ignore an outdated response if it does not bring new data" in {
+  it should "ignore an outdated response if it does not bring new data" in:
     val (req1, resp1) = metaDataQuery(0, (1, 2))
     val (req2, resp2) = metaDataQuery(1, (3, 4))
     val helper = new ResolverTestHelper
@@ -319,9 +304,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .processMessageOnBus()
       .expectMetaDataUpdate(metaDataList((3, 4)))
     helper.numberOfUpdates should be(1)
-  }
 
-  it should "ignore a response if it does not bring new data" in {
+  it should "ignore a response if it does not bring new data" in:
     val (req1, resp1) = metaDataQuery(0, (1, 2))
     val (req2, resp2) = metaDataQuery(1, (1, 1))
     val helper = new ResolverTestHelper
@@ -333,9 +317,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .prepareMetaDataRequest(req2, resp2)
       .processMessageOnBus()
     helper.numberOfUpdates should be(1)
-  }
 
-  it should "ignore a state update event that does not change the playlist" in {
+  it should "ignore a state update event that does not change the playlist" in:
     val (req1, resp1) = metaDataQuery(0, (1, 3))
     val req2 = request(1, (2, 3), (1, 1))
     val resp2 = FilesMetaDataResponse(req1, fillUndefined(Nil, 1, 3))
@@ -346,9 +329,8 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(2, 3), List(fileID(1))))
       .prepareMetaDataRequest(req1, resp1)
       .expectMetaDataUpdate(resp1.data)
-  }
 
-  it should "resolve the playlist anew when a meta data scan ends" in {
+  it should "resolve the playlist anew when a meta data scan ends" in:
     val req1 = request(0, (1, RequestChunkSize))
     val resp1 = FilesMetaDataResponse(req1, fillUndefined(Nil, 1, RequestChunkSize))
     val (req2, resp2) = metaDataQuery(1, (1, RequestChunkSize))
@@ -360,16 +342,14 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .processMessageOnBus()
       .send(MetaDataScanCompleted)
       .expectMetaDataUpdate(resp2.data)
-  }
 
-  it should "handle a scan completed event before a playlist was set" in {
+  it should "handle a scan completed event before a playlist was set" in:
     val helper = new ResolverTestHelper
 
     helper.send(MetaDataScanCompleted)
       .expectNoMessageOnBus()
-  }
 
-  it should "handle a request to remove a consumer" in {
+  it should "handle a request to remove a consumer" in:
     val (req, resp) = metaDataQuery(0, (1, RequestChunkSize))
     val helper = new ResolverTestHelper
 
@@ -378,22 +358,20 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .processMessageOnBus()
       .numberOfUpdates should be(0)
-  }
 
-  it should "create a correct un-registration object for a registration" in {
+  it should "create a correct un-registration object for a registration" in:
     val id = ComponentID()
     val reg = PlaylistMetaDataRegistration(id, null)
 
     val unReg = reg.unRegistration
     unReg should be(PlaylistMetaDataUnregistration(id))
-  }
 
   /**
     * Test helper class managing a test instance and all of its dependencies.
     *
     * @param timeout a timeout for actor requests
     */
-  private class ResolverTestHelper(timeout: Timeout = RequestTimeout) extends Identifiable {
+  private class ResolverTestHelper(timeout: Timeout = RequestTimeout) extends Identifiable:
     /** The meta data manager simulator actor. */
     private val metaDataActor = system.actorOf(Props[MetaDataActorTestImpl]())
 
@@ -417,10 +395,9 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       * @return this test helper
       */
     def prepareMetaDataRequest(req: GetFilesMetaData, resp: FilesMetaDataResponse):
-    ResolverTestHelper = {
+    ResolverTestHelper =
       metaDataActor ! MetaDataResponseMapping(req, resp)
       this
-    }
 
     /**
       * Sends a message to the test instance via the message bus receiver
@@ -429,10 +406,9 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the message to be sent
       * @return this test helper
       */
-    def send(msg: Any): ResolverTestHelper = {
+    def send(msg: Any): ResolverTestHelper =
       resolver receive msg
       this
-    }
 
     /**
       * Sends the specified state change event to the test instance.
@@ -440,10 +416,9 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       * @param event the event
       * @return this test helper
       */
-    def sendStateChangeEvent(event: AudioPlayerStateChangedEvent): ResolverTestHelper = {
+    def sendStateChangeEvent(event: AudioPlayerStateChangedEvent): ResolverTestHelper =
       resolver.playerStateChangeRegistration.callback(event)
       this
-    }
 
     /**
       * Processes an internal message on the message bus. Such messages are
@@ -452,10 +427,9 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return this test helper
       */
-    def processMessageOnBus(): ResolverTestHelper = {
+    def processMessageOnBus(): ResolverTestHelper =
       messageBus.processNextMessage[Any]()
       this
-    }
 
     /**
       * Expects that the test instance sends another update message for
@@ -463,10 +437,9 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return the playlist meta data message received from the test instance
       */
-    def nextMetaDataUpdate: PlaylistMetaData = {
+    def nextMetaDataUpdate: PlaylistMetaData =
       processMessageOnBus()
       playlistMetaData
-    }
 
     /**
       * Expects that the specified meta data message is received from the test
@@ -475,20 +448,18 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       * @param data the expected meta data
       * @return this test helper
       */
-    def expectMetaDataUpdate(data: List[(MediaFileID, MediaMetaData)]): ResolverTestHelper = {
+    def expectMetaDataUpdate(data: List[(MediaFileID, MediaMetaData)]): ResolverTestHelper =
       nextMetaDataUpdate should be(PlaylistMetaData(data.toMap))
       this
-    }
 
     /**
       * Checks that no message was sent on the message bus.
       *
       * @return this test helper
       */
-    def expectNoMessageOnBus(): ResolverTestHelper = {
+    def expectNoMessageOnBus(): ResolverTestHelper =
       messageBus.expectNoMessage()
       this
-    }
 
     /**
       * Returns the number of updates that have been received from the test
@@ -503,17 +474,16 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return this test helper
       */
-    def removeConsumerRegistration(): ResolverTestHelper = {
+    def removeConsumerRegistration(): ResolverTestHelper =
       send(PlaylistMetaDataUnregistration(componentID))
       this
-    }
 
     /**
       * Creates a resolver test instance.
       *
       * @return the test instance
       */
-    private def createResolver(): PlaylistMetaDataResolver = {
+    private def createResolver(): PlaylistMetaDataResolver =
       import system.dispatcher
       val res = new PlaylistMetaDataResolver(metaDataActor, messageBus, RequestChunkSize,
         CacheSize, timeout)
@@ -523,20 +493,16 @@ class PlaylistMetaDataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       res receive consumerReg
       playlistMetaData.data shouldBe empty // check initial consumer invocation
       res
-    }
 
     /**
       * Consumer function for meta data updates.
       *
       * @param d the current playlist meta data
       */
-    private def updateMetaData(d: PlaylistMetaData): Unit = {
+    private def updateMetaData(d: PlaylistMetaData): Unit =
       playlistMetaData = d
       metaDataUpdateCount.incrementAndGet()
-    }
-  }
 
-}
 
 /**
   * Data class defining a mapping for a meta data files requests to a response.
@@ -561,14 +527,14 @@ case class PendingMetaDataRequest(request: GetFilesMetaData, target: ActorRef)
   * An instance can be configured to answer specific requests for meta data
   * with provided responses.
   */
-class MetaDataActorTestImpl extends Actor {
+class MetaDataActorTestImpl extends Actor:
   /** The configuration of requests and their responses. */
   private var requestMapping = Map.empty[GetFilesMetaData, FilesMetaDataResponse]
 
   /** List with requests which cannot be resolved yet. */
   private var pendingRequests = List.empty[PendingMetaDataRequest]
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case MetaDataResponseMapping(req, resp) =>
       requestMapping += req -> resp
       val (resolved, pending) = pendingRequests partition (_.request == req)
@@ -576,11 +542,8 @@ class MetaDataActorTestImpl extends Actor {
       resolved foreach (_.target ! resp)
 
     case req: GetFilesMetaData =>
-      requestMapping get req match {
+      requestMapping get req match
         case Some(response) =>
           sender() ! response
         case None =>
           pendingRequests = PendingMetaDataRequest(req, sender()) :: pendingRequests
-      }
-  }
-}

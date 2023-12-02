@@ -32,7 +32,7 @@ import org.apache.pekko.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object PlaylistMetaDataResolver {
+object PlaylistMetaDataResolver:
   /** Constant for meta data for a file which could not be resolved. */
   private val UndefinedMetaData = MediaMetaData()
 
@@ -72,16 +72,14 @@ object PlaylistMetaDataResolver {
     */
   private def completeMetaDataResponse(response: FilesMetaDataResponse,
                                        currentData: Map[MediaFileID, MediaMetaData]):
-  Map[MediaFileID, MediaMetaData] = {
+  Map[MediaFileID, MediaMetaData] =
     val data = response.data.toMap
     val unresolved = response.request.files filterNot { f =>
       data.contains(f) || currentData.contains(f)
     }
-    if (unresolved.nonEmpty) {
+    if unresolved.nonEmpty then
       data ++ unresolved.map(f => f -> UndefinedMetaData)
-    } else data
-  }
-}
+    else data
 
 /**
   * A class responsible for retrieving meta data for songs in the current audio
@@ -108,7 +106,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
                                        val queryChunkSize: Int, val cacheSize: Int,
                                        val requestTimeout: Timeout)
                                       (implicit val ec: ExecutionContext)
-  extends NoGroupingMediaIfcExtension[PlaylistMetaData] with Identifiable {
+  extends NoGroupingMediaIfcExtension[PlaylistMetaData] with Identifiable:
 
   import PlaylistMetaDataResolver._
 
@@ -148,7 +146,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @return a message handling function for specific events
     */
-  override protected def receiveSpecific: Receive = {
+  override protected def receiveSpecific: Receive =
     case reg: PlaylistMetaDataRegistration =>
       addConsumer(reg)
       reg.callback(currentMetaData)
@@ -158,15 +156,13 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
 
     case ProcessMetaDataResponse(response) =>
       log.debug("Got response from meta data manager actor.")
-      if (response.request.seqNo == seqNo) {
+      if response.request.seqNo == seqNo then
         handleResponse(response)
-      } else {
+      else
         handleOutdatedResponse(response)
-      }
 
     case PropagateMetaData =>
       invokeConsumers(currentMetaData)
-  }
 
   /**
     * A notification method that is invoked when receiving an event about a
@@ -175,10 +171,9 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @param hasConsumers a flag whether currently consumers are registered
     */
-  override def onMediaScanCompleted(hasConsumers: Boolean): Unit = {
+  override def onMediaScanCompleted(hasConsumers: Boolean): Unit =
     cache = new LRUCache[MediaFileID, MediaMetaData](cacheSize)()
     processNewPlaylist(currentPlayerState)
-  }
 
   /**
     * The consumer function for audio player state change events. If there is a
@@ -186,13 +181,11 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @param event the state change event
     */
-  private def handleAudioPlayerEvent(event: AudioPlayerStateChangedEvent): Unit = {
-    if (event.state.playlistSeqNo != currentPlayerState.playlistSeqNo) {
+  private def handleAudioPlayerEvent(event: AudioPlayerStateChangedEvent): Unit =
+    if event.state.playlistSeqNo != currentPlayerState.playlistSeqNo then
       log.info("Playlist has changed. Start resolving.")
       currentPlayerState = event.state
       processNewPlaylist(event.state)
-    }
-  }
 
   /**
     * The current playlist was changed. This method starts processing of the
@@ -200,16 +193,14 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @param state the updated state of the audio player
     */
-  private def processNewPlaylist(state: AudioPlayerState): Unit = {
+  private def processNewPlaylist(state: AudioPlayerState): Unit =
     seqNo += 1
     val (resolved, unresolved) = groupFilesInPlaylist(state)
     currentMetaData = PlaylistMetaData(resolved.map(f => (f, cache.get(f).get)).toMap)
-    if (resolved.nonEmpty) {
+    if resolved.nonEmpty then
       bus publish PropagateMetaData
-    }
     filesToBeResolved = unresolved
     queryMetaData()
-  }
 
   /**
     * Handles a valid response from the meta data actor. The data in the
@@ -217,15 +208,13 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @param response the response
     */
-  private def handleResponse(response: FilesMetaDataResponse): Unit = {
+  private def handleResponse(response: FilesMetaDataResponse): Unit =
     val updatedMetaData = findNewMetaData(response)
-    if (updatedMetaData.nonEmpty) {
+    if updatedMetaData.nonEmpty then
       currentMetaData = currentMetaData.copy(data = currentMetaData.data ++ updatedMetaData)
       updatedMetaData foreach (e => cache.addItem(e._1, e._2))
       invokeConsumers(currentMetaData)
-    }
     queryMetaData()
-  }
 
   /**
     * Handles a response from the meta data actor that refers to a previous
@@ -234,21 +223,18 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     *
     * @param response the response
     */
-  private def handleOutdatedResponse(response: FilesMetaDataResponse): Unit = {
+  private def handleOutdatedResponse(response: FilesMetaDataResponse): Unit =
     val data = response.data.toMap
 
-    def resolvedMap(files: Iterable[MediaFileID]): Map[MediaFileID, MediaMetaData] = {
+    def resolvedMap(files: Iterable[MediaFileID]): Map[MediaFileID, MediaMetaData] =
       val keys = files filter data.contains
       keys.map(f => (f, data(f))).toMap
-    }
 
     val m1 = resolvedMap(requestedFiles)
     val m2 = resolvedMap(filesToBeResolved)
-    if (m1.nonEmpty || m2.nonEmpty) {
+    if m1.nonEmpty || m2.nonEmpty then
       currentMetaData = currentMetaData.copy(data = currentMetaData.data ++ m1 ++ m2)
       invokeConsumers(currentMetaData)
-    }
-  }
 
   /**
     * Returns a grouping of files into resolved and unresolved ones after an
@@ -259,10 +245,9 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     * @return a tuple with resolved and unresolved files
     */
   private def groupFilesInPlaylist(state: AudioPlayerState):
-  (List[MediaFileID], List[MediaFileID]) = {
+  (List[MediaFileID], List[MediaFileID]) =
     val newPlaylist = state.playlist.pendingSongs ++ state.playlist.playedSongs
     newPlaylist partition cache.contains
-  }
 
   /**
     * Extracts meta data from a response which is not already contained in the
@@ -272,17 +257,16 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     * @param response a response from the meta data actor
     * @return a map containing only new meta data
     */
-  private def findNewMetaData(response: FilesMetaDataResponse): Map[MediaFileID, MediaMetaData] = {
+  private def findNewMetaData(response: FilesMetaDataResponse): Map[MediaFileID, MediaMetaData] =
     val completeMetaData = completeMetaDataResponse(response, currentMetaData.data)
     completeMetaData filterNot (e => currentMetaData.data.contains(e._1))
-  }
 
   /**
     * Queries a chunk of meta data if there are still files which need to be
     * resolved.
     */
-  private def queryMetaData(): Unit = {
-    if (filesToBeResolved.nonEmpty) {
+  private def queryMetaData(): Unit =
+    if filesToBeResolved.nonEmpty then
       val (files, remaining) = filesToBeResolved splitAt queryChunkSize
       val request = GetFilesMetaData(files, seqNo)
       log.debug("Sending meta data request {}.", request)
@@ -291,6 +275,3 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
         Nil)) foreach (r => bus publish ProcessMetaDataResponse(r))
       filesToBeResolved = remaining
       requestedFiles = files
-    }
-  }
-}

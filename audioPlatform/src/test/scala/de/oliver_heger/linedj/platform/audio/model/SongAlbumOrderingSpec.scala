@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object SongAlbumOrderingSpec {
+object SongAlbumOrderingSpec:
   /** A test medium ID. */
   private val Medium = MediumID("someMediumURI", Some("someMediumPath"))
 
@@ -37,47 +37,40 @@ object SongAlbumOrderingSpec {
     SongData(MediaFileID(Medium, "song://" + title),
       MediaMetaData(title = Some(title), inceptionYear = year, album = Some(album)),
       title, "some artist", album)
-}
 
 /**
   * Test class for ''SongAlbumOrdering''.
   */
-class SongAlbumOrderingSpec extends AnyFlatSpec with Matchers {
+class SongAlbumOrderingSpec extends AnyFlatSpec with Matchers:
 
   import SongAlbumOrderingSpec._
 
-  "A SongAlbumOrdering" should "order songs by inception year" in {
+  "A SongAlbumOrdering" should "order songs by inception year" in:
     val s1 = createSong(Some(1983), "Crisis", "Moonlight Shadow")
     val s2 = createSong(Some(1984), "Discovery", "Talk about your Life")
 
     SongAlbumOrdering.compare(s1, s2) should be < 0
-  }
 
-  it should "order songs without inception year after others" in {
+  it should "order songs without inception year after others" in:
     val s1 = createSong(None, "unknown", "Pictures in the Dark")
     val s2 = createSong(Some(1984), "Discovery", "The Lake")
 
     SongAlbumOrdering.compare(s1, s2) should be > 0
-  }
 
-  it should "order songs with same inception years by album name" in {
+  it should "order songs with same inception years by album name" in:
     val s1 = createSong(Some(1975), "The Orchestral Tubular Bells", "Part I")
     val s2 = createSong(Some(1975), "Ommadawn", "Part I")
 
     SongAlbumOrdering.compare(s1, s2) should be > 0
-  }
 
-  it should "order songs by album name ignoring case" in {
+  it should "order songs by album name ignoring case" in:
     val s1 = createSong(None, "The Orchestral Tubular Bells", "Part I")
     val s2 = createSong(None, "ommadawn", "Part I")
 
     SongAlbumOrdering.compare(s1, s2) should be > 0
-  }
 
-  it should "apply standard song order for the songs on the same album" in {
+  it should "apply standard song order for the songs on the same album" in:
     val s1 = createSong(Some(1973), "Tubular Bells", "Part II")
     val s2 = createSong(Some(1973), "Tubular Bells", "Part I")
 
     SongAlbumOrdering.compare(s1, s2) should be > 0
-  }
-}

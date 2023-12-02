@@ -35,7 +35,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
   * For the title there is already a default implementation which tries to
   * extract the song name from the URI.
   */
-trait UnknownPropertyResolver {
+trait UnknownPropertyResolver:
   /**
     * Resolves the title from the given song ID. This implementation tries to
     * resolve the title from the file name of the song's URI.
@@ -85,4 +85,3 @@ trait UnknownPropertyResolver {
     titleProcessors.foldLeft(songID.uri) { (title, proc) =>
       proc.processTitle(title)
     }
-}

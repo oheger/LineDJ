@@ -46,7 +46,7 @@ class AudioPlayerController(val player: AudioPlayer,
                             val messageBus: MessageBus,
                             playlistService: PlaylistService[Playlist, MediaFileID]
                             = PlaylistService)
-  extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent] {
+  extends NoGroupingMediaIfcExtension[AudioPlayerStateChangedEvent]:
   /** Stores the last state change event. */
   private var lastEvent = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
 
@@ -62,7 +62,7 @@ class AudioPlayerController(val player: AudioPlayer,
     *
     * @return a message handling function for specific events
     */
-  override protected def receiveSpecific = {
+  override protected def receiveSpecific =
     case reg: AudioPlayerStateChangeRegistration =>
       addConsumer(reg)
       reg.callback(lastEvent)
@@ -74,26 +74,22 @@ class AudioPlayerController(val player: AudioPlayer,
       handleAppendPlaylist(cmd)
 
     case StartAudioPlayback(delay) =>
-      if (!currentState.playbackActive) {
+      if !currentState.playbackActive then
         ensurePlaylistActivated()
         player startPlayback delay
         updateState(_.copy(playbackActive = true, playlistActivated = true))
-      }
 
     case StopAudioPlayback(delay) =>
-      if (currentState.playbackActive) {
+      if currentState.playbackActive then
         player stopPlayback delay
         updateState(_.copy(playbackActive = false))
-      }
 
     case SkipCurrentSource =>
-      if (currentState.playbackActive) {
+      if currentState.playbackActive then
         player.skipCurrentSource()
-      }
 
     case AudioSourceFinishedEvent(source, time) =>
       handleSourceFinishedEvent(source, time)
-  }
 
   /**
     * Handles a command that sets a new playlist. The current state is updated
@@ -101,26 +97,23 @@ class AudioPlayerController(val player: AudioPlayer,
     *
     * @param cmd the set playlist command
     */
-  private def handleSetPlaylist(cmd: SetPlaylist): Unit = {
-    if (hasActivePlaylist) {
+  private def handleSetPlaylist(cmd: SetPlaylist): Unit =
+    if hasActivePlaylist then
       resetPlayer()
-    }
     lastResetTime = LocalDateTime.now()
-    cmd.playlist.pendingSongs match {
+    cmd.playlist.pendingSongs match
       case h :: t =>
         player addToPlaylist toPlaylistInfo(h, cmd.positionOffset, cmd.timeOffset)
         appendSongsToPlaylist(t, cmd.closePlaylist)
         messageBus publish createProgressEvent(h, cmd.positionOffset, cmd.timeOffset)
       case _ =>
       // no action for empty list of pending songs
-    }
     updateState { s =>
-      val seqNo = if (playlistService.playlistEquals(s.playlist, cmd.playlist)) s.playlistSeqNo
+      val seqNo = if playlistService.playlistEquals(s.playlist, cmd.playlist) then s.playlistSeqNo
       else playlistService.incrementPlaylistSeqNo(s.playlistSeqNo)
       s.copy(playlist = cmd.playlist, playlistClosed = cmd.closePlaylist, playlistSeqNo = seqNo,
         playlistActivated = cmd.playlist.pendingSongs.nonEmpty)
     }
-  }
 
   /**
     * Handles a command to add songs to the current playlist. It is possible to
@@ -130,19 +123,16 @@ class AudioPlayerController(val player: AudioPlayer,
     *
     * @param cmd the append playlist command
     */
-  private def handleAppendPlaylist(cmd: AppendPlaylist): Unit = {
-    if (!currentState.playlistClosed) {
+  private def handleAppendPlaylist(cmd: AppendPlaylist): Unit =
+    if !currentState.playlistClosed then
       val needActivate = cmd.closePlaylist || cmd.activate || currentState.playlistActivated
-      if (needActivate) {
+      if needActivate then
         ensurePlaylistActivated()
         appendSongsToPlaylist(cmd.songs, cmd.closePlaylist)
-      }
       updateState(s =>
         s.copy(playlist = s.playlist.copy(pendingSongs = s.playlist.pendingSongs ++ cmd.songs),
           playlistSeqNo = playlistService.incrementPlaylistSeqNo(s.playlistSeqNo),
           playlistActivated = needActivate))
-    }
-  }
 
   /**
     * Handles an event about a finished audio source. If the source affected is
@@ -152,31 +142,27 @@ class AudioPlayerController(val player: AudioPlayer,
     * @param source the source of the event
     * @param time   the time of the event
     */
-  private def handleSourceFinishedEvent(source: AudioSource, time: LocalDateTime): Unit = {
-    if (playlistService.currentSong(currentState.playlist)
-      .exists(_.uri == source.uri) && isCurrentPlayerEvent(time)) {
+  private def handleSourceFinishedEvent(source: AudioSource, time: LocalDateTime): Unit =
+    if playlistService.currentSong(currentState.playlist)
+      .exists(_.uri == source.uri) && isCurrentPlayerEvent(time) then
       updateState { s =>
         val nextPlaylist = playlistService.moveForwards(s.playlist).get
         val nextState = s.copy(playlist = nextPlaylist)
-        if (playlistService.currentSong(nextPlaylist).isEmpty &&
-          s.playlistClosed && s.playbackActive)
+        if playlistService.currentSong(nextPlaylist).isEmpty &&
+          s.playlistClosed && s.playbackActive then
           nextState.copy(playbackActive = false)
         else nextState
       }
-    }
-  }
 
   /**
     * Resets the player engine. Makes sure that the playback state is restored
     * after the reset.
     */
-  private def resetPlayer(): Unit = {
+  private def resetPlayer(): Unit =
     val playbackActive = lastEvent.state.playbackActive
     player.reset()
-    if (playbackActive) {
+    if playbackActive then
       player.startPlayback()
-    }
-  }
 
   /**
     * Adds the specified songs to the audio player's playlist. Optionally, the
@@ -186,22 +172,18 @@ class AudioPlayerController(val player: AudioPlayer,
     * @param closePlaylist flag whether the playlist should be closed
     */
   private def appendSongsToPlaylist(songs: List[MediaFileID],
-                                    closePlaylist: Boolean): Unit = {
+                                    closePlaylist: Boolean): Unit =
     songs map (toPlaylistInfo(_, 0, 0)) foreach (s => player addToPlaylist s)
-    if (closePlaylist) {
+    if closePlaylist then
       player.closePlaylist()
-    }
-  }
 
   /**
     * Makes sure that the songs of the current playlist have been activated.
     * If necessary, the songs are passed to the player engine.
     */
-  private def ensurePlaylistActivated(): Unit = {
-    if (!currentState.playlistActivated) {
+  private def ensurePlaylistActivated(): Unit =
+    if !currentState.playlistActivated then
       appendSongsToPlaylist(currentState.playlist.pendingSongs, closePlaylist = false)
-    }
-  }
 
   /**
     * Creates a progress event with the specified parameters. Such an event is
@@ -214,11 +196,10 @@ class AudioPlayerController(val player: AudioPlayer,
     * @return the new event
     */
   private def createProgressEvent(fileID: MediaFileID, posOfs: Long, timeOfs: Long)
-  : PlaybackProgressEvent = {
+  : PlaybackProgressEvent =
     val source = AudioSource(fileID.uri, AudioSource.UnknownLength, posOfs, timeOfs)
     val event = PlaybackProgressEvent(posOfs, timeOfs.seconds, source)
     event
-  }
 
   /**
     * Creates an ''AudioSourcePlaylistInfo'' object from the provided
@@ -239,11 +220,10 @@ class AudioPlayerController(val player: AudioPlayer,
     *
     * @param trans a function that updates the current state
     */
-  private def updateState(trans: AudioPlayerState => AudioPlayerState): Unit = {
+  private def updateState(trans: AudioPlayerState => AudioPlayerState): Unit =
     val nextState = trans(currentState)
     lastEvent = AudioPlayerStateChangedEvent(nextState)
     invokeConsumers(lastEvent)
-  }
 
   /**
     * Returns the current ''AudioPlayerState''.
@@ -273,4 +253,3 @@ class AudioPlayerController(val player: AudioPlayer,
     */
   private def isCurrentPlayerEvent(time: LocalDateTime): Boolean =
     time.isAfter(lastResetTime) || time == lastResetTime
-}

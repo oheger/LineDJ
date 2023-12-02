@@ -36,7 +36,7 @@ import de.oliver_heger.linedj.shared.archive.media.UriHelper
   * of ''SongTitleProcessor'' objects. They are then applied (in order) to the
   * song's URI, so that a more meaningful title is constructed.
   */
-trait SongTitleProcessor {
+trait SongTitleProcessor:
   /**
     * Processes the title of a song.
     *
@@ -44,7 +44,6 @@ trait SongTitleProcessor {
     * @return the new title
     */
   def processTitle(title: String): String
-}
 
 /**
   * A ''SongTitleProcessor'' implementation that extracts the last path
@@ -56,10 +55,9 @@ trait SongTitleProcessor {
   * string does not contain any path separators, it is returned without
   * changes.
   */
-object SongTitlePathProcessor extends SongTitleProcessor {
+object SongTitlePathProcessor extends SongTitleProcessor:
   override def processTitle(title: String): String =
     UriHelper.extractName(UriHelper.normalize(title))
-}
 
 /**
   * A ''SongTitleProcessor'' implementation that removes a file extension from
@@ -69,10 +67,9 @@ object SongTitlePathProcessor extends SongTitleProcessor {
   * URI has been extracted. It searches for the last dot in the remaining
   * string. If it is found, the string is cut at this position.
   */
-object SongTitleExtensionProcessor extends SongTitleProcessor {
+object SongTitleExtensionProcessor extends SongTitleProcessor:
   override def processTitle(title: String): String =
     UriHelper removeExtension title
-}
 
 /**
   * A ''SongTitleProcessor'' implementation that performs URL-decoding on a
@@ -82,12 +79,11 @@ object SongTitleExtensionProcessor extends SongTitleProcessor {
   * URL-encoded. If this seems to be the case (if it contains '%' characters
   * with valid codes), the decoding is applied.
   */
-object SongTitleDecodeProcessor extends SongTitleProcessor {
+object SongTitleDecodeProcessor extends SongTitleProcessor:
   override def processTitle(title: String): String = UriHelper urlDecode title
 
-}
 
-object SongTitleRemoveTrackProcessor {
+object SongTitleRemoveTrackProcessor:
   /** RegEx to parse for numbers at the beginning of the title. */
   private val RegExTrackNumber =
     """((\d+)[\s.-]+).+""".r
@@ -100,12 +96,10 @@ object SongTitleRemoveTrackProcessor {
     * @param no the number as string
     * @return the numeric track number
     */
-  private def trackNoToInt(no: String): Int = try {
+  private def trackNoToInt(no: String): Int = try
     no.toInt
-  } catch {
+  catch
     case _: NumberFormatException => Integer.MAX_VALUE
-  }
-}
 
 /**
   * A ''SongTitleProcessor'' implementation that tries to remove a leading
@@ -118,7 +112,7 @@ object SongTitleRemoveTrackProcessor {
   *
   * @param maxTrack the maximum track number
   */
-class SongTitleRemoveTrackProcessor(val maxTrack: Int) extends SongTitleProcessor {
+class SongTitleRemoveTrackProcessor(val maxTrack: Int) extends SongTitleProcessor:
 
   import SongTitleRemoveTrackProcessor._
 
@@ -129,9 +123,7 @@ class SongTitleRemoveTrackProcessor(val maxTrack: Int) extends SongTitleProcesso
     * @return the new title
     */
   override def processTitle(title: String): String =
-    title match {
+    title match
       case RegExTrackNumber(trackPrefix, trackNo) if trackNoToInt(trackNo) <= maxTrack =>
         title drop trackPrefix.length
       case _ => title
-    }
-}

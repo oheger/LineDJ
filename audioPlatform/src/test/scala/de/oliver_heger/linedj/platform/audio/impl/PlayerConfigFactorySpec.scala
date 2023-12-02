@@ -26,7 +26,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.nio.file.Paths
 import scala.concurrent.duration._
 
-object PlayerConfigFactorySpec {
+object PlayerConfigFactorySpec:
   /** Test value of this config property. */
   private val InMemoryBufSize = 123456
 
@@ -68,7 +68,7 @@ object PlayerConfigFactorySpec {
     *
     * @return the configuration
     */
-  private def createConfiguration(): Configuration = {
+  private def createConfiguration(): Configuration =
     val p = Prefix + '.'
     val c = new PropertiesConfiguration
     import PlayerConfigFactory._
@@ -87,17 +87,15 @@ object PlayerConfigFactorySpec {
       DownloadNotificationInterval.toSeconds)
     c.addProperty(p + PropBlockingDispatcherName, BlockingDispatcherName)
     c
-  }
-}
 
 /**
   * Test class for ''PlayerConfigFactory''.
   */
-class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import PlayerConfigFactorySpec._
 
-  "A PlayerConfigFactory" should "read configuration settings" in {
+  "A PlayerConfigFactory" should "read configuration settings" in:
     val c = createConfiguration()
     val factory = new PlayerConfigFactory
 
@@ -113,9 +111,8 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.downloadInProgressNotificationDelay should be(DownloadNotificationDelay)
     conf.downloadInProgressNotificationInterval should be(DownloadNotificationInterval)
     conf.blockingDispatcherName should be(Some(BlockingDispatcherName))
-  }
 
-  it should "use meaningful default values" in {
+  it should "use meaningful default values" in:
     import PlayerConfigFactory._
     val factory = new PlayerConfigFactory
 
@@ -133,9 +130,8 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.downloadInProgressNotificationInterval should be(DefDownloadProgressNotificationInterval)
     conf.blockingDispatcherName shouldBe empty
     conf.timeProgressThreshold should be(100.millis)
-  }
 
-  it should "store the management actor and the actor creator" in {
+  it should "store the management actor and the actor creator" in:
     val managementActor = mock[ActorRef]
     val actorCreator = mock[ActorCreator]
     val configuration = createConfiguration()
@@ -144,14 +140,11 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     val conf = factory.createPlayerConfig(configuration, Prefix, managementActor, actorCreator)
     conf.mediaManagerActor should be(managementActor)
     conf.actorCreator should be(actorCreator)
-  }
 
-  it should "handle a prefix that ends on a separator" in {
+  it should "handle a prefix that ends on a separator" in:
     val configuration = createConfiguration()
     val factory = new PlayerConfigFactory
 
     val conf = factory.createPlayerConfig(configuration, Prefix + '.',
       mock[ActorRef], mock[ActorCreator])
     conf.inMemoryBufferSize should be(InMemoryBufSize)
-  }
-}

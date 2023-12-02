@@ -21,13 +21,12 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 import scala.beans.BeanProperty
 
-object SongData {
+object SongData:
   /** Constant for an unknown song duration. */
   val UnknownDuration: Int = -1
 
   /** Constant for an unknown track number. */
   val UnknownTrackNumber: Int = -1
-}
 
 /**
   * A data class that holds information about a song.
@@ -47,7 +46,7 @@ object SongData {
 case class SongData(id: MediaFileID, metaData: MediaMetaData,
                     @BeanProperty title: String,
                     @BeanProperty artist: String,
-                    @BeanProperty album: String) {
+                    @BeanProperty album: String):
 
   import SongData._
 
@@ -80,4 +79,3 @@ case class SongData(id: MediaFileID, metaData: MediaMetaData,
     * @return a flag whether the track number is defined for this song
     */
   def hasTrackNumber: Boolean = metaData.trackNumber.isDefined
-}

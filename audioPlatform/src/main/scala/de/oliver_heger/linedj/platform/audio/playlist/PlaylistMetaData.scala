@@ -58,9 +58,8 @@ case class PlaylistMetaData(data: Map[MediaFileID, MediaMetaData])
 case class PlaylistMetaDataRegistration(override val id: ComponentID,
                                         override val callback:
                                         ConsumerFunction[PlaylistMetaData])
-  extends ConsumerRegistration[PlaylistMetaData] {
+  extends ConsumerRegistration[PlaylistMetaData]:
   override def unRegistration: AnyRef = PlaylistMetaDataUnregistration(id)
-}
 
 /**
   * A message class representing the removal of a registration for playlist

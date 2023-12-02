@@ -971,6 +971,8 @@ lazy val audioPlatform = (project in file("audioPlatform"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-platform",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.platform.audio.impl.*",
@@ -982,7 +984,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform % "compile->compile;test->test", playerEngine, playerEngineConfig)
+  ) dependsOn(platform, playerEngine, playerEngineConfig, test3 % "test->compile")
 
 /**
   * Project for the persistent playlist handler. This module keeps track on

@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * properties are obtained. Concrete implementations have to implement a
   * corresponding strategy.
   */
-trait SongDataFactory {
+trait SongDataFactory:
   /**
     * Creates a new ''SongData'' instance based on the parameters provided.
     *
@@ -35,4 +35,3 @@ trait SongDataFactory {
     * @return the newly created ''SongData'' instance
     */
   def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData
-}

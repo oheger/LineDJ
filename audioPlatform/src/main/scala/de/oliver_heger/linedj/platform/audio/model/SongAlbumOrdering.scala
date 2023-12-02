@@ -33,16 +33,14 @@ package de.oliver_heger.linedj.platform.audio.model
   * The songs belonging to an album are sorted by using
   * [[SongTrackNoOrdering]].
   */
-object SongAlbumOrdering extends Ordering[SongData] {
-  override def compare(x: SongData, y: SongData): Int = {
+object SongAlbumOrdering extends Ordering[SongData]:
+  override def compare(x: SongData, y: SongData): Int =
     val c = extractInceptionYear(x) - extractInceptionYear(y)
-    if (c != 0) c
-    else {
+    if c != 0 then c
+    else
       val c1 = x.album compareToIgnoreCase y.album
-      if (c1 != 0) c1
+      if c1 != 0 then c1
       else SongTrackNoOrdering.compare(x, y)
-    }
-  }
 
   /**
     * Obtains the inception year from the given song data. Ensures that songs
@@ -53,4 +51,3 @@ object SongAlbumOrdering extends Ordering[SongData] {
     */
   private def extractInceptionYear(s: SongData): Int =
     s.metaData.inceptionYear getOrElse Integer.MAX_VALUE
-}

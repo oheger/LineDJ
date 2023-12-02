@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object SongDataSpec {
+object SongDataSpec:
   /** Test song ID. */
   private val SongID = MediaFileID(MediumID("medium", Some("settings")), "someUri")
 
@@ -34,40 +34,34 @@ object SongDataSpec {
   /** A meta data object containing all relevant information. */
   private val CompleteMetaData = MediaMetaData(trackNumber = Some(TrackNumber),
     duration = Some(Duration))
-}
 
 /**
   * Test class for ''SongData''.
   */
-class SongDataSpec extends AnyFlatSpec with Matchers {
+class SongDataSpec extends AnyFlatSpec with Matchers:
 
   import SongDataSpec._
 
-  "A SongData" should "return the duration from meta data" in {
+  "A SongData" should "return the duration from meta data" in:
     val song = SongData(SongID, CompleteMetaData, "title", "artist", "album")
 
     song.getDuration should be(Duration)
     song.hasDuration shouldBe true
-  }
 
-  it should "return a special duration if undefined in meta data" in {
+  it should "return a special duration if undefined in meta data" in:
     val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
 
     song.getDuration should be(SongData.UnknownDuration)
     song.hasDuration shouldBe false
-  }
 
-  it should "return the track number from meta data" in {
+  it should "return the track number from meta data" in:
     val song = SongData(SongID, CompleteMetaData, "title", "artist", "album")
 
     song.getTrackNumber should be(TrackNumber)
     song.hasTrackNumber shouldBe true
-  }
 
-  it should "return a special track number if undefined in meta data" in {
+  it should "return a special track number if undefined in meta data" in:
     val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
 
     song.getTrackNumber should be(SongData.UnknownTrackNumber)
     song.hasTrackNumber shouldBe false
-  }
-}

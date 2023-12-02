@@ -27,7 +27,7 @@ package de.oliver_heger.linedj.platform.audio.playlist
   * @tparam Playlist the type for the playlist
   * @tparam Song     the type for the songs in the playlist
   */
-trait PlaylistService[Playlist, Song] {
+trait PlaylistService[Playlist, Song]:
   /** Constant for a sequence number indicating an initial playlist. */
   final val SeqNoInitial = 0
 
@@ -153,8 +153,6 @@ trait PlaylistService[Playlist, Song] {
     * @param currentIndex the index of the new current song (0-based)
     * @return an ''Option'' with the resulting ''Playlist''
     */
-  def setCurrentSong(playlist: Playlist, currentIndex: Int): Option[Playlist] = {
+  def setCurrentSong(playlist: Playlist, currentIndex: Int): Option[Playlist] =
     val songs = toSongList(playlist)
     toPlaylist(songs, currentIndex)
-  }
-}

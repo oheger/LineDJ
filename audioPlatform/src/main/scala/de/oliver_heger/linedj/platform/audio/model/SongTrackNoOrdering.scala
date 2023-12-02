@@ -22,11 +22,10 @@ package de.oliver_heger.linedj.platform.audio.model
   *
   * If the track number of two songs is equal, they are ordered by their title.
   */
-object SongTrackNoOrdering extends Ordering[SongData] {
-  override def compare(x: SongData, y: SongData): Int = {
+object SongTrackNoOrdering extends Ordering[SongData]:
+  override def compare(x: SongData, y: SongData): Int =
     val c = extractTrackNumber(x) - extractTrackNumber(y)
-    if (c != 0) c else java.lang.String.CASE_INSENSITIVE_ORDER.compare(x.title, y.title)
-  }
+    if c != 0 then c else java.lang.String.CASE_INSENSITIVE_ORDER.compare(x.title, y.title)
 
   /**
     * Extracts the track number. If this is undefined for the given song, the
@@ -38,4 +37,3 @@ object SongTrackNoOrdering extends Ordering[SongData] {
     */
   private def extractTrackNumber(s: SongData): Int =
     s.metaData.trackNumber getOrElse Integer.MAX_VALUE
-}

@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object DefaultSongDataFactorySpec {
+object DefaultSongDataFactorySpec:
   /** Test song ID. */
   private val SongID = MediaFileID(MediumID("medium", None), "songUri")
 
@@ -52,7 +52,7 @@ object DefaultSongDataFactorySpec {
     * the passed in song ID and key property to be resolved. This allows a
     * verification whether the correct method was invoked.
     */
-  private val Resolver = new UnknownPropertyResolver {
+  private val Resolver = new UnknownPropertyResolver:
     override def resolveAlbumName(songID: MediaFileID): String =
       songID.toString + ResolvedAlbum
 
@@ -61,7 +61,6 @@ object DefaultSongDataFactorySpec {
 
     override def resolveTitle(songID: MediaFileID): String =
       songID.toString + ResolvedTitle
-  }
 
   /**
     * Returns the string produced by the test resolver for the specified
@@ -80,60 +79,50 @@ object DefaultSongDataFactorySpec {
     * @param withMetaData flag whether meta data should be defined
     * @return the song created by the test factory
     */
-  private def createSong(withMetaData: Boolean): SongData = {
-    val metaData = if (withMetaData) SongMetaData else MediaMetaData()
+  private def createSong(withMetaData: Boolean): SongData =
+    val metaData = if withMetaData then SongMetaData else MediaMetaData()
     val factory = new DefaultSongDataFactory(Resolver)
     factory.createSongData(SongID, metaData)
-  }
-}
 
 /**
   * Test class for ''DefaultSongDataFactory''.
   */
-class DefaultSongDataFactorySpec extends AnyFlatSpec with Matchers {
+class DefaultSongDataFactorySpec extends AnyFlatSpec with Matchers:
 
   import DefaultSongDataFactorySpec._
 
-  "A DefaultSongDataFactory" should "initialize basic properties" in {
+  "A DefaultSongDataFactory" should "initialize basic properties" in:
     val song = createSong(withMetaData = true)
 
     song.id should be theSameInstanceAs SongID
     song.metaData should be theSameInstanceAs SongMetaData
-  }
 
-  it should "use the title from meta data if defined" in {
+  it should "use the title from meta data if defined" in:
     val song = createSong(withMetaData = true)
 
     song.title should be(Title)
-  }
 
-  it should "use the artist from meta data if defined" in {
+  it should "use the artist from meta data if defined" in:
     val song = createSong(withMetaData = true)
 
     song.artist should be(Artist)
-  }
 
-  it should "use the album from meta data if defined" in {
+  it should "use the album from meta data if defined" in:
     val song = createSong(withMetaData = true)
 
     song.album should be(Album)
-  }
 
-  it should "call the resolver if the title is undefined" in {
+  it should "call the resolver if the title is undefined" in:
     val song = createSong(withMetaData = false)
 
     song.title should be(resolvedProperty(ResolvedTitle))
-  }
 
-  it should "call the resolver if the artist is undefined" in {
+  it should "call the resolver if the artist is undefined" in:
     val song = createSong(withMetaData = false)
 
     song.artist should be(resolvedProperty(ResolvedArtist))
-  }
 
-  it should "call the resolver if the album is undefined" in {
+  it should "call the resolver if the album is undefined" in:
     val song = createSong(withMetaData = false)
 
     song.album should be(resolvedProperty(ResolvedAlbum))
-  }
-}

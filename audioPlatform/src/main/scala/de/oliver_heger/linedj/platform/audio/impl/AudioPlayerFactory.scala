@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * @param playerConfigFactory the factory for the player configuration
   */
-private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerConfigFactory) {
+private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerConfigFactory):
   /**
     * Creates a new instance of ''AudioPlayerFactory'' using a default
     * configuration factory.
@@ -48,9 +48,7 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
     * @return a ''Future'' with the new audio player instance
     */
   def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef, management: ActorManagementComponent)
-                       (implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
+                       (implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] =
     val creator = new ManagingActorCreator(management.clientApplicationContext.actorFactory, management)
     val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)
     AudioPlayer(config)
-  }
-}

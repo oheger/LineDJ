@@ -49,7 +49,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongDataFactory
   * available. The service methods therefore just returns functions that expect
   * such a factory as input and return the actual results.
   */
-trait PlaylistMetaDataService {
+trait PlaylistMetaDataService:
   /**
     * Constant for a state instance representing an initial state. Clients
     * that have just started should use this state for their first interaction
@@ -82,4 +82,3 @@ trait PlaylistMetaDataService {
     */
   def processMetaDataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
   SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState)
-}

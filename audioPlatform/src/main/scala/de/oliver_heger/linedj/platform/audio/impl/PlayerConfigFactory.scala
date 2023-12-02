@@ -23,7 +23,7 @@ import org.apache.pekko.actor.ActorRef
 import java.nio.file.Paths
 import scala.concurrent.duration._
 
-object PlayerConfigFactory {
+object PlayerConfigFactory:
   /** Property for the size of the buffer with audio data in memory. */
   val PropInMemoryBufferSize = "inMemoryBufferSize"
 
@@ -113,13 +113,12 @@ object PlayerConfigFactory {
 
   /** Default interval for download in-progress notifications. */
   val DefDownloadProgressNotificationInterval: FiniteDuration = 30.minutes
-}
 
 /**
   * An internally used helper class for creating the configuration of the
   * audio player engine based on the platform configuration.
   */
-private class PlayerConfigFactory {
+private class PlayerConfigFactory:
 
   import PlayerConfigFactory._
 
@@ -134,9 +133,9 @@ private class PlayerConfigFactory {
     * @return the ''PlayerConfig''
     */
   def createPlayerConfig(c: Configuration, prefix: String, mediaManager: ActorRef,
-                         actorCreator: ActorCreator): PlayerConfig = {
+                         actorCreator: ActorCreator): PlayerConfig =
     import scala.jdk.CollectionConverters._
-    val p = if (prefix.endsWith(".")) prefix else prefix + '.'
+    val p = if prefix.endsWith(".") then prefix else prefix + '.'
     PlayerConfig(inMemoryBufferSize = c.getInt(p + PropInMemoryBufferSize, DefInMemoryBufferSize),
       playbackContextLimit = c.getInt(p + PropPlaybackContextLimit, DefPlaybackContextLimit),
       bufferFileExtension = c.getString(p + PropBufferFileExt, DefBufferFileExt),
@@ -155,5 +154,3 @@ private class PlayerConfigFactory {
       blockingDispatcherName = Option(c.getString(p + PropBlockingDispatcherName)),
       mediaManagerActor = mediaManager,
       actorCreator = actorCreator)
-  }
-}

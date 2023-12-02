@@ -23,7 +23,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object UnknownPropertyResourceResolverSpec {
+object UnknownPropertyResourceResolverSpec:
   /** Test media ID. */
   private val TestID = MediaFileID(MediumID("someMedium", None), "someSongUri")
 
@@ -38,12 +38,11 @@ object UnknownPropertyResourceResolverSpec {
 
   /** The name to be used for an unknown album. */
   private val UnknownAlbumName = "Whatever Album"
-}
 
 /**
   * Test class for ''UnknownPropertyResourceResolver''.
   */
-class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import UnknownPropertyResourceResolverSpec._
 
@@ -54,26 +53,23 @@ class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with
     * @return the test instance
     */
   private def createResolver(titleProcessors: List[SongTitleProcessor] = Nil):
-  UnknownPropertyResourceResolver = {
+  UnknownPropertyResourceResolver =
     val ctx = mock[ApplicationContext]
     when(ctx.getResourceText(ResUnknownArtist)).thenReturn(UnknownArtistName)
     when(ctx.getResourceText(ResUnknownAlbum)).thenReturn(UnknownAlbumName)
     new UnknownPropertyResourceResolver(ctx, ResUnknownArtist, ResUnknownAlbum, titleProcessors)
-  }
 
-  "An UnknownPropertyResourceResolver" should "resolve an unknown artist" in {
+  "An UnknownPropertyResourceResolver" should "resolve an unknown artist" in:
     val resolver = createResolver()
 
     resolver resolveArtistName TestID should be(UnknownArtistName)
-  }
 
-  it should "resolve an unknown album" in {
+  it should "resolve an unknown album" in:
     val resolver = createResolver()
 
     resolver resolveAlbumName TestID should be(UnknownAlbumName)
-  }
 
-  it should "cache the names for unknown properties" in {
+  it should "cache the names for unknown properties" in:
     val resolver = createResolver()
 
     resolver resolveArtistName TestID
@@ -82,18 +78,16 @@ class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with
     resolver resolveAlbumName TestID
     verify(resolver.appCtx).getResourceText(ResUnknownArtist)
     verify(resolver.appCtx).getResourceText(ResUnknownAlbum)
-  }
 
-  it should "correctly apply song title processors" in {
+  it should "correctly apply song title processors" in:
     val fileName = "mySong"
     val songId = MediaFileID(uri = fileName + ".test", mediumID = null)
     val processors = List(SongTitleExtensionProcessor)
     val resolver = createResolver(titleProcessors = processors)
 
     resolver resolveTitle songId should be(fileName)
-  }
 
-  it should "support the initialization of title processors from a Java collection" in {
+  it should "support the initialization of title processors from a Java collection" in:
     val proc1 = mock[SongTitleProcessor]
     val proc2 = mock[SongTitleProcessor]
     val processors = java.util.Arrays.asList(proc1, proc2)
@@ -101,5 +95,3 @@ class UnknownPropertyResourceResolverSpec extends AnyFlatSpec with Matchers with
     val resolver = new UnknownPropertyResourceResolver(mock[ApplicationContext], ResUnknownArtist,
       ResUnknownAlbum, processors)
     resolver.titleProcessors should contain theSameElementsInOrderAs List(proc1, proc2)
-  }
-}

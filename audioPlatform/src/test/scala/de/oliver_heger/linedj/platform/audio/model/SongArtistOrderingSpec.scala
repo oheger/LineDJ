@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object SongArtistOrderingSpec {
+object SongArtistOrderingSpec:
   /** A test medium ID. */
   private val Medium = MediumID("someTestMediumURI", Some("someTestMediumPath"))
 
@@ -37,35 +37,30 @@ object SongArtistOrderingSpec {
     SongData(MediaFileID(Medium, "song://" + title),
       MediaMetaData(title = Some(title), album = Some(album), artist = Some(artist)),
       title, artist, album)
-}
 
 /**
   * Test class for ''SongArtistOrdering''.
   */
-class SongArtistOrderingSpec extends AnyFlatSpec with Matchers {
+class SongArtistOrderingSpec extends AnyFlatSpec with Matchers:
 
   import SongArtistOrderingSpec._
 
-  "A SongArtistOrdering" should "order songs by artist name" in {
+  "A SongArtistOrdering" should "order songs by artist name" in:
     val s1 = createSong("The Beatles", "unknown", "With a little help of my friends")
-    val s2 = createSong("Joe Cocker", s1.getAlbum(), s1.getTitle())
+    val s2 = createSong("Joe Cocker", s1.album, s1.title)
 
     SongArtistOrdering.compare(s1, s2) should be > 0
-  }
 
-  it should "ignore case when comparing artists" in {
+  it should "ignore case when comparing artists" in:
     val s1 = createSong("joe cocker", "unknown", "With a little help of my friends")
-    val s2 = createSong("THE BEATLES", s1.getAlbum(), s1.getTitle())
+    val s2 = createSong("THE BEATLES", s1.album, s1.title)
 
     SongArtistOrdering.compare(s1, s2) should be < 0
-  }
 
-  it should "apply album criteria for songs of the same artist" in {
+  it should "apply album criteria for songs of the same artist" in:
     val s1 = createSong("Dire Straits", "Brothers in Arms", "Ride across the river")
-    val s2 = createSong(s1.getArtist(), "Love over gold", "Telegraph Road")
-    val s3 = createSong(s1.getArtist(), s2.getAlbum(), "It never rains")
+    val s2 = createSong(s1.artist, "Love over gold", "Telegraph Road")
+    val s3 = createSong(s1.artist, s2.album, "It never rains")
 
     SongArtistOrdering.compare(s1, s2) should be < 0
     SongArtistOrdering.compare(s2, s3) should be > 0
-  }
-}

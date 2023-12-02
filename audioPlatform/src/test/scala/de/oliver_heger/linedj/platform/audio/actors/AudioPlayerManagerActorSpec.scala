@@ -17,28 +17,29 @@
 package de.oliver_heger.linedj.platform.audio.actors
 
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddPlaybackContextFactories, PlayerManagementCommand, RemovePlaybackContextFactories}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import de.oliver_heger.linedj.test.{ActorTestKitSupport, MessageBusTestImpl}
+import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.util.Timeout
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.verification.VerificationMode
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-object AudioPlayerManagerActorSpec {
+object AudioPlayerManagerActorSpec:
   /**
     * The default verification mode for verify calls. ''timeout'' is used here
     * to deal with asynchronous operations.
@@ -47,15 +48,13 @@ object AudioPlayerManagerActorSpec {
 
   /** The timeout when closing the player. */
   private implicit val CloseTimeout: Timeout = Timeout(10.seconds)
-}
 
 /**
   * Test class for [[AudioPlayerManagerActor]].
   */
-class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
-  with MockitoSugar {
+class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with MockitoSugar with ActorTestKitSupport:
 
-  import AudioPlayerManagerActorSpec._
+  import AudioPlayerManagerActorSpec.*
 
   /**
     * Creates a number of mock factories.
@@ -66,7 +65,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
   private def createFactories(count: Int): List[PlaybackContextFactory] =
     (1 to count).map(_ => mock[PlaybackContextFactory]).toList
 
-  "AudioPlayerManagerActor" should "manage factories received before the player creation" in {
+  "AudioPlayerManagerActor" should "manage factories received before the player creation" in:
     val factories = createFactories(4)
     val helper = new ManagerActorTestHelper
 
@@ -76,9 +75,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     factories foreach { factory =>
       helper.verifyFactoryAdded(factory)
     }
-  }
 
-  it should "support removing factories before the player creation" in {
+  it should "support removing factories before the player creation" in:
     val factories = createFactories(8)
     val removedFactories = List(factories(2), factories(5))
     val helper = new ManagerActorTestHelper
@@ -92,16 +90,14 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     removedFactories foreach { factory =>
       helper.verifyFactoryAdded(factory, never())
     }
-  }
 
-  it should "register the player controller when it is created" in {
+  it should "register the player controller when it is created" in:
     val helper = new ManagerActorTestHelper
 
     helper.controllerCreated()
       .checkControllerRegistration()
-  }
 
-  it should "support adding factories after the player creation" in {
+  it should "support adding factories after the player creation" in:
     val factories = createFactories(2)
     val helper = new ManagerActorTestHelper
 
@@ -112,9 +108,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     factories foreach { factory =>
       helper.verifyFactoryAdded(factory)
     }
-  }
 
-  it should "support removing factories after the player creation" in {
+  it should "support removing factories after the player creation" in:
     val factories = createFactories(2)
     val helper = new ManagerActorTestHelper
 
@@ -125,9 +120,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     factories foreach { factory =>
       helper.verifyFactoryRemoved(factory)
     }
-  }
 
-  it should "register an event actor at the audio player" in {
+  it should "register an event actor at the audio player" in:
     val helper = new ManagerActorTestHelper
 
     val eventListener = helper.controllerCreated()
@@ -137,9 +131,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val event = AudioSourceStartedEvent(AudioSource("test.mp3", 2048, 0, 0))
     eventListener ! event
     helper.messageBus.expectMessageType[PlayerEvent] should be(event)
-  }
 
-  it should "remove registrations when closing the player" in {
+  it should "remove registrations when closing the player" in:
     val closeResult = Promise[Seq[CloseAck]]()
     val helper = new ManagerActorTestHelper
 
@@ -151,9 +144,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     helper.checkControllerDeRegistration()
       .verifyEventListenerRemoved()
     probeClient.expectNoMessage(100.millis)
-  }
 
-  it should "send an Ack message when the player has been closed successfully" in {
+  it should "send an Ack message when the player has been closed successfully" in:
     val closeResult = Future.successful(Seq.empty[CloseAck])
     val helper = new ManagerActorTestHelper
 
@@ -164,9 +156,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
 
     probeClient.expectMessage(PlayerManagerActor.CloseAck(Success(())))
     helper.checkActorStopped()
-  }
 
-  it should "send an Ack message when the player has been closed with a failure" in {
+  it should "send an Ack message when the player has been closed with a failure" in:
     val exception = new IllegalStateException("Test exception: Could not close audio player.")
     val closeResult = Future.failed[Seq[CloseAck]](exception)
     val helper = new ManagerActorTestHelper
@@ -179,9 +170,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     val ack = probeClient.expectMessageType[PlayerManagerActor.CloseAck]
     ack.result should be(Failure(exception))
     helper.checkActorStopped()
-  }
 
-  it should "handle a close command before the player has been created" in {
+  it should "handle a close command before the player has been created" in:
     val helper = new ManagerActorTestHelper
 
     val probeClient = helper.prepareClosing(Future.successful(Seq.empty))
@@ -191,9 +181,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     probeClient.expectMessage(PlayerManagerActor.CloseAck(Success(())))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
-  }
 
-  it should "handle a failed creation of the controller" in {
+  it should "handle a failed creation of the controller" in:
     val exception = new IllegalStateException("Test exception: Could not create audio controller.")
     val helper = new ManagerActorTestHelper
 
@@ -204,9 +193,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     ack.result should be(Failure(exception))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
-  }
 
-  it should "handle a close command before the creation of the player failed" in {
+  it should "handle a close command before the creation of the player failed" in:
     val exception = new IllegalStateException("Test exception: Could not create audio controller.")
     val helper = new ManagerActorTestHelper
 
@@ -217,9 +205,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     ack.result should be(Failure(exception))
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
-  }
 
-  it should "publish a message after the audio controller has been registered" in {
+  it should "publish a message after the audio controller has been registered" in:
     val message = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
     val helper = new ManagerActorTestHelper
 
@@ -228,9 +215,8 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       .sendCommand(PlayerManagerActor.PublishAfterCreation(message))
 
     helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message)
-  }
 
-  it should "collect messages to be published until the audio controller has been created" in {
+  it should "collect messages to be published until the audio controller has been created" in:
     val message1 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
     val message2 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial.copy(playlistSeqNo = 42))
     val helper = new ManagerActorTestHelper
@@ -242,12 +228,11 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
     helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message1)
     helper.messageBus.expectMessageType[AudioPlayerStateChangedEvent] should be(message2)
     helper.messageBus.expectNoMessage(200.millis)
-  }
 
   /**
     * A test helper class managing the dependencies of an actor under test.
     */
-  private class ManagerActorTestHelper {
+  private class ManagerActorTestHelper:
     /** A promise to complete the creation of a controller. */
     private val playerPromise = Promise[AudioPlayerController]()
 
@@ -268,10 +253,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return this test helper
       */
-    def controllerCreated(): ManagerActorTestHelper = {
+    def controllerCreated(): ManagerActorTestHelper =
       playerPromise.success(controller)
       this
-    }
 
     /**
       * Completes the ''Promise'' for the controller creation with the given
@@ -280,10 +264,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @param exception the exception causing the creation to fail
       * @return this test helper
       */
-    def controllerCreationFailed(exception: Throwable): ManagerActorTestHelper = {
+    def controllerCreationFailed(exception: Throwable): ManagerActorTestHelper =
       playerPromise.failure(exception)
       this
-    }
 
     /**
       * Sends the given command to the actor under test.
@@ -291,10 +274,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @param command the command to send
       * @return this test helper
       */
-    def sendCommand(command: PlayerManagementCommand): ManagerActorTestHelper = {
+    def sendCommand(command: PlayerManagementCommand): ManagerActorTestHelper =
       managerActor ! command
       this
-    }
 
     /**
       * Verifies that the given factory was added to the managed player.
@@ -304,10 +286,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @return this test helper
       */
     def verifyFactoryAdded(factory: PlaybackContextFactory,
-                           mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper = {
+                           mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
       verify(player, mode).addPlaybackContextFactory(factory)
       this
-    }
 
     /**
       * Verifies that the given factory was removed from the managed player.
@@ -317,10 +298,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @return this test helper
       */
     def verifyFactoryRemoved(factory: PlaybackContextFactory,
-                             mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper = {
+                             mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
       verify(player, mode).removePlaybackContextFactory(factory)
       this
-    }
 
     /**
       * Checks whether the player controller has been correctly registered at
@@ -328,14 +308,13 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return this test helper
       */
-    def checkControllerRegistration(): ManagerActorTestHelper = {
+    def checkControllerRegistration(): ManagerActorTestHelper =
       val regMsg = messageBus.expectMessageType[RegisterService]
       regMsg.service.serviceName should be("lineDJ.audioPlayerController")
       messageBus.currentListeners should have size 1
       // Need to wait for event listener registration; otherwise Mockito's stubbing gets messed up.
       fetchEventListenerActor()
       this
-    }
 
     /**
       * Checks whether all registration steps are reverted on closing the
@@ -343,34 +322,31 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return this test helper
       */
-    def checkControllerDeRegistration(): ManagerActorTestHelper = {
+    def checkControllerDeRegistration(): ManagerActorTestHelper =
       val unRegMsg = messageBus.expectMessageType[UnregisterService]
       unRegMsg.service.serviceName should be("lineDJ.audioPlayerController")
       messageBus.currentListeners shouldBe empty
       this
-    }
 
     /**
       * Obtains the event actor that has been registered at the player.
       *
       * @return the event actor
       */
-    def fetchEventListenerActor(): ActorRef[PlayerEvent] = {
+    def fetchEventListenerActor(): ActorRef[PlayerEvent] =
       val capture = ArgumentCaptor.forClass(classOf[ActorRef[PlayerEvent]])
       verify(player, DefaultVerificationMode).addEventListener(capture.capture())
       capture.getValue
-    }
 
     /**
       * Verifies that the event listener was correctly removed at the player.
       *
       * @return this test helper
       */
-    def verifyEventListenerRemoved(): ManagerActorTestHelper = {
+    def verifyEventListenerRemoved(): ManagerActorTestHelper =
       val listener = fetchEventListenerActor()
       verify(player, DefaultVerificationMode).removeEventListener(listener)
       this
-    }
 
     /**
       * Prepares the mock for the audio player to expect a ''close()'' call and
@@ -379,10 +355,9 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       * @param result the ''Future'' to be returned by close()
       * @return this test helper
       */
-    def prepareClosing(result: Future[Seq[CloseAck]]): ManagerActorTestHelper = {
+    def prepareClosing(result: Future[Seq[CloseAck]]): ManagerActorTestHelper =
       when(player.close()(any(), any())).thenReturn(result)
       this
-    }
 
     /**
       * Sends a ''Close'' command to the test actor. Returns the test probe
@@ -390,22 +365,20 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return the test probe that should receive the ''CloseAck''
       */
-    def closePlayer(): TestProbe[PlayerManagerActor.CloseAck] = {
+    def closePlayer(): TestProbe[PlayerManagerActor.CloseAck] =
       val probe = testKit.createTestProbe[PlayerManagerActor.CloseAck]()
       managerActor ! PlayerManagerActor.Close(probe.ref, CloseTimeout)
       probe
-    }
 
     /**
       * Checks whether the actor under test has stopped itself.
       *
       * @return this test helper
       */
-    def checkActorStopped(): ManagerActorTestHelper = {
+    def checkActorStopped(): ManagerActorTestHelper =
       val probe = testKit.createTestProbe()
       probe.expectTerminated(managerActor)
       this
-    }
 
     /**
       * Creates a mock for an [[AudioPlayerController]].
@@ -420,10 +393,7 @@ class AudioPlayerManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlat
       *
       * @return the test actor instance
       */
-    private def createManagerActor(): ActorRef[PlayerManagementCommand] = {
+    private def createManagerActor(): ActorRef[PlayerManagementCommand] =
       implicit val ec: ExecutionContext = testKit.system.executionContext
       val creator: AudioPlayerManagerActor.ControllerCreationFunc = () => playerPromise.future
       testKit.spawn(AudioPlayerManagerActor(messageBus)(creator))
-    }
-  }
-}

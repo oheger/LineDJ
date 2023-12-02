@@ -37,7 +37,7 @@ class UnknownPropertyResourceResolver(val appCtx: ApplicationContext,
                                       val resUnknownArtist: String,
                                       val resUnknownAlbum: String,
                                       override val titleProcessors: List[SongTitleProcessor])
-  extends UnknownPropertyResolver {
+  extends UnknownPropertyResolver:
   /**
     * Creates a new instance with the specified properties. This constructor is
     * intended to be called from Java code. The processors are provided as a
@@ -50,9 +50,8 @@ class UnknownPropertyResourceResolver(val appCtx: ApplicationContext,
     * @return the new instance
     */
   def this(appCtx: ApplicationContext, resUnknownArtist: String, resUnknownAlbum: String,
-           titleProcessors: java.util.Collection[SongTitleProcessor]) = {
+           titleProcessors: java.util.Collection[SongTitleProcessor]) =
     this(appCtx, resUnknownArtist, resUnknownAlbum, titleProcessors.asScala.toList)
-  }
 
   /** The resolved name for an unknown artist. */
   lazy val unknownArtistName: String = appCtx getResourceText resUnknownArtist
@@ -63,4 +62,3 @@ class UnknownPropertyResourceResolver(val appCtx: ApplicationContext,
   override def resolveArtistName(songID: MediaFileID): String = unknownArtistName
 
   override def resolveAlbumName(songID: MediaFileID): String = unknownAlbumName
-}

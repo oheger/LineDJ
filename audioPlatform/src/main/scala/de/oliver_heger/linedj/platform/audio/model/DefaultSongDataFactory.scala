@@ -28,10 +28,9 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   *
   * @param resolver the resolver for missing meta data properties
   */
-class DefaultSongDataFactory(val resolver: UnknownPropertyResolver) extends SongDataFactory {
+class DefaultSongDataFactory(val resolver: UnknownPropertyResolver) extends SongDataFactory:
   override def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData =
     SongData(id, metaData,
       title = metaData.title getOrElse resolver.resolveTitle(id),
       artist = metaData.artist getOrElse resolver.resolveArtistName(id),
       album = metaData.album getOrElse resolver.resolveAlbumName(id))
-}
