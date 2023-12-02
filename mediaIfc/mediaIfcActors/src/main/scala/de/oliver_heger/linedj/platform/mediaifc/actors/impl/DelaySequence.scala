@@ -25,11 +25,10 @@ package de.oliver_heger.linedj.platform.mediaifc.actors.impl
  * values can be obtained (in a functional way). Concrete implementations can
  * produce specific sequences.
  */
-trait DelaySequence {
+trait DelaySequence:
   /**
    * Determines the next value in the delay sequence and returns an object with
    * the updated state. The original object is not manipulated.
    * @return a tuple with the delay value and the next state of the sequence
    */
   def nextDelay: (Int, DelaySequence)
-}

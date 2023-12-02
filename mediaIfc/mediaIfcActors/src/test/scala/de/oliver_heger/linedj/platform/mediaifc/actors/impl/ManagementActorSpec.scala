@@ -27,7 +27,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
-object ManagementActorSpec {
+object ManagementActorSpec:
   /** A test actor path prefix. */
   private val ActorPathPrefix = "someTestActorPrefix/"
 
@@ -36,21 +36,19 @@ object ManagementActorSpec {
 
   /** A test pong message. */
   private val PongMessage = "PONG"
-}
 
 /**
   * Test class for ''RemoteManagementActor''.
   */
 class ManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ManagementActorSpec._
 
   def this() = this(ActorSystem("ManagementActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Checks a Props object for the given actor class. It is checked whether
@@ -59,28 +57,25 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     * @param actorClass the expected actor class
     * @return the same Props object
     */
-  private def checkCreationProps(props: Props, actorClass: Class[_]): Props = {
+  private def checkCreationProps(props: Props, actorClass: Class[_]): Props =
     actorClass.isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props
-  }
 
-  "A ManagementActor" should "create a new child actor when it is configured" in {
+  "A ManagementActor" should "create a new child actor when it is configured" in:
     val helper = new RemoteManagementActorTestHelper
 
     val childData = helper.configure(ActorPathPrefix)
     childData.prefix should be(ActorPathPrefix)
-  }
 
-  it should "pass messages to the child actor" in {
+  it should "pass messages to the child actor" in:
     val helper = new RemoteManagementActorTestHelper
     val childData = helper.configure(ActorPathPrefix)
 
     helper.managementActor ! PingMessage
     childData.child.expectMsg(PingMessage)
-  }
 
-  it should "forward messages to the child actor" in {
+  it should "forward messages to the child actor" in:
     val childActor = system.actorOf(Props(new Actor {
       override def receive: Receive = {
         case PingMessage =>
@@ -92,15 +87,13 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
 
     helper.managementActor ! PingMessage
     expectMsg(PongMessage)
-  }
 
-  it should "ignore messages before an initial configuration message" in {
+  it should "ignore messages before an initial configuration message" in:
     val helper = new RemoteManagementActorTestHelper
 
     helper.managementActor receive "BOOM"
-  }
 
-  it should "stop and re-initialize the relay actor when the prefix is changed" in {
+  it should "stop and re-initialize the relay actor when the prefix is changed" in:
     val Prefix2 = ActorPathPrefix + "another/"
     val helper = new RemoteManagementActorTestHelper
 
@@ -115,22 +108,20 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     val message = "CHECK"
     helper.managementActor ! message
     childData2.child.expectMsg(message)
-  }
 
-  it should "produce correct creation Props" in {
+  it should "produce correct creation Props" in:
     val bus = mock[MessageBus]
 
     val props = checkCreationProps(ManagementActor(bus), classOf[ManagementActor])
     props.args should have length 1
     props.args.head should be(bus)
-  }
 
   /**
     * An internally used test helper class.
     * @param optChildActor an option for a child actor to be returned by the
     *                      mock child actor factory
     */
-  private class RemoteManagementActorTestHelper(optChildActor: Option[ActorRef] = None) {
+  private class RemoteManagementActorTestHelper(optChildActor: Option[ActorRef] = None):
     /** A mock for the message bus. */
     private val messageBus = mock[MessageBus]
 
@@ -144,11 +135,10 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
       * Obtains data for a created child actor.
       * @return the data object
       */
-    def fetchChildCreationData(): ChildActorCreationData = {
+    def fetchChildCreationData(): ChildActorCreationData =
       val data = actorCreationQueue.poll(5, TimeUnit.SECONDS)
       data should not be null
       data
-    }
 
     /**
       * Sends a path prefix message to the test actor and retrieves data
@@ -156,10 +146,9 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
       * @param path the path prefix for the actor
       * @return data about the new child actor
       */
-    def configure(path: String): ChildActorCreationData = {
+    def configure(path: String): ChildActorCreationData =
       managementActor ! ManagementActor.ActorPathPrefix(path)
       fetchChildCreationData()
-    }
 
     /**
       * Returns a ''Props'' object for creating a test actor instance.
@@ -177,9 +166,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
           optChildActor getOrElse child.ref
         }
       })
-  }
 
-}
 
 /**
   * A data class used by the test helper to propagate data about newly created

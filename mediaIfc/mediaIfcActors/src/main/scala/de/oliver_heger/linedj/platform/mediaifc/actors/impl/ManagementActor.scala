@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.mediaifc.actors.impl.ManagementActor.Acto
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
-object ManagementActor {
+object ManagementActor:
 
   /**
     * A message processed by [[ManagementActor]] which defines the path of the
@@ -44,7 +44,6 @@ object ManagementActor {
     * @return the ''Props'' for creating a new instance
     */
   def apply(messageBus: MessageBus): Props = Props(classOf[ManagementActorImpl], messageBus)
-}
 
 /**
   * An actor which manages the communication with the remote actor system.
@@ -66,7 +65,7 @@ object ManagementActor {
   *
   * @param messageBus the message bus
   */
-class ManagementActor(messageBus: MessageBus) extends Actor {
+class ManagementActor(messageBus: MessageBus) extends Actor:
   this: ChildActorFactory =>
 
   /** The current relay child actor. */
@@ -77,16 +76,15 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
   /**
     * The initial receive function; no configuration has been set so far.
     */
-  private def uninitialized: Receive = {
+  private def uninitialized: Receive =
     case ActorPathPrefix(prefix) =>
       updateRelayActorForNewConfiguration(prefix)
       context become configured
-  }
 
   /**
     * The receive function after the initial configuration has been set.
     */
-  private def configured: Receive = {
+  private def configured: Receive =
     case ActorPathPrefix(prefix) =>
       context stop relayActor
       updateRelayActorForNewConfiguration(prefix)
@@ -94,14 +92,11 @@ class ManagementActor(messageBus: MessageBus) extends Actor {
 
     case msg =>
       relayActor forward msg
-  }
 
   /**
     * Creates a new relay actor which uses the passed in path prefix
     * settings. This is called when the configuration was updated.
     * @param prefix the new actor path lookup prefix
     */
-  private def updateRelayActorForNewConfiguration(prefix: String): Unit = {
+  private def updateRelayActorForNewConfiguration(prefix: String): Unit =
     relayActor = createChildActor(RelayActor(prefix, messageBus))
-  }
-}

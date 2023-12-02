@@ -35,7 +35,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object ActorBasedMediaFacadeSpec {
+object ActorBasedMediaFacadeSpec:
   /** Constant for test message. */
   private val Message = new Object
 
@@ -56,26 +56,23 @@ object ActorBasedMediaFacadeSpec {
     *
     * @return the configuration
     */
-  private def createConfiguration(): Configuration = {
+  private def createConfiguration(): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty(PropPrefix, ActorPathPrefix)
     config
-  }
-}
 
 /**
  * Test class for ''ActorBasedMediaFacade''.
  */
 class ActorBasedMediaFacadeSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ActorBasedMediaFacadeSpec._
 
   def this() = this(ActorSystem("ActorBasedMediaFacadeSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates the test object, initialized with the test actor serving as relay
@@ -84,34 +81,30 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     * @param optRelayActor an optional relay actor for the facade
     * @return the test message bus
     */
-  private def createFacade(optRelayActor: Option[ActorRef] = None): ActorBasedMediaFacade = {
+  private def createFacade(optRelayActor: Option[ActorRef] = None): ActorBasedMediaFacade =
     val bus = mock[MessageBus]
     new ActorBasedMediaFacadeImpl(optRelayActor getOrElse testActor, system, bus)
-  }
 
-  "An ActorBasedMediaFacade" should "send messages to the rely actor" in {
+  "An ActorBasedMediaFacade" should "send messages to the rely actor" in:
     val facade = createFacade()
 
     facade.send(MediaActors.MediaManager, Message)
     expectMsg(RemoteMessage)
     verifyNoInteractions(facade.bus)
-  }
 
-  it should "simplify sending an activation message to the associated actor" in {
+  it should "simplify sending an activation message to the associated actor" in:
     val facade = createFacade()
 
     facade activate true
     expectMsg(RelayActor.Activate(true))
-  }
 
-  it should "allow querying the current server state" in {
+  it should "allow querying the current server state" in:
     val facade = createFacade()
     facade.requestMediaState()
 
     expectMsg(RelayActor.QueryServerState)
-  }
 
-  it should "process a request for an actor" in {
+  it should "process a request for an actor" in:
     val remoteActor = TestProbe()
     val relay = system.actorOf(Props(classOf[DummyRelayActor], remoteActor.ref))
     val facade = createFacade(Some(relay))
@@ -119,63 +112,53 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
 
     val future = facade.requestActor(MediaActors.MediaManager)
     Await.result(future, 3.seconds) should be(Some(remoteActor.ref))
-  }
 
-  it should "take the timeout for an actor request into account" in {
+  it should "take the timeout for an actor request into account" in:
     val relayActor = system.actorOf(Props(classOf[DummyRelayActor], TestProbe().ref))
     val facade = createFacade(Some(relayActor))
     implicit val timeout: Timeout = Timeout(100.millis)
 
-    intercept[AskTimeoutException] {
+    intercept[AskTimeoutException]:
       val future = facade.requestActor(MediaActors.MetaDataManager)
       Await.result(future, 3.seconds)
-    }
-  }
 
-  it should "support removing a meta data listener" in {
+  it should "support removing a meta data listener" in:
     val mediumId = MediumID("someURI", None)
     val facade = createFacade()
 
     facade removeMetaDataListener mediumId
     expectMsg(RelayActor.RemoveListener(mediumId))
-  }
 
-  it should "initialize the management actor when the initial configuration is passed" in {
+  it should "initialize the management actor when the initial configuration is passed" in:
     val relay = TestProbe()
     val facade = createFacade(Some(relay.ref))
 
     facade initConfiguration createConfiguration()
     relay.expectMsg(ManagementActor.ActorPathPrefix(ActorPathPrefix))
-  }
 
-  it should "support a meta data state listener registration" in {
+  it should "support a meta data state listener registration" in:
     val compID = ComponentID()
     val facade = createFacade()
 
     facade.registerMetaDataStateListener(compID)
     expectMsg(RelayActor.RegisterStateListener(compID))
-  }
 
-  it should "support removing a meta data state listener registration" in {
+  it should "support removing a meta data state listener registration" in:
     val compID = ComponentID()
     val facade = createFacade()
 
     facade.unregisterMetaDataStateListener(compID)
     expectMsg(RelayActor.UnregisterStateListener(compID))
-  }
-}
 
 /**
   * An actor class used for testing a request to a remote actor.
   *
   * @param remoteActorRef the actor reference to be returned
   */
-class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
-  override def receive: Receive = {
+class DummyRelayActor(remoteActorRef: ActorRef) extends Actor:
+  override def receive: Receive =
     case RelayActor.MediaActorRequest(MediaActors.MediaManager) =>
       sender() ! RelayActor.MediaActorResponse(MediaActors.MediaManager, Some(remoteActorRef))
-  }
-}
 
 /**
   * A test facade implementation which is concrete.
@@ -185,11 +168,10 @@ class DummyRelayActor(remoteActorRef: ActorRef) extends Actor {
   */
 class ActorBasedMediaFacadeImpl(relayActor: ActorRef, actorSystem: ActorSystem,
                                 bus: MessageBus)
-  extends ActorBasedMediaFacade(relayActor, actorSystem, bus) {
+  extends ActorBasedMediaFacade(relayActor, actorSystem, bus):
   /**
     * @inheritdoc This implementation returns the ''PropPrefix'' property from
     *             the given configuration object.
     */
   override protected def createActorPathPrefix(config: Configuration): String =
   config getString ActorBasedMediaFacadeSpec.PropPrefix
-}

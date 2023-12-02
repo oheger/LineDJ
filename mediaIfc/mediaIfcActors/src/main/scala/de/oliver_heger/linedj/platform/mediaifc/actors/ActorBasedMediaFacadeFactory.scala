@@ -22,10 +22,9 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
-object ActorBasedMediaFacadeFactory {
+object ActorBasedMediaFacadeFactory:
   /** The name of the management actor used by the facade. */
   val ManagementActorName = "FacadeManagementActor"
-}
 
 /**
   * A base trait for a [[MediaFacadeFactory]] that creates a facade based on
@@ -34,7 +33,7 @@ object ActorBasedMediaFacadeFactory {
   * This trait already implements the logic for the creation of the relay
   * actor. A concrete subclass has to create the actual facade.
   */
-trait ActorBasedMediaFacadeFactory extends MediaFacadeFactory {
+trait ActorBasedMediaFacadeFactory extends MediaFacadeFactory:
 
   import ActorBasedMediaFacadeFactory._
 
@@ -43,10 +42,9 @@ trait ActorBasedMediaFacadeFactory extends MediaFacadeFactory {
     *             management actor. It then delegates to ''createFacadeImpl()''
     *             to create the actual facade instance.
     */
-  override def createMediaFacade(actorFactory: ActorFactory, bus: MessageBus): MediaFacade = {
+  override def createMediaFacade(actorFactory: ActorFactory, bus: MessageBus): MediaFacade =
     val relayActor = actorFactory.createActor(ManagementActor(bus), ManagementActorName)
     createFacadeImpl(relayActor, actorFactory.actorSystem, bus)
-  }
 
   /**
     * Creates the actual facade instance with the passed in parameters.
@@ -58,4 +56,3 @@ trait ActorBasedMediaFacadeFactory extends MediaFacadeFactory {
     */
   protected def createFacadeImpl(relayActor: ActorRef, system: ActorSystem,
                                  bus: MessageBus): MediaFacade
-}

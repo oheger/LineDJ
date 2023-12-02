@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener,
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
-object RelayActor {
+object RelayActor:
 
   /**
    * A message received by [[RelayActor]] which activates or disables
@@ -138,7 +138,7 @@ object RelayActor {
    * allows access to a specific remote actor.
    * @param trackedActors a map with information about tracked actors
    */
-  private class RemoteActorTrackingState(trackedActors: Map[MediaActor, ActorRef]) {
+  private class RemoteActorTrackingState(trackedActors: Map[MediaActor, ActorRef]):
     /**
      * Returns a flag whether all remote actors are currently available. This
      * is used as indication that the server is now available.
@@ -173,7 +173,7 @@ object RelayActor {
      * @return an option for the reference to this remote actor
      */
     def remoteActorOption(a: MediaActor): Option[ActorRef] =
-    if(trackingComplete) trackedActors get a else None
+    if trackingComplete then trackedActors get a else None
 
     /**
      * Calculates the new tracking state based on a function to be applied on
@@ -186,10 +186,8 @@ object RelayActor {
      */
     private def updateState(a: Option[MediaActor])
                            (f: (MediaActor, Map[MediaActor, ActorRef]) => Map[MediaActor,
-                             ActorRef]): RemoteActorTrackingState = {
+                             ActorRef]): RemoteActorTrackingState =
       a map (ra => new RemoteActorTrackingState(f(ra, trackedActors))) getOrElse this
-    }
-  }
 
   /**
    * Returns the state message to be sent for the specified tracking state.
@@ -197,9 +195,8 @@ object RelayActor {
    * @return the state message
    */
   private def stateMessage(trackingState: RemoteActorTrackingState): Any =
-    if (trackingState.trackingComplete) MediaFacade.MediaArchiveAvailable
+    if trackingState.trackingComplete then MediaFacade.MediaArchiveAvailable
     else MediaFacade.MediaArchiveUnavailable
-}
 
 /**
  * An actor class which handles the communication with the remote actor system.
@@ -227,7 +224,7 @@ object RelayActor {
  * @param messageBus      the message bus
  */
 class RelayActor(actorPathPrefix: String, messageBus: MessageBus) extends
-Actor {
+Actor:
   this: ChildActorFactory =>
 
   import RelayActor._
@@ -253,25 +250,23 @@ Actor {
    *             actors to be tracked.
    */
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
 
     pathMapping.keys foreach { p =>
       createChildActor(Props(classOf[LookupActor], p, self, DelaySequence))
     }
-  }
 
   /**
     * @inheritdoc This implementation removes the state listener registration
     *             if there is one.
     */
   @scala.throws[Exception](classOf[Exception])
-  override def postStop(): Unit = {
+  override def postStop(): Unit =
     updateStateListenerRegistration(Set.empty)
     super.postStop()
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Activate(enabled) =>
       activated = enabled
       publish(stateMessage(trackingState))
@@ -280,10 +275,9 @@ Actor {
       publish(stateMessage(trackingState))
 
     case LookupActor.RemoteActorAvailable(path, ref) =>
-      if (updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref)) &&
-        stateListenerComponents.nonEmpty) {
+      if updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref)) &&
+        stateListenerComponents.nonEmpty then
         sendToTarget(MediaActors.MetaDataManager, AddMetaDataStateListener(self))
-      }
 
     case LookupActor.RemoteActorUnavailable(path) =>
       updateTrackingState(trackingState.remoteActorLost(pathMapping get path))
@@ -305,7 +299,6 @@ Actor {
 
     case msg =>
       messageBus publish msg
-  }
 
   /**
     * Updates the remote actor tracking state. This method is called when a
@@ -316,14 +309,13 @@ Actor {
     * @param newState the updated tracking state
     * @return a flag whether there was a change in the tracking state
     */
-  private def updateTrackingState(newState: RemoteActorTrackingState): Boolean = {
+  private def updateTrackingState(newState: RemoteActorTrackingState): Boolean =
     val oldState = trackingState
     trackingState = newState
-    if (oldState.trackingComplete != newState.trackingComplete) {
+    if oldState.trackingComplete != newState.trackingComplete then
       publish(stateMessage(newState))
       true
-    } else false
-  }
+    else false
 
   /**
     * Reacts on a change on registered state listeners. The internal set with
@@ -332,11 +324,10 @@ Actor {
     *
     * @param newListeners the updated set of registered state listeners
     */
-  private def updateStateListenerRegistration(newListeners: Set[ComponentID]): Unit = {
+  private def updateStateListenerRegistration(newListeners: Set[ComponentID]): Unit =
     val msg = listenerRegistrationMsg(stateListenerComponents, newListeners)
     msg foreach (sendToTarget(MediaActors.MetaDataManager, _))
     stateListenerComponents = newListeners
-  }
 
   /**
     * Generates a message to be sent to the archive when there was a change in
@@ -349,9 +340,9 @@ Actor {
     */
   private def listenerRegistrationMsg(oldListeners: Set[ComponentID],
                                       newListeners: Set[ComponentID]): Option[Any] =
-  if (oldListeners.size < newListeners.size && newListeners.size == 1)
+  if oldListeners.size < newListeners.size && newListeners.size == 1 then
     Some(AddMetaDataStateListener(self))
-  else if (oldListeners.size > newListeners.size && newListeners.isEmpty)
+  else if oldListeners.size > newListeners.size && newListeners.isEmpty then
     Some(RemoveMetaDataStateListener(self))
   else None
 
@@ -362,29 +353,25 @@ Actor {
     * @param target the target actor
     * @param msg    the message to be sent
     */
-  private def sendToTarget(target: MediaActors.MediaActor, msg: Any): Unit = {
+  private def sendToTarget(target: MediaActors.MediaActor, msg: Any): Unit =
     trackingState remoteActorOption target foreach (_ ! msg)
-  }
 
   /**
    * Sends a message on the message bus if this actor is enabled.
    * @param msg the message
    */
-  private def publish(msg: => Any): Unit = {
-    if (activated) {
+  private def publish(msg: => Any): Unit =
+    if activated then
       messageBus publish msg
-    }
-  }
 
   /**
    * Creates a map that allows mapping a remote lookup path to the
    * corresponding remote actor type.
    * @return the map
    */
-  private def createLookupPathMapping(): Map[String, MediaActor] = {
+  private def createLookupPathMapping(): Map[String, MediaActor] =
     val mapping = MediaActors.values map (a => lookupPath(a) -> a)
     Map(mapping.toSeq: _*)
-  }
 
   /**
    * Generates the lookup path for a remote actor based on the parameters
@@ -394,4 +381,3 @@ Actor {
    */
   private def lookupPath(actor: MediaActor): String =
   actorPathPrefix + actor.name
-}

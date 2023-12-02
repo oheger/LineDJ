@@ -27,7 +27,7 @@ package de.oliver_heger.linedj.platform.mediaifc.actors.impl
  * @param step the step for increasing sequence values
  * @param current the current value in the sequence
  */
-class BoundedDelaySequence(val maximum: Int, val step: Int, current: Int) extends DelaySequence {
+class BoundedDelaySequence(val maximum: Int, val step: Int, current: Int) extends DelaySequence:
   /** The validated current value of this sequence state. */
   val currentValue = math.min(maximum, current)
 
@@ -36,8 +36,6 @@ class BoundedDelaySequence(val maximum: Int, val step: Int, current: Int) extend
    * the updated state. The original object is not manipulated.
    * @return a tuple with the delay value and the next state of the sequence
    */
-  override def nextDelay: (Int, DelaySequence) = {
-    (currentValue, if (currentValue == maximum) this
+  override def nextDelay: (Int, DelaySequence) =
+    (currentValue, if currentValue == maximum then this
     else new BoundedDelaySequence(maximum, step, currentValue + step))
-  }
-}

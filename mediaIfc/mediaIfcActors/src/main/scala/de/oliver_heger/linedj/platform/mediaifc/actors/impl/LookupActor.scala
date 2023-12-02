@@ -21,7 +21,7 @@ import org.apache.pekko.actor._
 
 import scala.concurrent.duration._
 
-object LookupActor {
+object LookupActor:
 
   /**
    * A message sent by ''RemoteLookupActor'' when the actor to be monitored
@@ -40,7 +40,6 @@ object LookupActor {
    */
   case class RemoteActorUnavailable(path: String)
 
-}
 
 /**
  * An actor which monitors an actor reference in a remote actor system.
@@ -59,15 +58,14 @@ object LookupActor {
  * @param delaySequence the delay sequence
  */
 class LookupActor(path: String, watcher: ActorRef, delaySequence: DelaySequence) extends
-Actor with ActorLogging {
+Actor with ActorLogging:
   /** The current state of the delay sequence. */
   private var currentDelay = delaySequence
 
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     sendIdentifyRequest()
-  }
 
   override def receive: Receive = lookingUp
 
@@ -75,7 +73,7 @@ Actor with ActorLogging {
    * Receive function used until the remote actor is detected.
    * @return the receive function
    */
-  private def lookingUp: Receive = {
+  private def lookingUp: Receive =
     case ActorIdentity(`path`, Some(actor)) =>
       context.watch(actor)
       watcher ! RemoteActorAvailable(path, actor)
@@ -87,14 +85,13 @@ Actor with ActorLogging {
     case ReceiveTimeout =>
       sendIdentifyRequest()
       log.info("Timeout. Try again later.")
-  }
 
   /**
    * Receive function used as long as the remote actor is available.
    * @param actor the remote actor
    * @return the receive function
    */
-  private def available(actor: ActorRef): Receive = {
+  private def available(actor: ActorRef): Receive =
     case Terminated(`actor`) =>
       log.debug("Remote actor died.")
       watcher ! RemoteActorUnavailable(path)
@@ -104,25 +101,21 @@ Actor with ActorLogging {
 
     case ReceiveTimeout =>
     //ignore
-  }
 
   /**
    * Performs a lookup operation. This is done by sending an identify request
    * to the path to be monitored.
    */
-  private def sendIdentifyRequest(): Unit = {
+  private def sendIdentifyRequest(): Unit =
     context.actorSelection(path) ! Identify(path)
     import context.dispatcher
     context.system.scheduler.scheduleOnce(nextDelay, self, ReceiveTimeout)
-  }
 
   /**
    * Returns the next delay as a finite duration.
    * @return the next delay value
    */
-  private def nextDelay = {
+  private def nextDelay =
     val (d, nxt) = currentDelay.nextDelay
     currentDelay = nxt
     d.seconds
-  }
-}

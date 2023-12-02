@@ -29,8 +29,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''ActorBasedMediaFacadeFactory''.
   */
-class ActorBasedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An ActorBasedMediaFacadeFactory" should "create a MediaFacade" in {
+class ActorBasedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An ActorBasedMediaFacadeFactory" should "create a MediaFacade" in:
     val actorFactory = mock[ActorFactory]
     val actorSystem = mock[ActorSystem]
     val messageBus = mock[MessageBus]
@@ -46,25 +46,21 @@ class ActorBasedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with Mo
     creation.system should be(actorSystem)
     creation.bus should be(messageBus)
     facade should be(creation.facade)
-  }
 
   /**
     * A test implementation of the factory which records the data passed to
     * ''createFacadeImpl()''.
     */
-  private class MediaFacadeFactoryImpl extends ActorBasedMediaFacadeFactory {
+  private class MediaFacadeFactoryImpl extends ActorBasedMediaFacadeFactory:
     /** Stores information about facades created by this object. */
     var createdFacades = List.empty[MediaFacadeCreation]
 
     override protected def createFacadeImpl(relayActor: ActorRef, system: ActorSystem,
-                                            bus: MessageBus): MediaFacade = {
+                                            bus: MessageBus): MediaFacade =
       val facade = mock[MediaFacade]
       createdFacades = MediaFacadeCreation(relayActor, system, bus, facade) :: createdFacades
       facade
-    }
-  }
 
-}
 
 /**
   * Data class that stores the information about a newly created media facade.

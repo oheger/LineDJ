@@ -824,6 +824,8 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actors-MediaIfc",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.platform.mediaifc.actors.impl.*",
       "de.oliver_heger.linedj.platform.mediaifc.actors.*"
@@ -832,7 +834,7 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
       "de.oliver_heger.linedj.platform.mediaifc.actors.impl.*"
     ),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (platform % "compile->compile;test->test")
+  ) dependsOn platform
 
 /**
   * Project for the remote media interface. This project establishes a

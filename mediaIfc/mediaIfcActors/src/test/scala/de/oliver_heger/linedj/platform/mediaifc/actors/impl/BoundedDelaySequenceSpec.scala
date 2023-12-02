@@ -22,36 +22,30 @@ import org.scalatest.matchers.should.Matchers
 /**
  * Test class for ''BoundedDelaySequence''.
  */
-class BoundedDelaySequenceSpec extends AnyFlatSpec with Matchers {
-  "A BoundedDelaySequence" should "return the current sequence value" in {
+class BoundedDelaySequenceSpec extends AnyFlatSpec with Matchers:
+  "A BoundedDelaySequence" should "return the current sequence value" in:
     val seq = new BoundedDelaySequence(100, 1, 0)
     seq.nextDelay._1 should be(0)
-  }
 
-  it should "increment the current value" in {
+  it should "increment the current value" in:
     val seq = new BoundedDelaySequence(100, 2, 1)
     val (v1, seq2) = seq.nextDelay
     v1 should be(1)
     seq2.nextDelay._1 should be(3)
-  }
 
-  it should "return the same object when the maximum is reached" in {
+  it should "return the same object when the maximum is reached" in:
     val seq = new BoundedDelaySequence(100, 1, 100)
     val (v, seq2) = seq.nextDelay
     v should be(seq.maximum)
     seq2 should be theSameInstanceAs seq
-  }
 
-  it should "limit the sequence to the maximum" in {
+  it should "limit the sequence to the maximum" in:
     val seq = new BoundedDelaySequence(10, 4, 8)
     val seq2 = seq.nextDelay._2
     seq2.nextDelay._1 should be(seq.maximum)
-  }
 
-  it should "correct an initial value which is too high" in {
+  it should "correct an initial value which is too high" in:
     val seq = new BoundedDelaySequence(10, 4, 12)
     val (v, seq2) = seq.nextDelay
     v should be(seq.maximum)
     seq should be theSameInstanceAs seq2
-  }
-}

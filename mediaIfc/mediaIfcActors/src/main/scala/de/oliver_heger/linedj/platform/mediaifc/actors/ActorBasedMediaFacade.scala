@@ -50,16 +50,15 @@ import scala.concurrent.Future
   */
 abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: ActorSystem,
                                      override val bus: MessageBus)
-  extends MediaFacade {
+  extends MediaFacade:
 
   /**
    * Sends an ''Activate'' message to the relay actor. This is a
    * convenient way to enable or disable monitoring of the server state.
    * @param enabled the enabled flag
    */
-  override def activate(enabled: Boolean): Unit = {
+  override def activate(enabled: Boolean): Unit =
     relayActor ! RelayActor.Activate(enabled)
-  }
 
   /**
    * Sends a message to a remote actor. No answer is expected; so the message
@@ -67,61 +66,54 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
    * @param target the target actor
    * @param msg the message
    */
-  override def send(target: MediaActor, msg: Any): Unit = {
+  override def send(target: MediaActor, msg: Any): Unit =
     relayActor ! RelayActor.MediaMessage(target, msg)
-  }
 
   /**
     * @inheritdoc This implementation sends a corresponding message to the
     *             relay actor.
     */
-  override def requestMediaState(): Unit = {
+  override def requestMediaState(): Unit =
     relayActor ! RelayActor.QueryServerState
-  }
 
   /**
     * @inheritdoc This implementation delegates to the relay actor.
     */
   override def requestActor(target: MediaActor)(implicit timeout: Timeout):
-  Future[Option[ActorRef]] = {
+  Future[Option[ActorRef]] =
     implicit val ec = actorSystem.dispatcher
     val future = relayActor ? RelayActor.MediaActorRequest(target)
     future.map(f => f.asInstanceOf[RelayActor.MediaActorResponse].optActor)
-  }
 
   /**
     * @inheritdoc This implementation sends a special message to the relay
     *             actor. The relay actor then handles the removal of the
     *             listener.
     */
-  override def removeMetaDataListener(mediumID: MediumID): Unit = {
+  override def removeMetaDataListener(mediumID: MediumID): Unit =
     relayActor ! RelayActor.RemoveListener(mediumID)
-  }
 
   /**
     * @inheritdoc This implementation delegates to ''createActorPathPrefix()''
     *             to generate the prefix for lookup operations. The resulting
     *             string is then passed to the management actor.
     */
-  override def initConfiguration(config: Configuration): Unit = {
+  override def initConfiguration(config: Configuration): Unit =
     relayActor ! ManagementActor.ActorPathPrefix(createActorPathPrefix(config))
-  }
 
   /**
     * @inheritdoc This implementation sends a corresponding registration
     *             message to the relay actor.
     */
-  override def registerMetaDataStateListener(componentID: ComponentID): Unit = {
+  override def registerMetaDataStateListener(componentID: ComponentID): Unit =
     relayActor ! RelayActor.RegisterStateListener(componentID)
-  }
 
   /**
     * @inheritdoc This implementation sends a corresponding message to remove a
     *             state listener registration to the relay actor.
     */
-  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {
+  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit =
     relayActor ! RelayActor.UnregisterStateListener(componentID)
-  }
 
   /**
     * Generates the actor lookup prefix based on the passed in configuration.
@@ -132,4 +124,3 @@ abstract class ActorBasedMediaFacade(val relayActor: ActorRef, val actorSystem: 
     * @return the path prefix for actor lookup operations
     */
   protected def createActorPathPrefix(config: Configuration): String
-}

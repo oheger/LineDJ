@@ -32,14 +32,13 @@ import java.util.concurrent.{CountDownLatch, SynchronousQueue, TimeUnit}
  * Test class for ''LookupActor''.
  */
 class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("RemoteLookupActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A LookupActor" should "detect the monitored actor when it is started" in {
+  "A LookupActor" should "detect the monitored actor when it is started" in:
     val ActorName = "monitorStartActor"
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
@@ -56,20 +55,17 @@ class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectMsg(LookupActor.RemoteActorAvailable(actorPath, monitoredActor))
     verify(nextSequence).nextDelay
     system stop lookupActor
-  }
 
-  it should "detect the death of the monitored actor and start another lookup" in {
+  it should "detect the death of the monitored actor and start another lookup" in:
     val ActorName = "monitorStopActor"
     val actorPath = "/user/" + ActorName
     val sequence, nextSequence = mock[DelaySequence]
     val latch = new CountDownLatch(3)
-    val answer = new Answer[(Int, DelaySequence)] {
+    val answer = new Answer[(Int, DelaySequence)]:
       // Countdown latch to indicate that the sequence was queried
-      override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) = {
+      override def answer(invocationOnMock: InvocationOnMock): (Int, DelaySequence) =
         latch.countDown()
         (1, nextSequence)
-      }
-    }
     when(sequence.nextDelay).thenAnswer(answer)
     when(nextSequence.nextDelay).thenAnswer(answer)
 
@@ -83,8 +79,6 @@ class LookupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     // Test reset of delay sequence
     latch.await(5, TimeUnit.SECONDS) shouldBe true
     system stop lookupActor
-  }
-}
 
 /**
  * A simple, non-functional actor class used within tests.
