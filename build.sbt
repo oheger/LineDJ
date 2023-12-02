@@ -883,6 +883,8 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-disabled-MediaIfc",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -891,7 +893,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (platform % "compile->compile;test->test")
+  ) dependsOn platform
 
 /**
   * Project for the ''one for all'' shutdown handler. This project provides

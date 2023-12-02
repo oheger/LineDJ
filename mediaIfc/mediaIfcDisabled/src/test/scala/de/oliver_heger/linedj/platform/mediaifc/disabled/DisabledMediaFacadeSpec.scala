@@ -34,66 +34,57 @@ import scala.concurrent.duration._
   * Test class for ''DisabledMediaFacade''. Note: This class can sometimes
   * only test that a method invocation does not cause an exception.
   */
-class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A DisabledMediaFacade" should "implement activate()" in {
+class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A DisabledMediaFacade" should "implement activate()" in:
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
     facade activate true
     verifyNoInteractions(bus)
-  }
 
-  it should "implement send()" in {
+  it should "implement send()" in:
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
     facade.send(MediaActors.MediaManager, GetAvailableMedia)
     verifyNoInteractions(bus)
-  }
 
-  it should "implement initConfiguration()" in {
+  it should "implement initConfiguration()" in:
     val config = mock[Configuration]
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
     facade initConfiguration config
     verifyNoInteractions(bus, config)
-  }
 
-  it should "publish a media state" in {
+  it should "publish a media state" in:
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
     facade.requestMediaState()
     verify(bus).publish(MediaFacade.MediaArchiveUnavailable)
-  }
 
-  it should "implement removeMetaDataListener()" in {
+  it should "implement removeMetaDataListener()" in:
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
     facade removeMetaDataListener MediumID("mid", None)
     verifyNoInteractions(bus)
-  }
 
-  it should "implement requestActor()" in {
+  it should "implement requestActor()" in:
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
     implicit val timeout: Timeout = Timeout(3.seconds)
 
     val future = facade requestActor MediaActors.MediaManager
     Await.result(future, 3.seconds) should be(None)
-  }
 
-  it should "implement registerMetaDataStateListener()" in {
+  it should "implement registerMetaDataStateListener()" in:
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
     facade.registerMetaDataStateListener(ComponentID())
-  }
 
-  it should "implement unregisterMetaDataStateListener()" in {
+  it should "implement unregisterMetaDataStateListener()" in:
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
     facade.unregisterMetaDataStateListener(ComponentID())
-  }
-}

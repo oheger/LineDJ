@@ -37,25 +37,23 @@ import scala.concurrent.Future
   *
   * @param bus the ''MessageBus''
   */
-class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade {
+class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def activate(enabled: Boolean): Unit = {
+  override def activate(enabled: Boolean): Unit =
     log.info("Media archive not available.")
-  }
 
   /**
     * @inheritdoc This implementation does not send any message, but just logs
     *             a warning.
     */
-  override def send(target: MediaActor, msg: Any): Unit = {
+  override def send(target: MediaActor, msg: Any): Unit =
     log.warn("Media archive not available. Ignoring message {} to {}.",
       msg, target)
-  }
 
   /**
     * @inheritdoc This is just a dummy implementation.
@@ -66,9 +64,8 @@ class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade {
     * @inheritdoc This implementation publishes an unavailable message on the
     *             message bus.
     */
-  override def requestMediaState(): Unit = {
+  override def requestMediaState(): Unit =
     bus publish MediaFacade.MediaArchiveUnavailable
-  }
 
   /**
     * @inheritdoc This implementation returns a ''Future'' that completes with
@@ -91,4 +88,3 @@ class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade {
     * @inheritdoc This is just a dummy implementation.
     */
   override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {}
-}

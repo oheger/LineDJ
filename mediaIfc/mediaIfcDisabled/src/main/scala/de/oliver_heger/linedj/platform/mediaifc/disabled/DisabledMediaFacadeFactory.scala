@@ -28,11 +28,10 @@ import de.oliver_heger.linedj.utils.ActorFactory
   * returns a facade implementation which does not interact with a real media
   * archive.
   */
-class DisabledMediaFacadeFactory extends MediaFacadeFactory {
+class DisabledMediaFacadeFactory extends MediaFacadeFactory:
   /**
     * @inheritdoc This implementation creates a [[DisabledMediaFacade]] that is
     *             initialized with the passed in ''MessageBus''.
     */
   override def createMediaFacade(actorFactory: ActorFactory, bus: MessageBus): DisabledMediaFacade =
   new DisabledMediaFacade(bus)
-}

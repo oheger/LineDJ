@@ -26,8 +26,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''DisabledMediaFacadeFactory''.
   */
-class DisabledMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A DisabledMediaFacadeFactory" should "create a correct facade" in {
+class DisabledMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A DisabledMediaFacadeFactory" should "create a correct facade" in:
     val actorFactory = mock[ActorFactory]
     val bus = mock[MessageBus]
     val factory = new DisabledMediaFacadeFactory
@@ -35,5 +35,3 @@ class DisabledMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with Mock
     val facade = factory.createMediaFacade(actorFactory, bus)
     facade.bus should be(bus)
     verifyNoInteractions(bus, actorFactory)
-  }
-}
