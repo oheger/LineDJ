@@ -25,7 +25,7 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''Mp3PlaybackContextFactory''.
   */
-class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
+class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers:
   /**
     * Obtains the input stream to a test file.
     *
@@ -39,12 +39,11 @@ class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
     *
     * @param context the context
     */
-  private def close(context: PlaybackContext): Unit = {
+  private def close(context: PlaybackContext): Unit =
     context.stream.close()
     context.line.close()
-  }
 
-  "A Mp3PlaybackContextFactory" should "create a context for a MP3 file" in {
+  "A Mp3PlaybackContextFactory" should "create a context for a MP3 file" in:
     val factory = new Mp3PlaybackContextFactory
     val FileName = "test.mp3"
 
@@ -53,31 +52,26 @@ class Mp3PlaybackContextFactorySpec extends AnyFlatSpec with Matchers {
     context.line should not be null
     context.stream should not be null
     close(context)
-  }
 
-  it should "return None for a stream with unsupported format" in {
+  it should "return None for a stream with unsupported format" in:
     val factory = new Mp3PlaybackContextFactory
     val audioStream = stream("test.txt")
 
-    try {
+    try
       val context = factory.createPlaybackContext(audioStream, "test.mp3")
       context shouldBe empty
-    } finally audioStream.close()
-  }
+    finally audioStream.close()
 
-  it should "ignore files with an unsupported file extension" in {
+  it should "ignore files with an unsupported file extension" in:
     val factory = new Mp3PlaybackContextFactory
     val audioStream = stream("test.mp3")
 
-    try {
+    try
       factory.createPlaybackContext(audioStream, "test.wav") shouldBe empty
-    } finally audioStream.close()
-  }
+    finally audioStream.close()
 
-  it should "ignore the case of the file extension" in {
+  it should "ignore the case of the file extension" in:
     val factory = new Mp3PlaybackContextFactory
 
     val context = factory.createPlaybackContext(stream("test.mp3"), "test.MP3").get
     close(context)
-  }
-}

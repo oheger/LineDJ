@@ -27,7 +27,7 @@ import org.apache.logging.log4j.LogManager
   * A specialized ''PlaybackContextFactory'' implementation that can handle MP3
   * files.
   */
-class Mp3PlaybackContextFactory extends PlaybackContextFactory {
+class Mp3PlaybackContextFactory extends PlaybackContextFactory:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -37,7 +37,7 @@ class Mp3PlaybackContextFactory extends PlaybackContextFactory {
     *             created.
     */
   override def createPlaybackContext(stream: InputStream, uri: String): Option[PlaybackContext] =
-    if (isSupportedFileExtension(uri)) setUpContext(stream, uri)
+    if isSupportedFileExtension(uri) then setUpContext(stream, uri)
     else None
 
   /**
@@ -48,8 +48,8 @@ class Mp3PlaybackContextFactory extends PlaybackContextFactory {
     * @param uri    the URI pointing to the file to be played
     * @return an optional ''PlaybackContext'' for this audio file
     */
-  private def setUpContext(stream: InputStream, uri: String): Option[PlaybackContext] = {
-    try {
+  private def setUpContext(stream: InputStream, uri: String): Option[PlaybackContext] =
+    try
       val in = AudioSystem getAudioInputStream stream
       val baseFormat = in.getFormat
       val decodedFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
@@ -59,12 +59,10 @@ class Mp3PlaybackContextFactory extends PlaybackContextFactory {
       val info = new Info(classOf[SourceDataLine], decodedFormat)
       val line = AudioSystem.getLine(info).asInstanceOf[SourceDataLine]
       Some(PlaybackContext(decodedFormat, din, line))
-    } catch {
+    catch
       case e: Exception =>
         log.error("Could not create PlaybackContext for file " + uri, e)
         None
-    }
-  }
 
   /**
     * Checks whether the URI has a supported file extension. If this method
@@ -73,7 +71,5 @@ class Mp3PlaybackContextFactory extends PlaybackContextFactory {
     * @param uri the URI
     * @return a flag whether this URI is supported
     */
-  private def isSupportedFileExtension(uri: String): Boolean = {
+  private def isSupportedFileExtension(uri: String): Boolean =
     uri.toLowerCase(Locale.ENGLISH).endsWith(".mp3")
-  }
-}
