@@ -20,8 +20,6 @@ import de.oliver_heger.linedj.platform.app.UIServiceManager.{AddService, Process
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import org.apache.pekko.actor.Actor.Receive
 
-import scala.language.higherKinds
-
 private object UIServiceManager:
   /**
     * Definition of a function for processing the services currently stored by

@@ -79,6 +79,4 @@ class UIBus(sync: GUISynchronizer) extends MessageBus:
    * @param r the code to be run
    */
   private def runAsync(r: => Unit): Unit =
-    sync asyncInvoke new Runnable:
-      override def run(): Unit =
-        r
+    sync asyncInvoke (() => r)

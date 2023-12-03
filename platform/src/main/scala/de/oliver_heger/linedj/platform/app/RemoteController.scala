@@ -57,7 +57,7 @@ class RemoteController(actionStore: ActionStore,
   import RemoteController._
 
   /** The consumer registrations used for this controller. */
-  override lazy val registrations = createRegistrations()
+  override lazy val registrations: Iterable[ConsumerRegistration[_]] = createRegistrations()
 
   /**
     * The consumer function invoked when the availability state of the media

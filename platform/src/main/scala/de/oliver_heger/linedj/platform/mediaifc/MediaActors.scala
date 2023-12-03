@@ -50,4 +50,4 @@ object MediaActors:
    * A set with all constants defined by the ''RemoteActors''
    * enumeration.
    */
-  val values = Set(MediaManager, MetaDataManager)
+  val values: Set[MediaActor with Serializable] = Set(MediaManager, MetaDataManager)

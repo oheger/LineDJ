@@ -374,7 +374,6 @@ trait BaseApplicationManager extends ApplicationManager:
     * @return the ''WindowClosingStrategy''
     */
   private def createWindowClosingStrategy(): WindowClosingStrategy =
-    new WindowClosingStrategy:
-      override def canClose(window: Window): Boolean =
-        onWindowClosing(window)
-        false
+    (window: Window) =>
+      onWindowClosing(window)
+      false

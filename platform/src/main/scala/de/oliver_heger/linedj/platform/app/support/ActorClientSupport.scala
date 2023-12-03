@@ -221,6 +221,6 @@ trait ActorClientSupport extends PlatformComponent:
     override def execute[R](implicit c: ClassTag[R]): Future[R] =
       actor.ask(msg)(timeout).mapTo(c)
 
-    override def executeUIThread[R, U](callback: (Try[R]) => U)(implicit c: ClassTag[R]):
+    override def executeUIThread[R, U](callback: Try[R] => U)(implicit c: ClassTag[R]):
     Unit = execute onCompleteUIThread callback
 

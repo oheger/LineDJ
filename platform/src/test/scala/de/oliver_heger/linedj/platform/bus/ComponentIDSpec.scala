@@ -41,7 +41,7 @@ class ComponentIDSpec extends AnyFlatSpec with Matchers:
     ids.size should be > 1
 
   it should "have a toString method returning a numeric ID" in:
-    val reg = """ComponentID \[-?\d+\]""".r
+    val reg = """ComponentID \[-?\d+]""".r
     val id = ComponentID()
 
     id.toString match

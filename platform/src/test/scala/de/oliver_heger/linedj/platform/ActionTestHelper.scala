@@ -48,12 +48,10 @@ trait ActionTestHelper:
     */
   def createAction(name: String): FormAction =
     val action = mock[FormAction]
-    doAnswer(new Answer[AnyRef] {
-      override def answer(invocation: InvocationOnMock): AnyRef = {
-        val enabled = invocation.getArguments.head.asInstanceOf[Boolean]
-        actionStates += (name -> enabled)
-        null
-      }
+    doAnswer((invocation: InvocationOnMock) => {
+      val enabled = invocation.getArguments.head.asInstanceOf[Boolean]
+      actionStates += (name -> enabled)
+      null
     }).when(action).setEnabled(anyBoolean())
     actionStates += (name -> true)
     actions += (name -> action)
@@ -94,8 +92,6 @@ trait ActionTestHelper:
     */
   def createActionStore(): ActionStore =
     val store = mock[ActionStore]
-    when(store.getAction(anyString())).thenAnswer(new Answer[FormAction] {
-      override def answer(invocation: InvocationOnMock): FormAction =
-        actions(invocation.getArguments.head.asInstanceOf[String])
-    })
+    when(store.getAction(anyString())).thenAnswer((invocation: InvocationOnMock) => 
+      actions(invocation.getArguments.head.asInstanceOf[String]))
     store
