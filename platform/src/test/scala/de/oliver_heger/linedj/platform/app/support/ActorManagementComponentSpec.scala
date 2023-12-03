@@ -27,13 +27,13 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.AtomicInteger
 
-object ActorManagementComponentSpec {
+object ActorManagementComponentSpec:
   /**
     * A class implementing the trait under test together with some helper
     * traits.
     */
   private class ComponentTestImpl extends ClientContextSupport with SuperInvocationCheck
-    with ActorManagementComponent {
+    with ActorManagementComponent:
     /** A counter for the invocations of the ''stopActors()'' function. */
     private val stopCounter = new AtomicInteger
 
@@ -44,32 +44,27 @@ object ActorManagementComponentSpec {
       */
     def numberOfStopActorsCalls: Int = stopCounter.get()
 
-    override def stopActors(): Unit = {
+    override def stopActors(): Unit =
       stopCounter.incrementAndGet()
-    }
-  }
-}
 
 /**
   * Test class for [[ActorManagementComponent]].
   */
-class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An ActorManagementComponent" should "call the original life-cycle methods" in {
+class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An ActorManagementComponent" should "call the original life-cycle methods" in:
     val helper = new ManagementComponentTestHelper
 
     helper.activateComponent().checkActivation()
       .deactivateComponent().checkDeactivation()
-  }
 
-  it should "stop managed actors on deactivation" in {
+  it should "stop managed actors on deactivation" in:
     val helper = new ManagementComponentTestHelper
 
     helper.activateComponent()
       .deactivateComponent()
       .checkActorsStopped()
-  }
 
-  it should "allow creating and registering actors" in {
+  it should "allow creating and registering actors" in:
     val helper = new ManagementComponentTestHelper
     val reference = mock[ActorRef]
     val name = "testActor"
@@ -81,12 +76,11 @@ class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with Mockit
     val actor = helper.component.createAndRegisterActor(props, name)
     actor should be(reference)
     helper.component getActor name should be(actor)
-  }
 
   /**
     * A helper class managing a test instance and its dependencies.
     */
-  private class ManagementComponentTestHelper {
+  private class ManagementComponentTestHelper:
     /** A mock for the OSGi component context. */
     private val componentContext: ComponentContext = mock[ComponentContext]
 
@@ -101,62 +95,54 @@ class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with Mockit
       *
       * @return this test helper
       */
-    def activateComponent(): ManagementComponentTestHelper = {
+    def activateComponent(): ManagementComponentTestHelper =
       component activate componentContext
       verifyNoInteractions(componentContext)
       this
-    }
 
     /**
       * Calls ''deactivate()'' on the test component.
       *
       * @return this test helper
       */
-    def deactivateComponent(): ManagementComponentTestHelper = {
+    def deactivateComponent(): ManagementComponentTestHelper =
       component deactivate componentContext
       verifyNoInteractions(componentContext)
       this
-    }
 
     /**
       * Checks whether activation logic was invoked on the test instance.
       *
       * @return this test helper
       */
-    def checkActivation(): ManagementComponentTestHelper = {
+    def checkActivation(): ManagementComponentTestHelper =
       component.activateCount should be(1)
       this
-    }
 
     /**
       * Checks whether deactivation logic was invoked on the test instance.
       *
       * @return this test helper
       */
-    def checkDeactivation(): ManagementComponentTestHelper = {
+    def checkDeactivation(): ManagementComponentTestHelper =
       component.deactivateCount should be(1)
       this
-    }
 
     /**
       * Checks whether the registered actors have been stopped exactly once.
       *
       * @return this test helper
       */
-    def checkActorsStopped(): ManagementComponentTestHelper = {
+    def checkActorsStopped(): ManagementComponentTestHelper =
       component.numberOfStopActorsCalls should be(1)
       this
-    }
 
     /**
       * Creates a test instance.
       *
       * @return the test instance
       */
-    private def createTestInstance(): ComponentTestImpl = {
+    private def createTestInstance(): ComponentTestImpl =
       val comp = new ComponentTestImpl
       comp initClientContext clientContext
       comp
-    }
-  }
-}

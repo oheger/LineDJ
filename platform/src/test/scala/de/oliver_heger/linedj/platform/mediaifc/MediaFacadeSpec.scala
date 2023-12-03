@@ -37,17 +37,16 @@ import scala.util.Failure
 /**
   * Test class for ''MediaFacade''.
   */
-class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A MediaFacade" should "register a meta data listener" in {
+class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A MediaFacade" should "register a meta data listener" in:
     val facade = new MediaFacadeImpl
     val MediumId = MediumID("A medium", None)
 
     val regID = facade queryMetaDataAndRegisterListener MediumId
     facade.sentMessages should be(List((MediaActors.MetaDataManager,
       GetMetaData(MediumId, registerAsListener = true, regID))))
-  }
 
-  it should "generate a sequence of registration IDs" in {
+  it should "generate a sequence of registration IDs" in:
     val count = 16
     val facade = new MediaFacadeImpl
 
@@ -55,9 +54,8 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       i => facade queryMetaDataAndRegisterListener MediumID("m" + i, None)).toSet
     regIDs should have size count
     regIDs should not contain MediaFacade.InvalidListenerRegistrationID
-  }
 
-  it should "increment the registration IDs in a thread-safe manner" in {
+  it should "increment the registration IDs in a thread-safe manner" in:
     val ThreadCount = 16
     val facade = new MediaFacadeImpl
     val latch = new CountDownLatch(1)
@@ -68,7 +66,6 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val ids = threads.foldLeft(Set.empty[Int])((s, t) => s ++ t.ids)
     ids should have size ThreadCount*32
-  }
 
   /**
     * Expects that the given future result is a failure.
@@ -77,19 +74,17 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     * @param futActors the future
     */
   private def expectFailedFuture(facade: MediaFacadeImpl, futActors: Future[MediaFacade
-  .MediaFacadeActors]): Unit = {
-    Await.ready(futActors, facade.expTimeout.duration).value match {
+  .MediaFacadeActors]): Unit =
+    Await.ready(futActors, facade.expTimeout.duration).value match
       case Some(Failure(_)) => // expected
       case _ => fail("Unexpected result!")
-    }
-  }
 
   /**
     * Helper method for querying the facade actors.
     *
     * @param facade the facade object to be used
     */
-  private def checkSuccessfulFacadeActorsRequest(facade: MediaFacadeImpl): Unit = {
+  private def checkSuccessfulFacadeActorsRequest(facade: MediaFacadeImpl): Unit =
     val actMediaManager = mock[ActorRef]
     val actMetaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
@@ -100,21 +95,18 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val actors = Await.result(futActors, facade.expTimeout.duration)
     actors.mediaManager should be(actMediaManager)
     actors.metaDataManager should be(actMetaManager)
-  }
 
-  it should "allow querying an object with interface actors" in {
+  it should "allow querying an object with interface actors" in:
     checkSuccessfulFacadeActorsRequest(new MediaFacadeImpl)
-  }
 
-  it should "allow querying interface actors with a different timeout" in {
+  it should "allow querying interface actors with a different timeout" in:
     checkSuccessfulFacadeActorsRequest(new MediaFacadeImpl(Timeout(1.second)))
-  }
 
   it should "take the timeout into account when querying interface actors" in {
 
   }
 
-  it should "fail to return interface actors if an actor cannot be obtained" in {
+  it should "fail to return interface actors if an actor cannot be obtained" in:
     val facade = new MediaFacadeImpl
     val actMediaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
@@ -123,9 +115,8 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val futActors = facade.requestFacadeActors()
     expectFailedFuture(facade, futActors)
-  }
 
-  it should "fail to return interface actors if one actor is undefined" in {
+  it should "fail to return interface actors if one actor is undefined" in:
     val facade = new MediaFacadeImpl
     val actMetaManager = mock[ActorRef]
     facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
@@ -134,15 +125,13 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val futActors = facade.requestFacadeActors()
     expectFailedFuture(facade, futActors)
-  }
-}
 
 /**
   * Test implementation of the trait.
   *
   * @param expTimeout the timeout for actor requests
   */
-class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends MediaFacade {
+class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends MediaFacade:
   override val bus: MessageBus = null
 
   /** Records messages passed to the send() method (in reverse order). */
@@ -156,9 +145,8 @@ class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends Medi
 
   override def activate(enabled: Boolean): Unit = ???
 
-  override def send(target: MediaActor, msg: Any): Unit = {
+  override def send(target: MediaActor, msg: Any): Unit =
     sentMessages = (target, msg) :: sentMessages
-  }
 
   override def initConfiguration(config: Configuration): Unit = ???
 
@@ -168,35 +156,28 @@ class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends Medi
     * @inheritdoc Returns the response defined for the specified actor.
     */
   override def requestActor(target: MediaActor)(implicit timeout: Timeout):
-  Future[Option[ActorRef]] = {
-    if (timeout != expTimeout) {
+  Future[Option[ActorRef]] =
+    if timeout != expTimeout then
       throw new AssertionError("Unexpected timeout: " + timeout)
-    }
-    target match {
+    target match
       case MediaActors.MediaManager => responseMediaManager
       case MediaActors.MetaDataManager => responseMetaDataManager
-    }
-  }
 
   override def removeMetaDataListener(mediumID: MediumID): Unit = ???
 
   override def registerMetaDataStateListener(componentID: ComponentID): Unit = ???
 
   override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = ???
-}
 
 /**
   * A test thread class for generating listener registration IDs in parallel.
   */
 private class RegisterMediumListenerThread(facade: MediaFacade, latch: CountDownLatch)
-  extends Thread {
+  extends Thread:
   /** A set with the IDs that have been obtained from the facade. */
   var ids = Set.empty[Int]
 
-  override def run(): Unit = {
-    if (latch.await(10, TimeUnit.SECONDS)) {
+  override def run(): Unit =
+    if latch.await(10, TimeUnit.SECONDS) then
       ids = (1 to 32).map(
         i => facade queryMetaDataAndRegisterListener MediumID("test" + i, None)).toSet
-    }
-  }
-}

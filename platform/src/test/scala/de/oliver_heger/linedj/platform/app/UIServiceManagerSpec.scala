@@ -30,8 +30,8 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''UIServiceManager''.
   */
-class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "A UIServiceManager" should "use typed messages" in {
+class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "A UIServiceManager" should "use typed messages" in:
     val service = mock[Runnable]
     val addMsg: UIServiceManager.AddService[_] =
       UIServiceManager.AddService(classOf[Runnable], service, None)
@@ -41,54 +41,47 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val runnable: Runnable = optMsg.get.service
     runnable should be(service)
     addMsg.as(classOf[ClientApplicationContext]) shouldBe empty
-  }
 
-  it should "allow adding a new service" in {
+  it should "allow adding a new service" in:
     val app = mock[Application]
     val helper = new UIServiceManagerTestHelper
 
     helper.manager addService app
     helper.manager.services should contain only app
-  }
 
-  it should "add a new service in the UI thread" in {
+  it should "add a new service in the UI thread" in:
     val helper = new UIServiceManagerTestHelper
     helper.enableBus = false
 
     helper.manager addService mock[Application]
     helper.manager.services should have size 0
-  }
 
-  it should "ignore add messages for other service types" in {
+  it should "ignore add messages for other service types" in:
     val helper = new UIServiceManagerTestHelper
 
     helper receive UIServiceManager.AddService(classOf[Runnable], mock[Runnable], None)
     helper.manager.services should have size 0
-  }
 
-  it should "support a manipulation of the added service in the UI thread" in {
+  it should "support a manipulation of the added service in the UI thread" in:
     val app1 = mock[Application]
     val app2 = mock[Application]
-    val func: Application => Application = {
+    val func: Application => Application =
       case `app1` => app2
       case app => app
-    }
     val helper = new UIServiceManagerTestHelper
 
     helper.manager.addService(app1, Some(func))
     helper.manager.services should contain only app2
-  }
 
-  it should "allow removing a service" in {
+  it should "allow removing a service" in:
     val app = mock[Application]
     val helper = new UIServiceManagerTestHelper
     helper.manager addService app
 
     helper.manager removeService app
     helper.manager.services should have size 0
-  }
 
-  it should "remove a service in the UI thread" in {
+  it should "remove a service in the UI thread" in:
     val app = mock[Application]
     val helper = new UIServiceManagerTestHelper
     helper.manager addService app
@@ -96,9 +89,8 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     helper.enableBus = false
     helper.manager removeService app
     helper.manager.services should contain only app
-  }
 
-  it should "ignore a remove message for another service type" in {
+  it should "ignore a remove message for another service type" in:
     val app = mock[ClientApplication]
     val helper = new UIServiceManagerTestHelper
     helper.manager addService app
@@ -106,9 +98,8 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val msg = UIServiceManager.RemoveService(classOf[ClientApplication], app)
     helper receive msg
     helper.manager.services should contain only app
-  }
 
-  it should "allow processing services" in {
+  it should "allow processing services" in:
     val app1 = mock[Application]
     val app2 = mock[Application]
     val func = mock[UIServiceManager.ProcessFunc[Application]]
@@ -121,9 +112,8 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val captor = ArgumentCaptor.forClass(classOf[Iterable[Application]])
     verify(func).apply(captor.capture())
     captor.getValue should contain only(app1, app2)
-  }
 
-  it should "invoke the processing function on the UI thread" in {
+  it should "invoke the processing function on the UI thread" in:
     val func = mock[UIServiceManager.ProcessFunc[Application]]
     val helper = new UIServiceManagerTestHelper
     helper.manager addService mock[Application]
@@ -131,18 +121,16 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     helper.manager processServices func
     verifyNoInteractions(func)
-  }
 
-  it should "ignore a processing message for another service type" in {
+  it should "ignore a processing message for another service type" in:
     val func = mock[UIServiceManager.ProcessFunc[Runnable]]
     val helper = new UIServiceManagerTestHelper
     helper.manager addService mock[Application]
 
     helper receive UIServiceManager.ProcessServices(classOf[Runnable], func)
     verifyNoInteractions(func)
-  }
 
-  it should "publish a processing result on the message bus" in {
+  it should "publish a processing result on the message bus" in:
     val Message = "ProcessingResult"
     val func = mock[UIServiceManager.ProcessFunc[Application]]
     when(func.apply(any(classOf[Iterable[Application]]))).thenReturn(Some(Message))
@@ -150,19 +138,17 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     helper.manager processServices func
     verify(helper.messageBus).publish(Message)
-  }
 
-  it should "remove its message bus listener on shutdown" in {
+  it should "remove its message bus listener on shutdown" in:
     val helper = new UIServiceManagerTestHelper
 
     helper.manager.shutdown()
     verify(helper.messageBus).removeListener(helper.MessageBusRegistrationID)
-  }
 
   /**
     * A test helper class managing the dependencies of an instance under test.
     */
-  private class UIServiceManagerTestHelper {
+  private class UIServiceManagerTestHelper:
     /** Registration ID for the message bus listener. */
     val MessageBusRegistrationID = 20161217
 
@@ -190,10 +176,9 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       * @param msg the message to be sent
       * @return this test helper
       */
-    def receive(msg: Any): UIServiceManagerTestHelper = {
+    def receive(msg: Any): UIServiceManagerTestHelper =
       listener(msg)
       this
-    }
 
     /**
       * Creates a mock for the message bus. If the bus is enabled, it is
@@ -201,12 +186,12 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       *
       * @return the mock message bus
       */
-    private def createMessageBus(): MessageBus = {
+    private def createMessageBus(): MessageBus =
       val bus = mock[MessageBus]
       doAnswer((invocation: InvocationOnMock) => {
-        if (enableBus) {
+        if enableBus then {
           val msg = invocation.getArguments.head
-          if (listener isDefinedAt msg) {
+          if listener isDefinedAt msg then {
             listener(msg)
           }
         }
@@ -214,18 +199,14 @@ class UIServiceManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       }).when(bus).publish(any())
       when(bus.registerListener(any(classOf[Receive]))).thenReturn(MessageBusRegistrationID)
       bus
-    }
 
     /**
       * Obtains the message bus listener registered by the test manager.
       *
       * @return the message bus listener
       */
-    private def fetchMessageBusListener(): Receive = {
+    private def fetchMessageBusListener(): Receive =
       val captor = ArgumentCaptor.forClass(classOf[Receive])
       verify(messageBus).registerListener(captor.capture())
       captor.getValue
-    }
-  }
 
-}

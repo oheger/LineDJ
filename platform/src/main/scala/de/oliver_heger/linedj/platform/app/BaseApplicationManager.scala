@@ -23,7 +23,7 @@ import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.Actor.Receive
 
-object BaseApplicationManager {
+object BaseApplicationManager:
 
   /**
     * An internal message class used by [[BaseApplicationManager]] to trigger
@@ -35,10 +35,8 @@ object BaseApplicationManager {
     * Constant for an exit handler that does nothing. This handler is set at
     * managed applications to prevent that they shutdown the whole platform.
     */
-  private val DummyExitHandler = new Runnable {
+  private val DummyExitHandler = new Runnable:
     override def run(): Unit = {}
-  }
-}
 
 /**
   * A base trait for ''ApplicationManager'' implementations.
@@ -84,7 +82,7 @@ object BaseApplicationManager {
   * declaration. The thread-safety of this implementation targets this use
   * case!
   */
-trait BaseApplicationManager extends ApplicationManager {
+trait BaseApplicationManager extends ApplicationManager:
   import BaseApplicationManager._
 
   /** The logger. */
@@ -121,9 +119,8 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @param context the ''ClientApplicationContext''
     */
-  def initApplicationContext(context: ClientApplicationContext): Unit = {
+  def initApplicationContext(context: ClientApplicationContext): Unit =
     applicationContext = context
-  }
 
   /**
     * The activation method. This method must be invoked before this component
@@ -132,7 +129,7 @@ trait BaseApplicationManager extends ApplicationManager {
     * an ''activate(ComponentContext)'' method. From there, this method can be
     * called.
     */
-  def setUp(): Unit = {
+  def setUp(): Unit =
     fieldApplicationServiceManager =
       UIServiceManager[ClientApplication](classOf[ClientApplication],
       applicationContext.messageBus)
@@ -142,7 +139,6 @@ trait BaseApplicationManager extends ApplicationManager {
 
     messageBusRegistrationID =
       applicationContext.messageBus registerListener messageBusListener
-  }
 
   /**
     * The deactivation method. This method must be invoked when this instance
@@ -150,29 +146,26 @@ trait BaseApplicationManager extends ApplicationManager {
     * service) typically defines a ''deactivate(ComponentContext)'' method.
     * From there, this method can be called.
     */
-  def tearDown(): Unit = {
+  def tearDown(): Unit =
     applicationContext.messageBus removeListener messageBusRegistrationID
     applicationServiceManager.shutdown()
     shutdownListenerManager.shutdown()
-  }
 
   /**
     * @inheritdoc Adds the application to the internal manager. Also sends a
     *             notification message on the message bus.
     */
-  override def registerApplication(app: ClientApplication): Unit = {
+  override def registerApplication(app: ClientApplication): Unit =
     applicationServiceManager.addService(app, Some(adaptApplication))
     log.info("Added application {}.", app)
     publishMessage(ApplicationRegistered(app))
-  }
 
   /**
     * @inheritdoc This implementation sends a corresponding notification on the
     *             UI message bus.
     */
-  override def applicationTitleUpdated(app: ClientApplication, title: String): Unit = {
+  override def applicationTitleUpdated(app: ClientApplication, title: String): Unit =
     publishMessage(ApplicationTitleUpdated(app, title))
-  }
 
   /**
     * @inheritdoc This implementation delegates to the internal application
@@ -196,12 +189,11 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @param app the application that is gone
     */
-  def removeApplication(app: ClientApplication): Unit = {
+  def removeApplication(app: ClientApplication): Unit =
     // Note: No need to do some un-registrations; the application is destroyed
     // anyway.
     applicationServiceManager removeService app
     publishMessage(ApplicationRemoved(app))
-  }
 
   /**
     * Notifies this component that a shutdown listener service has been
@@ -210,10 +202,9 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @param listener the new listener service
     */
-  def addShutdownListener(listener: ShutdownListener): Unit = {
+  def addShutdownListener(listener: ShutdownListener): Unit =
     shutdownListenerManager addService listener
     log.info("Added ShutdownListener service {}.", listener)
-  }
 
   /**
     * Notifies this component that a ''ShutdownListener'' service is no longer
@@ -222,27 +213,24 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @param listener the removed listener service
     */
-  def removeShutdownListener(listener: ShutdownListener): Unit = {
+  def removeShutdownListener(listener: ShutdownListener): Unit =
     shutdownListenerManager removeService listener
-  }
 
   /**
     * Triggers the shutdown of the whole platform. This method can be invoked
     * by a derived class when it receives its special shutdown trigger.
     */
-  protected def triggerShutdown(): Unit = {
+  protected def triggerShutdown(): Unit =
     log.info("Shutdown triggered.")
     shutdownListenerManager processServices processShutdownListeners
-  }
 
   /**
     * Publishes the specified message on the UI message bus.
     *
     * @param msg the message to be published
     */
-  protected def publishMessage(msg: Any): Unit = {
+  protected def publishMessage(msg: Any): Unit =
     applicationContext.messageBus publish msg
-  }
 
   /**
     * Notifies this object that a shutdown action was triggered on the
@@ -308,10 +296,9 @@ trait BaseApplicationManager extends ApplicationManager {
     *
     * @return the internal message bus listener function
     */
-  private def messageProcessing: Receive = {
+  private def messageProcessing: Receive =
     case ShutdownApplications =>
       applicationServiceManager processServices processApplications
-  }
 
   /**
     * Adapts an application that is added to this manager. This method
@@ -322,12 +309,11 @@ trait BaseApplicationManager extends ApplicationManager {
     * @param app the application
     * @return the same application
     */
-  private def adaptApplication(app: ClientApplication): ClientApplication = {
+  private def adaptApplication(app: ClientApplication): ClientApplication =
     app addShutdownListener ShutdownTracker
     app.optMainWindow foreach (_ setWindowClosingStrategy ClosingStrategy)
     app setExitHandler DummyExitHandler
     app
-  }
 
   /**
     * The processing function for shutdown listeners. Invokes each listener.
@@ -337,11 +323,10 @@ trait BaseApplicationManager extends ApplicationManager {
     * @param listeners the shutdown listeners
     * @return optional shutdown message
     */
-  private def processShutdownListeners(listeners: Iterable[ShutdownListener]): Option[Any] = {
-    if (listeners forall (_.onShutdown()))
+  private def processShutdownListeners(listeners: Iterable[ShutdownListener]): Option[Any] =
+    if listeners forall (_.onShutdown()) then
       Some(ShutdownApplications)
     else None
-  }
 
   /**
     * The processing function for applications. This function removes the
@@ -351,13 +336,12 @@ trait BaseApplicationManager extends ApplicationManager {
     * @param apps the applications
     * @return the platform shutdown message
     */
-  private def processApplications(apps: Iterable[Application]): Option[Any] = {
+  private def processApplications(apps: Iterable[Application]): Option[Any] =
     apps foreach { a =>
       a removeShutdownListener ShutdownTracker
       a.shutdown()
     }
     Some(ShutdownHandler.Shutdown(applicationContext))
-  }
 
   /**
     * Creates a shutdown listener which is registered at all installed
@@ -366,7 +350,7 @@ trait BaseApplicationManager extends ApplicationManager {
     * @return the shutdown listener
     */
   private def createShutdownListener(): ApplicationShutdownListener =
-    new ApplicationShutdownListener {
+    new ApplicationShutdownListener:
       /**
         * @inheritdoc This is just a dummy implementation.
         */
@@ -378,11 +362,9 @@ trait BaseApplicationManager extends ApplicationManager {
         *             ''onApplicationShutdown()'' method, so that a derived class
         *             can decide how to handle this event.
         */
-      override def canShutdown(app: Application): Boolean = {
+      override def canShutdown(app: Application): Boolean =
         onApplicationShutdown(app.asInstanceOf[ClientApplication])
         false
-      }
-    }
 
   /**
     * Creates a ''WindowClosingStrategy'' that is registered at all application
@@ -392,10 +374,7 @@ trait BaseApplicationManager extends ApplicationManager {
     * @return the ''WindowClosingStrategy''
     */
   private def createWindowClosingStrategy(): WindowClosingStrategy =
-    new WindowClosingStrategy {
-      override def canClose(window: Window): Boolean = {
+    new WindowClosingStrategy:
+      override def canClose(window: Window): Boolean =
         onWindowClosing(window)
         false
-      }
-    }
-}

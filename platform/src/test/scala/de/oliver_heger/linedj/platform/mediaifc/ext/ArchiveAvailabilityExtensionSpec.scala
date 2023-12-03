@@ -29,7 +29,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''ArchiveAvailabilityExtension''.
   */
-class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a registration for an archive availability consumer.
     *
@@ -39,7 +39,7 @@ class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with Mo
   ArchiveAvailabilityRegistration(ComponentID(),
     mock[ConsumerFunction[MediaArchiveAvailabilityEvent]])
 
-  "An ArchiveAvailabilityExtension" should "pass events to registered consumers" in {
+  "An ArchiveAvailabilityExtension" should "pass events to registered consumers" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val ext = new ArchiveAvailabilityExtension
@@ -52,9 +52,8 @@ class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with Mo
     verify(reg2.callback).apply(MediaFacade.MediaArchiveAvailable)
     verify(reg1.callback, times(2)).apply(MediaFacade.MediaArchiveUnavailable)
     verify(reg2.callback, times(2)).apply(MediaFacade.MediaArchiveUnavailable)
-  }
 
-  it should "support removing consumers" in {
+  it should "support removing consumers" in:
     val reg = createRegistration()
     val ext = new ArchiveAvailabilityExtension
     ext receive reg
@@ -62,21 +61,17 @@ class ArchiveAvailabilityExtensionSpec extends AnyFlatSpec with Matchers with Mo
     ext receive ArchiveAvailabilityExtension.ArchiveAvailabilityUnregistration(reg.id)
     ext receive MediaFacade.MediaArchiveAvailable
     verify(reg.callback, never()).apply(MediaFacade.MediaArchiveAvailable)
-  }
 
-  it should "propagate the last known state to newly added consumers" in {
+  it should "propagate the last known state to newly added consumers" in:
     val reg = createRegistration()
     val ext = new ArchiveAvailabilityExtension
 
     ext receive MediaFacade.MediaArchiveAvailable
     ext receive reg
     verify(reg.callback).apply(MediaFacade.MediaArchiveAvailable)
-  }
 
-  it should "generate a correct un-registration object" in {
+  it should "generate a correct un-registration object" in:
     val reg = createRegistration()
 
     val unReg = reg.unRegistration
     unReg should be(ArchiveAvailabilityUnregistration(reg.id))
-  }
-}

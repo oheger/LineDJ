@@ -23,7 +23,7 @@ import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor.Receive
 import org.apache.pekko.actor.ActorRef
 
-object ShutdownHandler {
+object ShutdownHandler:
   /** The name used for the shutdown management actor. */
   final val ShutdownActorName = "shutdownManagementActor"
 
@@ -74,14 +74,13 @@ object ShutdownHandler {
     * shutdown action. After all observers have sent this notification, the
     * platform can actually shut down.
     */
-  trait ShutdownCompletionNotifier {
+  trait ShutdownCompletionNotifier:
     /**
       * Notifies the shutdown handler that the shutdown logic of the current
       * observer has been completed. Note that this method can be called from
       * an arbitrary thread.
       */
     def shutdownComplete(): Unit
-  }
 
   /**
     * A trait defining the interface of a component that takes part in the
@@ -92,7 +91,7 @@ object ShutdownHandler {
     * implementation can then execute its specific shutdown logic. When this is
     * done, the ''ShutdownCompletionNotifier'' provided must be invoked.
     */
-  trait ShutdownObserver {
+  trait ShutdownObserver:
     /**
       * Notifies this observer that the platform is going to be shutdown. This
       * method is called in the event dispatch thread. An implementation can
@@ -103,8 +102,6 @@ object ShutdownHandler {
       *                           complete for this observer
       */
     def triggerShutdown(completionNotifier: ShutdownCompletionNotifier): Unit
-  }
-}
 
 /**
   * A class responsible for a controlled shutdown of the LineDJ platform.
@@ -131,7 +128,7 @@ object ShutdownHandler {
   *
   * @param app the management application
   */
-class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListener {
+class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListener:
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -149,14 +146,13 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
     *
     * @return the message handling function
     */
-  override def receive: Receive = {
+  override def receive: Receive =
     case Shutdown(ctx) =>
       log.info("Received Shutdown command.")
-      if (ctx == app) {
-        if (!shutdownInProgress) {
+      if ctx == app then
+        if !shutdownInProgress then
           initiateShutdown()
-        } else log.info("Ignoring Shutdown command while shutdown is in progress.")
-      }
+        else log.info("Ignoring Shutdown command while shutdown is in progress.")
       else log.warn("Ignoring invalid Shutdown command: " + ctx)
 
     case RegisterShutdownObserver(id, observer) =>
@@ -166,41 +162,33 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
     case RemoveShutdownObserver(id) =>
       observers -= id
       log.info("Removed shutdown observer " + id)
-      if (shutdownInProgress) {
+      if shutdownInProgress then
         optShutdownActor foreach { _ ! ShutdownManagementActor.ShutdownConfirmation(id) }
-      }
-  }
 
   /**
     * Initiates a shutdown operation in reaction of a ''Shutdown'' message.
     * If possible, the platform is shutdown immediately; otherwise, waiting for
     * confirmation messages starts.
     */
-  private def initiateShutdown(): Unit = {
+  private def initiateShutdown(): Unit =
     shutdownInProgress = true
-    if (observers.isEmpty) {
+    if observers.isEmpty then
       shutdownPlatform()
-    } else {
+    else
       log.info("Creating ShutdownManagementActor to monitor these shutdown observers: {}.", observers.keySet)
       val props = ShutdownManagementActor.props(app, observers.keySet)
       val shutdownActor = app.actorFactory.createActor(props, ShutdownActorName)
-    observers foreach { entry =>
-      val notifier = new ShutdownCompletionNotifier {
-        override def shutdownComplete(): Unit = {
-          shutdownActor ! ShutdownManagementActor.ShutdownConfirmation(entry._1)
-        }
+      observers foreach { entry =>
+        val notifier = new ShutdownCompletionNotifier:
+          override def shutdownComplete(): Unit =
+            shutdownActor ! ShutdownManagementActor.ShutdownConfirmation(entry._1)
+        entry._2.triggerShutdown(notifier)
       }
-      entry._2.triggerShutdown(notifier)
-    }
       optShutdownActor = Some(shutdownActor)
-    }
-  }
 
   /**
     * Shuts down the whole platform. This method is called when all
     * prerequisites for a shutdown operation are fulfilled.
     */
-  private def shutdownPlatform(): Unit = {
+  private def shutdownPlatform(): Unit =
     app.shutdown()
-  }
-}

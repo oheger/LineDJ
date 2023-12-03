@@ -26,19 +26,18 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-object MessageBusTestImpl {
+object MessageBusTestImpl:
 
   /**
     * A dummy implementation of the ''GUISynchronizer'' interface which
     * executes the passed in task directly.
     */
-  private class DirectCallGUISynchronizer extends GUISynchronizer {
+  private class DirectCallGUISynchronizer extends GUISynchronizer:
     override def syncInvoke(runnable: Runnable): Unit = runnable.run()
 
     override def isEventDispatchThread: Boolean = true
 
     override def asyncInvoke(runnable: Runnable): Unit = syncInvoke(runnable)
-  }
 
   /**
     * Helper function to cast a message of an unspecific type to a given target
@@ -52,7 +51,6 @@ object MessageBusTestImpl {
     */
   private def castMessage[T](message: Any)(implicit t: ClassTag[T]): T =
     t.runtimeClass.asInstanceOf[Class[T]] cast message
-}
 
 /**
   * An implementation of ''MessageBus'' that can be used for tests.
@@ -75,7 +73,7 @@ object MessageBusTestImpl {
 class MessageBusTestImpl(initDirectProcessing: Boolean = false,
                          initUIFutureProcessing: Boolean = false,
                          timeout: Int = 3)
-  extends UIBus(new DirectCallGUISynchronizer) {
+  extends UIBus(new DirectCallGUISynchronizer):
   /**
     * A flag whether messages published to the bus should be delivered
     * directly. If set to '''false''', messages are only queued.
@@ -98,10 +96,9 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     * @inheritdoc This implementation takes the ''directProcessing'' flag into
     *             account.
     */
-  override def publish(msg: Any): Unit = {
-    if (shouldForward(msg)) super.publish(msg)
+  override def publish(msg: Any): Unit =
+    if shouldForward(msg) then super.publish(msg)
     else messageQueue offer msg
-  }
 
   /**
     * Delivers the provided message directly to receivers, no matter of the
@@ -109,26 +106,23 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     *
     * @param msg the message
     */
-  def publishDirectly(msg: Any): Unit = {
+  def publishDirectly(msg: Any): Unit =
     super.publish(msg)
-  }
 
   /**
     * @inheritdoc This implementation records this invocation.
     */
-  override def registerListener(r: Receive): Int = {
+  override def registerListener(r: Receive): Int =
     val regId = super.registerListener(r)
     registeredListeners += regId -> r
     regId
-  }
 
   /**
     * @inheritdoc This implementation records this invocation.
     */
-  override def removeListener(listenerID: Int): Unit = {
+  override def removeListener(listenerID: Int): Unit =
     registeredListeners -= listenerID
     super.removeListener(listenerID)
-  }
 
   /**
     * Returns a map with all listeners currently registered at the bus. The
@@ -170,13 +164,11 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     * @return the message
     * @throws NoSuchElementException if no message has been received
     */
-  def expectMessageType[T](implicit t: ClassTag[T]): T = {
+  def expectMessageType[T](implicit t: ClassTag[T]): T =
     val m = messageQueue.poll(timeout, TimeUnit.SECONDS)
-    if (m == null) {
+    if m == null then
       throw new NoSuchElementException("No message received within timeout!")
-    }
     castMessage(m)
-  }
 
   /**
     * Searches for a message of the given type in the published messages.
@@ -188,11 +180,10 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     * @return the first message of the given type
     * @throws NoSuchElementException if no message of this type was found
     */
-  @tailrec final def findMessageType[T](implicit t: ClassTag[T]): T = {
+  @tailrec final def findMessageType[T](implicit t: ClassTag[T]): T =
     val message = expectMessageType[Any]
-    if (t.runtimeClass.isInstance(message)) castMessage(message)
+    if t.runtimeClass.isInstance(message) then castMessage(message)
     else findMessageType[T]
-  }
 
   /**
     * Expects that no message is published on the message bus in a given
@@ -200,12 +191,10 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     *
     * @param timeout the timeout
     */
-  def expectNoMessage(timeout: FiniteDuration = 1.second): Unit = {
+  def expectNoMessage(timeout: FiniteDuration = 1.second): Unit =
     val m = messageQueue.poll(timeout.toMillis, TimeUnit.MILLISECONDS)
-    if (m != null) {
+    if m != null then
       throw new IllegalStateException("Unexpected message: " + m)
-    }
-  }
 
   /**
     * Delivers the next received message to registered listeners and returns
@@ -217,18 +206,16 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     * @return the message
     * @throws NoSuchElementException if no message has been received
     */
-  def processNextMessage[T]()(implicit t: ClassTag[T]): T = {
+  def processNextMessage[T]()(implicit t: ClassTag[T]): T =
     val msg = expectMessageType[T]
     publishDirectly(msg)
     msg
-  }
 
   /**
     * Clears all the messages that might have been recorded.
     */
-  def clearMessages(): Unit = {
+  def clearMessages(): Unit =
     messageQueue.clear()
-  }
 
   /**
     * Checks whether the given message should be forwarded directly on the bus.
@@ -239,4 +226,3 @@ class MessageBusTestImpl(initDirectProcessing: Boolean = false,
     */
   private def shouldForward(msg: Any): Boolean =
     directProcessing || (uiFutureProcessing && msg.getClass.getName.endsWith("FutureUICallback"))
-}

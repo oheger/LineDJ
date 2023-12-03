@@ -31,7 +31,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''ConsumerRegistrationProcessor''.
   */
-class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a mock consumer registration provider that returns the specified
     * registration objects.
@@ -39,13 +39,12 @@ class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with M
     * @param regs the registration objects
     * @return the mock provider
     */
-  private def createProvider(regs: ConsumerRegistration[_]*): ConsumerRegistrationProvider = {
+  private def createProvider(regs: ConsumerRegistration[_]*): ConsumerRegistrationProvider =
     val provider = mock[ConsumerRegistrationProvider]
     when(provider.registrations).thenReturn(regs)
     provider
-  }
 
-  "A ConsumerRegistrationProcessor" should "register all consumers" in {
+  "A ConsumerRegistrationProcessor" should "register all consumers" in:
     val bus = mock[MessageBus]
     val reg1, reg2, reg3, reg4 = mock[ConsumerRegistration[String]]
     val provider1 = createProvider(reg1)
@@ -60,9 +59,8 @@ class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with M
     inOrder.verify(bus).publish(reg2)
     inOrder.verify(bus).publish(reg3)
     inOrder.verify(bus).publish(reg4)
-  }
 
-  it should "handle the removal of registrations" in {
+  it should "handle the removal of registrations" in:
     val bus = mock[MessageBus]
     val reg1, reg2 = mock[ConsumerRegistration[String]]
     val unReg1, unReg2 = new Object
@@ -75,11 +73,8 @@ class ConsumerRegistrationProcessorSpec extends AnyFlatSpec with Matchers with M
     processor.removeRegistrations()
     verify(bus).publish(unReg1)
     verify(bus).publish(unReg2)
-  }
 
-  it should "handle the removal of registrations if it has not been initialized before" in {
+  it should "handle the removal of registrations if it has not been initialized before" in:
     val processor = new ConsumerRegistrationProcessor(new util.ArrayList)
 
     processor.removeRegistrations() // should not crash
-  }
-}

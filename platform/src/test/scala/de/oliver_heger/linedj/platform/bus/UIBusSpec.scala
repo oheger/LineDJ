@@ -25,7 +25,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object UIBusSpec {
+object UIBusSpec:
   /** A message indicating the start of a sync operation. */
   private val SyncStart = "SyncStart"
 
@@ -45,9 +45,8 @@ object UIBusSpec {
    * @param protocol the protocol buffer
    * @return the test receiver
    */
-  private def createReceiver(msg: Any, protocol: StringBuilder): Actor.Receive = {
+  private def createReceiver(msg: Any, protocol: StringBuilder): Actor.Receive =
     case `msg` => protocol append msg
-  }
 
   /**
    * Generates the expected protocol entry for a synchronized operation.
@@ -55,12 +54,11 @@ object UIBusSpec {
    * @return the protocol entry for this operation
    */
   private def syncProt(op: String = ""): String = SyncStart + op + SyncEnd
-}
 
 /**
  * Test class for ''UIBus''.
  */
-class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import UIBusSpec._
 
@@ -72,7 +70,7 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
    * @param protocol the string builder for writing logs
    * @return the mock sync object
    */
-  private def createSync(protocol: StringBuilder): GUISynchronizer = {
+  private def createSync(protocol: StringBuilder): GUISynchronizer =
     val sync = mock[GUISynchronizer]
     when(sync.asyncInvoke(any(classOf[Runnable]))).thenAnswer((invocationOnMock: InvocationOnMock) => {
       val task = invocationOnMock.getArguments()(0).asInstanceOf[Runnable]
@@ -81,26 +79,23 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       protocol append SyncEnd
     })
     sync
-  }
 
   /**
    * Creates a test bus instance and a protocol buffer for checking
    * invocations.
    * @return a tuple with the bus and the protocol buffer
    */
-  private def createBus(): (UIBus, StringBuilder) = {
+  private def createBus(): (UIBus, StringBuilder) =
     val protocol = new StringBuilder()
     (new UIBus(createSync(protocol)), protocol)
-  }
 
-  "A UIBus" should "work without listeners" in {
+  "A UIBus" should "work without listeners" in:
     val (bus, protocol) = createBus()
 
     bus publish MessagePing
     protocol.toString() should be(SyncStart + SyncEnd)
-  }
 
-  it should "handle listeners" in {
+  it should "handle listeners" in:
     val (bus, protocol) = createBus()
     val rec1 = createReceiver(MessagePing, protocol)
     val rec2 = createReceiver(MessagePong, protocol)
@@ -110,9 +105,8 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     lid1 should not be lid2
     bus publish MessagePing
     protocol.toString() should be(syncProt() + syncProt() + syncProt(MessagePing))
-  }
 
-  it should "support removing listeners" in {
+  it should "support removing listeners" in:
     val (bus, protocol) = createBus()
     val rec1 = createReceiver(MessagePing, protocol)
     val rec2 = createReceiver(MessagePing, protocol)
@@ -122,5 +116,3 @@ class UIBusSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     bus removeListener lid
     bus publish MessagePing
     protocol.toString() should be(syncProt() + syncProt() + syncProt() + syncProt(MessagePing))
-  }
-}

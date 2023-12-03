@@ -30,7 +30,7 @@ import org.scalatestplus.mockito.MockitoSugar
   * record their enabled state. It is also possible to create a mock
   * ''ActionStore'' that allows access to all mock actions.
   */
-trait ActionTestHelper {
+trait ActionTestHelper:
   this: MockitoSugar =>
 
   /** A map with mock actions to be managed by this instance. */
@@ -46,7 +46,7 @@ trait ActionTestHelper {
     * @param name the name of the action
     * @return the mock action
     */
-  def createAction(name: String): FormAction = {
+  def createAction(name: String): FormAction =
     val action = mock[FormAction]
     doAnswer(new Answer[AnyRef] {
       override def answer(invocation: InvocationOnMock): AnyRef = {
@@ -58,7 +58,6 @@ trait ActionTestHelper {
     actionStates += (name -> true)
     actions += (name -> action)
     action
-  }
 
   /**
     * Returns the enabled state of the specified action. Note that this action
@@ -75,9 +74,8 @@ trait ActionTestHelper {
     *
     * @param names the names of the actions to be created
     */
-  def createActions(names: String*): Unit = {
+  def createActions(names: String*): Unit =
     names foreach createAction
-  }
 
   /**
     * Resets the enabled states of all managed action mocks to the specified
@@ -85,9 +83,8 @@ trait ActionTestHelper {
     *
     * @param enabled the new enabled state
     */
-  def resetActionStates(enabled: Boolean = false): Unit = {
+  def resetActionStates(enabled: Boolean = false): Unit =
     actionStates = actionStates map (t => (t._1, enabled))
-  }
 
   /**
     * Creates a mock action store object that allows access to the actions
@@ -95,12 +92,10 @@ trait ActionTestHelper {
     *
     * @return the mock action store
     */
-  def createActionStore(): ActionStore = {
+  def createActionStore(): ActionStore =
     val store = mock[ActionStore]
     when(store.getAction(anyString())).thenAnswer(new Answer[FormAction] {
       override def answer(invocation: InvocationOnMock): FormAction =
         actions(invocation.getArguments.head.asInstanceOf[String])
     })
     store
-  }
-}

@@ -22,9 +22,7 @@ import org.scalatest.matchers.should.Matchers
 /**
  * Test class for ''RemoteActors''.
  */
-class RemoteActorsSpec extends AnyFlatSpec with Matchers {
-  "The RemoteActors enumeration" should "manage a set with all constants" in {
+class RemoteActorsSpec extends AnyFlatSpec with Matchers:
+  "The RemoteActors enumeration" should "manage a set with all constants" in:
     val constants = MediaActors.values
     constants should contain only(MediaActors.MediaManager, MediaActors.MetaDataManager)
-  }
-}

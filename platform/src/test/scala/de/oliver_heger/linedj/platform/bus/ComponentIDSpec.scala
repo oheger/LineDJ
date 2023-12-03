@@ -22,41 +22,34 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''ComponentID''.
   */
-class ComponentIDSpec extends AnyFlatSpec with Matchers {
-  "A ComponentID" should "be equal to itself" in {
+class ComponentIDSpec extends AnyFlatSpec with Matchers:
+  "A ComponentID" should "be equal to itself" in:
     val id = ComponentID()
 
     id should be(id)
-  }
 
-  it should "not be equal to other instances" in {
+  it should "not be equal to other instances" in:
     val Count = 128
     val ids = (1 to Count).map(_ => ComponentID()).toSet
 
     ids should have size Count
-  }
 
-  it should "generate different hash codes" in {
+  it should "generate different hash codes" in:
     val Count = 128
     val ids = (1 to Count).map(_ => ComponentID().hashCode()).toSet
 
     ids.size should be > 1
-  }
 
-  it should "have a toString method returning a numeric ID" in {
+  it should "have a toString method returning a numeric ID" in:
     val reg = """ComponentID \[-?\d+\]""".r
     val id = ComponentID()
 
-    id.toString match {
+    id.toString match
       case reg(_*) =>
       case s => fail("Invalid string representation: " + s)
-    }
-  }
 
-  it should "have different string representations for different instances" in {
+  it should "have different string representations for different instances" in:
     val Count = 128
     val ids = (1 to Count).map(_ => ComponentID().toString()).toSet
 
     ids should have size Count
-  }
-}

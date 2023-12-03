@@ -28,14 +28,14 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.util.Try
 
-object ActorClientSupport {
+object ActorClientSupport:
 
   /**
     * A trait describing a request to the actor. The request can either be
     * executed yielding a ''Future'', or the result can be passed to a callback
     * on the UI thread.
     */
-  trait ActorRequest {
+  trait ActorRequest:
     /**
       * Executes this request and returns a ''Future'' mapped to the expected
       * result type.
@@ -57,7 +57,6 @@ object ActorClientSupport {
       * @tparam U the return type of the callback (just ignored)
       */
     def executeUIThread[R, U](callback: Try[R] => U)(implicit c: ClassTag[R]): Unit
-  }
 
   /**
     * Internally used helper class to run an ''onComplete()'' callback of a
@@ -68,16 +67,13 @@ object ActorClientSupport {
     * @tparam T the type of the result
     * @tparam U the return type of the callback (just ignored)
     */
-  private case class FutureUICallback[T, U](callback: Try[T] => U, result: Try[T]) {
+  private case class FutureUICallback[T, U](callback: Try[T] => U, result: Try[T]):
     /**
       * Invokes the managed callback with the result object.
       */
-    def invokeCallback(): Unit = {
+    def invokeCallback(): Unit =
       callback(result)
-    }
-  }
 
-}
 
 /**
   * A support trait that simplifies working with actors.
@@ -98,7 +94,7 @@ object ActorClientSupport {
   *    ''Future'' to a ''UIFuture'' is added. This type offers a method to
   *    invoke a callback in the UI thread when the ''Future'' completes.
   */
-trait ActorClientSupport extends PlatformComponent {
+trait ActorClientSupport extends PlatformComponent:
   /** Stores the registration ID for the message bus. */
   private var messageBusRegistrationID = 0
 
@@ -138,10 +134,9 @@ trait ActorClientSupport extends PlatformComponent {
     * @param timeout a timeout
     * @return a future for the resolved actor reference
     */
-  def resolveActor(path: String)(implicit timeout: Timeout): Future[ActorRef] = {
+  def resolveActor(path: String)(implicit timeout: Timeout): Future[ActorRef] =
     val selection = clientApplicationContext.actorSystem.actorSelection(path)
     selection.resolveOne()
-  }
 
   /**
     * Resolves an actor by its path and invokes the specified callback with
@@ -155,9 +150,8 @@ trait ActorClientSupport extends PlatformComponent {
     * @tparam U the return value of the callback (just ignored)
     */
   def resolveActorUIThread[U](path: String)(f: Try[ActorRef] => U)
-                             (implicit timeout: Timeout): Unit = {
+                             (implicit timeout: Timeout): Unit =
     resolveActor(path) onCompleteUIThread f
-  }
 
   /**
     * Produces an ''ActorRequest'' for the specified actor and message. The
@@ -176,29 +170,26 @@ trait ActorClientSupport extends PlatformComponent {
     * @inheritdoc This implementation installs a message bus receiver to handle
     *             synchronization with the UI thread.
     */
-  abstract override def activate(compContext: ComponentContext): Unit = {
+  abstract override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     messageBusRegistrationID =
       clientApplicationContext.messageBus registerListener messageBusReceive
-  }
 
   /**
     * @inheritdoc This implementation performs cleanup.
     */
-  abstract override def deactivate(componentContext: ComponentContext): Unit = {
+  abstract override def deactivate(componentContext: ComponentContext): Unit =
     clientApplicationContext.messageBus removeListener messageBusRegistrationID
     super.deactivate(componentContext)
-  }
 
   /**
     * Returns the message bus receiving function.
     *
     * @return the message bus receiving function
     */
-  private def messageBusReceive: Actor.Receive = {
+  private def messageBusReceive: Actor.Receive =
     case callback: FutureUICallback[_, _] =>
       callback.invokeCallback()
-  }
 
   /**
     * Internal wrapper class providing additional functionality for ''Future''
@@ -207,7 +198,7 @@ trait ActorClientSupport extends PlatformComponent {
     * @param future the wrapped ''Future''
     * @tparam T the type of the ''Future''
     */
-  class UIFuture[T](future: Future[T]) {
+  class UIFuture[T](future: Future[T]):
     /**
       * Completes the wrapped ''Future'' and passes the result to the given
       * callback in the UI thread.
@@ -215,10 +206,8 @@ trait ActorClientSupport extends PlatformComponent {
       * @param f the callback
       * @tparam U the result of the callback (just ignored)
       */
-    def onCompleteUIThread[U](f: Try[T] => U): Unit = {
+    def onCompleteUIThread[U](f: Try[T] => U): Unit =
       future.onComplete(t => clientApplicationContext.messageBus publish FutureUICallback(f, t))
-    }
-  }
 
   /**
     * Internal implementation of ''ActorRequest''.
@@ -228,12 +217,10 @@ trait ActorClientSupport extends PlatformComponent {
     * @param timeout the timeout
     */
   private case class ActorRequestImpl(actor: ActorRef, msg: Any, timeout: Timeout)
-    extends ActorRequest {
+    extends ActorRequest:
     override def execute[R](implicit c: ClassTag[R]): Future[R] =
       actor.ask(msg)(timeout).mapTo(c)
 
     override def executeUIThread[R, U](callback: (Try[R]) => U)(implicit c: ClassTag[R]):
     Unit = execute onCompleteUIThread callback
-  }
 
-}

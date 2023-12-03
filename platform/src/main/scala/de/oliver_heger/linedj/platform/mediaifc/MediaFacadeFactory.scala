@@ -32,7 +32,7 @@ import de.oliver_heger.linedj.utils.ActorFactory
   * a ''MediaFacade'' object. So the set of bundles available in the container
   * determine the way the archive is used.
   */
-trait MediaFacadeFactory {
+trait MediaFacadeFactory:
   /**
     * Creates a new ''MediaFacade'' instance that uses the specified
     * ''MessageBus''. As typical implementations make use of actors for the
@@ -44,4 +44,3 @@ trait MediaFacadeFactory {
     * @return the newly created ''MediaFacade''
     */
   def createMediaFacade(actorFactory: ActorFactory, bus: MessageBus): MediaFacade
-}

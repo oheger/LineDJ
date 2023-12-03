@@ -20,8 +20,10 @@ import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.Application
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.osgi.service.component.ComponentContext
+
+import scala.reflect.ClassTag
 
 /**
   * A trait defining functionality useful for testing application classes.
@@ -30,7 +32,7 @@ import org.osgi.service.component.ComponentContext
   * is needed again and again. This helper trait defines a couple of helper
   * methods that simplify such tests.
   */
-trait ApplicationTestSupport {
+trait ApplicationTestSupport:
   /**
     * Queries the given bean context for a bean with a specific name. This bean
     * is checked against a type. If this type is matched, the bean is returned;
@@ -38,17 +40,15 @@ trait ApplicationTestSupport {
     *
     * @param context the ''BeanContext''
     * @param name    the name of the bean
-    * @param m       the manifest
+    * @param ct      the class tag
     * @tparam T the expected bean type
     * @return the bean of this type
     */
-  def queryBean[T](context: BeanContext, name: String)(implicit m: Manifest[T]): T = {
-    context.getBean(name) match {
+  def queryBean[T](context: BeanContext, name: String)(implicit ct: ClassTag[T]): T =
+    context.getBean(name) match
       case t: T => t
       case b =>
         throw new AssertionError(s"Unexpected bean for name '$name': $b")
-    }
-  }
 
   /**
     * Queries the given application for a bean with a specific name. This bean
@@ -57,12 +57,12 @@ trait ApplicationTestSupport {
     *
     * @param app  the application
     * @param name the name of the bean
-    * @param m    the manifest
+    * @param ct   the class tag
     * @tparam T the expected bean type
     * @return the bean of this type
     */
-  def queryBean[T](app: Application, name: String)(implicit m: Manifest[T]): T =
-    queryBean(app.getApplicationContext.getBeanContext, name)(m)
+  def queryBean[T](app: Application, name: String)(implicit ct: ClassTag[T]): T =
+    queryBean(app.getApplicationContext.getBeanContext, name)(ct)
 
   /**
     * Prepares a mock bean context to support the specified bean. The context
@@ -74,11 +74,10 @@ trait ApplicationTestSupport {
     * @param bean the bean itself
     * @return the bean context mock
     */
-  def addBean(ctx: BeanContext, name: String, bean: AnyRef): BeanContext = {
+  def addBean(ctx: BeanContext, name: String, bean: AnyRef): BeanContext =
     doReturn(bean).when(ctx).getBean(name)
     when(ctx.containsBean(name)).thenReturn(true)
     ctx
-  }
 
   /**
     * Prepares a mock bean context to support all beans defined by the given
@@ -89,10 +88,9 @@ trait ApplicationTestSupport {
     * @param beans a map defining the beans to be added
     * @return the bean context mock
     */
-  def addBeans(ctx: BeanContext, beans: Map[String, AnyRef]): BeanContext = {
+  def addBeans(ctx: BeanContext, beans: Map[String, AnyRef]): BeanContext =
     beans foreach (e => addBean(ctx, e._1, e._2))
     ctx
-  }
 
   /**
     * Creates a ''ClientApplicationContext'' object which provides mock
@@ -114,7 +112,7 @@ trait ApplicationTestSupport {
     * @tparam T the type of the application
     * @return the application again
     */
-  def activateApp[T <: ClientApplication](app: T, config: Configuration = new PropertiesConfiguration()): T = {
+  def activateApp[T <: ClientApplication](app: T, config: Configuration = new PropertiesConfiguration()): T =
     app initClientContext createClientApplicationContext(config)
     app initApplicationManager Mockito.mock(classOf[ApplicationManager])
     app setExitHandler (() => {
@@ -122,5 +120,3 @@ trait ApplicationTestSupport {
     })
     app activate Mockito.mock(classOf[ComponentContext])
     app
-  }
-}

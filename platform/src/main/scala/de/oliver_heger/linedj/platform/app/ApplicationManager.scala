@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.app
 
-object ApplicationManager {
+object ApplicationManager:
 
   /**
     * A notification message indicating that a [[ClientApplication]] has been
@@ -49,7 +49,6 @@ object ApplicationManager {
     */
   case class ApplicationRemoved(application: ClientApplication)
 
-}
 
 /**
   * Trait defining the ''ApplicationManager'' service interface.
@@ -72,7 +71,7 @@ object ApplicationManager {
   * current platform and the installed services and can thus decide when it has
   * to become active. This is an application of the whiteboard pattern.
   */
-trait ApplicationManager {
+trait ApplicationManager:
   /**
     * Registers the specified application at this application manager. This
     * method is called by client applications after they have been fully
@@ -117,4 +116,3 @@ trait ApplicationManager {
     *         window titles
     */
   def getApplicationsWithTitles: Iterable[(ClientApplication, String)]
-}

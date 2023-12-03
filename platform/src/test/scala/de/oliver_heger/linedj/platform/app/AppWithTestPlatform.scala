@@ -28,11 +28,10 @@ import net.sf.jguiraffe.locators.{ClassPathLocator, Locator}
   * main window without having actual interaction with the UI; only dummy
   * objects are created.
   */
-trait AppWithTestPlatform extends Application {
+trait AppWithTestPlatform extends Application:
   /**
     * @inheritdoc Returns the locator to the test platform beans definition
     *             file.
     */
   override def getPlatformBeansLocator: Locator =
     ClassPathLocator.getInstance("testplatformbeans.jelly")
-}

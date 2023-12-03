@@ -32,7 +32,7 @@ import org.osgi.service.component.ComponentContext
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-object ClientManagementApplication {
+object ClientManagementApplication:
   /** The prefix for beans read from the bean definition file. */
   final val BeanPrefix = "LineDJ_"
 
@@ -84,7 +84,7 @@ object ClientManagementApplication {
     * @return the exit handler
     */
   private def createExitHandler(compContext: ComponentContext, actorSystem: ActorSystem,
-                                log: Log): Runnable = {
+                                log: Log): Runnable =
     () => {
       log.info("Exit handler called.")
       log.info("Stopping actor system.")
@@ -95,8 +95,6 @@ object ClientManagementApplication {
         systemBundle.stop()
       }
     }
-  }
-}
 
 /**
   * An application which represents the LineDJ client platform in an OSGi
@@ -142,8 +140,7 @@ object ClientManagementApplication {
   * service is registered when the actors implementing the media facade
   * interface have been retrieved.
   */
-class ClientManagementApplication extends Application with
-  ClientApplicationContext with ApplicationSyncStartup {
+class ClientManagementApplication extends Application with ClientApplicationContext with ApplicationSyncStartup:
 
   import ClientManagementApplication._
 
@@ -196,10 +193,9 @@ class ClientManagementApplication extends Application with
     *
     * @param configData the ''MediaIfcConfigData'' service
     */
-  def setMediaIfcConfig(configData: MediaIfcConfigData): Unit = {
+  def setMediaIfcConfig(configData: MediaIfcConfigData): Unit =
     refMediaIfcConfig set configData
     messageBus publish MediaIfcConfigUpdated(Some(configData))
-  }
 
   /**
     * Notifies this object that a ''MediaIfcConfigData'' service is no longer
@@ -209,22 +205,19 @@ class ClientManagementApplication extends Application with
     *
     * @param configData the ''MediaIfcConfigData'' service that was removed
     */
-  def unsetMediaIfcConfig(configData: MediaIfcConfigData): Unit = {
-    if (refMediaIfcConfig.compareAndSet(configData, null)) {
+  def unsetMediaIfcConfig(configData: MediaIfcConfigData): Unit =
+    if refMediaIfcConfig.compareAndSet(configData, null) then
       messageBus publish MediaIfcConfigUpdated(None)
-    }
-  }
 
   /**
     * Initializes the central actor system. This method is called by the SCR.
     *
     * @param system the actor system
     */
-  def initActorSystem(system: ActorSystem): Unit = {
+  def initActorSystem(system: ActorSystem): Unit =
     log.info("Actor system was set.")
     this.system = system
     factory = new ActorFactory(system)
-  }
 
   /**
     * Initializes the ''MediaFacadeFactory'' service. This method is called by
@@ -232,10 +225,9 @@ class ClientManagementApplication extends Application with
     *
     * @param factory the factory
     */
-  def initMediaFacadeFactory(factory: MediaFacadeFactory): Unit = {
+  def initMediaFacadeFactory(factory: MediaFacadeFactory): Unit =
     log.info("MediaFacadeFactory was set.")
     mediaFacadeFactory = factory
-  }
 
   /**
     * Activates this component and starts up the management application. This
@@ -245,7 +237,7 @@ class ClientManagementApplication extends Application with
     *
     * @param compContext the component context
     */
-  def activate(compContext: ComponentContext): Unit = {
+  def activate(compContext: ComponentContext): Unit =
     // This is sort of a hack that is required, so that Commons Logging can
     // find its configuration file. In this configuration file, the logging via
     // Log4j is then configured.
@@ -259,20 +251,18 @@ class ClientManagementApplication extends Application with
     bundleContext = compContext.getBundleContext
     setExitHandler(createExitHandler(compContext, system, log))
     startApplication(this, "management")
-  }
 
   /**
     * @inheritdoc This implementation initializes some additional beans related
     *             to remoting.
     */
-  override protected def createApplicationContext(): ApplicationContext = {
+  override protected def createApplicationContext(): ApplicationContext =
     val appCtx = super.createApplicationContext()
     beanWindowManager = extractWindowManager(appCtx)
     mediaFacadeField = createMediaFacade(appCtx)
     installOsgiServiceSupport()
     initShutdownHandling(messageBus)
     appCtx
-  }
 
   /**
     * Creates and configures the facade to the media archive.
@@ -280,7 +270,7 @@ class ClientManagementApplication extends Application with
     * @param appCtx the application context
     * @return the ''MediaFacade''
     */
-  private[app] def createMediaFacade(appCtx: ApplicationContext): MediaFacade = {
+  private[app] def createMediaFacade(appCtx: ApplicationContext): MediaFacade =
     val bus = appCtx.getBeanContext.getBean(BeanMessageBus).asInstanceOf[MessageBus]
     val facade = mediaFacadeFactory.createMediaFacade(actorFactory, bus)
     facade initConfiguration appCtx.getConfiguration
@@ -288,7 +278,6 @@ class ClientManagementApplication extends Application with
     createMediaIfcExtensions(appCtx, facade) foreach (ext => bus registerListener ext.receive)
     facade activate true
     facade
-  }
 
   /**
     * Returns a list of extensions for th
@@ -323,10 +312,9 @@ class ClientManagementApplication extends Application with
     * Installs some special message bus listeners that implement the OSGi
     * service registration support for LineDJ services.
     */
-  private[app] def installOsgiServiceSupport(): Unit = {
+  private[app] def installOsgiServiceSupport(): Unit =
     messageBus registerListener createServiceDependenciesManager().receive
     createFacadeServiceWrapper().activate()
-  }
 
   /**
     * Creates the helper object for doing OSGi service registrations for LineDJ
@@ -352,8 +340,6 @@ class ClientManagementApplication extends Application with
     *
     * @param bus the message bus
     */
-  private[app] def initShutdownHandling(bus: MessageBus): Unit = {
+  private[app] def initShutdownHandling(bus: MessageBus): Unit =
     val shutdownHandler = new ShutdownHandler(this)
     bus registerListener shutdownHandler.receive
-  }
-}

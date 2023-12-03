@@ -27,44 +27,40 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''OpenMediaIfcConfigTask''.
   */
-class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An OpenMediaIfcConfigTask" should "handle an init message if no dialog is supported" in {
+class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An OpenMediaIfcConfigTask" should "handle an init message if no dialog is supported" in:
     val helper = new OpenMediaIfcConfigTaskTestHelper
     val task = helper.createTask()
 
     task receive helper.createInitializedMessage(None)
     helper.expectStateUpdate(visible = false)
     task.getCommand should be(null)
-  }
 
-  it should "handle an init message if there is a configuration dialog" in {
+  it should "handle an init message if there is a configuration dialog" in:
     val helper = new OpenMediaIfcConfigTaskTestHelper
     val configData = helper.createConfigData()
     val task = helper.createTask()
 
     task receive helper.createInitializedMessage(Some(configData))
     helper.expectStateUpdate(visible = true).checkCommand(task, configData)
-  }
 
-  it should "handle a config updated message" in {
+  it should "handle a config updated message" in:
     val helper = new OpenMediaIfcConfigTaskTestHelper
     val configData = helper.createConfigData()
     val task = helper.createTask()
 
     task receive ClientManagementApplication.MediaIfcConfigUpdated(Some(configData))
     helper.expectStateUpdate(visible = true).checkCommand(task, configData)
-  }
 
-  it should "create a dummy state handler" in {
+  it should "create a dummy state handler" in:
     val task = new OpenMediaIfcConfigTask
 
     task.stateHandler.updateState(configAvailable = true)
-  }
 
   /**
     * A test helper class which manages dependencies of an instance under test.
     */
-  private class OpenMediaIfcConfigTaskTestHelper {
+  private class OpenMediaIfcConfigTaskTestHelper:
     /** The application associated with the task. */
     val app: ClientApplication = mock[ClientApplication]
 
@@ -77,20 +73,18 @@ class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoS
       * @return the task
       */
     def createTask(): OpenMediaIfcConfigTask =
-    new OpenMediaIfcConfigTask(stateHandler) {
+    new OpenMediaIfcConfigTask(stateHandler):
       override def getApplication: Application = app
-    }
 
     /**
       * Creates an initialized mock with configuration data.
       *
       * @return the mock config data
       */
-    def createConfigData(): MediaIfcConfigData = {
+    def createConfigData(): MediaIfcConfigData =
       val data = mock[MediaIfcConfigData]
       when(data.configScriptLocator).thenReturn(mock[Locator])
       data
-    }
 
     /**
       * Creates an initialized message with a mock application whose context
@@ -100,12 +94,11 @@ class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoS
       * @return the initialized message
       */
     def createInitializedMessage(config: Option[MediaIfcConfigData]): ApplicationManager
-    .ApplicationRegistered = {
+    .ApplicationRegistered =
       val appCtx = mock[ClientApplicationContext]
       when(app.clientApplicationContext).thenReturn(appCtx)
       when(appCtx.mediaIfcConfig).thenReturn(config)
       ApplicationManager.ApplicationRegistered(app)
-    }
 
     /**
       * Checks whether the associated state handler's state has been set
@@ -114,10 +107,9 @@ class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoS
       * @param visible the expected state
       * @return this helper
       */
-    def expectStateUpdate(visible: Boolean): OpenMediaIfcConfigTaskTestHelper = {
+    def expectStateUpdate(visible: Boolean): OpenMediaIfcConfigTaskTestHelper =
       verify(stateHandler).updateState(visible)
       this
-    }
 
     /**
       * Checks whether the task's command has been initialized correctly.
@@ -127,12 +119,9 @@ class OpenMediaIfcConfigTaskSpec extends AnyFlatSpec with Matchers with MockitoS
       * @return this helper
       */
     def checkCommand(task: OpenMediaIfcConfigTask, configData: MediaIfcConfigData):
-    OpenMediaIfcConfigTaskTestHelper = {
+    OpenMediaIfcConfigTaskTestHelper =
       val cmd = task.getCommand.asInstanceOf[OpenMediaIfcConfigCommand]
       cmd.configData should be(configData)
       cmd.getApplication should be(app)
       this
-    }
-  }
 
-}

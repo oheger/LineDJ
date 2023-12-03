@@ -22,11 +22,9 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''Identifiable''.
   */
-class IdentifiableSpec extends AnyFlatSpec with Matchers {
-  "An Identifiable" should "provide a unique ComponentID" in {
+class IdentifiableSpec extends AnyFlatSpec with Matchers:
+  "An Identifiable" should "provide a unique ComponentID" in:
     val id1 = new Identifiable {}
     val id2 = new Identifiable {}
 
     id1.componentID should not be id2.componentID
-  }
-}

@@ -32,7 +32,7 @@ import scala.concurrent.Future
   * @tparam Media    data type for the available media
   * @tparam MetaData type for a chunk of meta data
   */
-trait MetaDataService[Media, MetaData] {
+trait MetaDataService[Media, MetaData]:
   /**
     * Type definition for service results. The service returns functions that
     * expect a ''MessageBus'' to be passed in and return futures.
@@ -55,4 +55,3 @@ trait MetaDataService[Media, MetaData] {
     * @return a function to retrieve the meta data of a medium
     */
   def fetchMetaDataOfMedium(mediumID: MediumID): MetaDataResult[MetaData]
-}

@@ -37,7 +37,7 @@ import net.sf.jguiraffe.transform.{TransformerContext, TransformerContextPropert
   * @param configData the configuration data to be processed
   */
 class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
-  extends OpenWindowCommand(configData.configScriptLocator) {
+  extends OpenWindowCommand(configData.configScriptLocator):
   /** Stores the current class loader provider. */
   private var classLoaderProvider: ClassLoaderProvider = _
 
@@ -45,21 +45,19 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
     * @inheritdoc This implementation registers the class loader for the
     *             configuration dialog.
     */
-  override protected[config] def prepareBuilderData(builderData: ApplicationBuilderData): Unit = {
+  override protected[config] def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
     classLoaderProvider = registerConfigClassLoader(builderData)
     val resMan = createResourceManager(classLoaderProvider)
     val transCtx = createTransformerContext(builderData, resMan)
     builderData setTransformerContext transCtx
-  }
 
   /**
     * @inheritdoc This implementation restores the class loader provider.
     */
-  override def onFinally(): Unit = {
+  override def onFinally(): Unit =
     super.onFinally()
     classLoaderProvider.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName, null)
-  }
 
   /**
     * Adds a class loader to access classes from the configuration data to the
@@ -69,12 +67,11 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
     * @return the modified ''ClassLoaderProvider''
     */
   private def registerConfigClassLoader(builderData: ApplicationBuilderData):
-  ClassLoaderProvider = {
+  ClassLoaderProvider =
     val clp = builderData.getParentContext.getClassLoaderProvider
     clp.registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName,
       configData.configClassLoader)
     clp
-  }
 
   /**
     * Creates the ''ResourceManager'' to be used when executing the Jelly
@@ -99,7 +96,5 @@ class OpenMediaIfcConfigCommand(val configData: MediaIfcConfigData)
   private def createTransformerContext(builderData: ApplicationBuilderData,
                                        resMan: ResourceManager): TransformerContext =
     new TransformerContextPropertiesWrapper(builderData.getTransformerContext,
-      new util.HashMap) {
+      new util.HashMap):
       override def getResourceManager: ResourceManager = resMan
-    }
-}

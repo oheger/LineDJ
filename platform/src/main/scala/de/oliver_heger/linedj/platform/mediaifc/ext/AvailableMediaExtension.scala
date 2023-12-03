@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailable
 import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanStarted
 import org.apache.pekko.actor.Actor.Receive
 
-object AvailableMediaExtension {
+object AvailableMediaExtension:
 
   /**
     * A message class representing the registration of a consumer for
@@ -37,9 +37,8 @@ object AvailableMediaExtension {
     */
   case class AvailableMediaRegistration(override val id: ComponentID,
                                         override val callback: ConsumerFunction[AvailableMedia])
-    extends ConsumerRegistration[AvailableMedia] {
+    extends ConsumerRegistration[AvailableMedia]:
     override def unRegistration: AnyRef = AvailableMediaUnregistration(id)
-  }
 
   /**
     * A message class used to remove a consumer for [[AvailableMedia]] objects.
@@ -50,7 +49,6 @@ object AvailableMediaExtension {
     */
   case class AvailableMediaUnregistration(id: ComponentID)
 
-}
 
 /**
   * A specific extension for the media archive interface that handles
@@ -69,14 +67,14 @@ object AvailableMediaExtension {
   * @param mediaFacade the facade to the media archive
   */
 class AvailableMediaExtension(val mediaFacade: MediaFacade)
-  extends NoGroupingMediaIfcExtension[AvailableMedia] with Identifiable {
+  extends NoGroupingMediaIfcExtension[AvailableMedia] with Identifiable:
   /** A cache for the current available media data. */
   private var currentMediaData: Option[AvailableMedia] = None
 
   /** A flag whether a request for media data is pending. */
   private var requestPending = false
 
-  override protected def receiveSpecific: Receive = {
+  override protected def receiveSpecific: Receive =
     case reg: AvailableMediaRegistration =>
       addConsumer(reg)
 
@@ -88,7 +86,6 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
 
     case MetaDataScanStarted =>
       onMediaScanStarted(consumerMap.nonEmpty)
-  }
 
   /**
     * @inheritdoc This implementation initializes the new consumer if media
@@ -96,29 +93,24 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     *             registration must be active if consumers are present.
     */
   override def onConsumerAdded(cons: ConsumerFunction[AvailableMedia], key: AnyRef,
-                               first: Boolean): Unit = {
-    currentMediaData match {
+                               first: Boolean): Unit =
+    currentMediaData match
       case Some(data) =>
         cons(data)
       case None =>
-        if (!requestPending) {
+        if !requestPending then
           requestMediaData()
-        }
-    }
-    if (first) {
+    if first then
       // We might already be registered, but this is handled correctly by the
       // media facade.
       registerStateListener()
-    }
-  }
 
   /**
     * @inheritdoc This implementation clears the internal cache. If consumers
     *             are registered, new data is requested.
     */
-  override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
+  override def onArchiveAvailable(hasConsumers: Boolean): Unit =
     resetAndRequestNewData(hasConsumers)
-  }
 
   /**
     * A new media scan was started. This means that data stored by this object
@@ -126,13 +118,11 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     * registered, new data is requested. Otherwise, a state listener
     * registration can now be removed.
     */
-  private def onMediaScanStarted(hasConsumers: Boolean): Unit = {
-    if (!resetAndRequestNewData(hasConsumers)) {
+  private def onMediaScanStarted(hasConsumers: Boolean): Unit =
+    if !resetAndRequestNewData(hasConsumers) then
       // There might be no registration, but this is handled by the media
       // facade.
       mediaFacade.unregisterMetaDataStateListener(componentID)
-    }
-  }
 
   /**
     * Clears the internal cache and requests new data if necessary. This method
@@ -142,27 +132,22 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     * @param hasConsumers a flag whether consumers are available
     * @return the ''hasConsumers'' flag
     */
-  private def resetAndRequestNewData(hasConsumers: Boolean): Boolean = {
+  private def resetAndRequestNewData(hasConsumers: Boolean): Boolean =
     currentMediaData = None
     requestPending = false
-    if (hasConsumers) {
+    if hasConsumers then
       requestMediaData()
-    }
     hasConsumers
-  }
 
   /**
     * Sends a request for media data to the archive.
     */
-  private def requestMediaData(): Unit = {
+  private def requestMediaData(): Unit =
     mediaFacade.send(MediaActors.MediaManager, GetAvailableMedia)
     requestPending = true
-  }
 
   /**
     * Adds a registration for a meta data state listener.
     */
-  private def registerStateListener(): Unit = {
+  private def registerStateListener(): Unit =
     mediaFacade.registerMetaDataStateListener(componentID)
-  }
-}

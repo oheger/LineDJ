@@ -27,7 +27,7 @@ import org.osgi.service.component.ComponentContext
   * for the life-cycle methods; so it can be checked whether they have been
   * called from a derived trait.
   */
-trait SuperInvocationCheck extends PlatformComponent {
+trait SuperInvocationCheck extends PlatformComponent:
   /** Counter for ''activate()'' calls. */
   var activateCount = 0
 
@@ -37,16 +37,13 @@ trait SuperInvocationCheck extends PlatformComponent {
   /**
     * @inheritdoc Records this invocation.
     */
-  abstract override def activate(compContext: ComponentContext): Unit = {
+  abstract override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     activateCount += 1
-  }
 
   /**
     * @inheritdoc Records this invocation.
     */
-  abstract override def deactivate(componentContext: ComponentContext): Unit = {
+  abstract override def deactivate(componentContext: ComponentContext): Unit =
     deactivateCount += 1
     super.deactivate(componentContext)
-  }
-}

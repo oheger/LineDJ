@@ -28,7 +28,7 @@ package de.oliver_heger.linedj.platform.mediaifc
  * Each constant is assigned the name of the represented media actor. This is
  * used internally to construct paths to the actors in the actor system.
  */
-object MediaActors {
+object MediaActors:
 
   /**
    * Base class for all constants representing media actors.
@@ -51,4 +51,3 @@ object MediaActors {
    * enumeration.
    */
   val values = Set(MediaManager, MetaDataManager)
-}

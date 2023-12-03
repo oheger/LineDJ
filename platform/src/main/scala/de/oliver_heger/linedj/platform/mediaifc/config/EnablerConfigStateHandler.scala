@@ -32,13 +32,11 @@ import net.sf.jguiraffe.gui.builder.enablers.ElementEnabler
   */
 class EnablerConfigStateHandler(val enabler: ElementEnabler,
                                 val builderData: ComponentBuilderData) extends
-  MediaIfcConfigStateHandler {
+  MediaIfcConfigStateHandler:
 
   /**
     * @inheritdoc This implementation calls the ''ElementEnabler'' with the
     *             availability state of the configuration.
     */
-  override def updateState(configAvailable: Boolean): Unit = {
+  override def updateState(configAvailable: Boolean): Unit =
     enabler.setEnabledState(builderData, configAvailable)
-  }
-}

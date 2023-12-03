@@ -29,41 +29,38 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''OpenMediaIfcConfigCommand''.
   */
-class OpenMediaIfcConfigCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class OpenMediaIfcConfigCommandSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a test config data object.
     *
     * @return the test config data
     */
   private def createConfigData(): MediaIfcConfigData =
-  new MediaIfcConfigData {
+  new MediaIfcConfigData:
     override def configScriptLocator: Locator = ClassPathLocator.getInstance("someScript.jelly")
 
     override def configClassLoader: ClassLoader = getClass.getClassLoader
-  }
 
   /**
     * Creates a mock ''BuilderData'' object.
     *
     * @return the mock builder data
     */
-  private def createBuilderData(): ApplicationBuilderData = {
+  private def createBuilderData(): ApplicationBuilderData =
     val data = mock[ApplicationBuilderData]
     val tctx = mock[TransformerContext]
     val resMan = mock[ResourceManager]
     when(data.getTransformerContext).thenReturn(tctx)
     when(tctx.getResourceManager).thenReturn(resMan)
     data
-  }
 
-  "An OpenMediaIfcConfigCommand" should "pass the locator to the super class" in {
+  "An OpenMediaIfcConfigCommand" should "pass the locator to the super class" in:
     val data = createConfigData()
     val command = new OpenMediaIfcConfigCommand(data)
 
     command.getLocator should be(data.configScriptLocator)
-  }
 
-  it should "initialize the class loader provider" in {
+  it should "initialize the class loader provider" in:
     val builderData = createBuilderData()
     val clp = mock[ClassLoaderProvider]
     val beanCtx = mock[BeanContext]
@@ -75,9 +72,8 @@ class OpenMediaIfcConfigCommandSpec extends AnyFlatSpec with Matchers with Mocki
     command.prepareBuilderData(builderData)
     verify(clp).registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName,
       data.configClassLoader)
-  }
 
-  it should "restore the class loader provider after execution" in {
+  it should "restore the class loader provider after execution" in:
     val builderData = createBuilderData()
     val clp = mock[ClassLoaderProvider]
     val beanCtx = mock[BeanContext]
@@ -89,5 +85,3 @@ class OpenMediaIfcConfigCommandSpec extends AnyFlatSpec with Matchers with Mocki
 
     command.onFinally()
     verify(clp).registerClassLoader(MediaIfcConfigData.ConfigClassLoaderName, null)
-  }
-}

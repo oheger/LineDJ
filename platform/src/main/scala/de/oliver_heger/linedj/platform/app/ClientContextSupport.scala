@@ -23,7 +23,7 @@ package de.oliver_heger.linedj.platform.app
   * Extending from this trait causes a member field for the
   * ''ClientApplicationContext'' to be added.
   */
-trait ClientContextSupport extends PlatformComponent {
+trait ClientContextSupport extends PlatformComponent:
   /** The client application context. */
   private var clientContextField: ClientApplicationContext = _
 
@@ -33,9 +33,8 @@ trait ClientContextSupport extends PlatformComponent {
     *
     * @param context the ''ClientApplicationContext''
     */
-  override def initClientContext(context: ClientApplicationContext): Unit = {
+  override def initClientContext(context: ClientApplicationContext): Unit =
     clientContextField = context
-  }
 
   /**
     * Returns the ''ClientApplicationContext'' used by this component. This
@@ -44,4 +43,3 @@ trait ClientContextSupport extends PlatformComponent {
     * @return the ''ClientApplicationContext''
     */
   override def clientApplicationContext: ClientApplicationContext = clientContextField
-}

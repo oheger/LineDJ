@@ -30,7 +30,7 @@ import scala.concurrent.Promise
 /**
   * Implementation object of the meta data service.
   */
-object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] {
+object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]]:
   override def fetchMedia(): MetaDataResult[AvailableMedia] = Kleisli { messageBus =>
     val promise = Promise[AvailableMedia]()
     val compID = ComponentID()
@@ -49,12 +49,10 @@ object MetaDataServiceImpl extends MetaDataService[AvailableMedia, Map[MediaFile
       val chunkData = collection.mutable.Map.empty[MediaFileID, MediaMetaData]
       val callback: ConsumerFunction[MediumContent] = chunk => {
         chunkData ++= chunk.data
-        if (chunk.complete) {
+        if chunk.complete then
           promise.success(chunkData.toMap)
-        }
       }
       val reg = MetaDataCache.MetaDataRegistration(mediumID, ComponentID(), callback)
       messageBus publish reg
       promise.future
     }
-}

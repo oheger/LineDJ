@@ -45,7 +45,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.reflect.ClassTag
 
-object ClientManagementApplicationSpec {
+object ClientManagementApplicationSpec:
   /** LineDJ application ID. */
   private val ApplicationID = "ClientManagementApplicationSpec"
 
@@ -58,25 +58,21 @@ object ClientManagementApplicationSpec {
     *
     * @return the user configuration file
     */
-  private def userConfigFile(): File = {
+  private def userConfigFile(): File =
     val userHome = new File(System.getProperty("user.home"))
     new File(userHome, UserConfigFile)
-  }
-}
 
 /**
   * Test class for ''ClientManagementApplication''.
   */
 class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
-  with MockitoSugar with ApplicationTestSupport {
+  with MockitoSugar with ApplicationTestSupport:
   import ClientManagementApplicationSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     val configFile = userConfigFile()
-    if (configFile.exists()) {
+    if configFile.exists() then
       configFile.delete()
-    }
-  }
 
   /**
     * Creates a mock component context which allows access to the bundle
@@ -84,12 +80,11 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     *
     * @return the mock component context
     */
-  private def createComponentContext(): ComponentContext = {
+  private def createComponentContext(): ComponentContext =
     val compCtx = mock[ComponentContext]
     val bc = mock[BundleContext]
     when(compCtx.getBundleContext).thenReturn(bc)
     compCtx
-  }
 
   /**
     * Starts the specified application. The reference to the media facade
@@ -102,12 +97,11 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     * @return the same application
     */
   private def runApp(app: ClientManagementApplication, optCompCtx: Option[ComponentContext] =
-  None, optFacadeFactory: Option[MediaFacadeFactory] = None): ClientManagementApplication = {
+  None, optFacadeFactory: Option[MediaFacadeFactory] = None): ClientManagementApplication =
     app.initMediaFacadeFactory(optFacadeFactory getOrElse createMediaFacadeFactoryMock())
     val cctx = optCompCtx getOrElse createComponentContext()
     app activate cctx
     app
-  }
 
   /**
     * Creates a mock application context that is equipped with a mock bean
@@ -115,13 +109,12 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     *
     * @return the mock application context
     */
-  private def createAppCtxWithBC(): ApplicationContext = {
+  private def createAppCtxWithBC(): ApplicationContext =
     val appCtx = mock[ApplicationContext]
     val bc = mock[BeanContext]
     when(appCtx.getBeanContext).thenReturn(bc)
     when(appCtx.getConfiguration).thenReturn(new PropertiesConfiguration)
     appCtx
-  }
 
   /**
     * Creates a mock application context with a bean context that contains the
@@ -130,11 +123,10 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     * @param beans a map with the beans for the mock bean context
     * @return the mock application context
     */
-  private def createAppCtxWithBeans(beans: Map[String, AnyRef]): ApplicationContext = {
+  private def createAppCtxWithBeans(beans: Map[String, AnyRef]): ApplicationContext =
     val appCtx = createAppCtxWithBC()
     addBeans(appCtx.getBeanContext, beans)
     appCtx
-  }
 
   /**
     * Returns a map for use by ''createAppCtxWithBeans()'' that contains the
@@ -155,30 +147,27 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     * @return the factory mock
     */
   private def createMediaFacadeFactoryMock(optFacade: Option[MediaFacade] = None):
-  MediaFacadeFactory = {
+  MediaFacadeFactory =
     val facade = optFacade getOrElse mock[MediaFacade]
     val factory = mock[MediaFacadeFactory]
     when(factory.createMediaFacade(any(), any())).thenReturn(facade)
     factory
-  }
 
-  "A ClientManagementApplication" should "provide access to the actor system" in {
+  "A ClientManagementApplication" should "provide access to the actor system" in:
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplication
 
     app initActorSystem actorSystem
     app.actorSystem should be(actorSystem)
-  }
 
-  it should "provide access to an initialized actor factory" in {
+  it should "provide access to an initialized actor factory" in:
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplication
 
     app initActorSystem actorSystem
     app.actorFactory.actorSystem should be(actorSystem)
-  }
 
-  it should "create the media facade" in {
+  it should "create the media facade" in:
     val actorSystem = mock[ActorSystem]
     val facade = mock[MediaFacade]
     val factory = createMediaFacadeFactoryMock(Some(facade))
@@ -194,9 +183,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     captMsgBus.getValue should be(beanMsgBus)
     app.mediaFacade should be(facade)
     verify(facade).activate(true)
-  }
 
-  it should "return the message bus from the media facade" in {
+  it should "return the message bus from the media facade" in:
     val actorSystem = mock[ActorSystem]
     val facade = mock[MediaFacade]
     val factory = createMediaFacadeFactoryMock(Some(facade))
@@ -207,9 +195,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     runApp(app, optFacadeFactory = Some(factory))
 
     app.messageBus should be(bus)
-  }
 
-  it should "configure the media facade" in {
+  it should "configure the media facade" in:
     val bus = mock[MessageBus]
     val appCtx = createAppCtxWithBeans(messageBusBeanMap(bus))
     val facade = mock[MediaFacade]
@@ -219,9 +206,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
 
     app.createMediaFacade(appCtx) should be(facade)
     verify(facade).initConfiguration(appCtx.getConfiguration)
-  }
 
-  it should "register a message bus listener for shutdown handling" in {
+  it should "register a message bus listener for shutdown handling" in:
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementAppWithMsgBus
     app initActorSystem actorSystem
@@ -234,9 +220,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
       r(shutdownMsg)
     }
     verify(exitHandler).run()
-  }
 
-  it should "ignore a Shutdown message with wrong content" in {
+  it should "ignore a Shutdown message with wrong content" in:
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementAppWithMsgBus
     app initActorSystem actorSystem
@@ -248,7 +233,6 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app setExitHandler exitHandler
     listener.apply(shutdownMsg)
     verify(exitHandler, never()).run()
-  }
 
   /**
     * Helper method for retrieving a specific extension registered by the
@@ -263,36 +247,32 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     */
   private def findExtension[E](app: ClientManagementApplication, appCtx: ApplicationContext,
                                facade: MediaFacade)
-                              (implicit t: ClassTag[E]): E = {
+                              (implicit t: ClassTag[E]): E =
     val extensions = app.createMediaIfcExtensions(appCtx, facade)
     val ext = extensions.find(_.getClass == t.runtimeClass)
     ext.get.asInstanceOf[E]
-  }
 
-  it should "create an extension for the media archive availability" in {
+  it should "create an extension for the media archive availability" in:
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     findExtension[ArchiveAvailabilityExtension](app, createAppCtxWithBC(), facade)
-  }
 
-  it should "create an extension for state listeners of the media archive" in {
+  it should "create an extension for state listeners of the media archive" in:
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     val ext = findExtension[StateListenerExtension](app, createAppCtxWithBC(), facade)
     ext.mediaFacade should be(facade)
-  }
 
-  it should "create an extension for available media of the media archive" in {
+  it should "create an extension for available media of the media archive" in:
     val facade = mock[MediaFacade]
     val app = new ClientManagementApplication
 
     val ext = findExtension[AvailableMediaExtension](app, createAppCtxWithBC(), facade)
     ext.mediaFacade should be(facade)
-  }
 
-  it should "create an extension for the meta data cache" in {
+  it should "create an extension for the meta data cache" in:
     val facade = mock[MediaFacade]
     val appCtx = createAppCtxWithBC()
     val CacheSize = 2222
@@ -302,35 +282,30 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val cacheExt = findExtension[MetaDataCache](app, appCtx, facade)
     cacheExt.mediaFacade should be(facade)
     cacheExt.cacheSize should be(CacheSize)
-  }
 
-  it should "use a default size for the meta data cache" in {
+  it should "use a default size for the meta data cache" in:
     val cacheExt = findExtension[MetaDataCache](new ClientManagementApplication,
       createAppCtxWithBC(), mock[MediaFacade])
     cacheExt.cacheSize should be(ClientManagementApplication.DefaultMetaDataCacheSize)
-  }
 
-  it should "register media archive extensions on the message bus" in {
-    def createListener(): MessageBusListener = {
+  it should "register media archive extensions on the message bus" in:
+    def createListener(): MessageBusListener =
       val listener = mock[MessageBusListener]
       val receive = mock[Actor.Receive]
       when(listener.receive).thenReturn(receive)
       listener
-    }
 
     val bus = mock[MessageBus]
     val appCtx = createAppCtxWithBeans(messageBusBeanMap(bus))
     val facade = mock[MediaFacade]
     val extension1 = createListener()
     val extension2 = createListener()
-    val app = new ClientManagementApplicationTestImpl {
+    val app = new ClientManagementApplicationTestImpl:
       override private[app] def createMediaIfcExtensions(_appCtx: ApplicationContext,
                                                          facade: MediaFacade):
-      Iterable[MessageBusListener] = {
+      Iterable[MessageBusListener] =
         _appCtx should be(appCtx)
         List(extension1, extension2)
-      }
-    }
     app initMediaFacadeFactory createMediaFacadeFactoryMock(Some(facade))
 
     app.createMediaFacade(appCtx)
@@ -338,18 +313,16 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     inOrder.verify(bus).registerListener(extension1.receive)
     inOrder.verify(bus).registerListener(extension2.receive)
     inOrder.verify(facade).activate(true)
-  }
 
-  it should "provide access to the shared window manager" in {
+  it should "provide access to the shared window manager" in:
     val actorSystem = mock[ActorSystem]
     val app = new ClientManagementApplicationTestImpl
     app initActorSystem actorSystem
     runApp(app)
 
     app.mockWindowManager should be(app.mockWindowManager)
-  }
 
-  it should "correctly extract the window manager and stage factory from the bean context" in {
+  it should "correctly extract the window manager and stage factory from the bean context" in:
     val appCtx = mock[ApplicationContext]
     val beanCtx = mock[BeanContext]
     val windowManager = mock[WindowManager]
@@ -358,7 +331,6 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
 
     val app = new ClientManagementApplication
     app extractWindowManager appCtx should be(windowManager)
-  }
 
   /**
     * Checks whether the exit handler works correctly if termination of the
@@ -366,7 +338,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     *
     * @param futTerminate the future for the actor system's termination
     */
-  private def checkExitHandler(futTerminate: Future[Terminated]): Unit = {
+  private def checkExitHandler(futTerminate: Future[Terminated]): Unit =
     val system = mock[ActorSystem]
     when(system.terminate()).thenReturn(futTerminate)
     val componentContext = createComponentContext()
@@ -385,52 +357,45 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val io = Mockito.inOrder(system, bundle)
     io.verify(system).terminate()
     io.verify(bundle).stop()
-  }
 
-  it should "set an OSGi-compliant exit handler" in {
+  it should "set an OSGi-compliant exit handler" in:
     implicit val ec: ExecutionContextExecutor = ExecutionContext.global
     val term = Terminated(null)(existenceConfirmed = true, addressTerminated = true)
     checkExitHandler(Future(term))
-  }
 
-  it should "exit the app even if shutdown of the actor system fails" in {
+  it should "exit the app even if shutdown of the actor system fails" in:
     val futTerm = Future.failed[Terminated](new RuntimeException("BOOM"))
     checkExitHandler(futTerm)
-  }
 
-  it should "return undefined configuration data per default" in {
+  it should "return undefined configuration data per default" in:
     val app = new ClientManagementApplicationTestImpl
 
     app.mediaIfcConfig should be(None)
-  }
 
-  it should "track services of type MediaIfcConfigData" in {
+  it should "track services of type MediaIfcConfigData" in:
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
 
     app setMediaIfcConfig confData
     app.mediaIfcConfig should be(Some(confData))
-  }
 
-  it should "detect a removed config data service" in {
+  it should "detect a removed config data service" in:
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
 
     app unsetMediaIfcConfig confData
     app.mediaIfcConfig should be(None)
-  }
 
-  it should "send a notification for an updated media interface config" in {
+  it should "send a notification for an updated media interface config" in:
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
 
     app setMediaIfcConfig confData
     val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
     msg.currentConfigData should be(Some(confData))
-  }
 
-  it should "send a notification for a removed media interface config" in {
+  it should "send a notification for a removed media interface config" in:
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
@@ -439,9 +404,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app unsetMediaIfcConfig confData
     val msg = app.mockBus.expectMessageType[ClientManagementApplication.MediaIfcConfigUpdated]
     msg.currentConfigData should be(None)
-  }
 
-  it should "ignore an unrelated remove notification" in {
+  it should "ignore an unrelated remove notification" in:
     val confData = mock[MediaIfcConfigData]
     val app = new ClientManagementAppWithMsgBus
     app setMediaIfcConfig confData
@@ -450,51 +414,44 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     app unsetMediaIfcConfig mock[MediaIfcConfigData]
     app.mediaIfcConfig should be(Some(confData))
     app.mockBus.expectNoMessage(100.millis)
-  }
 
-  it should "provide access to the management configuration" in {
+  it should "provide access to the management configuration" in:
     val app = runApp(new ClientManagementApplicationTestImpl)
 
     app.managementConfiguration should be theSameInstanceAs app.getUserConfiguration
     val config = app.managementConfiguration.asInstanceOf[XMLConfiguration]
     config.getFile.getName should be(UserConfigFile)
     config.getFile.delete()
-  }
 
-  it should "create a correct ServiceDependenciesManager" in {
+  it should "create a correct ServiceDependenciesManager" in:
     val componentContext = createComponentContext()
     val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
 
     val depManager = app.createServiceDependenciesManager()
     depManager.bundleContext should be(componentContext.getBundleContext)
-  }
 
-  it should "register the ServiceDependenciesManager at the message bus" in {
+  it should "register the ServiceDependenciesManager at the message bus" in:
     val app = new ClientManagementAppWithMsgBus
     runApp(app)
 
     val optRec = app.mockBus.findListenerForMessage(RegisterService(ServiceDependency("foo")))
     optRec shouldBe defined
-  }
 
-  it should "create a correct MediaFacadeActorsServiceWrapper" in {
+  it should "create a correct MediaFacadeActorsServiceWrapper" in:
     val componentContext = createComponentContext()
     val app = runApp(new ClientManagementAppWithMsgBus(), optCompCtx = Some(componentContext))
 
     val facadeWrapper = app.createFacadeServiceWrapper()
     facadeWrapper.clientAppContext should be(app)
     facadeWrapper.bundleContext should be(componentContext.getBundleContext)
-  }
 
-  it should "activate the MediaFacadeActorsServiceWrapper" in {
+  it should "activate the MediaFacadeActorsServiceWrapper" in:
     val wrapper = mock[MediaFacadeActorsServiceWrapper]
-    val app = new ClientManagementAppWithMsgBus {
+    val app = new ClientManagementAppWithMsgBus:
       override private[app] def createFacadeServiceWrapper() = wrapper
-    }
     runApp(app)
 
     verify(wrapper).activate()
-  }
 
   /**
     * A test implementation of the management application which prevents
@@ -512,7 +469,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
   private class ClientManagementApplicationTestImpl(mockExtensions: Boolean = true,
                                                     mockShutdownHandling: Boolean = true,
                                                     mockOsgiSupport: Boolean = true)
-    extends ClientManagementApplication {
+    extends ClientManagementApplication:
     /** A mock for the window manager bean. */
     val mockWindowManager: WindowManager = mock[WindowManager]
 
@@ -523,7 +480,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     override private[app] def createMediaIfcExtensions(appCtx: ApplicationContext,
                                                        facade: MediaFacade):
     Iterable[MessageBusListener] =
-    if(mockExtensions) List.empty
+    if mockExtensions then List.empty
     else super.createMediaIfcExtensions(appCtx, facade)
 
     override private[app] def extractWindowManager(appCtx: ApplicationContext): WindowManager = mockWindowManager
@@ -531,20 +488,16 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     /**
       * @inheritdoc Calls the super method if mocking is disabled.
       */
-    override private[app] def initShutdownHandling(bus: MessageBus): Unit = {
-      if (!mockShutdownHandling) {
+    override private[app] def initShutdownHandling(bus: MessageBus): Unit =
+      if !mockShutdownHandling then
         super.initShutdownHandling(bus)
-      }
-    }
 
     /**
       * @inheritdoc Calls the super method if mocking is disabled.
       */
-    override private[app] def installOsgiServiceSupport(): Unit = {
-      if (!mockOsgiSupport) {
+    override private[app] def installOsgiServiceSupport(): Unit =
+      if !mockOsgiSupport then
         super.installOsgiServiceSupport()
-      }
-    }
 
     /**
       * Queries a system property and returns its value.
@@ -552,11 +505,9 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
       * @param key the key of the property
       * @return an option for the property's value
       */
-    override def getSystemProperty(key: String): Option[String] = {
-      if(key == "LineDJ_ApplicationID") Some(ApplicationID)
+    override def getSystemProperty(key: String): Option[String] =
+      if key == "LineDJ_ApplicationID" then Some(ApplicationID)
       else super.getSystemProperty(key)
-    }
-  }
 
   /**
     * A test management application implementation which uses a mock message
@@ -565,10 +516,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     */
   private class ClientManagementAppWithMsgBus
     extends ClientManagementApplicationTestImpl(mockShutdownHandling = false,
-      mockOsgiSupport = false) {
+      mockOsgiSupport = false):
     /** The mock message bus. */
     val mockBus: MessageBusTestImpl = new MessageBusTestImpl
 
     override def messageBus: MessageBus = mockBus
-  }
-}

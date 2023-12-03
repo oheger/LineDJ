@@ -23,7 +23,7 @@ import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
 import org.osgi.service.component.ComponentContext
 
-object ClientApplication {
+object ClientApplication:
   /** The prefix used by all beans managed by this application. */
   val BeanPrefix = "LineDJ_"
 
@@ -63,7 +63,6 @@ object ClientApplication {
     * operations of any kind.
     */
   val BlockingDispatcherName = "blocking-dispatcher"
-}
 
 /**
   * A class representing a visual client application running on the LineDJ
@@ -123,7 +122,7 @@ object ClientApplication {
   *
   * @param appName the name of this application
   */
-class ClientApplication(val appName: String) extends Application with ClientContextSupport {
+class ClientApplication(val appName: String) extends Application with ClientContextSupport:
   this: ApplicationStartup =>
 
   import ClientApplication._
@@ -145,9 +144,8 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * the SCR.
     * @param appMan the ''ApplicationManager''
     */
-  def initApplicationManager(appMan: ApplicationManager): Unit = {
+  def initApplicationManager(appMan: ApplicationManager): Unit =
     applicationManagerField = appMan
-  }
 
   /**
     * Returns the ''ApplicationManager''. This object is available afther the
@@ -160,18 +158,16 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * @inheritdoc This implementation starts the application using the mixed
     *             in [[ApplicationStartup]] implementation.
     */
-  override def activate(compContext: ComponentContext): Unit = {
+  override def activate(compContext: ComponentContext): Unit =
     startApplication(this, appName)
-  }
 
   /**
     * @inheritdoc This implementation ensures that the current application is
     *             gracefully shutdown.
     */
-  override def deactivate(componentContext: ComponentContext): Unit = {
+  override def deactivate(componentContext: ComponentContext): Unit =
     shutdown(true)
     super.deactivate(componentContext)
-  }
 
   /**
     * Updates the title of this application. This method should be used to
@@ -182,12 +178,11 @@ class ClientApplication(val appName: String) extends Application with ClientCont
  *
     * @param newTitle the new title of this application's main window
     */
-  def updateTitle(newTitle: String): Unit = {
+  def updateTitle(newTitle: String): Unit =
     optMainWindow foreach { w =>
       w setTitle newTitle
       applicationManager.applicationTitleUpdated(this, newTitle)
     }
-  }
 
   /**
     * Allows changing the visibility of the main window. If the window is
@@ -196,13 +191,11 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * This method must be called in the event dispatch thread.
     * @param display the new visibility state of the main window
     */
-  def showMainWindow(display: Boolean): Unit = {
-    if (mainWindowOpened) {
+  def showMainWindow(display: Boolean): Unit =
+    if mainWindowOpened then
       mainWindow setVisible display
-    } else {
+    else
       mainWindowVisible = display
-    }
-  }
 
   /**
     * Returns an option for this application's main window.
@@ -223,7 +216,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     *             application context to this application's ''BeanContext'',
     *             so that they are available everywhere in this application.
     */
-  override def createApplicationContext(): ApplicationContext = {
+  override def createApplicationContext(): ApplicationContext =
     val appCtx = super.createApplicationContext()
     addBeanDuringApplicationStartup(BeanActorSystem, clientApplicationContext.actorSystem)
     addBeanDuringApplicationStartup(BeanActorFactory, clientApplicationContext.actorFactory)
@@ -236,7 +229,6 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     topBeanStore.addBeanProvider("jguiraffe.windowManager",
       ConstantBeanProvider.getInstance(clientApplicationContext.windowManager))
     appCtx
-  }
 
   /**
     * @inheritdoc This implementation queries the status of the remote message
@@ -244,16 +236,14 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     *             message to be sent which triggers some further initialization
     *             of the UI.
     */
-  override def initGUI(appCtx: ApplicationContext): Unit = {
+  override def initGUI(appCtx: ApplicationContext): Unit =
     super.initGUI(appCtx)
-    if (getMainWindowBeanContext != null) {
+    if getMainWindowBeanContext != null then
       initializeBeanIfPresent(BeanMessageBusRegistration)
       initializeBeanIfPresent(BeanConsumerRegistration)
-    }
     optMainWindow foreach (_.addWindowListener(createWindowOpenedListener()))
 
     applicationManager registerApplication this
-  }
 
   /**
     * Checks whether the bean with the specified name is contained in the
@@ -264,11 +254,9 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     *
     * @param name the name of the bean in question
     */
-  private def initializeBeanIfPresent(name: String): Unit = {
-    if (getMainWindowBeanContext containsBean name) {
+  private def initializeBeanIfPresent(name: String): Unit =
+    if getMainWindowBeanContext containsBean name then
       getMainWindowBeanContext getBean name
-    }
-  }
 
   /**
     * Creates a window listener which notifies this application when its main
@@ -277,7 +265,7 @@ class ClientApplication(val appName: String) extends Application with ClientCont
     * @return the window listener
     */
   private def createWindowOpenedListener(): WindowListener =
-    new WindowListener {
+    new WindowListener:
       override def windowDeiconified(event: WindowEvent): Unit = {}
 
       override def windowClosing(event: WindowEvent): Unit = {}
@@ -286,30 +274,24 @@ class ClientApplication(val appName: String) extends Application with ClientCont
 
       override def windowActivated(event: WindowEvent): Unit = {}
 
-      override def windowOpened(event: WindowEvent): Unit = {
+      override def windowOpened(event: WindowEvent): Unit =
         onWindowOpened()
-      }
 
       override def windowDeactivated(event: WindowEvent): Unit = {}
 
       override def windowIconified(event: WindowEvent): Unit = {}
-    }
 
   /**
     * Callback which is invoked when this application's main window is
     * opened. If necessary, the visibility state of the window has to be
     * changed.
     */
-  private def onWindowOpened(): Unit = {
-    if (!mainWindowOpened) {
+  private def onWindowOpened(): Unit =
+    if !mainWindowOpened then
       mainWindowOpened = true
-      if (!mainWindowVisible) {
+      if !mainWindowVisible then
         val sync = getApplicationContext.getBeanContext
           .getBean(Application.BEAN_GUI_SYNCHRONIZER).asInstanceOf[GUISynchronizer]
         sync.asyncInvoke(() => {
           mainWindow setVisible false
         })
-      }
-    }
-  }
-}

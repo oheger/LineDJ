@@ -26,7 +26,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.util.Success
 
-object MetaDataServiceImplSpec {
+object MetaDataServiceImplSpec:
   /**
     * Generates a test medium ID based on the given index.
     *
@@ -53,10 +53,9 @@ object MetaDataServiceImplSpec {
     * @param idx the index
     * @return the tuple with the medium ID and the medium info of this index
     */
-  def mediumInfoMapping(idx: Int): (MediumID, MediumInfo) = {
+  def mediumInfoMapping(idx: Int): (MediumID, MediumInfo) =
     val info = mediumInfo(idx)
     info.mediumID -> info
-  }
 
   /**
     * Generates test meta data for a song of a medium.
@@ -82,16 +81,15 @@ object MetaDataServiceImplSpec {
       val fileID = MediaFileID(mid, s"songUri$idx")
       fileID -> metaData(mid, idx)
       }.toMap
-}
 
 /**
   * Test class for ''MetaDataServiceImpl''.
   */
-class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
+class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers:
 
   import MetaDataServiceImplSpec._
 
-  "MetaDataServiceImpl" should "fetch available media" in {
+  "MetaDataServiceImpl" should "fetch available media" in:
     val Media = AvailableMedia(List(mediumInfoMapping(1)))
     val bus = new MessageBusTestImpl
     val funcMedia = MetaDataServiceImpl.fetchMedia()
@@ -104,9 +102,8 @@ class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
     unRegistration.id should be(reg.id)
     futMedia.isCompleted shouldBe true
     futMedia.value should be(Some(Success(Media)))
-  }
 
-  it should "handle multiple available media invocations of the callback" in {
+  it should "handle multiple available media invocations of the callback" in:
     val Media1 = AvailableMedia(List(mediumInfoMapping(1)))
     val Media2 = AvailableMedia(List(mediumInfoMapping(1), mediumInfoMapping(2)))
     val bus = new MessageBusTestImpl
@@ -117,9 +114,8 @@ class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
 
     reg.callback(Media2)
     futMedia.value should be(Some(Success(Media1)))
-  }
 
-  it should "fetch meta data for a medium" in {
+  it should "fetch meta data for a medium" in:
     val Mid = mediumID(1)
     val expMetaData = metaDataMap(Mid, 1, 16)
     val bus = new MessageBusTestImpl
@@ -133,5 +129,3 @@ class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers {
     futMeta.isCompleted shouldBe false
     reg.callback(MediumContent(metaDataMap(Mid, 9, 16), complete = true))
     futMeta.value should be(Some(Success(expMetaData)))
-  }
-}

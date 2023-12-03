@@ -25,35 +25,29 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''ApplicationAsyncStartup'' and the base trait.
   */
-class ApplicationAsyncStartupSpec extends AnyFlatSpec with Matchers {
+class ApplicationAsyncStartupSpec extends AnyFlatSpec with Matchers:
   /**
     * Waits until the given latch is triggered. Fails if this does not
     * happen within a timeout.
     * @param l the latch
     */
-  private def await(l: CountDownLatch): Unit = {
+  private def await(l: CountDownLatch): Unit =
     l.await(10, TimeUnit.SECONDS) shouldBe true
-  }
 
-  "An ApplicationAsyncStartup" should "start an application in a background thread" in {
+  "An ApplicationAsyncStartup" should "start an application in a background thread" in:
     val AppName = "ApplicationTest"
     val latchArgs = new CountDownLatch(1)
     val latchRun = new CountDownLatch(1)
-    val testApp = new Application {
-      override def processCommandLine(args: Array[String]): Unit = {
+    val testApp = new Application:
+      override def processCommandLine(args: Array[String]): Unit =
         args should have length 0
         getConfigResourceName should be(AppName + "_config.xml")
         latchArgs.countDown()
-      }
 
-      override def run(): Unit = {
+      override def run(): Unit =
         latchRun.countDown()
-      }
-    }
 
     val startup = new ApplicationAsyncStartup {}
     startup.startApplication(testApp, AppName)
     await(latchArgs)
     await(latchRun)
-  }
-}

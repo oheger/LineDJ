@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc.config
 
 import net.sf.jguiraffe.locators.Locator
 
-object MediaIfcConfigData {
+object MediaIfcConfigData:
   /**
     * Constant for the name of the class loader for loading classes from the
     * config bundle. When executing the Jelly configuration script referenced
@@ -26,7 +26,6 @@ object MediaIfcConfigData {
     * classes is available from the ''ClassLoaderProvider'' under this name.
     */
   val ConfigClassLoaderName = "configCL"
-}
 
 /**
   * A trait providing information about the configuration of an interface to
@@ -52,7 +51,7 @@ object MediaIfcConfigData {
   * configuration. (There are further helper classes in this package that
   * support the integration of such a menu item into an application.)
   */
-trait MediaIfcConfigData {
+trait MediaIfcConfigData:
   /**
     * Returns a ''Locator'' for a Jelly configuration script to be executed in
     * order to edit the configuration of the interface to the media archive.
@@ -71,4 +70,3 @@ trait MediaIfcConfigData {
     * @return the class loader for resolving classes for the config script
     */
   def configClassLoader: ClassLoader
-}

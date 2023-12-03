@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 
-object MediaFacade {
+object MediaFacade:
 
   /**
     * A common base trait for events determining the availability of the media
@@ -74,7 +74,6 @@ object MediaFacade {
     */
   case class MediaFacadeActors(mediaManager: ActorRef, metaDataManager: ActorRef)
 
-}
 
 /**
   * A trait defining a facade for accessing the media archive.
@@ -103,7 +102,7 @@ object MediaFacade {
   * a higher level and simplify interactions with the media archive. Such
   * components should be used whenever possible.
   */
-trait MediaFacade {
+trait MediaFacade:
   import MediaFacade._
 
   /** A counter for generating registration IDs. */
@@ -173,7 +172,7 @@ trait MediaFacade {
     * @return a ''Future'' with an object exposing all actors of the interface
     */
   def requestFacadeActors()(implicit timeout: Timeout, ec: ExecutionContext):
-  Future[MediaFacadeActors] = {
+  Future[MediaFacadeActors] =
     def requestArchiveActor(t: MediaActor): Future[ActorRef] =
       requestActor(t) map (_.get)
 
@@ -182,7 +181,6 @@ trait MediaFacade {
     Future.sequence(List(futMedia, futMeta)) map { lst =>
       MediaFacadeActors(lst.head, lst(1))
     }
-  }
 
   /**
     * A convenience method which calls the meta data manager actor to request
@@ -194,11 +192,10 @@ trait MediaFacade {
     * @param mediumID the medium ID
     * @return a listener registration ID
     */
-  def queryMetaDataAndRegisterListener(mediumID: MediumID): Int = {
+  def queryMetaDataAndRegisterListener(mediumID: MediumID): Int =
     val id = nextListenerRegistrationID()
     send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, id))
     id
-  }
 
   /**
     * Removes a listener from the meta data manager actor for the specified
@@ -248,9 +245,7 @@ trait MediaFacade {
     *
     * @return the listener registration ID
     */
-  @tailrec private def nextListenerRegistrationID(): Int = {
+  @tailrec private def nextListenerRegistrationID(): Int =
     val id = registrationIDCounter.getAndIncrement()
-    if (id == InvalidListenerRegistrationID) nextListenerRegistrationID()
+    if id == InvalidListenerRegistrationID then nextListenerRegistrationID()
     else id
-  }
-}

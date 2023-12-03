@@ -22,11 +22,9 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''ServiceDependencies''.
   */
-class ServiceDependenciesSpec extends AnyFlatSpec with Matchers {
-  "ServiceDependencies" should "create a service name filter" in {
+class ServiceDependenciesSpec extends AnyFlatSpec with Matchers:
+  "ServiceDependencies" should "create a service name filter" in:
     val ServiceName = "com.acme.MyService"
     val expFilter = "(serviceName=" + ServiceName + ")"
 
     ServiceDependencies.serviceNameFilter(ServiceName) should be(expFilter)
-  }
-}

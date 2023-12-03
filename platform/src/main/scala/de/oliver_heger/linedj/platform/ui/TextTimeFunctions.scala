@@ -23,7 +23,7 @@ import scala.concurrent.duration.FiniteDuration
   * A module providing some functions to generate texts on the UI based on
   * elapsed time.
   */
-object TextTimeFunctions {
+object TextTimeFunctions:
   /**
     * Type alias of a function that calculates a string based on an elapsed
     * time. The function expects the elapsed time as argument and returns the
@@ -69,17 +69,15 @@ object TextTimeFunctions {
                  relativeTo: FiniteDuration = DurationZero,
                  timeUnit: TimeUnit = TimeUnit.SECONDS,
                  scale: Double = 1.0,
-                 separator: String = DefaultRotationSeparator): TextTimeFunc = {
-    if (text.length <= maxLen) _ => text
-    else {
+                 separator: String = DefaultRotationSeparator): TextTimeFunc =
+    if text.length <= maxLen then _ => text
+    else
       val rotateText = text + separator + text
       val textLength = text.length + separator.length
       time => {
         val ofs = math.round((time - relativeTo).toUnit(timeUnit) * scale).toInt % textLength
         rotateText.substring(ofs, ofs + maxLen)
       }
-    }
-  }
 
   /**
     * Generates a new [[TextTimeFunc]] based on a given one by appending a
@@ -90,4 +88,3 @@ object TextTimeFunctions {
     * @return the function with the appended suffix
     */
   def withSuffix(suffix: String)(f: TextTimeFunc): TextTimeFunc = time => s"${f(time)}$suffix"
-}

@@ -24,13 +24,12 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRe
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 
-object RemoteController {
+object RemoteController:
   /**
     * The group for the actions depending on a server available. This group is
     * disabled if no server connection is established.
     */
   val ServerActions = "SERVER_ACTIONS"
-}
 
 /**
   * A controller class which monitors the server state and updates some UI
@@ -53,7 +52,7 @@ object RemoteController {
 class RemoteController(actionStore: ActionStore,
                        serverAvailableIndicator: WidgetHandler,
                        serverUnavailableIndicator: WidgetHandler)
-  extends ConsumerRegistrationProvider {
+  extends ConsumerRegistrationProvider:
 
   import RemoteController._
 
@@ -68,7 +67,7 @@ class RemoteController(actionStore: ActionStore,
     * @param ev the change event
     */
   private def availabilityChanged(ev: MediaFacade.MediaArchiveAvailabilityEvent): Unit =
-  ev match {
+  ev match
     case MediaFacade.MediaArchiveUnavailable =>
       actionStore.enableGroup(ServerActions, false)
       serverAvailableIndicator setVisible false
@@ -78,7 +77,6 @@ class RemoteController(actionStore: ActionStore,
       actionStore.enableGroup(ServerActions, true)
       serverAvailableIndicator setVisible true
       serverUnavailableIndicator setVisible false
-  }
 
   /**
     * Creates the consumer registrations used by this controller. There is a
@@ -89,4 +87,3 @@ class RemoteController(actionStore: ActionStore,
   private def createRegistrations(): Iterable[ConsumerRegistration[_]] =
   List(ArchiveAvailabilityRegistration(id = ComponentID(),
     callback = availabilityChanged))
-}

@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{Stat
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataStateEvent, MetaDataStateUpdated}
 import org.apache.pekko.actor.Actor.Receive
 
-object StateListenerExtension {
+object StateListenerExtension:
 
   /**
     * A message class representing a meta data state consumer registration.
@@ -35,9 +35,8 @@ object StateListenerExtension {
     */
   case class StateListenerRegistration(override val id: ComponentID,
                                        override val callback: ConsumerFunction[MetaDataStateEvent])
-    extends ConsumerRegistration[MetaDataStateEvent] {
+    extends ConsumerRegistration[MetaDataStateEvent]:
     override def unRegistration: AnyRef = StateListenerUnregistration(id)
-  }
 
   /**
     * A message class used to remove a state listener removed. When
@@ -47,7 +46,6 @@ object StateListenerExtension {
     * @param id the ID of the consumer
     */
   case class StateListenerUnregistration(id: ComponentID)
-}
 
 /**
   * A specific extension for the media archive interface for the management of
@@ -67,7 +65,7 @@ object StateListenerExtension {
   * @param mediaFacade the facade to the media archive
   */
 class StateListenerExtension(val mediaFacade: MediaFacade)
-  extends NoGroupingMediaIfcExtension[MetaDataStateEvent] with Identifiable {
+  extends NoGroupingMediaIfcExtension[MetaDataStateEvent] with Identifiable:
   /** The last update state event received from the archive. */
   private var lastUpdatedEvent: Option[MetaDataStateEvent] = None
 
@@ -75,36 +73,32 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     * @inheritdoc This implementation adds a new listener registration if
     *             necessary.
     */
-  override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
+  override def onArchiveAvailable(hasConsumers: Boolean): Unit =
     lastUpdatedEvent = None
-  }
 
   /**
     * @inheritdoc This implementation creates a state listener registration for
     *             the first consumer.
     */
   override def onConsumerAdded(cons: ConsumerFunction[MetaDataStateEvent], key: AnyRef,
-                               first: Boolean): Unit = {
+                               first: Boolean): Unit =
     registerStateListenerIfRequired(first)
     lastUpdatedEvent foreach cons
-  }
 
   /**
     * @inheritdoc This implementation removes the current state listener
     *             registration after the last consumer is gone.
     */
-  override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit = {
-    if (last) {
+  override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit =
+    if last then
       mediaFacade.unregisterMetaDataStateListener(componentID)
       lastUpdatedEvent = None
-    }
-  }
 
   /**
     * @inheritdoc This implementation reacts on state events and passes them to
     *             consumers.
     */
-  override protected def receiveSpecific: Receive = {
+  override protected def receiveSpecific: Receive =
     case up: MetaDataStateUpdated =>
       lastUpdatedEvent = Some(up)
       invokeConsumers(up)
@@ -114,16 +108,12 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     case reg: StateListenerRegistration => addConsumer(reg)
 
     case StateListenerUnregistration(id) => removeConsumer(id)
-  }
 
   /**
     * Creates a state listener registration if consumers are currently present.
     *
     * @param hasConsumers flag whether consumers are present
     */
-  private def registerStateListenerIfRequired(hasConsumers: Boolean): Unit = {
-    if (hasConsumers) {
+  private def registerStateListenerIfRequired(hasConsumers: Boolean): Unit =
+    if hasConsumers then
       mediaFacade.registerMetaDataStateListener(componentID)
-    }
-  }
-}

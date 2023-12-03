@@ -53,7 +53,7 @@ import org.apache.pekko.actor.Actor.Receive
   *                     is supported
   */
 class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
-  extends CommandActionTask with MessageBusListener {
+  extends CommandActionTask with MessageBusListener:
 
   /**
     * Creates a new instance of ''OpenMediaIfcConfigTask'' that uses a dummy
@@ -61,13 +61,12 @@ class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
     */
   def this() = this(DummyMediaIfcConfigStateHandler)
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ApplicationManager.ApplicationRegistered(app) =>
       initWithConfigData(app.clientApplicationContext.mediaIfcConfig)
 
     case ClientManagementApplication.MediaIfcConfigUpdated(optConfig) =>
       initWithConfigData(optConfig)
-  }
 
   /**
     * Initializes the properties of this task for the specified configuration
@@ -76,14 +75,13 @@ class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
     * @param config the optional configuration data
     */
   private def initWithConfigData(config: Option[MediaIfcConfigData]): Unit =
-  config match {
+  config match
     case None =>
       stateHandler updateState false
 
     case Some(configData) =>
       stateHandler updateState true
       setCommand(createCommand(configData))
-  }
 
   /**
     * Creates the command for opening the configuration dialog.
@@ -91,18 +89,15 @@ class OpenMediaIfcConfigTask(val stateHandler: MediaIfcConfigStateHandler)
     * @param configData the object with data about the configuration
     * @return the command
     */
-  private def createCommand(configData: MediaIfcConfigData): OpenMediaIfcConfigCommand = {
+  private def createCommand(configData: MediaIfcConfigData): OpenMediaIfcConfigCommand =
     val command = new OpenMediaIfcConfigCommand(configData)
     command setApplication getApplication
     command
-  }
-}
 
 /**
   * A dummy ''MediaIfcConfigStateHandler'' implementation. This object is used
   * if no ''MediaIfcConfigStateHandler'' is passed to an
   * ''OpenMediaIfcConfigTask''. It has an empty ''updateState()'' method.
   */
-private object DummyMediaIfcConfigStateHandler extends MediaIfcConfigStateHandler {
+private object DummyMediaIfcConfigStateHandler extends MediaIfcConfigStateHandler:
   override def updateState(configAvailable: Boolean): Unit = {}
-}

@@ -22,18 +22,17 @@ import net.sf.jguiraffe.gui.app.Application
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object ApplicationSyncStartupSpec {
+object ApplicationSyncStartupSpec:
   /** Constant for an application name. */
   private val AppName = "ApplicationStartupTestApp"
 
   /** The name of the property with the user configuration. */
   private val PropAppUsrConfig = AppName + "_user_config"
-}
 
 /**
   * Test class for ''ApplicationSyncStartup''.
   */
-class ApplicationSyncStartupSpec extends AnyFlatSpec with Matchers {
+class ApplicationSyncStartupSpec extends AnyFlatSpec with Matchers:
   import ApplicationSyncStartupSpec._
 
   /**
@@ -47,18 +46,15 @@ class ApplicationSyncStartupSpec extends AnyFlatSpec with Matchers {
   private def createTestApp(usrConfigName: String,
                             countArgs: AtomicInteger = new AtomicInteger,
                             countRun: AtomicInteger = new AtomicInteger): Application =
-    new Application {
-      override def processCommandLine(args: Array[String]): Unit = {
+    new Application:
+      override def processCommandLine(args: Array[String]): Unit =
         args should have length 0
         getConfigResourceName should be(AppName + "_config.xml")
         System.getProperty(PropAppUsrConfig) should be(usrConfigName)
         countArgs.incrementAndGet()
-      }
 
-      override def run(): Unit = {
+      override def run(): Unit =
         countRun.incrementAndGet()
-      }
-    }
 
   /**
     * Starts a test application using a test startup.
@@ -66,32 +62,26 @@ class ApplicationSyncStartupSpec extends AnyFlatSpec with Matchers {
     * @param app the application to start
     * @param properties a map with simulated system properties
     */
-  private def startApp(app: Application, properties: Map[String, String] = Map.empty): Unit = {
-    val startup = new ApplicationSyncStartup {
+  private def startApp(app: Application, properties: Map[String, String] = Map.empty): Unit =
+    val startup = new ApplicationSyncStartup:
       override def getSystemProperty(key: String): Option[String] =
         properties get key
-    }
     startup.startApplication(app, AppName)
-  }
 
-  "An ApplicationSyncStartup" should "start an application directly" in {
+  "An ApplicationSyncStartup" should "start an application directly" in:
     val countArgs = new AtomicInteger
     val countRun = new AtomicInteger
 
     startApp(createTestApp(".lineDJ-" + AppName + ".xml", countArgs, countRun))
     countArgs.get() should be(1)
     countRun.get() should be(1)
-  }
 
-  it should "evaluate the LineDJ_ApplicationID property" in {
+  it should "evaluate the LineDJ_ApplicationID property" in:
     val ConfigPrefix = ".CoolApp"
     startApp(createTestApp(".lineDJ-" + ConfigPrefix + "-" + AppName + ".xml"),
       Map("LineDJ_ApplicationID" -> ConfigPrefix))
-  }
 
-  it should "evaluate a system property for a configuration name" in {
+  it should "evaluate a system property for a configuration name" in:
     val ConfigProperty = AppName + "_config"
     val ConfigFile = ".mapped-config.xml"
     startApp(createTestApp(ConfigFile), Map(ConfigProperty -> ConfigFile))
-  }
-}

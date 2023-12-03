@@ -23,8 +23,6 @@ import net.sf.jguiraffe.gui.app.Application
   * the same thread. This implementation is used by the test classes or in
   * some special cases where a synchronous start is necessary.
   */
-trait ApplicationSyncStartup extends ApplicationStartup {
-  override def startApplication(app: Application, configName: String): Unit = {
+trait ApplicationSyncStartup extends ApplicationStartup:
+  override def startApplication(app: Application, configName: String): Unit =
     doStartApplication(app, configName)
-  }
-}

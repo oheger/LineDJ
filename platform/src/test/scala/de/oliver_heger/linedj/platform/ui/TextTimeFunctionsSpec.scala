@@ -26,26 +26,24 @@ import scala.concurrent.duration._
 /**
   * Test class for [[TextTimeFunctions]].
   */
-class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPropertyChecks {
-  "formattedTime" should "generate a correctly formatted time string" in {
+class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPropertyChecks:
+  "formattedTime" should "generate a correctly formatted time string" in:
     val duration = 3700.seconds
     val func = TextTimeFunctions.formattedTime()
 
     val text = func(duration)
 
     text should be("1:01:40")
-  }
 
-  "rotateText" should "return the text unchanged if its length is below the max length" in {
+  "rotateText" should "return the text unchanged if its length is below the max length" in:
     val text = "The text to rotate."
     val func = TextTimeFunctions.rotateText(text, maxLen = text.length)
 
     val rotatedText = func(100.seconds)
 
     rotatedText should be(text)
-  }
 
-  it should "rotate longer text" in {
+  it should "rotate longer text" in:
     val rotations = Table(
       ("duration", "result"),
       (0.seconds, "012345678"),
@@ -64,9 +62,8 @@ class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPr
     forAll(rotations) { (duration, result) =>
       func(duration) should be(result)
     }
-  }
 
-  it should "support a relative duration" in {
+  it should "support a relative duration" in:
     val rotations = Table(
       ("duration", "result"),
       (3.seconds, "012345678"),
@@ -80,9 +77,8 @@ class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPr
     forAll(rotations) { (duration, result) =>
       func(duration) should be(result)
     }
-  }
 
-  it should "support an alternative separator" in {
+  it should "support an alternative separator" in:
     val rotations = Table(
       ("duration", "result"),
       (0.seconds, "012345678"),
@@ -98,9 +94,8 @@ class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPr
     forAll(rotations) { (duration, result) =>
       func(duration) should be(result)
     }
-  }
 
-  it should "support a different time unit" in {
+  it should "support a different time unit" in:
     val rotations = Table(
       ("duration", "result"),
       (0.millis, "012345678"),
@@ -115,9 +110,8 @@ class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPr
     forAll(rotations) { (duration, result) =>
       func(duration) should be(result)
     }
-  }
 
-  it should "support a scaling factor" in {
+  it should "support a scaling factor" in:
     val rotations = Table(
       ("duration", "result"),
       (0.seconds, "012345678"),
@@ -133,14 +127,11 @@ class TextTimeFunctionsSpec extends AnyFlatSpec with Matchers with TableDrivenPr
     forAll(rotations) { (duration, result) =>
       func(duration) should be(result)
     }
-  }
 
-  "withSuffix" should "append a suffix to another function" in {
+  "withSuffix" should "append a suffix to another function" in:
     val Suffix = "-suffix"
     val func = TextTimeFunctions.withSuffix(Suffix)(TextTimeFunctions.formattedTime())
 
     val text = func(59.seconds)
 
     text should be(s"0:59$Suffix")
-  }
-}

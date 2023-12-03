@@ -31,7 +31,7 @@ import org.osgi.service.component.ComponentContext
   * ''deactivate()'' that stops all actors which have been registered before by
   * calling the ''registerActor()'' method.
   */
-trait ActorManagementComponent extends ActorManagement with PlatformComponent {
+trait ActorManagementComponent extends ActorManagement with PlatformComponent:
   /**
     * Creates a new actor based on the specified parameters (using the actor
     * factory of the ''ClientApplicationContext'') and registers it. This is a
@@ -49,8 +49,6 @@ trait ActorManagementComponent extends ActorManagement with PlatformComponent {
     * @inheritdoc This implementation stops all actors that have been
     *             registered.
     */
-  abstract override def deactivate(componentContext: ComponentContext): Unit = {
+  abstract override def deactivate(componentContext: ComponentContext): Unit =
     stopActors()
     super.deactivate(componentContext)
-  }
-}

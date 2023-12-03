@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailab
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import org.apache.pekko.actor.Actor.Receive
 
-object ArchiveAvailabilityExtension {
+object ArchiveAvailabilityExtension:
 
   /**
     * A message class representing the registration of a consumer for archive
@@ -34,9 +34,8 @@ object ArchiveAvailabilityExtension {
     */
   case class ArchiveAvailabilityRegistration(override val id: ComponentID, override val callback:
   ConsumerFunction[MediaArchiveAvailabilityEvent]) extends
-    ConsumerRegistration[MediaArchiveAvailabilityEvent] {
+    ConsumerRegistration[MediaArchiveAvailabilityEvent]:
     override def unRegistration: AnyRef = ArchiveAvailabilityUnregistration(id)
-  }
 
   /**
     * A message class for removing consumers for archive availability events.
@@ -45,7 +44,6 @@ object ArchiveAvailabilityExtension {
     */
   case class ArchiveAvailabilityUnregistration(id: ComponentID)
 
-}
 
 /**
   * A specific extension for the media archive interface for the management of
@@ -61,7 +59,7 @@ object ArchiveAvailabilityExtension {
   * defined by the companion object) on the message bus.
   */
 class ArchiveAvailabilityExtension
-  extends NoGroupingMediaIfcExtension[MediaArchiveAvailabilityEvent] {
+  extends NoGroupingMediaIfcExtension[MediaArchiveAvailabilityEvent]:
   /** The last known state of the media archive. */
   private var archiveState: MediaArchiveAvailabilityEvent = MediaArchiveUnavailable
 
@@ -70,11 +68,10 @@ class ArchiveAvailabilityExtension
     *             current archive state.
     */
   override def onConsumerAdded(cons: ConsumerFunction[MediaArchiveAvailabilityEvent],
-                               key: AnyRef, first: Boolean): Unit = {
+                               key: AnyRef, first: Boolean): Unit =
     cons(archiveState)
-  }
 
-  override protected def receiveSpecific: Receive = {
+  override protected def receiveSpecific: Receive =
     case reg: ArchiveAvailabilityRegistration =>
       addConsumer(reg)
 
@@ -83,5 +80,3 @@ class ArchiveAvailabilityExtension
     case ev: MediaArchiveAvailabilityEvent =>
       invokeConsumers(ev)
       archiveState = ev
-  }
-}

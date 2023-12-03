@@ -38,7 +38,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
-object ActorClientSupportSpec {
+object ActorClientSupportSpec:
   /** Constant for a test PING message. */
   private val MsgPing = new Object
 
@@ -58,26 +58,22 @@ object ActorClientSupportSpec {
     * A simple test actor which answers to a predefined message with a
     * predefined response and ignores all other messages.
     */
-  class AskActor extends Actor {
-    override def receive: Receive = {
+  class AskActor extends Actor:
+    override def receive: Receive =
       case MsgPing => sender() ! MsgPong
-    }
-  }
-}
 
 /**
   * Test class for ''ActorClientSupport''.
   */
 class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import ActorClientSupportSpec._
 
   def this() = this(ActorSystem("ActorClientSupportSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Checks whether an actor ref points to the specified probe.
@@ -85,43 +81,37 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param ref   the ref to be checked
     * @param probe the expected probe
     */
-  private def checkActorRef(ref: ActorRef, probe: TestProbe): Unit = {
+  private def checkActorRef(ref: ActorRef, probe: TestProbe): Unit =
     ref ! MsgPing
     probe.expectMsg(MsgPing)
-  }
 
-  "An ActorClientSupport" should "allow operations on Future objects" in {
+  "An ActorClientSupport" should "allow operations on Future objects" in:
     val helper = new ActorClientSupportTestHelper
 
     val future = helper.support.operateOnFuture(21)
     Await.result(future, 3.seconds) should be(42)
-  }
 
-  it should "support querying an actor by name" in {
+  it should "support querying an actor by name" in:
     val helper = new ActorClientSupportTestHelper
     val probe = TestProbe()
     val path = probe.ref.path.toStringWithoutAddress
 
     val futureRef = helper.support resolveActor path
-    Await.ready(futureRef, TimeoutDuration).value match {
+    Await.ready(futureRef, TimeoutDuration).value match
       case Some(Success(ref)) =>
         checkActorRef(ref, probe)
       case e =>
         fail("Could not resolve reference: " + e)
-    }
-  }
 
-  it should "handle an actor path which cannot be resolved" in {
+  it should "handle an actor path which cannot be resolved" in:
     val helper = new ActorClientSupportTestHelper
 
     val futureRef = helper.support resolveActor "nonExistingPath"
-    Await.ready(futureRef, TimeoutDuration).value match {
+    Await.ready(futureRef, TimeoutDuration).value match
       case Some(Failure(_)) => // this is fine
       case o => fail("Unexpected result: " + o)
-    }
-  }
 
-  it should "support querying an actor by name in the UI thread" in {
+  it should "support querying an actor by name in the UI thread" in:
     val helper = new ActorClientSupportTestHelper
     val probe = TestProbe()
     val path = probe.ref.path.toStringWithoutAddress
@@ -134,67 +124,58 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper sendToBusListener uiMsg
     val captor = ArgumentCaptor.forClass(classOf[Try[ActorRef]])
     verify(func).apply(captor.capture())
-    captor.getValue match {
+    captor.getValue match
       case Success(ref) =>
         checkActorRef(ref, probe)
       case e =>
         fail("Could not resolve reference: " + e)
-    }
-  }
 
-  it should "complete a Future in the UI thread" in {
+  it should "complete a Future in the UI thread" in:
     val helper = new ActorClientSupportTestHelper
     val value = new AtomicInteger
-    val func: Try[Int] => Unit = {
+    val func: Try[Int] => Unit =
       case Success(i) => value.set(i)
       case e => fail("Unexpected result: " + e)
-    }
 
     helper.activate().support.operateOnFutureInUIThread(5, func)
     val uiMsg = helper.expectUIMessage()
     value.get() should be(0)
     helper sendToBusListener uiMsg
     value.get() should be(10)
-  }
 
-  it should "remove the message bus registration on deactivation" in {
+  it should "remove the message bus registration on deactivation" in:
     val helper = new ActorClientSupportTestHelper
 
     helper.activate().deactivate()
     verify(helper.clientContext.messageBus).removeListener(RegistrationID)
-  }
 
-  it should "invoke the inherited activate() method" in {
+  it should "invoke the inherited activate() method" in:
     val helper = new ActorClientSupportTestHelper
 
     helper.activate().support.activateCount should be(1)
-  }
 
-  it should "invoke the inherited deactivate() method" in {
+  it should "invoke the inherited deactivate() method" in:
     val helper = new ActorClientSupportTestHelper
 
     helper.deactivate().support.deactivateCount should be(1)
-  }
 
-  it should "support querying an actor from the UI thread" in {
+  it should "support querying an actor from the UI thread" in:
     val helper = new ActorClientSupportTestHelper
     helper.activate()
     val actor = system.actorOf(Props[AskActor](), "askActor")
     val refAnswer = new AtomicInteger
 
     val request = helper.support.actorRequest(actor, MsgPing)
-    request executeUIThread { t: Try[Int] =>
-      t match {
+    request executeUIThread { (t: Try[Int]) =>
+      t match
         case Success(i) => refAnswer.set(i)
         case e => fail("Unexpected result: " + e)
-      }
     }
     refAnswer.get() should be(0)
     helper sendToBusListener helper.expectUIMessage()
     refAnswer.get() should be(MsgPong)
-  }
 
-  it should "respect the timeout for an actor invocation" in {
+  it should "respect the timeout for an actor invocation" in:
     val helper = new ActorClientSupportTestHelper
     helper.activate()
     val actor = system.actorOf(Props[AskActor](), "askActorTimeout")
@@ -204,17 +185,15 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val request = helper.support.actorRequest(actor, MsgPong)(timeout)
     request executeUIThread refAnswer.set
     helper sendToBusListener helper.expectUIMessage()
-    refAnswer.get() match {
+    refAnswer.get() match
       case Failure(exception) =>
         exception shouldBe a[AskTimeoutException]
       case r => fail("Unexpected result: " + r)
-    }
-  }
 
   /**
     * Test helper class that manages a test instance and its dependencies.
     */
-  private class ActorClientSupportTestHelper {
+  private class ActorClientSupportTestHelper:
     /** The client application context. */
     val clientContext: ClientApplicationContext = createClientContext()
 
@@ -236,7 +215,7 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
       *
       * @return this test helper
       */
-    def activate(): ActorClientSupportTestHelper = {
+    def activate(): ActorClientSupportTestHelper =
       val componentContext = mock[ComponentContext]
       support activate componentContext
       verifyNoInteractions(componentContext)
@@ -244,30 +223,27 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
       verify(clientContext.messageBus).registerListener(captor.capture())
       busListener = captor.getValue
       this
-    }
 
     /**
       * Calls ''deactivate()'' on the test object.
       *
       * @return this test helper
       */
-    def deactivate(): ActorClientSupportTestHelper = {
+    def deactivate(): ActorClientSupportTestHelper =
       val componentContext = mock[ComponentContext]
       support deactivate componentContext
       verifyNoInteractions(componentContext)
       this
-    }
 
     /**
       * Expects that a message has been passed to the message bus.
       *
       * @return the message
       */
-    def expectUIMessage(): AnyRef = {
+    def expectUIMessage(): AnyRef =
       val msg = messageQueue.poll(TimeoutDuration.toMillis, TimeUnit.MILLISECONDS)
       msg should not be null
       msg
-    }
 
     /**
       * Sends the specified message to the registered message bus listener.
@@ -275,18 +251,17 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
       * @param msg the message
       * @return this test helper
       */
-    def sendToBusListener(msg: Any): ActorClientSupportTestHelper = {
+    def sendToBusListener(msg: Any): ActorClientSupportTestHelper =
       busListener should not be null
       busListener.apply(msg)
       this
-    }
 
     /**
       * Creates a client application context object with some mock references.
       *
       * @return the context
       */
-    private def createClientContext(): ClientApplicationContext = {
+    private def createClientContext(): ClientApplicationContext =
       val context = mock[ClientApplicationContext]
       when(context.actorSystem).thenReturn(system)
       val bus = mock[MessageBus]
@@ -297,27 +272,23 @@ class ActorClientSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem
         null
       }).when(bus).publish(any())
       context
-    }
 
     /**
       * Creates the test instance.
       *
       * @return the object to be tested
       */
-    private def createTestInstance(): SupportImpl = {
+    private def createTestInstance(): SupportImpl =
       val sup = new SupportImpl
       sup initClientContext clientContext
       sup
-    }
-  }
 
-}
 
 /**
   * A test implementation mixing in the trait to be tested.
   */
 private class SupportImpl extends ClientContextSupport with SuperInvocationCheck
-  with ActorClientSupport {
+  with ActorClientSupport:
   /**
     * Checks whether an operation on a future is possible without having to
     * provide an executor context.
@@ -336,7 +307,5 @@ private class SupportImpl extends ClientContextSupport with SuperInvocationCheck
     * @param x the input
     * @param f the callback to complete the function
     */
-  def operateOnFutureInUIThread(x: Int, f: Try[Int] => Unit): Unit = {
+  def operateOnFutureInUIThread(x: Int, f: Try[Int] => Unit): Unit =
     operateOnFuture(x).onCompleteUIThread(f)
-  }
-}

@@ -34,7 +34,7 @@ import org.osgi.service.component.ComponentContext
   * included easily into a concrete implementation, such as specialized cleanup
   * logic.
   */
-trait PlatformComponent {
+trait PlatformComponent:
   /**
     * Initializes the reference to the ''ClientApplicationContext''. This
     * method is called by the SCR.
@@ -68,4 +68,3 @@ trait PlatformComponent {
     * @param componentContext the component context
     */
   def deactivate(componentContext: ComponentContext): Unit = {}
-}

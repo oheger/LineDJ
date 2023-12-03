@@ -36,7 +36,7 @@ import org.apache.pekko.actor.ActorSystem
   * the whole client. This functionality makes it possible to run multiple
   * independent applications in a single container.
   */
-trait ClientApplicationContext {
+trait ClientApplicationContext:
   /**
     * Returns the actor system running on the client.
     * @return the central actor system
@@ -87,4 +87,3 @@ trait ClientApplicationContext {
     * @return an option with configuration data for the media archive
     */
   def mediaIfcConfig: Option[MediaIfcConfigData]
-}

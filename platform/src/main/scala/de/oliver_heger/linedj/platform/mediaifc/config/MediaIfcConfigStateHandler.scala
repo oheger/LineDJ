@@ -26,7 +26,7 @@ package de.oliver_heger.linedj.platform.mediaifc.config
   * an application accordingly; for instance, an action could be disabled if
   * there is no configuration option available.
   */
-trait MediaIfcConfigStateHandler {
+trait MediaIfcConfigStateHandler:
   /**
     * Updates the availability state of the configuration for the media archive
     * interface. If invoked with '''true''', a configuration is supported;
@@ -35,4 +35,3 @@ trait MediaIfcConfigStateHandler {
     * @param configAvailable flag whether configuration is supported
     */
   def updateState(configAvailable: Boolean): Unit
-}

@@ -24,16 +24,13 @@ import net.sf.jguiraffe.gui.app.Application
   * This trait simply fires up a thread which invokes the regular startup
   * procedure.
   */
-trait ApplicationAsyncStartup extends ApplicationStartup {
+trait ApplicationAsyncStartup extends ApplicationStartup:
   /**
     * @inheritdoc This implementation creates a new thread for starting up the
     *             application.
     */
-  override def startApplication(app: Application, configName: String): Unit = {
+  override def startApplication(app: Application, configName: String): Unit =
     new Thread() {
-      override def run(): Unit = {
+      override def run(): Unit =
         doStartApplication(app, configName)
-      }
     }.start()
-  }
-}

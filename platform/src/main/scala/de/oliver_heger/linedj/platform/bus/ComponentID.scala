@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.bus
 
 import scala.util.Random
 
-object ComponentID {
+object ComponentID:
   /** An object for generating unique numeric IDs. */
   private val random = new Random
 
@@ -30,7 +30,6 @@ object ComponentID {
     * @return the new ''ComponentID'' instance
     */
   def apply(): ComponentID = new ComponentID(random.nextInt())
-}
 
 /**
   * A class representing an ID of a component.
@@ -52,7 +51,7 @@ object ComponentID {
   *
   * @param numID a numeric ID used for generating a unuqie string representation
   */
-final class ComponentID private(numID: Int) {
+final class ComponentID private(numID: Int):
   /**
     * @inheritdoc This implementation returns a string that contains a numeric
     *             ID. This ID is only used to support debug output, to have an
@@ -60,4 +59,3 @@ final class ComponentID private(numID: Int) {
     *             used for other purposes like equals calculation.
     */
   override def toString: String = s"ComponentID [$numID]"
-}

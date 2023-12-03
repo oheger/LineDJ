@@ -34,7 +34,7 @@ import org.apache.pekko.actor.Actor.Receive
  * listener might only be an anonymous function), a listener registration
  * returns an ID; this ID can then be used for removing the listener again.
  */
-trait MessageBus {
+trait MessageBus:
   /**
    * Publishes a message on the message bus. All registered listeners that can
    * handle this message are invoked. Note that this is an asynchronous
@@ -59,4 +59,3 @@ trait MessageBus {
    * @param listenerID the ID of the listener to be removed
    */
   def removeListener(listenerID: Int): Unit
-}

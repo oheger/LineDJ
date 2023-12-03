@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.bus
 
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, ConsumerRegistration}
 
-object ConsumerSupport {
+object ConsumerSupport:
   /**
     * A type defining a consumer function. A consumer function is invoked when
     * a specific result is received.
@@ -36,7 +36,7 @@ object ConsumerSupport {
     *
     * @tparam C the type of data this consumer is interested in
     */
-  trait ConsumerRegistration[C] {
+  trait ConsumerRegistration[C]:
     /**
       * Returns the ID of this consumer (which is a ''ComponentID'').
       *
@@ -60,8 +60,6 @@ object ConsumerSupport {
       * @return an object to remove this consumer registration
       */
     def unRegistration: AnyRef
-  }
-}
 
 /**
   * A base trait offering functionality for the management of
@@ -104,7 +102,7 @@ object ConsumerSupport {
   * @tparam C the type of data this instance operates on
   * @tparam K the type for the grouping key used by this instance
   */
-trait ConsumerSupport[C, K] {
+trait ConsumerSupport[C, K]:
 
   /**
     * Holds the consumers registered at this object.
@@ -130,13 +128,12 @@ trait ConsumerSupport[C, K] {
     * @param key the grouping key for the consumer
     * @return a flag whether this is the first consumer added to this object
     */
-  def addConsumer(reg: ConsumerRegistration[C], key: K = defaultKey): Boolean = {
+  def addConsumer(reg: ConsumerRegistration[C], key: K = defaultKey): Boolean =
     val wasEmpty = consumers.isEmpty
     val consumerGroup = fetchGroup(key) + (reg.id -> reg.callback)
     consumers += key -> consumerGroup
     onConsumerAdded(reg.callback, key, wasEmpty)
     wasEmpty
-  }
 
   /**
     * Removes the specified consumer from this object. The return value is
@@ -149,21 +146,18 @@ trait ConsumerSupport[C, K] {
     * @param key the grouping key for the consumer to be removed
     * @return a flag whether the last consumer was removed
     */
-  def removeConsumer(id: ComponentID, key: K = defaultKey): Boolean = {
+  def removeConsumer(id: ComponentID, key: K = defaultKey): Boolean =
     val consumerGroup = fetchGroup(key)
     val updatedConsumerGroup = consumerGroup - id
-    if (updatedConsumerGroup.isEmpty) {
+    if updatedConsumerGroup.isEmpty then
       consumers -= key
-    } else {
+    else
       consumers += key -> updatedConsumerGroup
-    }
     val removed = updatedConsumerGroup.size < consumerGroup.size
     val last = consumers.isEmpty && removed
-    if (removed) {
+    if removed then
       onConsumerRemoved(key, last)
-    }
     last
-  }
 
   /**
     * Invokes the consumer functions of all registered consumers with the
@@ -173,10 +167,9 @@ trait ConsumerSupport[C, K] {
     * @param data the data to be passed to registered consumers
     * @param key  the grouping key for the consumers to be notified
     */
-  def invokeConsumers(data: => C, key: K = defaultKey): Unit = {
+  def invokeConsumers(data: => C, key: K = defaultKey): Unit =
     lazy val message = data
     consumerList(key) foreach (_ (message))
-  }
 
   /**
     * Removes all consumers of the specified group. Note that this method will
@@ -188,11 +181,10 @@ trait ConsumerSupport[C, K] {
     * @return a flag whether actually consumers were removed (i.e. the group
     *         existed)
     */
-  def removeConsumers(key: K = defaultKey): Boolean = {
+  def removeConsumers(key: K = defaultKey): Boolean =
     val oldConsumers = consumers
     consumers = oldConsumers - key
     consumers.size < oldConsumers.size
-  }
 
   /**
     * Removes all consumers from this object. Note that this method will not
@@ -202,11 +194,10 @@ trait ConsumerSupport[C, K] {
     * @return a flag whether actually consumers were removed (i.e. consumers
     *         had been registered)
     */
-  def clearConsumers(): Boolean = {
+  def clearConsumers(): Boolean =
     val oldConsumers = consumers
     consumers = Map.empty
     oldConsumers.nonEmpty
-  }
 
   /**
     * Returns a sequence with all currently registered consumer functions
@@ -257,4 +248,3 @@ trait ConsumerSupport[C, K] {
     */
   private def fetchGroup(key: K): Map[ComponentID, ConsumerFunction[C]] =
     consumers.getOrElse(key, Map.empty)
-}

@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.Actor.Receive
 
-object MediaIfcExtension {
+object MediaIfcExtension:
 
   /**
     * A trait to be implemented by objects that need to register consumers.
@@ -38,7 +38,7 @@ object MediaIfcExtension {
     * The platform offers support for defining such providers in Jelly scripts
     * and processing registrations automatically at application startup.
     */
-  trait ConsumerRegistrationProvider {
+  trait ConsumerRegistrationProvider:
     /**
       * Returns a collection with the consumer registrations supported by this
       * provider. This method is invoked once by the LineDJ platform. The
@@ -49,8 +49,6 @@ object MediaIfcExtension {
       *         contributed by this provider
       */
     def registrations: Iterable[ConsumerRegistration[_]]
-  }
-}
 
 /**
   * A trait defining base functionality for extensions for the interface to the
@@ -99,7 +97,7 @@ object MediaIfcExtension {
   * @tparam C the type of data this extension operates on
   * @tparam K the type for the grouping key used by this extension
   */
-trait MediaIfcExtension[C, K] extends ConsumerSupport[C, K] with MessageBusListener {
+trait MediaIfcExtension[C, K] extends ConsumerSupport[C, K] with MessageBusListener:
   /**
     * @inheritdoc This implementation returns a combined message function.
     *             Some messages are already processed by this base class.
@@ -141,11 +139,9 @@ trait MediaIfcExtension[C, K] extends ConsumerSupport[C, K] with MessageBusListe
     *
     * @return the base messaging function
     */
-  private def receiveBase: Receive = {
+  private def receiveBase: Receive =
     case MetaDataScanCompleted => onMediaScanCompleted(consumerMap.nonEmpty)
     case MediaFacade.MediaArchiveAvailable => onArchiveAvailable(consumerMap.nonEmpty)
-  }
-}
 
 /**
   * A base trait which can be used for simple media interface extensions that
@@ -157,6 +153,5 @@ trait MediaIfcExtension[C, K] extends ConsumerSupport[C, K] with MessageBusListe
   *
   * @tparam C the type of data this extension operates on
   */
-trait NoGroupingMediaIfcExtension[C] extends MediaIfcExtension[C, AnyRef] {
+trait NoGroupingMediaIfcExtension[C] extends MediaIfcExtension[C, AnyRef]:
   override val defaultKey: AnyRef = new Object
-}

@@ -32,7 +32,7 @@ import org.apache.pekko.actor.Actor.Receive
  *
  * @param sync the object handling the synchronization with the UI thread
  */
-class UIBus(sync: GUISynchronizer) extends MessageBus {
+class UIBus(sync: GUISynchronizer) extends MessageBus:
   /** The list of currently registered listeners. */
   private var listeners = List.empty[Receive]
 
@@ -47,27 +47,22 @@ class UIBus(sync: GUISynchronizer) extends MessageBus {
    *             thread. All listeners that can handle the message are
    *             invoked.
    */
-  override def publish(msg: Any): Unit = {
-    runAsync {
+  override def publish(msg: Any): Unit =
+    runAsync:
       listeners foreach { l =>
-        if (l isDefinedAt msg) {
+        if l isDefinedAt msg then
           l(msg)
-        }
       }
-    }
-  }
 
   /**
    * @inheritdoc This implementation adds the listener to an internal list;
    *             this happens asynchronously in the UI thread. The listener ID
    *             is calculated from the listeners hash code.
    */
-  override def registerListener(r: Receive): Int = {
-    runAsync {
+  override def registerListener(r: Receive): Int =
+    runAsync:
       listeners = r :: listeners
-    }
     r.hashCode()
-  }
 
   /**
    * @inheritdoc This implementation removes all listeners with the given ID
@@ -75,21 +70,15 @@ class UIBus(sync: GUISynchronizer) extends MessageBus {
    *             thread. The listener ID is again calculated from the listeners
    *             hash code.
    */
-  override def removeListener(listenerID: Int): Unit = {
-    runAsync {
+  override def removeListener(listenerID: Int): Unit =
+    runAsync:
       listeners = listeners filterNot (_.hashCode() == listenerID)
-    }
-  }
 
   /**
    * Helper method for running code asynchronously on the UI thread.
    * @param r the code to be run
    */
-  private def runAsync(r: => Unit): Unit = {
-    sync asyncInvoke new Runnable {
-      override def run(): Unit = {
+  private def runAsync(r: => Unit): Unit =
+    sync asyncInvoke new Runnable:
+      override def run(): Unit =
         r
-      }
-    }
-  }
-}

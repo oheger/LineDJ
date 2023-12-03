@@ -33,11 +33,11 @@ import java.util
   * @param bundleContext the bundle context
   */
 private class ServiceDependenciesManager(val bundleContext: BundleContext)
-  extends MessageBusListener {
+  extends MessageBusListener:
   /** A map with service registrations managed by this instance. */
   private var registrations = Map.empty[ServiceDependency, ServiceRegistration[ServiceDependency]]
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case RegisterService(s@ServiceDependency(name)) =>
       val props = new util.Hashtable[String, AnyRef]
       props.put(ServiceDependencies.PropertyServiceName, name)
@@ -49,5 +49,3 @@ private class ServiceDependenciesManager(val bundleContext: BundleContext)
         reg.unregister()
         registrations -= dep
       }
-  }
-}

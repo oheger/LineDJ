@@ -26,22 +26,19 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''EnablerConfigStateHandler''.
   */
-class EnablerConfigStateHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An EnablerConfigStateHandler" should "enable its ElementEnabler" in {
+class EnablerConfigStateHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An EnablerConfigStateHandler" should "enable its ElementEnabler" in:
     val builderData = mock[ComponentBuilderData]
     val enabler = mock[ElementEnabler]
     val handler = new EnablerConfigStateHandler(enabler, builderData)
 
     handler.updateState(configAvailable = true)
     verify(enabler).setEnabledState(builderData, true)
-  }
 
-  it should "disable its ElementEnabler" in {
+  it should "disable its ElementEnabler" in:
     val builderData = mock[ComponentBuilderData]
     val enabler = mock[ElementEnabler]
     val handler = new EnablerConfigStateHandler(enabler, builderData)
 
     handler.updateState(configAvailable = false)
     verify(enabler).setEnabledState(builderData, false)
-  }
-}

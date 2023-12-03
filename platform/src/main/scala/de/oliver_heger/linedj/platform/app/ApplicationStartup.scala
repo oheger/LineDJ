@@ -19,14 +19,13 @@ package de.oliver_heger.linedj.platform.app
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import net.sf.jguiraffe.gui.app.Application
 
-object ApplicationStartup {
+object ApplicationStartup:
   /**
     * Constant for a system property that defines an ID for a LineDJ
     * application. If this property is set, its value is prepended to the
     * configuration name passed to the ''startApplication()'' method.
     */
   val PropApplicationID = "LineDJ_ApplicationID"
-}
 
 /**
   * Definition of a trait which supports starting up an application.
@@ -59,7 +58,7 @@ object ApplicationStartup {
   * ''appName_user_config'' is set; this variable can then be referenced in the
   * configuration definition file.
   */
-trait ApplicationStartup extends SystemPropertyAccess {
+trait ApplicationStartup extends SystemPropertyAccess:
 
   import ApplicationStartup._
 
@@ -81,11 +80,10 @@ trait ApplicationStartup extends SystemPropertyAccess {
     * @param app     the application to be started
     * @param appName the name of the application to be started
     */
-  protected def doStartApplication(app: Application, appName: String): Unit = {
+  protected def doStartApplication(app: Application, appName: String): Unit =
     app setConfigResourceName generateConfigName(appName)
     System.setProperty(appName + "_user_config", generateUserConfigName(appName))
     Application.startup(app, Array.empty)
-  }
 
   /**
     * Generates the name of the main configuration from the passed in
@@ -108,10 +106,9 @@ trait ApplicationStartup extends SystemPropertyAccess {
     * @param appName the application name
     * @return the user configuration name to be used
     */
-  private def generateUserConfigName(appName: String): String = {
+  private def generateUserConfigName(appName: String): String =
     val nameFromProperty = getSystemProperty(appName + "_config")
     nameFromProperty.getOrElse(generateUserConfigNameWithAppID(appName))
-  }
 
   /**
     * Generates the name of the user configuration using the default naming
@@ -120,9 +117,7 @@ trait ApplicationStartup extends SystemPropertyAccess {
     * @param appName the application name
     * @return the user configuration name to be used
     */
-  private def generateUserConfigNameWithAppID(appName: String): String = {
+  private def generateUserConfigNameWithAppID(appName: String): String =
     val prefix1 = ".lineDJ-" + getSystemProperty(PropApplicationID).getOrElse("")
-    val prefix = if (prefix1 endsWith "-") prefix1 else prefix1 + "-"
+    val prefix = if prefix1 endsWith "-" then prefix1 else prefix1 + "-"
     prefix + appName + ".xml"
-  }
-}

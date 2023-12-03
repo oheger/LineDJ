@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.platform.app
 
-import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
@@ -31,7 +30,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration._
 
-object ShutdownManagementActorSpec {
+object ShutdownManagementActorSpec:
   /** A set with test component IDs. */
   private val TestComponents = createPendingComponents()
 
@@ -54,7 +53,7 @@ object ShutdownManagementActorSpec {
     * different implementations, actor instances with various mocking
     * capabilities can be created.
     */
-  trait TestActorCreator {
+  trait TestActorCreator:
     /**
       * Returns a ''Props'' object to create a new test actor instance. This
       * base implementation returns the standard ''Props'' produced by the
@@ -66,69 +65,60 @@ object ShutdownManagementActorSpec {
       */
     def generateProps(managementApp: ClientManagementApplication, components: Set[ComponentID]): Props =
       ShutdownManagementActor.props(managementApp, components)
-  }
 
-}
 
 /**
   * Test class for ''ShutdownManagementActor''.
   */
 class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ShutdownManagementActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import ShutdownManagementActorSpec._
 
-  "ShutdownManagementActor" should "trigger a shutdown when confirmations of all components arrived" in {
+  "ShutdownManagementActor" should "trigger a shutdown when confirmations of all components arrived" in:
     val helper = new ShutdownActorTestHelper with TestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
       .expectPlatformShutdown()
-  }
 
-  it should "not trigger a shutdown before all confirmations arrive" in {
+  it should "not trigger a shutdown before all confirmations arrive" in:
     val componentIDs = TestComponents.toSeq drop 1
     val helper = new ShutdownActorTestHelper with TestActorCreator
 
     helper.sendShutdownConfirmations(componentIDs: _*)
       .expectNoPlatformShutdown()
-  }
 
-  it should "not trigger multiple shutdowns" in {
+  it should "not trigger multiple shutdowns" in:
     val helper = new ShutdownActorTestHelper(shutdownLatchCount = 2) with TestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
       .sendShutdownConfirmations(ComponentID())
       .expectNoPlatformShutdown()
-  }
 
-  it should "take a shutdown timeout into account" in {
+  it should "take a shutdown timeout into account" in:
     val helper = new ShutdownActorTestHelper with TestActorCreator
 
     helper.initShutdownTimeout(100.millis)
       .expectPlatformShutdown()
-  }
 
-  it should "use the correct default shutdown timeout if none is configured" in {
+  it should "use the correct default shutdown timeout if none is configured" in:
     val helper = new ShutdownActorTestHelper with MockSchedulerTestActorCreator
 
     val invocation = helper.expectSchedule()
     invocation.initialDelay should be(ClientManagementApplication.DefaultShutdownTimeoutMillis.millis)
-  }
 
-  it should "cancel the scheduled job when shutdown is complete" in {
+  it should "cancel the scheduled job when shutdown is complete" in:
     val helper = new ShutdownActorTestHelper with MockSchedulerTestActorCreator
 
     helper.sendShutdownConfirmations(TestComponents.toSeq: _*)
       .expectPlatformShutdown()
     val invocation = helper.expectSchedule()
     invocation.cancellable.isCancelled shouldBe true
-  }
 
   /**
     * A test helper managing a test actor instance and its dependencies.
@@ -136,7 +126,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
     * @param shutdownLatchCount the count value to initialize the latch that
     *                           is triggered when a shutdown happens
     */
-  private class ShutdownActorTestHelper(shutdownLatchCount: Int = 1) {
+  private class ShutdownActorTestHelper(shutdownLatchCount: Int = 1):
     this: TestActorCreator =>
 
     /** A latch to determine whether the application was shutdown. */
@@ -155,10 +145,9 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param timeout the timeout to be set
       * @return this test helper
       */
-    def initShutdownTimeout(timeout: FiniteDuration): ShutdownActorTestHelper = {
+    def initShutdownTimeout(timeout: FiniteDuration): ShutdownActorTestHelper =
       managementConfig.setProperty(ClientManagementApplication.PropShutdownTimeout, timeout.toMillis)
       this
-    }
 
     /**
       * Sends shutdown confirmation messages for the given components to the
@@ -167,10 +156,9 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param componentIDs the component IDs
       * @return this test helper
       */
-    def sendShutdownConfirmations(componentIDs: ComponentID*): ShutdownActorTestHelper = {
+    def sendShutdownConfirmations(componentIDs: ComponentID*): ShutdownActorTestHelper =
       componentIDs.foreach(id => send(ShutdownManagementActor.ShutdownConfirmation(id)))
       this
-    }
 
     /**
       * Checks whether the client management application was triggered to
@@ -178,10 +166,9 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def expectPlatformShutdown(): ShutdownActorTestHelper = {
+    def expectPlatformShutdown(): ShutdownActorTestHelper =
       latchShutdown.await(WaitForShutdownMillis, TimeUnit.MILLISECONDS) shouldBe true
       this
-    }
 
     /**
       * Checks that no shutdown of the client management application was
@@ -189,10 +176,9 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return this test helper
       */
-    def expectNoPlatformShutdown(): ShutdownActorTestHelper = {
+    def expectNoPlatformShutdown(): ShutdownActorTestHelper =
       latchShutdown.await(NoShutdownTimeFrameMillis, TimeUnit.MILLISECONDS) shouldBe false
       this
-    }
 
     /**
       * Sends the given message to the actor to be tested.
@@ -200,10 +186,9 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       * @param msg the message
       * @return this test helper
       */
-    private def send(msg: Any): ShutdownActorTestHelper = {
+    private def send(msg: Any): ShutdownActorTestHelper =
       shutdownActor ! msg
       this
-    }
 
     /**
       * Creates an initialized mock for the client management application to be
@@ -211,7 +196,7 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       *
       * @return the mock application
       */
-    private def createApplicationMock(): ClientManagementApplication = {
+    private def createApplicationMock(): ClientManagementApplication =
       val app = mock[ClientManagementApplication]
       doAnswer((_: InvocationOnMock) => {
         latchShutdown.countDown()
@@ -219,24 +204,21 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
       }).when(app).shutdown()
       when(app.managementConfiguration).thenReturn(managementConfig)
       app
-    }
 
     /**
       * Creates a test actor instance.
       *
       * @return the test actor instance
       */
-    private def createShutdownActor(): ActorRef = {
+    private def createShutdownActor(): ActorRef =
       val props = generateProps(createApplicationMock(), TestComponents)
       system.actorOf(props)
-    }
-  }
 
   /**
     * A specialized implementation of ''TestActorCreator'', which adds support
     * for mocking interactions with the scheduler.
     */
-  private trait MockSchedulerTestActorCreator extends TestActorCreator {
+  private trait MockSchedulerTestActorCreator extends TestActorCreator:
     /** The queue for recording scheduled invocations. */
     private val schedulerQueue =
       new LinkedBlockingQueue[RecordingSchedulerSupport.SchedulerInvocation]
@@ -255,6 +237,4 @@ class ShutdownManagementActorSpec(testSystem: ActorSystem) extends TestKit(testS
         with RecordingSchedulerSupport {
         override val queue: BlockingQueue[RecordingSchedulerSupport.SchedulerInvocation] = schedulerQueue
       })
-  }
 
-}

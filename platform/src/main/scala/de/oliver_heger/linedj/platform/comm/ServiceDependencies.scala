@@ -24,7 +24,7 @@ package de.oliver_heger.linedj.platform.comm
   * mechanisms of the OSGi platform to lookup service dependencies. Refer to
   * the documentation of nested elements for further information.
   */
-object ServiceDependencies {
+object ServiceDependencies:
   /**
     * The property used in OSGi service registrations or filters to define the
     * name of a service.
@@ -111,4 +111,3 @@ object ServiceDependencies {
     */
   def serviceNameFilter(name: String): String =
     s"($PropertyServiceName=$name)"
-}

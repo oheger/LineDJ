@@ -27,10 +27,9 @@ import net.sf.jguiraffe.gui.builder.components.model.ListModel
   * creation of such an empty model. A concrete implementation just has to
   * define the model's data type.
   */
-trait EmptyListModel extends ListModel {
+trait EmptyListModel extends ListModel:
   override def getDisplayObject(i: Int): AnyRef = null
 
   override def size(): Int = 0
 
   override def getValueObject(i: Int): AnyRef = null
-}

@@ -25,7 +25,7 @@ import org.osgi.framework.{BundleContext, ServiceRegistration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.mockito.MockitoSugar
 
-object ServiceDependenciesManagerSpec {
+object ServiceDependenciesManagerSpec:
   /** A test dependency instance used by test cases. */
   private val TestDependency = ServiceDependency("com.test.ServiceDep")
 
@@ -34,17 +34,15 @@ object ServiceDependenciesManagerSpec {
     *
     * @return the map with expected registration properties
     */
-  private def serviceProperties(): util.Hashtable[String, AnyRef] = {
+  private def serviceProperties(): util.Hashtable[String, AnyRef] =
     val expProps = new util.Hashtable[String, AnyRef]
     expProps.put(ServiceDependencies.PropertyServiceName, TestDependency.serviceName)
     expProps
-  }
-}
 
 /**
   * Test class for ''ServiceDependenciesManager''.
   */
-class ServiceDependenciesManagerSpec extends AnyFlatSpec with MockitoSugar {
+class ServiceDependenciesManagerSpec extends AnyFlatSpec with MockitoSugar:
 
   import ServiceDependenciesManagerSpec._
 
@@ -63,38 +61,34 @@ class ServiceDependenciesManagerSpec extends AnyFlatSpec with MockitoSugar {
     * @return the mock registration object
     */
   private def expectRegistration(manager: ServiceDependenciesManager):
-  ServiceRegistration[ServiceDependency] = {
+  ServiceRegistration[ServiceDependency] =
     val reg = mock[ServiceRegistration[ServiceDependency]]
     when(manager.bundleContext.registerService(classOf[ServiceDependency], TestDependency,
       serviceProperties())).thenReturn(reg)
     reg
-  }
 
-  "A ServiceDependenciesManager" should "register a new service" in {
+  "A ServiceDependenciesManager" should "register a new service" in:
     val manager = createManager()
     expectRegistration(manager)
 
     manager receive RegisterService(TestDependency)
     verify(manager.bundleContext).registerService(classOf[ServiceDependency], TestDependency,
       serviceProperties())
-  }
 
-  it should "remove a service registration again" in {
+  it should "remove a service registration again" in:
     val manager = createManager()
     val registration = expectRegistration(manager)
     manager receive RegisterService(TestDependency)
 
     manager receive UnregisterService(TestDependency)
     verify(registration).unregister()
-  }
 
-  it should "ignore an unregister message for an unknown service" in {
+  it should "ignore an unregister message for an unknown service" in:
     val manager = createManager()
 
     manager receive UnregisterService(TestDependency)
-  }
 
-  it should "remove a service dependency after an unregister message" in {
+  it should "remove a service dependency after an unregister message" in:
     val manager = createManager()
     val registration = expectRegistration(manager)
     manager receive RegisterService(TestDependency)
@@ -102,5 +96,3 @@ class ServiceDependenciesManagerSpec extends AnyFlatSpec with MockitoSugar {
 
     manager receive UnregisterService(TestDependency)
     verify(registration).unregister()
-  }
-}

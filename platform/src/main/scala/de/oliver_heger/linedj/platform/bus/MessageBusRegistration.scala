@@ -34,7 +34,7 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
  *
  * @param listeners a collection with the listeners to be registered
  */
-class MessageBusRegistration(val listeners: java.util.Collection[MessageBusListener]) {
+class MessageBusRegistration(val listeners: java.util.Collection[MessageBusListener]):
   /** The message bus. */
   private var messageBus: MessageBus = _
 
@@ -49,19 +49,16 @@ class MessageBusRegistration(val listeners: java.util.Collection[MessageBusListe
     *
     * @param bus the ''MessageBus''
     */
-  def setMessageBus(bus: MessageBus): Unit = {
+  def setMessageBus(bus: MessageBus): Unit =
     import scala.jdk.CollectionConverters._
 
     messageBus = bus
     registrationIDs = listeners.asScala map { l =>
       bus registerListener l.receive
     }
-  }
 
   /**
     * Removes all registrations that have been made in ''setMessageBus()''.
     */
-  def removeRegistrations(): Unit = {
+  def removeRegistrations(): Unit =
     registrationIDs foreach (messageBus removeListener _)
-  }
-}

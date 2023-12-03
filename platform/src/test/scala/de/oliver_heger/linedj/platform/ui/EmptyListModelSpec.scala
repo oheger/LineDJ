@@ -22,28 +22,23 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''EmptyListModel''.
   */
-class EmptyListModelSpec extends AnyFlatSpec with Matchers {
+class EmptyListModelSpec extends AnyFlatSpec with Matchers:
   /**
     * Creates a model which can be used for tests.
     *
     * @return the test model
     */
-  private def createModel(): EmptyListModel = new EmptyListModel {
+  private def createModel(): EmptyListModel = new EmptyListModel:
     override val getType: Class[String] = classOf[String]
-  }
 
-  "An EmptyListModel" should "have size 0" in {
+  "An EmptyListModel" should "have size 0" in:
     val model = createModel()
     model.size() should be(0)
-  }
 
-  it should "return null display objects" in {
+  it should "return null display objects" in:
     val model = createModel()
     model getDisplayObject 28 should be(null)
-  }
 
-  it should "return null value objects" in {
+  it should "return null value objects" in:
     val model = createModel()
     model getValueObject 42 should be(null)
-  }
-}

@@ -31,7 +31,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''AvailableMediaExtension''.
   */
-class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a registration for a media consumer based on mock objects.
     *
@@ -47,9 +47,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     * @param ext   the extension test object
     * @param count the number of expected requests
     */
-  private def expectMediaDataRequest(ext: AvailableMediaExtension, count: Int = 1): Unit = {
+  private def expectMediaDataRequest(ext: AvailableMediaExtension, count: Int = 1): Unit =
     verify(ext.mediaFacade, times(count)).send(MediaActors.MediaManager, GetAvailableMedia)
-  }
 
   /**
     * Creates a test extension object that is configured with a mock facade.
@@ -59,7 +58,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
   private def createExtension(): AvailableMediaExtension =
   new AvailableMediaExtension(mock[MediaFacade])
 
-  "An AvailableMediaExtension" should "send messages to consumers" in {
+  "An AvailableMediaExtension" should "send messages to consumers" in:
     val media = mock[AvailableMedia]
     val reg1 = createRegistration()
     val reg2 = createRegistration()
@@ -70,17 +69,15 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive media
     verify(reg1.callback).apply(media)
     verify(reg2.callback).apply(media)
-  }
 
-  it should "add a state listener registration for the first consumer" in {
+  it should "add a state listener registration for the first consumer" in:
     val ext = createExtension()
     ext receive createRegistration()
     ext receive createRegistration()
 
     verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
-  }
 
-  it should "request media data for the first consumer" in {
+  it should "request media data for the first consumer" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val ext = createExtension()
@@ -88,9 +85,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg2
 
     expectMediaDataRequest(ext)
-  }
 
-  it should "cache media data and pass it to new consumers" in {
+  it should "cache media data and pass it to new consumers" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val mediaData = mock[AvailableMedia]
@@ -101,26 +97,23 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg2
     verify(reg1.callback).apply(mediaData)
     verify(reg2.callback).apply(mediaData)
-  }
 
-  it should "only request media data if no cached data is available" in {
+  it should "only request media data if no cached data is available" in:
     val ext = createExtension()
     ext receive mock[AvailableMedia]
 
     ext receive createRegistration()
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-  }
 
-  it should "allow removing a consumer" in {
+  it should "allow removing a consumer" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
 
     ext receive AvailableMediaUnregistration(reg.id)
     ext.consumerMap shouldBe empty
-  }
 
-  it should "send only a single request for media data" in {
+  it should "send only a single request for media data" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
@@ -128,9 +121,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive AvailableMediaUnregistration(reg.id)
     ext receive reg
     expectMediaDataRequest(ext)
-  }
 
-  it should "reset media data when the archive becomes available (again)" in {
+  it should "reset media data when the archive becomes available (again)" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive mock[AvailableMedia]
@@ -139,9 +131,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg
     expectMediaDataRequest(ext)
     verify(reg.callback, never()).apply(any(classOf[AvailableMedia]))
-  }
 
-  it should "request new data when the archive becomes available if necessary" in {
+  it should "request new data when the archive becomes available if necessary" in:
     val ext = createExtension()
     ext receive mock[AvailableMedia]
     ext receive createRegistration()
@@ -149,17 +140,15 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive MediaFacade.MediaArchiveAvailable
     expectMediaDataRequest(ext)
     verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
-  }
 
-  it should "skip actions when the archive becomes available if no consumers" in {
+  it should "skip actions when the archive becomes available if no consumers" in:
     val ext = createExtension()
 
     ext receive MediaFacade.MediaArchiveAvailable
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
     verify(ext.mediaFacade, never()).registerMetaDataStateListener(ext.componentID)
-  }
 
-  it should "reset the request pending flag" in {
+  it should "reset the request pending flag" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
@@ -168,9 +157,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive MediaFacade.MediaArchiveAvailable
     ext receive reg
     expectMediaDataRequest(ext, 2)
-  }
 
-  it should "reset media data when a scan starts" in {
+  it should "reset media data when a scan starts" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive mock[AvailableMedia]
@@ -179,26 +167,23 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg
     expectMediaDataRequest(ext)
     verify(reg.callback, never()).apply(any(classOf[AvailableMedia]))
-  }
 
-  it should "request new data when a scan starts if necessary" in {
+  it should "request new data when a scan starts if necessary" in:
     val ext = createExtension()
     ext receive mock[AvailableMedia]
     ext receive createRegistration()
 
     ext receive MetaDataScanStarted
     expectMediaDataRequest(ext)
-  }
 
-  it should "skip actions when a scan starts if no consumers" in {
+  it should "skip actions when a scan starts if no consumers" in:
     val ext = createExtension()
 
     ext receive MetaDataScanCompleted
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
     verify(ext.mediaFacade, never()).unregisterMetaDataStateListener(ext.componentID)
-  }
 
-  it should "reset the request pending flag if a scan starts" in {
+  it should "reset the request pending flag if a scan starts" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
@@ -207,9 +192,8 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive MetaDataScanStarted
     ext receive reg
     expectMediaDataRequest(ext, 2)
-  }
 
-  it should "remove the state listener registration if a scan starts and no consumers" in {
+  it should "remove the state listener registration if a scan starts and no consumers" in:
     val reg = createRegistration()
     val ext = createExtension()
     ext receive reg
@@ -217,12 +201,9 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
 
     ext receive MetaDataScanStarted
     verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
-  }
 
-  it should "create an un-registration object from a registration" in {
+  it should "create an un-registration object from a registration" in:
     val reg = createRegistration()
 
     val unReg = reg.unRegistration
     unReg should be(AvailableMediaUnregistration(reg.id))
-  }
-}

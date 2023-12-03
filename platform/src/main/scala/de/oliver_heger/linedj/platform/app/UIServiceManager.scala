@@ -22,7 +22,7 @@ import org.apache.pekko.actor.Actor.Receive
 
 import scala.language.higherKinds
 
-private object UIServiceManager {
+private object UIServiceManager:
   /**
     * Definition of a function for processing the services currently stored by
     * a [[UIServiceManager]] instance. This function is invoked in the UI
@@ -46,7 +46,7 @@ private object UIServiceManager {
     *
     * @tparam T the type of this message
     */
-  trait TypedMessage[T] {
+  trait TypedMessage[T]:
     /**
       * The type to be used by casts in the ''as()'' method. Derived classes
       * set this type to their own type, so that the return type of ''as()'' is
@@ -72,9 +72,8 @@ private object UIServiceManager {
       * @return an option with the result of the cast operation
       */
     def as[R](cls: Class[R]): Option[C[R]] =
-      if (messageType == cls) Some(this.asInstanceOf[C[R]])
+      if messageType == cls then Some(this.asInstanceOf[C[R]])
       else None
-  }
 
   /**
     * A message to add a service to a [[UIServiceManager]] instance. On
@@ -88,9 +87,8 @@ private object UIServiceManager {
     */
   case class AddService[S](override val messageType: Class[S], service: S,
                            optF: Option[S => S])
-    extends TypedMessage[S] {
+    extends TypedMessage[S]:
     override type C[x] = AddService[x]
-  }
 
   /**
     * A message to remove a service from a [[UIServiceManager]] instance.
@@ -101,9 +99,8 @@ private object UIServiceManager {
     * @tparam S the service type
     */
   case class RemoveService[S](override val messageType: Class[S], service: S)
-    extends TypedMessage[S] {
+    extends TypedMessage[S]:
     override type C[x] = RemoveService[x]
-  }
 
   /**
     * A message that triggers a processing of the services managed by a
@@ -116,9 +113,8 @@ private object UIServiceManager {
     * @tparam S the service type
     */
   case class ProcessServices[S](override val messageType: Class[S], f: ProcessFunc[S])
-    extends TypedMessage[S] {
+    extends TypedMessage[S]:
     override type C[x] = ProcessServices[x]
-  }
 
   /**
     * Creates a new ''UIServiceManager'' instance.
@@ -129,13 +125,11 @@ private object UIServiceManager {
     * @return the newly created instance
     */
   def apply[S](serviceClass: Class[S], messageBus: MessageBus):
-  UIServiceManager[S] = {
+  UIServiceManager[S] =
     val manager = new UIServiceManager(serviceClass, messageBus)
     val regID = messageBus registerListener manager.receive
     manager.messageBusRegistrationID = regID
     manager
-  }
-}
 
 /**
   * Internally used helper class for managing services of a specific type that
@@ -154,7 +148,7 @@ private object UIServiceManager {
   * @tparam S the type of the services managed by this instance
   */
 private class UIServiceManager[S] private(val serviceClass: Class[S],
-                                          val messageBus: MessageBus) {
+                                          val messageBus: MessageBus):
   /** The list with managed services. */
   private var serviceList = List.empty[S]
 
@@ -176,18 +170,16 @@ private class UIServiceManager[S] private(val serviceClass: Class[S],
     * @param service the service to be added
     * @param optF    an optional service manipulation function
     */
-  def addService(service: S, optF: Option[S => S] = None): Unit = {
+  def addService(service: S, optF: Option[S => S] = None): Unit =
     messageBus publish AddService(serviceClass, service, optF)
-  }
 
   /**
     * Removes the specified service instance from this manager.
     *
     * @param service the service to be removed
     */
-  def removeService(service: S): Unit = {
+  def removeService(service: S): Unit =
     messageBus publish RemoveService(serviceClass, service)
-  }
 
   /**
     * Applies the passed in processing function to the list of currently
@@ -198,24 +190,22 @@ private class UIServiceManager[S] private(val serviceClass: Class[S],
     *
     * @param f the processing function
     */
-  def processServices(f: ProcessFunc[S]): Unit = {
+  def processServices(f: ProcessFunc[S]): Unit =
     messageBus publish ProcessServices(serviceClass, f)
-  }
 
   /**
     * Shuts down this manager instance. This method must be called when this
     * instance is no longer needed.
     */
-  def shutdown(): Unit = {
+  def shutdown(): Unit =
     messageBus removeListener messageBusRegistrationID
-  }
 
   /**
     * The function for processing messages on the UI message bus.
     *
     * @return the receive function
     */
-  private def receive: Receive = {
+  private def receive: Receive =
     case addMsg: AddService[_] =>
       addMsg.as(serviceClass) foreach { m =>
         val f = m.optF.getOrElse(identity[S] _)
@@ -232,5 +222,3 @@ private class UIServiceManager[S] private(val serviceClass: Class[S],
         val resMsg = m.f(services)
         resMsg foreach messageBus.publish
       }
-  }
-}

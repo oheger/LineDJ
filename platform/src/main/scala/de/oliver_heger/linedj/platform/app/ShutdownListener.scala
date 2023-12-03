@@ -39,7 +39,7 @@ package de.oliver_heger.linedj.platform.app
   * Therefore, applications needing shutdown notifications should make use of
   * this trait.
   */
-trait ShutdownListener {
+trait ShutdownListener:
   /**
     * Notifies this listener about an ongoing shutdown operation. This method
     * is invoked in the event dispatch thread. The return value determines how
@@ -50,4 +50,3 @@ trait ShutdownListener {
     * @return a flag how to continue the ongoing shutdown operation
     */
   def onShutdown(): Boolean
-}

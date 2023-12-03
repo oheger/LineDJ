@@ -385,6 +385,8 @@ lazy val platform = (project in file("platform"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-platform",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
@@ -394,7 +396,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/managementapp_component.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared % "compile->compile;test->test", actorSystem)
+  ) dependsOn(shared, actorSystem)
 
 /**
   * A project providing the client-side actor system. This project uses the

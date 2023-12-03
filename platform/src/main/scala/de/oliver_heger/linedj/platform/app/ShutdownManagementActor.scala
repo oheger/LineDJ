@@ -23,7 +23,7 @@ import org.apache.pekko.actor.{Actor, ActorLogging, Cancellable, Props}
 
 import scala.concurrent.duration.DurationInt
 
-object ShutdownManagementActor {
+object ShutdownManagementActor:
 
   /**
     * A message handled by [[ShutdownManagementActor]] confirming that the
@@ -51,7 +51,6 @@ object ShutdownManagementActor {
     */
   def props(managementApp: ClientManagementApplication, pendingComponents: Set[ComponentID]): Props =
     Props(new ShutdownManagementActor(managementApp, pendingComponents) with SchedulerSupport)
-}
 
 /**
   * An actor class that manages an extended shutdown operation.
@@ -71,7 +70,7 @@ object ShutdownManagementActor {
   * @param pendingComponents the set of registered shutdown observers
   */
 class ShutdownManagementActor(val managementApp: ClientManagementApplication,
-                              val pendingComponents: Set[ComponentID]) extends Actor with ActorLogging {
+                              val pendingComponents: Set[ComponentID]) extends Actor with ActorLogging:
   this: SchedulerSupport =>
 
   /**
@@ -86,29 +85,24 @@ class ShutdownManagementActor(val managementApp: ClientManagementApplication,
     */
   private var cancellable: Cancellable = _
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     val timeout = managementApp.managementConfiguration.getInt(ClientManagementApplication.PropShutdownTimeout,
       ClientManagementApplication.DefaultShutdownTimeoutMillis).millis
     cancellable = scheduleMessageOnce(timeout, self, ShutdownTimeout)
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case ShutdownConfirmation(componentID) =>
       log.info("Receiving shutdown confirmation for component {}.", componentID)
-      if (monitoredComponents.nonEmpty) {
+      if monitoredComponents.nonEmpty then
         monitoredComponents -= componentID
-        if (monitoredComponents.isEmpty) {
+        if monitoredComponents.isEmpty then
           log.info("All shutdown confirmations received. Shutting down management application.")
           cancellable.cancel()
           managementApp.shutdown()
-        }
-      } else {
+      else
         log.warning("Unexpected shutdown confirmation for component {}.", componentID)
-      }
 
     case ShutdownTimeout =>
       log.warning("Shutdown operation timed out. Forcing shutdown.")
       managementApp.shutdown()
-  }
-}

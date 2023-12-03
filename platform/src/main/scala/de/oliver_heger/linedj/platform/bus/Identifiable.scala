@@ -24,9 +24,8 @@ package de.oliver_heger.linedj.platform.bus
   * property. By mixing in this trait, the affected class is automatically
   * assigned this ID.
   */
-trait Identifiable {
+trait Identifiable:
   /**
     * The ''ComponentID'' of this object.
     */
   final val componentID: ComponentID = ComponentID()
-}

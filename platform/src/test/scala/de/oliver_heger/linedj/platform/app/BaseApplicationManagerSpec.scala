@@ -30,19 +30,18 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''BaseApplicationManager''.
   */
-class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a basic mock for an application. This mock also has an
     * application context.
     *
     * @return the mock application
     */
-  private def createApplicationMock(): ClientApplication = {
+  private def createApplicationMock(): ClientApplication =
     val app = mock[ClientApplication]
     val appCtx = mock[ApplicationContext]
     when(app.getApplicationContext).thenReturn(appCtx)
     app
-  }
 
   /**
     * Creates a mock for an application which is initialized with a main
@@ -50,7 +49,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     *
     * @return the mock application
     */
-  private def createApplicationMockWithWindow(): ClientApplication = {
+  private def createApplicationMockWithWindow(): ClientApplication =
     val app = mock[ClientApplication]
     val appCtx = mock[ApplicationContext]
     val window = mock[Window]
@@ -58,7 +57,6 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     when(appCtx.getMainWindow).thenReturn(window)
     when(app.optMainWindow).thenReturn(Some(window))
     app
-  }
 
   /**
     * Obtains an ''ApplicationShutdownListener'' that has been registered at a
@@ -68,11 +66,10 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     * @return the registered shutdown listener
     */
   private def fetchRegisteredShutdownListener(app: Application):
-  ApplicationShutdownListener = {
+  ApplicationShutdownListener =
     val captor = ArgumentCaptor.forClass(classOf[ApplicationShutdownListener])
     verify(app).addShutdownListener(captor.capture())
     captor.getValue
-  }
 
   /**
     * Obtains a ''WindowClosingStrategy'' that has been registered at the given
@@ -82,66 +79,58 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     * @return the registered window closing strategy
     */
   private def fetchRegisteredWindowClosingStrategy(app: Application):
-  WindowClosingStrategy = {
+  WindowClosingStrategy =
     val captor = ArgumentCaptor.forClass(classOf[WindowClosingStrategy])
     verify(app.getApplicationContext.getMainWindow).setWindowClosingStrategy(captor.capture())
     captor.getValue
-  }
 
-  "A BaseApplicationManager" should "create a correct app service manager" in {
+  "A BaseApplicationManager" should "create a correct app service manager" in:
     val helper = new ApplicationManagerTestHelper(mockServiceManagers = false)
 
     helper.checkServiceManager(helper.manager.applicationServiceManager,
       classOf[ClientApplication])
-  }
 
-  it should "create a correct shutdown listener service manager" in {
+  it should "create a correct shutdown listener service manager" in:
     val helper = new ApplicationManagerTestHelper(mockServiceManagers = false)
 
     helper.checkServiceManager(helper.manager.shutdownListenerManager,
       classOf[ShutdownListener])
-  }
 
-  it should "allow adding new shutdown listeners" in {
+  it should "allow adding new shutdown listeners" in:
     val listener = mock[ShutdownListener]
     val helper = new ApplicationManagerTestHelper
 
     helper.manager addShutdownListener listener
     verify(helper.listenerServiceManager).addService(listener)
-  }
 
-  it should "allow removing a shutdown listener" in {
+  it should "allow removing a shutdown listener" in:
     val listener = mock[ShutdownListener]
     val helper = new ApplicationManagerTestHelper
 
     helper.manager removeShutdownListener listener
     verify(helper.listenerServiceManager).removeService(listener)
-  }
 
-  it should "allow removing an application" in {
+  it should "allow removing an application" in:
     val app = mock[ClientApplication]
     val helper = new ApplicationManagerTestHelper
 
     helper.manager removeApplication app
     verify(helper.appServiceManager).removeService(app)
-  }
 
-  it should "send a notification if an application is removed" in {
+  it should "send a notification if an application is removed" in:
     val app = mock[ClientApplication]
     val helper = new ApplicationManagerTestHelper
 
     helper.manager removeApplication app
     verify(helper.bus).publish(ApplicationManager.ApplicationRemoved(app))
-  }
 
-  it should "add a newly initialized application" in {
+  it should "add a newly initialized application" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
-  }
 
-  it should "init an application with a shutdown listener" in {
+  it should "init an application with a shutdown listener" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
@@ -149,9 +138,8 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val listener = fetchRegisteredShutdownListener(app)
     listener.canShutdown(app) shouldBe false
     helper.manager.shutdownApps should be(List(app))
-  }
 
-  it should "register a shutdown listener that ignores a shutdown callback" in {
+  it should "register a shutdown listener that ignores a shutdown callback" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
@@ -160,9 +148,8 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     reset(app)
     listener shutdown app
     verifyNoInteractions(app)
-  }
 
-  it should "init an application with a window closing strategy" in {
+  it should "init an application with a window closing strategy" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
@@ -171,18 +158,16 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val window = app.getApplicationContext.getMainWindow
     strategy.canClose(window) shouldBe false
     helper.manager.closedWindows should be(List(window))
-  }
 
-  it should "handle an application with no main window" in {
+  it should "handle an application with no main window" in:
     val app = createApplicationMockWithWindow()
     when(app.optMainWindow).thenReturn(None)
     when(app.getApplicationContext.getMainWindow).thenReturn(null)
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
-  }
 
-  it should "init an application with a dummy exit handler" in {
+  it should "init an application with a dummy exit handler" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
@@ -190,26 +175,23 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val captor = ArgumentCaptor.forClass(classOf[Runnable])
     verify(app).setExitHandler(captor.capture())
     captor.getValue.run()  // should do nothing
-  }
 
-  it should "send a notification message when an application is added" in {
+  it should "send a notification message when an application is added" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
 
     helper applicationAdded app
     verify(helper.bus).publish(ApplicationManager.ApplicationRegistered(app))
-  }
 
-  it should "correctly tear down the application manager" in {
+  it should "correctly tear down the application manager" in:
     val helper = new ApplicationManagerTestHelper
 
     helper.manager.tearDown()
     verify(helper.bus).removeListener(helper.MessageBusRegistrationID)
     verify(helper.appServiceManager).shutdown()
     verify(helper.listenerServiceManager).shutdown()
-  }
 
-  it should "call shutdown listeners when triggering a platform shutdown" in {
+  it should "call shutdown listeners when triggering a platform shutdown" in:
     val helper = new ApplicationManagerTestHelper
 
     helper.manager.triggerShutdown()
@@ -224,9 +206,8 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val optMsg = captor.getValue.apply(listeners)
     listeners foreach (verify(_).onShutdown())
     optMsg.get should be(BaseApplicationManager.ShutdownApplications)
-  }
 
-  it should "abort shutdown if a listener vetos" in {
+  it should "abort shutdown if a listener vetos" in:
     val helper = new ApplicationManagerTestHelper
 
     helper.manager.triggerShutdown()
@@ -240,9 +221,8 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     val listeners = List(l1, l2, l3)
     captor.getValue.apply(listeners) shouldBe empty
     verify(l3, never()).onShutdown()
-  }
 
-  it should "shutdown all applications" in {
+  it should "shutdown all applications" in:
     val app = createApplicationMockWithWindow()
     val helper = new ApplicationManagerTestHelper
     helper applicationAdded app
@@ -260,34 +240,30 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       io.verify(a).shutdown()
     }
     optMsg.get should be(ShutdownHandler.Shutdown(helper.appContext))
-  }
 
-  it should "enable message processing for derived classes" in {
+  it should "enable message processing for derived classes" in:
     val Message = "Ping"
     val helper = new ApplicationManagerTestHelper(enableMessaging = true)
 
     helper sendMessage Message
     helper.manager.textMessage should be(Message)
-  }
 
-  it should "send a notification if an application's title is updated" in {
+  it should "send a notification if an application's title is updated" in:
     val app = createApplicationMockWithWindow()
     val Title = "Updated Application Title"
     val helper = new ApplicationManagerTestHelper
 
     helper.manager.applicationTitleUpdated(app, Title)
     verify(helper.bus).publish(ApplicationManager.ApplicationTitleUpdated(app, Title))
-  }
 
-  it should "return a collection of existing applications" in {
+  it should "return a collection of existing applications" in:
     val apps = List(createApplicationMockWithWindow(), createApplicationMockWithWindow())
     val helper = new ApplicationManagerTestHelper
     when(helper.appServiceManager.services).thenReturn(apps)
 
     helper.manager.getApplications should be(apps)
-  }
 
-  it should "return a collection of applications and their titles" in {
+  it should "return a collection of applications and their titles" in:
     val apps = List(createApplicationMockWithWindow(),
       createApplicationMockWithWindow())
     val titles = List("App1", "Another App")
@@ -299,9 +275,8 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     when(helper.appServiceManager.services).thenReturn(apps)
 
     helper.manager.getApplicationsWithTitles should be(appTitles)
-  }
 
-  it should "handle apps without window when querying apps with titles" in {
+  it should "handle apps without window when querying apps with titles" in:
     val app = createApplicationMock()
     when(app.optMainWindow).thenReturn(None)
     val helper = new ApplicationManagerTestHelper
@@ -311,7 +286,6 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     result should have size 1
     result.head._1 should be(app)
     result.head._2 should be(null)
-  }
 
   /**
     * A test helper class managing all dependencies of the manager to be
@@ -323,7 +297,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     *                            own messaging function
     */
   private class ApplicationManagerTestHelper(mockServiceManagers: Boolean = true,
-                                             enableMessaging: Boolean = false) {
+                                             enableMessaging: Boolean = false):
     /** Registration ID for the message bus. */
     val MessageBusRegistrationID = 20161217
 
@@ -353,10 +327,9 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       * @param sm     the manager to check
       * @param svcCls the expected service class
       */
-    def checkServiceManager(sm: UIServiceManager[_], svcCls: Class[_]): Unit = {
+    def checkServiceManager(sm: UIServiceManager[_], svcCls: Class[_]): Unit =
       sm.serviceClass should be(svcCls)
       sm.messageBus should be(bus)
-    }
 
     /**
       * Sends the specified message via the message bus to the test manager.
@@ -364,12 +337,11 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       * @param msg the message
       * @return this test helper
       */
-    def sendMessage(msg: Any): ApplicationManagerTestHelper = {
+    def sendMessage(msg: Any): ApplicationManagerTestHelper =
       val optListener = busListeners.find(_.isDefinedAt(msg))
       optListener shouldBe defined
       optListener.get.apply(msg)
       this
-    }
 
     /**
       * Simulates adding of an application and verifies that the application
@@ -379,7 +351,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       * @param app the application to be added
       * @return the manipulation function
       */
-    def applicationAdded(app: ClientApplication): ClientApplication => ClientApplication = {
+    def applicationAdded(app: ClientApplication): ClientApplication => ClientApplication =
       manager registerApplication app
       val captor = ArgumentCaptor.forClass(
         classOf[Option[ClientApplication => ClientApplication]])
@@ -387,7 +359,6 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       val func = captor.getValue.get
       func(app) should be(app)
       func
-    }
 
     /**
       * Creates a mock for the client application context.
@@ -395,25 +366,23 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       * @return the mock for the context
       */
     private def createApplicationContext():
-    ClientApplicationContext = {
+    ClientApplicationContext =
       val context = mock[ClientApplicationContext]
       when(context.messageBus).thenReturn(bus)
       when(bus.registerListener(any(classOf[Receive]))).thenReturn(MessageBusRegistrationID)
       context
-    }
 
     /**
       * Creates and initializes the test instance.
       *
       * @return the test instance
       */
-    private def createApplicationManager(): ApplicationManagerImpl = {
+    private def createApplicationManager(): ApplicationManagerImpl =
       val man = new ApplicationManagerImpl(appServiceManager, listenerServiceManager,
         mockServiceManagers, enableMessaging)
       man initApplicationContext appContext
       man.setUp()
       man
-    }
 
     /**
       * Obtains the message bus listeners that have been registered during
@@ -423,13 +392,11 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
       *
       * @return the message bus listener function
       */
-    private def fetchMessageBusListener(): Iterable[Receive] = {
+    private def fetchMessageBusListener(): Iterable[Receive] =
       val captor = ArgumentCaptor.forClass(classOf[Receive])
       verify(bus, atLeastOnce()).registerListener(captor.capture())
       import scala.jdk.CollectionConverters._
       captor.getAllValues.asScala
-    }
-  }
 
   /**
     * A test implementation of an application manager.
@@ -442,7 +409,7 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
   private class ApplicationManagerImpl(mockAppManager: UIServiceManager[ClientApplication],
                                        mockListenerManager: UIServiceManager[ShutdownListener],
                                        mockManagers: Boolean, enableMessaging: Boolean)
-    extends BaseApplicationManager {
+    extends BaseApplicationManager:
     /** Stores a list with applications passed to onApplicationShutdown(). */
     var shutdownApps: List[Application] = List.empty[Application]
 
@@ -460,40 +427,35 @@ class BaseApplicationManagerSpec extends AnyFlatSpec with Matchers with MockitoS
     /**
       * @inheritdoc Tracks this invocation.
       */
-    override protected def onApplicationShutdown(app: ClientApplication): Unit = {
+    override protected def onApplicationShutdown(app: ClientApplication): Unit =
       super.onApplicationShutdown(app)
       shutdownApps = app :: shutdownApps
-    }
 
     /**
       * @inheritdoc Tracks this invocation.
       */
-    override protected def onWindowClosing(window: Window): Unit = {
+    override protected def onWindowClosing(window: Window): Unit =
       super.onWindowClosing(window)
       closedWindows = window :: closedWindows
-    }
 
     /**
       * @inheritdoc Either handles a string message or calls the super method.
       */
     override protected def onMessage: Receive =
-      if(enableMessaging) customMessageProcessing
+      if enableMessaging then customMessageProcessing
       else super.onMessage
 
     override private[app] def applicationServiceManager =
-      if (mockManagers) mockAppManager else super.applicationServiceManager
+      if mockManagers then mockAppManager else super.applicationServiceManager
 
     override private[app] def shutdownListenerManager =
-      if (mockManagers) mockListenerManager else super.shutdownListenerManager
+      if mockManagers then mockListenerManager else super.shutdownListenerManager
 
     /**
       * A custom message processing function.
       *
       * @return the receive function
       */
-    private def customMessageProcessing: Receive = {
+    private def customMessageProcessing: Receive =
       case s: String => textMessage = s
-    }
-  }
 
-}

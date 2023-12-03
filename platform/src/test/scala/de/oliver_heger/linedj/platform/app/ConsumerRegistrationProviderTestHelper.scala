@@ -25,7 +25,7 @@ import scala.reflect.ClassTag
   * An object providing some functionality for testing classes that implement
   * ''ConsumerRegistrationProvider''.
   */
-object ConsumerRegistrationProviderTestHelper {
+object ConsumerRegistrationProviderTestHelper:
   /**
     * Obtains a consumer registration of the specified type from the given
     * iterable. Throws an exception if no such registration can be found.
@@ -36,10 +36,9 @@ object ConsumerRegistrationProviderTestHelper {
     * @return the registration object
     */
   def findRegistration[T <: ConsumerRegistration[_]](messages: Iterable[Any])
-                                                    (implicit t: ClassTag[T]): T = {
+                                                    (implicit t: ClassTag[T]): T =
     val optReg = messages.find(t.runtimeClass == _.getClass)
     t.runtimeClass.asInstanceOf[Class[T]] cast optReg.get
-  }
 
   /**
     * Obtains a consumer registration of the specified type from the given
@@ -60,10 +59,9 @@ object ConsumerRegistrationProviderTestHelper {
     * @param registrations the collection with registrations
     * @return a flag whether the check is successful
     */
-  def checkRegistrationIDs(registrations: Iterable[ConsumerRegistration[_]]): Boolean = {
+  def checkRegistrationIDs(registrations: Iterable[ConsumerRegistration[_]]): Boolean =
     val idSet = registrations.map(_.id).toSet
     !idSet.contains(null) && idSet.size == registrations.size
-  }
 
   /**
     * Checks that all registrations of the given provider have unique IDs.
@@ -73,4 +71,3 @@ object ConsumerRegistrationProviderTestHelper {
     */
   def checkRegistrationIDs(provider: ConsumerRegistrationProvider): Boolean =
   checkRegistrationIDs(provider.registrations)
-}

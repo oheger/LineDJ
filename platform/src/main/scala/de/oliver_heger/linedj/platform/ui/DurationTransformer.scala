@@ -27,7 +27,7 @@ import scala.annotation.tailrec
   * used by client code without the need to create an instance. The transformer
   * implementation is useful when used within the UI declaration.
   */
-object DurationTransformer {
+object DurationTransformer:
   /** The representation of an undefined duration. */
   private val UndefinedRepresentation = "?"
 
@@ -55,25 +55,21 @@ object DurationTransformer {
     * @param duration the duration as long (in milliseconds)
     * @return the formatted duration as string
     */
-  def formatDuration(duration: Long): String = {
+  def formatDuration(duration: Long): String =
     val buf = new StringBuilder(DURATION_BUF_SIZE)
     val secs = math.round(duration / MILLIS)
     val hours = secs / SECS_PER_HOUR
-    if (hours > 0) {
+    if hours > 0 then
       buf.append(hours).append(':')
-    }
     val mins = (secs % SECS_PER_HOUR) / SECS_PER_MINUTE
-    if (mins < 10 && hours > 0) {
+    if mins < 10 && hours > 0 then
       buf.append('0')
-    }
     buf.append(mins).append(':')
     val remainingSecs = secs % SECS_PER_MINUTE
-    if (remainingSecs < 10) {
+    if remainingSecs < 10 then
       buf.append('0')
-    }
     buf.append(remainingSecs)
     buf.toString()
-  }
 
   /**
     * Returns a string representation for the specified duration that can cover
@@ -91,28 +87,23 @@ object DurationTransformer {
     * @return the formatted duration as string
     */
   def formatLongDuration(duration: Long, txtDays: String, txtHours: String, txtMinutes: String, txtSeconds: String):
-  String = {
+  String =
     @tailrec
     def generateDurationField(buf: StringBuilder, currentDuration: Long, fields: List[Int], units: List[String]):
     String =
-      fields match {
+      fields match
         case h :: t =>
           val value = currentDuration / h
-          if (value > 0) {
-            if (buf.nonEmpty) {
+          if value > 0 then
+            if buf.nonEmpty then
               buf.append(' ')
-            }
             buf.append(value).append(units.head)
-          }
           generateDurationField(buf, currentDuration % h, t, units.tail)
         case _ =>
           buf.toString()
-      }
 
     val units = List(txtDays, txtHours, txtMinutes, txtSeconds)
     generateDurationField(new StringBuilder(DURATION_BUF_SIZE), duration / MILLIS.toLong, DURATION_FIELDS, units)
-  }
-}
 
 /**
   * A special transformer implementation which formats duration values.
@@ -122,16 +113,13 @@ object DurationTransformer {
   * milliseconds a song lasts. This transformer produces a human-readable
   * representation in the form HH:mm:ss.
   */
-class DurationTransformer extends Transformer {
+class DurationTransformer extends Transformer:
 
   import DurationTransformer._
 
-  override def transform(o: Any, ctx: TransformerContext): AnyRef = {
-    o match {
+  override def transform(o: Any, ctx: TransformerContext): AnyRef =
+    o match
       case n: Number if n.longValue() >= 0 =>
         formatDuration(n.longValue())
 
       case _ => UndefinedRepresentation
-    }
-  }
-}

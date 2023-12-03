@@ -30,30 +30,28 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''RemoteController''.
  */
-class RemoteControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class RemoteControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
-  "A RemoteController" should "react on a server not available message" in {
+  "A RemoteController" should "react on a server not available message" in:
     val helper = new RemoteControllerTestHelper
     helper receive MediaFacade.MediaArchiveUnavailable
 
     verify(helper.actionStore).enableGroup(RemoteController.ServerActions, false)
     verify(helper.availableIndicator).setVisible(false)
     verify(helper.unavailableIndicator).setVisible(true)
-  }
 
-  it should "react on a server available message" in {
+  it should "react on a server available message" in:
     val helper = new RemoteControllerTestHelper
     helper receive MediaFacade.MediaArchiveAvailable
 
     verify(helper.actionStore).enableGroup(RemoteController.ServerActions, true)
     verify(helper.availableIndicator).setVisible(true)
     verify(helper.unavailableIndicator).setVisible(false)
-  }
 
   /**
    * A helper class managing a test object with its dependencies.
    */
-  private class RemoteControllerTestHelper {
+  private class RemoteControllerTestHelper:
     /** The action store mock. */
     val actionStore: ActionStore = mock[ActionStore]
 
@@ -75,9 +73,8 @@ class RemoteControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
      * Sends a message to the receive method of the test controller.
      * @param msg the message to be sent
      */
-    def receive(msg: MediaArchiveAvailabilityEvent): Unit = {
+    def receive(msg: MediaArchiveAvailabilityEvent): Unit =
       consumerFunction(msg)
-    }
 
     /**
       * Obtains the consumer function from the controller's consumer
@@ -85,13 +82,10 @@ class RemoteControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       *
       * @return the consumer function
       */
-    private def fetchConsumerFunction(): ConsumerFunction[MediaArchiveAvailabilityEvent] = {
+    private def fetchConsumerFunction(): ConsumerFunction[MediaArchiveAvailabilityEvent] =
       controller.registrations should have size 1
       val reg = ConsumerRegistrationProviderTestHelper
         .findRegistration[ArchiveAvailabilityRegistration](controller)
       reg.id should not be null
       reg.callback
-    }
-  }
 
-}

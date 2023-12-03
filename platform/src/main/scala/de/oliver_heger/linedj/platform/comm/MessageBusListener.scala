@@ -26,10 +26,9 @@ import org.apache.pekko.actor.Actor.Receive
  * The trait just defines a single function for obtaining the ''Receive''
  * function which handles events published to the message bus.
  */
-trait MessageBusListener {
+trait MessageBusListener:
   /**
    * Returns the function for handling messages published on the message bus.
    * @return the message handling function
    */
   def receive: Receive
-}

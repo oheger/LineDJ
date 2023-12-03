@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
-object MediaIfcExtensionSpec {
+object MediaIfcExtensionSpec:
   /** A message that is handled in a special way. */
   private val Message = 42
 
@@ -62,17 +62,15 @@ object MediaIfcExtensionSpec {
     * @param count the counter
     * @return the string message
     */
-  private def messageCreator(count: AtomicInteger): String = {
+  private def messageCreator(count: AtomicInteger): String =
     count.incrementAndGet()
     Answer
-  }
-}
 
 /**
   * Test class for ''MediaIfcExtension''. This class also tests functionality
   * from the base trait.
   */
-class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import MediaIfcExtensionSpec._
 
@@ -85,12 +83,11 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     * @return the test registration object
     */
   private def createRegistration(idx: Int, cons: ConsumerSupport.ConsumerFunction[String]):
-  ConsumerSupport.ConsumerRegistration[String] = {
+  ConsumerSupport.ConsumerRegistration[String] =
     val reg = mock[ConsumerSupport.ConsumerRegistration[String]]
     when(reg.id).thenReturn(ComponentID())
     when(reg.callback).thenReturn(cons)
     reg
-  }
 
   /**
     * Creates an object for a consumer registration. The object returns a
@@ -104,27 +101,24 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     * @return the test registration object
     */
   private def createRegistration(idx: Int, buf:
-  StringBuilder = new StringBuilder(32)): ConsumerSupport.ConsumerRegistration[String] = {
+  StringBuilder = new StringBuilder(32)): ConsumerSupport.ConsumerRegistration[String] =
     val cb: ConsumerSupport.ConsumerFunction[String] = s => {
       buf ++= consumerOutput(idx, s) + " "
     }
     createRegistration(idx, cb)
-  }
 
-  "A MediaIfcExtension" should "return true for the first added consumer" in {
+  "A MediaIfcExtension" should "return true for the first added consumer" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext addConsumer createRegistration(1) shouldBe true
-  }
 
-  it should "return false for further consumers added" in {
+  it should "return false for further consumers added" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
 
     ext addConsumer createRegistration(2) shouldBe false
-  }
 
-  it should "correctly invoke the added consumer callback" in {
+  it should "correctly invoke the added consumer callback" in:
     val reg1 = createRegistration(1)
     val reg2 = createRegistration(2)
     val ext = new MediaIfcExtensionTestImpl
@@ -134,9 +128,8 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.consumerAddedNotifications.get() should be(List(
       (reg2.callback, ext.defaultKey, false),
       (reg1.callback, ext.defaultKey, true))) // list in reverse order
-  }
 
-  it should "support passing data to registered consumers" in {
+  it should "support passing data to registered consumers" in:
     val buf = new StringBuilder(64)
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1, buf)
@@ -146,26 +139,23 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext invokeConsumers data
     val output = parseInvokedConsumers(buf.toString())
     output should contain only(consumerOutput(1, data), consumerOutput(2, data))
-  }
 
-  it should "return true when removing the last consumer" in {
+  it should "return true when removing the last consumer" in:
     val ext = new MediaIfcExtensionTestImpl
     val reg = createRegistration(1)
     ext addConsumer reg
 
     ext removeConsumer reg.id shouldBe true
-  }
 
-  it should "return false when consumers remain after the remove operation" in {
+  it should "return false when consumers remain after the remove operation" in:
     val ext = new MediaIfcExtensionTestImpl
     val reg = createRegistration(1)
     ext addConsumer reg
     ext addConsumer createRegistration(2)
 
     ext removeConsumer reg.id shouldBe false
-  }
 
-  it should "remove a consumer from the internal map" in {
+  it should "remove a consumer from the internal map" in:
     val buf = new StringBuilder(32)
     val ext = new MediaIfcExtensionTestImpl
     val reg = createRegistration(1, buf)
@@ -176,15 +166,13 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     val data = "some test data"
     ext invokeConsumers data
     buf.toString().trim should be(consumerOutput(2, data))
-  }
 
-  it should "correctly handle an unknown ID in removeConsumer()" in {
+  it should "correctly handle an unknown ID in removeConsumer()" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext removeConsumer ComponentID() shouldBe false
-  }
 
-  it should "correctly invoke the consumer removed callback" in {
+  it should "correctly invoke the consumer removed callback" in:
     val reg1 = createRegistration(1)
     val reg2 = createRegistration(2)
     val ext = new MediaIfcExtensionTestImpl
@@ -196,46 +184,40 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     // list in reverse order
     ext.consumerRemovedNotifications.get() should be(List(
       (ext.defaultKey, true), (ext.defaultKey, false)))
-  }
 
-  it should "deal with failed removals when invoking the consumer removed callback" in {
+  it should "deal with failed removals when invoking the consumer removed callback" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext removeConsumer ComponentID()
     ext.consumerRemovedNotifications.get() shouldBe empty
-  }
 
-  it should "invoke a notification method when the archive becomes available" in {
+  it should "invoke a notification method when the archive becomes available" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext receive MediaFacade.MediaArchiveAvailable
     ext.archiveAvailableNotifications.get() should be(List(false))
-  }
 
-  it should "set the correct parameter in the onArchiveAvailable() callback" in {
+  it should "set the correct parameter in the onArchiveAvailable() callback" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
 
     ext receive MediaFacade.MediaArchiveAvailable
     ext.archiveAvailableNotifications.get() should be(List(true))
-  }
 
-  it should "invoke a notification method when a scan is completed" in {
+  it should "invoke a notification method when a scan is completed" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext receive MetaDataScanCompleted
     ext.scanCompletedNotifications.get() should be(List(false))
-  }
 
-  it should "set the correct parameter in the onScanCompleted() callback" in {
+  it should "set the correct parameter in the onScanCompleted() callback" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
 
     ext receive MetaDataScanCompleted
     ext.scanCompletedNotifications.get() should be(List(true))
-  }
 
-  it should "pass other messages to the specific receive function" in {
+  it should "pass other messages to the specific receive function" in:
     val buf = new StringBuilder(32)
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1, buf)
@@ -244,45 +226,38 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.scanCompletedNotifications.get() shouldBe empty
     ext.archiveAvailableNotifications.get() shouldBe empty
     buf.toString().trim should be(consumerOutput(1, Answer))
-  }
 
-  it should "allow overriding default messages" in {
+  it should "allow overriding default messages" in:
     val data = "Completed!"
-    val ext = new MediaIfcExtensionTestImpl {
-      override protected def receiveSpecific: Receive = {
+    val ext = new MediaIfcExtensionTestImpl:
+      override protected def receiveSpecific: Receive =
         case MetaDataScanCompleted => invokeConsumers(data)
-      }
-    }
     val buf = new StringBuilder(32)
     ext addConsumer createRegistration(1, buf)
 
     ext receive MetaDataScanCompleted
     ext.scanCompletedNotifications.get() shouldBe empty
     buf.toString().trim should be(consumerOutput(1, data))
-  }
 
-  it should "ignore unknown messages" in {
+  it should "ignore unknown messages" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext.receive.isDefinedAt(this) shouldBe false
-  }
 
-  it should "provide a default receiveSpecific() implementation" in {
+  it should "provide a default receiveSpecific() implementation" in:
     val ext = new NoGroupingMediaIfcExtension[String] {}
 
     ext.receive.isDefinedAt(MetaDataScanCompleted) shouldBe true
     ext.receive.isDefinedAt(this) shouldBe false
-  }
 
-  it should "evaluate the message passed to invokeConsumers lazily" in {
+  it should "evaluate the message passed to invokeConsumers lazily" in:
     val ext = new MediaIfcExtensionTestImpl
     val count = new AtomicInteger
 
     ext invokeConsumers messageCreator(count)
     count.get() should be(0)
-  }
 
-  it should "evaluate the message passed to invokeConsumers at most once" in {
+  it should "evaluate the message passed to invokeConsumers at most once" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
     ext addConsumer createRegistration(2)
@@ -290,9 +265,8 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
 
     ext invokeConsumers messageCreator(count)
     count.get() should be(1)
-  }
 
-  it should "support grouping of consumers" in {
+  it should "support grouping of consumers" in:
     val buf = new StringBuilder(64)
     val ext = new MediaIfcExtensionTestImpl
     val key = "SpecialGroupingKey"
@@ -306,9 +280,8 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     output should contain only(consumerOutput(2, data), consumerOutput(3, data))
     ext.consumerAddedNotifications.get().head._2 should be(key)
     ext.consumerAddedNotifications.get().last._2 should be(ext.defaultKey)
-  }
 
-  it should "pass the correct grouping key to the consumer removed notification" in {
+  it should "pass the correct grouping key to the consumer removed notification" in:
     val ext = new MediaIfcExtensionTestImpl
     val key = "AlternativeGroupingKey"
     val reg1 = createRegistration(1)
@@ -321,9 +294,8 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.consumerRemovedNotifications.get() should be(List(
       (key, true), (ext.defaultKey, false) // reverse order
     ))
-  }
 
-  it should "allow removing all consumers in a group" in {
+  it should "allow removing all consumers in a group" in:
     val ext = new MediaIfcExtensionTestImpl
     val key = "GroupToBeRemoved"
     val regKeep = createRegistration(8)
@@ -334,33 +306,29 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     ext.removeConsumers() shouldBe true
     ext.consumerList() shouldBe empty
     ext.consumerList(key) should contain only regKeep.callback
-  }
 
-  it should "return a correct result if removing a non-existing consumer group" in {
+  it should "return a correct result if removing a non-existing consumer group" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext.removeConsumers("nonExistingGroup") shouldBe false
-  }
 
-  it should "allow clearing all registered consumers" in {
+  it should "allow clearing all registered consumers" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
     ext.addConsumer(createRegistration(2), "otherKey")
 
     ext.clearConsumers() shouldBe true
     ext.consumerMap shouldBe empty
-  }
 
-  it should "return a correct result if clearConsumers() is invoked if empty" in {
+  it should "return a correct result if clearConsumers() is invoked if empty" in:
     val ext = new MediaIfcExtensionTestImpl
 
     ext.clearConsumers() shouldBe false
-  }
 
   /**
     * A test implementation for the trait to be tested.
     */
-  private class MediaIfcExtensionTestImpl extends MediaIfcExtension[String, AnyRef] {
+  private class MediaIfcExtensionTestImpl extends MediaIfcExtension[String, AnyRef]:
     override val defaultKey: AnyRef = "myDefaultKey"
 
     /** A list reference for recording archive available notifications. */
@@ -382,42 +350,37 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     /**
       * @inheritdoc Handles a special message.
       */
-    override protected def receiveSpecific: Receive = {
+    override protected def receiveSpecific: Receive =
       case Message => invokeConsumers(Answer)
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override def onArchiveAvailable(hasConsumers: Boolean): Unit = {
+    override def onArchiveAvailable(hasConsumers: Boolean): Unit =
       super.onArchiveAvailable(hasConsumers)
       archiveAvailableNotifications.set(hasConsumers :: archiveAvailableNotifications.get())
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override def onMediaScanCompleted(hasConsumers: Boolean): Unit = {
+    override def onMediaScanCompleted(hasConsumers: Boolean): Unit =
       super.onMediaScanCompleted(hasConsumers)
       scanCompletedNotifications.set(hasConsumers :: scanCompletedNotifications.get())
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
     override def onConsumerAdded(cons: ConsumerFunction[String], key: AnyRef,
-                                 first: Boolean): Unit = {
+                                 first: Boolean): Unit =
       super.onConsumerAdded(cons, key, first)
       consumerAddedNotifications.set((cons, key, first) :: consumerAddedNotifications.get())
-    }
 
     /**
       * @inheritdoc Records this invocation.
       */
-    override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit = {
+    override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit =
       super.onConsumerRemoved(key, last)
       consumerRemovedNotifications.set((key, last) :: consumerRemovedNotifications.get())
-    }
 
     /**
       * Creates a list for recording callback invocations.
@@ -426,6 +389,4 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       */
     private def createRecordList(): AtomicReference[List[Boolean]] =
     new AtomicReference[List[Boolean]](List.empty)
-  }
 
-}

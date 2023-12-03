@@ -26,30 +26,28 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''MessageBusRegistration''.
  */
-class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
    * Creates a mock for a message bus listener together with a mock for the
    * message handling function.
    * @return the mocks for the listener and the message function
    */
-  private def createListenerMock(): (MessageBusListener, Actor.Receive) = {
+  private def createListenerMock(): (MessageBusListener, Actor.Receive) =
     val listener = mock[MessageBusListener]
     val rec = mock[Actor.Receive]
     when(listener.receive).thenReturn(rec)
     (listener, rec)
-  }
 
   /**
    * Creates a map with some test bus listeners and their message handling
    * functions.
    * @return the map with test listeners
    */
-  private def createListeners(): Map[MessageBusListener, Actor.Receive] = {
+  private def createListeners(): Map[MessageBusListener, Actor.Receive] =
     val listeners = 1 to 5 map (_ => createListenerMock())
     Map(listeners: _*)
-  }
 
-  "A MessageBusRegistration" should "register all message bus listeners" in {
+  "A MessageBusRegistration" should "register all message bus listeners" in:
     import scala.jdk.CollectionConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
@@ -57,9 +55,8 @@ class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoS
 
     registration setMessageBus bus
     listenerMap.values foreach verify(bus).registerListener
-  }
 
-  it should "remove registrations in a shutdown method" in {
+  it should "remove registrations in a shutdown method" in:
     import scala.jdk.CollectionConverters._
     val bus = mock[MessageBus]
     val listenerMap = createListeners()
@@ -73,5 +70,3 @@ class MessageBusRegistrationSpec extends AnyFlatSpec with Matchers with MockitoS
     (0 until listenerMap.size) foreach { i =>
       verify(bus).removeListener(i)
     }
-  }
-}

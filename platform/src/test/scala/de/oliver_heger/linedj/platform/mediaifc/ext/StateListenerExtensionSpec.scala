@@ -26,16 +26,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-object StateListenerExtensionSpec {
+object StateListenerExtensionSpec:
   /** A test meta data state event. */
   private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false,
     updateInProgress = false, archiveCompIDs = Set.empty))
-}
 
 /**
   * Test class for ''StateListenerExtension''.
   */
-class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import StateListenerExtensionSpec._
 
@@ -45,10 +44,9 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     *
     * @return the registration
     */
-  private def createRegistration(): ConsumerRegistration[MetaDataStateEvent] = {
+  private def createRegistration(): ConsumerRegistration[MetaDataStateEvent] =
     val func = mock[ConsumerFunction[MetaDataStateEvent]]
     StateListenerExtension.StateListenerRegistration(ComponentID(), func)
-  }
 
   /**
     * Creates a test instance for the extension with a mock facade.
@@ -58,7 +56,7 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
   private def createExtension(): StateListenerExtension =
   new StateListenerExtension(mock[MediaFacade])
 
-  "A StateListenerExtension" should "pass state events to consumers" in {
+  "A StateListenerExtension" should "pass state events to consumers" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val ext = createExtension()
@@ -71,17 +69,15 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     verify(reg2.callback).apply(MetaDataScanStarted)
     verify(reg1.callback).apply(MetaDataScanCompleted)
     verify(reg2.callback).apply(MetaDataScanCompleted)
-  }
 
-  it should "create a listener registration for the first consumer" in {
+  it should "create a listener registration for the first consumer" in:
     val ext = createExtension()
     ext receive createRegistration()
     ext receive createRegistration()
 
     verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
-  }
 
-  it should "remove the listener registration if there are no consumers" in {
+  it should "remove the listener registration if there are no consumers" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val ext = createExtension()
@@ -91,9 +87,8 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive StateListenerUnregistration(reg1.id)
     ext receive StateListenerUnregistration(reg2.id)
     verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
-  }
 
-  it should "pass the current state to new consumers" in {
+  it should "pass the current state to new consumers" in:
     val reg1 = createRegistration()
     val reg2 = createRegistration()
     val ext = createExtension()
@@ -103,9 +98,8 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive reg2
     verify(reg1.callback).apply(State)
     verify(reg2.callback).apply(State)
-  }
 
-  it should "reset the current state when the last consumer is removed" in {
+  it should "reset the current state when the last consumer is removed" in:
     val reg1 = createRegistration()
     val ext = createExtension()
     ext receive reg1
@@ -115,9 +109,8 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     val reg2 = createRegistration()
     ext receive reg2
     verify(reg2.callback, never()).apply(State)
-  }
 
-  it should "reset the current state when the archive becomes available (again)" in {
+  it should "reset the current state when the archive becomes available (again)" in:
     val ext = createExtension()
     ext receive State
 
@@ -126,12 +119,9 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     val reg = createRegistration()
     ext receive reg
     verify(reg.callback, never()).apply(State)
-  }
 
-  it should "create an un-registration object from a registration" in {
+  it should "create an un-registration object from a registration" in:
     val reg = createRegistration()
 
     val unReg = reg.unRegistration
     unReg should be(StateListenerUnregistration(reg.id))
-  }
-}

@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
-object MediaFacadeActorsServiceWrapper {
+object MediaFacadeActorsServiceWrapper:
   /** Property for the initialization timeout of the local archive. */
   val PropArchiveInitTimeout = "media.initTimeout"
 
@@ -56,7 +56,6 @@ object MediaFacadeActorsServiceWrapper {
   private def fetchInitTimeout(ctx: ClientApplicationContext): Timeout =
     Timeout(ctx.managementConfiguration.getInt(PropArchiveInitTimeout,
       DefaultInitTimeout).seconds)
-}
 
 /**
   * An internally used helper class that exposes the actors of the media facade
@@ -81,7 +80,7 @@ object MediaFacadeActorsServiceWrapper {
   */
 private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplicationContext,
                                               val bundleContext: BundleContext)
-  extends Identifiable {
+  extends Identifiable:
 
   import MediaFacadeActorsServiceWrapper._
 
@@ -106,33 +105,30 @@ private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplic
     * Notifies this object that it is activated. Performs the necessary
     * initialization.
     */
-  def activate(): Unit = {
+  def activate(): Unit =
     log.info("Activating MediaFacadeActorsServiceWrapper.")
     msgBusListenerID = clientAppContext.messageBus registerListener messageBusReceive
     clientAppContext.messageBus publish ArchiveAvailabilityRegistration(componentID,
       archiveAvailabilityChanged)
-  }
 
   /**
     * Notifies this object that it has been deactivated. Performs the
     * necessary cleanup.
     */
-  def deactivate(): Unit = {
+  def deactivate(): Unit =
     clientAppContext.messageBus removeListener msgBusListenerID
     clientAppContext.messageBus publish ArchiveAvailabilityUnregistration(componentID)
     ensureServiceRegistrationCleared()
     log.info("Deactivated MediaFacadeActorsServiceWrapper.")
-  }
 
   /**
     * Returns the function for handling messages published on the message bus.
     *
     * @return the message handling function
     */
-  private def messageBusReceive: Receive = {
+  private def messageBusReceive: Receive =
     case FacadeActorsAvailable(actors) =>
       registerFacadeService(actors)
-  }
 
   /**
     * The consumer function for the archive availability extension. Here
@@ -141,20 +137,19 @@ private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplic
     * @param event the event
     */
   private def archiveAvailabilityChanged(event: MediaFacade.MediaArchiveAvailabilityEvent): Unit =
-    event match {
+    event match
       case MediaFacade.MediaArchiveAvailable =>
         handleArchiveAvailable()
       case MediaFacade.MediaArchiveUnavailable =>
         handleArchiveUnavailable()
-    }
 
   /**
     * Handles the notification that the union archive is available. If not
     * yet done, the local archive is now started.
     */
-  private def handleArchiveAvailable(): Unit = {
+  private def handleArchiveAvailable(): Unit =
     unionArchiveAvailable = true
-    if (refRegFacadeActors.get().isEmpty) {
+    if refRegFacadeActors.get().isEmpty then
       implicit val executionContext: ExecutionContextExecutor =
         clientAppContext.actorSystem.dispatcher
       implicit val timeout: Timeout = fetchInitTimeout(clientAppContext)
@@ -163,18 +158,15 @@ private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplic
       clientAppContext.mediaFacade.requestFacadeActors() foreach { actors =>
         clientAppContext.messageBus publish FacadeActorsAvailable(actors)
       }
-    }
-  }
 
   /**
     * Handles the notification that the union archive is no longer available.
     * This also causes the local archive to be stopped.
     */
-  private def handleArchiveUnavailable(): Unit = {
+  private def handleArchiveUnavailable(): Unit =
     unionArchiveAvailable = false
     log.info("Archive unavailable.")
     ensureServiceRegistrationCleared()
-  }
 
   /**
     * Registers the facade actors as OSGi services if the union archive is
@@ -182,21 +174,17 @@ private class MediaFacadeActorsServiceWrapper(val clientAppContext: ClientApplic
     *
     * @param facadeActors the facade actors
     */
-  private def registerFacadeService(facadeActors: MediaFacadeActors): Unit = {
-    if (unionArchiveAvailable) {
+  private def registerFacadeService(facadeActors: MediaFacadeActors): Unit =
+    if unionArchiveAvailable then
       refRegFacadeActors.set(Some(bundleContext.registerService(classOf[MediaFacadeActors],
         facadeActors, null)))
       log.info("MediaFacadeActors service registered.")
-    }
-  }
 
   /**
     * Removes the service registration if available.
     */
-  private def ensureServiceRegistrationCleared(): Unit = {
+  private def ensureServiceRegistrationCleared(): Unit =
     refRegFacadeActors.get() foreach { reg =>
       reg.unregister()
       refRegFacadeActors.set(None)
     }
-  }
-}
