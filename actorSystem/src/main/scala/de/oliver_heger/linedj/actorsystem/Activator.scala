@@ -21,7 +21,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.osgi.ActorSystemActivator
 import org.osgi.framework.BundleContext
 
-object Activator {
+object Activator:
   /**
     * Constant for a system property that defines the name of the actor
     * system. The property is evaluated by ''getActorSystemName()''.
@@ -30,7 +30,6 @@ object Activator {
 
   /** The default name of the actor system. */
   val DefaultActorSystemName = "LineDJ_PlatformActorSystem"
-}
 
 /**
   * A bundle activator which registers the central client-side actor system as
@@ -45,16 +44,15 @@ object Activator {
   * Some components have a dependency on this actor system. They can start
   * automatically as soon as this object becomes available.
   */
-class Activator extends ActorSystemActivator with SystemPropertyAccess {
+class Activator extends ActorSystemActivator with SystemPropertyAccess:
   import Activator._
 
   /**
     * @inheritdoc This implementation just registers the actor system as a
     *             service.
     */
-  override def configure(context: BundleContext, system: ActorSystem): Unit = {
+  override def configure(context: BundleContext, system: ActorSystem): Unit =
     context.registerService(classOf[ActorSystem], system, null)
-  }
 
   /**
     * @inheritdoc This implementation checks whether the name of the actor
@@ -63,4 +61,3 @@ class Activator extends ActorSystemActivator with SystemPropertyAccess {
     */
   override def getActorSystemName(context: BundleContext): String =
   getSystemProperty(PropActorSystemName) getOrElse DefaultActorSystemName
-}

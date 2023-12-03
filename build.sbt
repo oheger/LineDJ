@@ -409,8 +409,10 @@ lazy val actorSystem = (project in file("actorSystem"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actorSystem",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
-    libraryDependencies += "org.apache.pekko" %% "pekko-osgi" % VersionPekko,
+    libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko).cross(CrossVersion.for3Use2_13),
     // need to import packages of pekko modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
       "org.apache.pekko.remote",

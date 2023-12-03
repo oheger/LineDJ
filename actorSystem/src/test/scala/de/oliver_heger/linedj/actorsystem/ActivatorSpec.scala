@@ -26,33 +26,27 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''Activator''.
   */
-class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "An Activator" should "register the actor system" in {
+class ActivatorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "An Activator" should "register the actor system" in:
     val context = mock[BundleContext]
     val system = mock[ActorSystem]
     val activator = new Activator
 
     activator.configure(context, system)
     verify(context).registerService(classOf[ActorSystem], system, null)
-  }
 
-  it should "return a default actor system name" in {
+  it should "return a default actor system name" in:
     val context = mock[BundleContext]
     val activator = new Activator
 
     activator.getActorSystemName(context) should be("LineDJ_PlatformActorSystem")
-  }
 
-  it should "read the actor system name from a system property" in {
+  it should "read the actor system name from a system property" in:
     val SystemName = "ActivatorSpecActorSystem"
     val context = mock[BundleContext]
-    val activator = new Activator {
-      override def getSystemProperty(key: String): Option[String] = {
-        if("LineDJ_ActorSystemName" == key) Some(SystemName)
+    val activator = new Activator:
+      override def getSystemProperty(key: String): Option[String] =
+        if "LineDJ_ActorSystemName" == key then Some(SystemName)
         else super.getSystemProperty(key)
-      }
-    }
 
     activator.getActorSystemName(context) should be(SystemName)
-  }
-}
