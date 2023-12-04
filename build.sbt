@@ -760,6 +760,8 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player-config",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies += configDependency,
     libraryDependencies ++= testDependencies,
     libraryDependencies += collectionsDependency % Test,

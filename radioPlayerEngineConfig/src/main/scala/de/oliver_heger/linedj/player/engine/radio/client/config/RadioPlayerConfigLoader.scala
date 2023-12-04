@@ -22,14 +22,14 @@ import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtension
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import org.apache.commons.configuration.Configuration
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /**
   * A module providing functionality for loading a configuration file with
   * options for the radio player. The options that can be defined here
   * correspond to the properties of [[RadioPlayerConfig]].
   */
-object RadioPlayerConfigLoader {
+object RadioPlayerConfigLoader:
   /**
     * Name of the maximum eval delay property. It specifies the maximum delay
     * after which a new evaluation of the current radio source takes place,
@@ -150,8 +150,8 @@ object RadioPlayerConfigLoader {
     */
   def loadRadioPlayerConfig(c: Configuration,
                             pathPrefix: String,
-                            playerConfig: PlayerConfig): RadioPlayerConfig = {
-    val normalizedPrefix = if (pathPrefix.endsWith(".")) pathPrefix
+                            playerConfig: PlayerConfig): RadioPlayerConfig =
+    val normalizedPrefix = if pathPrefix.endsWith(".") then pathPrefix
     else pathPrefix + "."
 
     def key(k: String): String = s"$normalizedPrefix$k"
@@ -166,5 +166,3 @@ object RadioPlayerConfigLoader {
       metadataCheckTimeout = c.getDuration(key(PropMetadataCheckTimeout), DefaultMetadataCheckTimeout),
       streamCacheTime = c.getDuration(key(PropStreamCacheTime), DefaultStreamCacheTime),
       stalledPlaybackCheck = c.getDuration(key(PropStalledPlaybackCheck), DefaultStalledPlaybackCheck))
-  }
-}

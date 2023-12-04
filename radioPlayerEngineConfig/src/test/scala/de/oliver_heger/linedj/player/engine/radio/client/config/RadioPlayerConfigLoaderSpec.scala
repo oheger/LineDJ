@@ -27,18 +27,17 @@ import scala.concurrent.duration._
 /**
   * Test class for [[RadioPlayerConfigLoader]].
   */
-class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers {
-  "RadioPlayerConfigLoader" should "read the properties from a configuration" in {
+class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers:
+  "RadioPlayerConfigLoader" should "read the properties from a configuration" in:
     val Prefix = "radio.player.config"
     val config = new HierarchicalConfiguration
 
     def set(key: String, value: Any): Unit =
       config.addProperty(s"$Prefix.$key", value)
 
-    def setWithUnit(key: String, value: Int, unit: String): Unit = {
+    def setWithUnit(key: String, value: Int, unit: String): Unit =
       set(key, value)
       set(key + "[@unit]", unit)
-    }
 
     setWithUnit(RadioPlayerConfigLoader.PropMaxEvalDelay, 123, "minutes")
     setWithUnit(RadioPlayerConfigLoader.PropRetryFailedReplacement, 21, "seconds")
@@ -63,7 +62,6 @@ class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers {
     radioConfig.metadataCheckTimeout should be(29.seconds)
     radioConfig.streamCacheTime should be(4444.millis)
     radioConfig.stalledPlaybackCheck should be(11.seconds)
-  }
 
   /**
     * Helper function for testing whether the given radio configuration
@@ -71,7 +69,7 @@ class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers {
     *
     * @param radioConfig the configuration to check
     */
-  private def checkDefaultConfig(radioConfig: RadioPlayerConfig): Unit = {
+  private def checkDefaultConfig(radioConfig: RadioPlayerConfig): Unit =
     radioConfig.playerConfig should be(PlayerConfigLoader.DefaultPlayerConfig)
     radioConfig.maximumEvalDelay should be(RadioPlayerConfigLoader.DefaultMaxEvalDelay)
     radioConfig.retryFailedReplacement should be(RadioPlayerConfigLoader.DefaultRetryFailedReplacement)
@@ -82,16 +80,14 @@ class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers {
     radioConfig.metadataCheckTimeout should be(RadioPlayerConfigLoader.DefaultMetadataCheckTimeout)
     radioConfig.streamCacheTime should be(RadioPlayerConfigLoader.DefaultStreamCacheTime)
     radioConfig.stalledPlaybackCheck should be(RadioPlayerConfigLoader.DefaultStalledPlaybackCheck)
-  }
 
-  it should "create a configuration with default values" in {
+  it should "create a configuration with default values" in:
     val radioConfig = RadioPlayerConfigLoader.loadRadioPlayerConfig(new HierarchicalConfiguration, "test",
       PlayerConfigLoader.DefaultPlayerConfig)
 
     checkDefaultConfig(radioConfig)
-  }
 
-  it should "handle a path prefix with a trailing dot" in {
+  it should "handle a path prefix with a trailing dot" in:
     val Prefix = "radio.player.config.dot."
     val config = new HierarchicalConfiguration
     config.addProperty(Prefix + RadioPlayerConfigLoader.PropRetryFailedSourceIncrement, 1.25)
@@ -100,11 +96,8 @@ class RadioPlayerConfigLoaderSpec extends AnyFlatSpec with Matchers {
       PlayerConfigLoader.DefaultPlayerConfig)
 
     radioConfig.retryFailedSourceIncrement should be(1.25)
-  }
 
-  it should "provide a default radio player config" in {
+  it should "provide a default radio player config" in:
     val radioConfig = RadioPlayerConfigLoader.DefaultRadioPlayerConfig
 
     checkDefaultConfig(radioConfig)
-  }
-}

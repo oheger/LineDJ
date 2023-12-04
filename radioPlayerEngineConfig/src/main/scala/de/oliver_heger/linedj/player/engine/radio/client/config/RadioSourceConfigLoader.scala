@@ -26,8 +26,9 @@ import org.apache.logging.log4j.LogManager
 
 import java.time.DayOfWeek
 import java.util.regex.Pattern
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 /**
@@ -150,7 +151,7 @@ import scala.util.Try
   * </sources>
   * }}}
   */
-object RadioSourceConfigLoader {
+object RadioSourceConfigLoader:
   /**
     * Constant for a default value ranking. This ranking is assigned to a
     * radio source if no explicit value is specified in the configuration.
@@ -256,13 +257,12 @@ object RadioSourceConfigLoader {
     *                located
     * @return the new ''RadioSourceConfig''
     */
-  def loadSourceConfig(config: HierarchicalConfiguration, rootKey: String = KeyRadio): RadioSourceConfig = {
+  def loadSourceConfig(config: HierarchicalConfiguration, rootKey: String = KeyRadio): RadioSourceConfig =
     val srcData = readSourcesFromConfig(config, rootKey)
     val sources = srcData map (t => (t._1, t._2))
     val exclusions = srcData map (t => (t._2, t._4))
     val ranking = srcData.map(t => (t._2, t._3)).toMap
     RadioSourceConfigImpl(sources, exclusions.toMap, ranking)
-  }
 
   /**
     * Creates a new instance of [[MetadataConfig]] with the content of the
@@ -274,10 +274,10 @@ object RadioSourceConfigLoader {
     * @return the new [[MetadataConfig]]
     */
   def loadMetadataConfig(config: HierarchicalConfiguration, rootKey: String = KeyRadio): MetadataConfig =
-    if (config.getMaxIndex(rootKey) == 0) {
+    if config.getMaxIndex(rootKey) == 0 then
       val rootConfig = config.configurationAt(rootKey)
       MetadataConfigImpl(readMetadataExclusions(rootConfig), readMetadataConfigForSources(rootConfig))
-    } else MetadataConfig.Empty
+    else MetadataConfig.Empty
 
   /**
     * Reads the defined radio sources from the configuration.
@@ -288,7 +288,7 @@ object RadioSourceConfigLoader {
     *         itself, the ranking, and the associated interval queries
     */
   private def readSourcesFromConfig(config: HierarchicalConfiguration, rootKey: String):
-  Seq[(String, RadioSource, Int, Seq[IntervalQuery])] = {
+  Seq[(String, RadioSource, Int, Seq[IntervalQuery])] =
     val rootConfig = Try {
       config configurationAt rootKey
     } getOrElse new HierarchicalConfiguration
@@ -302,7 +302,6 @@ object RadioSourceConfigLoader {
     }
 
     sources.sortWith(compareSources)
-  }
 
   /**
     * Returns a sequence with sub configurations for the valid radio source
@@ -323,7 +322,7 @@ object RadioSourceConfigLoader {
     * @return a map with named exclusion queries
     */
   private def readNamedExclusions(config: HierarchicalConfiguration): Map[String, IntervalQuery] =
-    if (config.getMaxIndex("") < 0) Map.empty
+    if config.getMaxIndex("") < 0 then Map.empty
     else readExclusions(config)
       .filter(_._2.isDefined)
       .map(t => (t._2.get, t._1))
@@ -339,14 +338,13 @@ object RadioSourceConfigLoader {
     */
   private def readExclusionSets(config: HierarchicalConfiguration,
                                 namedExclusions: Map[String, IntervalQuery]):
-  Map[String, Seq[IntervalQuery]] = {
+  Map[String, Seq[IntervalQuery]] =
     val setConfigs = config configurationsAt KeyExclusionSets
     setConfigs.asScala.filter(_.containsKey(KeyAttrName)).map { c =>
       val name = c.getString(KeyAttrName)
       val exclusions = readExclusionsSection(c, namedExclusions, Map.empty)
       (name, exclusions)
     }.toMap
-  }
 
   /**
     * Parses the exclusions definition from the given configuration. This
@@ -359,17 +357,15 @@ object RadioSourceConfigLoader {
     *         names
     */
   private def readExclusions(config: HierarchicalConfiguration,
-                             keyExclusions: String = KeyExclusions): Seq[(IntervalQuery, Option[String])] = {
+                             keyExclusions: String = KeyExclusions): Seq[(IntervalQuery, Option[String])] =
     val exConfigs = config configurationsAt keyExclusions
     exConfigs.asScala.foldLeft(List.empty[(IntervalQuery, Option[String])]) { (q, c) =>
-      parseIntervalQuery(c) match {
+      parseIntervalQuery(c) match
         case Some(query) =>
           val exclusionName = Option(c.getString(KeyAttrName))
           (IntervalQueries.cyclic(query), exclusionName) :: q
         case None => q
-      }
     }
-  }
 
   /**
     * Reads a section with exclusions which can be either for a source or for
@@ -382,13 +378,12 @@ object RadioSourceConfigLoader {
     */
   private def readExclusionsSection(config: HierarchicalConfiguration,
                                     namedExclusions: Map[String, IntervalQuery],
-                                    exclusionSets: Map[String, Seq[IntervalQuery]]): Seq[IntervalQuery] = {
+                                    exclusionSets: Map[String, Seq[IntervalQuery]]): Seq[IntervalQuery] =
     val inlineExclusions = readExclusions(config).map(_._1)
     val referencedExclusions = readReferences(config, KeyExclusionRef, namedExclusions)
     val referencedExclusionSets = readReferences(config, KeyExclusionSetRef, exclusionSets).flatten
 
     inlineExclusions ++ referencedExclusions ++ referencedExclusionSets
-  }
 
   /**
     * Reads reference elements from the given configuration and resolves them
@@ -418,7 +413,7 @@ object RadioSourceConfigLoader {
     */
   private def compareSources(t1: (String, RadioSource, Int, Seq[_]),
                              t2: (String, RadioSource, Int, Seq[_])): Boolean =
-    if (t1._3 != t2._3) t1._3 > t2._3
+    if t1._3 != t2._3 then t1._3 > t2._3
     else t1._1 < t2._1
 
   /**
@@ -428,14 +423,13 @@ object RadioSourceConfigLoader {
     * @param c the sub configuration for a single source
     * @return an option for the extracted interval query
     */
-  private def parseIntervalQuery(c: Configuration): Option[IntervalQuery] = {
+  private def parseIntervalQuery(c: Configuration): Option[IntervalQuery] =
     val minutes = parseRangeQuery(c, 60, KeyIntervalMinutes)(IntervalQueries.minutes)
     val hours = parseRangeQuery(c, 24, KeyIntervalHours)(IntervalQueries.hours)
     val days = parseWeekDayQuery(c)
 
     val parts = days :: hours :: minutes :: Nil
     parts.flatten.reduceOption(IntervalQueries.combine)
-  }
 
   /**
     * Parses an exclusion definition for a range-based query.
@@ -447,27 +441,24 @@ object RadioSourceConfigLoader {
     * @return an option for the parsed query
     */
   private def parseRangeQuery(c: Configuration, max: Int, key: String)(f: (Int, Int) =>
-    IntervalQuery): Option[IntervalQuery] = {
+    IntervalQuery): Option[IntervalQuery] =
     def checkValue(value: Int): Boolean =
       value >= 0 && value <= max
 
-    if (c.containsKey(key + KeyAttrFrom) && c.containsKey(key + KeyAttrTo)) {
-      try {
+    if c.containsKey(key + KeyAttrFrom) && c.containsKey(key + KeyAttrTo) then
+      try
         val from = c.getInt(key + KeyAttrFrom)
         val to = c.getInt(key + KeyAttrTo)
-        if (checkValue(from) && checkValue(to) && from < to)
+        if checkValue(from) && checkValue(to) && from < to then
           Some(f(from, to))
-        else {
+        else
           log.warn(s"Invalid query parameters ($from, $to) for key $key.")
           None
-        }
-      } catch {
+      catch
         case e: ConversionException =>
           log.warn("Non parsable values in exclusion definition!", e)
           None
-      }
-    } else None
-  }
+    else None
 
   /**
     * Parses an exclusion definition based on days of week.
@@ -475,18 +466,16 @@ object RadioSourceConfigLoader {
     * @param c the configuration
     * @return an option for the parsed query
     */
-  private def parseWeekDayQuery(c: Configuration): Option[IntervalQuery] = {
+  private def parseWeekDayQuery(c: Configuration): Option[IntervalQuery] =
     val days = c.getStringArray(KeyIntervalDays)
-    try {
+    try
       val daySet = days.map(DayOfWeek.valueOf(_).getValue).toSet
-      if (daySet.nonEmpty) Some(IntervalQueries.weekDaySet(daySet))
+      if daySet.nonEmpty then Some(IntervalQueries.weekDaySet(daySet))
       else None
-    } catch {
+    catch
       case i: IllegalArgumentException =>
         log.warn("Could not parse day-of-week query!", i)
         None
-    }
-  }
 
   /**
     * Reads a section with metadata exclusion at the given key. This can either
@@ -528,7 +517,7 @@ object RadioSourceConfigLoader {
     * @return the [[RadioSourceMetadataConfig]] for this source
     */
   private def readSourceMetadataConfig(srcConfig: HierarchicalConfiguration): RadioSourceMetadataConfig =
-    if (srcConfig.getMaxIndex(KeyMetadataConfig) >= 0) {
+    if srcConfig.getMaxIndex(KeyMetadataConfig) >= 0 then
       val metaConfig = srcConfig.configurationAt(KeyMetadataConfig)
       val optSongPattern = Option(metaConfig.getString(KeySongPattern)).map { s => Pattern.compile(s) }
       val exclusions = readMetadataExclusions(metaConfig)
@@ -536,7 +525,7 @@ object RadioSourceConfigLoader {
       RadioSourceMetadataConfig(optSongPattern = optSongPattern,
         resumeIntervals = resumeIntervals,
         exclusions = exclusions)
-    } else MetadataConfig.EmptySourceConfig
+    else MetadataConfig.EmptySourceConfig
 
   /**
     * Internal implementation of the radio source config trait as a plain case
@@ -549,12 +538,11 @@ object RadioSourceConfigLoader {
   private case class RadioSourceConfigImpl(override val namedSources: Seq[(String, RadioSource)],
                                            exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
                                            rankingMap: Map[RadioSource, Int])
-    extends RadioSourceConfig {
+    extends RadioSourceConfig:
     override def ranking(source: RadioSource): Int =
       rankingMap.getOrElse(source, DefaultRanking)
 
     override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
-  }
 
   /**
     * Internal implementation of the [[MetadataConfig]] trait as a plain case
@@ -565,8 +553,6 @@ object RadioSourceConfigLoader {
     */
   private case class MetadataConfigImpl(override val exclusions: Seq[MetadataExclusion],
                                         sourceMetadataConfigs: Map[String, RadioSourceMetadataConfig])
-    extends MetadataConfig {
+    extends MetadataConfig:
     override def metadataSourceConfig(source: RadioSource): RadioSourceMetadataConfig =
       sourceMetadataConfigs.getOrElse(source.uri, super.metadataSourceConfig(source))
-  }
-}

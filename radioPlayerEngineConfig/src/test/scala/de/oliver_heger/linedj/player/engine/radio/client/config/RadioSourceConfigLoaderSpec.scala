@@ -27,9 +27,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{LocalDateTime, Month}
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 
-object RadioSourceConfigLoaderSpec {
+object RadioSourceConfigLoaderSpec:
   /** Prefix for a radio source name. */
   private val RadioSourceName = "Radio_"
 
@@ -63,7 +64,7 @@ object RadioSourceConfigLoaderSpec {
     * @return the radio source for this index
     */
   private def radioSource(idx: Int): RadioSource =
-    RadioSource(RadioSourceURI + idx, if (hasDefaultExt(idx)) Some("mp3") else None)
+    RadioSource(RadioSourceURI + idx, if hasDefaultExt(idx) then Some("mp3") else None)
 
   /**
     * Produces a tuple of radio source data with ranking.
@@ -84,10 +85,9 @@ object RadioSourceConfigLoaderSpec {
     * @param rootKey the root key of the configuration
     * @return the configuration defining the number of radio sources
     */
-  private def createSourceConfiguration(count: Int, rootKey: String = "radio"): HierarchicalConfiguration = {
+  private def createSourceConfiguration(count: Int, rootKey: String = "radio"): HierarchicalConfiguration =
     val sources = (1 to count) map (i => (sourceName(i), radioSource(i), -1))
     createSourceConfiguration(sources, rootKey)
-  }
 
   /**
     * Creates a configuration that contains the specified radio sources. The
@@ -101,18 +101,16 @@ object RadioSourceConfigLoaderSpec {
     * @return the configuration with these radio sources
     */
   private def createSourceConfiguration(sources: Seq[(String, RadioSource, Int)],
-                                        rootKey: String): HierarchicalConfiguration = {
+                                        rootKey: String): HierarchicalConfiguration =
     val config = new HierarchicalConfiguration
     sources foreach { t =>
       config.addProperty(s"$rootKey.sources.source(-1).name", t._1)
       config.addProperty(s"$rootKey.sources.source.uri", t._2.uri)
-      if (t._3 > 0) {
+      if t._3 > 0 then
         config.addProperty(s"$rootKey.sources.source.ranking", t._3)
-      }
       t._2.defaultExtension foreach (config.addProperty(s"$rootKey.sources.source.extension", _))
     }
     config
-  }
 
   /**
     * Returns an initialized builder for a source configuration that already
@@ -133,7 +131,7 @@ object RadioSourceConfigLoaderSpec {
     * @param rootKey the root key for the configuration
     */
   private class SourceConfigBuilder(val config: HierarchicalConfiguration,
-                                    rootKey: String) {
+                                    rootKey: String):
     /**
       * Stores the key of the current context of the builder. The context is
       * changed when a new element is created that has exclusions as content.
@@ -148,10 +146,9 @@ object RadioSourceConfigLoaderSpec {
       * @param srcIdx the index of the source
       * @return a reference to this builder
       */
-    def withSourceExclusion(srcIdx: Int): SourceConfigBuilder = {
+    def withSourceExclusion(srcIdx: Int): SourceConfigBuilder =
       contextKey = s"$rootKey.sources.source($srcIdx).exclusions.exclusion(-1)"
       this
-    }
 
     /**
       * Adds a property to reference an exclusion by name.
@@ -170,16 +167,14 @@ object RadioSourceConfigLoaderSpec {
       * @param name the name of the exclusion
       * @return a reference to this builder
       */
-    def withExclusion(name: Option[String]): SourceConfigBuilder = {
-      contextKey = name match {
+    def withExclusion(name: Option[String]): SourceConfigBuilder =
+      contextKey = name match
         case Some(value) =>
           config.addProperty(s"$rootKey.exclusions.exclusion(-1)[@name]", value)
           s"$rootKey.exclusions.exclusion"
         case None =>
           contextKey.stripSuffix(".exclusions.exclusion") + ".exclusions.exclusion(-1)"
-      }
       this
-    }
 
     /**
       * Adds an exclusion set element with the given name.
@@ -187,10 +182,9 @@ object RadioSourceConfigLoaderSpec {
       * @param name the name of the exclusion set
       * @return a reference to this builder
       */
-    def withExclusionSet(name: String): SourceConfigBuilder = {
+    def withExclusionSet(name: String): SourceConfigBuilder =
       contextKey = rootKey
       addProperty("exclusion-sets.exclusion-set(-1)[@name]", name, s"$rootKey.exclusion-sets.exclusion-set")
-    }
 
     /**
       * Adds a property to reference an exclusion set by name.
@@ -218,10 +212,9 @@ object RadioSourceConfigLoaderSpec {
       * @param values the array with the values to be added
       * @return a reference to this builder
       */
-    def withExclusionProperty(suffix: String, values: Array[String]): SourceConfigBuilder = {
+    def withExclusionProperty(suffix: String, values: Array[String]): SourceConfigBuilder =
       withExclusionProperty(suffix, values.head)
       withExclusionProperty(suffix, values.tail.asInstanceOf[Any])
-    }
 
     /**
       * Adds a reference to a named element to the current exclusions section.
@@ -230,10 +223,9 @@ object RadioSourceConfigLoaderSpec {
       * @param name the name of the element that is referenced
       * @return a reference to this builder
       */
-    private def addReferenceElement(key: String, name: String): SourceConfigBuilder = {
+    private def addReferenceElement(key: String, name: String): SourceConfigBuilder =
       contextKey = removeNewElementIndexFromContext().stripSuffix(".exclusion")
       addProperty(s"$key[@name]", name, removeNewElementIndexFromContext())
-    }
 
     /**
       * Helper function to add a property to the managed configuration.
@@ -243,12 +235,11 @@ object RadioSourceConfigLoaderSpec {
       * @param newContext the new key to set for the context
       * @return a reference to this builder
       */
-    private def addProperty(key: String, value: Any, newContext: String = contextKey): SourceConfigBuilder = {
+    private def addProperty(key: String, value: Any, newContext: String = contextKey): SourceConfigBuilder =
       val fullKey = s"$contextKey.$key"
       config.addProperty(fullKey, value)
       contextKey = newContext
       this
-    }
 
     /**
       * Returns the context key with a suffix removed that selects a new
@@ -258,13 +249,11 @@ object RadioSourceConfigLoaderSpec {
       * @return the modified context key
       */
     private def removeNewElementIndexFromContext(): String = contextKey.stripSuffix("(-1)")
-  }
-}
 
 /**
   * Test class for ''RadioSourceConfig''.
   */
-class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
+class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
 
   import RadioSourceConfigLoaderSpec._
 
@@ -276,12 +265,10 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     * @param date  the reference date
     * @param start the start time
     */
-  private def assertBefore(query: IntervalQuery, date: LocalDateTime, start: LocalDateTime): Unit = {
-    query(date) match {
+  private def assertBefore(query: IntervalQuery, date: LocalDateTime, start: LocalDateTime): Unit =
+    query(date) match
       case Before(d) => d.value should be(start)
       case r => fail("Unexpected result: " + r)
-    }
-  }
 
   /**
     * Checks whether the specified interval query yields an Inside result for
@@ -291,12 +278,10 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     * @param date  the reference date
     * @param until the until time
     */
-  private def assertInside(query: IntervalQuery, date: LocalDateTime, until: LocalDateTime): Unit = {
-    query(date) match {
+  private def assertInside(query: IntervalQuery, date: LocalDateTime, until: LocalDateTime): Unit =
+    query(date) match
       case Inside(d) => d.value should be(until)
       case r => fail("Unexpected result: " + r)
-    }
-  }
 
   /**
     * Checks the single properties of a metadata exclusion.
@@ -316,7 +301,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
                                      interval: FiniteDuration,
                                      optName: Option[String],
                                      matchString: String,
-                                     nonMatchString: String): MetadataExclusion = {
+                                     nonMatchString: String): MetadataExclusion =
     exclusion.matchContext should be(matchContext)
     exclusion.resumeMode should be(resumeMode)
     exclusion.checkInterval should be(interval)
@@ -327,18 +312,16 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     matcher2.matches() shouldBe false
 
     exclusion
-  }
 
-  "A RadioSourceConfigLoader" should "provide a correct list of sources" in {
+  "A RadioSourceConfigLoader" should "provide a correct list of sources" in:
     val Count = 4
     val config = createSourceConfiguration(Count)
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     val expSrcList = (1 to Count) map (i => (sourceName(i), radioSource(i)))
     sourceConfig.namedSources should be(expSrcList)
-  }
 
-  it should "read sources from an alternative key" in {
+  it should "read sources from an alternative key" in:
     val Count = 4
     val OtherKey = "radioSources"
     val config = createSourceConfiguration(Count, OtherKey)
@@ -346,9 +329,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config, OtherKey)
     val expSrcList = (1 to Count) map (i => (sourceName(i), radioSource(i)))
     sourceConfig.namedSources should be(expSrcList)
-  }
 
-  it should "ignore incomplete source definitions" in {
+  it should "ignore incomplete source definitions" in:
     val Count = 2
     val config = createSourceConfiguration(Count)
     config.addProperty("radio.sources.source(-1).name", "someName")
@@ -358,9 +340,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     sourceConfig.namedSources should have size 2
     sourceConfig.namedSources.head._1 should be(sourceName(1))
     sourceConfig.namedSources(1)._1 should be(sourceName(2))
-  }
 
-  it should "order radio sources by name" in {
+  it should "order radio sources by name" in:
     val sources = List((sourceName(8), radioSource(8)), (sourceName(2), radioSource(2)),
       (sourceName(3), radioSource(3)), (sourceName(9), radioSource(9)))
     val sourcesSorted = List((sourceName(2), radioSource(2)), (sourceName(3), radioSource(3)),
@@ -369,9 +350,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.namedSources should be(sourcesSorted)
-  }
 
-  it should "order radio sources by ranking" in {
+  it should "order radio sources by ranking" in:
     val sources = List(sourceWithRanking(1, 1), sourceWithRanking(2, 17),
       sourceWithRanking(3, -1), sourceWithRanking(4, 8),
       sourceWithRanking(5, 1))
@@ -384,18 +364,16 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.namedSources should be(sourcesSorted)
-  }
 
-  it should "return a map with all sources and empty lists if no exclusions are defined" in {
+  it should "return a map with all sources and empty lists if no exclusions are defined" in:
     val config = createSourceConfiguration(2)
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.namedSources foreach { src =>
       sourceConfig.exclusions(src._2) shouldBe empty
     }
-  }
 
-  it should "process a minutes exclusion" in {
+  it should "process a minutes exclusion" in:
     val config = buildSourceConfiguration(4)
       .withSourceExclusion(2)
       .withExclusionProperty("minutes[@from]", "22")
@@ -409,9 +387,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
     assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
       LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
-  }
 
-  it should "drop an undefined exclusion" in {
+  it should "drop an undefined exclusion" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("unsupported", "1")
@@ -419,9 +396,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "drop a minute exclusion with an invalid from" in {
+  it should "drop a minute exclusion with an invalid from" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("minutes[@from]", "61")
@@ -430,9 +406,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "drop a minute exclusion with an invalid to" in {
+  it should "drop a minute exclusion with an invalid to" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("minutes[@from]", "55")
@@ -441,9 +416,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "ignore a minute exclusion with from >= to" in {
+  it should "ignore a minute exclusion with from >= to" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("minutes[@from]", "58")
@@ -452,9 +426,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "ignore a minute exclusion with a non-string parameter" in {
+  it should "ignore a minute exclusion with a non-string parameter" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("minutes[@from]", "noNumber")
@@ -463,9 +436,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "combine multiple interval queries" in {
+  it should "combine multiple interval queries" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("minutes[@from]", "14")
@@ -481,9 +453,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 21, 14))
     assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 14),
       LocalDateTime.of(2016, Month.JUNE, 30, 22, 20))
-  }
 
-  it should "ignore an hours exclusion with invalid values" in {
+  it should "ignore an hours exclusion with invalid values" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("hours[@from]", "21")
@@ -492,9 +463,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "parse a days-of-week query" in {
+  it should "parse a days-of-week query" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("days.day", Array("MONDAY", "WEDNESDAY", "SATURDAY"))
@@ -513,9 +483,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 0, 0))
     assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 21, 31),
       LocalDateTime.of(2016, Month.JULY, 2, 0, 0))
-  }
 
-  it should "ignore a days-of-week query with an invalid day" in {
+  it should "ignore a days-of-week query with an invalid day" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("days.day", Array("TUESDAY", "FRIDAY", "unknown day"))
@@ -523,9 +492,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
 
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
     sourceConfig.exclusions(radioSource(1)) shouldBe empty
-  }
 
-  it should "create cyclic interval queries" in {
+  it should "create cyclic interval queries" in:
     val config = buildSourceConfiguration(1)
       .withSourceExclusion(0)
       .withExclusionProperty("days.day", Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
@@ -538,9 +506,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     exclusions should have size 1
     assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JULY, 2, 8, 0),
       LocalDateTime.of(2016, Month.JULY, 4, 21, 0))
-  }
 
-  it should "support multiple exclusion per radio source" in {
+  it should "support multiple exclusion per radio source" in:
     val config = buildSourceConfiguration(2)
       .withSourceExclusion(0)
       .withExclusionProperty("days.day", Array("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"))
@@ -561,9 +528,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 30, 6, 27))
     assertBefore(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 29, 22, 0),
       LocalDateTime.of(2016, Month.JULY, 2, 9, 0))
-  }
 
-  it should "reference an exclusion by name" in {
+  it should "reference an exclusion by name" in:
     val ExclusionName = "half_hour"
     val config = buildSourceConfiguration(4)
       .withExclusion(Some(ExclusionName))
@@ -580,9 +546,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
     assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
       LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
-  }
 
-  it should "read exclusions from an alternative key" in {
+  it should "read exclusions from an alternative key" in:
     val OtherKey = "radioSourceConfig"
     val ExclusionName = "half_hour"
     val config = buildSourceConfiguration(4, OtherKey)
@@ -600,9 +565,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
     assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
       LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
-  }
 
-  it should "combine inline exclusions with referenced ones" in {
+  it should "combine inline exclusions with referenced ones" in:
     val ExclusionName = "saturday"
     val config = buildSourceConfiguration(2)
       .withSourceExclusion(0)
@@ -625,9 +589,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 30, 6, 27))
     assertBefore(exclusions(1), LocalDateTime.of(2016, Month.JUNE, 29, 22, 0),
       LocalDateTime.of(2016, Month.JULY, 2, 9, 0))
-  }
 
-  it should "ignore a reference to an invalid exclusion" in {
+  it should "ignore a reference to an invalid exclusion" in:
     val ExclusionName = "half_hour"
     val config = buildSourceConfiguration(4)
       .withExclusion(Some("invalid"))
@@ -647,9 +610,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2016, Month.JUNE, 29, 19, 22))
     assertInside(exclusions.head, LocalDateTime.of(2016, Month.JUNE, 30, 22, 23),
       LocalDateTime.of(2016, Month.JUNE, 30, 22, 25))
-  }
 
-  it should "reference an exclusion set by name" in {
+  it should "reference an exclusion set by name" in:
     val ExclusionSetName = "half_and_full_hour"
     val ExclusionName = "half_hour"
     val config = buildSourceConfiguration(1)
@@ -672,9 +634,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2023, Month.JANUARY, 7, 22, 0))
     assertInside(exclusions(1), LocalDateTime.of(2023, Month.JANUARY, 7, 21, 22),
       LocalDateTime.of(2023, Month.JANUARY, 7, 21, 25))
-  }
 
-  it should "combine inline exclusions with exclusion sets" in {
+  it should "combine inline exclusions with exclusion sets" in:
     val ExclusionSetName = "weekend"
     val config = buildSourceConfiguration(1)
       .withExclusionSet(ExclusionSetName)
@@ -693,9 +654,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
       LocalDateTime.of(2023, Month.JANUARY, 7, 0, 0))
     assertInside(exclusions.head, LocalDateTime.of(2023, Month.JANUARY, 7, 21, 28),
       LocalDateTime.of(2023, Month.JANUARY, 7, 21, 30))
-  }
 
-  it should "ignore exclusion sets without names" in {
+  it should "ignore exclusion sets without names" in:
     val ExclusionSetName = "weekend"
     val config = buildSourceConfiguration(1)
       .withExclusionSet(ExclusionSetName)
@@ -714,9 +674,8 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     exclusions should have size 1
     assertBefore(exclusions.head, LocalDateTime.of(2023, Month.JANUARY, 6, 21, 51),
       LocalDateTime.of(2023, Month.JANUARY, 7, 0, 0))
-  }
 
-  it should "return correct rankings for sources" in {
+  it should "return correct rankings for sources" in:
     val sources = List(sourceWithRanking(1, 5), sourceWithRanking(2, 42),
       sourceWithRanking(3, -1))
     val config = createSourceConfiguration(sources, "radio")
@@ -725,16 +684,14 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     sourceConfig ranking radioSource(1) should be(5)
     sourceConfig ranking radioSource(2) should be(42)
     sourceConfig ranking radioSource(3) should be(RadioSourceConfigLoader.DefaultRanking)
-  }
 
-  it should "return the default ranking for an unknown source" in {
+  it should "return the default ranking for an unknown source" in:
     val config = createSourceConfiguration(4)
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
 
     sourceConfig ranking radioSource(28) should be(RadioSourceConfigLoader.DefaultRanking)
-  }
 
-  it should "read global metadata exclusions" in {
+  it should "read global metadata exclusions" in:
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
 
     metaConfig.exclusions should have size 3
@@ -768,14 +725,13 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     assertBefore(exclusion3.applicableAt(1),
       LocalDateTime.of(2023, Month.MAY, 8, 12, 25, 38),
       LocalDateTime.of(2023, Month.MAY, 8, 12, 27))
-  }
 
   /**
     * Helper function for testing a metadata config read by the loader.
     *
     * @param metaConfig the config to be checked
     */
-  private def checkMetadataConfig(metaConfig: MetadataConfig): Unit = {
+  private def checkMetadataConfig(metaConfig: MetadataConfig): Unit =
     val source = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u")
     val sourceConfig = metaConfig.metadataSourceConfig(source)
 
@@ -811,25 +767,20 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers {
     assertInside(exclusion2.applicableAt.head,
       LocalDateTime.of(2023, Month.MAY, 8, 21, 59, 43),
       LocalDateTime.of(2023, Month.MAY, 8, 22, 0))
-  }
 
-  it should "read metadata information for radio sources" in {
+  it should "read metadata information for radio sources" in:
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
     checkMetadataConfig(metaConfig)
-  }
 
-  it should "read metadata information for radio sources from an alternative key" in {
+  it should "read metadata information for radio sources from an alternative key" in:
     val config = new XMLConfiguration("test-radio-configuration-alternative-key.xml")
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(config, "radioSources")
     checkMetadataConfig(metaConfig)
-  }
 
-  it should "handle radio sources without metadata configuration" in {
+  it should "handle radio sources without metadata configuration" in:
     val source = RadioSource("http://metafiles.gl-systemhaus.de/hr/hr2_2.m3u")
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
 
     val sourceConfig = metaConfig.metadataSourceConfig(source)
 
     sourceConfig should be(MetadataConfig.EmptySourceConfig)
-  }
-}
