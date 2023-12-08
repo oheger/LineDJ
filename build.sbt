@@ -726,13 +726,15 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-config",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies += configDependency,
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.client.config.*"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn playerEngine
+  ) dependsOn (playerEngine, test3 % "test->compile")
 
 /**
   * Project for the radio player engine.

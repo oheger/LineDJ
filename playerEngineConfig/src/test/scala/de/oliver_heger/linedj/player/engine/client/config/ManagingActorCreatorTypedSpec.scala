@@ -19,14 +19,14 @@ package de.oliver_heger.linedj.player.engine.client.config
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
+import de.oliver_heger.linedj.test.ActorTestKitSupport
 import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.Props
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
-import org.mockito.Mockito._
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
+import org.mockito.Mockito.*
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
@@ -34,9 +34,9 @@ import org.scalatestplus.mockito.MockitoSugar
   * Test class for [[ManagingActorCreator]] that tests the creation of typed
   * actors.
   */
-class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
-  with MockitoSugar {
-  "ManagingActorCreator" should "create a typed actor" in {
+class ManagingActorCreatorTypedSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport
+  with MockitoSugar:
+  "ManagingActorCreator" should "create a typed actor" in:
     val ActorName = "MyTestTypedActor"
     val behavior = EventManagerActor[PlayerEvent]()
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
@@ -49,9 +49,8 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
 
     actorRef should be(probe.ref)
     verify(management, never()).registerActor(any(), any(), any())
-  }
 
-  it should "create a typed actor and register a stopper for a stop command" in {
+  it should "create a typed actor and register a stopper for a stop command" in:
     val ActorName = "MyTestTypedActor"
     val behavior = EventManagerActor[PlayerEvent]()
     val stopCommand = EventManagerActor.Stop[PlayerEvent]()
@@ -70,5 +69,3 @@ class ManagingActorCreatorTypedSpec extends ScalaTestWithActorTestKit with AnyFl
     verify(management).registerActor(eqArg(ActorName), captStopCommand.capture(), any())
     captStopCommand.getValue.stop()
     probe.expectMessage(stopCommand)
-  }
-}

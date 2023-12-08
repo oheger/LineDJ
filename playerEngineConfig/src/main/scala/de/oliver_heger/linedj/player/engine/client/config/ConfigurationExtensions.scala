@@ -20,7 +20,7 @@ import org.apache.commons.configuration.Configuration
 
 import scala.concurrent.duration._
 
-object ConfigurationExtensions {
+object ConfigurationExtensions:
   /**
     * A trait representing the top of a hierarchy of duration unit
     * implementations.
@@ -29,7 +29,7 @@ object ConfigurationExtensions {
     * This is used to implement duration properties for the configuration
     * library.
     */
-  sealed trait DurationUnit {
+  sealed trait DurationUnit:
     /**
       * Converts the given value to a [[Duration]] that is represented by this
       * object.
@@ -45,35 +45,30 @@ object ConfigurationExtensions {
       * @return a function to convert an ''Int'' to this duration
       */
     protected def convert: Int => FiniteDuration
-  }
 
   /**
     * A concrete [[DurationUnit]] for milliseconds.
     */
-  private object MillisecondsUnit extends DurationUnit {
+  private object MillisecondsUnit extends DurationUnit:
     override protected val convert: Int => FiniteDuration = _.milliseconds
-  }
 
   /**
     * A concrete [[DurationUnit]] for seconds.
     */
-  private object SecondsUnit extends DurationUnit {
+  private object SecondsUnit extends DurationUnit:
     override protected val convert: Int => FiniteDuration = _.seconds
-  }
 
   /**
     * A concrete [[DurationUnit]] for minutes.
     */
-  private object MinutesUnit extends DurationUnit {
+  private object MinutesUnit extends DurationUnit:
     override protected val convert: Int => FiniteDuration = _.minutes
-  }
 
   /**
     * A concrete [[DurationUnit]] for hours.
     */
-  private object HoursUnit extends DurationUnit {
+  private object HoursUnit extends DurationUnit:
     override protected val convert: Int => FiniteDuration = _.hours
-  }
 
   /**
     * A class extending the [[Configuration]] interface by additional
@@ -81,7 +76,7 @@ object ConfigurationExtensions {
     *
     * @param c the wrapped [[Configuration]] object
     */
-  implicit class ConfigurationOps(c: Configuration) {
+  implicit class ConfigurationOps(c: Configuration):
     /**
       * Returns the configuration value with the given key of type [[Duration]].
       * It is possible to specify the unit of the duration in an attribute of the
@@ -92,11 +87,10 @@ object ConfigurationExtensions {
       * @param key the key
       * @return the value of type ''Duration''
       */
-    def getDuration(key: String): FiniteDuration = {
+    def getDuration(key: String): FiniteDuration =
       val unitName = c.getString(s"$key[@unit]", "seconds")
       val unit = unitByName(unitName)
       unit.toDuration(c.getInt(key))
-    }
 
     /**
       * Returns the configuration value with the given key of type [[Duration]]
@@ -107,9 +101,8 @@ object ConfigurationExtensions {
       * @return the value of type ''Duration''
       */
     def getDuration(key: String, default: FiniteDuration): FiniteDuration =
-      if (c.containsKey(key)) getDuration(key)
+      if c.containsKey(key) then getDuration(key)
       else default
-  }
 
   /**
     * Returns the [[DurationUnit]] implementation for the unit with the given
@@ -119,12 +112,10 @@ object ConfigurationExtensions {
     * @return the implementation for the unit with this name
     */
   def unitByName(name: String): DurationUnit =
-    name.toLowerCase match {
+    name.toLowerCase match
       case "milliseconds" => MillisecondsUnit
       case "millis" => MillisecondsUnit
       case "seconds" => SecondsUnit
       case "minutes" => MinutesUnit
       case "hours" => HoursUnit
       case _ => throw new IllegalArgumentException(s"Unsupported duration unit '$name'.")
-    }
-}

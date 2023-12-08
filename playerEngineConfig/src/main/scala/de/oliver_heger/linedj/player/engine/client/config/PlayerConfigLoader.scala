@@ -16,13 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtensions._
+import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtensions.*
 import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 
 /**
   * A module providing functionality for loading an XML configuration file with
@@ -175,13 +176,13 @@ object PlayerConfigLoader {
   def loadPlayerConfig(c: Configuration,
                        pathPrefix: String,
                        mediaManagerActor: ActorRef,
-                       actorCreator: ActorCreator): PlayerConfig = {
-    val normalizedPrefix = if (pathPrefix.endsWith(".")) pathPrefix
+                       actorCreator: ActorCreator): PlayerConfig =
+    val normalizedPrefix = if pathPrefix.endsWith(".") then pathPrefix
     else pathPrefix + "."
 
     def key(k: String) = normalizedPrefix + k
 
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
 
     PlayerConfig(inMemoryBufferSize = c.getInt(key(PropMemoryBufferSize), DefaultMemoryBufferSize),
       playbackContextLimit = c.getInt(key(PropPlaybackContextLimit), DefaultPlaybackContextLimit),
@@ -190,7 +191,7 @@ object PlayerConfigLoader {
       bufferFilePrefix = c.getString(key(PropBufferFilePrefix), DefaultBufferFilePrefix),
       bufferFileExtension = c.getString(key(PropBufferFileExtension), DefaultBufferFileExtension),
       bufferTempPath = Option(c.getString(key(PropBufferTempPath))).map(Paths.get(_)),
-      bufferTempPathParts = if (c.containsKey(key(PropBufferTempPathParts)))
+      bufferTempPathParts = if c.containsKey(key(PropBufferTempPathParts)) then
         c.getList(key(PropBufferTempPathParts)).asScala.map(String.valueOf).toSeq
       else DefaultBufferTempPathParts,
       downloadInProgressNotificationDelay = c.getDuration(key(PropDownloadInProgressNotificationDelay),
@@ -201,7 +202,6 @@ object PlayerConfigLoader {
       blockingDispatcherName = Option(c.getString(key(PropBlockingDispatcherName))),
       mediaManagerActor = mediaManagerActor,
       actorCreator = actorCreator)
-  }
 
   /**
     * Creates a [[PlayerConfig]] with default values and the given dynamic

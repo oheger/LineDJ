@@ -35,7 +35,7 @@ import org.apache.pekko.{actor => classic}
   * @param actorFactory    the [[ActorFactory]] instance
   */
 class ManagingActorCreator(val actorFactory: ActorFactory,
-                           val actorManagement: ActorManagement) extends ActorCreator {
+                           val actorManagement: ActorManagement) extends ActorCreator:
   /**
     * Creates a typed actor for the given behavior with the specified name.
     * Since there is no default way to stop typed actors, it is possible to
@@ -50,14 +50,13 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
   override def createActor[T](behavior: Behavior[T],
                               name: String,
                               optStopCommand: Option[T],
-                              props: Props): ActorRef[T] = {
+                              props: Props): ActorRef[T] =
     val ref = actorFactory.createActor(behavior, name, props)
     optStopCommand foreach { command =>
       val stopper: ActorStopper = () => ref ! command
       actorManagement.registerActor(name, stopper)
     }
     ref
-  }
 
   /**
     * Creates a classic actor based on the given ''Props'' with the specified
@@ -67,17 +66,14 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
     * @param name  the name to use for this actor
     * @return the reference to the newly created actor
     */
-  override def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any]): classic.ActorRef = {
+  override def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any]): classic.ActorRef =
     val actor = actorFactory.createActor(props, name)
 
-    optStopCommand match {
+    optStopCommand match
       case Some(stopCommand) =>
         val stopper: ActorStopper = () => actor ! stopCommand
         actorManagement.registerActor(name, stopper, Some(actor))
       case None =>
         actorManagement.registerActor(name, actor)
-    }
 
     actor
-  }
-}

@@ -33,15 +33,14 @@ import org.scalatestplus.mockito.MockitoSugar
   * actors.
   */
 class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ManagingActorCreatorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  "ManagingActorCreator" should "create and register a classic actor" in {
+  "ManagingActorCreator" should "create and register a classic actor" in:
     val ActorName = "MyLineWriterActor"
     val props = Props[TestActorImpl]()
     val factory = mock[ActorFactory]
@@ -54,9 +53,8 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
 
     actorRef should be(probe.ref)
     verify(management).registerActor(ActorName, probe.ref)
-  }
 
-  it should "create and register a classic actor with a custom stop command" in {
+  it should "create and register a classic actor with a custom stop command" in:
     val ActorName = "MyCustomStopActor"
     val StopCommand = "Please, stop now!"
     val props = Props[TestActorImpl]()
@@ -74,13 +72,10 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
 
     captStopper.getValue.stop()
     probe.expectMsg(StopCommand)
-  }
-}
 
 /**
   * A test actor implementation that can be used to test the creation of
   * classic actors.
   */
-private class TestActorImpl extends Actor {
+private class TestActorImpl extends Actor:
   override def receive: Receive = Actor.emptyBehavior
-}

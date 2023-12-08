@@ -26,8 +26,8 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.nio.file.Paths
 import scala.concurrent.duration._
 
-class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "PlayerConfigLoader" should "read the properties from a configuration" in {
+class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "PlayerConfigLoader" should "read the properties from a configuration" in:
     val Prefix = "player.config"
     val config = new HierarchicalConfiguration
 
@@ -65,9 +65,8 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.downloadInProgressNotificationInterval should be(59.seconds)
     playerConfig.timeProgressThreshold should be(500.millis)
     playerConfig.blockingDispatcherName should be(Some("io-dispatcher"))
-  }
 
-  it should "create a configuration with default values" in {
+  it should "create a configuration with default values" in:
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(new HierarchicalConfiguration, "test", null, null)
 
     playerConfig.bufferFileSize should be(PlayerConfigLoader.DefaultBufferFileSize)
@@ -83,9 +82,8 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.downloadInProgressNotificationInterval should be(PlayerConfigLoader
       .DefaultDownloadInProgressNotificationInterval)
     playerConfig.timeProgressThreshold should be(PlayerConfigLoader.DefaultTimeProgressThreshold)
-  }
 
-  it should "handle a key prefix with a trailing dot" in {
+  it should "handle a key prefix with a trailing dot" in:
     val Prefix = "player.dot.config."
     val config = new HierarchicalConfiguration
     config.addProperty(Prefix + PlayerConfigLoader.PropMemoryBufferSize, 8000)
@@ -93,25 +91,22 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(config, Prefix, null, null)
 
     playerConfig.inMemoryBufferSize should be(8000)
-  }
 
-  it should "add the media manager actor to the configuration" in {
+  it should "add the media manager actor to the configuration" in:
     val manager = mock[ActorRef]
 
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(new HierarchicalConfiguration, "", manager, null)
 
     playerConfig.mediaManagerActor should be(manager)
-  }
 
-  it should "add the actor creator to the configuration" in {
+  it should "add the actor creator to the configuration" in:
     val creator = mock[ActorCreator]
 
     val playerConfig = PlayerConfigLoader.loadPlayerConfig(new HierarchicalConfiguration, "", null, creator)
 
     playerConfig.actorCreator should be(creator)
-  }
 
-  it should "provide a default player configuration" in {
+  it should "provide a default player configuration" in:
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig
 
     playerConfig.bufferFileSize should be(PlayerConfigLoader.DefaultBufferFileSize)
@@ -127,9 +122,8 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.downloadInProgressNotificationInterval should be(PlayerConfigLoader
       .DefaultDownloadInProgressNotificationInterval)
     playerConfig.timeProgressThreshold should be(PlayerConfigLoader.DefaultTimeProgressThreshold)
-  }
 
-  it should "create a default configuration with dynamic values" in {
+  it should "create a default configuration with dynamic values" in:
     val manager = mock[ActorRef]
     val creator = mock[ActorCreator]
 
@@ -150,5 +144,3 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.timeProgressThreshold should be(PlayerConfigLoader.DefaultTimeProgressThreshold)
     playerConfig.mediaManagerActor should be(manager)
     playerConfig.actorCreator should be(creator)
-  }
-}
