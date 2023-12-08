@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
-import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.*
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
-import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.actors.{PlaybackActor, PlaybackProtocolViolation}
+import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.{EventTestSupport, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated, typed}
@@ -34,10 +34,10 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.LocalDateTime
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
-object RadioDataSourceActorSpec {
+object RadioDataSourceActorSpec:
   /** Constant for an URI for test radio streams. */
   private val StreamUri = "http://test.radio.stream/test"
 
@@ -61,10 +61,9 @@ object RadioDataSourceActorSpec {
     * @param withExtension a flag whether the URI should have an extension
     * @return the generated URI
     */
-  private def streamUri(index: Int, withExtension: Boolean = true): String = {
+  private def streamUri(index: Int, withExtension: Boolean = true): String =
     val prefix = StreamUri + index
-    if (withExtension) prefix + DefaultExt else prefix
-  }
+    if withExtension then prefix + DefaultExt else prefix
 
   /**
     * Generates an audio source based on the given index.
@@ -84,14 +83,13 @@ object RadioDataSourceActorSpec {
     */
   private def audioData(data: String = FileTestHelper.TestData): BufferDataResult =
     BufferDataResult(ByteString(data))
-}
 
 /**
   * Test class for ''RadioDataSourceActor''.
   */
 class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
-  with EventTestSupport[RadioEvent] {
+  with EventTestSupport[RadioEvent]:
 
   import RadioDataSourceActorSpec._
 
@@ -100,11 +98,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
     tearDownTestFile()
-  }
 
   /**
     * Polls data from a queue with a timeout. Fails if no data is received
@@ -114,28 +111,25 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @tparam E the element type
     * @return the polled element
     */
-  private def pollQueue[E <: AnyRef](queue: LinkedBlockingQueue[E]): E = {
+  private def pollQueue[E <: AnyRef](queue: LinkedBlockingQueue[E]): E =
     val elem = queue.poll(3, TimeUnit.SECONDS)
     elem should not be null
     elem
-  }
 
-  "A RadioDataSourceActor" should "create a source reader when passed a new data source" in {
+  "A RadioDataSourceActor" should "create a source reader when passed a new data source" in:
     val uri = streamUri(1)
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
 
     actor ! RadioSource(uri)
     helper.expectAndCheckChildCreation(uri, actor)
-  }
 
-  it should "return EoF when asked for data before a source is created" in {
+  it should "return EoF when asked for data before a source is created" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
 
     actor ! PlaybackActor.GetAudioData(42)
     expectMsg(BufferDataComplete)
-  }
 
   /**
     * Checks whether an ''AudioSource'' is correctly created and passed to the
@@ -146,7 +140,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param ext            an optional default file extension
     */
   private def checkAudioSource(audioStreamUri: String, expUri: String, ext: Option[String] =
-  Mp3Ext): Unit = {
+  Mp3Ext): Unit =
     def createSource(uri: String): AudioSource = AudioSource(uri, 0, 0, 0)
 
     val helper = new RadioDataSourceActorTestHelper
@@ -157,34 +151,28 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     creation.tell(actor, createSource(audioStreamUri))
     actor ! PlaybackActor.GetAudioSource
     expectMsg(createSource(expUri))
-  }
 
-  it should "provide an AudioSource for the current stream" in {
+  it should "provide an AudioSource for the current stream" in:
     val uri = streamUri(1)
     checkAudioSource(uri, uri + "." + Mp3Ext.get)
-  }
 
-  it should "append a file extension to the audio source URI if possible" in {
+  it should "append a file extension to the audio source URI if possible" in:
     val uri = streamUri(1, withExtension = false)
     checkAudioSource(uri, uri + "." + Mp3Ext.get)
-  }
 
-  it should "handle strange URIs for audio sources without slashes" in {
+  it should "handle strange URIs for audio sources without slashes" in:
     val uri = "music"
     checkAudioSource(uri, uri + "." + Mp3Ext.get)
-  }
 
-  it should "not modify the audio source if no default extension is provided" in {
+  it should "not modify the audio source if no default extension is provided" in:
     val uri = streamUri(1, withExtension = false)
     checkAudioSource(uri, uri, None)
-  }
 
-  it should "not modify the audio source if it already ends with the correct extension" in {
+  it should "not modify the audio source if it already ends with the correct extension" in:
     val uri = streamUri(1, withExtension = false) + "." + Mp3Ext.get
     checkAudioSource(uri, uri)
-  }
 
-  it should "park an audio source request until the source becomes available" in {
+  it should "park an audio source request until the source becomes available" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -193,9 +181,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! RadioSource(src.uri)
     helper.expectChildCreationAndAudioSource(actor, src)
     expectMsg(src)
-  }
 
-  it should "send the updated audio source to a pending request" in {
+  it should "send the updated audio source to a pending request" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -204,9 +191,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! RadioSource(src.uri, Some(DefaultExt drop 1))
     helper.expectChildCreationAndAudioSource(actor, src)
     expectMsg(audioSource(1))
-  }
 
-  it should "reset the newSource flag when serving a pending audio source request" in {
+  it should "reset the newSource flag when serving a pending audio source request" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -217,9 +203,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     actor ! DataRequest
     clientCreation.probe.expectMsg(DataRequest)
-  }
 
-  it should "ignore an audio source not sent from the current child actor" in {
+  it should "ignore an audio source not sent from the current child actor" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -230,9 +215,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val creation = helper.expectChildCreation()
     creation.params.sourceListener(src, creation.probe.ref)
     expectMsg(src)
-  }
 
-  it should "ignore an audio source sent before a radio source" in {
+  it should "ignore an audio source sent before a radio source" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
 
@@ -243,9 +227,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     creation.params.sourceListener(src, creation.probe.ref)
     actor ! PlaybackActor.GetAudioSource
     expectMsg(src)
-  }
 
-  it should "reject a GetAudioSource request if one is pending" in {
+  it should "reject a GetAudioSource request if one is pending" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -254,9 +237,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val errMsg = expectMsgType[PlaybackProtocolViolation]
     errMsg.msg should be(PlaybackActor.GetAudioSource)
     errMsg.errorText should be("Request for audio source already pending!")
-  }
 
-  it should "reset the current audio source when playback of a new source starts" in {
+  it should "reset the current audio source when playback of a new source starts" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val src = audioSource(1)
@@ -268,18 +250,16 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! PlaybackActor.GetAudioSource
     helper.expectChildCreationAndAudioSource(actor, src2)
     expectMsg(src2)
-  }
 
-  it should "handle a request for audio data" in {
+  it should "handle a request for audio data" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val childCreation = helper.handleAudioSourceRequest(actor, 1)
 
     actor ! DataRequest
     childCreation.probe.expectMsg(DataRequest)
-  }
 
-  it should "reject a request for audio data if none is pending" in {
+  it should "reject a request for audio data if none is pending" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     helper.handleAudioSourceRequest(actor, 1)
@@ -289,9 +269,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val errMsg = expectMsgType[PlaybackProtocolViolation]
     errMsg.msg should be(DataRequest)
     errMsg.errorText should be("Request for audio data already pending!")
-  }
 
-  it should "pass audio data to the client when it arrives" in {
+  it should "pass audio data to the client when it arrives" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val childCreation = helper.handleAudioSourceRequest(actor, 1)
@@ -300,9 +279,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val data = audioData()
     childCreation.tell(actor, data)
     expectMsg(data)
-  }
 
-  it should "ignore audio data not sent from the current source reader actor" in {
+  it should "ignore audio data not sent from the current source reader actor" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     helper.handleAudioSourceRequest(actor, 1)
@@ -311,17 +289,15 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! audioData()
     actor ! DataRequest
     expectMsgType[PlaybackProtocolViolation]
-  }
 
-  it should "ignore audio data that was not requested" in {
+  it should "ignore audio data that was not requested" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val childCreation = helper.handleAudioSourceRequest(actor, 1)
 
     actor.receive(audioData(), childCreation.probe.ref)
-  }
 
-  it should "reset a pending data request when it was served" in {
+  it should "reset a pending data request when it was served" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val childCreation = helper.handleAudioSourceRequest(actor, 1)
@@ -335,9 +311,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! DataRequest
     childCreation.tell(actor, data2)
     expectMsg(data2)
-  }
 
-  it should "close the current source when a new one is received" in {
+  it should "close the current source when a new one is received" in:
     val uri1 = streamUri(1)
     val uri2 = streamUri(2)
     val helper = new RadioDataSourceActorTestHelper
@@ -354,9 +329,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val src = audioSource(2)
     childCreation2.params.sourceListener(src, childCreation2.probe.ref)
     expectMsg(src)
-  }
 
-  it should "continue playback with the next source" in {
+  it should "continue playback with the next source" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! PlaybackActor.GetAudioSource
@@ -376,9 +350,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val data = audioData()
     childCreation.tell(actor, data)
     expectMsg(data)
-  }
 
-  it should "answer a pending data request with EoF when a new source is added" in {
+  it should "answer a pending data request with EoF when a new source is added" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     helper.handleAudioSourceRequest(actor, 1)
@@ -389,9 +362,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     // check whether pending request was reset
     actor ! DataRequest
     expectMsg(BufferDataComplete)
-  }
 
-  it should "stop a child actor when it sends a CloseAck" in {
+  it should "stop a child actor when it sends a CloseAck" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val src1 = audioSource(1)
@@ -404,9 +376,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val probe = TestProbe()
     probe watch childCreation.probe.ref
     probe.expectMsgType[Terminated]
-  }
 
-  it should "reset the current source when the reader actor dies" in {
+  it should "reset the current source when the reader actor dies" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val childCreation = helper.handleAudioSourceRequest(actor, 1)
@@ -414,9 +385,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! DataRequest
     system stop childCreation.probe.ref
     expectMsg(BufferDataComplete)
-  }
 
-  it should "return an error source after the reader actor dies" in {
+  it should "return an error source after the reader actor dies" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val src = audioSource(1)
@@ -428,9 +398,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     expectMsg(AudioSource.ErrorSource)
     actor ! DataRequest
     expectMsg(BufferDataComplete)
-  }
 
-  it should "not react on Terminated messages from older sources" in {
+  it should "not react on Terminated messages from older sources" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! RadioSource(streamUri(1))
@@ -441,17 +410,15 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     childCreation.tell(actor, CloseAck(childCreation.probe.ref))
     actor ! DataRequest
     childCreation2.probe.expectMsg(DataRequest)
-  }
 
-  it should "send a CloseAck immediately if there is no current source reader" in {
+  it should "send a CloseAck immediately if there is no current source reader" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! CloseRequest
 
     expectMsg(CloseAck(actor))
-  }
 
-  it should "propagate a CloseRequest to the current source reader" in {
+  it should "propagate a CloseRequest to the current source reader" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     actor ! RadioSource(streamUri(1))
@@ -460,9 +427,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! CloseRequest
     childCreation.probe.expectMsg(CloseRequest)
     expectNoMessage(100.milliseconds)
-  }
 
-  it should "not send a CloseAck before all Ack from source readers are received" in {
+  it should "not send a CloseAck before all Ack from source readers are received" in:
     val messages = new LinkedBlockingQueue[ReceivedMessage]
     val listener = system.actorOf(Props(new Actor {
       override def receive: Receive = {
@@ -489,9 +455,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val msg = pollQueue(messages)
     msg.msg should be(CloseAck(actor))
     msg.at should be > lastAckTime
-  }
 
-  it should "fire an event when a new source is started" in {
+  it should "fire an event when a new source is started" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val source = RadioSource("someURI")
@@ -499,9 +464,8 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     actor ! source
     val event = helper.expectPlayerEvent[RadioSourceChangedEvent]
     event.source should be(source)
-  }
 
-  it should "fire an event when the current source causes an error" in {
+  it should "fire an event when the current source causes an error" in:
     val helper = new RadioDataSourceActorTestHelper
     val actor = helper.createTestActor()
     val source = RadioSource("someURI")
@@ -512,12 +476,11 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     system stop creation.probe.ref
     val event = helper.expectPlayerEvent[RadioSourceErrorEvent]
     event.source should be(source)
-  }
 
   /**
     * A test helper class managing dependencies of the test actor.
     */
-  private class RadioDataSourceActorTestHelper {
+  private class RadioDataSourceActorTestHelper:
     /** A queue for querying data about child actors created by the test actor. */
     private val childCreationQueue = new LinkedBlockingQueue[ChildActorCreation]
 
@@ -548,11 +511,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param src   the audio source to be sent by the child
       * @return the data object about the child creation
       */
-    def expectChildCreationAndAudioSource(actor: ActorRef, src: AudioSource): ChildActorCreation = {
+    def expectChildCreationAndAudioSource(actor: ActorRef, src: AudioSource): ChildActorCreation =
       val creation = expectChildCreation()
       creation.tell(actor, src)
       creation
-    }
 
     /**
       * Expects that a child has been created by the test actor and checks the
@@ -562,11 +524,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param expTestActor the expected test actor
       * @return the data object about the child creation
       */
-    def expectAndCheckChildCreation(expUri: String, expTestActor: ActorRef): ChildActorCreation = {
+    def expectAndCheckChildCreation(expUri: String, expTestActor: ActorRef): ChildActorCreation =
       val creation = expectChildCreation()
       creation.checkProps(expUri, expTestActor, eventManager.ref)
       creation
-    }
 
     /**
       * Expects a request for an audio source and answers it with the specified
@@ -576,14 +537,13 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param srcIdx the index of the audio source
       * @return the data object about the child creation
       */
-    def handleAudioSourceRequest(actor: ActorRef, srcIdx: Int): ChildActorCreation = {
+    def handleAudioSourceRequest(actor: ActorRef, srcIdx: Int): ChildActorCreation =
       val src = audioSource(srcIdx)
       actor ! RadioSource(src.uri)
       val creation = expectChildCreationAndAudioSource(actor, src)
       actor ! PlaybackActor.GetAudioSource
       expectMsgType[AudioSource]
       creation
-    }
 
     /**
       * Convenience method for expecting a player event to be fired by the test
@@ -601,19 +561,16 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the ''Props'' for the test actor
       */
-    private def createProps(): Props = {
-      val managerBehavior = Behaviors.receiveMessagePartial[RadioStreamManagerActor.RadioStreamManagerCommand] {
+    private def createProps(): Props =
+      val managerBehavior = Behaviors.receiveMessagePartial[RadioStreamManagerActor.RadioStreamManagerCommand]:
         case RadioStreamManagerActor.GetStreamActorClassic(params, replyTo) =>
           val streamProbe = TestProbe()
           replyTo ! RadioStreamManagerActor.StreamActorResponse(params.streamSource, streamProbe.ref)
           childCreationQueue offer ChildActorCreation(params, streamProbe)
           Behaviors.same
-      }
       val managerActor = testKit.spawn(managerBehavior)
 
       RadioDataSourceActor(Config, eventManager.ref, managerActor)
-    }
-  }
 
   /**
     * A data class for storing information about a child actor that has been
@@ -623,7 +580,7 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param params the parameters passed to the stream manager actor
     * @param probe the test probe returned as child actor
     */
-  private case class ChildActorCreation(params: RadioStreamManagerActor.StreamActorParameters, probe: TestProbe) {
+  private case class ChildActorCreation(params: RadioStreamManagerActor.StreamActorParameters, probe: TestProbe):
     /**
       * Checks the properties against the specified stream URI and
       * dependencies.
@@ -633,10 +590,9 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param eventActor    the event actor
       */
     def checkProps(streamUri: String, testActor: ActorRef,
-                   eventActor: typed.ActorRef[RadioEvent]): Unit = {
+                   eventActor: typed.ActorRef[RadioEvent]): Unit =
       params.streamSource should be(RadioSource(streamUri))
       params.eventActor should be(eventActor)
-    }
 
     /**
       * Sends the specified message to the given target actor using the
@@ -645,13 +601,10 @@ class RadioDataSourceActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param target the target actor
       * @param msg    the message to be sent
       */
-    def tell(target: ActorRef, msg: Any): Unit = {
+    def tell(target: ActorRef, msg: Any): Unit =
       target.tell(msg, probe.ref)
-    }
-  }
 
   override protected val eventTimeExtractor: RadioEvent => LocalDateTime = _.time
-}
 
 /**
   * A data class used to record the messages received by an actor.

@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.engine.radio.control.MetadataExclusionFinde
 import java.time.LocalDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
-object MetadataExclusionFinderService {
+object MetadataExclusionFinderService:
   /**
     * A data class defining the response of [[MetadataExclusionFinderService]]
     * for a single request to find an exclusion for metadata.
@@ -34,14 +34,13 @@ object MetadataExclusionFinderService {
     * @param seqNo  the sequence number passed to the request
     */
   case class MetadataExclusionFinderResponse(result: Option[MetadataExclusion], seqNo: Int)
-}
 
 /**
   * Definition of a service that finds matching [[MetadataExclusion]]s in a
   * given metadata object. This is used to determine whether a radio source
   * should be disabled based on its current metadata information.
   */
-trait MetadataExclusionFinderService {
+trait MetadataExclusionFinderService:
   /**
     * Tries to find a [[MetadataExclusion]] from the given configurations that
     * matches the provided metadata asynchronously.
@@ -61,7 +60,6 @@ trait MetadataExclusionFinderService {
                             refTime: LocalDateTime,
                             seqNo: Int)
                            (implicit ec: ExecutionContext): Future[MetadataExclusionFinderResponse]
-}
 
 /**
   * A default implementation of the [[MetadataExclusionFinderService]] trait.
@@ -69,27 +67,26 @@ trait MetadataExclusionFinderService {
   * @param intervalsService the service to evaluate interval queries
   */
 class MetadataExclusionFinderServiceImpl(val intervalsService: EvaluateIntervalsService)
-  extends MetadataExclusionFinderService {
+  extends MetadataExclusionFinderService:
   def findMetadataExclusion(metadataConfig: MetadataConfig,
                             sourceConfig: RadioSourceMetadataConfig,
                             metadata: CurrentMetadata,
                             refTime: LocalDateTime,
                             seqNo: Int)
-                           (implicit ec: ExecutionContext): Future[MetadataExclusionFinderResponse] = {
+                           (implicit ec: ExecutionContext): Future[MetadataExclusionFinderResponse] =
     lazy val (optArtist, optSong) = extractSongData(sourceConfig, metadata)
 
     val matchingExclusions = (sourceConfig.exclusions ++ metadataConfig.exclusions).filter { exclusion =>
-      val optData = exclusion.matchContext match {
+      val optData = exclusion.matchContext match
         case MatchContext.Title => Some(metadata.title)
         case MatchContext.Artist => optArtist
         case MatchContext.Song => optSong
         case MatchContext.Raw => Some(metadata.data)
-      }
       optData exists { data => matches(exclusion.pattern, data) }
     }
 
-    if (matchingExclusions.isEmpty) Future.successful(MetadataExclusionFinderResponse(None, seqNo))
-    else matchingExclusions.find(!_.hasTimeRestrictions) match {
+    if matchingExclusions.isEmpty then Future.successful(MetadataExclusionFinderResponse(None, seqNo))
+    else matchingExclusions.find(!_.hasTimeRestrictions) match
       case result@Some(_) =>
         Future.successful(MetadataExclusionFinderResponse(result, seqNo))
 
@@ -102,8 +99,6 @@ class MetadataExclusionFinderServiceImpl(val intervalsService: EvaluateIntervals
           sequence.find { t => t._2.result.isInstanceOf[IntervalTypes.Inside] }
             .map(_._1)
         }.map(MetadataExclusionFinderResponse(_, seqNo))
-    }
-  }
 
   /**
     * Tries to extract the song title and artist from the given metadata. If
@@ -117,12 +112,10 @@ class MetadataExclusionFinderServiceImpl(val intervalsService: EvaluateIntervals
     */
   private def extractSongData(sourceConfig: RadioSourceMetadataConfig,
                               metadata: CurrentMetadata): (Option[String], Option[String]) =
-    sourceConfig.optSongPattern match {
+    sourceConfig.optSongPattern match
       case Some(pattern) =>
         getMatch(pattern, metadata.title).map { matcher =>
           (Some(matcher.group(MetadataConfig.ArtistGroup)), Some(matcher.group(MetadataConfig.SongTitleGroup)))
         } getOrElse ((None, None))
       case None =>
         (Some(metadata.title), Some(metadata.title))
-    }
-}

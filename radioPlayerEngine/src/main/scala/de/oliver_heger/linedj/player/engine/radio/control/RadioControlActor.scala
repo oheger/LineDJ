@@ -45,7 +45,7 @@ import scala.util.{Failure, Success}
   * services. It creates these actors as child actors, so that their lifecycle
   * is tight to this main controller actor.
   */
-object RadioControlActor {
+object RadioControlActor:
   /** The name of the child actor managing the radio source state. */
   final val SourceStateActorName = "radioSourceStateActor"
 
@@ -183,7 +183,7 @@ object RadioControlActor {
     * A trait that defines a factory function for creating a ''Behavior'' for a
     * new actor instance.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns a ''Behavior'' to create a new instance of this actor
       * implementation. The function expects a number of actors and services
@@ -230,7 +230,6 @@ object RadioControlActor {
               metaActorFactory: MetadataStateActor.Factory = MetadataStateActor.metadataStateBehavior,
               guardianActorFactory: PlaybackGuardianActor.Factory = PlaybackGuardianActor.behavior):
     Behavior[RadioControlCommand]
-  }
 
   /**
     * A default [[Factory]] instance that can be used to create new actor
@@ -257,12 +256,11 @@ object RadioControlActor {
         SwitchToSource(msg.source)
       }
 
-      val enabledStateAdapter = context.messageAdapter[RadioControlProtocol.SourceEnabledStateCommand] {
+      val enabledStateAdapter = context.messageAdapter[RadioControlProtocol.SourceEnabledStateCommand]:
         case RadioControlProtocol.DisableSource(source) =>
           SourceDisabled(source)
         case RadioControlProtocol.EnableSource(source) =>
           SourceEnabled(source)
-      }
 
       val evalService = optEvalService getOrElse EvaluateIntervalsServiceImpl
       val replacementService = optReplacementService getOrElse ReplacementSourceSelectionServiceImpl
@@ -307,7 +305,7 @@ object RadioControlActor {
                      playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
                      errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand],
                      metadataStateActor: ActorRef[MetadataStateActor.MetadataExclusionStateCommand],
-                     askTimeout: Timeout): Behavior[RadioControlCommand] = Behaviors.receiveMessage {
+                     askTimeout: Timeout): Behavior[RadioControlCommand] = Behaviors.receiveMessage:
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
       Behaviors.same
@@ -347,14 +345,13 @@ object RadioControlActor {
 
     case GetPlaybackState(replyTo) =>
       implicit val timeout: Timeout = askTimeout
-      context.ask(playStateActor, PlaybackStateActor.GetPlaybackState.apply) {
+      context.ask(playStateActor, PlaybackStateActor.GetPlaybackState.apply):
         case Failure(exception) =>
           context.log.error("Error when querying playback state.", exception)
           ForwardPlaybackState(CurrentPlaybackState(None, None, playbackActive = false), replyTo)
         case Success(value) =>
           val state = CurrentPlaybackState(value.currentSource, value.selectedSource, value.playbackActive)
           ForwardPlaybackState(state, replyTo)
-      }
       Behaviors.same
 
     case ForwardPlaybackState(state, forwardTo) =>
@@ -363,5 +360,3 @@ object RadioControlActor {
 
     case Stop =>
       Behaviors.stopped
-  }
-}

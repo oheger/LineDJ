@@ -46,7 +46,7 @@ import scala.concurrent.duration.FiniteDuration
   * to be passed to this actor, so that they can be put into the temporary
   * cache.
   */
-object RadioStreamManagerActor {
+object RadioStreamManagerActor:
   /**
     * A data class collecting the parameters required to create a new instance
     * of [[RadioStreamActor]]. An instance must be provided when requesting a
@@ -180,7 +180,7 @@ object RadioStreamManagerActor {
     * A factory trait allowing the creation of new instances of this actor
     * implementation.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns the ''Behavior'' for creating new actor instances.
       *
@@ -195,7 +195,6 @@ object RadioStreamManagerActor {
               streamBuilder: RadioStreamBuilder,
               scheduler: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               cacheTime: FiniteDuration): Behavior[RadioStreamManagerCommand]
-  }
 
   /**
     * A default implementation of the [[Factory]] trait that can be used to
@@ -216,7 +215,7 @@ object RadioStreamManagerActor {
     * @return the next behavior
     */
   private def handle(state: RadioStreamState): Behavior[RadioStreamManagerCommand] =
-    Behaviors.receive {
+    Behaviors.receive:
       case (context, GetStreamActorClassic(params, replyTo)) =>
         val nextState = replayWithNewOrCachedStreamActor(context, params, state)(replyTo.!)
         handle(nextState)
@@ -236,7 +235,7 @@ object RadioStreamManagerActor {
         handle(nextState)
 
       case (context, CacheTimeEnd(source)) =>
-        state.cache.get(source) match {
+        state.cache.get(source) match
           case Some(entry) =>
             context.log.info("Removing stream actor for source '{}' from cache.", source)
             val closedMsg = StreamActorsClosed(Set(entry.streamActor))
@@ -245,7 +244,6 @@ object RadioStreamManagerActor {
             handle(nextState)
           case None =>
             Behaviors.same
-        }
 
       case (context, StreamActorsClosed(actors)) =>
         handle(handleActorsClosed(context, state, actors))
@@ -260,7 +258,6 @@ object RadioStreamManagerActor {
         val nextState = state.copy(cache = Map.empty, closing = state.closing ++ closedMsg.actors)
         context.log.info("Received Stop command. Waiting for {} actors to be closed.", nextState.closing.size)
         closing(nextState)
-    }
 
   /**
     * A handler function that becomes active when this actor received a
@@ -272,12 +269,11 @@ object RadioStreamManagerActor {
     * @return the updated behavior
     */
   private def closing(state: RadioStreamState): Behavior[RadioStreamManagerCommand] =
-    Behaviors.receivePartial {
+    Behaviors.receivePartial:
       case (context, StreamActorsClosed(actors)) =>
         val nextState = handleActorsClosed(context, state, actors)
-        if (nextState.closing.isEmpty) Behaviors.stopped
+        if nextState.closing.isEmpty then Behaviors.stopped
         else closing(nextState)
-    }
 
   /**
     * Obtains a [[RadioStreamActor]] for the given parameters either from the
@@ -295,8 +291,8 @@ object RadioStreamManagerActor {
   private def replayWithNewOrCachedStreamActor(context: ActorContext[RadioStreamManagerCommand],
                                                params: StreamActorParameters,
                                                state: RadioStreamState)
-                                              (reply: StreamActorResponse => Unit): RadioStreamState = {
-    state.cache.get(params.streamSource) match {
+                                              (reply: StreamActorResponse => Unit): RadioStreamState =
+    state.cache.get(params.streamSource) match
       case Some(entry) =>
         context.log.info("Reusing stream actor for source '{}' from cache.", params.streamSource)
         entry.streamActor ! RadioStreamActor.UpdateEventActor(Some(params.eventActor))
@@ -315,8 +311,6 @@ object RadioStreamManagerActor {
           state.streamBuilder)
         reply(StreamActorResponse(params.streamSource, context.actorOf(props)))
         state
-    }
-  }
 
   /**
     * Handles a message about closed stream actors by updating the state.
@@ -328,12 +322,10 @@ object RadioStreamManagerActor {
     */
   private def handleActorsClosed(context: ActorContext[RadioStreamManagerCommand],
                                  state: RadioStreamState,
-                                 actors: Set[classic.ActorRef]): RadioStreamState = {
+                                 actors: Set[classic.ActorRef]): RadioStreamState =
     val nextState = state.copy(closing = state.closing -- actors)
-    if (nextState.closing.isEmpty)
+    if nextState.closing.isEmpty then
       context.log.info("All expected CloseAck messages have been received.")
     else
       context.log.info("Received CloseAck. Still {} actors pending.", nextState.closing.size)
     nextState
-  }
-}

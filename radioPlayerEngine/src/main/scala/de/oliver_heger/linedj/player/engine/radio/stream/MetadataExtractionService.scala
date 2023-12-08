@@ -22,7 +22,7 @@ import scalaz.State._
 
 import scala.annotation.tailrec
 
-private object MetadataExtractionState {
+private object MetadataExtractionState:
   /**
     * Returns an initial [[MetadataExtractionState]] object with the given size
     * of audio chunks.
@@ -38,7 +38,6 @@ private object MetadataExtractionState {
       metadataChunk = ByteString.empty,
       lastMetadata = None,
       inMetadata = false)
-}
 
 /**
   * A data class representing the current state of metadata extraction. An
@@ -84,7 +83,7 @@ private case class ExtractedStreamData(audioChunks: List[ByteString],
   *
   * [1] https://gist.github.com/dimitris-c/3e2af7ab451c965d126c02ab580f1eb8
   */
-private trait MetadataExtractionService {
+private trait MetadataExtractionService:
   /** Type for a state update yielding a specific result. */
   type StateUpdate[T] = State[MetadataExtractionState, T]
 
@@ -112,11 +111,10 @@ private trait MetadataExtractionService {
     * @param data the data from the stream
     * @return the updated state and the extracted data
     */
-  def handleData(data: ByteString): StateUpdate[ExtractedStreamData] = for {
+  def handleData(data: ByteString): StateUpdate[ExtractedStreamData] = for
     _ <- dataReceived(data)
     next <- extractedData()
-  } yield next
-}
+  yield next
 
 /**
   * An implementation of [[MetadataExtractionService]] that is used when the
@@ -124,7 +122,7 @@ private trait MetadataExtractionService {
   * handles the separation of metadata from audio data according to the
   * Shoutcast Metadata Protocol.
   */
-private object SupportedMetadataExtractionService extends MetadataExtractionService {
+private object SupportedMetadataExtractionService extends MetadataExtractionService:
   /**
     * Updates the state for a new block of stream data that has been received.
     * Extracts the data that can be extracted at that point of time.
@@ -135,31 +133,28 @@ private object SupportedMetadataExtractionService extends MetadataExtractionServ
   override def dataReceived(data: ByteString): StateUpdate[Unit] = modify { s =>
     @tailrec
     def updateState(state: MetadataExtractionState, data: ByteString): MetadataExtractionState =
-      if (state.bytesReceived == state.currentChunkSize) {
-        if (state.inMetadata) {
+      if state.bytesReceived == state.currentChunkSize then
+        if state.inMetadata then
           val nextState = state.copy(inMetadata = false, currentChunkSize = state.audioChunkSize, bytesReceived = 0)
           updateState(nextState, data)
-        } else {
+        else
           val currentMetadataSize = metadataSize(data)
-          val nextState = if (currentMetadataSize > 0)
+          val nextState = if currentMetadataSize > 0 then
             state.copy(inMetadata = true, currentChunkSize = currentMetadataSize, bytesReceived = 0,
               metadataChunk = ByteString.empty)
           else state.copy(bytesReceived = 0)
           updateState(nextState, data.drop(1))
-        }
-      } else {
+      else
 
         val (current, optNext) = splitBlockToChunkSize(state, data)
         val bytesReceived = state.bytesReceived + current.size
-        val nextState = if (state.inMetadata)
+        val nextState = if state.inMetadata then
           state.copy(bytesReceived = bytesReceived, metadataChunk = state.metadataChunk ++ current)
         else
           state.copy(bytesReceived = bytesReceived, audioChunks = current :: state.audioChunks)
-        optNext match {
+        optNext match
           case Some(nextBlock) => updateState(nextState, nextBlock)
           case None => nextState
-        }
-      }
 
     updateState(s, data)
   }
@@ -172,7 +167,7 @@ private object SupportedMetadataExtractionService extends MetadataExtractionServ
     */
   override def extractedData(): StateUpdate[ExtractedStreamData] = State { s =>
     val (extractedMetadata, nextMetadata) =
-      if (!s.inMetadata && !s.metadataChunk.isEmpty || s.inMetadata && s.bytesReceived >= s.currentChunkSize)
+      if !s.inMetadata && !s.metadataChunk.isEmpty || s.inMetadata && s.bytesReceived >= s.currentChunkSize then
         (Some(s.metadataChunk), ByteString.empty)
       else (None, s.metadataChunk)
 
@@ -203,19 +198,17 @@ private object SupportedMetadataExtractionService extends MetadataExtractionServ
     */
   private def splitBlockToChunkSize(state: MetadataExtractionState, data: ByteString):
   (ByteString, Option[ByteString]) =
-    if (state.bytesReceived + data.size <= state.currentChunkSize) (data, None)
-    else {
+    if state.bytesReceived + data.size <= state.currentChunkSize then (data, None)
+    else
       val (current, next) = data.splitAt(state.currentChunkSize - state.bytesReceived)
       (current, Some(next))
-    }
-}
 
 /**
   * An implementation of [[MetadataExtractionService]] that is used for radio
   * stations that do not support metadata in their audio streams. Therefore,
   * all received data is interpreted as audio data and passed through directly.
   */
-private object UnsupportedMetadataExtractionService extends MetadataExtractionService {
+private [stream] object UnsupportedMetadataExtractionService extends MetadataExtractionService:
   /**
     * Updates the state for a new block of stream data that has been received.
     * Extracts the data that can be extracted at that point of time.
@@ -236,4 +229,3 @@ private object UnsupportedMetadataExtractionService extends MetadataExtractionSe
   override def extractedData(): StateUpdate[ExtractedStreamData] = State { s =>
     (s.copy(audioChunks = List.empty), ExtractedStreamData(s.audioChunks.reverse, None))
   }
-}

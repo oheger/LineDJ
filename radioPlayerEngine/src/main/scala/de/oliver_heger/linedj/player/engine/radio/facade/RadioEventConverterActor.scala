@@ -36,7 +36,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
   * the actor can keep track on the currently played radio source, which is
   * needed to produce correct radio events.
   */
-private object RadioEventConverterActor {
+private object RadioEventConverterActor:
   /**
     * The base trait for the commands supported by this actor implementation.
     */
@@ -98,7 +98,7 @@ private object RadioEventConverterActor {
       eventManager ! EventManagerActor.RegisterListener(radioListener)
 
       def handleMessages(optCurrentSource: Option[RadioSource]): Behavior[RadioEventConverterCommand] =
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessage:
           case GetPlayerListener(client) =>
             client ! PlayerListenerReference(playerListener)
             Behaviors.same
@@ -110,15 +110,13 @@ private object RadioEventConverterActor {
             Behaviors.same
 
           case HandleRadioEvent(event) =>
-            event match {
+            event match
               case RadioSourceChangedEvent(source, _) =>
                 handleMessages(Some(source))
               case _ => Behaviors.same
-            }
 
           case Stop =>
             Behaviors.stopped
-        }
 
       handleMessages(None)
     }
@@ -133,7 +131,7 @@ private object RadioEventConverterActor {
     * @return an ''Option'' with the converted event
     */
   private def convertEvent(playerEvent: PlayerEvent, optCurrentSource: Option[RadioSource]): Option[RadioEvent] =
-    playerEvent match {
+    playerEvent match
       case PlaybackProgressEvent(bytesProcessed, playbackTime, currentSource, time) =>
         Some(RadioPlaybackProgressEvent(convertSource(currentSource, optCurrentSource), bytesProcessed, playbackTime,
           time))
@@ -145,7 +143,6 @@ private object RadioEventConverterActor {
         Some(RadioPlaybackErrorEvent(convertSource(source, optCurrentSource), time))
 
       case _ => None
-    }
 
   /**
     * Constructs a [[RadioSource]] for the given [[AudioSource]].
@@ -156,5 +153,4 @@ private object RadioEventConverterActor {
     */
   private def convertSource(audioSource: AudioSource, optCurrentSource: Option[RadioSource]): RadioSource =
     optCurrentSource getOrElse RadioSource(uri = audioSource.uri)
-}
 

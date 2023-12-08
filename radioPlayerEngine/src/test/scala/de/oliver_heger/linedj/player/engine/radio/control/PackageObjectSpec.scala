@@ -25,22 +25,19 @@ import scala.concurrent.duration._
 /**
   * Test class for the package object of the control package.
   */
-class PackageObjectSpec extends AnyFlatSpec with Matchers {
-  "durationBetween" should "return the difference between two times" in {
+class PackageObjectSpec extends AnyFlatSpec with Matchers:
+  "durationBetween" should "return the difference between two times" in:
     val startTime = LocalDateTime.of(2023, Month.APRIL, 9, 21, 6, 15)
     val DeltaSec = 11783
 
     val result = durationBetween(startTime, startTime.plusSeconds(DeltaSec), 1.minute)
 
     result should be(DeltaSec.seconds)
-  }
 
-  it should "handle large differences correctly" in {
+  it should "handle large differences correctly" in:
     val MaxDuration = 23.hours
     val startTime = LocalDateTime.of(2023, Month.APRIL, 9, 21, 9, 34)
 
     val result = durationBetween(startTime, startTime.plusYears(777), MaxDuration)
 
     result should be(MaxDuration)
-  }
-}

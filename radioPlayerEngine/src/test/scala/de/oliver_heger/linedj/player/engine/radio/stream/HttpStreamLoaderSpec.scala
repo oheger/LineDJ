@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
-import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
@@ -35,13 +35,12 @@ import scala.concurrent.Future
   * Test class for [[HttpStreamLoader]].
   */
 class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with AsyncTestHelper with RadioStreamTestHelper.StubServerSupport {
+  with BeforeAndAfterAll with Matchers with AsyncTestHelper with RadioStreamTestHelper.StubServerSupport:
   def this() = this(ActorSystem("HttpStreamLoaderSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   /**
     * Extracts the body of the given response and also checks whether the
@@ -50,18 +49,16 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
     * @param futResponse a ''Future'' with a response
     * @return the response body
     */
-  private def responseBody(futResponse: Future[HttpResponse]): String = {
+  private def responseBody(futResponse: Future[HttpResponse]): String =
     val response = futureResult(futResponse)
     response.status.isSuccess() shouldBe true
 
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     futureResult(response.entity.dataBytes.runWith(sink)).utf8String
-  }
 
-  "HttpStreamLoader" should "send a request" in {
-    val route = get {
+  "HttpStreamLoader" should "send a request" in:
+    val route = get:
       RadioStreamTestHelper.completeTestData()
-    }
 
     val loader = new HttpStreamLoader
     runWithServer(route) { url =>
@@ -70,15 +67,12 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
 
       responseBody(futResponse) should be(FileTestHelper.TestData)
     }
-  }
 
-  it should "check the status of the response" in {
+  it should "check the status of the response" in:
     val ErrorPath = "error"
-    val route = get {
-      path(ErrorPath) {
+    val route = get:
+      path(ErrorPath):
         complete(StatusCodes.BadRequest)
-      }
-    }
 
     val loader = new HttpStreamLoader
     runWithServer(route) { uri =>
@@ -89,7 +83,6 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
       exception.getMessage should include(StatusCodes.BadRequest.intValue.toString)
       exception.getMessage should include(StatusCodes.BadRequest.reason)
     }
-  }
 
   /**
     * Tests whether redirect responses with a given status code are handled
@@ -97,13 +90,13 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
     *
     * @param status the status code
     */
-  private def checkRedirect(status: StatusCodes.Redirection): Unit = {
+  private def checkRedirect(status: StatusCodes.Redirection): Unit =
     val RedirectPath = "redirect"
     val TargetPath = "result"
     val TestHeaderName = "X-Test-Header"
     val TestHeaderValue = "Found the header"
 
-    val route = get {
+    val route = get:
       concat(
         path(RedirectPath) {
           redirect(s"/$TargetPath", status)
@@ -114,7 +107,6 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
           }
         }
       )
-    }
 
     val loader = new HttpStreamLoader
     runWithServer(route) { uri =>
@@ -124,20 +116,16 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
 
       responseBody(futResponse) should be(TestHeaderValue)
     }
-  }
 
-  it should "handle a temporary redirect response" in {
+  it should "handle a temporary redirect response" in:
     checkRedirect(StatusCodes.TemporaryRedirect)
-  }
 
-  it should "handle a permanent redirect response" in {
+  it should "handle a permanent redirect response" in:
     checkRedirect(StatusCodes.PermanentRedirect)
-  }
 
-  it should "handle a redirect response without a Location header" in {
-    val route = get {
+  it should "handle a redirect response without a Location header" in:
+    val route = get:
       complete(StatusCodes.TemporaryRedirect, "Strange response ;-)")
-    }
 
     val loader = new HttpStreamLoader
     runWithServer(route) { uri =>
@@ -145,30 +133,25 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
 
       expectFailedFuture[IOException](loader.sendRequest(request))
     }
-  }
 
-  it should "handle the scheme in a redirect URI" in {
+  it should "handle the scheme in a redirect URI" in:
     val requestUri = Uri("https://www.example.org:8080/request")
     val location = Uri("/redirect/path")
     val expectedRedirectUri = Uri("https://www.example.org:8080/redirect/path")
 
     HttpStreamLoader.constructRedirectUri(requestUri, location) should be(expectedRedirectUri)
-  }
 
-  it should "handle absolute redirect URIs" in {
+  it should "handle absolute redirect URIs" in:
     val requestUri = Uri("http://localhost:1234/local/test")
     val location = Uri("https://www.example.org/redirect/file.html")
 
     HttpStreamLoader.constructRedirectUri(requestUri, location) should be(location)
-  }
 
-  it should "handle an infinite redirect loop" in {
+  it should "handle an infinite redirect loop" in:
     val RedirectPath = "redirect"
-    val route = get {
-      path(RedirectPath) {
+    val route = get:
+      path(RedirectPath):
         redirect(s"/$RedirectPath", StatusCodes.TemporaryRedirect)
-      }
-    }
 
     val loader = new HttpStreamLoader
     runWithServer(route) { uri =>
@@ -176,5 +159,3 @@ class HttpStreamLoaderSpec(tesSystem: ActorSystem) extends TestKit(tesSystem) wi
 
       expectFailedFuture[IOException](loader.sendRequest(request))
     }
-  }
-}

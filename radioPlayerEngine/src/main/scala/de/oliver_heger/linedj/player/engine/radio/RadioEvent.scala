@@ -28,10 +28,9 @@ import scala.concurrent.duration.FiniteDuration
   * e.g. when playback of a new radio source starts or a replacement source
   * is enabled temporarily.
   */
-sealed trait RadioEvent {
+sealed trait RadioEvent:
   /** The time when this event was generated. */
   val time: LocalDateTime
-}
 
 /**
   * A radio player event indicating that playback of a specific [[RadioSource]]
@@ -195,7 +194,7 @@ sealed trait RadioMetadata
   */
 case object MetadataNotSupported extends RadioMetadata
 
-object CurrentMetadata {
+object CurrentMetadata:
   /** Regular expression to extract the StreamTitle field from metadata. */
   private val RegStreamTitle = "StreamTitle='(.*?)';".r
 
@@ -208,7 +207,6 @@ object CurrentMetadata {
     */
   private def extractStreamTitle(data: String): Option[String] =
     RegStreamTitle.findFirstMatchIn(data).map(_.group(1))
-}
 
 /**
   * A concrete subtype of radio metadata containing actual metadata about what
@@ -217,7 +215,7 @@ object CurrentMetadata {
   *
   * @param data the full content of the metadata
   */
-case class CurrentMetadata(data: String) extends RadioMetadata {
+case class CurrentMetadata(data: String) extends RadioMetadata:
   /**
     * Tries to parse the information about the current title (i.e. the
     * ''StreamTitle'' field from the metadata. If it is found, the content of
@@ -227,7 +225,6 @@ case class CurrentMetadata(data: String) extends RadioMetadata {
     * @return the title part of the metadata
     */
   def title: String = extractStreamTitle(data) getOrElse data
-}
 
 /**
   * A radio player event indicating a change of the metadata for the current

@@ -26,7 +26,7 @@ import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object M3uReader {
+object M3uReader:
   /**
     * Constant for the maximum size of m3u streams that are processed by this
     * class. If a stream is longer, processing fails.
@@ -78,7 +78,6 @@ object M3uReader {
     * @return the HTTP request to load this stream
     */
   private def streamRequest(uri: String): HttpRequest = HttpRequest(uri = uri)
-}
 
 /**
   * A helper class to resolve the final URL of a radio stream.
@@ -92,7 +91,7 @@ object M3uReader {
   *
   * @param loader the [[HttpStreamLoader]] to use for sending HTTP requests
   */
-private class M3uReader(loader: HttpStreamLoader) {
+private class M3uReader(loader: HttpStreamLoader):
   /**
     * Tries to resolve the given stream URI and returns one that points to the
     * actual audio stream. This function tests whether the passed in URI
@@ -107,15 +106,14 @@ private class M3uReader(loader: HttpStreamLoader) {
     */
   def resolveAudioStream(uri: String)
                         (implicit ec: ExecutionContext, mat: Materializer): Future[String] =
-    if (needToResolveAudioStream(uri)) {
-      for {
+    if needToResolveAudioStream(uri) then
+      for
         response <- loader.sendRequest(streamRequest(uri))
         source = createM3uSource(response)
         streamUri <- source.runWith(extractUriSink())
-      } yield streamUri
-    } else {
+      yield streamUri
+    else
       Future.successful(uri)
-    }
 
   /**
     * Creates a ''Source'' for the stream with m3u data from the given
@@ -126,4 +124,3 @@ private class M3uReader(loader: HttpStreamLoader) {
     */
   private def createM3uSource(response: HttpResponse): Source[ByteString, Any] =
     response.entity.dataBytes.via(new StreamSizeRestrictionStage(MaxM3uStreamSize))
-}

@@ -36,7 +36,7 @@ import scala.concurrent.ExecutionContext
   * [[RadioSourceStateService.StateAction]] responses. These may lead to
   * further messages being sent to other helper actors.
   */
-object RadioSourceStateActor {
+object RadioSourceStateActor:
   /**
     * The base trait of the command hierarchy supported by this actor.
     */
@@ -126,7 +126,7 @@ object RadioSourceStateActor {
     * A trait that defines a factory function for creating a ''Behavior'' for a
     * new actor instance.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns the behavior to create an instance of this actor implementation.
       * The function expects a number of parameters for the dependencies used by
@@ -146,7 +146,6 @@ object RadioSourceStateActor {
               scheduleActor: ActorRef[ScheduledInvocationCommand],
               playbackActor: ActorRef[RadioControlProtocol.SwitchToSource],
               eventActor: ActorRef[RadioEvent]): Behavior[RadioSourceStateCommand]
-  }
 
   /**
     * A default [[Factory]] instance that can be used to create new actor
@@ -172,11 +171,11 @@ object RadioSourceStateActor {
     * @return the behavior of this actor
     */
   private def handle(dependencies: Dependencies, state: RadioSourceStateService.RadioSourceState):
-  Behavior[RadioSourceStateCommand] = {
+  Behavior[RadioSourceStateCommand] =
     def applyUpdate(update: RadioSourceStateService.StateUpdate[Unit]): Behavior[RadioSourceStateCommand] =
       updateState(dependencies, state, update)
 
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessage:
       case InitRadioSourceConfig(config) =>
         applyUpdate(dependencies.stateService.initSourcesConfig(config))
 
@@ -197,8 +196,6 @@ object RadioSourceStateActor {
 
       case EvalCurrentSource(seqNo) =>
         applyUpdate(dependencies.stateService.evaluateCurrentSource(seqNo))
-    }
-  }
 
   /**
     * Updates the current radio source state according to the given update.
@@ -211,17 +208,16 @@ object RadioSourceStateActor {
     */
   private def updateState(dependencies: Dependencies,
                           state: RadioSourceStateService.RadioSourceState,
-                          update: RadioSourceStateService.StateUpdate[Unit]): Behavior[RadioSourceStateCommand] = {
-    val fullUpdate = for {
+                          update: RadioSourceStateService.StateUpdate[Unit]): Behavior[RadioSourceStateCommand] =
+    val fullUpdate = for
       _ <- update
       stateActions <- dependencies.stateService.readActions()
-    } yield stateActions
+    yield stateActions
 
     val (nextState, actions) = fullUpdate(state)
     actions foreach (processStateAction(dependencies, _))
 
     handle(dependencies, nextState)
-  }
 
   /**
     * Processes the given [[RadioSourceStateService.StateAction]].
@@ -229,10 +225,10 @@ object RadioSourceStateActor {
     * @param dependencies the object with all dependencies
     * @param action       the action to be processed
     */
-  private def processStateAction(dependencies: Dependencies, action: RadioSourceStateService.StateAction): Unit = {
+  private def processStateAction(dependencies: Dependencies, action: RadioSourceStateService.StateAction): Unit =
     implicit val ec: ExecutionContext = dependencies.context.system.executionContext
 
-    action match {
+    action match
       case RadioSourceStateService.PlayCurrentSource(currentSource, optReplacementSource) =>
         optReplacementSource foreach { replacement =>
           dependencies.eventActor ! RadioSourceReplacementEndEvent(replacement)
@@ -262,6 +258,3 @@ object RadioSourceStateActor {
         val invocation = ScheduledInvocationActor.typedInvocationCommand(delay,
           dependencies.context.self, evalCommand)
         dependencies.scheduleActor ! invocation
-    }
-  }
-}

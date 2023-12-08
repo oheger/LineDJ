@@ -21,13 +21,15 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 
+import scala.collection.immutable.Seq
+
 /**
   * A module providing functionality needed by tests that have to deal with
   * radio sources and exclusion queries. The module allows creating a test
   * sources configuration based on a map with sources and their exclusion
   * queries.
   */
-object RadioSourceConfigTestHelper {
+object RadioSourceConfigTestHelper:
   /**
     * A default map containing some radio sources and test exclusion queries.
     * This can be used by test cases if the exact exclusion queries do not
@@ -55,18 +57,16 @@ object RadioSourceConfigTestHelper {
     * @return the config about radio sources
     */
   def createSourceConfig(queryMap: Map[RadioSource, Seq[IntervalQuery]],
-                         rankingF: RadioSource => Int = rankBySourceIndex): RadioSourceConfig = {
+                         rankingF: RadioSource => Int = rankBySourceIndex): RadioSourceConfig =
     val namedSourcesList = queryMap.keys.map { src => (src.uri, src) }.toSeq
 
-    new RadioSourceConfig {
+    new RadioSourceConfig:
       override val namedSources: Seq[(String, RadioSource)] = namedSourcesList
 
       override def exclusions(source: RadioSource): Seq[IntervalQuery] =
         queryMap.getOrElse(source, Seq.empty)
 
       override def ranking(source: RadioSource): Int = rankingF(source)
-    }
-  }
 
   /**
     * The default ranking function used by the configuration created by this
@@ -89,4 +89,3 @@ object RadioSourceConfigTestHelper {
     Map(radioSource(1) -> List(hours(1, 2)),
       radioSource(2) -> List(hours(2, 3)),
       radioSource(3) -> List(hours(4, 5)))
-}

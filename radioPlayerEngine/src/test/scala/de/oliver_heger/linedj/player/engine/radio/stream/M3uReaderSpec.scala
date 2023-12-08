@@ -17,14 +17,14 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.MonitoringStream
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
@@ -33,7 +33,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import java.io.IOException
 import scala.concurrent.Future
 
-object M3uReaderSpec {
+object M3uReaderSpec:
   /** A test URI of an audio stream. */
   private val AudioStreamUri = "http://aud.io/music.mp3"
 
@@ -51,28 +51,25 @@ object M3uReaderSpec {
     */
   private def responseWithContent(source: Source[ByteString, Any]): HttpResponse =
     HttpResponse(entity = HttpEntity(ContentTypes.`application/octet-stream`, source))
-}
 
 /**
   * Test class for ''M3uReader''.
   */
 class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
   with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with MockitoSugar
-  with FileTestHelper with AsyncTestHelper {
+  with FileTestHelper with AsyncTestHelper:
 
   import M3uReaderSpec._
   import system.dispatcher
 
   def this() = this(ActorSystem("M3uReaderSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  override protected def afterEach(): Unit = {
+  override protected def afterEach(): Unit =
     tearDownTestFile()
     super.afterEach()
-  }
 
   /**
     * Creates a mock [[HttpStreamLoader]] that is prepared to handle a request
@@ -82,7 +79,7 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     * @param content the content source for the response
     * @return the mock stream loader
     */
-  private def createStreamLoaderMock(content: Source[ByteString, Any]): HttpStreamLoader = {
+  private def createStreamLoaderMock(content: Source[ByteString, Any]): HttpStreamLoader =
     val loader = mock[HttpStreamLoader]
 
     val expRequest = HttpRequest(uri = PlaylistUri)
@@ -90,7 +87,6 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     when(loader.sendRequest(expRequest)).thenReturn(Future.successful(response))
 
     loader
-  }
 
   /**
     * Creates a mock [[HttpStreamLoader]] that is prepared to handle a request
@@ -101,49 +97,42 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     * @param content the content of the file (as single lines)
     * @return the mock stream loader
     */
-  private def createStreamLoaderMock(newline: String, content: String*): HttpStreamLoader = {
+  private def createStreamLoaderMock(newline: String, content: String*): HttpStreamLoader =
     val data = ByteString(content.mkString(newline)).grouped(128)
     val source = Source(data.toList)
     createStreamLoaderMock(source)
-  }
 
   /**
     * Tests an invocation of the function to resolve an audio stream.
     *
     * @param loader the mock stream loader to use
     */
-  private def checkResolveAudioStream(loader: HttpStreamLoader): Unit = {
+  private def checkResolveAudioStream(loader: HttpStreamLoader): Unit =
     val reader = new M3uReader(loader)
 
     val result = futureResult(reader.resolveAudioStream(PlaylistUri))
 
     result should be(AudioStreamUri)
-  }
 
-  "A M3uReaderActor" should "extract the audio stream URI from a simple m3u file" in {
+  "A M3uReaderActor" should "extract the audio stream URI from a simple m3u file" in:
     checkResolveAudioStream(createStreamLoaderMock(Newline, AudioStreamUri))
-  }
 
-  it should "skip comment lines" in {
+  it should "skip comment lines" in:
     checkResolveAudioStream(createStreamLoaderMock(Newline, "# Comment", "#other comment", AudioStreamUri))
-  }
 
-  it should "skip empty lines" in {
+  it should "skip empty lines" in:
     checkResolveAudioStream(createStreamLoaderMock(Newline, "", "#Header", AudioStreamUri))
-  }
 
-  it should "deal with \\r\\n as line separator" in {
+  it should "deal with \\r\\n as line separator" in:
     checkResolveAudioStream(createStreamLoaderMock("\r\n", "# Comment", "", "#other comment", AudioStreamUri))
-  }
 
-  it should "return a failed future if no stream URI is found" in {
+  it should "return a failed future if no stream URI is found" in:
     val loader = createStreamLoaderMock(Newline, "#only comments", "", "# and empty lines", "")
     val reader = new M3uReader(loader)
 
     expectFailedFuture[NoSuchElementException](reader.resolveAudioStream(PlaylistUri))
-  }
 
-  it should "handle a failed result from the stream loader" in {
+  it should "handle a failed result from the stream loader" in:
     val exception = new IOException("Test exception: Could not load stream :-(")
     val loader = mock[HttpStreamLoader]
     when(loader.sendRequest(any())).thenReturn(Future.failed(exception))
@@ -152,9 +141,8 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     val actualException =
       expectFailedFuture[IOException](reader.resolveAudioStream(PlaylistUri))
     actualException should be(exception)
-  }
 
-  it should "directly return a reference that does not need to be resolved" in {
+  it should "directly return a reference that does not need to be resolved" in:
     val loader = mock[HttpStreamLoader]
     val reader = new M3uReader(loader)
 
@@ -162,9 +150,8 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
 
     result should be theSameInstanceAs AudioStreamUri
     verifyNoInteractions(loader)
-  }
 
-  it should "only process streams up to a certain size" in {
+  it should "only process streams up to a certain size" in:
     val stream = new MonitoringStream("# An infinite stream with non m3u data." + Newline)
     val streamSource = RadioStreamTestHelper.createSourceFromStream(stream = stream, chunkSze = 512)
     val loader = createStreamLoaderMock(streamSource)
@@ -173,5 +160,3 @@ class M3uReaderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Im
     expectFailedFuture[IllegalStateException](reader.resolveAudioStream(PlaylistUri))
     stream.expectReadsUntil(M3uReader.MaxM3uStreamSize)
     stream.bytesCount.get() should be < 2L * M3uReader.MaxM3uStreamSize
-  }
-}

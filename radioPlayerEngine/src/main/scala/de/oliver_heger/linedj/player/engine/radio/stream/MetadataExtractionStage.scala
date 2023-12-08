@@ -20,7 +20,7 @@ import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, Ou
 import org.apache.pekko.stream.{Attributes, FanOutShape2, Inlet, Outlet}
 import org.apache.pekko.util.ByteString
 
-private object MetadataExtractionStage {
+private object MetadataExtractionStage:
   /**
     * Returns an instance of [[MetadataExtractionStage]] that can handle a
     * radio stream with the given optional chunk size for audio data. If the
@@ -34,7 +34,6 @@ private object MetadataExtractionStage {
     optAudioChunkSize map { chunkSize =>
       new MetadataExtractionStage(SupportedMetadataExtractionService, chunkSize)
     } getOrElse new MetadataExtractionStage(UnsupportedMetadataExtractionService, 0)
-}
 
 /**
   * A stage implementation that manages the state of a
@@ -49,7 +48,7 @@ private object MetadataExtractionStage {
   */
 private class MetadataExtractionStage private(extractionService: MetadataExtractionService,
                                               audioChunkSize: Int)
-  extends GraphStage[FanOutShape2[ByteString, ByteString, ByteString]] {
+  extends GraphStage[FanOutShape2[ByteString, ByteString, ByteString]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("MetadataExtractionStage.in")
   val outAudio: Outlet[ByteString] = Outlet[ByteString]("MetadataExtractionStage.extractedAudioData")
   val outMeta: Outlet[ByteString] = Outlet[ByteString]("MetadataExtractionStage.extractedMetadata")
@@ -58,7 +57,7 @@ private class MetadataExtractionStage private(extractionService: MetadataExtract
     new FanOutShape2[ByteString, ByteString, ByteString](in, outAudio, outMeta)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       /** The current state of the extraction process. */
       private var extractionState = MetadataExtractionState.initial(audioChunkSize)
 
@@ -84,21 +83,16 @@ private class MetadataExtractionStage private(extractionService: MetadataExtract
         *
         * @param data the data from upstream
         */
-      private def processChunk(data: ByteString): Unit = {
+      private def processChunk(data: ByteString): Unit =
         val stateUpdate = extractionService.handleData(data)
 
         val (nextState, extracted) = stateUpdate.run(extractionState)
         extractionState = nextState
 
-        if (extracted.audioChunks.nonEmpty) {
+        if extracted.audioChunks.nonEmpty then
           emitMultiple(outAudio, extracted.audioChunks)
-        } else {
+        else
           pull(in)
-        }
 
-        extracted.metadataChunk foreach {
+        extracted.metadataChunk foreach:
           push(outMeta, _)
-        }
-      }
-    }
-}

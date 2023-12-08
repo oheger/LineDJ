@@ -24,7 +24,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, Uri}
 import java.io.IOException
 import scala.concurrent.{ExecutionContext, Future}
 
-private object HttpStreamLoader {
+private object HttpStreamLoader:
   /** The maximum number of redirects handled by this class. */
   private val MaxRedirects = 20
 
@@ -37,7 +37,7 @@ private object HttpStreamLoader {
     * @return the resulting URI to redirect to
     */
   private[stream] def constructRedirectUri(requestUri: Uri, redirectUri: Uri): Uri =
-    if (redirectUri.isAbsolute) redirectUri
+    if redirectUri.isAbsolute then redirectUri
     else redirectUri.withAuthority(requestUri.authority).withScheme(requestUri.scheme)
 
   /**
@@ -48,7 +48,6 @@ private object HttpStreamLoader {
     * @return the resulting failed ''Future''
     */
   private def failRequest(message: String): Future[HttpResponse] = Future.failed(new IOException(message))
-}
 
 /**
   * A helper class for doing HTTP communication for loading radio streams.
@@ -56,7 +55,7 @@ private object HttpStreamLoader {
   * This class allows sending HTTP requests and implements some more advanced
   * functionality, e.g. for handling errors and redirects.
   */
-private class HttpStreamLoader(implicit val actorSystem: ActorSystem) {
+private class HttpStreamLoader(implicit val actorSystem: ActorSystem):
   /** The execution context for dealing with futures. */
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
 
@@ -85,11 +84,11 @@ private class HttpStreamLoader(implicit val actorSystem: ActorSystem) {
     * @return a ''Future'' with the response
     */
   private def sendRequestAndHandleRedirects(request: HttpRequest, redirectCount: Int = 0): Future[HttpResponse] =
-    if (redirectCount == MaxRedirects) failRequest(s"Reached maximum number ($MaxRedirects) of redirects.")
+    if redirectCount == MaxRedirects then failRequest(s"Reached maximum number ($MaxRedirects) of redirects.")
     else http.singleRequest(request) flatMap { response =>
-      if (response.status.isRedirection()) {
+      if response.status.isRedirection() then
         handleRedirect(request, response, redirectCount)
-      } else if (response.status.isSuccess()) Future.successful(response)
+      else if response.status.isSuccess() then Future.successful(response)
       else failRequest(s"Request $request failed with ${response.status.intValue()} ${response.status.reason()}.")
     }
 
@@ -105,11 +104,9 @@ private class HttpStreamLoader(implicit val actorSystem: ActorSystem) {
     * @return a ''Future'' with the response
     */
   private def handleRedirect(request: HttpRequest, response: HttpResponse, redirectCount: Int):
-  Future[HttpResponse] = {
+  Future[HttpResponse] =
     response.discardEntityBytes()
     response.headers[Location].headOption map { location =>
       val nextRequest = request.withUri(constructRedirectUri(request.uri, location.uri))
       sendRequestAndHandleRedirects(nextRequest, redirectCount + 1)
     } getOrElse failRequest("Invalid redirect without Location header.")
-  }
-}

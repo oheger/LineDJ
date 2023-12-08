@@ -25,7 +25,7 @@ import scala.util.Try
 /**
   * An object defining common functionality used in this package.
   */
-package object control {
+package object control:
   /**
     * Calculates the duration between the given times (with second
     * granularity). Handles also large differences gracefully. This is needed,
@@ -60,8 +60,6 @@ package object control {
     * @param input   the input string
     * @return an ''Option'' with the matcher
     */
-  def getMatch(pattern: Pattern, input: String): Option[Matcher] = {
+  def getMatch(pattern: Pattern, input: String): Option[Matcher] =
     val matcher = pattern.matcher(input)
-    if (matcher.matches()) Some(matcher) else None
-  }
-}
+    if matcher.matches() then Some(matcher) else None

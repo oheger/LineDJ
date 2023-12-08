@@ -25,37 +25,33 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.regex.Pattern
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 
 /**
   * Test class for [[RadioSourceConfig]].
   */
-class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "The Empty RadioSourceConfig" should "contain no named sources" in {
+class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "The Empty RadioSourceConfig" should "contain no named sources" in:
     RadioSourceConfig.Empty.namedSources shouldBe empty
-  }
 
-  it should "return an empty sequence of sources" in {
+  it should "return an empty sequence of sources" in:
     RadioSourceConfig.Empty.sources shouldBe empty
-  }
 
-  it should "return an empty sequence of queries" in {
+  it should "return an empty sequence of queries" in:
     val source = RadioSource("testSource")
 
     RadioSourceConfig.Empty.exclusions(source) shouldBe empty
-  }
 
-  it should "return a default ranking for all sources" in {
+  it should "return a default ranking for all sources" in:
     val source = RadioSource("anotherTestSource")
 
     RadioSourceConfig.Empty.ranking(source) should be(RadioSourceConfig.DefaultRanking)
-  }
 
-  "The Empty MetadataConfig" should "not contain any exclusions" in {
+  "The Empty MetadataConfig" should "not contain any exclusions" in:
     MetadataConfig.Empty.exclusions shouldBe empty
-  }
 
-  it should "return an empty metadata configuration for sources per default" in {
+  it should "return an empty metadata configuration for sources per default" in:
     val SourcesCount = 16
     (1 to SourcesCount) foreach { idx =>
       val source = radioSource(idx)
@@ -64,26 +60,23 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar 
     }
 
     MetadataConfig.EmptySourceConfig.exclusions shouldBe empty
-  }
 
-  "A RadioSourceConfig" should "correctly return sources from named sources" in {
+  "A RadioSourceConfig" should "correctly return sources from named sources" in:
     val SourcesCount = 8
     val testSources = (1 to SourcesCount) map { idx => RadioSource(s"TestSource$idx") }
     val sourceNames = (1 to SourcesCount) map { idx => s"Source$idx" }
-    val config = new RadioSourceConfig {
+    val config = new RadioSourceConfig:
       override def namedSources: Seq[(String, RadioSource)] = sourceNames zip testSources
 
       override def exclusions(source: RadioSource): Seq[IntervalQuery] = Seq.empty
 
       override def ranking(source: RadioSource): Int = 0
-    }
 
     val result = config.sources
 
     result should contain theSameElementsInOrderAs testSources
-  }
 
-  "A MetadataExclusion" should "correctly report that it has no time restrictions" in {
+  "A MetadataExclusion" should "correctly report that it has no time restrictions" in:
     val exclusion = MetadataExclusion(pattern = Pattern.compile("some pattern"),
       matchContext = MatchContext.Title,
       resumeMode = ResumeMode.MetadataChange,
@@ -92,9 +85,8 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       name = Some("a test exclusion"))
 
     exclusion.hasTimeRestrictions shouldBe false
-  }
 
-  it should "correctly report that it has time restrictions" in {
+  it should "correctly report that it has time restrictions" in:
     val exclusion = MetadataExclusion(pattern = Pattern.compile("some pattern"),
       matchContext = MatchContext.Title,
       resumeMode = ResumeMode.MetadataChange,
@@ -103,5 +95,3 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar 
       name = Some("a test exclusion"))
 
     exclusion.hasTimeRestrictions shouldBe true
-  }
-}

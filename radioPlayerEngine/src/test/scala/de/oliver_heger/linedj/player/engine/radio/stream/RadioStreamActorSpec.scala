@@ -16,22 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
 import de.oliver_heger.linedj.player.engine.actors.PlaybackActor
-import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.*
+import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamActor.SourceListener
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{ChunkSize, FailingStream, MonitoringStream, TestDataGeneratorStream}
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlayerConfig}
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed}
-import org.mockito.ArgumentMatchers.{any, eq => argEq}
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
@@ -44,10 +44,10 @@ import java.time.{Duration, LocalDateTime}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.tailrec
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 
-object RadioStreamActorSpec {
+object RadioStreamActorSpec:
   /** URI pointing to an audio stream. */
   private val AudioStreamUri = "music.mp3"
 
@@ -70,23 +70,21 @@ object RadioStreamActorSpec {
     */
   private def createConfig(): PlayerConfig =
     TestPlayerConfig.copy(bufferChunkSize = ChunkSize, inMemoryBufferSize = BufferSize)
-}
 
 /**
   * Test class for [[RadioStreamActor]].
   */
 class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("RadioStreamActorSpec"))
 
   /** The test kit for typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
     super.afterAll()
-  }
 
   import RadioStreamActorSpec._
 
@@ -95,30 +93,27 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     *
     * @param actor the actor in question
     */
-  private def expectTermination(actor: ActorRef): Unit = {
+  private def expectTermination(actor: ActorRef): Unit =
     val probe = TestProbe()
     probe watch actor
     probe.expectTerminated(actor)
-  }
 
-  "RadioStreamActor" should "notify the source listener when the audio stream has been resolved" in {
+  "RadioStreamActor" should "notify the source listener when the audio stream has been resolved" in:
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor()
     helper.initRadioStream()
 
     helper.checkSourceListenerInvocation(actor)
-  }
 
-  it should "fill its internal buffer" in {
+  it should "fill its internal buffer" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
 
     helper.createTestActor()
     stream.expectReadsUntil(BufferSize)
-  }
 
-  it should "stop reading when the internal buffer is full" in {
+  it should "stop reading when the internal buffer is full" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -129,9 +124,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     // The exact amount of read bytes depends on the internal chunk size used by Pekko Http.
     stream.bytesCount.get() should be < 3L * BufferSize
-  }
 
-  it should "allow reading data from the buffer" in {
+  it should "allow reading data from the buffer" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -147,9 +141,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val msg2 = expectMsgType[BufferDataResult]
     msg2.data.length should be(ChunkSize)
     msg2.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize, skipChunks = 1))
-  }
 
-  it should "fill the buffer again when data has been read" in {
+  it should "fill the buffer again when data has been read" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -160,9 +153,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     expectMsgType[BufferDataResult]
     stream.expectRead().requestSize should be(ChunkSize)
-  }
 
-  it should "handle reads before the stream is initialized" in {
+  it should "handle reads before the stream is initialized" in:
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor()
 
@@ -171,9 +163,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     val msg = expectMsgType[BufferDataResult]
     msg.data.toArray should be(RadioStreamTestHelper.refData(ChunkSize))
-  }
 
-  it should "handle a close request by closing the stream and stopping itself" in {
+  it should "handle a close request by closing the stream and stopping itself" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -184,9 +175,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     expectMsg(CloseAck(actor))
     awaitCond(stream.closed.get() == 1)
     expectTermination(actor)
-  }
 
-  it should "answer data requests in closing state with an EoF message" in {
+  it should "answer data requests in closing state with an EoF message" in:
     val helper = new StreamActorTestHelper
     helper.initRadioStream()
     val actor = helper.createTestActor()
@@ -195,9 +185,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
 
     expectMsg(BufferDataComplete)
     expectMsg(CloseAck(actor))
-  }
 
-  it should "handle a the stream builder result in closing state" in {
+  it should "handle a the stream builder result in closing state" in:
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor()
 
@@ -206,35 +195,31 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.initRadioStream()
 
     expectMsg(CloseAck(actor))
-  }
 
-  it should "stop itself if the managed stream terminates unexpectedly" in {
+  it should "stop itself if the managed stream terminates unexpectedly" in:
     val helper = new StreamActorTestHelper
     helper.initRadioStream(new ByteArrayInputStream(FileTestHelper.testBytes()))
     val actor = helper.createTestActor()
 
     expectTermination(actor)
-  }
 
-  it should "stop itself if the audio stream cannot be resolved" in {
+  it should "stop itself if the audio stream cannot be resolved" in:
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor()
 
     helper.failRadioStream(new IllegalStateException("Test exception"))
 
     expectTermination(actor)
-  }
 
-  it should "stop itself if the managed stream throws an exception" in {
+  it should "stop itself if the managed stream throws an exception" in:
     val helper = new StreamActorTestHelper
     helper.initRadioStream(new FailingStream)
 
     val actor = helper.createTestActor()
 
     expectTermination(actor)
-  }
 
-  it should "handle a radio stream with metadata" in {
+  it should "handle a radio stream with metadata" in:
     val ChunkCount = 256
     val StreamChunkSize = 128
     val ChunksToRead = 5
@@ -245,11 +230,10 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     val actor = helper.createTestActor()
 
     @tailrec def readAudioData(current: ByteString): ByteString =
-      if (current.length > expectedData.length) current
-      else {
+      if current.length > expectedData.length then current
+      else
         actor ! PlaybackActor.GetAudioData(RadioStreamTestHelper.AudioChunkSize)
         readAudioData(current ++ expectMsgType[BufferDataResult].data)
-      }
 
     val audioData = readAudioData(ByteString.empty)
     audioData.utf8String should startWith(expectedData.utf8String)
@@ -258,9 +242,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       val expMetadata = CurrentMetadata(RadioStreamTestHelper.generateMetadata(index))
       helper.expectMetadataEvent(expMetadata)
     }
-  }
 
-  it should "generate a MetadataNotSupported event if the stream does not support metadata" in {
+  it should "generate a MetadataNotSupported event if the stream does not support metadata" in:
     val stream = new MonitoringStream
     val helper = new StreamActorTestHelper
     helper.initRadioStream(stream)
@@ -268,9 +251,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     helper.createTestActor()
 
     helper.expectMetadataEvent(MetadataNotSupported)
-  }
 
-  it should "support disabling the event listener actor" in {
+  it should "support disabling the event listener actor" in:
     val entitySource = RadioStreamTestHelper.generateRadioStreamSource(100)
     val helper = new StreamActorTestHelper
     val actor = helper.createTestActor()
@@ -283,9 +265,8 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     }
 
     helper.expectNoMetadataEvent()
-  }
 
-  it should "support changing the event listener actor" in {
+  it should "support changing the event listener actor" in:
     val entitySource = RadioStreamTestHelper.generateRadioStreamSource(100)
     val eventListener = testKit.createTestProbe[RadioEvent]()
     val helper = new StreamActorTestHelper
@@ -303,13 +284,12 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       val event = eventListener.expectMessageType[RadioMetadataEvent]
       event.metadata should be(expMetadata)
     }
-  }
 
   /**
     * A test helper class that manages a test actor instance and its
     * dependencies.
     */
-  private class StreamActorTestHelper {
+  private class StreamActorTestHelper:
     /** A reference to store the audio source passed to the listener. */
     private val refAudioSource = new AtomicReference[(AudioSource, ActorRef)]
 
@@ -344,7 +324,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       *
       * @return the test actor
       */
-    def createTestActor(): ActorRef = {
+    def createTestActor(): ActorRef =
       val managerActor = testKit.spawn(RadioStreamManagerActor.behavior(Config, streamBuilder, null, 10.seconds))
       val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource,
         sourceListener,
@@ -355,7 +335,6 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       val response = probeClient.expectMsgType[RadioStreamManagerActor.StreamActorResponse]
       response.source should be(TestRadioSource)
       response.streamActor
-    }
 
     /**
       * Defines the source of the audio stream to be returned by the mock
@@ -364,36 +343,32 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       * @param source          the source of the stream
       * @param metadataSupport flag whether metadata should be supported
       */
-    def initRadioStreamFromSource(source: Source[ByteString, Any], metadataSupport: Boolean = false): Unit = {
-      val optChunkSize = if (metadataSupport) Some(RadioStreamTestHelper.AudioChunkSize) else None
+    def initRadioStreamFromSource(source: Source[ByteString, Any], metadataSupport: Boolean = false): Unit =
+      val optChunkSize = if metadataSupport then Some(RadioStreamTestHelper.AudioChunkSize) else None
       radioSourcePromise.success((source, optChunkSize))
-    }
 
     /**
       * Defines the audio stream to be returned by the mock stream builder.
       *
       * @param stream the stream with the content of the radio stream
       */
-    def initRadioStream(stream: InputStream = new TestDataGeneratorStream): Unit = {
+    def initRadioStream(stream: InputStream = new TestDataGeneratorStream): Unit =
       initRadioStreamFromSource(RadioStreamTestHelper.createSourceFromStream(stream))
-    }
 
     /**
       * Sets a failure result for the mock stream builder.
       *
       * @param exception the cause of the failure
       */
-    def failRadioStream(exception: Throwable): Unit = {
+    def failRadioStream(exception: Throwable): Unit =
       radioSourcePromise.failure(exception)
-    }
 
     /**
       * Waits until the stream builder was triggered to load the radio stream.
       * This can be used to simulate special situations.
       */
-    def waitForStreamBuilderRequest(): Unit = {
+    def waitForStreamBuilderRequest(): Unit =
       awaitCond(audioStreamRequested.get())
-    }
 
     /**
       * Checks whether a metadata event with the expected content was passed to
@@ -401,27 +376,24 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       *
       * @param metadata the expected metadata
       */
-    def expectMetadataEvent(metadata: RadioMetadata): Unit = {
+    def expectMetadataEvent(metadata: RadioMetadata): Unit =
       val metadataEvent = probeEventActor.expectMessageType[RadioMetadataEvent]
       metadataEvent.source should be(TestRadioSource)
       metadataEvent.metadata should be(metadata)
       val timeDelta = Duration.between(metadataEvent.time, LocalDateTime.now())
       timeDelta.toSeconds should be < 5L
-    }
 
-    def expectNoMetadataEvent(): Unit = {
+    def expectNoMetadataEvent(): Unit =
       probeEventActor.expectNoMessage(200.millis)
-    }
 
     /**
       * Checks whether the source listener function has been correctly called.
       *
       * @param streamActor the stream actor under test
       */
-    def checkSourceListenerInvocation(streamActor: ActorRef): Unit = {
+    def checkSourceListenerInvocation(streamActor: ActorRef): Unit =
       val expectedSourceData = (AudioSource(AudioStreamUri, Long.MaxValue, 0, 0), streamActor)
       awaitCond(refAudioSource.get() == expectedSourceData)
-    }
 
     /**
       * Creates a mock for a stream builder that is prepared return a stream
@@ -430,7 +402,7 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       *
       * @return the mock for the stream builder
       */
-    private def createStreamBuilder(): RadioStreamBuilder = {
+    private def createStreamBuilder(): RadioStreamBuilder =
       val builder = mock[RadioStreamBuilder]
       when(builder.buildRadioStream(argEq(Config), argEq(PlaylistStreamUri), any(), any())(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
@@ -445,6 +417,3 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
           }
         })
       builder
-    }
-  }
-}

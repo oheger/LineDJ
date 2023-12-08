@@ -18,18 +18,18 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.AudioSource
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio._
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe => TypedTestProbe}
+import de.oliver_heger.linedj.player.engine.radio.*
+import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe as TypedTestProbe}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.testkit.{TestKit, TestProbe}
-import org.apache.pekko.{actor => classic}
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
-import org.mockito.Mockito._
+import org.apache.pekko.actor as classic
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -39,9 +39,9 @@ import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object RadioStreamManagerActorSpec {
+object RadioStreamManagerActorSpec:
   /** A test radio source. */
   private val TestRadioSource = RadioSource("testRadioSource")
 
@@ -61,20 +61,18 @@ object RadioStreamManagerActorSpec {
     * @param data the payload of the message
     */
   private case class ReceivedMessage(data: AnyRef)
-}
 
 class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(classic.ActorSystem("RadioStreamManagerActorSpec"))
 
   /** The test kit for testing types actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import RadioStreamManagerActorSpec._
 
@@ -83,20 +81,16 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     * generated.
     *
     * @param eventActor the event actor probe which is passed the event
-    * @param metadata   the expected metadata in the event
+    * @param expMetadata   the expected metadata in the event
     */
-  private def checkMetadataEvent(eventActor: TypedTestProbe[RadioEvent], metadata: RadioMetadata): Unit = {
-    eventActor.expectMessageType[RadioMetadataEvent] match {
-      case RadioMetadataEvent(source, eventMetadata, time) =>
-        source should be(TestRadioSource)
-        eventMetadata should be(metadata)
-        math.abs(java.time.Duration.between(time, LocalDateTime.now()).toMillis) should be < 3000L
-      case e =>
-        fail("Unexpected event: " + e)
-    }
-  }
+  private def checkMetadataEvent(eventActor: TypedTestProbe[RadioEvent], expMetadata: RadioMetadata): Unit =
+    val event = eventActor.expectMessageType[RadioMetadataEvent]
+    import event.*
+    source should be(TestRadioSource)
+    metadata should be(expMetadata)
+    math.abs(java.time.Duration.between(time, LocalDateTime.now()).toMillis) should be < 3000L
 
-  "RadioStreamManagerActor" should "reuse an actor instance from the cache" in {
+  "RadioStreamManagerActor" should "reuse an actor instance from the cache" in:
     val streamActor = TestProbe()
     val helper = new StreamManagerTestHelper
 
@@ -115,9 +109,8 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
 
     helper.sendCacheInvalidation()
     streamActor.expectNoMessage(200.millis)
-  }
 
-  it should "send messages in the correct order" in {
+  it should "send messages in the correct order" in:
     val eventQueue = new LinkedBlockingQueue[ReceivedMessage]
     val streamActor = TestProbe()
     val helper = new StreamManagerTestHelper
@@ -132,20 +125,18 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       }
       helper.sendStreamActorRequest(responseAdapter, sourceListener)
 
-      Behaviors.receiveMessage {
-        msg: ReceivedMessage =>
+      Behaviors.receiveMessage:
+        case msg: ReceivedMessage =>
           eventQueue offer msg
           Behaviors.same
-      }
     }
     testKit.spawn(clientBehavior)
 
     val actorResponse = RadioStreamManagerActor.StreamActorResponse(TestRadioSource, streamActor.ref)
     eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage(actorResponse))
     eventQueue.poll(3, TimeUnit.SECONDS) should be(ReceivedMessage((ResolvedSource, streamActor.ref)))
-  }
 
-  it should "generate a metadata event when reusing an actor if possible" in {
+  it should "generate a metadata event when reusing an actor if possible" in:
     val metadata = CurrentMetadata("some radio stream metadata")
     val streamActor = TestProbe()
     val eventActor = testKit.createTestProbe[RadioEvent]()
@@ -157,9 +148,8 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     helper.requestStreamActor(optEventActor = Some(eventActor.ref))
 
     checkMetadataEvent(eventActor, metadata)
-  }
 
-  it should "close an actor if the cache time is exceeded" in {
+  it should "close an actor if the cache time is exceeded" in:
     val streamActor = TestProbe()
     val helper = new StreamManagerTestHelper
 
@@ -173,25 +163,21 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     val nextStreamActor = helper.requestStreamActor()
     nextStreamActor should not be streamActor.ref
     helper.verifyStreamActorCreated()
-  }
 
-  it should "stop itself when receiving a Stop command" in {
+  it should "stop itself when receiving a Stop command" in:
     val helper = new StreamManagerTestHelper
 
     val probe = helper.sendCommand(RadioStreamManagerActor.Stop)
       .deathWatchProbe
 
     probe.expectMsgType[classic.Terminated]
-  }
 
-  it should "not stop itself before all actors in the cache have been closed" in {
-    def expectClose(probe: TestProbe, reply: Boolean = true): Unit = {
+  it should "not stop itself before all actors in the cache have been closed" in:
+    def expectClose(probe: TestProbe, reply: Boolean = true): Unit =
       probe.expectMsg(RadioStreamActor.UpdateEventActor(None))
       probe.expectMsg(CloseRequest)
-      if (reply) {
+      if reply then
         probe.reply(CloseAck(probe.ref))
-      }
-    }
 
     val source0 = radioSource(0)
     val source2 = radioSource(2)
@@ -222,12 +208,11 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
 
     streamActor2.reply(CloseAck(streamActor2.ref))
     watcher.expectMsgType[classic.Terminated]
-  }
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
     */
-  private class StreamManagerTestHelper {
+  private class StreamManagerTestHelper:
     /** Test probe for the scheduler actor. */
     private val probeScheduler = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
@@ -246,10 +231,9 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       * @param command the command to send
       * @return this test helper
       */
-    def sendCommand(command: RadioStreamManagerActor.RadioStreamManagerCommand): StreamManagerTestHelper = {
+    def sendCommand(command: RadioStreamManagerActor.RadioStreamManagerCommand): StreamManagerTestHelper =
       managerActor ! command
       this
-    }
 
     /**
       * Verifies that the stream builder was invoked to create a new stream,
@@ -257,11 +241,10 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       *
       * @return this test helper
       */
-    def verifyStreamActorCreated(): StreamManagerTestHelper = {
+    def verifyStreamActorCreated(): StreamManagerTestHelper =
       verify(streamBuilder, timeout(3000)).buildRadioStream(eqArg(TestPlayerConfig), eqArg(TestRadioSource.uri),
         any(), any())(any(), any())
       this
-    }
 
     /**
       * Expects that the scheduled invocation actor was called to remove an
@@ -270,24 +253,22 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       *
       * @return this test helper
       */
-    def expectCacheInvalidation(): StreamManagerTestHelper = {
+    def expectCacheInvalidation(): StreamManagerTestHelper =
       val command = probeScheduler.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
       command.delay should be(CacheTime)
       cacheInvalidation set command.invocation
       this
-    }
 
     /**
       * Triggers a cache invalidation recorded by ''expectCacheInvalidation()''.
       *
       * @return this cache helper
       */
-    def sendCacheInvalidation(): StreamManagerTestHelper = {
+    def sendCacheInvalidation(): StreamManagerTestHelper =
       val invocation = cacheInvalidation.get()
       invocation should not be null
       invocation.send()
       this
-    }
 
     /**
       * Requests the stream actor for the test radio source from the manager
@@ -298,13 +279,12 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       * @return the stream actor returned from the manager
       */
     def requestStreamActor(optEventActor: Option[ActorRef[RadioEvent]] = None,
-                           sourceListener: RadioStreamActor.SourceListener = DummySourceListener): classic.ActorRef = {
+                           sourceListener: RadioStreamActor.SourceListener = DummySourceListener): classic.ActorRef =
       val probeClient = testKit.createTestProbe[RadioStreamManagerActor.StreamActorResponse]()
       sendStreamActorRequest(probeClient.ref, sourceListener, optEventActor)
       val response = probeClient.expectMessageType[RadioStreamManagerActor.StreamActorResponse]
       response.source should be(TestRadioSource)
       response.streamActor
-    }
 
     /**
       * Sends a message to the actor under test to request a radio stream actor
@@ -316,11 +296,10 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       */
     def sendStreamActorRequest(client: ActorRef[RadioStreamManagerActor.StreamActorResponse],
                                sourceListener: RadioStreamActor.SourceListener,
-                               optEventActor: Option[ActorRef[RadioEvent]] = None): Unit = {
+                               optEventActor: Option[ActorRef[RadioEvent]] = None): Unit =
       val eventActor = optEventActor getOrElse testKit.createTestProbe[RadioEvent]().ref
       val params = RadioStreamManagerActor.StreamActorParameters(TestRadioSource, sourceListener, eventActor)
       managerActor ! RadioStreamManagerActor.GetStreamActor(params, client)
-    }
 
     /**
       * Returns a [[TestProbe]] that watches the actor under test, so it can be
@@ -328,11 +307,10 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       *
       * @return the watching probe
       */
-    def deathWatchProbe: TestProbe = {
+    def deathWatchProbe: TestProbe =
       val probe = TestProbe()
       probe watch managerActor.toClassic
       probe
-    }
 
     /**
       * Creates a mock for a stream builder. The mock is prepared to answer a
@@ -342,21 +320,17 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       *
       * @return
       */
-    private def createStreamBuilder(): RadioStreamBuilder = {
+    private def createStreamBuilder(): RadioStreamBuilder =
       val builder = mock[RadioStreamBuilder]
       when(builder.buildRadioStream(any(), any(), any(), any())(any(), any()))
         .thenReturn(Future.failed(new IllegalStateException("Test exception")))
       builder
-    }
 
     /**
       * Creates the actor instance to be tested.
       *
       * @return the actor under test
       */
-    private def createManagerActor(): ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand] = {
+    private def createManagerActor(): ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand] =
       val behavior = RadioStreamManagerActor.behavior(TestPlayerConfig, streamBuilder, probeScheduler.ref, CacheTime)
       testKit.spawn(behavior)
-    }
-  }
-}

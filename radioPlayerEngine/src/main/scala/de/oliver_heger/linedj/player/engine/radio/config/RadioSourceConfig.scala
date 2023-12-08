@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
 
 import scala.collection.immutable
 
-object RadioSourceConfig {
+object RadioSourceConfig:
   /** Constant for a default ranking value. */
   final val DefaultRanking = 0
 
@@ -29,14 +29,12 @@ object RadioSourceConfig {
     * Constant for an empty [[RadioSourceConfig]] instance. This configuration
     * contains no sources, and all functions are implemented as dummies.
     */
-  final val Empty = new RadioSourceConfig {
+  final val Empty = new RadioSourceConfig:
     override val namedSources: immutable.Seq[(String, RadioSource)] = Seq.empty
 
     override def exclusions(source: RadioSource): immutable.Seq[IntervalQuery] = Seq.empty
 
     override def ranking(source: RadioSource): Int = DefaultRanking
-  }
-}
 
 /**
   * A trait allowing access to configuration information about radio sources.
@@ -49,7 +47,7 @@ object RadioSourceConfig {
   * for instance, a station might send commercials for each half or full hour.
   * Then [[IntervalQuery]] instances can be defined excluding these times.
   */
-trait RadioSourceConfig {
+trait RadioSourceConfig:
   /**
     * Returns a list with all available radio sources and their names. In the
     * returned tuples, the first element is a human-readable name of the
@@ -85,4 +83,3 @@ trait RadioSourceConfig {
     * @return the ranking for this source
     */
   def ranking(source: RadioSource): Int
-}

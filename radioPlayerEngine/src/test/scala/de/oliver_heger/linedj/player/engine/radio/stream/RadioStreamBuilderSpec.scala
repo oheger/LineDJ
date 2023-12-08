@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
-import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
@@ -30,20 +30,19 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Test class for [[RadioStreamBuilder]].
   */
 class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with AsyncTestHelper with RadioStreamTestHelper.StubServerSupport {
+  with BeforeAndAfterAll with Matchers with AsyncTestHelper with RadioStreamTestHelper.StubServerSupport:
   def this() = this(ActorSystem("RadioStreamBuilderSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   /**
     * Creates a test builder and invokes it for the given stream URI.
@@ -51,7 +50,7 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param uri the URI of the test radio stream
     * @return the result produced by the builder
     */
-  private def invokeBuilder(uri: String): RadioStreamBuilder.BuilderResult[Future[ByteString], Future[ByteString]] = {
+  private def invokeBuilder(uri: String): RadioStreamBuilder.BuilderResult[Future[ByteString], Future[ByteString]] =
     implicit val ec: ExecutionContext = system.dispatcher
     val config = TestPlayerConfig.copy(inMemoryBufferSize = 2097152,
       playbackContextLimit = 1048570,
@@ -61,20 +60,17 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val sinkAudio = RadioStreamTestHelper.aggregateSink()
     val sinkMeta = RadioStreamTestHelper.aggregateSink()
     futureResult(builder.buildRadioStream(config, uri, sinkAudio, sinkMeta))
-  }
 
-  "RadioStreamBuilder" should "create a correct graph to process the radio stream" in {
+  "RadioStreamBuilder" should "create a correct graph to process the radio stream" in:
     val ChunkCount = 8
     val RadioStreamPath = "radio"
-    val route = get {
-      pathPrefix(RadioStreamPath) {
+    val route = get:
+      pathPrefix(RadioStreamPath):
         val entity = HttpEntity(ContentTypes.`application/octet-stream`,
           RadioStreamTestHelper.generateRadioStreamSource(ChunkCount))
         val response = HttpResponse(headers = Seq(RawHeader("icy-metaint",
           RadioStreamTestHelper.AudioChunkSize.toString)), entity = entity)
         complete(response)
-      }
-    }
     val expectedAudioData = ByteString(RadioStreamTestHelper.refData(ChunkCount * RadioStreamTestHelper.AudioChunkSize))
     val expectedMetadata = (1 to ChunkCount).map(RadioStreamTestHelper.generateMetadata)
       .foldLeft(ByteString.empty) { (aggregate, chunk) => aggregate ++ ByteString(chunk) }
@@ -89,15 +85,12 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
       futureResult(futAudio) should be(expectedAudioData)
       futureResult(futMeta) should be(expectedMetadata)
     }
-  }
 
-  it should "create a correct graph if no metadata is supported" in {
+  it should "create a correct graph if no metadata is supported" in:
     val RadioStreamPath = "radio"
-    val route = get {
-      pathPrefix(RadioStreamPath) {
+    val route = get:
+      pathPrefix(RadioStreamPath):
         RadioStreamTestHelper.completeTestData()
-      }
-    }
 
     runWithServer(route) { uri =>
       val result = invokeBuilder(s"$uri/$RadioStreamPath/stream-without-metadata.mp3")
@@ -107,14 +100,13 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
       futureResult(futAudio).utf8String should be(FileTestHelper.TestData)
       futureResult(futMeta) should be(ByteString.empty)
     }
-  }
 
-  it should "return the correctly resolved stream URI" in {
+  it should "return the correctly resolved stream URI" in:
     val RadioStreamPath = "radio"
     val ResolvedStreamPath = "data"
     val ResolvedStreamUri = ResolvedStreamPath + "/stream.mp3"
     val serverUri = new AtomicReference[String]
-    val route = get {
+    val route = get:
       concat(
         pathPrefix(RadioStreamPath) {
           complete(s"${serverUri.get()}/$ResolvedStreamUri")
@@ -123,7 +115,6 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
           RadioStreamTestHelper.completeTestData()
         }
       )
-    }
 
     runWithServer(route) { uri =>
       serverUri.set(uri)
@@ -131,17 +122,14 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
       result.resolvedUri should be(s"$uri/$ResolvedStreamUri")
     }
-  }
 
-  it should "provide a KillSwitch to cancel the radio stream" in {
+  it should "provide a KillSwitch to cancel the radio stream" in:
     val source = Source(ByteString(FileTestHelper.TestData).grouped(16).toList).delay(100.millis)
     val RadioStreamPath = "radio"
-    val route = get {
-      pathPrefix(RadioStreamPath) {
+    val route = get:
+      pathPrefix(RadioStreamPath):
         val entity = HttpEntity(ContentTypes.`application/octet-stream`, source)
         complete(entity)
-      }
-    }
 
     runWithServer(route) { uri =>
       val result = invokeBuilder(s"$uri/$RadioStreamPath/stream.mp3")
@@ -151,5 +139,3 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
       futureResult(futAudio).length should be < FileTestHelper.TestData.length
     }
-  }
-}

@@ -32,7 +32,7 @@ import org.apache.pekko.{actor => classics}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-object RadioPlayer {
+object RadioPlayer:
   /**
     * Creates a new radio player instance based on the given configuration.
     * This is an asynchronous operation; therefore, this function returns a
@@ -48,20 +48,20 @@ object RadioPlayer {
   def apply(config: RadioPlayerConfig,
             streamManagerFactory: RadioStreamManagerActor.Factory = RadioStreamManagerActor.behavior,
             controlActorFactory: RadioControlActor.Factory = RadioControlActor.behavior)
-           (implicit system: classics.ActorSystem, ec: ExecutionContext): Future[RadioPlayer] = {
+           (implicit system: classics.ActorSystem, ec: ExecutionContext): Future[RadioPlayer] =
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
     val creator = config.playerConfig.actorCreator
 
-    for {
+    for
       eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](creator, "radioEventManagerActor")
       converter = creator.createActor(RadioEventConverterActor(eventActors._1),
         "playerEventConverter", Some(RadioEventConverterActor.Stop))
       playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
         RadioEventConverterActor.GetPlayerListener(ref)
       }
-    } yield {
+    yield
       val streamBuilder = RadioStreamBuilder()
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator,
         "radioSchedulerInvocationActor")
@@ -87,8 +87,6 @@ object RadioPlayer {
         factoryActor,
         scheduledInvocationActor,
         controlActor)(typedSystem)
-    }
-  }
 
   /**
     * Returns the function to create the source actor for the radio player. As
@@ -107,7 +105,6 @@ object RadioPlayer {
       val srcActor = factory.createChildActor(RadioDataSourceActor(config, eventActor, streamManager))
       Map(PlayerFacadeActor.KeySourceActor -> srcActor)
     }
-}
 
 /**
   * A facade on the player engine that allows playing radio streams.
@@ -138,16 +135,15 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                           ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
                          (implicit actorSystem: ActorSystem[_])
-  extends PlayerControl[RadioEvent] {
+  extends PlayerControl[RadioEvent]:
   /**
     * Updates the configuration for radio sources. This determines when
     * specific sources can or cannot be played.
     *
     * @param config the configuration for radio sources
     */
-  def initRadioSourceConfig(config: RadioSourceConfig): Unit = {
+  def initRadioSourceConfig(config: RadioSourceConfig): Unit =
     controlActor ! RadioControlActor.InitRadioSourceConfig(config)
-  }
 
   /**
     * Updates the metadata configuration. This allows disabling radio sources
@@ -155,9 +151,8 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     *
     * @param config the metadata configuration
     */
-  def initMetadataConfig(config: MetadataConfig): Unit = {
+  def initMetadataConfig(config: MetadataConfig): Unit =
     controlActor ! RadioControlActor.InitMetadataConfig(config)
-  }
 
   /**
     * Sets the given [[RadioSource]] as the new current source. If possible,
@@ -166,9 +161,8 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     *
     * @param source the new current [[RadioSource]]
     */
-  def switchToRadioSource(source: RadioSource): Unit = {
+  def switchToRadioSource(source: RadioSource): Unit =
     controlActor ! RadioControlActor.SelectRadioSource(source)
-  }
 
   /**
     * Queries the current playback state and returns a [[Future]] with the
@@ -176,14 +170,12 @@ class RadioPlayer private(val config: RadioPlayerConfig,
     *
     * @return the ''Future'' with the current playback state
     */
-  def currentPlaybackState: Future[RadioControlActor.CurrentPlaybackState] = {
+  def currentPlaybackState: Future[RadioControlActor.CurrentPlaybackState] =
     implicit val timeout: Timeout = Timeout(5.seconds)
     controlActor.ask(RadioControlActor.GetPlaybackState.apply)
-  }
 
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StartPlayback)
 
   override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StopPlayback)
-}

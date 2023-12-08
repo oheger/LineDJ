@@ -21,7 +21,7 @@ import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object MetadataExtractionServiceTest {
+object MetadataExtractionServiceSpec:
   /** The chunk size for audio data. */
   private val AudioChunkSize = 256
 
@@ -62,20 +62,18 @@ object MetadataExtractionServiceTest {
     * @return the updated state
     */
   private def modifyState(s: SupportedMetadataExtractionService.StateUpdate[Unit],
-                          oldState: MetadataExtractionState = InitialState): MetadataExtractionState = {
+                          oldState: MetadataExtractionState = InitialState): MetadataExtractionState =
     val (next, _) = updateState(s, oldState)
     next
-  }
-}
 
 /**
   * Test class for the different services to extract metadata.
   */
-class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
+class MetadataExtractionServiceSpec extends AnyFlatSpec with Matchers:
 
-  import MetadataExtractionServiceTest._
+  import MetadataExtractionServiceSpec._
 
-  "MetadataExtractionState" should "create an initial object" in {
+  "MetadataExtractionState" should "create an initial object" in:
     InitialState.audioChunkSize should be(AudioChunkSize)
     InitialState.inMetadata shouldBe false
     InitialState.currentChunkSize should be(AudioChunkSize)
@@ -83,9 +81,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     InitialState.audioChunks shouldBe empty
     InitialState.metadataChunk shouldBe empty
     InitialState.lastMetadata shouldBe empty
-  }
 
-  "SupportedMetadataExtractionService" should "update the state for a smaller block of audio data" in {
+  "SupportedMetadataExtractionService" should "update the state for a smaller block of audio data" in:
     val BlockSize = AudioChunkSize - 10
     val data = dataBlock(BlockSize)
 
@@ -97,9 +94,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(BlockSize)
     state.audioChunks should contain only data
     state.metadataChunk shouldBe empty
-  }
 
-  it should "update existing data about audio data" in {
+  it should "update existing data about audio data" in:
     val BlockSize = 100
     val existingData = dataBlock(BlockSize)
     val newData = dataBlock(BlockSize, index = 1)
@@ -113,9 +109,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(2 * BlockSize)
     state.audioChunks should contain theSameElementsInOrderAs List(newData, existingData)
     state.metadataChunk shouldBe empty
-  }
 
-  it should "update the state for the last block of audio data" in {
+  it should "update the state for the last block of audio data" in:
     val data = ByteString(RadioStreamTestHelper.refData(AudioChunkSize))
 
     val state = modifyState(SupportedMetadataExtractionService.dataReceived(data))
@@ -123,9 +118,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(AudioChunkSize)
     state.audioChunks should contain only data
     state.inMetadata shouldBe false
-  }
 
-  it should "switch to metadata after receiving a full chunk of audio data" in {
+  it should "switch to metadata after receiving a full chunk of audio data" in:
     val MetadataSize = 64
     val BlockSize = 40
     val newData = metadataBlock(4, BlockSize)
@@ -139,18 +133,16 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(BlockSize)
     state.currentChunkSize should be(MetadataSize)
     state.metadataChunk should be(dataBlock(BlockSize))
-  }
 
-  it should "compute the correct length of a metadata block" in {
+  it should "compute the correct length of a metadata block" in:
     val block = metadataBlock(-1, 128)
     val originalState = InitialState.copy(bytesReceived = AudioChunkSize)
 
     val state = modifyState(SupportedMetadataExtractionService.dataReceived(block), originalState)
 
     state.currentChunkSize should be(255 * 16)
-  }
 
-  it should "update metadata from a block of data" in {
+  it should "update metadata from a block of data" in:
     val existingData = dataBlock(64)
     val newData = dataBlock(64, index = 1)
     val originalState = InitialState.copy(inMetadata = true, metadataChunk = existingData,
@@ -161,9 +153,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.inMetadata shouldBe true
     state.bytesReceived should be(existingData.size + newData.size)
     state.metadataChunk should be(dataBlock(128))
-  }
 
-  it should "switch to audio data after receiving a full chunk of metadata" in {
+  it should "switch to audio data after receiving a full chunk of metadata" in:
     val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 1024, bytesReceived = 1024,
       metadataChunk = ByteString("test metadata"))
     val BlockSize = AudioChunkSize / 2
@@ -176,9 +167,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk should be(originalState.metadataChunk)
     state.bytesReceived should be(BlockSize)
     state.audioChunks should contain only newData
-  }
 
-  it should "handle multiple chunks of data in a single data block" in {
+  it should "handle multiple chunks of data in a single data block" in:
     val AudioBlockSize = AudioChunkSize / 2
     val existingData = dataBlock(AudioBlockSize)
     val audioBlock2 = dataBlock(AudioBlockSize, index = 1)
@@ -194,9 +184,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(AudioBlockSize)
     state.metadataChunk should be(dataBlock(64, index = 42))
     state.audioChunks should contain theSameElementsInOrderAs List(audioBlock3, audioBlock2, existingData)
-  }
 
-  it should "handle metadata chunks of size 0" in {
+  it should "handle metadata chunks of size 0" in:
     val AudioBlockSize = AudioChunkSize / 2
     val existingData = dataBlock(AudioBlockSize)
     val audioBlock2 = dataBlock(AudioBlockSize, index = 1)
@@ -212,9 +201,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(AudioBlockSize)
     state.metadataChunk should be(ByteString.empty)
     state.audioChunks should contain theSameElementsInOrderAs List(audioBlock3, audioBlock2, existingData)
-  }
 
-  it should "keep only the latest metadata in a single block" in {
+  it should "keep only the latest metadata in a single block" in:
     val MetadataBlockSize = 64
     val MetadataLengthByte: Byte = 4
     val audioBlock1 = dataBlock(AudioChunkSize)
@@ -227,9 +215,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
 
     state.audioChunks should contain theSameElementsInOrderAs List(audioBlock2, audioBlock1)
     state.metadataChunk should be(dataBlock(MetadataBlockSize, index = 1))
-  }
 
-  it should "extract data related to audio chunks" in {
+  it should "extract data related to audio chunks" in:
     val audioBlock1 = dataBlock(AudioChunkSize)
     val audioBlock2 = dataBlock(AudioChunkSize / 2, index = 3)
     val originalState = InitialState.copy(audioChunks = List(audioBlock2, audioBlock1))
@@ -239,9 +226,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.audioChunks shouldBe empty
     extracted.audioChunks should contain theSameElementsInOrderAs List(audioBlock1, audioBlock2)
     extracted.metadataChunk shouldBe empty
-  }
 
-  it should "extract data related to metadata if audio processing is again active" in {
+  it should "extract data related to metadata if audio processing is again active" in:
     val metadata = dataBlock(128)
     val originalState = InitialState.copy(metadataChunk = metadata, lastMetadata = Some(ByteString("foo")))
 
@@ -250,9 +236,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk shouldBe empty
     state.lastMetadata should be(extracted.metadataChunk)
     extracted.metadataChunk should be(Some(metadata))
-  }
 
-  it should "not extract an incomplete metadata chunk" in {
+  it should "not extract an incomplete metadata chunk" in:
     val metadata = dataBlock(64)
     val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 128, bytesReceived = 64,
       metadataChunk = metadata, lastMetadata = Some(ByteString("some last data")))
@@ -262,9 +247,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk should be(metadata)
     state.lastMetadata should be(originalState.lastMetadata)
     extracted.metadataChunk shouldBe empty
-  }
 
-  it should "extract an already completed metadata chunk" in {
+  it should "extract an already completed metadata chunk" in:
     val metadata = dataBlock(128)
     val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 128, bytesReceived = 128,
       metadataChunk = metadata)
@@ -274,9 +258,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk shouldBe empty
     state.lastMetadata should be(extracted.metadataChunk)
     extracted.metadataChunk should be(Some(metadata))
-  }
 
-  it should "not extract the same metadata as the last block" in {
+  it should "not extract the same metadata as the last block" in:
     val metadata = dataBlock(128)
     val originalState = InitialState.copy(inMetadata = true, currentChunkSize = 128, bytesReceived = 128,
       metadataChunk = metadata, lastMetadata = Some(metadata))
@@ -286,9 +269,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk shouldBe empty
     state.lastMetadata should be(originalState.lastMetadata)
     extracted.metadataChunk shouldBe empty
-  }
 
-  it should "handle an incoming block of data" in {
+  it should "handle an incoming block of data" in:
     val audioBlock1 = dataBlock(AudioChunkSize)
     val audioBlock2 = dataBlock(AudioChunkSize / 2, index = 3)
     val metadata = dataBlock(256, index = 32)
@@ -303,9 +285,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.metadataChunk shouldBe empty
     extracted.audioChunks should contain theSameElementsInOrderAs List(audioBlock1, audioBlock2)
     extracted.metadataChunk should be(Some(metadata))
-  }
 
-  "UnsupportedMetadataExtractionService" should "process a block of data" in {
+  "UnsupportedMetadataExtractionService" should "process a block of data" in:
     val data = dataBlock(AudioChunkSize + 11)
 
     val state = modifyState(UnsupportedMetadataExtractionService.dataReceived(data))
@@ -315,9 +296,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state.bytesReceived should be(0)
     state.metadataChunk shouldBe empty
     state.audioChunks should contain only data
-  }
 
-  it should "update audio chunks when a new block of data arrives" in {
+  it should "update audio chunks when a new block of data arrives" in:
     val audioBlock1 = dataBlock(AudioChunkSize)
     val audioBlock2 = dataBlock(AudioChunkSize, index = 1)
     val originalState = InitialState.copy(audioChunks = List(audioBlock1))
@@ -325,9 +305,8 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     val state = modifyState(UnsupportedMetadataExtractionService.dataReceived(audioBlock2), originalState)
 
     state.audioChunks should contain theSameElementsInOrderAs List(audioBlock2, audioBlock1)
-  }
 
-  it should "extract all available audio data" in {
+  it should "extract all available audio data" in:
     val audioBlock1 = dataBlock(AudioChunkSize)
     val audioBlock2 = dataBlock(AudioChunkSize, index = 1)
     val originalState = InitialState.copy(audioChunks = List(audioBlock2, audioBlock1),
@@ -338,5 +317,3 @@ class MetadataExtractionServiceTest extends AnyFlatSpec with Matchers {
     state should be(originalState.copy(audioChunks = List.empty))
     extracted.audioChunks should contain theSameElementsInOrderAs List(audioBlock1, audioBlock2)
     extracted.metadataChunk shouldBe empty
-  }
-}

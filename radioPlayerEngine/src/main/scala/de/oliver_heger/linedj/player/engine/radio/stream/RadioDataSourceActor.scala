@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, Radi
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated, typed}
 
-object RadioDataSourceActor {
+object RadioDataSourceActor:
   /**
     * Creates a ''Props'' object for creating a new instance of this actor
     * class.
@@ -74,11 +74,10 @@ object RadioDataSourceActor {
     * @return the adapted audio source
     */
   private def updateAudioSourceWithDefaultFileExtension(src: AudioSource, defaultExt: String):
-  AudioSource = {
+  AudioSource =
     val dotExt = s".$defaultExt"
-    if (!src.uri.endsWith(dotExt)) src.copy(uri = src.uri + dotExt)
+    if !src.uri.endsWith(dotExt) then src.copy(uri = src.uri + dotExt)
     else src
-  }
 
   /**
     * Handles a pending request by applying the specified function. If the
@@ -90,10 +89,9 @@ object RadioDataSourceActor {
     * @param f   the function to be applied on the requesting actor
     * @return an empty option
     */
-  private def servePending(req: Option[ActorRef])(f: ActorRef => Unit): Option[ActorRef] = {
+  private def servePending(req: Option[ActorRef])(f: ActorRef => Unit): Option[ActorRef] =
     req foreach f
     None
-  }
 
   /**
     * Handles a pending request by sending the specified message. If the given
@@ -104,11 +102,9 @@ object RadioDataSourceActor {
     * @param msg the message to be sent
     * @return an empty option
     */
-  private def servePending(req: Option[ActorRef], msg: => Any): Option[ActorRef] = {
+  private def servePending(req: Option[ActorRef], msg: => Any): Option[ActorRef] =
     lazy val message = msg
     servePending(req)(_ ! message)
-  }
-}
 
 /**
   * An actor class acting as a data source for a [[PlaybackActor]] for playing
@@ -134,7 +130,7 @@ object RadioDataSourceActor {
 class RadioDataSourceActor(config: PlayerConfig,
                            eventManager: typed.ActorRef[RadioEvent],
                            streamManager: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand])
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
 
   import RadioDataSourceActor._
 
@@ -166,9 +162,8 @@ class RadioDataSourceActor(config: PlayerConfig,
     * This actor uses a supervision strategy that stops a child actor when it
     * encounters an IO exception.
     */
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case _: java.io.IOException => Stop
-  }
 
   /**
     * The source listener function to be passed when creating a new radio
@@ -176,7 +171,7 @@ class RadioDataSourceActor(config: PlayerConfig,
     */
   private val sourceListener: RadioStreamActor.SourceListener = (source, sender) => self.tell(source, sender)
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case r: RadioSource =>
       currentSourceReader foreach { r =>
         r ! CloseRequest
@@ -199,26 +194,22 @@ class RadioDataSourceActor(config: PlayerConfig,
       pendingAudioSourceRequest = servePending(pendingAudioSourceRequest)(handleSourceRequest(_, updatedSrc))
 
     case PlaybackActor.GetAudioSource =>
-      if (pendingAudioSourceRequest.isDefined) {
+      if pendingAudioSourceRequest.isDefined then
         sender() ! PlaybackProtocolViolation(PlaybackActor.GetAudioSource, ErrPendingSourceRequest)
-      } else {
-        currentAudioSource match {
+      else
+        currentAudioSource match
           case Some(s) => handleSourceRequest(sender(), s)
           case None => pendingAudioSourceRequest = Some(sender())
-        }
-      }
 
     case req: PlaybackActor.GetAudioData =>
-      if (pendingAudioDataRequest.isDefined) {
+      if pendingAudioDataRequest.isDefined then
         sender() ! PlaybackProtocolViolation(req, ErrPendingDataRequest)
-      } else {
-        currentSourceReader match {
+      else
+        currentSourceReader match
           case Some(r) if !newSource =>
             r ! req
             pendingAudioDataRequest = Some(sender())
           case _ => sender() ! SourceEndMessage
-        }
-      }
 
     case data: BufferDataResult if fromCurrentReader() =>
       pendingAudioDataRequest = servePending(pendingAudioDataRequest, data)
@@ -240,7 +231,6 @@ class RadioDataSourceActor(config: PlayerConfig,
       }
       sendCloseAckIfPossible(sender())
       context become closing(sender())
-  }
 
   /**
     * Returns a receive function for the state closing (after the actor
@@ -251,20 +241,18 @@ class RadioDataSourceActor(config: PlayerConfig,
     * @param client the client requesting the close
     * @return the receive function for this state
     */
-  private def closing(client: ActorRef): Receive = {
+  private def closing(client: ActorRef): Receive =
     case CloseAck(_) =>
       handleCloseAck()
       sendCloseAckIfPossible(client)
-  }
 
   /**
     * Modifies internal state to stop the current source.
     */
-  private def stopCurrentSource(): Unit = {
+  private def stopCurrentSource(): Unit =
     newSource = true
     pendingAudioDataRequest = servePending(pendingAudioDataRequest, SourceEndMessage)
     currentAudioSource = None
-  }
 
   /**
     * Checks whether the sending actor is the current source reader actor.
@@ -282,20 +270,18 @@ class RadioDataSourceActor(config: PlayerConfig,
     * @param client the client actor
     * @param source the audio source
     */
-  private def handleSourceRequest(client: ActorRef, source: AudioSource): Unit = {
+  private def handleSourceRequest(client: ActorRef, source: AudioSource): Unit =
     client ! source
     newSource = false
-  }
 
   /**
     * Handle a CloseAck message. The number of pending Ack messages is
     * decreased.
     */
-  private def handleCloseAck(): Unit = {
+  private def handleCloseAck(): Unit =
     context unwatch sender()
     context stop sender()
     pendingCloseAck -= 1
-  }
 
   /**
     * Sends a ''CloseAck'' message to the specified client actor if this actor
@@ -304,9 +290,6 @@ class RadioDataSourceActor(config: PlayerConfig,
     *
     * @param client the client actor
     */
-  private def sendCloseAckIfPossible(client: ActorRef): Unit = {
-    if (pendingCloseAck == 0) {
+  private def sendCloseAckIfPossible(client: ActorRef): Unit =
+    if pendingCloseAck == 0 then
       client ! CloseAck(self)
-    }
-  }
-}

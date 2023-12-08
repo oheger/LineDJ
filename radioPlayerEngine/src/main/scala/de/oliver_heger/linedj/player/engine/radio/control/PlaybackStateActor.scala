@@ -37,7 +37,7 @@ import org.apache.pekko.{actor => classic}
   * Note: Since the state to be managed is rather simple, there is no
   * associated update service.
   */
-object PlaybackStateActor {
+object PlaybackStateActor:
   /**
     * The base trait of the commands supported by this actor.
     */
@@ -102,7 +102,7 @@ object PlaybackStateActor {
     * A trait that defines a factory function for creating a ''Behavior'' for a
     * new actor instance.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns a ''Behavior'' to create a new instance of this actor
       * implementation. The function expects the facade actor to be controlled
@@ -115,7 +115,6 @@ object PlaybackStateActor {
     def apply(facadeActor: classic.ActorRef,
               eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]]):
     Behavior[PlaybackStateCommand]
-  }
 
   /**
     * A default [[Factory]] instance that can be used to create new instances
@@ -139,7 +138,7 @@ object PlaybackStateActor {
   private case class PlaybackState(optSource: Option[RadioSource],
                                    optSelectedSource: Option[RadioSource],
                                    optPlayback: Option[Unit],
-                                   needsReset: Boolean) {
+                                   needsReset: Boolean):
     /**
       * Returns an ''Option'' with the [[RadioSource]] that should now be
       * played. This function takes all criteria into account whether playback
@@ -148,10 +147,10 @@ object PlaybackStateActor {
       * @return an ''Option'' with the source to play now
       */
     def playbackSource: Option[RadioSource] =
-      for {
+      for
         _ <- optPlayback
         source <- optSource
-      } yield source
+      yield source
 
     /**
       * Updates the flag whether playback is currently active. If there is an
@@ -162,16 +161,15 @@ object PlaybackStateActor {
       * @return an ''Option'' with the updated state
       */
     def updatePlayback(enabled: Boolean): Option[PlaybackState] =
-      if (enabled == optPlayback.isDefined) None
-      else Some(copy(optPlayback = if (enabled) Some(()) else None))
+      if enabled == optPlayback.isDefined then None
+      else Some(copy(optPlayback = if enabled then Some(()) else None))
 
     /**
       * Returns an instance with the reset flag set.
       *
       * @return the updated instance
       */
-    def resetRequired(): PlaybackState = if (needsReset) this else copy(needsReset = true)
-  }
+    def resetRequired(): PlaybackState = if needsReset then this else copy(needsReset = true)
 
   /**
     * The main message handling function of this actor.
@@ -184,7 +182,7 @@ object PlaybackStateActor {
   private def handle(facadeActor: classic.ActorRef,
                      eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                      state: PlaybackState): Behavior[PlaybackStateCommand] =
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessage:
       case PlaybackSource(source) =>
         val nextState = state.copy(optSource = Some(source))
         playSourceIfPossible(facadeActor, eventActor, nextState)
@@ -212,7 +210,6 @@ object PlaybackStateActor {
         val playbackActive = state.optPlayback.isDefined && state.optSource.isDefined
         replyTo ! CurrentPlaybackState(state.optSource, state.optSelectedSource, playbackActive)
         Behaviors.same
-    }
 
   /**
     * Checks whether playback is possible based on the given state. If so, the
@@ -227,13 +224,13 @@ object PlaybackStateActor {
   private def playSourceIfPossible(facadeActor: classic.ActorRef,
                                    eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                                    state: PlaybackState):
-  Behavior[PlaybackStateCommand] = {
+  Behavior[PlaybackStateCommand] =
     val nextState = state.playbackSource map { source =>
       val startMessages = List(
         (PlayerFacadeActor.Dispatch(source, PlayerFacadeActor.TargetSourceReader()), facadeActor),
         (PlayerFacadeActor.Dispatch(PlaybackActor.StartPlayback, PlayerFacadeActor.TargetPlaybackActor), facadeActor)
       )
-      val resetMessage = if (state.needsReset)
+      val resetMessage = if state.needsReset then
         (PlayerFacadeActor.ResetEngine, facadeActor) :: startMessages
       else startMessages
 
@@ -242,5 +239,3 @@ object PlaybackStateActor {
     } getOrElse state
 
     handle(facadeActor, eventActor, nextState)
-  }
-}

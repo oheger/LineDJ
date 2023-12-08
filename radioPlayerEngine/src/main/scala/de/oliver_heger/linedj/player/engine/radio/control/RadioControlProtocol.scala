@@ -33,7 +33,7 @@ import de.oliver_heger.linedj.player.engine.radio.RadioSource
   * dependencies between [[RadioControlActor]] and its children: The child
   * actors do not need to know their parent actor and its protocol.
   */
-private object RadioControlProtocol {
+private object RadioControlProtocol:
   /**
     * A message class indicating that playback should switch to another source.
     * This message is sent by internal services when they determine that the
@@ -66,4 +66,3 @@ private object RadioControlProtocol {
     * @param source the radio source to enable
     */
   case class EnableSource(source: RadioSource) extends SourceEnabledStateCommand
-}

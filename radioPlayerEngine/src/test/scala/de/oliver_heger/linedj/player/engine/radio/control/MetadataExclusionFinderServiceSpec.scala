@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.CurrentMetadata
@@ -24,6 +23,7 @@ import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.test.AsyncTestHelper
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
@@ -32,9 +32,10 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.{LocalDateTime, Month}
 import java.util.regex.Pattern
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 
-object MetadataExclusionFinderServiceSpec {
+object MetadataExclusionFinderServiceSpec:
   /** The sequence number used by tests. */
   private val SeqNo = 4224
 
@@ -62,13 +63,12 @@ object MetadataExclusionFinderServiceSpec {
                               applicable: Seq[IntervalQuery] = Seq.empty,
                               name: Option[String] = None): MetadataConfig.MetadataExclusion =
     MetadataConfig.MetadataExclusion(pattern, matchContext, resumeMode, checkInterval, applicable, name)
-}
 
 /**
   * Test class for [[MetadataExclusionFinderService]] and its default
   * implementation.
   */
-class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with MockitoSugar with AsyncTestHelper {
+class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with MockitoSugar with AsyncTestHelper:
 
   import MetadataExclusionFinderServiceSpec._
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -87,23 +87,21 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
                                     sourceConfig: MetadataConfig.RadioSourceMetadataConfig,
                                     metadata: CurrentMetadata,
                                     optFinderService: Option[MetadataExclusionFinderService] = None):
-  Option[MetadataExclusion] = {
+  Option[MetadataExclusion] =
     val finderService = new MetadataExclusionFinderServiceImpl(EvaluateIntervalsServiceImpl)
     val futResponse = finderService.findMetadataExclusion(config, sourceConfig, metadata, RefTime, SeqNo)
     val response = futureResult(futResponse)
 
     response.seqNo should be(SeqNo)
     response.result
-  }
 
-  "findMetadataExclusion" should "return None if there are no exclusions" in {
+  "findMetadataExclusion" should "return None if there are no exclusions" in:
     val metadata = CurrentMetadata("some metadata")
 
     findMetadataExclusion(MetadataConfig.Empty, MetadataConfig.EmptySourceConfig,
       metadata) shouldBe empty
-  }
 
-  it should "find an exclusion in the raw metadata" in {
+  it should "find an exclusion in the raw metadata" in:
     val metadata = CurrentMetadata("This is a match, yeah!")
     val exclusion = createExclusion()
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
@@ -111,16 +109,14 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "return None if there is no match" in {
+  it should "return None if there is no match" in:
     val metadata = CurrentMetadata("Some other metadata")
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(createExclusion()))
 
     findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
-  }
 
-  it should "find an exclusion in the stream title" in {
+  it should "find an exclusion in the stream title" in:
     val metadata = CurrentMetadata("other;StreamTitle='A match in the title';foo='bar';")
     val exclusion = createExclusion(matchContext = MatchContext.Title)
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
@@ -128,17 +124,15 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "evaluate the stream title context" in {
+  it should "evaluate the stream title context" in:
     val metadata = CurrentMetadata("other='Would be a match';StreamTitle='But not here';")
     val exclusion = createExclusion(matchContext = MatchContext.Title)
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
 
     findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
-  }
 
-  it should "find an exclusion in the artist" in {
+  it should "find an exclusion in the artist" in:
     val metadata = CurrentMetadata("StreamTitle='Artist match /song title';")
     val exclusion = createExclusion(matchContext = MatchContext.Artist)
     val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
@@ -146,17 +140,15 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "evaluate the artist context" in {
+  it should "evaluate the artist context" in:
     val metadata = CurrentMetadata("StreamTitle='unknown/song title match';")
     val exclusion = createExclusion(matchContext = MatchContext.Artist)
     val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
 
     findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
-  }
 
-  it should "find an exclusion in the song title" in {
+  it should "find an exclusion in the song title" in:
     val metadata = CurrentMetadata("StreamTitle='Artist name /matching song title';")
     val exclusion = createExclusion(matchContext = MatchContext.Song)
     val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
@@ -164,17 +156,15 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "evaluate the song title context" in {
+  it should "evaluate the song title context" in:
     val metadata = CurrentMetadata("StreamTitle='artist match/ unknown song title';")
     val exclusion = createExclusion(matchContext = MatchContext.Song)
     val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData), exclusions = Seq(exclusion))
 
     findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata) shouldBe empty
-  }
 
-  it should "find a match in the artist if no song title pattern is defined for the source" in {
+  it should "find a match in the artist if no song title pattern is defined for the source" in:
     val metadata = CurrentMetadata("StreamTitle='unknown/song title match';")
     val exclusion = createExclusion(matchContext = MatchContext.Artist)
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
@@ -182,9 +172,8 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "find a match in the song title if no song title pattern is defined for the source" in {
+  it should "find a match in the song title if no song title pattern is defined for the source" in:
     val metadata = CurrentMetadata("StreamTitle='artist match/unknown song title';")
     val exclusion = createExclusion(matchContext = MatchContext.Song)
     val sourceConfig = RadioSourceMetadataConfig(exclusions = Seq(exclusion))
@@ -192,9 +181,8 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "find a match in global exclusions" in {
+  it should "find a match in global exclusions" in:
     val metadata = CurrentMetadata("StreamTitle='artist/match song';")
     val exclusion = createExclusion(matchContext = MatchContext.Song)
     val metaConfig = mock[MetadataConfig]
@@ -203,9 +191,8 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(metaConfig, MetadataConfig.EmptySourceConfig, metadata)
 
     result should be(Some(exclusion))
-  }
 
-  it should "ignore an exclusion that is not applicable" in {
+  it should "ignore an exclusion that is not applicable" in:
     val applicableAt = List(IntervalQueries.minutes(40, 50))
     val exclusion = createExclusion(matchContext = MatchContext.Artist, applicable = applicableAt)
     val metadata = CurrentMetadata("StreamTitle='Artist match/some song'")
@@ -214,9 +201,8 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result shouldBe empty
-  }
 
-  it should "find the correct exclusion if multiple have time restrictions" in {
+  it should "find the correct exclusion if multiple have time restrictions" in:
     val patternNoMatch = Pattern.compile("foo")
     val exclusionNoMatch = createExclusion(pattern = patternNoMatch)
     val exclusionBefore = createExclusion(matchContext = MatchContext.Song,
@@ -232,9 +218,8 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
     val result = findMetadataExclusion(MetadataConfig.Empty, sourceConfig, metadata)
 
     result should be(Some(exclusionInside))
-  }
 
-  it should "not evaluate interval queries if a match without time restrictions was found" in {
+  it should "not evaluate interval queries if a match without time restrictions was found" in:
     val exclusionAlways = createExclusion()
     val exclusionPartTime = createExclusion(applicable = List(IntervalQueries.minutes(30, 40)))
     val finderService = mock[MetadataExclusionFinderService]
@@ -247,5 +232,3 @@ class MetadataExclusionFinderServiceSpec extends AnyFlatSpec with Matchers with 
       optFinderService = Some(finderService))
 
     result should be(Some(exclusionAlways))
-  }
-}

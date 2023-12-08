@@ -21,9 +21,10 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{IntervalQuer
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 
 import java.time.LocalDateTime
+import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 
-object EvaluateIntervalsService {
+object EvaluateIntervalsService:
   /**
     * A data class describing the response of [[EvaluateIntervalsService]] for
     * a request to evaluate a sequence of interval queries. In addition to the
@@ -34,7 +35,6 @@ object EvaluateIntervalsService {
     * @param seqNo  the sequence number that was part of the request
     */
   case class EvaluateIntervalsResponse(result: IntervalQueryResult, seqNo: Int)
-}
 
 /**
   * A trait defining a service that provides the efficient evaluation of
@@ -44,7 +44,7 @@ object EvaluateIntervalsService {
   * can be determined whether a specific source can be played currently or at
   * a given reference date.
   */
-trait EvaluateIntervalsService {
+trait EvaluateIntervalsService:
   /**
     * Returns a ''Future'' that evaluates the given interval queries based on
     * the specified reference date. All queries are executed, and a result is
@@ -58,12 +58,11 @@ trait EvaluateIntervalsService {
     */
   def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime, seqNo: Int)
                        (implicit ec: ExecutionContext): Future[EvaluateIntervalsResponse]
-}
 
 /**
   * A default implementation of the [[EvaluateIntervalsService]] trait.
   */
-object EvaluateIntervalsServiceImpl extends EvaluateIntervalsService {
+object EvaluateIntervalsServiceImpl extends EvaluateIntervalsService:
   override def evaluateIntervals(queries: Seq[IntervalQuery], refDate: LocalDateTime, seqNo: Int)
                                 (implicit ec: ExecutionContext): Future[EvaluateIntervalsResponse] =
     Future.sequence(queries map (q => Future {
@@ -73,4 +72,3 @@ object EvaluateIntervalsServiceImpl extends EvaluateIntervalsService {
         IntervalQueries.LongestInsideSelector) getOrElse IntervalQueries.BeforeForEver
       EvaluateIntervalsResponse(evalResult, seqNo)
     }
-}

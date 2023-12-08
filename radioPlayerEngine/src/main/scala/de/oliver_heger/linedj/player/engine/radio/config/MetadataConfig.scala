@@ -23,9 +23,10 @@ import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.Metadata
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 
 import java.util.regex.Pattern
+import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 
-object MetadataConfig {
+object MetadataConfig:
   /**
     * The name of the group in the regular expression to extract song
     * information from metadata that represents the song title.
@@ -42,7 +43,7 @@ object MetadataConfig {
     * An enumeration defining the exact part of metadata where an exclusion
     * matches.
     */
-  object MatchContext extends Enumeration {
+  object MatchContext extends Enumeration:
     type MatchContext = Value
 
     /** The song title is matched. */
@@ -65,14 +66,13 @@ object MetadataConfig {
       * currently played song.
       */
     val Raw: Value = Value
-  }
 
   /**
     * An enumeration listing the supported modes for resuming after a metadata
     * exclusion. This determines the necessary changes on metadata to consider
     * an exclusion to be finished.
     */
-  object ResumeMode extends Enumeration {
+  object ResumeMode extends Enumeration:
     type ResumeMode = Value
 
     /**
@@ -85,7 +85,6 @@ object MetadataConfig {
       * a change in metadata that is not recognized as a song.
       */
     val NextSong: Value = Value
-  }
 
   /**
     * A data class describing a metadata exclusion.
@@ -115,7 +114,7 @@ object MetadataConfig {
                                resumeMode: ResumeMode,
                                checkInterval: FiniteDuration,
                                applicableAt: Seq[IntervalQuery],
-                               name: Option[String]) {
+                               name: Option[String]):
     /**
       * Returns a flag whether for this exclusion time restrictions are
       * defined. A result of '''true''' means that this exclusion applies only
@@ -125,7 +124,6 @@ object MetadataConfig {
       * @return a flag whether time restrictions are in place
       */
     def hasTimeRestrictions: Boolean = applicableAt.nonEmpty
-  }
 
   /**
     * A data class that represents the metadata configuration for a specific
@@ -156,9 +154,8 @@ object MetadataConfig {
     * Constant for a [[MetadataConfig]] instance that uses only default values.
     * This means that this instance does not define any exclusions.
     */
-  final val Empty: MetadataConfig = new MetadataConfig {
+  final val Empty: MetadataConfig = new MetadataConfig:
     override def exclusions: Seq[MetadataExclusion] = Seq.empty
-  }
 
   /**
     * Constant for a [[RadioSourceMetadataConfig]] instance that uses only
@@ -167,7 +164,6 @@ object MetadataConfig {
     * metadata.
     */
   final val EmptySourceConfig = RadioSourceMetadataConfig()
-}
 
 /**
   * A trait defining the global configuration for metadata exclusions.
@@ -175,7 +171,7 @@ object MetadataConfig {
   * Via the properties defined here the global metadata exclusions can be
   * queried as well as exclusions defined for single radio sources.
   */
-trait MetadataConfig {
+trait MetadataConfig:
   /**
     * Returns a list of global exclusions that are applied to all radio
     * sources.
@@ -196,5 +192,4 @@ trait MetadataConfig {
     */
   def metadataSourceConfig(source: RadioSource): MetadataConfig.RadioSourceMetadataConfig =
     MetadataConfig.EmptySourceConfig
-}
 

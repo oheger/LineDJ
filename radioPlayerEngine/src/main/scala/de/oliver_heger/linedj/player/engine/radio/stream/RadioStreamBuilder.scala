@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
-object RadioStreamBuilder {
+object RadioStreamBuilder:
   /**
     * The headers to be added to requests for a radio stream. Here the header
     * asking for metadata is included. If the response contains a corresponding
@@ -89,11 +89,10 @@ object RadioStreamBuilder {
     * @param actorSystem the current actor system
     * @return the new builder instance
     */
-  def apply()(implicit actorSystem: ActorSystem): RadioStreamBuilder = {
+  def apply()(implicit actorSystem: ActorSystem): RadioStreamBuilder =
     val loader = new HttpStreamLoader()
     val m3uReader = new M3uReader(loader)
     new RadioStreamBuilder(loader, m3uReader)
-  }
 
   /**
     * Constructs a [[RunnableGraph]] from the given source of a radio stream
@@ -115,7 +114,7 @@ object RadioStreamBuilder {
                                       sinkAudio: Sink[ByteString, AUD],
                                       sinkMeta: Sink[ByteString, META],
                                       optChunkSize: Option[Int]):
-  (RunnableGraph[(AUD, META)], KillSwitch) = {
+  (RunnableGraph[(AUD, META)], KillSwitch) =
     val source = createStreamSource(dataSource, config)
     val killSwitch = KillSwitches.shared("stopRadioStream" + counter.incrementAndGet())
 
@@ -134,7 +133,6 @@ object RadioStreamBuilder {
     }).withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
 
     (graph, killSwitch)
-  }
 
   /**
     * Creates the ''Source'' for the radio stream. It is obtained from the
@@ -170,7 +168,6 @@ object RadioStreamBuilder {
       sinkAudio,
       sinkMeta,
       resolvedStream.optChunkSize))
-}
 
 /**
   * A class to create a runnable graph that can be used to process a radio
@@ -190,7 +187,7 @@ object RadioStreamBuilder {
   * @param m3uReader    the object to resolve m3u files
   */
 class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
-                                 m3uReader: M3uReader) {
+                                 m3uReader: M3uReader):
 
   import RadioStreamBuilder._
 
@@ -216,10 +213,10 @@ class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
                                   sinkMeta: Sink[ByteString, META])
                                  (implicit ec: ExecutionContext, mat: Materializer):
   Future[BuilderResult[AUD, META]] =
-    for {
+    for
       resolvedStream <- resolveRadioStream(streamUri)
       (graph, kill) <- createGraph(config, sinkAudio, sinkMeta, resolvedStream)
-    } yield BuilderResult(resolvedStream.resolvedUri, graph, kill, resolvedStream.optChunkSize.isDefined)
+    yield BuilderResult(resolvedStream.resolvedUri, graph, kill, resolvedStream.optChunkSize.isDefined)
 
   /**
     * Resolves the radio stream defined by the given URI and returns a data
@@ -232,10 +229,10 @@ class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
     */
   private def resolveRadioStream(streamUri: String)
                                 (implicit ec: ExecutionContext, mat: Materializer): Future[ResolvedRadioStream] =
-    for {
+    for
       resolvedRef <- m3uReader.resolveAudioStream(streamUri)
       response <- streamLoader.sendRequest(createRadioStreamRequest(resolvedRef))
-    } yield ResolvedRadioStream(resolvedRef, response.entity.dataBytes, extractChunkSizeHeader(response))
+    yield ResolvedRadioStream(resolvedRef, response.entity.dataBytes, extractChunkSizeHeader(response))
 
   /**
     * Returns the request to query the radio stream represented by the passed
@@ -264,4 +261,3 @@ class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
           Failure(e)
       }.toOption
     }
-}

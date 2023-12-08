@@ -24,11 +24,12 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import java.time.LocalDateTime
+import scala.collection.immutable.Seq
 import scala.collection.immutable.SortedMap
 import scala.concurrent.Future
 import scala.util.Random
 
-object ReplacementSourceSelectionService {
+object ReplacementSourceSelectionService:
   /**
     * A case class representing the selection of a replacement radio source. An
     * instance contains the source to be played as replacement and the date how
@@ -51,7 +52,6 @@ object ReplacementSourceSelectionService {
     */
   case class ReplacementSourceSelectionResult(selectedSource: Option[SelectedReplacementSource],
                                               seqNo: Int)
-}
 
 /**
   * A trait defining a service that selects a replacement source from a given
@@ -63,7 +63,7 @@ object ReplacementSourceSelectionService {
   * can be used to model different exclusion criteria not based on concrete
   * time intervals.
   */
-trait ReplacementSourceSelectionService {
+trait ReplacementSourceSelectionService:
   /**
     * Tries to find a replacement source based on the given parameters.
     *
@@ -83,7 +83,6 @@ trait ReplacementSourceSelectionService {
                               seqNo: Int,
                               evaluateService: EvaluateIntervalsService)
                              (implicit system: ActorSystem): Future[ReplacementSourceSelectionResult]
-}
 
 /**
   * The default implementation of [[ReplacementSourceSelectionService]].
@@ -94,7 +93,7 @@ trait ReplacementSourceSelectionService {
   * with the highest ranking is searched that partly bridges the required time.
   * If this fails, too, result is ''None''.
   */
-object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionService {
+object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionService:
   /**
     * A source of randomness used to select an arbitrary radio source if there
     * are multiple with the same ranking.
@@ -107,7 +106,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
                                        untilDate: LocalDateTime,
                                        seqNo: Int,
                                        evaluateService: EvaluateIntervalsService)
-                                      (implicit system: ActorSystem): Future[ReplacementSourceSelectionResult] = {
+                                      (implicit system: ActorSystem): Future[ReplacementSourceSelectionResult] =
     import system.dispatcher
 
     // Look for full replacement sources.
@@ -131,21 +130,18 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
     //  again; this should be prevented by reusing the results of the first
     //  evaluation.
     futFullReplacement flatMap { optReplacement =>
-      optReplacement.map(replacement => Future.successful(Some(replacement))) getOrElse {
+      optReplacement.map(replacement => Future.successful(Some(replacement))) getOrElse:
         runSelectionStream(sourcesConfig,
           rankedSources,
           excludedSources,
           untilDate,
           evaluateService) { (source, queryResult) =>
-          queryResult match {
+          queryResult match
             case Inside(d) if d.value.isAfter(untilDate) => None
             case Before(start) => Some(SelectedReplacementSource(source, start.value))
             case _ => Some(SelectedReplacementSource(source, untilDate))
-          }
         }
-      }
     } map { optSelectedSource => ReplacementSourceSelectionResult(optSelectedSource, seqNo) }
-  }
 
   /**
     * Runs a stream to generate [[SelectedReplacementSource]] object using the
@@ -167,7 +163,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
                                  untilDate: LocalDateTime,
                                  evaluateService: EvaluateIntervalsService)
                                 (resultFunc: (RadioSource, IntervalQueryResult) => Option[SelectedReplacementSource])
-                                (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]] = {
+                                (implicit system: ActorSystem): Future[Option[SelectedReplacementSource]] =
     import system.dispatcher
     val streamSource = Source(rankedSources.values.toSeq)
     val sink = Sink.headOption[SelectedReplacementSource]
@@ -181,5 +177,3 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
       .filter(_.isDefined)
       .map(_.get)
       .runWith(sink)
-  }
-}

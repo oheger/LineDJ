@@ -18,7 +18,9 @@ package de.oliver_heger.linedj.player.engine.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 
-object RadioSource {
+import scala.collection.immutable.Seq
+
+object RadioSource:
   /**
     * A ranking function for radio sources.
     *
@@ -52,7 +54,6 @@ object RadioSource {
     * sequence with interval queries.
     */
   final val NoExclusions: ExclusionQueryFunc = _ => Seq.empty
-}
 
 /**
   * A data class identifying a radio stream to be played.

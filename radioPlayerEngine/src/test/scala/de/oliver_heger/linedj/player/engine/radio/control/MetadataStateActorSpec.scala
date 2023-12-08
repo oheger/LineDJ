@@ -16,38 +16,38 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.AudioSource
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
-import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import de.oliver_heger.linedj.test.{ActorTestKitSupport, FileTestHelper}
+import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.testkit.{TestProbe => ClassicTestProbe}
+import org.apache.pekko.testkit.TestProbe as ClassicTestProbe
 import org.apache.pekko.util.ByteString
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
 import org.mockito.Mockito
-import org.mockito.Mockito._
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.mockito.Mockito.*
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.PipedOutputStream
-import java.time._
+import java.time.*
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-object MetadataStateActorSpec {
+object MetadataStateActorSpec:
   /** Constant for a reference instant. */
   private val RefInstant = Instant.parse("2023-03-31T20:37:16Z")
 
@@ -67,7 +67,7 @@ object MetadataStateActorSpec {
   private val TestAudioSource = AudioSource("resolvedStreamURI", 0, 0, 0)
 
   /** A test radio player configuration. */
-  private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
+  private val TestRadioConfig = RadioPlayerConfig(playerConfig = Fixtures.TestPlayerConfig,
     metadataCheckTimeout = 99.seconds,
     maximumEvalDelay = 2.hours,
     retryFailedReplacement = 1.minute,
@@ -118,16 +118,15 @@ object MetadataStateActorSpec {
     *
     * @return the clock ticking by seconds
     */
-  private def tickSecondsClock(): Clock = {
+  private def tickSecondsClock(): Clock =
     val counter = new AtomicLong
-    new Clock {
+    new Clock:
       override def getZone: ZoneId = ZoneId.systemDefault()
 
-      override def withZone(zone: ZoneId): Clock = super.withZone(zone)
+      override def withZone(zone: ZoneId): Clock =
+        throw new UnsupportedOperationException()
 
       override def instant(): Instant = RefInstant.plusSeconds(counter.incrementAndGet())
-    }
-  }
 
   /**
     * Returns the time that corresponds to the given number of ticks of the
@@ -143,7 +142,7 @@ object MetadataStateActorSpec {
     *
     * @return the exclusions for the test radio source
     */
-  private def createExclusions(): Map[String, MetadataExclusion] = {
+  private def createExclusions(): Map[String, MetadataExclusion] =
     val exBadMusic = MetadataConfig.MetadataExclusion(pattern = Pattern.compile(s".*$MetaBadMusic.*"),
       resumeMode = ResumeMode.NextSong, checkInterval = 1.minute, matchContext = MatchContext.Raw,
       applicableAt = Seq.empty, name = None)
@@ -151,7 +150,6 @@ object MetadataStateActorSpec {
       matchContext = MatchContext.Raw, resumeMode = ResumeMode.MetadataChange, checkInterval = 2.minutes,
       applicableAt = Seq.empty, name = None)
     Map(MetaBadMusic -> exBadMusic, MetaNotWanted -> exNotWanted)
-  }
 
   /**
     * Creates a test [[MetadataConfig]] based on a mock.
@@ -159,12 +157,11 @@ object MetadataStateActorSpec {
     * @param srcConfig the config to return for the test radio source
     * @return the test metadata config
     */
-  private def createMetadataConfig(srcConfig: RadioSourceMetadataConfig): MetadataConfig = {
+  private def createMetadataConfig(srcConfig: RadioSourceMetadataConfig): MetadataConfig =
     val config = Mockito.mock(classOf[MetadataConfig])
     when(config.exclusions).thenReturn(Seq.empty)
     when(config.metadataSourceConfig(TestRadioSource)).thenReturn(srcConfig)
     config
-  }
 
   /**
     * Initializes a mock for a [[MetadataConfig]] instance to return the test
@@ -174,33 +171,30 @@ object MetadataStateActorSpec {
     * @param configMock the mock to be initialized
     * @return the initialized mock
     */
-  private def initMetaConfigMock(configMock: MetadataConfig): MetadataConfig = {
+  private def initMetaConfigMock(configMock: MetadataConfig): MetadataConfig =
     val sourceConfig = RadioSourceMetadataConfig(optSongPattern = Some(RegSongData),
       exclusions = Seq(MetaExclusions(MetaNotWanted)))
     when(configMock.exclusions).thenReturn(Seq(MetaExclusions(MetaBadMusic)))
     when(configMock.metadataSourceConfig(any())).thenReturn(MetadataConfig.EmptySourceConfig)
     when(configMock.metadataSourceConfig(TestRadioSource)).thenReturn(sourceConfig)
     configMock
-  }
-}
 
 /**
   * Test class for [[MetadataStateActor]].
   */
-class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers with MockitoSugar {
+class MetadataStateActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
 
-  import MetadataStateActorSpec._
+  import MetadataStateActorSpec.*
 
-  "Metadata retriever actor" should "send the latest metadata" in {
+  "Metadata retriever actor" should "send the latest metadata" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
       .sendMetadata(1)
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
       .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
-  }
 
-  it should "ignore other kinds of radio events" in {
+  it should "ignore other kinds of radio events" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
@@ -210,9 +204,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectNoCheckRunnerCommand()
       .sendMetadata(1)
       .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
-  }
 
-  it should "reset the pending request flag after sending metadata" in {
+  it should "reset the pending request flag after sending metadata" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
@@ -222,9 +215,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     helper.sendMetadata(2)
       .expectNoCheckRunnerCommand()
-  }
 
-  it should "only send metadata if it has changed" in {
+  it should "only send metadata if it has changed" in:
     val time2 = LocalDateTime.of(2023, Month.MAY, 4, 22, 24, 27)
     val helper = new RetrieverTestHelper
 
@@ -236,18 +228,16 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendMetadata(2, time2)
       .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), time2))
-  }
 
-  it should "permanently request new audio data" in {
+  it should "permanently request new audio data" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
       .expectAudioDataRequest()
       .answerAudioDataRequest()
       .expectAudioDataRequest()
-  }
 
-  it should "stop processing gracefully when receiving a CancelStream command" in {
+  it should "stop processing gracefully when receiving a CancelStream command" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
@@ -260,9 +250,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .answerAudioDataRequest()
       .expectStreamActorReleased(Some(CurrentMetadata(metadata(1))))
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-  }
 
-  it should "handle a CancelStream command before receiving the stream actor" in {
+  it should "handle a CancelStream command before receiving the stream actor" in:
     val helper = new RetrieverTestHelper
 
     helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
@@ -270,17 +259,15 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectNoAudioDataRequest()
       .expectStreamActorReleased(None)
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-  }
 
-  it should "not release the stream actor before a pending data request is answered" in {
+  it should "not release the stream actor before a pending data request is answered" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
       .sendRetrieverCommand(MetadataStateActor.CancelStream)
       .expectNoStreamActorRelease()
-  }
 
-  it should "handle a terminated stream actor" in {
+  it should "handle a terminated stream actor" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
@@ -288,9 +275,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .stopStreamActor()
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
       .expectNoStreamActorRelease()
-  }
 
-  it should "handle a terminated stream actor when waiting for cancellation" in {
+  it should "handle a terminated stream actor when waiting for cancellation" in:
     val helper = new RetrieverTestHelper
 
     helper.passStreamActor()
@@ -299,12 +285,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .stopStreamActor()
       .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
       .expectNoStreamActorRelease()
-  }
 
   /**
     * Test helper class for testing the metadata retriever actor.
     */
-  private class RetrieverTestHelper extends AutoCloseable {
+  private class RetrieverTestHelper extends AutoCloseable:
     /** Test probe for the stream manager actor. */
     private val probeStreamManager = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
 
@@ -326,9 +311,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     /**
       * @inheritdoc This implementation closes the simulated radio stream.
       */
-    override def close(): Unit = {
+    override def close(): Unit =
       radioStream.close()
-    }
 
     /**
       * Sends a metadata event with specific content to the registered event
@@ -338,10 +322,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param time  the time of the event
       * @return this test helper
       */
-    def sendMetadata(index: Int, time: LocalDateTime = RefTime): RetrieverTestHelper = {
+    def sendMetadata(index: Int, time: LocalDateTime = RefTime): RetrieverTestHelper =
       val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(metadata(index)), time)
       sendEvent(event)
-    }
 
     /**
       * Sends the given event to the event actor registered at the stream
@@ -350,11 +333,10 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param event the event to send
       * @return this test helper
       */
-    def sendEvent(event: RadioEvent): RetrieverTestHelper = {
+    def sendEvent(event: RadioEvent): RetrieverTestHelper =
       eventActor should not be null
       eventActor ! event
       this
-    }
 
     /**
       * Handles the interaction with the stream manager actor to pass the
@@ -362,14 +344,13 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def passStreamActor(): RetrieverTestHelper = {
+    def passStreamActor(): RetrieverTestHelper =
       val request = probeStreamManager.expectMessageType[RadioStreamManagerActor.GetStreamActor]
       request.params.streamSource should be(TestRadioSource)
       eventActor = request.params.eventActor
       request.replyTo ! RadioStreamManagerActor.StreamActorResponse(TestRadioSource, probeStreamActor.ref)
       request.params.sourceListener(TestAudioSource, probeStreamActor.ref)
       this
-    }
 
     /**
       * Sends the given command to the retriever actor under test.
@@ -377,10 +358,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the command
       * @return this test helper
       */
-    def sendRetrieverCommand(command: MetadataStateActor.MetadataRetrieveCommand): RetrieverTestHelper = {
+    def sendRetrieverCommand(command: MetadataStateActor.MetadataRetrieveCommand): RetrieverTestHelper =
       retrieverActor ! command
       this
-    }
 
     /**
       * Expects that a command has been sent to the check runner actor and
@@ -397,30 +377,27 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param expectedCommand the expected command
       * @return this test helper
       */
-    def checkRunnerCommand(expectedCommand: MetadataStateActor.MetadataCheckRunnerCommand): RetrieverTestHelper = {
+    def checkRunnerCommand(expectedCommand: MetadataStateActor.MetadataCheckRunnerCommand): RetrieverTestHelper =
       expectCheckRunnerCommand() should be(expectedCommand)
       this
-    }
 
     /**
       * Expects that no command was sent to the check runner actor.
       *
       * @return this test helper
       */
-    def expectNoCheckRunnerCommand(): RetrieverTestHelper = {
+    def expectNoCheckRunnerCommand(): RetrieverTestHelper =
       probeRunner.expectNoMessage(250.millis)
       this
-    }
 
     /**
       * Simulates a failure of the radio stream actor by stopping it.
       *
       * @return this test helper
       */
-    def stopStreamActor(): RetrieverTestHelper = {
+    def stopStreamActor(): RetrieverTestHelper =
       system.classicSystem stop probeStreamActor.ref
       this
-    }
 
     /**
       * Expects that a request for audio data has been sent to the radio stream
@@ -428,21 +405,19 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def expectAudioDataRequest(): RetrieverTestHelper = {
+    def expectAudioDataRequest(): RetrieverTestHelper =
       probeStreamActor.expectMsg(PlaybackActor.GetAudioData(4096))
       this
-    }
 
     /**
       * Answers a request for audio data by sending a chunk of dummy data.
       *
       * @return this test helper
       */
-    def answerAudioDataRequest(): RetrieverTestHelper = {
+    def answerAudioDataRequest(): RetrieverTestHelper =
       val data = LocalBufferActor.BufferDataResult(ByteString(FileTestHelper.TestData))
       probeStreamActor.reply(data)
       this
-    }
 
     /**
       * Expects that no request for audio data has been sent to the radio
@@ -450,10 +425,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def expectNoAudioDataRequest(): RetrieverTestHelper = {
+    def expectNoAudioDataRequest(): RetrieverTestHelper =
       probeStreamActor.expectNoMessage(200.millis)
       this
-    }
 
     /**
       * Expects that the radio stream actor has been released to the stream
@@ -462,12 +436,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param optMetadata the expected metadata in the release message
       * @return this test helper
       */
-    def expectStreamActorReleased(optMetadata: Option[CurrentMetadata]): RetrieverTestHelper = {
+    def expectStreamActorReleased(optMetadata: Option[CurrentMetadata]): RetrieverTestHelper =
       val releaseMsg = RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, probeStreamActor.ref,
         TestAudioSource, optMetadata)
       probeStreamManager.expectMessage(releaseMsg)
       this
-    }
 
     /**
       * Expects that no release command has been sent to the stream manager
@@ -475,10 +448,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def expectNoStreamActorRelease(): RetrieverTestHelper = {
+    def expectNoStreamActorRelease(): RetrieverTestHelper =
       probeStreamManager.expectNoMessage(200.millis)
       this
-    }
 
     /**
       * Creates the metadata retriever actor to be tested.
@@ -489,9 +461,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       testKit.spawn(MetadataStateActor.retrieveMetadataBehavior(TestRadioSource,
         probeStreamManager.ref,
         probeRunner.ref))
-  }
 
-  "Check runner actor" should "send a result if metadata has changed" in {
+  "Check runner actor" should "send a result if metadata has changed" in:
     val nextMetadata = "No problem here"
     val helper = new RunnerTestHelper(MetaNotWanted)
 
@@ -501,9 +472,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
-  }
 
-  it should "wait until the stream is canceled before sending the result" in {
+  it should "wait until the stream is canceled before sending the result" in:
     val nextMetadata = "ok"
     val helper = new RunnerTestHelper(MetaNotWanted)
 
@@ -511,9 +481,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .expectNoCheckResult()
-  }
 
-  it should "stop itself after sending a result" in {
+  it should "stop itself after sending a result" in:
     val nextMetadata = "ok"
     val helper = new RunnerTestHelper(MetaNotWanted)
 
@@ -522,9 +491,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .checkActorStopped()
-  }
 
-  it should "continue the check if a change in metadata is not sufficient" in {
+  it should "continue the check if a change in metadata is not sufficient" in:
     val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 20, 26, 4)
     val refTime2 = refTime.plusSeconds(10)
     val insufficientMetadata = "Ok, but no title"
@@ -542,9 +510,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
-  }
 
-  it should "evaluate the resume interval correctly" in {
+  it should "evaluate the resume interval correctly" in:
     val refTime = LocalDateTime.of(2023, Month.APRIL, 9, 11, 52, 26)
     val nextMetadata = "Ok, even without title"
     val helper = new RunnerTestHelper(MetaBadMusic)
@@ -557,9 +524,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
       .checkActorStopped()
-  }
 
-  it should "handle an undefined pattern for extracting song information" in {
+  it should "handle an undefined pattern for extracting song information" in:
     val nextMetadata = "no title"
     val helper = new RunnerTestHelper(MetaBadMusic, optRegSongPattern = None)
 
@@ -568,9 +534,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), RefTime))
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
-  }
 
-  it should "store the latest interval query result" in {
+  it should "store the latest interval query result" in:
     val refTime = LocalDateTime.of(2023, Month.APRIL, 7, 21, 23, 23)
     val refTime2 = refTime.plusSeconds(10)
     val nextMetadata1 = "Ok, but no title"
@@ -585,9 +550,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata2), refTime2))
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-  }
 
-  it should "run another interval query if necessary" in {
+  it should "run another interval query if necessary" in:
     val refTime1 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 42, 16)
     val refTime2 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 42, 46)
     val refTime3 = LocalDateTime.of(2023, Month.APRIL, 7, 21, 43, 50)
@@ -604,9 +568,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata2), refTime3))
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-  }
 
-  it should "update the current metadata exclusion if it changes" in {
+  it should "update the current metadata exclusion if it changes" in:
     val refTime = LocalDateTime.of(2023, Month.APRIL, 8, 18, 27, 23)
     val notWantedMetadata = "don't like it"
     val goodMetadata = "Ok, even if no title"
@@ -619,17 +582,15 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(goodMetadata), refTime))
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
-  }
 
-  it should "handle an unexpectedly stopped radio stream" in {
+  it should "handle an unexpectedly stopped radio stream" in:
     val helper = new RunnerTestHelper(MetaBadMusic)
 
     helper.expectRetrieverCommand(MetadataStateActor.GetMetadata)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult()
-  }
 
-  it should "handle a timeout command" in {
+  it should "handle a timeout command" in:
     val refTime = LocalDateTime.of(2023, Month.APRIL, 8, 18, 52, 14)
     val refTime2 = LocalDateTime.of(2023, Month.APRIL, 8, 18, 54, 55)
     val helper = new RunnerTestHelper(MetaBadMusic)
@@ -648,7 +609,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendCommand(MetadataStateActor.RadioStreamStopped)
       .expectCheckResult(Some(MetaNotWanted))
       .checkActorStopped()
-  }
 
   /**
     * Prepares a mock intervals service to return a specific result.
@@ -662,12 +622,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
   private def initIntervalsServiceResult(service: EvaluateIntervalsService,
                                          queries: Seq[IntervalQuery],
                                          time: LocalDateTime,
-                                         result: IntervalQueryResult): EvaluateIntervalsService = {
+                                         result: IntervalQueryResult): EvaluateIntervalsService =
     implicit val ec: ExecutionContext = testKit.system.executionContext
     val response = EvaluateIntervalsService.EvaluateIntervalsResponse(result, 0)
     when(service.evaluateIntervals(queries, time, 0)).thenReturn(Future.successful(response))
     service
-  }
 
   /**
     * A test helper class for testing metadata check runner actors.
@@ -676,7 +635,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     * @param optRegSongPattern   the pattern for extracting song tile data
     */
   private class RunnerTestHelper(currentExclusionStr: String,
-                                 optRegSongPattern: Option[Pattern] = Some(RegSongData)) {
+                                 optRegSongPattern: Option[Pattern] = Some(RegSongData)):
     /** A test configuration for the affected radio source. */
     private val metadataSourceConfig = RadioSourceMetadataConfig(resumeIntervals = Seq(mock),
       optSongPattern = optRegSongPattern,
@@ -711,10 +670,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the command to be sent
       * @return this test helper
       */
-    def sendCommand(command: MetadataStateActor.MetadataCheckRunnerCommand): RunnerTestHelper = {
+    def sendCommand(command: MetadataStateActor.MetadataCheckRunnerCommand): RunnerTestHelper =
       checkRunnerActor ! command
       this
-    }
 
     /**
       * Expects that the given command was sent to the retriever actor.
@@ -722,10 +680,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the expected command
       * @return this test helper
       */
-    def expectRetrieverCommand(command: MetadataStateActor.MetadataRetrieveCommand): RunnerTestHelper = {
+    def expectRetrieverCommand(command: MetadataStateActor.MetadataRetrieveCommand): RunnerTestHelper =
       probeRetriever.expectMessage(command)
       this
-    }
 
     /**
       * Expects that a check result with the given optional exclusion is sent
@@ -734,21 +691,19 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param optExclusionName the optional exclusion name
       * @return this test helper
       */
-    def expectCheckResult(optExclusionName: Option[String] = None): RunnerTestHelper = {
+    def expectCheckResult(optExclusionName: Option[String] = None): RunnerTestHelper =
       val optExclusion = optExclusionName map (MetaExclusions(_))
       probeSourceChecker.expectMessage(MetadataStateActor.MetadataCheckResult(optExclusion))
       this
-    }
 
     /**
       * Expects that no message has been sent to the source check actor.
       *
       * @return this test helper
       */
-    def expectNoCheckResult(): RunnerTestHelper = {
+    def expectNoCheckResult(): RunnerTestHelper =
       probeSourceChecker.expectNoMessage(200.millis)
       this
-    }
 
     /**
       * Prepares the mock for the intervals service to expect an invocation and
@@ -758,10 +713,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param result the result to return
       * @return this test helper
       */
-    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): RunnerTestHelper = {
+    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): RunnerTestHelper =
       initIntervalsServiceResult(intervalService, metadataSourceConfig.resumeIntervals, time, result)
       this
-    }
 
     /**
       * Prepares the mock for the finder service to inspect an invocation and
@@ -774,7 +728,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       */
     def prepareFinderService(metadata: String,
                              result: Option[MetadataExclusion] = None,
-                             refTime: LocalDateTime = RefTime): RunnerTestHelper = {
+                             refTime: LocalDateTime = RefTime): RunnerTestHelper =
       when(finderService.findMetadataExclusion(eqArg(metaConfig),
         eqArg(metadataSourceConfig),
         eqArg(CurrentMetadata(metadata)),
@@ -782,18 +736,16 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         eqArg(0))(any()))
         .thenReturn(Future.successful(MetadataExclusionFinderService.MetadataExclusionFinderResponse(result, 0)))
       this
-    }
 
     /**
       * Tests that the actor under test has stopped itself.
       *
       * @return this test helper
       */
-    def checkActorStopped(): RunnerTestHelper = {
+    def checkActorStopped(): RunnerTestHelper =
       val probe = testKit.createDeadLetterProbe()
       probe.expectTerminated(checkRunnerActor)
       this
-    }
 
     /**
       * Returns the actor to be tested. This reference is obtained from the
@@ -803,11 +755,10 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the actor to be tested
       */
-    private def checkRunnerActor: ActorRef[MetadataStateActor.MetadataCheckRunnerCommand] = {
+    private def checkRunnerActor: ActorRef[MetadataStateActor.MetadataCheckRunnerCommand] =
       val actorRef = refCheckRunnerActor.get()
       actorRef should not be null
       actorRef
-    }
 
     /**
       * Creates a factory for the retriever actor that checks the passed in
@@ -831,7 +782,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the actor to be tested
       */
-    private def createCheckRunnerActor(): ActorRef[MetadataStateActor.MetadataCheckRunnerCommand] = {
+    private def createCheckRunnerActor(): ActorRef[MetadataStateActor.MetadataCheckRunnerCommand] =
       val behavior = MetadataStateActor.checkRunnerBehavior(TestRadioSource,
         "checker" + counter.incrementAndGet(),
         metaConfig,
@@ -842,60 +793,50 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         probeSourceChecker.ref,
         createRetrieverFactory())
       testKit.spawn(behavior)
-    }
-  }
 
-  "Source check actor" should "schedule the initial check" in {
+  "Source check actor" should "schedule the initial check" in:
     val expDelay = MetaExclusions(MetaBadMusic).checkInterval
     val helper = new SourceCheckTestHelper
 
     val schedule = helper.expectScheduledInvocation()
 
     schedule.delay should be(expDelay)
-  }
 
-  it should "support canceling the current check" in {
+  it should "support canceling the current check" in:
     val helper = new SourceCheckTestHelper
 
     helper.expectAndTriggerScheduledInvocation()
       .expectCheckRunnerCreation(MetaBadMusic)
       .sendCommand(MetadataStateActor.CancelSourceCheck(terminate = false))
       .expectCheckRunnerTimeout()
-      .checkActorNotStopped {
+      .checkActorNotStopped:
         helper.sendCommand(MetadataStateActor.MetadataCheckResult(None))
-      }
-  }
 
-  it should "support canceling the current check if no check is ongoing" in {
+  it should "support canceling the current check if no check is ongoing" in:
     val helper = new SourceCheckTestHelper
 
     helper.sendCommand(MetadataStateActor.CancelSourceCheck(terminate = false))
-      .checkActorNotStopped {
+      .checkActorNotStopped:
         helper.sendCommand(MetadataStateActor.CancelSourceCheck(terminate = false))
-      }
-  }
 
-  it should "support canceling the current check and stopping itself if no check is ongoing" in {
+  it should "support canceling the current check and stopping itself if no check is ongoing" in:
     val helper = new SourceCheckTestHelper
 
     helper.sendCommand(MetadataStateActor.CancelSourceCheck(terminate = true))
       .checkActorStopped()
-  }
 
-  it should "support canceling the current check and stopping itself after cancellation is complete" in {
+  it should "support canceling the current check and stopping itself after cancellation is complete" in:
     val helper = new SourceCheckTestHelper
 
     helper.expectAndTriggerScheduledInvocation()
       .expectCheckRunnerCreation(MetaBadMusic)
       .sendCommand(MetadataStateActor.CancelSourceCheck(terminate = true))
-      .checkActorNotStopped {
+      .checkActorNotStopped:
         helper.sendCommand(MetadataStateActor.CancelSourceCheck(terminate = false))
-      }
       .sendCommand(MetadataStateActor.MetadataCheckResult(optExclusion = None))
       .checkActorStopped()
-  }
 
-  it should "schedule a timeout for a new check" in {
+  it should "schedule a timeout for a new check" in:
     val helper = new SourceCheckTestHelper
     helper.expectAndTriggerScheduledInvocation()
 
@@ -904,18 +845,16 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     schedule.delay should be(TestRadioConfig.metadataCheckTimeout)
     schedule.invocation.send()
     helper.expectSourceCheckTimeout()
-  }
 
-  it should "handle a successful check result" in {
+  it should "handle a successful check result" in:
     val helper = new SourceCheckTestHelper
 
     helper.expectAndTriggerScheduledInvocation()
       .sendCommand(MetadataStateActor.MetadataCheckResult(None))
       .expectStateCommand(MetadataStateActor.SourceCheckSucceeded(TestRadioSource))
       .checkActorStopped()
-  }
 
-  it should "handle a check result requiring another check" in {
+  it should "handle a check result requiring another check" in:
     val helper = new SourceCheckTestHelper
     helper.expectAndTriggerScheduledInvocation()
       .expectCheckRunnerCreation(MetaBadMusic)
@@ -925,7 +864,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     helper.sendCommand(MetadataStateActor.MetadataCheckResult(MetaExclusions.get(MetaNotWanted)))
       .expectAndTriggerScheduledInvocation()
       .expectCheckRunnerCreation(MetaNotWanted, 2)
-  }
 
   /**
     * Helper function for testing whether further checks are scheduled with
@@ -934,7 +872,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     * @param queryResult the result of the interval service
     * @param expDelay    the expected delay
     */
-  private def checkDelayOfNextSchedule(queryResult: IntervalQueryResult, expDelay: FiniteDuration): Unit = {
+  private def checkDelayOfNextSchedule(queryResult: IntervalQueryResult, expDelay: FiniteDuration): Unit =
     val helper = new SourceCheckTestHelper
     helper.expectAndTriggerScheduledInvocation()
       .expectCheckRunnerCreation(MetaBadMusic)
@@ -946,33 +884,29 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     val delta = expDelay - invocation.delay
     delta should be < 3.seconds
-  }
 
-  it should "schedule a follow-up check based on the current exclusion" in {
+  it should "schedule a follow-up check based on the current exclusion" in:
     val queryResult = Before(new LazyDate(timeForTicks(1).plusMinutes(5)))
     val expDelay = MetaExclusions(MetaNotWanted).checkInterval
 
     checkDelayOfNextSchedule(queryResult, expDelay)
-  }
 
-  it should "schedule a follow-up check based on the next resume interval" in {
+  it should "schedule a follow-up check based on the next resume interval" in:
     val queryResult = Before(new LazyDate(timeForTicks(1).plusSeconds(10)))
     val expDelay = 10.seconds
 
     checkDelayOfNextSchedule(queryResult, expDelay)
-  }
 
-  it should "handle a large temporal delta gracefully when scheduling a follow-up check" in {
+  it should "handle a large temporal delta gracefully when scheduling a follow-up check" in:
     val queryResult = Before(new LazyDate(timeForTicks(1).plusYears(5000)))
     val expDelay = MetaExclusions(MetaNotWanted).checkInterval
 
     checkDelayOfNextSchedule(queryResult, expDelay)
-  }
 
   /**
     * A test helper class for the source check actor.
     */
-  private class SourceCheckTestHelper {
+  private class SourceCheckTestHelper:
     /** Test probe for the scheduler actor. */
     private val probeScheduler = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
@@ -1024,10 +958,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the command to send
       * @return this test helper
       */
-    def sendCommand(command: MetadataStateActor.SourceCheckCommand): SourceCheckTestHelper = {
+    def sendCommand(command: MetadataStateActor.SourceCheckCommand): SourceCheckTestHelper =
       sourceCheckActor ! command
       this
-    }
 
     /**
       * Prepares the mock for the intervals service to expect an invocation and
@@ -1037,10 +970,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param result the result to return
       * @return this test helper
       */
-    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): SourceCheckTestHelper = {
+    def prepareIntervalsService(time: LocalDateTime, result: IntervalQueryResult): SourceCheckTestHelper =
       initIntervalsServiceResult(intervalService, sourceConfig.resumeIntervals, time, result)
       this
-    }
 
     /**
       * Expects an invocation of the scheduler actor and returns the
@@ -1057,21 +989,19 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def expectAndTriggerScheduledInvocation(): SourceCheckTestHelper = {
+    def expectAndTriggerScheduledInvocation(): SourceCheckTestHelper =
       val invocationCommand = expectScheduledInvocation()
       invocationCommand.invocation.send()
       this
-    }
 
     /**
       * Expects that a timeout command has been sent to the check runner.
       *
       * @return this test helper
       */
-    def expectCheckRunnerTimeout(): SourceCheckTestHelper = {
+    def expectCheckRunnerTimeout(): SourceCheckTestHelper =
       probeCheckRunner.expectMessage(MetadataStateActor.MetadataCheckRunnerTimeout)
       this
-    }
 
     /**
       * Expects the creation of another check runner instance and stores it
@@ -1081,23 +1011,21 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param checkIndex   the numeric index expected in the name prefix
       * @return this test helper
       */
-    def expectCheckRunnerCreation(expExclusion: String, checkIndex: Int = 1): SourceCheckTestHelper = {
+    def expectCheckRunnerCreation(expExclusion: String, checkIndex: Int = 1): SourceCheckTestHelper =
       refProbeChecker set queueCheckerCreation.poll(3, TimeUnit.SECONDS)
       refCurrentExclusion.get() should be(MetaExclusions(expExclusion))
       refNamePrefix.get() should be("testNamePrefix_run" + checkIndex)
       this
-    }
 
     /**
       * Tests that the actor under test has terminated.
       *
       * @return this test helper
       */
-    def checkActorStopped(): SourceCheckTestHelper = {
+    def checkActorStopped(): SourceCheckTestHelper =
       val probe = testKit.createDeadLetterProbe()
       probe.expectTerminated(sourceCheckActor)
       this
-    }
 
     /**
       * Tests that the actor under test has not terminated. This can be checked
@@ -1108,12 +1036,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param block the block to trigger the test actor
       * @return this test helper
       */
-    def checkActorNotStopped(block: => Unit): SourceCheckTestHelper = {
+    def checkActorNotStopped(block: => Unit): SourceCheckTestHelper =
       val probe = testKit.createDeadLetterProbe()
       block
       probe.expectNoMessage(200.millis)
       this
-    }
 
     /**
       * Expects that the given command was sent to the parent state actor.
@@ -1121,10 +1048,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the expected command
       * @return this test helper
       */
-    def expectStateCommand(command: MetadataStateActor.MetadataExclusionStateCommand): SourceCheckTestHelper = {
+    def expectStateCommand(command: MetadataStateActor.MetadataExclusionStateCommand): SourceCheckTestHelper =
       probeStateActor.expectMessage(command)
       this
-    }
 
     /**
       * Expects that a source check timeout command has been sent to the parent
@@ -1141,11 +1067,10 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the probe for the check runner actor
       */
-    private def probeCheckRunner: TestProbe[MetadataStateActor.MetadataCheckRunnerCommand] = {
+    private def probeCheckRunner: TestProbe[MetadataStateActor.MetadataCheckRunnerCommand] =
       val probe = refProbeChecker.get()
       probe should not be null
       probe
-    }
 
     /**
       * Creates the mock for the intervals service and prepares it to answer
@@ -1192,7 +1117,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the actor under test
       */
-    private def createSourceCheckerActor(): ActorRef[MetadataStateActor.SourceCheckCommand] = {
+    private def createSourceCheckerActor(): ActorRef[MetadataStateActor.SourceCheckCommand] =
       val behavior = MetadataStateActor.sourceCheckBehavior(TestRadioSource,
         "testNamePrefix",
         TestRadioConfig,
@@ -1206,8 +1131,6 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         finderService,
         createCheckRunnerFactory())
       testKit.spawn(behavior)
-    }
-  }
 
   /**
     * Checks whether the metadata state actor detects the given metadata
@@ -1215,7 +1138,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     *
     * @param exclusion the exclusion to check
     */
-  private def checkMetadataExclusion(exclusion: String): Unit = {
+  private def checkMetadataExclusion(exclusion: String): Unit =
     val helper = new MetadataStateTestHelper
 
     helper.sendMetadataEvent(exclusion)
@@ -1225,48 +1148,41 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     creation.currentExclusion should be(MetaExclusions(exclusion))
     creation.source should be(TestRadioSource)
     creation.namePrefix should be(s"${MetadataStateActor.SourceCheckActorNamePrefix}1")
-  }
 
-  "Metadata exclusion state actor" should "detect a global metadata exclusion" in {
+  "Metadata exclusion state actor" should "detect a global metadata exclusion" in:
     checkMetadataExclusion(MetaBadMusic)
-  }
 
-  it should "detect a metadata exclusion for the current source" in {
+  it should "detect a metadata exclusion for the current source" in:
     checkMetadataExclusion(MetaNotWanted)
-  }
 
   /**
     * Tests whether a radio event unrelated to metadata updates is ignored.
     *
     * @param event the event
     */
-  private def checkIrrelevantEvent(event: RadioEvent): Unit = {
+  private def checkIrrelevantEvent(event: RadioEvent): Unit =
     val helper = new MetadataStateTestHelper
 
     helper.sendEvent(event)
       .expectNoSourceCheckCreation()
       .sendMetadataEvent(MetaBadMusic)
       .nextSourceCheckCreation()
-  }
 
-  it should "ignore metadata events without current metadata" in {
+  it should "ignore metadata events without current metadata" in:
     checkIrrelevantEvent(RadioMetadataEvent(TestRadioSource, MetadataNotSupported))
-  }
 
-  it should "ignore events of other types" in {
+  it should "ignore events of other types" in:
     checkIrrelevantEvent(RadioSourceChangedEvent(TestRadioSource))
-  }
 
-  it should "ignore metadata not matched by an exclusion" in {
+  it should "ignore metadata not matched by an exclusion" in:
     val helper = new MetadataStateTestHelper
 
     helper.sendMetadataEvent("no problem")
       .expectNoSourceCheckCreation()
       .sendMetadataEvent(MetaBadMusic, seqNo = 2)
       .nextSourceCheckCreation()
-  }
 
-  it should "create different source check actors for different sources" in {
+  it should "create different source check actors for different sources" in:
     val source2 = radioSource(2)
     val event2 = RadioMetadataEvent(source2, CurrentMetadata(MetaBadMusic))
     val helper = new MetadataStateTestHelper
@@ -1279,18 +1195,16 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
     creation2.metadataConfig should be(creation1.metadataConfig)
     creation2.namePrefix should be(s"${MetadataStateActor.SourceCheckActorNamePrefix}2")
-  }
 
-  it should "not create multiple check actors per source" in {
+  it should "not create multiple check actors per source" in:
     val helper = new MetadataStateTestHelper
     helper.sendMetadataEvent(MetaBadMusic)
       .nextSourceCheckCreation()
 
     helper.sendMetadataEvent(MetaNotWanted)
       .expectNoSourceCheckCreation()
-  }
 
-  it should "handle a successful source check" in {
+  it should "handle a successful source check" in:
     val helper = new MetadataStateTestHelper
     helper.sendMetadataEvent(MetaNotWanted)
       .expectDisabledSource()
@@ -1302,16 +1216,14 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .nextSourceCheckCreation()
 
     creation.source should be(TestRadioSource)
-  }
 
-  it should "ignore a message about a successful source check if the source is not disabled" in {
+  it should "ignore a message about a successful source check if the source is not disabled" in:
     val helper = new MetadataStateTestHelper
 
     helper.sendCommand(MetadataStateActor.SourceCheckSucceeded(TestRadioSource))
       .expectNoSourceEnabledChange()
-  }
 
-  it should "forward a source check timeout message" in {
+  it should "forward a source check timeout message" in:
     val helper = new MetadataStateTestHelper
     val creation = helper.sendMetadataEvent(MetaBadMusic)
       .nextSourceCheckCreation()
@@ -1319,9 +1231,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     helper.sendCommand(MetadataStateActor.SourceCheckTimeout(TestRadioSource, creation.probe.ref))
 
     creation.probe.expectMessage(MetadataStateActor.CancelSourceCheck(terminate = false))
-  }
 
-  it should "ignore a source check timeout message if the source is not disabled" in {
+  it should "ignore a source check timeout message if the source is not disabled" in:
     val helper = new MetadataStateTestHelper
     val creation = helper.sendMetadataEvent(MetaNotWanted)
       .nextSourceCheckCreation()
@@ -1330,9 +1241,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .sendCommand(MetadataStateActor.SourceCheckTimeout(TestRadioSource, creation.probe.ref))
 
     creation.probe.expectNoMessage(200.millis)
-  }
 
-  it should "enable all sources if the metadata config changes" in {
+  it should "enable all sources if the metadata config changes" in:
     val SourceCount = 4
     val sources = (1 to SourceCount) map radioSource
     val nextConfig = initMetaConfigMock(mock[MetadataConfig])
@@ -1359,9 +1269,8 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       .nextSourceCheckCreation()
     nextCreation.metadataConfig should be(nextConfig)
     nextCreation.namePrefix should be(s"${MetadataStateActor.SourceCheckActorNamePrefix}${SourceCount + 1}")
-  }
 
-  it should "ignore stale results from the exclusion finder service" in {
+  it should "ignore stale results from the exclusion finder service" in:
     val metaStr = "This is not forbidden"
     val promiseResponse = Promise[MetadataExclusionFinderService.MetadataExclusionFinderResponse]()
     val helper = new MetadataStateTestHelper
@@ -1373,12 +1282,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
     promiseResponse.success(MetadataExclusionFinderService.MetadataExclusionFinderResponse(exclusion, 0))
 
     helper.expectNoSourceEnabledChange()
-  }
 
   /**
     * A helper class for testing the metadata state actor.
     */
-  private class MetadataStateTestHelper {
+  private class MetadataStateTestHelper:
     /** Test probe for the source enabled state actor. */
     private val probeEnabledStateActor = testKit.createTestProbe[RadioControlProtocol.SourceEnabledStateCommand]()
 
@@ -1418,10 +1326,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param command the command to send
       * @return this test helper
       */
-    def sendCommand(command: MetadataStateActor.MetadataExclusionStateCommand): MetadataStateTestHelper = {
+    def sendCommand(command: MetadataStateActor.MetadataExclusionStateCommand): MetadataStateTestHelper =
       stateActor ! command
       this
-    }
 
     /**
       * Sends the given event to the registered listener.
@@ -1429,10 +1336,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param event the radio event to send
       * @return this test helper
       */
-    def sendEvent(event: RadioEvent): MetadataStateTestHelper = {
+    def sendEvent(event: RadioEvent): MetadataStateTestHelper =
       eventListener ! event
       this
-    }
 
     /**
       * Sends a metadata event with the given text to the registered listener.
@@ -1443,11 +1349,10 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param seqNo the expected sequence number
       * @return this test helper
       */
-    def sendMetadataEvent(data: String, seqNo: Int = 1): MetadataStateTestHelper = {
+    def sendMetadataEvent(data: String, seqNo: Int = 1): MetadataStateTestHelper =
       val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(data))
       prepareFinderService(data, seqNo = seqNo, time = event.time)
       sendEvent(event)
-    }
 
     /**
       * Prepares the mock for the finder service to expect an invocation and
@@ -1468,7 +1373,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
                              seqNo: Int = 1,
                              optResponse:
                              Option[Future[MetadataExclusionFinderService.MetadataExclusionFinderResponse]] = None):
-    MetadataStateTestHelper = {
+    MetadataStateTestHelper =
       val response = optResponse.getOrElse(Future.successful(
         MetadataExclusionFinderService.MetadataExclusionFinderResponse(MetaExclusions.get(metadata), seqNo)))
       val sourceConfig = config.metadataSourceConfig(source)
@@ -1478,28 +1383,25 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
         eqArg(time),
         eqArg(seqNo))(any())).thenReturn(response)
       this
-    }
 
     /**
       * Expects the creation of a source check actor and returns its reference.
       *
       * @return the next source check actor created by the test actor
       */
-    def nextSourceCheckCreation(): SourceCheckCreation = {
+    def nextSourceCheckCreation(): SourceCheckCreation =
       val checkActor = queueSourceCheckCreations.poll(3, TimeUnit.SECONDS)
       checkActor should not be null
       checkActor
-    }
 
     /**
       * Expects that no source check actor is created.
       *
       * @return this test helper
       */
-    def expectNoSourceCheckCreation(): MetadataStateTestHelper = {
+    def expectNoSourceCheckCreation(): MetadataStateTestHelper =
       queueSourceCheckCreations.poll(200, TimeUnit.MILLISECONDS) should be(null)
       this
-    }
 
     /**
       * Expects that the given radio source has been disabled.
@@ -1507,10 +1409,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param source the source in question
       * @return this test helper
       */
-    def expectDisabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper = {
+    def expectDisabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper =
       probeEnabledStateActor.expectMessage(RadioControlProtocol.DisableSource(source))
       this
-    }
 
     /**
       * Expects that the given radio source has been enabled.
@@ -1518,10 +1419,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       * @param source the source in question
       * @return this test helper
       */
-    def expectEnabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper = {
+    def expectEnabledSource(source: RadioSource = TestRadioSource): MetadataStateTestHelper =
       nextEnabledSource().source should be(source)
       this
-    }
 
     /**
       * Expects a message about an enabled source and returns it. This function
@@ -1538,10 +1438,9 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return this test helper
       */
-    def expectNoSourceEnabledChange(): MetadataStateTestHelper = {
+    def expectNoSourceEnabledChange(): MetadataStateTestHelper =
       probeEnabledStateActor.expectNoMessage(200.millis)
       this
-    }
 
     /**
       * Returns the event listener the actor under test should have registered
@@ -1549,13 +1448,11 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the event listener
       */
-    private def eventListener: ActorRef[RadioEvent] = {
-      if (refEventListener.get() == null) {
+    private def eventListener: ActorRef[RadioEvent] =
+      if refEventListener.get() == null then
         val reg = probeEventActor.expectMessageType[EventManagerActor.RegisterListener[RadioEvent]]
         refEventListener set reg.listener
-      }
       refEventListener.get()
-    }
 
     /**
       * Creates a factory for creating new source check actors. This factory
@@ -1601,7 +1498,7 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
       *
       * @return the actor under test
       */
-    private def createStateActor(): ActorRef[MetadataStateActor.MetadataExclusionStateCommand] = {
+    private def createStateActor(): ActorRef[MetadataStateActor.MetadataExclusionStateCommand] =
       val behavior = MetadataStateActor.metadataStateBehavior(TestRadioConfig,
         probeEnabledStateActor.ref,
         probeSchedulerActor.ref,
@@ -1615,6 +1512,3 @@ class MetadataStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecL
 
       actor ! MetadataStateActor.InitMetadataConfig(metaConfig)
       actor
-    }
-  }
-}

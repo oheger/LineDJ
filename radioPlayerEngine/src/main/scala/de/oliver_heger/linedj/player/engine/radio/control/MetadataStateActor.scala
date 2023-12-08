@@ -42,7 +42,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
   * another actor is started which checks periodically the metadata for the
   * affected source, so that it can be enabled again when there is a change.
   */
-object MetadataStateActor {
+object MetadataStateActor:
   /**
     * The base trait for commands processed by the metadata exclusion state
     * actor. This actor keeps track on the radio sources in exclusion state due
@@ -112,7 +112,7 @@ object MetadataStateActor {
     * A trait defining a factory function for creating new instances of the
     * metadata state actor.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns a ''Behavior'' for creating a new actor instance.
       *
@@ -136,7 +136,6 @@ object MetadataStateActor {
               finderService: MetadataExclusionFinderService,
               clock: Clock = Clock.systemDefaultZone(),
               sourceCheckFactory: SourceCheckFactory = sourceCheckBehavior): Behavior[MetadataExclusionStateCommand]
-  }
 
   /**
     * A data class holding the internal state for metadata exclusion checks.
@@ -152,7 +151,7 @@ object MetadataStateActor {
   private case class MetadataExclusionState(metaConfig: MetadataConfig,
                                             disabledSources: Map[RadioSource, ActorRef[SourceCheckCommand]],
                                             count: Int,
-                                            seqNo: Int) {
+                                            seqNo: Int):
     /**
       * Returns an updated state that marks the given source as disabled and
       * has some related property updates.
@@ -172,9 +171,8 @@ object MetadataStateActor {
       * @return an ''Option'' with the updated state
       */
     def enableIfDisabled(source: RadioSource): Option[MetadataExclusionState] =
-      if (disabledSources.contains(source)) Some(copy(disabledSources = disabledSources - source))
+      if disabledSources.contains(source) then Some(copy(disabledSources = disabledSources - source))
       else None
-  }
 
   /**
     * A default [[Factory]] implementation to create instances of the metadata
@@ -194,7 +192,7 @@ object MetadataStateActor {
       eventActor ! EventManagerActor.RegisterListener(listener)
 
       def handle(state: MetadataExclusionState): Behavior[MetadataExclusionStateCommand] =
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessage:
           case InitMetadataConfig(metaConfig) =>
             state.disabledSources foreach { e =>
               context.log.info("Stopping source check actor for {} due to configuration change.", e._1)
@@ -204,7 +202,7 @@ object MetadataStateActor {
             handle(state.copy(metaConfig = metaConfig, disabledSources = Map.empty))
 
           case HandleRadioEvent(event) =>
-            event match {
+            event match
               case RadioMetadataEvent(source, data@CurrentMetadata(_), time)
                 if !state.disabledSources.contains(source) =>
                 val nextState = state.copy(seqNo = state.seqNo + 1)
@@ -218,7 +216,6 @@ object MetadataStateActor {
                 handle(nextState)
               case _ =>
                 Behaviors.same
-            }
 
           case EventExclusionResponseArrived(response, source) if response.seqNo == state.seqNo =>
             response.result map { exclusion =>
@@ -252,11 +249,9 @@ object MetadataStateActor {
             } getOrElse Behaviors.same
 
           case SourceCheckTimeout(source, checkActor) =>
-            if (state.disabledSources.contains(source)) {
+            if state.disabledSources.contains(source) then
               checkActor ! CancelSourceCheck(terminate = false)
-            }
             Behaviors.same
-        }
 
       handle(MetadataExclusionState(MetadataConfig.Empty, Map.empty, 1, seqNo = 0))
     }
@@ -308,7 +303,7 @@ object MetadataStateActor {
     * radio source. This actor schedules metadata checks on this radio source
     * periodically by creating and managing a metadata check runner actor.
     */
-  private[control] trait SourceCheckFactory {
+  private[control] trait SourceCheckFactory:
     /**
       * Returns a ''Behavior'' for creating a new actor instance.
       *
@@ -338,7 +333,6 @@ object MetadataStateActor {
               intervalService: EvaluateIntervalsService,
               finderService: MetadataExclusionFinderService,
               runnerFactory: MetadataCheckRunnerFactory = checkRunnerBehavior): Behavior[SourceCheckCommand]
-  }
 
   /**
     * A default [[SourceCheckFactory]] instance that can be used to create new
@@ -358,9 +352,9 @@ object MetadataStateActor {
      finderService: MetadataExclusionFinderService,
      runnerFactory: MetadataCheckRunnerFactory) => Behaviors.setup { context =>
       def handleWaitForNextCheck(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case CancelSourceCheck(terminate) =>
-            if (terminate) Behaviors.stopped else Behaviors.same
+            if terminate then Behaviors.stopped else Behaviors.same
 
           case RunSourceCheck =>
             val nextCount = count + 1
@@ -382,23 +376,21 @@ object MetadataStateActor {
             handleCheckInProgress(runner, nextCount)
 
           case NextResumeInterval(time, result) =>
-            val timeUntilNextResumeInterval = result match {
+            val timeUntilNextResumeInterval = result match
               case Before(start) => durationBetween(time, start.value, exclusion.checkInterval)
               case _ => exclusion.checkInterval
-            }
             val nextCheckDelay = timeUntilNextResumeInterval.min(exclusion.checkInterval)
             context.log.info("Scheduling next metadata check for {} after {}.", source, nextCheckDelay)
             scheduleActor ! ScheduledInvocationActor.typedInvocationCommand(nextCheckDelay,
               context.self, RunSourceCheck)
             handleWaitForNextCheck(exclusion, count)
-        }
 
       def handleCheckInProgress(checkRunner: ActorRef[MetadataCheckRunnerCommand],
                                 count: Int): Behavior[SourceCheckCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case CancelSourceCheck(terminate) =>
             checkRunner ! MetadataCheckRunnerTimeout
-            if (terminate) handleWaitForTermination() else Behaviors.same
+            if terminate then handleWaitForTermination() else Behaviors.same
 
           case MetadataCheckResult(None) =>
             context.log.info("Metadata check successful for {}.", source)
@@ -407,15 +399,13 @@ object MetadataStateActor {
 
           case MetadataCheckResult(Some(exclusion)) =>
             queryResumeIntervals(exclusion, count)
-        }
 
       def handleWaitForTermination(): Behavior[SourceCheckCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case _: MetadataCheckResult =>
             Behaviors.stopped
-        }
 
-      def queryResumeIntervals(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] = {
+      def queryResumeIntervals(exclusion: MetadataExclusion, count: Int): Behavior[SourceCheckCommand] =
         implicit val ec: ExecutionContext = context.executionContext
         val refTime = time(clock)
         val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
@@ -423,7 +413,6 @@ object MetadataStateActor {
           context.self ! NextResumeInterval(refTime, result.result)
         }
         handleWaitForNextCheck(exclusion, count)
-      }
 
       context.log.info("Starting metadata source check actor {} for radio source {}.", namePrefix, source)
       queryResumeIntervals(currentExclusion, 0)
@@ -490,7 +479,7 @@ object MetadataStateActor {
     * current metadata. Instances are created periodically for affected
     * sources to check whether those sources can now be played again.
     */
-  private[control] trait MetadataCheckRunnerFactory {
+  private[control] trait MetadataCheckRunnerFactory:
     /**
       * Returns the ''Behavior'' to create a new instance of the metadata check
       * runner actor.
@@ -516,7 +505,6 @@ object MetadataStateActor {
               sourceChecker: ActorRef[SourceCheckCommand],
               retrieverFactory: MetadataRetrieveActorFactory = retrieveMetadataBehavior):
     Behavior[MetadataCheckRunnerCommand]
-  }
 
   /**
     * An internal data class holding the information required while running a
@@ -527,7 +515,7 @@ object MetadataStateActor {
     *                          intervals
     */
   private case class CheckState(currentExclusion: MetadataExclusion,
-                                optResumeInterval: Option[IntervalQueryResult]) {
+                                optResumeInterval: Option[IntervalQueryResult]):
     /**
       * Returns the last cached interval query result for the resume interval
       * if it is available and if it is still valid for the reference time
@@ -537,12 +525,10 @@ object MetadataStateActor {
       * @return an ''Option'' with the resume interval query result
       */
     def resumeIntervalAt(time: LocalDateTime): Option[IntervalQueryResult] =
-      optResumeInterval flatMap {
+      optResumeInterval flatMap:
         case r@Before(start) if time.isBefore(start.value) => Some(r)
         case r@Inside(until) if time.isBefore(until.value) => Some(r)
         case _ => None
-      }
-  }
 
   /**
     * A default [[MetadataCheckRunnerFactory]] instance that can be used to
@@ -565,7 +551,7 @@ object MetadataStateActor {
       val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
 
       def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessage:
           case retrieved@MetadataRetrieved(data, time) =>
             context.log.info("Received metadata during check: {}.", data.data)
             finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, time, 0) foreach { res =>
@@ -574,18 +560,18 @@ object MetadataStateActor {
             Behaviors.same
 
           case ExclusionFinderResult(MetadataRetrieved(data, time), result) =>
-            result match {
+            result match
               case Some(exclusion) =>
                 retriever ! GetMetadata
                 handle(state.copy(currentExclusion = exclusion))
               case None if state.currentExclusion.resumeMode == ResumeMode.MetadataChange =>
                 terminateCheck(None)
               case None =>
-                if (metadataSourceConfig.optSongPattern.isEmpty ||
-                  matches(metadataSourceConfig.optSongPattern.get, data.title)) {
+                if metadataSourceConfig.optSongPattern.isEmpty ||
+                  matches(metadataSourceConfig.optSongPattern.get, data.title) then
                   terminateCheck(None)
-                } else {
-                  state.resumeIntervalAt(time) match {
+                else
+                  state.resumeIntervalAt(time) match
                     case Some(value) =>
                       handleResumeIntervalResult(value, state)
                     case None =>
@@ -594,9 +580,6 @@ object MetadataStateActor {
                         context.self ! ResumeIntervalResult(res.result)
                       }
                       Behaviors.same
-                  }
-                }
-            }
 
           case ResumeIntervalResult(result) =>
             handleResumeIntervalResult(result, state.copy(optResumeInterval = Some(result)))
@@ -611,28 +594,24 @@ object MetadataStateActor {
             // updated metadata will be available again.
             sourceChecker ! MetadataCheckResult(None)
             Behaviors.stopped
-        }
 
       def handleTimeout(result: Option[MetadataExclusion]): Behavior[MetadataCheckRunnerCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case RadioStreamStopped =>
             sourceChecker ! MetadataCheckResult(result)
             Behaviors.stopped
-        }
 
-      def terminateCheck(result: Option[MetadataExclusion]): Behavior[MetadataCheckRunnerCommand] = {
+      def terminateCheck(result: Option[MetadataExclusion]): Behavior[MetadataCheckRunnerCommand] =
         retriever ! CancelStream
         handleTimeout(result)
-      }
 
       def handleResumeIntervalResult(result: IntervalQueryResult,
                                      nextState: CheckState): Behavior[MetadataCheckRunnerCommand] =
-        if (isInResumeInterval(result)) {
+        if isInResumeInterval(result) then
           terminateCheck(None)
-        } else {
+        else
           retriever ! GetMetadata
           handle(nextState)
-        }
 
       handle(CheckState(currentExclusion, None))
     }
@@ -645,10 +624,9 @@ object MetadataStateActor {
     * @return a flag whether there is currently a resume interval active
     */
   private def isInResumeInterval(result: IntervalQueryResult): Boolean =
-    result match {
+    result match
       case Inside(_) => true
       case _ => false
-    }
 
   /**
     * The base trait for commands processed by the metadata retrieve actor.
@@ -730,7 +708,7 @@ object MetadataStateActor {
                                            bridgeActor: classic.ActorRef,
                                            streamActor: classic.ActorRef,
                                            resolvedSource: AudioSource,
-                                           requestPending: Boolean) {
+                                           requestPending: Boolean):
     /**
       * Returns a [[MetadataRetrieved]] message to be sent to the check runner
       * actor if all criteria are fulfilled. Otherwise, result is ''None''. In
@@ -739,7 +717,7 @@ object MetadataStateActor {
       * @return an optional message to send and an updated state
       */
     def messageToSend(): (Option[MetadataRetrieved], MetadataRetrieveState) =
-      if (requestPending && optMetadata.isDefined && optMetadata != lastMetadata)
+      if requestPending && optMetadata.isDefined && optMetadata != lastMetadata then
         (optMetadata.map { data => MetadataRetrieved(data, metadataTime) },
           copy(requestPending = false, lastMetadata = optMetadata))
       else (None, this)
@@ -752,10 +730,8 @@ object MetadataStateActor {
       * @param streamManager the stream manager actor
       */
     def releaseStreamActor(source: RadioSource,
-                           streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]): Unit = {
+                           streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]): Unit =
       streamManager ! RadioStreamManagerActor.ReleaseStreamActor(source, streamActor, resolvedSource, optMetadata)
-    }
-  }
 
   /**
     * A data class holding information required during the initialization phase
@@ -770,7 +746,7 @@ object MetadataStateActor {
   private case class MetadataRetrieveInitState(requestPending: Boolean = false,
                                                streamCanceled: Boolean = false,
                                                optStreamActor: Option[classic.ActorRef] = None,
-                                               optResolvedSource: Option[AudioSource] = None) {
+                                               optResolvedSource: Option[AudioSource] = None):
     /**
       * Creates an initialized [[MetadataRetrieveState]] if all required data
       * is available. Otherwise, result is ''None''. This function is used to
@@ -779,10 +755,10 @@ object MetadataStateActor {
       * @return an ''Option'' with the initial metadata retrieve state
       */
     def createRetrieveState(): Option[MetadataRetrieveState] =
-      for {
+      for
         streamActor <- optStreamActor
         resolvedSource <- optResolvedSource
-      } yield MetadataRetrieveState(streamActor = streamActor,
+      yield MetadataRetrieveState(streamActor = streamActor,
         resolvedSource = resolvedSource,
         requestPending = requestPending,
         optMetadata = None,
@@ -790,7 +766,6 @@ object MetadataStateActor {
         lastMetadata = None,
         bridgeActor = null
       )
-  }
 
   /** The chunk size for requested audio data. */
   private val AudioDataChunkSize = 4096
@@ -799,7 +774,7 @@ object MetadataStateActor {
     * A trait defining a factory function for creating an internal actor that
     * retrieves metadata from a specific radio stream.
     */
-  private[control] trait MetadataRetrieveActorFactory {
+  private[control] trait MetadataRetrieveActorFactory:
     /**
       * Returns a ''Behavior'' for a new actor instance to retrieve metadata
       * from a radio stream.
@@ -812,7 +787,6 @@ object MetadataStateActor {
     def apply(source: RadioSource,
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               checkRunner: ActorRef[MetadataCheckRunnerCommand]): Behavior[MetadataRetrieveCommand]
-  }
 
   /**
     * A default [[MetadataRetrieveActorFactory]] implementation that can be
@@ -833,7 +807,7 @@ object MetadataStateActor {
       streamManager ! RadioStreamManagerActor.GetStreamActor(streamParams, streamResponseAdapter)
 
       def streamInitializing(state: MetadataRetrieveInitState): Behavior[MetadataRetrieveCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case GetMetadata =>
             streamInitializing(state.copy(requestPending = true))
 
@@ -845,16 +819,14 @@ object MetadataStateActor {
 
           case RadioStreamResolved(audioSource) =>
             completeInitializationIfPossible(state.copy(optResolvedSource = Some(audioSource)))
-        }
 
       def handle(retrieveState: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case RadioEventArrived(event) =>
-            event match {
+            event match
               case RadioMetadataEvent(_, data@CurrentMetadata(_), time) =>
                 sendMetadataIfPossible(retrieveState.copy(optMetadata = Some(data), metadataTime = time))
               case _ => Behaviors.same
-            }
 
           case GetMetadata =>
             sendMetadataIfPossible(retrieveState.copy(requestPending = true))
@@ -870,10 +842,9 @@ object MetadataStateActor {
             context.log.error("RadioStreamActor died when checking '{}'.", source)
             checkRunner ! RadioStreamStopped
             Behaviors.stopped
-        }
 
       def canceling(retrieveState: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case DataLoaded =>
             checkRunner ! RadioStreamStopped
             retrieveState.releaseStreamActor(source, streamManager)
@@ -882,16 +853,14 @@ object MetadataStateActor {
           case StreamActorDied =>
             checkRunner ! RadioStreamStopped
             Behaviors.stopped
-        }
 
-      def sendMetadataIfPossible(state: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] = {
+      def sendMetadataIfPossible(state: MetadataRetrieveState): Behavior[MetadataRetrieveCommand] =
         val (optMetadata, nextState) = state.messageToSend()
         optMetadata.foreach(checkRunner.!)
         handle(nextState)
-      }
 
       def completeInitializationIfPossible(initState: MetadataRetrieveInitState): Behavior[MetadataRetrieveCommand] =
-        initState.createRetrieveState() match {
+        initState.createRetrieveState() match
           case Some(state) if initState.streamCanceled =>
             state.releaseStreamActor(source, streamManager)
             checkRunner ! RadioStreamStopped
@@ -905,7 +874,6 @@ object MetadataStateActor {
 
           case None =>
             streamInitializing(initState)
-        }
 
       streamInitializing(MetadataRetrieveInitState())
     }
@@ -923,7 +891,7 @@ object MetadataStateActor {
     */
   private def createBridgeActor(context: ActorContext[MetadataRetrieveCommand],
                                 receiver: ActorRef[MetadataRetrieveCommand],
-                                streamActor: classic.ActorRef): classic.ActorRef = {
+                                streamActor: classic.ActorRef): classic.ActorRef =
     val props = Props(new Actor {
       override def receive: Receive = {
         case RequestData =>
@@ -934,7 +902,6 @@ object MetadataStateActor {
       }
     })
     context.actorOf(props)
-  }
 
   /**
     * Returns the current local time from the given [[Clock]].
@@ -943,4 +910,3 @@ object MetadataStateActor {
     * @return the current time of the clock as local time
     */
   private def time(clock: Clock): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
-}

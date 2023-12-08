@@ -18,33 +18,33 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
+import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import de.oliver_heger.linedj.test.ActorTestKitSupport
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.util.Timeout
-import org.apache.pekko.{actor => classic}
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.Clock
 import java.util.concurrent.{ArrayBlockingQueue, CountDownLatch, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /**
   * Test class for [[RadioControlActor]]. This class tests direct interactions
   * between the control actor and its children. The integration with the radio
   * player engine is tested by another spec.
   */
-class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers with MockitoSugar {
-  "RadioControlActor" should "initialize the radio sources config" in {
+class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
+  "RadioControlActor" should "initialize the radio sources config" in:
     val sourcesConfig = mock[RadioSourceConfig]
     val initCommand = RadioControlActor.InitRadioSourceConfig(sourcesConfig)
     val expStateCommand = RadioSourceStateActor.InitRadioSourceConfig(sourcesConfig)
@@ -52,9 +52,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.sendCommand(initCommand)
       .checkSourceStateCommand(expStateCommand)
-  }
 
-  it should "initialize the metadata config" in {
+  it should "initialize the metadata config" in:
     val metaConfig = mock[MetadataConfig]
     val initCommand = RadioControlActor.InitMetadataConfig(metaConfig)
     val expMetaStateCommand = MetadataStateActor.InitMetadataConfig(metaConfig)
@@ -62,9 +61,8 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.sendCommand(initCommand)
       .checkMetadataStateCommand(expMetaStateCommand)
-  }
 
-  it should "support selecting a radio source" in {
+  it should "support selecting a radio source" in:
     val newSource = radioSource(4)
     val setSourceCommand = RadioControlActor.SelectRadioSource(newSource)
     val expStateCommand = RadioSourceStateActor.RadioSourceSelected(newSource)
@@ -74,68 +72,59 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     helper.sendCommand(setSourceCommand)
       .checkSourceStateCommand(expStateCommand)
       .checkPlaybackStateCommand(expPlaybackStateCommand)
-  }
 
-  it should "provide an actor to handle SwitchToSource messages" in {
+  it should "provide an actor to handle SwitchToSource messages" in:
     val nextSource = radioSource(28)
     val helper = new ControlActorTestHelper
 
     helper.sendSwitchToSourceCommand(nextSource)
       .checkPlaybackStateCommand(PlaybackStateActor.PlaybackSource(nextSource))
-  }
 
-  it should "handle a command to start playback" in {
+  it should "handle a command to start playback" in:
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(RadioControlActor.StartPlayback)
       .checkPlaybackStateCommand(PlaybackStateActor.StartPlayback)
-  }
 
-  it should "handle a command to stop playback" in {
+  it should "handle a command to stop playback" in:
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(RadioControlActor.StopPlayback)
       .checkPlaybackStateCommand(PlaybackStateActor.StopPlayback)
-  }
 
-  it should "handle a command to disable a source" in {
+  it should "handle a command to disable a source" in:
     val source = radioSource(7)
     val helper = new ControlActorTestHelper
 
     helper.sendEnabledStateCommand(RadioControlProtocol.DisableSource(source))
       .checkSourceStateCommand(RadioSourceStateActor.RadioSourceDisabled(source))
-  }
 
-  it should "handle a command to enable a source" in {
+  it should "handle a command to enable a source" in:
     val source = radioSource(11)
     val helper = new ControlActorTestHelper
 
     helper.sendEnabledStateCommand(RadioControlProtocol.EnableSource(source))
       .checkSourceStateCommand(RadioSourceStateActor.RadioSourceEnabled(source))
-  }
 
-  it should "handle a command to query the sources in error state" in {
+  it should "handle a command to query the sources in error state" in:
     val probe = testKit.createTestProbe[ErrorStateActor.SourcesInErrorState]()
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(RadioControlActor.GetSourcesInErrorState(probe.ref))
       .checkErrorStateCommand(ErrorStateActor.GetSourcesInErrorState(probe.ref))
-  }
 
-  it should "create a playback guardian actor" in {
+  it should "create a playback guardian actor" in:
     val helper = new ControlActorTestHelper
 
     helper.checkGuardianActorCreated()
-  }
 
-  it should "handle a Stop command" in {
+  it should "handle a Stop command" in:
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(RadioControlActor.Stop)
       .checkControlActorStopped()
-  }
 
-  it should "handle a command to query the current playback state" in {
+  it should "handle a command to query the current playback state" in:
     val currentSource = radioSource(11)
     val selectedSource = radioSource(12)
     val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
@@ -143,25 +132,22 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
 
-    helper.expectPlaybackStateCommand() match {
+    helper.expectPlaybackStateCommand() match
       case PlaybackStateActor.GetPlaybackState(replyTo) =>
         replyTo ! PlaybackStateActor.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
           playbackActive = true)
       case m => fail("Unexpected playback state command: " + m)
-    }
 
     probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource),
       Some(selectedSource), playbackActive = true))
-  }
 
-  it should "handle a timeout when querying the playback state" in {
+  it should "handle a timeout when querying the playback state" in:
     val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
     val helper = new ControlActorTestHelper(Timeout(10.millis))
 
     helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
 
     probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false))
-  }
 
   /**
     * A test helper class managing a control actor under test and its
@@ -169,7 +155,7 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     *
     * @param askTimeout the ask timeout for the test actor
     */
-  private class ControlActorTestHelper(askTimeout: Timeout = Timeout(5.seconds)) {
+  private class ControlActorTestHelper(askTimeout: Timeout = Timeout(5.seconds)):
     /** A test configuration used by the control actor. */
     private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorCreator = mock[ActorCreator],
       mediaManagerActor = mock[classic.ActorRef]),
@@ -231,10 +217,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the command
       * @return this test helper
       */
-    def sendCommand(command: RadioControlActor.RadioControlCommand): ControlActorTestHelper = {
+    def sendCommand(command: RadioControlActor.RadioControlCommand): ControlActorTestHelper =
       controlActor ! command
       this
-    }
 
     /**
       * Expects that a message was passed to the source state actor and returns
@@ -251,10 +236,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the expected command
       * @return this test helper
       */
-    def checkSourceStateCommand(command: RadioSourceStateActor.RadioSourceStateCommand): ControlActorTestHelper = {
+    def checkSourceStateCommand(command: RadioSourceStateActor.RadioSourceStateCommand): ControlActorTestHelper =
       expectSourceStateCommand() should be(command)
       this
-    }
 
     /**
       * Sends a command to switch to a radio source to the actor reference
@@ -263,10 +247,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param source the affected radio source
       * @return this test helper
       */
-    def sendSwitchToSourceCommand(source: RadioSource): ControlActorTestHelper = {
+    def sendSwitchToSourceCommand(source: RadioSource): ControlActorTestHelper =
       playActor.ref ! RadioControlProtocol.SwitchToSource(source)
       this
-    }
 
     /**
       * Expects that a message was passed to the playback state actor and
@@ -283,10 +266,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the expected command
       * @return this test helper
       */
-    def checkPlaybackStateCommand(command: PlaybackStateActor.PlaybackStateCommand): ControlActorTestHelper = {
+    def checkPlaybackStateCommand(command: PlaybackStateActor.PlaybackStateCommand): ControlActorTestHelper =
       expectPlaybackStateCommand() should be(command)
       this
-    }
 
     /**
       * Sends a command to change the enabled state for a specific radio
@@ -295,10 +277,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the command to be sent
       * @return this test helper
       */
-    def sendEnabledStateCommand(command: RadioControlProtocol.SourceEnabledStateCommand): ControlActorTestHelper = {
+    def sendEnabledStateCommand(command: RadioControlProtocol.SourceEnabledStateCommand): ControlActorTestHelper =
       enabledStateActor.ref ! command
       this
-    }
 
     /**
       * Expects that a message was passed to the error state actor and returns
@@ -315,10 +296,9 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @param command the expected command
       * @return this test helper
       */
-    def checkErrorStateCommand(command: ErrorStateActor.ErrorStateCommand): ControlActorTestHelper = {
+    def checkErrorStateCommand(command: ErrorStateActor.ErrorStateCommand): ControlActorTestHelper =
       expectErrorStateCommand() should be(command)
       this
-    }
 
     /**
       * Tests that the given command was passed to the metadata state actor.
@@ -327,32 +307,29 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
       * @return this test helper
       */
     def checkMetadataStateCommand(command: MetadataStateActor.MetadataExclusionStateCommand):
-    ControlActorTestHelper = {
+    ControlActorTestHelper =
       probeMetadataStateActor.expectMessage(command)
       this
-    }
 
     /**
       * Checks whether the actor under test has been stopped.
       */
-    def checkControlActorStopped(): Unit = {
+    def checkControlActorStopped(): Unit =
       val probe = testKit.createDeadLetterProbe()
       probe.expectTerminated(controlActor)
-    }
 
     /**
       * Checks whether the playback guardian actor has been created.
       */
-    def checkGuardianActorCreated(): Unit = {
+    def checkGuardianActorCreated(): Unit =
       latchGuardianBehaviorCreated.await(3, TimeUnit.SECONDS) shouldBe true
-    }
 
     /**
       * Creates a test control actor instance.
       *
       * @return the actor to be tested
       */
-    private def createControlActor(): ActorRef[RadioControlActor.RadioControlCommand] = {
+    private def createControlActor(): ActorRef[RadioControlActor.RadioControlCommand] =
       testKit.spawn(RadioControlActor.behavior(stateActorFactory = createStateActorFactory(),
         playActorFactory = createPlayActorFactory(),
         errorActorFactory = createErrorStateActorFactory(),
@@ -366,7 +343,6 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         streamManagerActor = probeStreamManagerActor.ref,
         config = config,
         askTimeout = askTimeout))
-    }
 
     /**
       * Creates a factory to create a [[RadioSourceStateActor]]. This factory
@@ -454,11 +430,10 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         eventActor should be(probeEventManagerActor.ref)
         streamManager should be(probeStreamManagerActor.ref)
         intervalService should be(EvaluateIntervalsServiceImpl)
-        finderService match {
+        finderService match
           case svc: MetadataExclusionFinderServiceImpl =>
             svc.intervalsService should be(intervalService)
           case o => fail("Unexpected MetadataExclusionFinderService: " + o)
-        }
 
         enabledStateActor.actorCreated(enabledActor)
         Behaviors.monitor(probeMetadataStateActor.ref, Behaviors.ignore)
@@ -483,7 +458,6 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
         latchGuardianBehaviorCreated.countDown()
         Behaviors.ignore
       }
-  }
 
   /**
     * A helper class that manages an actor reference created asynchronously. It
@@ -494,25 +468,20 @@ class RadioControlActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     * @param refCount the number of expected references
     * @tparam T the type of the actor reference
     */
-  private class DynamicActorRef[T](refCount: Int = 1) {
+  private class DynamicActorRef[T](refCount: Int = 1):
     private val actorCreationQueue = new ArrayBlockingQueue[ActorRef[T]](refCount)
 
     private var actorField: ActorRef[T] = _
 
-    def actorCreated(actorRef: ActorRef[T]): Unit = {
+    def actorCreated(actorRef: ActorRef[T]): Unit =
       actorCreationQueue offer actorRef
-    }
 
-    def ref: ActorRef[T] = {
-      if (actorField == null) {
+    def ref: ActorRef[T] =
+      if actorField == null then
         val references = (1 to refCount).foldLeft(Set.empty[ActorRef[T]]) { (refs, _) =>
           refs + actorCreationQueue.poll(3, TimeUnit.SECONDS)
         }
         references should have size 1
         actorField = references.iterator.next()
         actorField should not be null
-      }
       actorField
-    }
-  }
-}

@@ -16,27 +16,27 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import de.oliver_heger.linedj.StateTestHelper
-import de.oliver_heger.linedj.player.engine.actors.{EventTestSupport, ScheduledInvocationActor}
-import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
+import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.control.EvaluateIntervalsService.EvaluateIntervalsResponse
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.control.ReplacementSourceSelectionService.ReplacementSourceSelectionResult
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import de.oliver_heger.linedj.test.{ActorTestKitSupport, StateTestHelper}
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, eq => eqArg}
+import org.mockito.ArgumentMatchers.{any, eq as eqArg}
 import org.mockito.Mockito.{verify, when}
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.time.LocalDateTime
+import scala.collection.immutable.{IndexedSeq, Seq}
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object RadioSourceStateActorSpec {
+object RadioSourceStateActorSpec:
   /** The delay for another check of the current source. */
   private val SourceCheckDelay = 5.minutes
 
@@ -60,17 +60,15 @@ object RadioSourceStateActorSpec {
     */
   private def testStates(count: Int): IndexedSeq[RadioSourceStateService.RadioSourceState] =
     (1 to count) map testState
-}
 
 /**
   * Test class for [[RadioSourceStateActor]].
   */
-class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
-  with MockitoSugar {
+class RadioSourceStateActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
 
-  import RadioSourceStateActorSpec._
+  import RadioSourceStateActorSpec.*
 
-  "A RadioSourceStateActor" should "init the radio source configuration" in {
+  "A RadioSourceStateActor" should "init the radio source configuration" in:
     val config = mock[RadioSourceConfig]
     val states = testStates(2)
     val helper = new StateActorTestHelper
@@ -81,9 +79,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .stubReadActions(states(1))
       .sendCommand(RadioSourceStateActor.InitRadioSourceConfig(config))
       .expectStateUpdates(states)
-  }
 
-  it should "set another source as current" in {
+  it should "set another source as current" in:
     val source = radioSource(1)
     val states = testStates(2)
     val helper = new StateActorTestHelper
@@ -93,9 +90,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     }.stubReadActions(states(1))
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
-  }
 
-  it should "set a source as disabled" in {
+  it should "set a source as disabled" in:
     val source = radioSource(11)
     val states = testStates(2)
     val helper = new StateActorTestHelper
@@ -105,9 +101,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     }.stubReadActions(states(1))
       .sendCommand(RadioSourceStateActor.RadioSourceDisabled(source))
       .expectStateUpdates(states)
-  }
 
-  it should "set a source as enabled" in {
+  it should "set a source as enabled" in:
     val source = radioSource(22)
     val states = testStates(2)
     val helper = new StateActorTestHelper
@@ -117,9 +112,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     }.stubReadActions(states(1))
       .sendCommand(RadioSourceStateActor.RadioSourceEnabled(source))
       .expectStateUpdates(states)
-  }
 
-  it should "handle a state action to switch to another source" in {
+  it should "handle a state action to switch to another source" in:
     val source = radioSource(2)
     val states = testStates(2)
     val helper = new StateActorTestHelper
@@ -133,9 +127,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .expectSwitchToSource(source)
       .expectStateUpdates(states)
       .checkEvent { time => RadioSourceSelectedEvent(source, time) }
-  }
 
-  it should "handle a state action to switch to another source if a replacement source ends" in {
+  it should "handle a state action to switch to another source if a replacement source ends" in:
     val source = radioSource(3)
     val replacementSource = radioSource(33)
     val states = testStates(2)
@@ -148,9 +141,8 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .expectSwitchToSource(source)
       .expectStateUpdates(states)
       .checkEvent { time => RadioSourceReplacementEndEvent(replacementSource, time) }
-  }
 
-  it should "handle a state action to start a replacement source" in {
+  it should "handle a state action to start a replacement source" in:
     val currentSource = radioSource(1)
     val replacementSource = radioSource(11)
     val states = testStates(2)
@@ -163,7 +155,6 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .expectSwitchToSource(replacementSource)
       .expectStateUpdates(states)
       .checkEvent { time => RadioSourceReplacementStartEvent(currentSource, replacementSource, time) }
-  }
 
   /**
     * Tests whether a state action to trigger an evaluation is correctly
@@ -171,7 +162,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     *
     * @param sourceChanged flag whether the source was changed
     */
-  private def checkEvaluationStateAction(sourceChanged: Boolean): Unit = {
+  private def checkEvaluationStateAction(sourceChanged: Boolean): Unit =
     val source = radioSource(1)
     val states = testStates(4)
     val evalResult = mock[EvaluateIntervalsResponse]
@@ -187,15 +178,12 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfEvaluationResult()
-  }
 
-  it should "handle a state action to start an evaluation" in {
+  it should "handle a state action to start an evaluation" in:
     checkEvaluationStateAction(sourceChanged = false)
-  }
 
-  it should "handle a state action to start an evaluation for a changed source" in {
+  it should "handle a state action to start an evaluation for a changed source" in:
     checkEvaluationStateAction(sourceChanged = true)
-  }
 
   /**
     * Tests whether a state action to search for a replacement source is
@@ -203,7 +191,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
     *
     * @param sourceChanged flag whether the source was changed
     */
-  private def checkReplacementStateAction(sourceChanged: Boolean): Unit = {
+  private def checkReplacementStateAction(sourceChanged: Boolean): Unit =
     val source = radioSource(1)
     val states = testStates(4)
     val replaceResult = mock[ReplacementSourceSelectionResult]
@@ -219,17 +207,14 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .expectStateUpdates(states)
       .checkTimeOfReplacementResult()
-  }
 
-  it should "handle a state action to search a replacement source" in {
+  it should "handle a state action to search a replacement source" in:
     checkReplacementStateAction(sourceChanged = false)
-  }
 
-  it should "handle a state action to search a replacement source for a changed source" in {
+  it should "handle a state action to search a replacement source for a changed source" in:
     checkReplacementStateAction(sourceChanged = true)
-  }
 
-  it should "handle a state action to schedule a check for a source" in {
+  it should "handle a state action to schedule a check for a source" in:
     val source = radioSource(1)
     val SeqNo = 42
     val states = testStates(4)
@@ -244,14 +229,13 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       .sendCommand(RadioSourceStateActor.RadioSourceSelected(source))
       .handleScheduledInvocation()
       .expectStateUpdates(states)
-  }
 
   /**
     * A test helper class managing an actor under test and its dependencies.
     */
   private class StateActorTestHelper
     extends StateTestHelper[RadioSourceStateService.RadioSourceState, RadioSourceStateService]
-      with EventTestSupport[RadioEvent] with Matchers {
+      with EventTestSupport[RadioEvent] with Matchers:
     override val updateService: RadioSourceStateService = mock[RadioSourceStateService]
 
     /** Mock for the service to evaluate interval queries. */
@@ -279,10 +263,9 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @param command the command
       * @return this test helper
       */
-    def sendCommand(command: RadioSourceStateActor.RadioSourceStateCommand): StateActorTestHelper = {
+    def sendCommand(command: RadioSourceStateActor.RadioSourceStateCommand): StateActorTestHelper =
       stateActor ! command
       this
-    }
 
     /**
       * Stubs the mock state service to expect a ''readActions()'' operation.
@@ -309,11 +292,10 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       */
     def stubMultiReadActions(firstState: RadioSourceStateService.RadioSourceState,
                              secondState: RadioSourceStateService.RadioSourceState,
-                             actions: RadioSourceStateService.StateAction*): StateActorTestHelper = {
+                             actions: RadioSourceStateService.StateAction*): StateActorTestHelper =
       when(updateService.readActions()).thenAnswer((_: InvocationOnMock) => createState(firstState, actions.toList))
         .thenAnswer((_: InvocationOnMock) => createState(secondState, List.empty))
       this
-    }
 
     /**
       * Expects that state updates according to the given sequence of test
@@ -323,11 +305,10 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @param states the sequence of test states
       * @return this test helper
       */
-    def expectStateUpdates(states: Seq[RadioSourceStateService.RadioSourceState]): StateActorTestHelper = {
+    def expectStateUpdates(states: Seq[RadioSourceStateService.RadioSourceState]): StateActorTestHelper =
       expectStateUpdate(RadioSourceStateServiceImpl.InitialState)
       states.init.foreach(expectStateUpdate)
       this
-    }
 
     /**
       * Expects that the given radio source is passed to the playback actor.
@@ -335,10 +316,9 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @param source the radio source
       * @return this test helper
       */
-    def expectSwitchToSource(source: RadioSource): StateActorTestHelper = {
+    def expectSwitchToSource(source: RadioSource): StateActorTestHelper =
       playbackActor.expectMessage(RadioControlProtocol.SwitchToSource(source))
       this
-    }
 
     /**
       * Checks whether the given event has been published using the event
@@ -347,11 +327,10 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @param event the expected event
       * @return this test helper
       */
-    def checkEvent(event: LocalDateTime => RadioEvent): StateActorTestHelper = {
+    def checkEvent(event: LocalDateTime => RadioEvent): StateActorTestHelper =
       val receivedEvent = expectEvent[RadioEvent](eventActor)
       receivedEvent should be(event(receivedEvent.time))
       this
-    }
 
     /**
       * Returns a [[RadioSourceStateService.EvalFunc]] that checks the passed
@@ -410,12 +389,11 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       *
       * @return this test helper
       */
-    def handleScheduledInvocation(): StateActorTestHelper = {
+    def handleScheduledInvocation(): StateActorTestHelper =
       val command = scheduleActor.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
       command.delay should be(SourceCheckDelay)
       command.invocation.send()
       this
-    }
 
     override protected def eventTimeExtractor: RadioEvent => LocalDateTime = _.time
 
@@ -428,7 +406,7 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       * @return this test helper
       */
     private def checkTimeOfResult(captureFunc: (RadioSourceStateService, ArgumentCaptor[LocalDateTime]) => Unit):
-    StateActorTestHelper = {
+    StateActorTestHelper =
       val currentTime = capture { service =>
         val captor = ArgumentCaptor.forClass(classOf[LocalDateTime])
         captureFunc(service, captor)
@@ -436,6 +414,3 @@ class RadioSourceStateActorSpec extends ScalaTestWithActorTestKit with AnyFlatSp
       }
       assertCurrentTime(currentTime)
       this
-    }
-  }
-}

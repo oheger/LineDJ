@@ -31,7 +31,7 @@ import org.apache.pekko.{Done, NotUsed}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object RadioStreamActor {
+object RadioStreamActor:
   /**
     * A message this actor sends to itself when the audio stream to play has
     * been created. The create operation is done asynchronously by the
@@ -103,7 +103,6 @@ object RadioStreamActor {
             eventActor: typed.ActorRef[RadioEvent],
             streamBuilder: RadioStreamBuilder): Props =
     Props(classOf[RadioStreamActor], config, streamSource, sourceListener, eventActor, streamBuilder)
-}
 
 /**
   * An actor class that reads audio data from an internet radio stream.
@@ -148,7 +147,7 @@ private class RadioStreamActor(config: PlayerConfig,
                                streamSource: RadioSource,
                                sourceListener: SourceListener,
                                eventActor: typed.ActorRef[RadioEvent],
-                               streamBuilder: RadioStreamBuilder) extends Actor with ActorLogging {
+                               streamBuilder: RadioStreamBuilder) extends Actor with ActorLogging:
   private implicit val materializer: Materializer = Materializer(context)
 
   private implicit val ec: ExecutionContext = context.dispatcher
@@ -168,30 +167,27 @@ private class RadioStreamActor(config: PlayerConfig,
   /** Stores the event listener actor, which can be updated. */
   private var optEventActor: Option[typed.ActorRef[RadioEvent]] = Some(eventActor)
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
 
     val sinkAudio = createAudioSink()
     val sinkMeta = createMetadataSink()
 
     streamBuilder.buildRadioStream(config, streamSource.uri, sinkAudio, sinkMeta) onComplete { triedResult =>
-      val resultMsg = triedResult match {
+      val resultMsg = triedResult match
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))
         case Success(value) => AudioStreamCreated(value)
-      }
       self ! resultMsg
     }
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case AudioStreamCreated(result) =>
       log.info("Playing audio stream from {}.", result.resolvedUri)
       sourceListener(AudioSource(result.resolvedUri, Long.MaxValue, 0, 0), self)
-      if (!result.metadataSupported) {
+      if !result.metadataSupported then
         log.info("No support for metadata.")
         sendMetadataEvent(RadioMetadataEvent(streamSource, MetadataNotSupported))
-      }
       optKillSwitch = Some(result.killSwitch)
       result.graph.run()
 
@@ -222,7 +218,6 @@ private class RadioStreamActor(config: PlayerConfig,
       optKillSwitch foreach (_.shutdown())
       optStreamData foreach (_._2 ! Ack)
       context.become(closing(sender()))
-  }
 
   /**
     * A receive function that becomes active when the actor receives a close
@@ -233,7 +228,7 @@ private class RadioStreamActor(config: PlayerConfig,
     * @param client the client actor expecting the close ack
     * @return the receive function for closing state
     */
-  private def closing(client: ActorRef): Receive = {
+  private def closing(client: ActorRef): Receive =
     case StreamInitialized =>
       sender() ! Ack
 
@@ -247,7 +242,6 @@ private class RadioStreamActor(config: PlayerConfig,
       log.info("Received message {} interpreted as stream end of source '{}'.", msg, streamSource)
       client ! CloseAck(self)
       self ! PoisonPill
-  }
 
   /**
     * Creates the ''Sink'' for the audio data of the managed stream. This is
@@ -256,11 +250,10 @@ private class RadioStreamActor(config: PlayerConfig,
     *
     * @return the audio ''Sink'' for the managed stream
     */
-  private def createAudioSink(): Sink[ByteString, NotUsed] = {
+  private def createAudioSink(): Sink[ByteString, NotUsed] =
     val sink = Sink.actorRefWithBackpressure[BufferDataResult](ref = self, onInitMessage = StreamInitialized,
       onCompleteMessage = StreamDone, ackMessage = Ack, onFailureMessage = StreamFailure.apply)
     sink.contramap[ByteString] { data => BufferDataResult(data) }
-  }
 
   /**
     * Creates the ''Sink'' to process the metadata of the managed stream. This
@@ -279,11 +272,11 @@ private class RadioStreamActor(config: PlayerConfig,
     * case, the request can be served. Then the stream can be ACKed, and the
     * state of this actor can be reset.
     */
-  private def sendDataIfPossible(): Unit = {
-    val sendOperation = for {
+  private def sendDataIfPossible(): Unit =
+    val sendOperation = for
       client <- optDataRequest
       data <- optStreamData
-    } yield () => {
+    yield () => {
       client ! data._1
       data._2 ! Ack
     }
@@ -293,7 +286,6 @@ private class RadioStreamActor(config: PlayerConfig,
       optDataRequest = None
       optStreamData = None
     }
-  }
 
   /**
     * Sends a metadata event to the current event listener actor if it is
@@ -301,11 +293,9 @@ private class RadioStreamActor(config: PlayerConfig,
     *
     * @param event the event to send
     */
-  private def sendMetadataEvent(event: RadioMetadataEvent): Unit = {
-    optEventActor foreach {
+  private def sendMetadataEvent(event: RadioMetadataEvent): Unit =
+    optEventActor foreach:
       _ ! event
-    }
-  }
 
   /**
     * Raises an error by sending a failure message with the given exception to
@@ -313,7 +303,5 @@ private class RadioStreamActor(config: PlayerConfig,
     *
     * @param exception the exception
     */
-  private def streamError(exception: Throwable): Unit = {
+  private def streamError(exception: Throwable): Unit =
     self ! StreamFailure(exception)
-  }
-}

@@ -46,7 +46,7 @@ import scala.concurrent.duration._
   * for audio playback need to be created to test whether a playback context
   * can be created, and audio data is actually processed.
   */
-object ErrorStateActor {
+object ErrorStateActor:
   /**
     * A prefix that is used to generate names for child actors. It is appended
     * by a counter that is incremented for each source in error state.
@@ -99,7 +99,7 @@ object ErrorStateActor {
     * A trait defining a factory function for creating new instances of the
     * error state actor.
     */
-  trait Factory {
+  trait Factory:
     /**
       * Returns the ''Behavior'' to create a new instance of the error state
       * actor.
@@ -127,7 +127,6 @@ object ErrorStateActor {
               schedulerFactory: CheckSchedulerActorFactory = checkSchedulerBehavior,
               checkSourceActorFactory: CheckSourceActorFactory = checkSourceBehavior,
               optSpawner: Option[Spawner] = None): Behavior[ErrorStateCommand]
-  }
 
   /**
     * A default [[Factory]] implementation to create instances of the error
@@ -170,7 +169,7 @@ object ErrorStateActor {
     * playing audio data. An instance is used to setup the infrastructure to
     * test a radio source.
     */
-  private[control] trait PlaybackActorsFactory {
+  private[control] trait PlaybackActorsFactory:
     /**
       * Returns an object with the actors required for playing audio data. This
       * function creates a dummy line writer actor, a source actor, and a
@@ -195,14 +194,13 @@ object ErrorStateActor {
                              creator: ActorCreator,
                              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
     PlaybackActorsFactoryResult
-  }
 
   /**
     * A default implementation of [[PlaybackActorsFactory]]. It uses the
     * actor creator in the provided configuration to create the required actor
     * instances.
     */
-  private[control] val playbackActorsFactory = new PlaybackActorsFactory {
+  private[control] val playbackActorsFactory = new PlaybackActorsFactory:
     override def createPlaybackActors(namePrefix: String,
                                       playerEventActor: ActorRef[PlayerEvent],
                                       radioEventActor: ActorRef[RadioEvent],
@@ -210,15 +208,13 @@ object ErrorStateActor {
                                       config: PlayerConfig,
                                       creator: ActorCreator,
                                       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
-    PlaybackActorsFactoryResult = {
+    PlaybackActorsFactoryResult =
       val lineWriter = creator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
       val sourceActor = creator.createClassicActor(RadioDataSourceActor(config, radioEventActor, streamManager),
         namePrefix + "SourceActor")
       val playActor = creator.createClassicActor(PlaybackActor(config, sourceActor, lineWriter,
         playerEventActor, factoryActor), namePrefix + "PlaybackActor")
       PlaybackActorsFactoryResult(sourceActor, playActor)
-    }
-  }
 
   /**
     * The base command trait of an internal actor that periodically checks the
@@ -272,7 +268,7 @@ object ErrorStateActor {
     * scheduled accordingly. If a check was successful, the actor stops itself.
     * This is the signal that the radio source is valid again.
     */
-  private[control] trait CheckSourceActorFactory {
+  private[control] trait CheckSourceActorFactory:
     /**
       * Returns a ''Behavior'' of a new actor instance to check the error state
       * of a specific radio source.
@@ -297,13 +293,12 @@ object ErrorStateActor {
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               checkPlaybackFactory: CheckPlaybackActorFactory = checkPlaybackBehavior,
               optSpawner: Option[Spawner] = None): Behavior[CheckRadioSourceCommand]
-  }
 
   /**
     * A default [[CheckSourceActorFactory]] implementation that can be used to
     * create instances of the check radio source actor.
     */
-  private[control] val checkSourceBehavior = new CheckSourceActorFactory {
+  private[control] val checkSourceBehavior = new CheckSourceActorFactory:
     override def apply(config: RadioPlayerConfig,
                        source: RadioSource,
                        namePrefix: String,
@@ -311,7 +306,7 @@ object ErrorStateActor {
                        scheduler: ActorRef[ScheduleCheckCommand],
                        streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
                        checkPlaybackFactory: CheckPlaybackActorFactory,
-                       optSpawner: Option[Spawner]): Behavior[CheckRadioSourceCommand] = {
+                       optSpawner: Option[Spawner]): Behavior[CheckRadioSourceCommand] =
       val ctx = RadioSourceCheckContext(config = config,
         source = source,
         namePrefix = namePrefix,
@@ -322,8 +317,6 @@ object ErrorStateActor {
         optSpawner = optSpawner,
         retryDelay = config.retryFailedSource)
       handleRadioSourceCheckCommand(ctx)
-    }
-  }
 
   /**
     * The base command trait of an internal actor that checks whether playback
@@ -366,7 +359,7 @@ object ErrorStateActor {
     * source. If this is successful, it sends a corresponding success message
     * to the receiver actor. In all cases, it stops itself after the test.
     */
-  private[control] trait CheckPlaybackActorFactory {
+  private[control] trait CheckPlaybackActorFactory:
     /**
       * Returns a ''Behavior'' to create an instance of the actor to check a
       * specific radio source.
@@ -387,7 +380,6 @@ object ErrorStateActor {
               streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               playbackActorsFactory: PlaybackActorsFactory = ErrorStateActor.playbackActorsFactory):
     Behavior[CheckPlaybackCommand]
-  }
 
   /**
     * A default [[CheckPlaybackActorFactory]] implementation that can be used
@@ -418,7 +410,7 @@ object ErrorStateActor {
       context.watchWith(playbackActors.playActor, PlaybackActorDied)
 
       def checking(): Behavior[CheckPlaybackCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case CheckTimeout =>
             closeAndStop()
 
@@ -428,27 +420,24 @@ object ErrorStateActor {
           case PlaybackEventReceived(event) =>
             val success = isSuccessEvent(event)
             val error = isErrorEvent(event)
-            if (success || error) {
-              if (success) receiver ! RadioSourceCheckSuccessful()
+            if success || error then
+              if success then receiver ! RadioSourceCheckSuccessful()
               closeAndStop()
-            } else Behaviors.same
-        }
+            else Behaviors.same
 
       def closing(): Behavior[CheckPlaybackCommand] =
-        Behaviors.receiveMessagePartial {
+        Behaviors.receiveMessagePartial:
           case CloseComplete =>
             Behaviors.stopped
 
           case m =>
             context.log.info("Ignoring message {} while waiting for CloseAck.", m)
             Behaviors.same
-        }
 
-      def closeAndStop(): Behavior[CheckPlaybackCommand] = {
+      def closeAndStop(): Behavior[CheckPlaybackCommand] =
         CloseSupportTyped.triggerClose(context, context.self, CloseComplete,
           List(playbackActors.sourceActor, playbackActors.playActor))
         closing()
-      }
 
       checking()
     }
@@ -493,10 +482,9 @@ object ErrorStateActor {
     * at a specific point in time. The actor executing the check must then
     * either schedule another check or stop itself.
     */
-  private[control] trait CheckSchedulerActorFactory {
+  private[control] trait CheckSchedulerActorFactory:
     def apply(scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand]):
     Behavior[ScheduleCheckCommand]
-  }
 
   /**
     * A default [[CheckSchedulerActorFactory]] implementation for creating the
@@ -513,7 +501,7 @@ object ErrorStateActor {
     * @return the behavior of a dummy line writer actor
     */
   private def dummyLineWriterActor(): Behavior[LineWriterActor.LineWriterCommand] =
-    Behaviors.receiveMessagePartial {
+    Behaviors.receiveMessagePartial:
       case LineWriterActor.WriteAudioData(_, _, replyTo) =>
         replyTo ! LineWriterActor.AudioDataWritten(chunkLength = 1024, duration = 1.second)
         Behaviors.same
@@ -521,7 +509,6 @@ object ErrorStateActor {
       case LineWriterActor.DrainLine(_, replayTo) =>
         replayTo ! LineWriterActor.LineDrained
         Behaviors.same
-    }
 
   /**
     * Creates an [[ActorCreator]] that uses the given context to create child
@@ -532,7 +519,7 @@ object ErrorStateActor {
     * @return the [[ActorCreator]] using this context
     */
   private def childActorCreator[M](context: ActorContext[M]): ActorCreator =
-    new ActorCreator {
+    new ActorCreator:
       override def createActor[T](behavior: Behavior[T],
                                   name: String,
                                   optStopCommand: Option[T],
@@ -542,7 +529,6 @@ object ErrorStateActor {
                                       name: String,
                                       optStopCommand: Option[Any]): classic.ActorRef =
         context.actorOf(props, name)
-    }
 
   /**
     * Checks whether the given event indicates a successful playback.
@@ -551,10 +537,9 @@ object ErrorStateActor {
     * @return a flag whether this is a success event
     */
   private def isSuccessEvent(event: AnyRef): Boolean =
-    event match {
+    event match
       case _: PlaybackProgressEvent => true
       case _ => false
-    }
 
   /**
     * Checks whether the given event indicates a playback error.
@@ -563,14 +548,13 @@ object ErrorStateActor {
     * @return a flag whether this is an error event
     */
   private def isErrorEvent(event: AnyRef): Boolean =
-    event match {
+    event match
       case _: PlaybackContextCreationFailedEvent => true
       case _: PlaybackErrorEvent => true
       case _: RadioSourceErrorEvent => true
       case _: RadioPlaybackErrorEvent => true
       case _: RadioPlaybackContextCreationFailedEvent => true
       case _ => false
-    }
 
   /**
     * Checks whether the given event indicates an error when playing a radio
@@ -581,12 +565,11 @@ object ErrorStateActor {
     * @return an ''Option'' with the source affected by an error
     */
   private def extractErrorSource(event: RadioEvent): Option[RadioSource] =
-    event match {
+    event match
       case RadioPlaybackErrorEvent(source, _) => Some(source)
       case RadioPlaybackContextCreationFailedEvent(source, _) => Some(source)
       case RadioSourceErrorEvent(source, _) => Some(source)
       case _ => None
-    }
 
   /**
     * The message handler function of the check scheduler actor.
@@ -599,23 +582,21 @@ object ErrorStateActor {
   private def handleSchedulerCommands(scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                       inProgress: Option[ActorRef[CheckRadioSourceCommand]],
                                       pending: Queue[ActorRef[CheckRadioSourceCommand]]):
-  Behavior[ScheduleCheckCommand] = Behaviors.receive {
+  Behavior[ScheduleCheckCommand] = Behaviors.receive:
     case (ctx, AddScheduledCheck(checkActor, delay)) =>
       val command = ScheduledInvocationActor.typedInvocationCommand(delay, ctx.self, TriggerCheck(checkActor))
       scheduleActor ! command
       updateForCheckCompleted(ctx, scheduleActor, inProgress, pending, checkActor)
 
     case (ctx, TriggerCheck(checkActor)) =>
-      inProgress match {
+      inProgress match
         case Some(_) =>
           handleSchedulerCommands(scheduleActor, inProgress, pending :+ checkActor)
         case None =>
           triggerSourceCheck(ctx, scheduleActor, checkActor, pending)
-      }
 
     case (ctx, CheckActorDied(checkActor)) =>
       updateForCheckCompleted(ctx, scheduleActor, inProgress, pending, checkActor)
-  }
 
   /**
     * Invokes the given receiver actor to trigger a check on its associated
@@ -632,11 +613,10 @@ object ErrorStateActor {
                                  scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
                                  receiver: ActorRef[CheckRadioSourceCommand],
                                  pending: Queue[ActorRef[CheckRadioSourceCommand]]):
-  Behavior[ScheduleCheckCommand] = {
+  Behavior[ScheduleCheckCommand] =
     receiver ! RunRadioSourceCheck(scheduleActor)
     context.watchWith(receiver, CheckActorDied(receiver))
     handleSchedulerCommands(scheduleActor, Some(receiver), pending)
-  }
 
   /**
     * Updates the state of the check scheduler actor for a potentially
@@ -656,16 +636,15 @@ object ErrorStateActor {
                                       pending: Queue[ActorRef[CheckRadioSourceCommand]],
                                       checkActor: ActorRef[CheckRadioSourceCommand]):
   Behavior[ScheduleCheckCommand] =
-    if (inProgress.contains(checkActor)) {
+    if inProgress.contains(checkActor) then
       context.unwatch(checkActor)
 
-      pending.dequeueOption match {
+      pending.dequeueOption match
         case Some((nextActor, nextQueue)) =>
           triggerSourceCheck(context, scheduleActor, nextActor, nextQueue)
         case None =>
           handleSchedulerCommands(scheduleActor, None, pending)
-      }
-    } else Behaviors.same
+    else Behaviors.same
 
   /**
     * An internal data class holding all the information required for a check
@@ -697,7 +676,7 @@ object ErrorStateActor {
                                              optSpawner: Option[Spawner],
                                              retryDelay: FiniteDuration,
                                              count: Int = 1,
-                                             success: Boolean = false) {
+                                             success: Boolean = false):
     /**
       * Creates and prepares an actor to check the playback of the source
       * associated with this check context.
@@ -706,7 +685,7 @@ object ErrorStateActor {
       * @return the check playback actor
       */
     def triggerRadioSourceCheck(actorContext: ActorContext[CheckRadioSourceCommand]):
-    ActorRef[CheckPlaybackCommand] = {
+    ActorRef[CheckPlaybackCommand] =
       val spawner = getSpawner(optSpawner, actorContext)
       val playbackNamePrefix = s"${namePrefix}_${count}_"
       val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, factoryActor,
@@ -714,7 +693,6 @@ object ErrorStateActor {
       val checkPlaybackActor = spawner.spawn(checkPlaybackBehavior, Some(playbackNamePrefix + "check"))
       actorContext.watchWith(checkPlaybackActor, CheckPlaybackActorStopped)
       checkPlaybackActor
-    }
 
     /**
       * Returns an updated context after a check failed. Some properties are
@@ -722,12 +700,10 @@ object ErrorStateActor {
       *
       * @return the updated context
       */
-    def contextForRetry(): RadioSourceCheckContext = {
+    def contextForRetry(): RadioSourceCheckContext =
       val nextDelayMillis = math.min(math.round(retryDelay.toMillis * config.retryFailedSourceIncrement),
         config.maxRetryFailedSource.toMillis)
       copy(retryDelay = nextDelayMillis.millis, count = count + 1)
-    }
-  }
 
   /**
     * The message handler function of the check radio source actor.
@@ -740,7 +716,7 @@ object ErrorStateActor {
       checkContext.scheduler ! AddScheduledCheck(context.self, checkContext.config.retryFailedSource)
 
       def handle(state: RadioSourceCheckContext): Behavior[CheckRadioSourceCommand] =
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessage:
           case RunRadioSourceCheck(scheduleActor) =>
             val checkActor = state.triggerRadioSourceCheck(context)
             val timeoutCmd = ScheduledInvocationActor.typedInvocationCommand(checkContext.config.sourceCheckTimeout,
@@ -764,11 +740,9 @@ object ErrorStateActor {
             Behaviors.stopped
 
           case RadioSourceCheckTimeout(checkActor, count) =>
-            if (!state.success && count == state.count) {
+            if !state.success && count == state.count then
               checkActor ! CheckTimeout
-            }
             Behaviors.same
-        }
 
       handle(checkContext)
     }
@@ -805,7 +779,7 @@ object ErrorStateActor {
                                        checkSourceActorFactory: CheckSourceActorFactory,
                                        optSpawner: Option[Spawner],
                                        errorSources: Set[RadioSource] = Set.empty,
-                                       count: Int = 0) {
+                                       count: Int = 0):
     /**
       * Processes a radio source that caused an error and returns an updated
       * context object.
@@ -817,9 +791,9 @@ object ErrorStateActor {
       */
     def handleErrorSource(errorSource: RadioSource,
                           actorContext: ActorContext[ErrorStateCommand],
-                          scheduler: ActorRef[ScheduleCheckCommand]): ErrorStateContext = {
-      if (errorSources contains errorSource) this
-      else {
+                          scheduler: ActorRef[ScheduleCheckCommand]): ErrorStateContext =
+      if errorSources contains errorSource then this
+      else
         actorContext.log.info("Adding {} to error state.", errorSource)
         val index = count + 1
         val childNamePrefix = ActorNamePrefix + index
@@ -835,9 +809,6 @@ object ErrorStateActor {
         enabledStateActor ! RadioControlProtocol.DisableSource(errorSource)
 
         copy(count = index, errorSources = errorSources + errorSource)
-      }
-    }
-  }
 
   /**
     * The message handling function for the error state actor.
@@ -855,24 +826,22 @@ object ErrorStateActor {
         .spawn(schedulerBehavior, Some(SchedulerActorName))
 
       def handle(stateContext: ErrorStateContext): Behavior[ErrorStateCommand] =
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessage:
           case GetSourcesInErrorState(receiver) =>
             receiver ! SourcesInErrorState(stateContext.errorSources)
             Behaviors.same
 
           case HandleEvent(event) =>
-            extractErrorSource(event) match {
+            extractErrorSource(event) match
               case Some(errorSource) =>
                 handle(stateContext.handleErrorSource(errorSource, context, scheduler))
               case None =>
                 Behaviors.same
-            }
 
           case SourceAvailableAgain(source) =>
             context.log.info("Removing {} from error state.", source)
             stateContext.enabledStateActor ! RadioControlProtocol.EnableSource(source)
             handle(stateContext.copy(errorSources = stateContext.errorSources - source))
-        }
 
       handle(initialStateContext)
     }
@@ -888,4 +857,3 @@ object ErrorStateActor {
     */
   private def getSpawner[T](optSpawner: Option[Spawner], context: ActorContext[T]): Spawner =
     optSpawner getOrElse context
-}
