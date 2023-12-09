@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
-import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, PlaybackActor, PlayerFacadeActor}
+import de.oliver_heger.linedj.player.engine.actors.{DelayActor, EventManagerActor, EventTestSupport, PlaybackActor, PlayerFacadeActor}
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.{EventTestSupport, RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioPlaybackStoppedEvent, RadioSource}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.apache.pekko.actor as classic

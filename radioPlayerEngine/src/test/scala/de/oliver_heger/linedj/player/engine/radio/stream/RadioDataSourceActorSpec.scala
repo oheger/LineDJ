@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.*
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferDataComplete, BufferDataResult}
-import de.oliver_heger.linedj.player.engine.actors.{PlaybackActor, PlaybackProtocolViolation}
+import de.oliver_heger.linedj.player.engine.actors.{EventTestSupport, PlaybackActor, PlaybackProtocolViolation}
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.{EventTestSupport, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
