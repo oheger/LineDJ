@@ -34,30 +34,27 @@ import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
   * @param wrappedActor the actor to be wrapped
   * @param termErrorMsg message to be sent when the wrapped actor dies
   */
-class StreamSourceActorWrapper(wrappedActor: ActorRef, termErrorMsg: Any) extends Actor {
+class StreamSourceActorWrapper(wrappedActor: ActorRef, termErrorMsg: Any) extends Actor:
   /** Holds the client actor of an ongoing request. */
   private var optClient: Option[ActorRef] = None
 
   /** A flag whether the wrapped actor has been terminated. */
   private var wrappedActorTerminated = false
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     context watch wrappedActor
-  }
 
   /**
     * @inheritdoc This implementation stops the wrapped actor if it is still
     *             alive.
     */
-  override def postStop(): Unit = {
-    if (!wrappedActorTerminated) {
+  override def postStop(): Unit =
+    if !wrappedActorTerminated then
       context stop wrappedActor
-    }
     super.postStop()
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Terminated(_) =>
       wrappedActorTerminated = true
       sendAnswer(termErrorMsg)
@@ -66,13 +63,11 @@ class StreamSourceActorWrapper(wrappedActor: ActorRef, termErrorMsg: Any) extend
       sendAnswer(m)
 
     case m if sender() != wrappedActor && optClient.isEmpty =>
-      if (wrappedActorTerminated) {
+      if wrappedActorTerminated then
         sender() ! termErrorMsg
-      } else {
+      else
         optClient = Some(sender())
         wrappedActor ! m
-      }
-  }
 
   /**
     * Sends an answer for a pending request. If currently no request is in
@@ -80,8 +75,6 @@ class StreamSourceActorWrapper(wrappedActor: ActorRef, termErrorMsg: Any) extend
     *
     * @param m the message to be sent to the waiting client
     */
-  private def sendAnswer(m: Any): Unit = {
+  private def sendAnswer(m: Any): Unit =
     optClient foreach (_ ! m)
     optClient = None
-  }
-}

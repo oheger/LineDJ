@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.utils.LRUCache.CacheItem
 
 import scala.annotation.tailrec
 
-object LRUCache {
+object LRUCache:
   /**
     * A default size function which counts each entry of the cache as 1.
     * This is appropriate if the cache is limited to a specific number of
@@ -50,7 +50,7 @@ object LRUCache {
     * @tparam K the type of the key
     * @tparam V the type of the value
     */
-  private case class CacheItem[K, V](key: K) {
+  private case class CacheItem[K, V](key: K):
     /** The value of this item. */
     var value: V = _
 
@@ -59,9 +59,7 @@ object LRUCache {
 
     /** Reference to the next item in the list. */
     var next: CacheItem[K, V] = _
-  }
 
-}
 
 /**
   * A class implementing simple LRU cache functionality.
@@ -103,7 +101,7 @@ object LRUCache {
   * @tparam B the type of the values of the cache
   */
 class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
-                                     removableFunc: B => Boolean = LRUCache.AllRemovable) {
+                                     removableFunc: B => Boolean = LRUCache.AllRemovable):
   /** A map for storing the items contained in the cache. */
   private var items = Map.empty[A, CacheItem[A, B]]
 
@@ -132,12 +130,11 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
     * @return an ''Option'' with the value of this key
     */
   def get(k: A): Option[B] =
-    items get k match {
+    items get k match
       case Some(item) =>
         moveToFront(item)
         Some(item.value)
       case None => None
-    }
 
   /**
     * Obtains the item with the given key from the cache or returns the
@@ -186,11 +183,10 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
     * @param k the key
     * @param v the value
     */
-  def addItem(k: A, v: B): Unit = {
+  def addItem(k: A, v: B): Unit =
     val item = addToLRUList(k, v)
     items += k -> item
     handleCacheOverflow()
-  }
 
   /**
     * Performs an update of a key if it is contained in the cache. With this
@@ -204,7 +200,7 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
     * @return a flag whether the update was done
     */
   def updateItem(k: A)(f: B => B): Boolean =
-    items get k match {
+    items get k match
       case Some(item) =>
         val oldVal = item.value
         item.value = f(item.value)
@@ -213,7 +209,6 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
         true
       case None =>
         false
-    }
 
   /**
     * Removes the item with the specified key from this cache. The old value
@@ -223,12 +218,11 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
     * @return an ''Option'' with the last value of this key
     */
   def removeItem(k: A): Option[B] =
-    items get k match {
+    items get k match
       case Some(item) =>
         removeCacheItem(item)
         Some(item.value)
       case None => None
-    }
 
   /**
     * Returns the current size of the cache.
@@ -244,78 +238,65 @@ class LRUCache[A, B](cacheSize: Int)(sizeFunc: B => Int = LRUCache.SingleSize,
     * @param value the value to be added
     * @return the new cache item
     */
-  private def addToLRUList(key: A, value: B): CacheItem[A, B] = {
+  private def addToLRUList(key: A, value: B): CacheItem[A, B] =
     val item = CacheItem[A, B](key)
     item.value = value
     item.next = first
-    if (first != null) {
+    if first != null then
       first.previous = item
-    }
     first = item
-    if (last == null) last = item
+    if last == null then last = item
     currentCacheSize += sizeFunc(value)
     item
-  }
 
   /**
     * Moves the specified cache item to the beginning of the LRU list.
     *
     * @param cacheItem the chunk item
     */
-  private def moveToFront(cacheItem: CacheItem[A, B]): Unit = {
-    if (cacheItem.previous != null) {
+  private def moveToFront(cacheItem: CacheItem[A, B]): Unit =
+    if cacheItem.previous != null then
       removeFromList(cacheItem)
       cacheItem.next = first
       first.previous = cacheItem
       cacheItem.previous = null
       first = cacheItem
-    }
-  }
 
   /**
     * Removes the specified item from the LRU list and the cache.
     *
     * @param cacheItem the item
     */
-  private def removeCacheItem(cacheItem: CacheItem[A, B]): Unit = {
+  private def removeCacheItem(cacheItem: CacheItem[A, B]): Unit =
     removeFromList(cacheItem)
     items -= cacheItem.key
     currentCacheSize -= sizeFunc(cacheItem.value)
-  }
 
   /**
     * Removes the specified cache item from the LRU list.
     *
     * @param cacheItem the cache item
     */
-  private def removeFromList(cacheItem: CacheItem[A, B]): Unit = {
-    if (last == cacheItem) {
+  private def removeFromList(cacheItem: CacheItem[A, B]): Unit =
+    if last == cacheItem then
       last = cacheItem.previous
-    } else {
+    else
       cacheItem.next.previous = cacheItem.previous
-    }
 
-    if (first == cacheItem) {
+    if first == cacheItem then
       first = cacheItem.next
-    } else {
+    else
       cacheItem.previous.next = cacheItem.next
-    }
-  }
 
   /**
     * Checks whether the cache has exceeded its limit. If so, items that were
     * not accessed recently are removed.
     */
-  private def handleCacheOverflow(): Unit = {
-    @tailrec def removeItems(pos: CacheItem[A, B]): Unit = {
-      if (currentCacheSize > cacheSize && (pos ne first)) {
-        if (removableFunc(pos.value)) {
+  private def handleCacheOverflow(): Unit =
+    @tailrec def removeItems(pos: CacheItem[A, B]): Unit =
+      if currentCacheSize > cacheSize && (pos ne first) then
+        if removableFunc(pos.value) then
           removeCacheItem(pos)
-        }
         removeItems(pos.previous)
-      }
-    }
 
     removeItems(last)
-  }
-}

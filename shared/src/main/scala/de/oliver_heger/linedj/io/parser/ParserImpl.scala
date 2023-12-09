@@ -24,7 +24,7 @@ import scala.util.matching.Regex
 /**
   * Defines the data types used by the parser implementation.
   */
-object ParserTypes {
+object ParserTypes:
 
   /** A parser is a kind of state action that can fail. */
   type Parser[+A] = ParseState => Result[A]
@@ -37,7 +37,7 @@ object ParserTypes {
     * @param partialData information about a partial parse result
     * @param lastChunk a flag whether this is the last chunk
     */
-  case class ParseState(loc: Location, partialData: List[Any] = Nil, lastChunk: Boolean = true) {
+  case class ParseState(loc: Location, partialData: List[Any] = Nil, lastChunk: Boolean = true):
     def advanceBy(numChars: Int): ParseState =
       copy(loc = loc.copy(offset = loc.offset + numChars))
     def input: String = loc.input.substring(loc.offset)
@@ -55,11 +55,10 @@ object ParserTypes {
       * @tparam T the type of the partial data to be returned
       * @return the extracted partial data and the updated state
       */
-    def readPartialData[T](implicit tag: ClassTag[T]): (Option[T], ParseState) = partialData match {
+    def readPartialData[T](implicit tag: ClassTag[T]): (Option[T], ParseState) = partialData match
       case h :: t =>
         (Some(h.asInstanceOf[T]), copy(partialData = t))
       case _ => (None, this)
-    }
 
     /**
       * Clears information about partial parse results. This method is called
@@ -70,39 +69,33 @@ object ParserTypes {
       * @return the updated state
       */
     def clearPartialData(): ParseState =
-      if (partialData.isEmpty) this
+      if partialData.isEmpty then this
       else copy(partialData = Nil)
-  }
 
   /**
     * The result of a parser invocation.
     *
     * @tparam A the type of the result produced by the parser
     */
-  sealed trait Result[+A] {
-    def extract: Either[ParseError,A] = this match {
+  sealed trait Result[+A]:
+    def extract: Either[ParseError,A] = this match
       case Failure(e,_, _) => Left(e)
       case Success(a,_) => Right(a)
-    }
     /* Used by `attempt`. */
-    def uncommit: Result[A] = this match {
+    def uncommit: Result[A] = this match
       case Failure(e,true, d) => Failure(e,isCommitted = false, d)
       case _ => this
-    }
     /* Used by `flatMap` */
-    def addCommit(isCommitted: Boolean): Result[A] = this match {
+    def addCommit(isCommitted: Boolean): Result[A] = this match
       case Failure(e,c, d) => Failure(e, c || isCommitted, d)
       case _ => this
-    }
     /* Used by `scope`, `label`. */
-    def mapError(f: ParseError => ParseError): Result[A] = this match {
+    def mapError(f: ParseError => ParseError): Result[A] = this match
       case Failure(e,c,d) => Failure(f(e),c, d)
       case _ => this
-    }
-    def advanceSuccess(n: Int): Result[A] = this match {
+    def advanceSuccess(n: Int): Result[A] = this match
       case Success(a,m) => Success(a,n+m)
       case _ => this
-    }
 
     /**
       * Adds information about a failed parse operation to this result if it is
@@ -114,37 +107,31 @@ object ParserTypes {
       * @param data information to continue parsing
       * @return the updated result
       */
-    def appendPartialData(data: => Any): Result[A] = this match {
+    def appendPartialData(data: => Any): Result[A] = this match
       case Failure(e, c, d) => Failure(e, c, data :: d)
       case _ => this
-    }
 
     /**
       * Clears all information to continue a failed parse operation.
       *
       * @return the updated result
       */
-    def clearPartialData(): Result[A] = this match {
+    def clearPartialData(): Result[A] = this match
       case Failure(e, c, _) => Failure(e, c, Nil)
       case _ => this
-    }
-  }
   case class Success[+A](get: A, length: Int) extends Result[A]
   case class Failure(get: ParseError, isCommitted: Boolean, partialData: List[Any]) extends Result[Nothing]
 
   /** Returns -1 if s1.startsWith(s2), otherwise returns the
     * first index where the two strings differed. If s2 is
     * longer than s1, returns s1.length. */
-  def firstNonMatchingIndex(s1: String, s2: String, offset: Int): Int = {
+  def firstNonMatchingIndex(s1: String, s2: String, offset: Int): Int =
     var i = 0
-    while (i < s1.length && i < s2.length && i + offset < s1.length) {
-      if (s1.charAt(i+offset) != s2.charAt(i)) return i
+    while i < s1.length && i < s2.length && i + offset < s1.length do
+      if s1.charAt(i+offset) != s2.charAt(i) then return i
       i += 1
-    }
-    if (s1.length-offset >= s2.length) -1
+    if s1.length-offset >= s2.length then -1
     else s1.length-offset
-  }
-}
 
 /**
   * A concrete parser implementation which supports chunk-wise parsing.
@@ -154,7 +141,7 @@ object ParserTypes {
   * The original source code was extended to support the parsing of data in
   * multiple chunks.
   */
-object ParserImpl extends ChunkParser[Parser, Result, Failure] {
+object ParserImpl extends ChunkParser[Parser, Result, Failure]:
 
   /**
     * A data class representing a partial result of a many operation. An
@@ -177,7 +164,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
     * @param result the parser result
     * @tparam A the type of the result
     */
-  case class FlatMapPartialData[A](result: Option[Result[A]]) {
+  case class FlatMapPartialData[A](result: Option[Result[A]]):
     /**
       * Advances the specified state by the given index if this is allowed in
       * the current state. If the represented result stems from a previous
@@ -189,7 +176,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       * @return the updated state
       */
     def advanceAndUpdateState(s: ParseState, n: Int): ParseState =
-      if (canAdvance) s.clearPartialData() advanceBy n
+      if canAdvance then s.clearPartialData() advanceBy n
       else s
 
     /**
@@ -203,7 +190,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       * @return the updated result
       */
     def advanceResult[R](r: Result[R], n: Int): Result[R] =
-      if (canAdvance) r advanceSuccess n
+      if canAdvance then r advanceSuccess n
       else r
 
     /**
@@ -214,7 +201,6 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       */
     private def canAdvance: Boolean =
       result.isEmpty
-  }
 
   /**
     * A data class representing a partial result of an or operation. An
@@ -225,7 +211,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
     *
     * @param parserIndex the index of the active parser
     */
-  case class OrPartialData(parserIndex: Int) {
+  case class OrPartialData(parserIndex: Int):
     /**
       * Returns the first parser to invoke in an or operation. Which one this
       * is depends on the state of the overall parsing process.
@@ -236,7 +222,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       * @return the first parser to invoke
       */
     def firstParser[A](p: Parser[A], alt: => Parser[A]): Parser[A] =
-      if (parserIndex == 1) p else alt
+      if parserIndex == 1 then p else alt
 
     /**
       * Returns the second parser to invoke in an or operation. This is
@@ -249,8 +235,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       * @return the first parser to invoke
       */
     def alternativeParser[A](p: Parser[A], alt: => Parser[A]): Parser[A] =
-      if (parserIndex == 1) alt else p
-  }
+      if parserIndex == 1 then alt else p
 
   /**
     * Constant representing an empty partial result for a many operation.
@@ -274,12 +259,11 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
   private val EmptyFailure = Failure(get = ParseError(), isCommitted = false, partialData = Nil)
 
   def runChunk[A](p: Parser[A])(nextChunk: String, lastChunk: Boolean,
-                                optFailure: Option[Failure] = None): Result[A] = {
+                                optFailure: Option[Failure] = None): Result[A] =
     val failure = optFailure getOrElse EmptyFailure
     val nextInput = failure.get.latestLoc.map(l => l.input.substring(l.offset)).getOrElse("") +
       nextChunk
     p(ParseState(Location(nextInput), lastChunk = lastChunk, partialData = failure.partialData))
-  }
 
   // consume no characters and succeed with the given value
   def succeed[A](a: A): Parser[A] = s => Success(a, 0)
@@ -289,13 +273,11 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       lazy val alternative = p2
       val (optData, state) = s.readPartialData[OrPartialData]
       val orData = optData getOrElse FirstParser
-      orData.firstParser(p, alternative)(state) match {
-        case Failure(e, false, _) => orData.alternativeParser(p, alternative)(state.clearPartialData()) match {
+      orData.firstParser(p, alternative)(state) match
+        case Failure(e, false, _) => orData.alternativeParser(p, alternative)(state.clearPartialData()) match
           case f@Failure(er, false, _) => f.clearPartialData()
           case r => r.appendPartialData(AlternativeParser)
-        }
         case r => r.appendPartialData(FirstParser) // committed failure or success skips running `p2`
-      }
     }
 
   def flatMap[A, B](f: Parser[A])(g: A => Parser[B]): Parser[B] =
@@ -304,7 +286,7 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       val optResult = optData.flatMap(_.result)
       val data = optData getOrElse EmptyFlatMapPartialData
       val result = data.result getOrElse f(state)
-      result match {
+      result match
         case Success(a, n) =>
           val mapResult = g(a)(data.advanceAndUpdateState(state, n))
           data.advanceResult(mapResult, n)
@@ -312,37 +294,31 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
             .appendPartialData(FlatMapPartialData(Some(result)))
         case f@Failure(_, _, _) =>
           f.appendPartialData(EmptyFlatMapPartialData)
-      }
     }
 
-  def string(w: String): Parser[String] = {
+  def string(w: String): Parser[String] =
     val msg = "'" + w + "'"
     s => {
       val i = firstNonMatchingIndex(s.loc.input, w, s.loc.offset)
-      if (i == -1) {
+      if i == -1 then
         // they matched
         Success(w, w.length)
-      }
-      else {
+      else
         Failure(s.loc.toError(msg), i != 0, Nil)
-      }
     }
-  }
 
   /* note, regex matching is 'all-or-nothing':
    * failures are uncommitted */
-  def regex(r: Regex): Parser[String] = {
+  def regex(r: Regex): Parser[String] =
     val msg = "regex " + r
     s => {
-      r.findPrefixOf(s.input) match {
+      r.findPrefixOf(s.input) match
         case Some(m) =>
-          if(s.lastChunk || m.length < s.input.length)
+          if s.lastChunk || m.length < s.input.length then
             Success(m,m.length)
           else Failure(s.loc.toError(msg), isCommitted = true, Nil)
         case _ => Failure(s.loc.toError(msg), isCommitted = false, Nil)
-      }
     }
-  }
 
   def scope[A](msg: String)(p: Parser[A]): Parser[A] =
     s => p(s).mapError(_.push(s.loc,msg))
@@ -357,10 +333,9 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
     s => p(s).uncommit
 
   def slice[A](p: Parser[A]): Parser[String] =
-    s => p(s) match {
+    s => p(s) match
       case Success(_,n) => Success(s.slice(n),n)
       case f@Failure(_,_, _) => f
-    }
 
   /* We provide an overridden version of `many` that accumulates
    * the list of results using a monolithic loop. This avoids
@@ -372,16 +347,13 @@ object ParserImpl extends ChunkParser[Parser, Result, Failure] {
       val partialData = optData getOrElse EmptyManyPartialData
       val buf = new collection.mutable.ListBuffer[A]
       buf appendAll partialData.results
-      def go(p: Parser[A], currentState: ParseState, offset: Int): Result[List[A]] = {
-        p(currentState) match {
+      def go(p: Parser[A], currentState: ParseState, offset: Int): Result[List[A]] =
+        p(currentState) match
           case Success(a,n) =>
             buf += a
             go(p, currentState.clearPartialData().advanceBy(n), offset + n)
           case f@Failure(e,true,_) => f.appendPartialData(ManyPartialData(buf.toList))
           case Failure(e,_,_) => Success(buf.toList, offset)
-        }
-      }
       go(p, state, 0)
     }
-}
 

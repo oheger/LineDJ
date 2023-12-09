@@ -30,7 +30,7 @@ import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
   *
   * @param actorSystem the current ''ActorSystem''
   */
-class ActorFactory(val actorSystem: ActorSystem) {
+class ActorFactory(val actorSystem: ActorSystem):
   /** The object for creating typed actors. */
   private lazy val spawner: Spawner = actorSystem
 
@@ -55,4 +55,3 @@ class ActorFactory(val actorSystem: ActorSystem) {
     */
   def createActor[T](behavior: Behavior[T], name: String, props: typed.Props = typed.Props.empty): typed.ActorRef[T] =
     spawner.spawn(behavior, Option(name), props)
-}

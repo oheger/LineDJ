@@ -24,35 +24,29 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''PathUtils''.
   */
-class PathUtilsSpec extends AnyFlatSpec with Matchers {
-  "PathUtils" should "extract an extension from a file name" in {
+class PathUtilsSpec extends AnyFlatSpec with Matchers:
+  "PathUtils" should "extract an extension from a file name" in:
     val File = "test.txt"
 
     PathUtils extractExtension File should be("txt")
-  }
 
-  it should "return the extension if a name contains multiple dots" in {
+  it should "return the extension if a name contains multiple dots" in:
     val File = "/my/music/1. Test.Music.mp3"
 
     PathUtils extractExtension File should be("mp3")
-  }
 
-  it should "return an empty extension if a file does not have an extension" in {
+  it should "return an empty extension if a file does not have an extension" in:
     PathUtils extractExtension "fileWithoutExtension" should be("")
-  }
 
-  it should "convert a string to a Path" in {
+  it should "convert a string to a Path" in:
     val Name = "music.mp3"
 
     val path = PathUtils asPath Name
     path.getFileName.toString should be(Name)
-  }
 
-  it should "enable implicit conversions from string to Path" in {
+  it should "enable implicit conversions from string to Path" in:
     val Name = "testFile.txt"
 
     import PathUtils._
     val path: Path = Name
     path.toString should be(Name)
-  }
-}

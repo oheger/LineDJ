@@ -20,6 +20,7 @@ import java.net.{URLDecoder, URLEncoder}
 import java.nio.charset.StandardCharsets
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Seq
 
 /**
   * An object providing helper functions for dealing with URIs.
@@ -29,12 +30,12 @@ import scala.annotation.tailrec
   * have to be manipulated. This object provides functions that implement
   * typical operations on URI strings.
   */
-object UriHelper {
+object UriHelper:
   /** A separator character for URIs. */
-  val UriSeparatorChar = '/'
+  final val UriSeparatorChar = '/'
 
   /** The URI separator as string. */
-  val UriSeparator: String = UriSeparatorChar.toString
+  final val UriSeparator: String = UriSeparatorChar.toString
 
   /** The backslash character. */
   private val BackSlash = '\\'
@@ -65,11 +66,10 @@ object UriHelper {
     * @param uri the URI
     * @return the URI with a file extension removed
     */
-  def removeExtension(uri: String): String = {
+  def removeExtension(uri: String): String =
     val posLastComponent = uri lastIndexOf UriSeparator
     val posExt = uri lastIndexOf Ext
-    if (posExt > 0 && (posLastComponent < 0 || posExt > posLastComponent)) uri.substring(0, posExt) else uri
-  }
+    if posExt > 0 && (posLastComponent < 0 || posExt > posLastComponent) then uri.substring(0, posExt) else uri
 
   /**
     * Removes the given character from the string if it is the last one. If
@@ -80,7 +80,7 @@ object UriHelper {
     * @return the resulting string
     */
   @tailrec def removeTrailing(s: String, c: String): String =
-    if (s.endsWith(c)) removeTrailing(s.dropRight(c.length), c)
+    if s.endsWith(c) then removeTrailing(s.dropRight(c.length), c)
     else s
 
   /**
@@ -92,7 +92,7 @@ object UriHelper {
     * @return the resulting string
     */
   @tailrec def removeLeading(s: String, prefix: String): String =
-    if (s startsWith prefix) removeLeading(s.substring(prefix.length), prefix)
+    if s startsWith prefix then removeLeading(s.substring(prefix.length), prefix)
     else s
 
   /**
@@ -123,7 +123,7 @@ object UriHelper {
     * @return the URI ending with a separator
     */
   def withTrailingSeparator(uri: String): String =
-    if (hasTrailingSeparator(uri)) uri else uri + UriSeparator
+    if hasTrailingSeparator(uri) then uri else uri + UriSeparator
 
   /**
     * Returns a flag whether the passed in URI string ends with a separator
@@ -144,7 +144,7 @@ object UriHelper {
     * @return the URI starting with a separator
     */
   def withLeadingSeparator(uri: String): String =
-    if (hasLeadingSeparator(uri)) uri else UriSeparator + uri
+    if hasLeadingSeparator(uri) then uri else UriSeparator + uri
 
   /**
     * Returns a flag whether the passed in URI string starts with a separator
@@ -178,12 +178,11 @@ object UriHelper {
     * @param uri the URI to be split
     * @return a tuple with the parent URI and the name component
     */
-  def splitParent(uri: String): (String, String) = {
+  def splitParent(uri: String): (String, String) =
     val canonicalUri = removeTrailingSeparator(uri)
     val pos = findNameComponentPos(canonicalUri)
-    if (pos >= 0) (canonicalUri.substring(0, pos), canonicalUri.substring(pos + 1))
+    if pos >= 0 then (canonicalUri.substring(0, pos), canonicalUri.substring(pos + 1))
     else ("", canonicalUri)
-  }
 
   /**
     * Returns the name component (the text behind the last '/' character) of
@@ -194,10 +193,9 @@ object UriHelper {
     * @param uri the URI
     * @return the name component of this URI
     */
-  def extractName(uri: String): String = {
+  def extractName(uri: String): String =
     val posLastComponent = findNameComponentPos(uri)
-    if (posLastComponent >= 0) uri.substring(posLastComponent + 1) else uri
-  }
+    if posLastComponent >= 0 then uri.substring(posLastComponent + 1) else uri
 
   /**
     * Returns the parent of the given URI. This is the URI with the name
@@ -208,10 +206,9 @@ object UriHelper {
     * @param uri the URI
     * @return the parent URI
     */
-  def extractParent(uri: String): String = {
+  def extractParent(uri: String): String =
     val posLastComponent = findNameComponentPos(uri)
-    if (posLastComponent >= 0) uri.substring(0, posLastComponent) else ""
-  }
+    if posLastComponent >= 0 then uri.substring(0, posLastComponent) else ""
 
   /**
     * Concatenates two URI components. If both components are defined, they
@@ -223,7 +220,7 @@ object UriHelper {
     * @return the concatenated URI
     */
   def concat(uri1: String, uri2: String): String =
-    if (uri1.nonEmpty) uri1 + UriSeparator + uri2
+    if uri1.nonEmpty then uri1 + UriSeparator + uri2
     else uri2
 
   /**
@@ -234,7 +231,7 @@ object UriHelper {
     * @return the decoded URI
     */
   def urlDecode(uri: String): String =
-    if (isUrlEncoded(uri))
+    if isUrlEncoded(uri) then
       URLDecoder.decode(uri, StandardCharsets.UTF_8.name())
     else uri
 
@@ -246,22 +243,19 @@ object UriHelper {
     * @param uri the string to be tested
     * @return a flag whether this string is URL encoded
     */
-  def isUrlEncoded(uri: String): Boolean = {
-    def illegalEncoding(c: Char): Boolean = {
+  def isUrlEncoded(uri: String): Boolean =
+    def illegalEncoding(c: Char): Boolean =
       val digit = c.toLower
       (digit < '0' || digit > '9') && (digit < 'a' || digit > 'f')
-    }
 
-    @tailrec def checkEncoding(index: Int): Boolean = {
+    @tailrec def checkEncoding(index: Int): Boolean =
       val nextPos = uri.indexOf('%', index)
-      if (nextPos < 0) true
-      else if (nextPos >= uri.length - 2 || illegalEncoding(uri.charAt(nextPos + 1)) ||
-        illegalEncoding(uri.charAt(nextPos + 2))) false
+      if nextPos < 0 then true
+      else if nextPos >= uri.length - 2 || illegalEncoding(uri.charAt(nextPos + 1)) ||
+        illegalEncoding(uri.charAt(nextPos + 2)) then false
       else checkEncoding(nextPos + 3)
-    }
 
     checkEncoding(0)
-  }
 
   /**
     * Returns a URL-encoded version of the given URI. This function differs
@@ -305,11 +299,10 @@ object UriHelper {
     * @param f   the mapping function for components
     * @return the resulting URI
     */
-  def mapComponents(uri: String)(f: String => String): String = {
+  def mapComponents(uri: String)(f: String => String): String =
     val components = splitComponents(uri).toSeq
     val mappedComponents = components map f
     fromComponents(mappedComponents)
-  }
 
   /**
     * Encodes all the components of the given URI. Note that it is typically
@@ -343,4 +336,3 @@ object UriHelper {
     */
   private def findNameComponentPos(uri: String): Int =
     uri lastIndexOf UriSeparatorChar
-}

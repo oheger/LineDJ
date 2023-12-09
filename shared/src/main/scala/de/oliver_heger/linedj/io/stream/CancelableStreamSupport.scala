@@ -45,7 +45,7 @@ import org.apache.pekko.stream.KillSwitch
   * the ''self'' actor, and on reaction of this method the ''KillSwitch'' can
   * be removed.
   */
-trait CancelableStreamSupport {
+trait CancelableStreamSupport:
   /** A mapping with the currently registered kill switches. */
   private var currentKillSwitches = Map.empty[Int, KillSwitch]
 
@@ -60,11 +60,10 @@ trait CancelableStreamSupport {
     * @param ks the ''KillSwitch''
     * @return a numeric identifier representing this registration
     */
-  def registerKillSwitch(ks: KillSwitch): Int = {
+  def registerKillSwitch(ks: KillSwitch): Int =
     idCounter += 1
     currentKillSwitches += (idCounter -> ks)
     idCounter
-  }
 
   /**
     * Removes a registration for a ''KillSwitch''. This method should be
@@ -72,17 +71,14 @@ trait CancelableStreamSupport {
     *
     * @param ksID the ID of the ''KillSwitch''
     */
-  def unregisterKillSwitch(ksID: Int): Unit = {
+  def unregisterKillSwitch(ksID: Int): Unit =
     currentKillSwitches -= ksID
-  }
 
   /**
     * Cancels all streams that are currently open. This method triggers all
     * registered ''KillSwitch'' objects. Afterwards all registrations are
     * removed.
     */
-  def cancelCurrentStreams(): Unit = {
+  def cancelCurrentStreams(): Unit =
     currentKillSwitches.values foreach (_.shutdown())
     currentKillSwitches = Map.empty
-  }
-}

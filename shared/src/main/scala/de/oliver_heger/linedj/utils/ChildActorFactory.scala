@@ -21,7 +21,7 @@ import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 import java.util.concurrent.ConcurrentHashMap
 
-object ChildActorFactory {
+object ChildActorFactory:
   /** A map to generate actor names for actor classes. */
   private val actorClassCounters = new ConcurrentHashMap[String, Integer]()
 
@@ -32,11 +32,9 @@ object ChildActorFactory {
     * @param props the creation properties of the actor
     * @return a unique name for this actor
     */
-  private def actorNameFor(props: Props): String = {
+  private def actorNameFor(props: Props): String =
     val clsName = props.actorClass().getSimpleName
-    clsName + actorClassCounters.compute(clsName, (_, count) => if (count == null) 1 else count + 1)
-  }
-}
+    clsName + actorClassCounters.compute(clsName, (_, count) => if count == null then 1 else count + 1)
 
 /**
   * A trait offering a generic method for creating child actors.
@@ -50,7 +48,7 @@ object ChildActorFactory {
   * This trait is fully functional; it can be directly mixed into actor classes
   * that need to create child actors.
   */
-trait ChildActorFactory extends Actor {
+trait ChildActorFactory extends Actor:
   /**
     * Creates a child actor based on the specified ''Props'' object. This
     * implementation uses the actor's context to actually create the child. It
@@ -61,4 +59,3 @@ trait ChildActorFactory extends Actor {
     * @return the ''ActorRef'' to the new child actor
     */
   def createChildActor(p: Props): ActorRef = context.actorOf(p, actorNameFor(p))
-}

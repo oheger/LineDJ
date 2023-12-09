@@ -26,7 +26,7 @@ package de.oliver_heger.linedj.utils
   * property values without having to deal with real system properties.
   * (Obviously, SBT does not support changing system properties at runtime.)
   */
-trait SystemPropertyAccess {
+trait SystemPropertyAccess:
   /**
     * Queries a system property and returns its value.
     *
@@ -34,4 +34,3 @@ trait SystemPropertyAccess {
     * @return an option for the property's value
     */
   def getSystemProperty(key: String): Option[String] = Option(System getProperty key)
-}

@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 
-object RecordingSchedulerSupport {
+object RecordingSchedulerSupport:
   /** A default timeout when accessing the queue. */
   val DefaultQueueTimeout: FiniteDuration = 3.seconds
 
@@ -36,13 +36,11 @@ object RecordingSchedulerSupport {
    * @return the ''SchedulerInvocation'' obtained from the queue
    */
   def expectInvocation(queue: java.util.concurrent.BlockingQueue[SchedulerInvocation], timeout:
-  FiniteDuration = DefaultQueueTimeout): SchedulerInvocation = {
+  FiniteDuration = DefaultQueueTimeout): SchedulerInvocation =
     val result = queue.poll(timeout.toMillis, TimeUnit.MILLISECONDS)
-    if (result == null) {
+    if result == null then
       throw new AssertionError(s"Timeout ($timeout) when waiting for SchedulerInvocation!")
-    }
     result
-  }
 
   /**
    * A class combining the data of a scheduler invocation.
@@ -59,12 +57,11 @@ object RecordingSchedulerSupport {
    * A straight-forward implementation of ''Cancellable'' which just stores the
    * cancel flag.
    */
-  class CancellableImpl extends Cancellable {
+  class CancellableImpl extends Cancellable:
     private val cancelFlag = new AtomicInteger
 
-    override def cancel(): Boolean = {
+    override def cancel(): Boolean =
       cancelFlag.incrementAndGet() == 1
-    }
 
     override def isCancelled: Boolean = cancelFlag.get > 0
 
@@ -74,9 +71,7 @@ object RecordingSchedulerSupport {
       * @return the number of ''cancel()'' calls
       */
     def cancelCount: Int = cancelFlag.get()
-  }
 
-}
 
 /**
  * A specialized implementation of ''SchedulerSupport'' that can be used in
@@ -90,7 +85,7 @@ object RecordingSchedulerSupport {
  * Concrete implementations have to provide the queue in which to store the
  * data.
  */
-trait RecordingSchedulerSupport extends SchedulerSupport {
+trait RecordingSchedulerSupport extends SchedulerSupport:
   import RecordingSchedulerSupport._
 
   /**
@@ -105,19 +100,16 @@ trait RecordingSchedulerSupport extends SchedulerSupport {
    *             queue
    */
   override def scheduleMessage(initialDelay: FiniteDuration, interval: FiniteDuration, receiver:
-  ActorRef, message: Any): Cancellable = {
+  ActorRef, message: Any): Cancellable =
     val cancellable = new CancellableImpl
     queue put SchedulerInvocation(initialDelay, interval, receiver, message, cancellable)
     cancellable
-  }
 
   /**
     * @inheritdoc Records this invocation.
     */
   override def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any):
-  Cancellable = {
+  Cancellable =
     val cancellable = new CancellableImpl
     queue put SchedulerInvocation(delay, null, receiver, message, cancellable)
     cancellable
-  }
-}

@@ -25,7 +25,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
   * Test class for ''CancelableStreamSupport''.
   */
-class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
     * Creates a test instance.
     *
@@ -34,7 +34,7 @@ class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with Mockito
   private def createSupport(): CancelableStreamSupport =
     new CancelableStreamSupport {}
 
-  "A CancelableStreamSupport" should "cancel registered KillSwitch objects" in {
+  "A CancelableStreamSupport" should "cancel registered KillSwitch objects" in:
     val ks1 = mock[KillSwitch]
     val ks2 = mock[KillSwitch]
     val support = createSupport()
@@ -45,9 +45,8 @@ class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with Mockito
     support.cancelCurrentStreams()
     verify(ks1).shutdown()
     verify(ks2).shutdown()
-  }
 
-  it should "clear registrations after they were canceled" in {
+  it should "clear registrations after they were canceled" in:
     val ks = mock[KillSwitch]
     val support = createSupport()
     support registerKillSwitch ks
@@ -55,9 +54,8 @@ class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with Mockito
 
     support.cancelCurrentStreams()
     verify(ks).shutdown() // only once
-  }
 
-  it should "allow removing reigstrations" in {
+  it should "allow removing reigstrations" in:
     val ks1 = mock[KillSwitch]
     val ks2 = mock[KillSwitch]
     val support = createSupport()
@@ -68,5 +66,3 @@ class CancelableStreamSupportSpec extends AnyFlatSpec with Matchers with Mockito
     support.cancelCurrentStreams()
     verify(ks2).shutdown()
     verify(ks1, never()).shutdown()
-  }
-}

@@ -68,7 +68,7 @@ case class GetMediumFiles(mediumID: MediumID) extends RemoteSerializable
   * @param mediaList a list with information about all media currently
   *                  available
   */
-case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends RemoteSerializable {
+case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends RemoteSerializable:
   /**
     * A map allowing fast access to ''MediumInfo'' objects if the medium ID is
     * known.
@@ -93,7 +93,6 @@ case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends Remot
     * @return all ''MediumInfo'' objects
     */
   def mediumInfos: Iterable[MediumInfo] = mediaList.map(_._2)
-}
 
 /**
   * A message sent by ''MediaManagerActor'' in response to a request for the

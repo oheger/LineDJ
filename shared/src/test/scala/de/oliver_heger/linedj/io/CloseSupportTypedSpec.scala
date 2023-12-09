@@ -28,7 +28,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-object CloseSupportTypedSpec {
+object CloseSupportTypedSpec:
   /**
     * A trait defining the commands of the close test actor.
     */
@@ -63,31 +63,28 @@ object CloseSupportTypedSpec {
     Behaviors.setup { context =>
       CloseSupportTyped.triggerClose(context, context.self, CloseComplete, dependencies)
 
-      Behaviors.receiveMessage {
+      Behaviors.receiveMessage:
         case CloseComplete =>
           client ! CloseTestResult(context.children)
           Behaviors.same
-      }
     }
-}
 
 /**
   * Test class for [[CloseSupportTyped]].
   */
 class CloseSupportTypedSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(classic.ActorSystem("CloseSupportTypedSpec"))
 
   /** The test kit to test typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  "CloseSupportTyped" should "control a close operation" in {
+  "CloseSupportTyped" should "control a close operation" in:
     val dep1 = TestProbe()
     val dep2 = TestProbe()
     val client = testKit.createTestProbe[CloseTestResult]()
@@ -99,9 +96,8 @@ class CloseSupportTypedSpec(testSystem: classic.ActorSystem) extends TestKit(tes
     dep2.expectMsg(CloseRequest)
     dep2.reply(CloseAck(dep2.ref))
     client.expectMessageType[CloseTestResult]
-  }
 
-  it should "not send the completion message before all dependencies are closed" in {
+  it should "not send the completion message before all dependencies are closed" in:
     val dep1 = TestProbe()
     val dep2 = TestProbe()
     val client = testKit.createTestProbe[CloseTestResult]()
@@ -111,9 +107,8 @@ class CloseSupportTypedSpec(testSystem: classic.ActorSystem) extends TestKit(tes
     dep1.expectMsg(CloseRequest)
     dep1.reply(CloseAck(dep1.ref))
     client.expectNoMessage(250.millis)
-  }
 
-  it should "handle dependencies that died" in {
+  it should "handle dependencies that died" in:
     val dep1 = TestProbe()
     val dep2 = TestProbe()
     val client = testKit.createTestProbe[CloseTestResult]()
@@ -124,9 +119,8 @@ class CloseSupportTypedSpec(testSystem: classic.ActorSystem) extends TestKit(tes
     dep1.reply(CloseAck(dep1.ref))
     system.stop(dep2.ref)
     client.expectMessageType[CloseTestResult]
-  }
 
-  it should "stop the internal child actor controlling the close operation" in {
+  it should "stop the internal child actor controlling the close operation" in:
     val dep = TestProbe()
     val client = testKit.createTestProbe[CloseTestResult]()
 
@@ -139,5 +133,3 @@ class CloseSupportTypedSpec(testSystem: classic.ActorSystem) extends TestKit(tes
     result.remainingChildren foreach { child =>
       watcherProbe.expectTerminated(child)
     }
-  }
-}

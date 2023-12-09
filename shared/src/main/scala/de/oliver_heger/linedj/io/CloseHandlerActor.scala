@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.io
 import de.oliver_heger.linedj.io.CloseHandlerActor.{CloseComplete, ConditionSatisfied}
 import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
 
-object CloseHandlerActor {
+object CloseHandlerActor:
 
   /**
     * A message sent to the source actor of a close operation when all actors
@@ -36,7 +36,6 @@ object CloseHandlerActor {
     * operation can be completed.
     */
   case object ConditionSatisfied
-}
 
 /**
   * An actor class supporting complex close request scenarios.
@@ -64,7 +63,7 @@ object CloseHandlerActor {
   * @param conditionState state of an additional condition to be satisfied
   */
 class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
-                        conditionState: Boolean) extends Actor {
+                        conditionState: Boolean) extends Actor:
   /** A set with the actors for which a close ACK is pending. */
   private var pendingCloseAck = closeActors.toSet
 
@@ -72,11 +71,10 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
   private var conditionSatisfied = conditionState
 
   @scala.throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     closeActors foreach prepareCloseHandling
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case CloseAck(actor) =>
       handleClosedActor(actor)
 
@@ -86,7 +84,6 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
     case ConditionSatisfied =>
       conditionSatisfied = true
       completeCloseIfPossible()
-  }
 
   /**
     * Processes a message about an actor that has been closed. If now all
@@ -95,21 +92,18 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
     *
     * @param actor the actor that has been closed
     */
-  private def handleClosedActor(actor: ActorRef): Unit = {
+  private def handleClosedActor(actor: ActorRef): Unit =
     pendingCloseAck -= actor
     completeCloseIfPossible()
-  }
 
   /**
     * Checks whether now all conditions are met to complete the close
     * operation. If so, the corresponding actions are taken.
     */
-  private def completeCloseIfPossible(): Unit = {
-    if (conditionSatisfied && pendingCloseAck.isEmpty) {
+  private def completeCloseIfPossible(): Unit =
+    if conditionSatisfied && pendingCloseAck.isEmpty then
       source ! CloseComplete
       context stop self
-    }
-  }
 
   /**
     * Prepares an actor to be closed for the close handling. It is sent a
@@ -117,8 +111,6 @@ class CloseHandlerActor(source: ActorRef, closeActors: Iterable[ActorRef],
     *
     * @param a the actor in question
     */
-  private def prepareCloseHandling(a: ActorRef): Unit = {
+  private def prepareCloseHandling(a: ActorRef): Unit =
     a ! CloseRequest
     context watch a
-  }
-}

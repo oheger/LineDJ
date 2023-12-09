@@ -49,7 +49,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     map2(p, many(p))(_ :: _)
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
-    if (n <= 0) succeed(List())
+    if n <= 0 then succeed(List())
     else map2(p, listOfN(n-1, p))(_ :: _)
 
   def many[A](p: Parser[A]): Parser[List[A]] =
@@ -68,7 +68,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     flatMap(p)(a => map(p2)(b => (a,b)))
 
   def map2[A,B,C](p: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
-    for { a <- p; b <- p2 } yield f(a,b)
+    for  a <- p; b <- p2  yield f(a,b)
 
   def map[A,B](a: Parser[A])(f: A => B): Parser[B] =
     flatMap(a)(f andThen succeed)
@@ -113,12 +113,11 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   /** C/Java style floating point literals, e.g .1, -1.0, 1e9, 1E-23, etc.
     * Result is left as a string to keep full precision
     */
-  def doubleString: Parser[String] = {
+  def doubleString: Parser[String] =
     val dotAtEnd = "([-+]?[0-9]*\\.$)"
     val expAtEnd = "([-+]?([0-9]*\\.)?[0-9]+[eE]$)"
     val fullNumber = "([-+]?([0-9]*\\.)?[0-9]+([eE][-+]?[0-9]+)?)"
     token((dotAtEnd + '|' + expAtEnd + '|' + fullNumber).r)
-  }
 
   /** Floating point literals, converted to a `Double`. */
   def double: Parser[Double] =
@@ -152,7 +151,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   def root[A](p: Parser[A]): Parser[A] =
     p <* eof
 
-  case class ParserOps[A](p: Parser[A]) {
+  case class ParserOps[A](p: Parser[A]):
     def |[B>:A](p2: => Parser[B]): Parser[B] = self.or(p,p2) // use `self` to explicitly disambiguate reference to the `or` method on the `trait`
     def or[B>:A](p2: => Parser[B]): Parser[B] = self.or(p,p2)
 
@@ -180,15 +179,13 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     def sep1(separator: Parser[Any]) = self.sep1(p, separator)
     def as[B](b: B): Parser[B] = self.map(self.slice(p))(_ => b)
     def opL(op: Parser[(A,A) => A]): Parser[A] = self.opL(p)(op)
-  }
 }
 
-case class Location(input: String, offset: Int = 0) {
+case class Location(input: String, offset: Int = 0):
   lazy val line = input.slice(0,offset+1).count(_ == '\n') + 1
-  lazy val col = input.slice(0,offset+1).lastIndexOf('\n') match {
+  lazy val col = input.slice(0,offset+1).lastIndexOf('\n') match
     case -1 => offset + 1
     case lineStart => offset - lineStart
-  }
 
   def toError(msg: String): ParseError =
     ParseError(List((this, msg)))
@@ -197,16 +194,14 @@ case class Location(input: String, offset: Int = 0) {
 
   /* Returns the line corresponding to this location */
   def currentLine: String =
-    if (input.length > 1) {
+    if input.length > 1 then
       val it = input.linesIterator.drop(line-1)
-      if(it.hasNext) it.next() else ""
-    }
+      if it.hasNext then it.next() else ""
     else ""
 
   def columnCaret = (" " * (col-1)) + "^"
-}
 
-case class ParseError(stack: List[(Location,String)] = List()) {
+case class ParseError(stack: List[(Location,String)] = List()):
   def push(loc: Location, msg: String): ParseError =
     copy(stack = (loc,msg) :: stack)
 
@@ -233,15 +228,14 @@ case class ParseError(stack: List[(Location,String)] = List()) {
     * { "MSFT" ; 24,
   */
   override def toString =
-    if (stack.isEmpty) "no error message"
-    else {
+    if stack.isEmpty then "no error message"
+    else
       val collapsed = collapseStack(stack)
       val context =
         collapsed.lastOption.map("\n\n" + _._1.currentLine).getOrElse("") +
         collapsed.lastOption.map("\n" + _._1.columnCaret).getOrElse("")
       collapsed.map { case (loc,msg) => loc.line.toString + "." + loc.col + " " + msg }.mkString("\n") +
       context
-    }
 
   /* Builds a collapsed version of the given error stack -
    * messages at the same location have their messages merged,
@@ -252,7 +246,6 @@ case class ParseError(stack: List[(Location,String)] = List()) {
       .toList.sortBy(_._1.offset)
 
   def formatLoc(l: Location): String = s"${l.line}.${l.col}"
-}
 
 object Parsers {
 

@@ -27,36 +27,32 @@ import scala.concurrent.duration._
 /**
   * Test class for ''CloseNotifyActor''.
   */
-class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("CloseNotifyActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A CloseNotifyActor" should "send a CloseAck to the target actor" in {
+  "A CloseNotifyActor" should "send a CloseAck to the target actor" in:
     val helper = new CloseNotifyActorTestHelper
 
     helper.stopHandler().expectCloseAck()
-  }
 
-  it should "send a CloseAck only after the termination of the handler actor" in {
+  it should "send a CloseAck only after the termination of the handler actor" in:
     val helper = new CloseNotifyActorTestHelper
 
     helper.expectNoCloseAck()
-  }
 
-  it should "stop itself after sending a CloseAck message" in {
+  it should "stop itself after sending a CloseAck message" in:
     val helper = new CloseNotifyActorTestHelper
 
     helper.stopHandler().expectActorStopped()
-  }
 
   /**
     * A test helper class managing dependencies of the actor under test.
     */
-  private class CloseNotifyActorTestHelper {
+  private class CloseNotifyActorTestHelper:
     /** Probe for the handler actor. */
     private val probeHandler = TestProbe()
 
@@ -74,30 +70,27 @@ class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       *
       * @return this test helper
       */
-    def stopHandler(): CloseNotifyActorTestHelper = {
+    def stopHandler(): CloseNotifyActorTestHelper =
       system stop probeHandler.ref
       this
-    }
 
     /**
       * Verifies that the target actor received a notification.
       *
       * @return this test helper
       */
-    def expectCloseAck(): CloseNotifyActorTestHelper = {
+    def expectCloseAck(): CloseNotifyActorTestHelper =
       probeTarget.expectMsg(CloseAck(probeCloseActor.ref))
       this
-    }
 
     /**
       * Verifies that no close notification has arrived so far.
       *
       * @return this test helper
       */
-    def expectNoCloseAck(): CloseNotifyActorTestHelper = {
+    def expectNoCloseAck(): CloseNotifyActorTestHelper =
       probeTarget.expectNoMessage(500.millis)
       this
-    }
 
     /**
       * Verifies that the test actor stopped itself after sending out the
@@ -105,12 +98,11 @@ class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       *
       * @return this test helper
       */
-    def expectActorStopped(): CloseNotifyActorTestHelper = {
+    def expectActorStopped(): CloseNotifyActorTestHelper =
       val watcher = TestProbe()
       watcher watch actor
       watcher.expectMsgType[Terminated].actor should be(actor)
       this
-    }
 
     /**
       * Creates the actor to be tested.
@@ -120,6 +112,4 @@ class CloseNotifyActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     private def createTestActor(): ActorRef =
       system.actorOf(Props(classOf[CloseNotifyActor], probeHandler.ref,
         probeCloseActor.ref, probeTarget.ref))
-  }
 
-}

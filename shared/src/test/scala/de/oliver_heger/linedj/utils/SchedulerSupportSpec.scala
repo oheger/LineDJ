@@ -35,14 +35,13 @@ import scala.concurrent.duration._
  * delay or the interval.
  */
 class SchedulerSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-with Matchers with BeforeAndAfterAll with MockitoSugar {
+with Matchers with BeforeAndAfterAll with MockitoSugar:
   def this() = this(ActorSystem("SchedulerSupportSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A SchedulerSupport object" should "correctly delegate to the scheduler" in {
+  "A SchedulerSupport object" should "correctly delegate to the scheduler" in:
     val delay = FiniteDuration(50, MILLISECONDS)
     val interval = FiniteDuration(100, MILLISECONDS)
     val receiver = TestProbe()
@@ -60,7 +59,7 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
       override def receive: Receive = {
         case s: String =>
           count += 1
-          if (count > 2) cancellable.cancel()
+          if count > 2 then cancellable.cancel()
           else receiver.ref ! s
       }
     }))
@@ -68,9 +67,8 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
     receiver.expectMsg(message)
     receiver.expectMsg(message)
     receiver.expectNoMessage(1.second)
-  }
 
-  it should "support one-time schedules" in {
+  it should "support one-time schedules" in:
     val delay = FiniteDuration(50, MILLISECONDS)
     val receiver = TestProbe()
     val message = "Hello!"
@@ -88,5 +86,3 @@ with Matchers with BeforeAndAfterAll with MockitoSugar {
 
     receiver.expectMsg(message)
     receiver.expectNoMessage(1.second)
-  }
-}

@@ -28,7 +28,7 @@ import scala.language.higherKinds
   * @tparam R      the result type of the parser
   * @tparam F      the failure type of the parser
   */
-trait ChunkParser[Parser[+ _], R[_], F] extends Parsers[Parser] {
+trait ChunkParser[Parser[+ _], R[_], F] extends Parsers[Parser]:
   /**
     * Runs the specified parser on a chunk of data. This method can be used to
     * start a new parse operation or to continue an interrupted one. In the
@@ -44,4 +44,3 @@ trait ChunkParser[Parser[+ _], R[_], F] extends Parsers[Parser] {
     */
   def runChunk[A](p: Parser[A])(nextChunk: String, lastChunk: Boolean,
                                 optFailure: Option[F] = None): R[A]
-}

@@ -28,14 +28,13 @@ import org.scalatest.matchers.should.Matchers
   * Test class for ''StreamSourceActorWrapper''.
   */
 class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("StreamSourceActorWrapperSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A StreamSourceActorWrapper" should "communicate with the wrapped actor" in {
+  "A StreamSourceActorWrapper" should "communicate with the wrapped actor" in:
     val Request = "Ping"
     val Response = "Pong"
     val helper = new ActorWrapperTestHelper
@@ -44,18 +43,16 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       .expectForward(Request)
       .answer(Response)
       .expectAnswer(Response)
-  }
 
-  it should "ignore an unexpected message from the wrapped actor" in {
+  it should "ignore an unexpected message from the wrapped actor" in:
     val Msg = "Foo"
     val helper = new ActorWrapperTestHelper
 
     helper.answer(Msg)
       .send(Msg)
       .expectForward(Msg)
-  }
 
-  it should "reset the client after receiving an answer" in {
+  it should "reset the client after receiving an answer" in:
     val Msg1 = "Message1"
     val Msg2 = "Message2"
     val helper = new ActorWrapperTestHelper
@@ -69,9 +66,8 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       .expectForward(Msg2)
       .answer(Msg2)
       .expectAnswer(Msg2)
-  }
 
-  it should "ignore another request while one is ongoing" in {
+  it should "ignore another request while one is ongoing" in:
     val Req1 = "Request1"
     val Req2 = "Request2"
     val Response = "42"
@@ -84,26 +80,23 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       .send(Req2)
       .expectForward(Req2)
       .expectAnswer(Response)
-  }
 
-  it should "handle a failed request" in {
+  it should "handle a failed request" in:
     val helper = new ActorWrapperTestHelper
 
     helper.send("some request")
       .stopWrappedActor()
       .expectAnswer(WrappedActorTerminated)
-  }
 
-  it should "detect a terminated actor outside of request processing" in {
+  it should "detect a terminated actor outside of request processing" in:
     val helper = new ActorWrapperTestHelper
 
     helper.stopWrappedActor()
       .waitForWrappedActorTermination()
       .send("some request")
       .expectAnswer(WrappedActorTerminated)
-  }
 
-  it should "only answer with the terminated message after the wrapped actor died" in {
+  it should "only answer with the terminated message after the wrapped actor died" in:
     val helper = new ActorWrapperTestHelper
 
     helper.send("some request")
@@ -112,19 +105,17 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       .send("another request")
       .expectAnswer(WrappedActorTerminated)
       .expectAnswer(WrappedActorTerminated)
-  }
 
-  it should "stop the wrapped actor when it is stopped" in {
+  it should "stop the wrapped actor when it is stopped" in:
     val helper = new ActorWrapperTestHelper
 
     helper.stopTestActor()
       .waitForWrappedActorTermination()
-  }
 
   /**
     * A test helper class managing dependencies of a test instance.
     */
-  private class ActorWrapperTestHelper {
+  private class ActorWrapperTestHelper:
     /** Test probe for the wrapped actor. */
     private val probeWrapped = TestProbe()
 
@@ -137,10 +128,9 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the message to be sent
       * @return this test helper
       */
-    def send(msg: Any): ActorWrapperTestHelper = {
+    def send(msg: Any): ActorWrapperTestHelper =
       actor ! msg
       this
-    }
 
     /**
       * Expects that the specified message has been forwarded to the wrapped
@@ -149,10 +139,9 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the expected message
       * @return this test helper
       */
-    def expectForward(msg: Any): ActorWrapperTestHelper = {
+    def expectForward(msg: Any): ActorWrapperTestHelper =
       probeWrapped.expectMsg(msg)
       this
-    }
 
     /**
       * Simulates an answer message from the wrapped actor to the test actor.
@@ -160,10 +149,9 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       * @param response the response message
       * @return this test helper
       */
-    def answer(response: Any): ActorWrapperTestHelper = {
+    def answer(response: Any): ActorWrapperTestHelper =
       actor.tell(response, probeWrapped.ref)
       this
-    }
 
     /**
       * Expects that the specified message is sent as response from the test
@@ -172,10 +160,9 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       * @param msg the expected message
       * @return this test helper
       */
-    def expectAnswer(msg: Any): ActorWrapperTestHelper = {
+    def expectAnswer(msg: Any): ActorWrapperTestHelper =
       expectMsg(msg)
       this
-    }
 
     /**
       * Stops the probe for the wrapped actor. This is used to test handling
@@ -183,32 +170,29 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return this test helper
       */
-    def stopWrappedActor(): ActorWrapperTestHelper = {
+    def stopWrappedActor(): ActorWrapperTestHelper =
       system stop probeWrapped.ref
       this
-    }
 
     /**
       * Waits until the wrapped actor has propagated its termination message.
       *
       * @return this test helper
       */
-    def waitForWrappedActorTermination(): ActorWrapperTestHelper = {
+    def waitForWrappedActorTermination(): ActorWrapperTestHelper =
       val watcher = TestProbe()
       watcher watch probeWrapped.ref
       watcher.expectMsgType[Terminated]
       this
-    }
 
     /**
       * Stops the test actor.
       *
       * @return this test helper
       */
-    def stopTestActor(): ActorWrapperTestHelper = {
+    def stopTestActor(): ActorWrapperTestHelper =
       system stop actor
       this
-    }
 
     /**
       * Creates a test actor reference. Makes sure that the test actor is
@@ -216,18 +200,14 @@ class StreamSourceActorWrapperSpec(testSystem: ActorSystem) extends TestKit(test
       *
       * @return the test actor
       */
-    private def createTestActor(): ActorRef = {
-      val strategy = OneForOneStrategy() {
+    private def createTestActor(): ActorRef =
+      val strategy = OneForOneStrategy():
         case _ => Stop
-      }
       val props = Props(classOf[StreamSourceActorWrapper], probeWrapped.ref,
         WrappedActorTerminated)
       val supervisor = SupervisionTestActor(system, strategy, props)
       supervisor.underlyingActor.childActor
-    }
-  }
 
-}
 
 /**
   * A message to indicate the termination of the wrapped actor.

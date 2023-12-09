@@ -37,18 +37,17 @@ import scala.language.implicitConversions
   * actor under test. It can also be stopped without affecting the
   * ''TestProbe''.
   */
-object StoppableTestProbe {
+object StoppableTestProbe:
   /**
     * Creates a new instance of ''StoppableTestProbe''.
     *
     * @param system the actor system
     * @return the ''StoppableTestProbe'' instance
     */
-  def apply()(implicit system: ActorSystem): StoppableTestProbe = {
+  def apply()(implicit system: ActorSystem): StoppableTestProbe =
     val probe = TestProbe()
     val forwarder = system.actorOf(Props(new ForwardingActor(probe)))
     new StoppableTestProbe(forwarder, probe)
-  }
 
   /**
     * An implicit conversion from a ''StoppableTestProbe'' to an ''ActorRef''.
@@ -75,12 +74,9 @@ object StoppableTestProbe {
     *
     * @param probe the ''TestProbe'' to forward messages to
     */
-  private class ForwardingActor(probe: TestProbe) extends Actor {
-    override def receive: Receive = {
+  private class ForwardingActor(probe: TestProbe) extends Actor:
+    override def receive: Receive =
       case msg => probe.ref forward msg
-    }
-  }
-}
 
 /**
   * A class representing a ''TestProbe'' that can be stopped safely.
@@ -89,13 +85,11 @@ object StoppableTestProbe {
   * @param probe the ''TestProbe''
   */
 class StoppableTestProbe(val ref: ActorRef,
-                         val probe: TestProbe) {
+                         val probe: TestProbe):
   /**
     * Stops the actor of this probe.
     *
     * @param system the actor system
     */
-  def stop()(implicit system: ActorSystem): Unit = {
+  def stop()(implicit system: ActorSystem): Unit =
     system stop ref
-  }
-}

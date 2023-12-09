@@ -31,7 +31,7 @@ import scala.collection.immutable.Queue
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
-object DirectoryStreamSource {
+object DirectoryStreamSource:
   /** Constant for an undefined file extension. */
   private val NoExtension = ""
 
@@ -44,12 +44,11 @@ object DirectoryStreamSource {
     * @param path the path
     * @return the extracted extension
     */
-  def extractExtension(path: Path): String = {
+  def extractExtension(path: Path): String =
     val fileName = path.getFileName.toString
     val pos = fileName lastIndexOf Dot
-    if (pos >= 0) fileName.substring(pos + 1)
+    if pos >= 0 then fileName.substring(pos + 1)
     else NoExtension
-  }
 
   /**
     * A class representing a filter for the entries encountered by a
@@ -64,7 +63,7 @@ object DirectoryStreamSource {
     *
     * @param accept a function whether a path in the directory is accepted
     */
-  case class PathFilter(accept: Path => Boolean) {
+  case class PathFilter(accept: Path => Boolean):
     /**
       * Generates a new ''PathFilter'' that accepts a path if and only if it is
       * accepted by this filter OR by the other filter.
@@ -92,7 +91,6 @@ object DirectoryStreamSource {
       * @return the resulting filter implementing the negation of this one
       */
     def negate(): PathFilter = PathFilter(!accept(_))
-  }
 
   /**
     * A conversion function which generates a ''DirectoryStream.Filter'' out of
@@ -126,12 +124,11 @@ object DirectoryStreamSource {
     * @param exclusions a set with file extensions to be excluded
     */
   private class ExcludeExtensionsFilter(exclusions: Set[String])
-    extends DirectoryStream.Filter[Path] {
+    extends DirectoryStream.Filter[Path]:
 
     override def accept(entry: Path): Boolean =
       Files.isDirectory(entry) ||
         !exclusions.contains(extractExtension(entry).toUpperCase(Locale.ENGLISH))
-  }
 
   /**
     * An internally used data class for storing data about a directory
@@ -142,18 +139,15 @@ object DirectoryStreamSource {
     * @param iterator the iterator
     */
   private case class DirectoryStreamRef(stream: DirectoryStream[Path],
-                                        iterator: java.util.Iterator[Path]) {
+                                        iterator: java.util.Iterator[Path]):
     /**
       * Closes the underlying stream ignoring all exceptions.
       */
-    def close(): Unit = {
-      try {
+    def close(): Unit =
+      try
         stream.close()
-      } catch {
+      catch
         case _: IOException => // ignore
-      }
-    }
-  }
 
   /**
     * Case class representing the state of a BFS iteration.
@@ -174,14 +168,12 @@ object DirectoryStreamSource {
     * @param optStream option for the directory stream
     * @param subDirs   the list with sub directories of the current directory
     */
-  private case class DFSCurrentDir(optStream: Option[DirectoryStreamRef], subDirs: List[Path]) {
+  private case class DFSCurrentDir(optStream: Option[DirectoryStreamRef], subDirs: List[Path]):
     /**
       * Closes the stream for this directory if it is still open.
       */
-    def close(): Unit = {
+    def close(): Unit =
       optStream foreach (_.close())
-    }
-  }
 
   /**
     * Case class representing the state of a DFS iteration.
@@ -247,17 +239,17 @@ object DirectoryStreamSource {
     * Creates a new source that returns the content of the specified root
     * directory in BFS order.
     *
-    * @param root          the root directory to be processed
-    * @param filter        the filter for elements encountered
+    * @param rootPath      the root directory to be processed
+    * @param pathFilter    the filter for elements encountered
     * @param streamFactory a factory for creating directory streams
     * @param f             the transformation function
     * @tparam A the type of the elements produced by this source
     * @return the new source
     */
-  def newBFSSource[A](root: Path, filter: PathFilter = AcceptAllFilter,
+  def newBFSSource[A](rootPath: Path, pathFilter: PathFilter = AcceptAllFilter,
                       streamFactory: StreamFactory = createDirectoryStream)
-                     (f: TransformFunc[A]): Source[A, NotUsed] = {
-    val dirSrc = new DirectoryStreamSource[A](root, filter, streamFactory)(f) {
+                     (f: TransformFunc[A]): Source[A, NotUsed] =
+    val dirSrc = new DirectoryStreamSource[A](rootPath, pathFilter, streamFactory)(f):
       override type IterationState = BFSState
 
       override protected val iterationFunc: State[IterationState, Option[A]] =
@@ -265,29 +257,26 @@ object DirectoryStreamSource {
 
       override protected val initialState: IterationState = BFSState(None, Queue(root))
 
-      override protected def iterationComplete(state: BFSState): Unit = {
+      override protected def iterationComplete(state: BFSState): Unit =
         state.optCurrentStream foreach (_.close())
-      }
-    }
     Source fromGraph dirSrc
-  }
 
   /**
     * Creates a new source that returns the content of the specified root
     * directory in BFS order.
     *
-    * @param root          the root directory to be processed
-    * @param filter        the filter for elements encountered
+    * @param rootPath      the root directory to be processed
+    * @param pathFilter    the filter for elements encountered
     * @param streamFactory a factory for creating directory streams
     * @param f             the transformation function
     * @tparam A the type of the elements produced by this source
     * @return the new source
     */
-  def newDFSSource[A](root: Path, filter: PathFilter = AcceptAllFilter,
+  def newDFSSource[A](rootPath: Path, pathFilter: PathFilter = AcceptAllFilter,
                       streamFactory: StreamFactory = createDirectoryStream)
                      (f: TransformFunc[A]): Source[A, NotUsed] =
-    Try {
-      new DirectoryStreamSource[A](root, filter, streamFactory)(f) {
+    Try:
+      new DirectoryStreamSource[A](rootPath, pathFilter, streamFactory)(f):
         override type IterationState = DFSState
 
         override protected val iterationFunc: State[IterationState, Option[A]] =
@@ -297,14 +286,11 @@ object DirectoryStreamSource {
           DFSState(List(DFSCurrentDir(subDirs = Nil,
             optStream = Some(createStreamRef(root, streamFactory, filter)))))
 
-        override protected def iterationComplete(state: DFSState): Unit = {
+        override protected def iterationComplete(state: DFSState): Unit =
           state.streams foreach (_.close())
-        }
-      }
-    } match {
+    match
       case Success(src) => Source fromGraph src
       case Failure(e) => Source.failed(e)
-    }
 
   /**
     * The iteration function for BFS traversal. This function processes
@@ -321,30 +307,26 @@ object DirectoryStreamSource {
     */
   @tailrec private def iterateBFS[A](filter: PathFilter, streamFactory: StreamFactory,
                                      f: TransformFunc[A])(state: BFSState):
-  (BFSState, Option[A]) = {
-    state.optCurrentStream match {
+  (BFSState, Option[A]) =
+    state.optCurrentStream match
       case Some(ref) =>
-        if (ref.iterator.hasNext) {
+        if ref.iterator.hasNext then
           val path = ref.iterator.next()
           val isDir = Files isDirectory path
           val elem = Some(f(path, isDir))
-          if (isDir) (BFSState(state.optCurrentStream, state.dirsToProcess enqueue path), elem)
+          if isDir then (BFSState(state.optCurrentStream, state.dirsToProcess enqueue path), elem)
           else (state, elem)
-        } else {
+        else
           ref.close()
           iterateBFS(filter, streamFactory, f)(BFSState(None, state.dirsToProcess))
-        }
 
       case None =>
-        state.dirsToProcess.dequeueOption match {
+        state.dirsToProcess.dequeueOption match
           case Some((p, q)) =>
             iterateBFS(filter, streamFactory, f)(BFSState(Some(createStreamRef(p, streamFactory,
               filter)), q))
           case _ =>
             (BFSState(None, Queue()), None)
-        }
-    }
-  }
 
   /**
     * The iteration function for DFS traversal. This function processes the
@@ -361,41 +343,35 @@ object DirectoryStreamSource {
     */
   @tailrec private def iterateDFS[A](filter: PathFilter, streamFactory: StreamFactory,
                                      f: TransformFunc[A])(state: DFSState):
-  (DFSState, Option[A]) = {
-    state.streams match {
+  (DFSState, Option[A]) =
+    state.streams match
       case h :: t =>
-        h.optStream match {
+        h.optStream match
           case Some(stream) =>
-            if (stream.iterator.hasNext) {
+            if stream.iterator.hasNext then
               val path = stream.iterator.next()
               val isDir = Files isDirectory path
               val elem = Some(f(path, isDir))
-              if (isDir) {
+              if isDir then
                 val nextDir = h.copy(subDirs = path :: h.subDirs)
                 (DFSState(nextDir :: t), elem)
-              }
               else (state, elem)
-            } else {
+            else
               h.close()
               val nextDir = h.copy(optStream = None)
               iterateDFS(filter, streamFactory, f)(DFSState(nextDir :: t))
-            }
 
           case None =>
-            h.subDirs match {
+            h.subDirs match
               case dh :: dt =>
                 val nextDir = DFSCurrentDir(Some(createStreamRef(dh, streamFactory, filter)), Nil)
                 val lastDir = h.copy(subDirs = dt)
                 iterateDFS(filter, streamFactory, f)(DFSState(nextDir :: lastDir :: t))
               case _ =>
                 iterateDFS(filter, streamFactory, f)(DFSState(t))
-            }
-        }
 
       case _ =>
         (DFSState(Nil), None)
-    }
-  }
 
 
   /**
@@ -408,11 +384,9 @@ object DirectoryStreamSource {
     * @return the new ''DirectoryStreamRef''
     */
   private def createStreamRef(p: Path, factory: StreamFactory, filter: PathFilter):
-  DirectoryStreamRef = {
+  DirectoryStreamRef =
     val stream = factory(p, filter)
     DirectoryStreamRef(stream, stream.iterator())
-  }
-}
 
 /**
   * A stream source for traversing a directory structure.
@@ -443,7 +417,7 @@ abstract class DirectoryStreamSource[A](val root: Path,
                                         val filter: PathFilter,
                                         streamFactory: StreamFactory)
                                        (f: TransformFunc[A])
-  extends GraphStage[SourceShape[A]] {
+  extends GraphStage[SourceShape[A]]:
 
   /** Type definition for the current state of the iteration. */
   type IterationState
@@ -453,7 +427,7 @@ abstract class DirectoryStreamSource[A](val root: Path,
   override def shape: SourceShape[A] = SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       /** The current state of the iteration. */
       private var currentState = initialState
 
@@ -474,7 +448,6 @@ abstract class DirectoryStreamSource[A](val root: Path,
           super.onDownstreamFinish(cause)
         }
       })
-    }
 
   /**
     * Returns the iteration function. This function is used to obtain the next
@@ -499,4 +472,3 @@ abstract class DirectoryStreamSource[A](val root: Path,
     * @param state the current iteration state
     */
   protected def iterationComplete(state: IterationState): Unit
-}

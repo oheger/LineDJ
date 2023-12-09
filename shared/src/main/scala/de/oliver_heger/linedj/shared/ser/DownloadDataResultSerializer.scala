@@ -28,7 +28,7 @@ import org.apache.pekko.util.ByteString
   * we provide a custom serializer, which can handle the ''ByteString'' in the
   * message effectively.
   */
-class DownloadDataResultSerializer extends Serializer {
+class DownloadDataResultSerializer extends Serializer:
   override def identifier: Int = 10001
 
   override def includeManifest: Boolean = false
@@ -54,4 +54,3 @@ class DownloadDataResultSerializer extends Serializer {
     */
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef =
     DownloadDataResult(ByteString(bytes))
-}

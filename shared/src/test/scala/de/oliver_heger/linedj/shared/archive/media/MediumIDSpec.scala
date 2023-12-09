@@ -22,20 +22,16 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''MediumID''.
   */
-class MediumIDSpec extends AnyFlatSpec with Matchers {
-  "MediumID" should "detect that it is not an undefined medium" in {
+class MediumIDSpec extends AnyFlatSpec with Matchers:
+  "MediumID" should "detect that it is not an undefined medium" in:
     val mid = MediumID("someUri", Some("somePath"), "someComponent")
 
     mid.isArchiveUndefinedMedium shouldBe false
-  }
 
-  it should "detect that it is an archive's undefined medium" in {
+  it should "detect that it is an archive's undefined medium" in:
     val mid = MediumID("someUri", None, "someComponent")
 
     mid.isArchiveUndefinedMedium shouldBe true
-  }
 
-  it should "detect that the global undefined ID is not an archive's undefined medium" in {
+  it should "detect that the global undefined ID is not an archive's undefined medium" in:
     MediumID.UndefinedMediumID.isArchiveUndefinedMedium shouldBe false
-  }
-}

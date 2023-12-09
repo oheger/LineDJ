@@ -38,12 +38,11 @@ import scala.concurrent.duration._
   * Test class for ''ParserStage''.
   */
 class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ParserStageSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Runs a flow with the given source and parser function and returns the
@@ -54,16 +53,15 @@ class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * @return the results of stream processing
     */
   private def runFlow(parseFunc: ChunkSequenceParser[String], source: Source[ByteString,
-    NotUsed]): Seq[String] = {
+    NotUsed]): Seq[String] =
     val stage: Graph[FlowShape[ByteString, String], NotUsed] =
       new ParserStage[String](parseFunc)
     val sink = Sink.seq[String]
     val flow = source.via(stage).toMat(sink)(Keep.right)
     val results = Await.result(flow.run(), 5.seconds)
     results
-  }
 
-  "A ParserStage" should "produce correct parsing results" in {
+  "A ParserStage" should "produce correct parsing results" in:
     val parseFunc = mock[ChunkSequenceParser[String]]
     val chunk1 = ByteString("Chunk1")
     val chunk2 = ByteString("Chunk2")
@@ -77,13 +75,10 @@ class ParserStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val source = Source(List(chunk1, chunk2, chunk3))
     val results = runFlow(parseFunc, source)
     results should be(List("r1", "r2", "r3", "r4", "r5", "r6"))
-  }
 
-  it should "handle an empty stream correctly" in {
+  it should "handle an empty stream correctly" in:
     val source = Source.empty[ByteString]
     val parseFunc = mock[ChunkSequenceParser[String]]
 
     runFlow(parseFunc, source) should have size 0
     verifyNoInteractions(parseFunc)
-  }
-}

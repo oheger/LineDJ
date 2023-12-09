@@ -25,31 +25,26 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''DownloadDataResultSerializer''.
   */
-class DownloadDataResultSerializerSpec extends AnyFlatSpec with Matchers {
-  "DownloadDataResultSerializer" should "report a valid identifier" in {
+class DownloadDataResultSerializerSpec extends AnyFlatSpec with Matchers:
+  "DownloadDataResultSerializer" should "report a valid identifier" in:
     val serializer = new DownloadDataResultSerializer
 
     serializer.identifier should be > 40 // 0 - 40 is reserved
-  }
 
-  it should "not need a manifest" in {
+  it should "not need a manifest" in:
     val serializer = new DownloadDataResultSerializer
 
     serializer.includeManifest shouldBe false
-  }
 
-  it should "convert a message to binary" in {
+  it should "convert a message to binary" in:
     val data = FileTestHelper.testBytes()
     val msg = DownloadDataResult(ByteString(data))
     val serializer = new DownloadDataResultSerializer
 
     serializer.toBinary(msg) should be(FileTestHelper.testBytes())
-  }
 
-  it should "deserialize a message" in {
+  it should "deserialize a message" in:
     val serializer = new DownloadDataResultSerializer
 
     val msg = serializer.fromBinary(FileTestHelper.testBytes()).asInstanceOf[DownloadDataResult]
     msg.data.utf8String should be(FileTestHelper.TestData)
-  }
-}

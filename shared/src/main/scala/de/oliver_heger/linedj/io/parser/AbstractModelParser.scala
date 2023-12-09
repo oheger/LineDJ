@@ -19,6 +19,8 @@ package de.oliver_heger.linedj.io.parser
 import de.oliver_heger.linedj.io.parser.ParserImpl.ManyPartialData
 import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Success}
 
+import scala.collection.immutable.{IndexedSeq, Seq}
+
 /**
   * An abstract base class for JSON-based parsers that convert the passed in
   * data to model objects.
@@ -41,7 +43,7 @@ import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Success}
   * @tparam D type of additional data required by the parser
   */
 abstract class AbstractModelParser[T, D](val chunkParser: ChunkParser[ParserTypes.Parser,
-  ParserTypes.Result, Failure], val jsonParser: ParserTypes.Parser[JSONParser.JSONData]) {
+  ParserTypes.Result, Failure], val jsonParser: ParserTypes.Parser[JSONParser.JSONData]):
   /**
     * Parses a chunk of data and returns the extract metadata.
     *
@@ -53,15 +55,13 @@ abstract class AbstractModelParser[T, D](val chunkParser: ChunkParser[ParserType
     *         interrupted the current parse operation
     */
   def processChunk(text: String, mediumID: D, lastChunk: Boolean, optFailure:
-  Option[Failure]): (Seq[T], Option[Failure]) = {
-    chunkParser.runChunk(jsonParser)(text, lastChunk, optFailure) match {
+  Option[Failure]): (Seq[T], Option[Failure]) =
+    chunkParser.runChunk(jsonParser)(text, lastChunk, optFailure) match
       case Success(objects, _) =>
         (convertJsonObjects(mediumID, objects), None)
       case Failure(e, c, d) =>
         val (partial, results) = extractPartialDataAndResults(mediumID, d)
         (results, Some(Failure(e, c, partial)))
-    }
-  }
 
   /**
     * The conversion function. This method is invoked whenever complete JSON
@@ -88,9 +88,9 @@ abstract class AbstractModelParser[T, D](val chunkParser: ChunkParser[ParserType
     * @param d        the list with partial data
     * @return a tuple with updated partial data and the extracted results
     */
-  private def extractPartialDataAndResults(convData: D, d: List[Any]): (List[Any], Seq[T]) = {
+  private def extractPartialDataAndResults(convData: D, d: List[Any]): (List[Any], Seq[T]) =
     d.foldRight((List.empty[Any], Seq.empty[T])) { (x, s) =>
-      x match {
+      x match
         case pd: ManyPartialData[_] if containsResults(pd) =>
           // Cast is safe because of the structure of the parser
           val data = pd.asInstanceOf[ManyPartialData[Map[String, String]]]
@@ -98,9 +98,7 @@ abstract class AbstractModelParser[T, D](val chunkParser: ChunkParser[ParserType
             data.results.toIndexedSeq))
         case _ =>
           (x :: s._1, s._2)
-      }
     }
-  }
 
   /**
     * Checks whether the given partial data object contains results that are to
@@ -113,4 +111,3 @@ abstract class AbstractModelParser[T, D](val chunkParser: ChunkParser[ParserType
     */
   private def containsResults(pd: ManyPartialData[_]): Boolean =
     pd.results.headOption.exists(_.isInstanceOf[Map[_, _]])
-}

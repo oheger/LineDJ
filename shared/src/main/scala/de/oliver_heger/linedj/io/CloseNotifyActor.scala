@@ -32,15 +32,12 @@ import org.apache.pekko.actor.{Actor, ActorRef, Terminated}
   * @param closeActor the actor to be closed
   * @param target     the actor to be notified about the close operation
   */
-class CloseNotifyActor(handler: ActorRef, closeActor: ActorRef, target: ActorRef) extends Actor {
+class CloseNotifyActor(handler: ActorRef, closeActor: ActorRef, target: ActorRef) extends Actor:
   @scala.throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     context watch handler
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Terminated(_) =>
       target ! CloseAck(closeActor)
       context stop self
-  }
-}

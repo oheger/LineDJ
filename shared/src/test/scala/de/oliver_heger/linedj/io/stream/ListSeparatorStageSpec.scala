@@ -32,12 +32,11 @@ import scala.concurrent.duration._
   * Test class for ''ListSeparatorStage''.
   */
 class ListSeparatorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("ListSeparatorStageSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Executes a test stream with the specified elements and returns the
@@ -47,30 +46,25 @@ class ListSeparatorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @param sep  a separator string
     * @return the result of stream processing
     */
-  private def runStream(data: List[String], sep: => String = ", "): String = {
+  private def runStream(data: List[String], sep: => String = ", "): String =
     val source = Source(data)
     val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
     val futResult = source.via(
       new ListSeparatorStage[String]("(", sep, ")")((s, i) => s + i)).runWith(sink)
     Await.result(futResult, 3.seconds).utf8String
-  }
 
-  "A ListSeparatorStage" should "produce a valid output with a list of elements" in {
+  "A ListSeparatorStage" should "produce a valid output with a list of elements" in:
     val result = runStream(List("A", "B", "C"))
 
     result should be("(A0, B1, C2)")
-  }
 
-  it should "handle an empty stream correctly" in {
+  it should "handle an empty stream correctly" in:
     val result = runStream(List())
 
     result should be("()")
-  }
 
-  it should "resolve the separator only once" in {
+  it should "resolve the separator only once" in:
     val counter = new AtomicInteger
     runStream(List("a", "b", "c"), "separator_" + counter.incrementAndGet())
 
     counter.get() should be(1)
-  }
-}

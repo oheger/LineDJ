@@ -33,7 +33,7 @@ import scalaz.State
   * @tparam ServiceState  the type of the state managed by the service
   * @tparam UpdateService the type of the state management service
   */
-trait StateTestHelper[ServiceState, UpdateService] {
+trait StateTestHelper[ServiceState, UpdateService]:
   /**
     * The mock for the state update service to be used by tests. Concrete
     * implementations must create the correct service mock.
@@ -57,10 +57,9 @@ trait StateTestHelper[ServiceState, UpdateService] {
     * @return this test helper
     */
   def stub[A](data: A, state: ServiceState)
-             (f: UpdateService => State[ServiceState, A]): this.type = {
+             (f: UpdateService => State[ServiceState, A]): this.type =
     when(f(updateService)).thenAnswer((_: InvocationOnMock) => createState(state, data))
     this
-  }
 
   /**
     * Invokes the given function on the update service to capture an
@@ -88,12 +87,11 @@ trait StateTestHelper[ServiceState, UpdateService] {
     * @param state the expected (original) state
     * @return this test helper
     */
-  def expectStateUpdate(state: ServiceState): this.type = {
+  def expectStateUpdate(state: ServiceState): this.type =
     val optState = nextUpdatedState()
-    if (!optState.contains(state))
+    if !optState.contains(state) then
       throw new AssertionError(s"Wrong state update. Expected $state, was $optState")
     this
-  }
 
   /**
     * Creates a ''State'' object that records the passed in former state and
@@ -109,4 +107,3 @@ trait StateTestHelper[ServiceState, UpdateService] {
       stateQueue offer s
       (state, data)
     }
-}

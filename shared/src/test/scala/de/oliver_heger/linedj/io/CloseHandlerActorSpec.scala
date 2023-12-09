@@ -25,59 +25,52 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''CloseHandlerActor''.
   */
-class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers {
+class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("CloseHandlerActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A CloseHandlerActor" should "send close actors a CloseRequest" in {
+  "A CloseHandlerActor" should "send close actors a CloseRequest" in:
     val helper = new CloseHandlerActorTestHelper
 
     helper.expectCloseRequests()
-  }
 
-  it should "send a close ack when all monitored actors are closed" in {
+  it should "send a close ack when all monitored actors are closed" in:
     val helper = new CloseHandlerActorTestHelper
 
     helper.sendCloseAcks().expectCloseComplete()
-  }
 
-  it should "not send a close ack before monitored actors are closed" in {
+  it should "not send a close ack before monitored actors are closed" in:
     val helper = new CloseHandlerActorTestHelper
 
     helper.sendCloseAcks(to = 1).expectNoCloseComplete()
       .sendCloseAcks(from = 1).expectCloseComplete()
-  }
 
-  it should "stop itself after monitored actors are closed" in {
+  it should "stop itself after monitored actors are closed" in:
     val helper = new CloseHandlerActorTestHelper
 
     helper.sendCloseAcks().expectActorStopped()
-  }
 
-  it should "death watch actors to be closed" in {
+  it should "death watch actors to be closed" in:
     val helper = new CloseHandlerActorTestHelper
 
     helper.expectCloseRequests().stopMonitoredActor(0).sendCloseAcks(from = 1)
       .expectCloseComplete()
-  }
 
-  it should "not complete the close operation before the condition is satisfied" in {
+  it should "not complete the close operation before the condition is satisfied" in:
     val helper = new CloseHandlerActorTestHelper(initialCondition = false)
 
     helper.sendCloseAcks().expectNoCloseComplete()
       .conditionSatisfied().expectCloseComplete()
-  }
 
   /**
     * A test helper class managing dependencies for the actor to be tested.
     *
     * @param initialCondition the condition flag to be passed to the test actor
     */
-  private class CloseHandlerActorTestHelper(initialCondition: Boolean = true) {
+  private class CloseHandlerActorTestHelper(initialCondition: Boolean = true):
     /** The number of actors to be closed. */
     val CloseCount = 2
 
@@ -95,12 +88,11 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return this test helper
       */
-    def expectCloseRequests(): CloseHandlerActorTestHelper = {
+    def expectCloseRequests(): CloseHandlerActorTestHelper =
       closeActors foreach { p =>
         p.expectMsg(CloseRequest)
       }
       this
-    }
 
     /**
       * Sends close ack messages from the specified close actors.
@@ -109,44 +101,40 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param to   the to index (excluding)
       * @return this test helper
       */
-    def sendCloseAcks(from: Int = 0, to: Int = CloseCount): CloseHandlerActorTestHelper = {
+    def sendCloseAcks(from: Int = 0, to: Int = CloseCount): CloseHandlerActorTestHelper =
       closeActors.slice(from, to).map(p => CloseAck(p.ref)).foreach(handler.receive)
       this
-    }
 
     /**
       * Expects that the source actor has been sent a CloseComplete message.
       *
       * @return this test helper
       */
-    def expectCloseComplete(): CloseHandlerActorTestHelper = {
+    def expectCloseComplete(): CloseHandlerActorTestHelper =
       probeSource.expectMsg(CloseHandlerActor.CloseComplete)
       this
-    }
 
     /**
       * Verifies that no CloseComplete message was sent to the source actor.
       *
       * @return this test helper
       */
-    def expectNoCloseComplete(): CloseHandlerActorTestHelper = {
+    def expectNoCloseComplete(): CloseHandlerActorTestHelper =
       val Ping = "Ping"
       probeSource.ref ! Ping
       probeSource.expectMsg(Ping)
       this
-    }
 
     /**
       * Verifies that the test actor has terminated.
       *
       * @return this test helper
       */
-    def expectActorStopped(): CloseHandlerActorTestHelper = {
+    def expectActorStopped(): CloseHandlerActorTestHelper =
       val watcher = TestProbe()
       watcher watch handler
       watcher.expectMsgType[Terminated].actor should be(handler)
       this
-    }
 
     /**
       * Stops one of the actors that are to be closed.
@@ -154,20 +142,18 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param idx the index of the actor to stop
       * @return this test helper
       */
-    def stopMonitoredActor(idx: Int): CloseHandlerActorTestHelper = {
+    def stopMonitoredActor(idx: Int): CloseHandlerActorTestHelper =
       system stop closeActors(idx).ref
       this
-    }
 
     /**
       * Sends a message to the test actor that the condition is satisfied.
       *
       * @return this test helper
       */
-    def conditionSatisfied(): CloseHandlerActorTestHelper = {
+    def conditionSatisfied(): CloseHandlerActorTestHelper =
       handler receive CloseHandlerActor.ConditionSatisfied
       this
-    }
 
     /**
       * Creates an array with the actors to be closed.
@@ -185,6 +171,4 @@ class CloseHandlerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private def createTestActor(): TestActorRef[CloseHandlerActor] =
       TestActorRef(Props(classOf[CloseHandlerActor], probeSource.ref,
         closeActors.map(_.ref).toSeq, initialCondition))
-  }
 
-}

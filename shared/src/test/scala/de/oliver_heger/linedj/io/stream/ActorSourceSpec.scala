@@ -34,12 +34,11 @@ import scala.concurrent.{Await, ExecutionContextExecutor, Future}
   * Test class for ''ActorSource''.
   */
 class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("ActorSourceSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates a test source based on a data actor sending the provided test
@@ -48,11 +47,10 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * @param data the list with data to be sent by the test data actor
     * @return the source
     */
-  private def createSource(data: List[String]): Source[String, Any] = {
+  private def createSource(data: List[String]): Source[String, Any] =
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     val actor = system.actorOf(Props(classOf[DataActor], data))
     ActorSource[String](actor, Request)(resultFunc())
-  }
 
   /**
     * Returns the result function that maps responses from the test data
@@ -60,11 +58,10 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     *
     * @return the result function
     */
-  private def resultFunc(): ActorSource.ResultFunc[String] = {
+  private def resultFunc(): ActorSource.ResultFunc[String] =
     case s: String => ActorDataResult(s)
     case Completed => ActorCompletionResult()
     case Error(s) => ActorErrorResult(new Exception(s))
-  }
 
   /**
     * Runs a stream with the specified test source.
@@ -72,10 +69,9 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     * @param source the test source
     * @return a future with the stream result
     */
-  private def runStream(source: Source[String, Any]): Future[List[String]] = {
+  private def runStream(source: Source[String, Any]): Future[List[String]] =
     val sink = Sink.fold[List[String], String](List.empty[String])((lst, s) => s :: lst)
     source.runWith(sink)
-  }
 
   /**
     * Obtains the result from stream processing.
@@ -86,40 +82,35 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
   private def streamResult(f: Future[List[String]]): List[String] =
     Await.result(f, 3.seconds).reverse
 
-  "An ActorSource" should "return expected data" in {
+  "An ActorSource" should "return expected data" in:
     val data = List("This", "is", "test", "data", "for", "the", "ActorSource")
 
     val result = streamResult(runStream(createSource(data)))
     result should be(data)
-  }
 
-  it should "handle a slower source" in {
+  it should "handle a slower source" in:
     val data = List("Test", "data", "from", "a", "slower", "test", "source", "x", "y", "z")
     val source = createSource(data).delay(50.millis, DelayOverflowStrategy.backpressure)
 
     val result = streamResult(runStream(source))
     result should be(data)
-  }
 
-  it should "handle a slower actor response" in {
+  it should "handle a slower actor response" in:
     val data = List("Test", "data", DataActor.Delay, "with", DataActor.Delay, "delay")
 
     val result = streamResult(runStream(createSource(data)))
     result should be(data)
-  }
 
-  it should "handle an error response" in {
+  it should "handle an error response" in:
     val ErrMsg = "Failed processing!"
     val data = List("Stream", "that", "fails", DataActor.ErrorPrefix + ErrMsg)
 
     val fut = runStream(createSource(data))
-    val ex = intercept[Exception] {
+    val ex = intercept[Exception]:
       Await.result(fut, 3.seconds)
-    }
     ex.getMessage should be(ErrMsg)
-  }
 
-  it should "handle a timeout from the data actor" in {
+  it should "handle a timeout from the data actor" in:
     val data = List("Stream", "with", "timeout", DataActor.Ignore, "foo")
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     val actor = system.actorOf(Props(classOf[DataActor], data))
@@ -127,12 +118,9 @@ class ActorSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val now = System.currentTimeMillis()
 
     val fut = runStream(source)
-    intercept[AskTimeoutException] {
+    intercept[AskTimeoutException]:
       Await.result(fut, 10.seconds)
-    }
     System.currentTimeMillis() - now should be < 5000L
-  }
-}
 
 /** Message to request data. */
 case object Request
@@ -147,7 +135,7 @@ case object Completed
   */
 case class Error(s: String)
 
-object DataActor {
+object DataActor:
   /** Prefix of a data item that causes an error message. */
   val ErrorPrefix = "err:"
 
@@ -156,7 +144,6 @@ object DataActor {
 
   /** A data item that causes a timeout because no response is sent. */
   val Ignore = ":ignore:"
-}
 
 /**
   * Test actor class providing the data for the test source. The actor returns
@@ -166,22 +153,20 @@ object DataActor {
   *
   * @param data the list with data
   */
-class DataActor(data: List[String]) extends Actor {
+class DataActor(data: List[String]) extends Actor:
 
   import DataActor._
 
   private var currentData = data
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case Request =>
-      val response = currentData match {
+      val response = currentData match
         case h :: t =>
           currentData = t
           dataResponse(h)
         case _ => Some(Completed)
-      }
       response foreach sender().!
-  }
 
   /**
     * Produces a response message for the given data item. Handles some
@@ -190,16 +175,11 @@ class DataActor(data: List[String]) extends Actor {
     * @param s the item
     * @return the response message
     */
-  private def dataResponse(s: String): Option[Any] = {
-    if (s startsWith ErrorPrefix) Some(Error(s.substring(ErrorPrefix.length)))
-    else {
-      if (s == Ignore) None
-      else {
-        if (s == Delay) {
+  private def dataResponse(s: String): Option[Any] =
+    if s startsWith ErrorPrefix then Some(Error(s.substring(ErrorPrefix.length)))
+    else
+      if s == Ignore then None
+      else
+        if s == Delay then
           Thread.sleep(50)
-        }
         Some(s)
-      }
-    }
-  }
-}

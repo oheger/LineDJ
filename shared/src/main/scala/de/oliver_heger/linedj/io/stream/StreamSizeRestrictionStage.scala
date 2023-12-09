@@ -31,21 +31,21 @@ import org.apache.pekko.util.ByteString
   * @param maxSize the maximum size of the source in bytes
   */
 class StreamSizeRestrictionStage(val maxSize: Int) extends GraphStage[FlowShape[ByteString,
-  ByteString]] {
+  ByteString]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("SizeRestrictionStage.in")
   val out: Outlet[ByteString] = Outlet[ByteString]("SizeRestrictionStage.out")
 
   override val shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       var bytesRead = 0
 
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           val chunk = grab(in)
           bytesRead += chunk.size
-          if (bytesRead > maxSize) {
+          if bytesRead > maxSize then {
             fail(out, new IllegalStateException(s"Size limit of $maxSize exceeded!"))
           } else {
             push(out, chunk)
@@ -58,5 +58,3 @@ class StreamSizeRestrictionStage(val maxSize: Int) extends GraphStage[FlowShape[
           pull(in)
         }
       })
-    }
-}

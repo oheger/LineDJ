@@ -61,7 +61,7 @@ case class StreamPullState(dataAvailable: Option[ByteString],
 case class StreamPullNotifications(dataReceiver: Option[ActorRef],
                                    data: ByteString,
                                    ack: Option[ActorRef],
-                                   error: Option[ActorRef]) {
+                                   error: Option[ActorRef]):
   /**
     * Returns a flag whether the end of the stream is reached. This function
     * returns a meaningful result only if a data receiver is defined. In this
@@ -83,12 +83,11 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
     * @param endOfStream the end-of-stream message
     * @tparam A the type of the data message
     */
-  def sendData[A](sender: ActorRef, f: ByteString => A)(endOfStream: => Any): Unit = {
+  def sendData[A](sender: ActorRef, f: ByteString => A)(endOfStream: => Any): Unit =
     dataReceiver foreach { rec =>
-      val msg = if (isEndOfStream) endOfStream else f(data)
+      val msg = if isEndOfStream then endOfStream else f(data)
       rec.tell(msg, sender)
     }
-  }
 
   /**
     * Sends an ACK message to the stream actor if it is defined. The concrete
@@ -97,9 +96,8 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
     * @param sender the sender of this message
     * @param ackMsg the message to be send as an ACK signal
     */
-  def sendAck(sender: ActorRef, ackMsg: => Any): Unit = {
+  def sendAck(sender: ActorRef, ackMsg: => Any): Unit =
     ack foreach (_.tell(ackMsg, sender))
-  }
 
   /**
     * Sends an error message to an illegal client actor if one is defined.
@@ -107,10 +105,8 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
     * @param sender the sender of this message
     * @param errMsg the error message to be sent
     */
-  def sendError(sender: ActorRef, errMsg: => Any): Unit = {
+  def sendError(sender: ActorRef, errMsg: => Any): Unit =
     error foreach (_.tell(errMsg, sender))
-  }
-}
 
 /**
   * A trait defining an interface for a service that bridges between the
@@ -125,7 +121,7 @@ case class StreamPullNotifications(dataReceiver: Option[ActorRef],
   * it is processed by a component that requests data on its own when it is
   * ready to process it.
   */
-trait StreamPullReadService {
+trait StreamPullReadService:
   /** The type for updates of the internal state. */
   type StateUpdate[A] = State[StreamPullState, A]
 
@@ -177,10 +173,10 @@ trait StreamPullReadService {
     * @return the updated state and the notifications to send
     */
   def handleDataRequest(client: ActorRef, size: Int): StateUpdate[StreamPullNotifications] =
-    for {
+    for
       _ <- dataRequested(client, size)
       not <- evalNotifications()
-    } yield not
+    yield not
 
   /**
     * Updates the state for an incoming chunk of data from the stream and
@@ -192,10 +188,10 @@ trait StreamPullReadService {
     * @return the updated state and the notifications to send
     */
   def handleNextData(data: ByteString, sender: ActorRef): StateUpdate[StreamPullNotifications] =
-    for {
+    for
       _ <- nextData(data, sender)
       not <- evalNotifications()
-    } yield not
+    yield not
 
   /**
     * Updates the state for an end-of-stream notifications and computes the
@@ -205,13 +201,12 @@ trait StreamPullReadService {
     * @return the updated state and the notifications to send
     */
   def handleEndOfStream(): StateUpdate[StreamPullNotifications] =
-    for {
+    for
       _ <- endOfStream()
       not <- evalNotifications()
-    } yield not
-}
+    yield not
 
-object StreamPullReadServiceImpl extends StreamPullReadService {
+object StreamPullReadServiceImpl extends StreamPullReadService:
   /** Constant for a state object with initial values. */
   final val InitialState: StreamPullState = StreamPullState(dataAvailable = None, dataToSend = None,
     ackPending = None, requestClient = None, requestSize = 0, errorClient = None, streamComplete = false)
@@ -220,7 +215,7 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
   private val NoopNotifications = StreamPullNotifications(None, ByteString.empty, None, None)
 
   override def dataRequested(client: ActorRef, size: Int): StateUpdate[Unit] = modify { s =>
-    if (s.requestClient.isDefined)
+    if s.requestClient.isDefined then
       s.copy(errorClient = Some(client))
     else
       streamUpdate(s, s.dataAvailable, Some(client), size, streamComplete = s.streamComplete)
@@ -242,8 +237,8 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
     s.dataToSend.fold((resetErrorClient(s), addErrorActor(NoopNotifications, s.errorClient))) { data =>
       val canAck = s.dataAvailable.isEmpty
       val nextState = s.copy(dataToSend = None, requestClient = None, errorClient = None,
-        ackPending = if (canAck) None else s.ackPending)
-      (nextState, StreamPullNotifications(s.requestClient, data, if (canAck) s.ackPending else None, s.errorClient))
+        ackPending = if canAck then None else s.ackPending)
+      (nextState, StreamPullNotifications(s.requestClient, data, if canAck then s.ackPending else None, s.errorClient))
     }
   }
 
@@ -263,7 +258,7 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
     */
   private def serveRequestIfPossible(dataAvailable: Option[ByteString], requestSize: Int, streamComplete: Boolean):
   (Option[ByteString], Option[ByteString]) =
-    dataAvailable match {
+    dataAvailable match
       case avail@Some(data) if data.length <= requestSize =>
         (avail, None)
       case Some(data) =>
@@ -273,7 +268,6 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
         (Some(ByteString.empty), None)
       case None =>
         (None, None)
-    }
 
   /**
     * Calculates the request size for the updated state. If data can be sent to
@@ -284,7 +278,7 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
     * @return the updated request size
     */
   private def nextRequestSize(optDataToSend: Option[ByteString], currentSize: Int): Int =
-    if (optDataToSend.isDefined) 0 else currentSize
+    if optDataToSend.isDefined then 0 else currentSize
 
   /**
     * Handles data updates received from the stream. This can be a new chunk of
@@ -298,13 +292,12 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
     * @return the updated state
     */
   private def streamUpdate(s: StreamPullState, optData: Option[ByteString], optClient: Option[ActorRef],
-                           requestSize: Int, streamComplete: Boolean): StreamPullState = {
+                           requestSize: Int, streamComplete: Boolean): StreamPullState =
     val (dataToSend, dataAvailable) = optClient.fold[(Option[ByteString],
       Option[ByteString])]((None, optData))(_ => serveRequestIfPossible(optData, requestSize, streamComplete))
     val nextSize = nextRequestSize(dataToSend, requestSize)
     s.copy(dataAvailable = dataAvailable, dataToSend = dataToSend, requestClient = optClient, requestSize = nextSize,
       streamComplete = streamComplete)
-  }
 
   /**
     * Returns a state with the error client reset. This is an optimization to
@@ -315,7 +308,7 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
     * @return the state with the error client reset
     */
   private def resetErrorClient(state: StreamPullState): StreamPullState =
-    if (state.errorClient.isDefined) state.copy(errorClient = None)
+    if state.errorClient.isDefined then state.copy(errorClient = None)
     else state
 
   /**
@@ -331,4 +324,3 @@ object StreamPullReadServiceImpl extends StreamPullReadService {
   private def addErrorActor(notifications: StreamPullNotifications, optError: Option[ActorRef]):
   StreamPullNotifications =
     optError.fold(notifications)(_ => notifications.copy(error = optError))
-}

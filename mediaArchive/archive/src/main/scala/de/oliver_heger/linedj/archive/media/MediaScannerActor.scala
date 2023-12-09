@@ -158,7 +158,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     */
   private[media] def createSource(path: Path): Source[Path, Any] =
     DirectoryStreamSource.newDFSSource[(Path, Boolean)](path,
-      filter = createFilter()) { (p, d) =>
+      pathFilter = createFilter()) { (p, d) =>
       (p, d)
     }.filterNot(_._2)
       .map(_._1)

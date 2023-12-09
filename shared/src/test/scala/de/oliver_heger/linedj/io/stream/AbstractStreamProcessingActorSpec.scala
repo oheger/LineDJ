@@ -33,30 +33,27 @@ import scala.concurrent.duration._
   * Test class for ''AbstractStreamProcessingActor''.
   */
 class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("AbstractStreamProcessingActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "An AbstractStreamProcessingActor" should "execute a stream" in {
+  "An AbstractStreamProcessingActor" should "execute a stream" in:
     val source = Source(1 to 10)
     val actor = system.actorOf(Props(classOf[StreamProcessingActorImpl], source))
 
     actor ! ProcessStream
     expectMsg(ProcessingResult(55))
-  }
 
-  it should "handle a failed stream correctly" in {
+  it should "handle a failed stream correctly" in:
     val source = Source.failed[Int](new Exception("Boom"))
     val actor = system.actorOf(Props(classOf[StreamProcessingActorImpl], source))
 
     actor ! ProcessStream
     expectMsg(ProcessingResult(-1))
-  }
 
-  it should "support stream cancellation" in {
+  it should "support stream cancellation" in:
     val source = Source(1 to 10).delay(500.milliseconds, DelayOverflowStrategy.backpressure)
     val actor = system.actorOf(Props(classOf[StreamProcessingActorImpl], source))
 
@@ -64,9 +61,8 @@ class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! AbstractStreamProcessingActor.CancelStreams
     val result = expectMsgType[ProcessingResult]
     result.sum should be < 55
-  }
 
-  it should "remove registrations for kill switches" in {
+  it should "remove registrations for kill switches" in:
     val killSwitch = mock[KillSwitch]
     val source = Source.single(42)
     val actor = TestActorRef[StreamProcessingActorImpl](
@@ -81,8 +77,6 @@ class AbstractStreamProcessingActorSpec(testSystem: ActorSystem) extends TestKit
 
     actor receive AbstractStreamProcessingActor.CancelStreams
     verify(killSwitch, never()).shutdown()
-  }
-}
 
 /**
   * A message telling the test actor to start stream processing.
@@ -103,38 +97,34 @@ case class ProcessingResult(sum: Int)
   * @param src the source to be processed
   */
 class StreamProcessingActorImpl(src: Source[Int, Any]) extends AbstractStreamProcessingActor
-  with CancelableStreamSupport {
+  with CancelableStreamSupport:
   /**
     * The custom receive function. Here derived classes can provide their own
     * message handling.
     *
     * @return the custom receive method
     */
-  override protected def customReceive: Receive = {
+  override protected def customReceive: Receive =
     case ProcessStream =>
       runStream()
-  }
 
   /**
     * Materializes the stream returning the future result and a kill switch.
     *
     * @return the stream result and a kill switch
     */
-  protected def materializeStream(): (KillSwitch, Future[Int]) = {
+  protected def materializeStream(): (KillSwitch, Future[Int]) =
     val sink = Sink.fold[Int, Int](0)(_ + _)
     src.viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)
       .run()
-  }
 
   /**
     * Executes the stream.
     */
-  private def runStream(): Unit = {
+  private def runStream(): Unit =
     val (ks, futRes) = materializeStream()
-    processStreamResult(futRes map ProcessingResult, ks) { f =>
-      val res = if (f.exception.getMessage == "Boom") -1 else 42
+    processStreamResult(futRes map ProcessingResult.apply, ks) { f =>
+      val res = if f.exception.getMessage == "Boom" then -1 else 42
       ProcessingResult(res)
     }
-  }
-}

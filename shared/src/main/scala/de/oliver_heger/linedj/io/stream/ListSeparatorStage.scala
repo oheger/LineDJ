@@ -39,27 +39,27 @@ import org.apache.pekko.util.ByteString
   * @tparam A the type of elements processed by this stage
   */
 class ListSeparatorStage[A](prefix: String, separator: => String, suffix: String)
-                           (f: (A, Int) => String) extends GraphStage[FlowShape[A, ByteString]] {
+                           (f: (A, Int) => String) extends GraphStage[FlowShape[A, ByteString]]:
   val in: Inlet[A] = Inlet[A]("ListSeparatorStage.in")
   val out: Outlet[ByteString] = Outlet[ByteString]("ListSeparator.out")
 
   override val shape: FlowShape[A, ByteString] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       private lazy val delimiter = separator // access only once
 
       private var index = 0
 
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
-          val elemSeparator = if (index == 0) prefix else delimiter
+          val elemSeparator = if index == 0 then prefix else delimiter
           push(out, ByteString(elemSeparator + f(grab(in), index)))
           index += 1
         }
 
         override def onUpstreamFinish(): Unit = {
-          val data = if (index > 0) suffix else prefix + suffix
+          val data = if index > 0 then suffix else prefix + suffix
           emit(out, ByteString(data))
           completeStage()
         }
@@ -70,5 +70,3 @@ class ListSeparatorStage[A](prefix: String, separator: => String, suffix: String
           pull(in)
         }
       })
-    }
-}

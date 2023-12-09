@@ -32,16 +32,14 @@ import java.nio.file.{Files, Paths}
  */
 class RemoveFileActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
 ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with BeforeAndAfter with Matchers with
-FileTestHelper {
+FileTestHelper:
   def this() = this(ActorSystem("RemoveFileActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  after {
+  after:
     tearDownTestFile()
-  }
 
   /**
    * Creates an instance of the test actor.
@@ -49,19 +47,17 @@ FileTestHelper {
    */
   private def createActor(): ActorRef = system.actorOf(Props(classOf[RemoveFileActor]))
 
-  "A RemoveFileActor" should "remove a file successfully" in {
+  "A RemoveFileActor" should "remove a file successfully" in:
     val file = createDataFile()
     val actor = createActor()
 
     actor ! RemoveFileActor.RemoveFile(file)
     expectMsg(RemoveFileActor.FileRemoved(file))
     Files exists file shouldBe false
-  }
 
-  it should "throw an exception in case of an error" in {
-    val strategy = OneForOneStrategy() {
+  it should "throw an exception in case of an error" in:
+    val strategy = OneForOneStrategy():
       case _: IOException => Stop
-    }
     val supervisor = SupervisionTestActor(system, strategy, Props(classOf[RemoveFileActor]))
     val probe = TestProbe()
     val actor = supervisor.underlyingActor.childActor
@@ -69,5 +65,3 @@ FileTestHelper {
 
     actor ! RemoveFileActor.RemoveFile(Paths get "non existing file")
     probe.expectMsgType[Terminated].actor should be(actor)
-  }
-}

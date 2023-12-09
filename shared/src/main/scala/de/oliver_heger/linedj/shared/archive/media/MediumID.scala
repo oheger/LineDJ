@@ -42,7 +42,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID.UndefinedMediumID
   * @param archiveComponentID    the ID of the providing archive component
   */
 case class MediumID(mediumURI: String, mediumDescriptionPath: Option[String],
-                    archiveComponentID: String = "") {
+                    archiveComponentID: String = ""):
   /**
     * Returns a flag whether this ID represents the undefined medium of a
     * specific archive. This means that it does not have a path for a medium
@@ -52,13 +52,11 @@ case class MediumID(mediumURI: String, mediumDescriptionPath: Option[String],
     */
   def isArchiveUndefinedMedium: Boolean =
     mediumDescriptionPath.isEmpty && this != UndefinedMediumID
-}
 
-object MediumID {
+object MediumID:
   /**
     * Constant for the ID for the synthetic medium which collects all media
     * files not assigned to a medium (i.e. for which no medium description file
     * is available).
     */
   val UndefinedMediumID: MediumID = MediumID("", None, "<undefined>")
-}

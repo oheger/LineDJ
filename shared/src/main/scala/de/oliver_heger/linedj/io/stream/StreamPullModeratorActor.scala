@@ -21,7 +21,7 @@ import org.apache.pekko.actor.{Actor, ActorRef, Status}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.ByteString
 
-case object StreamPullModeratorActor {
+case object StreamPullModeratorActor:
 
   /**
     * The ACK message to indicate that a chunk of data from the stream has been
@@ -35,7 +35,6 @@ case object StreamPullModeratorActor {
   /** The message indicating that the stream is complete. */
   private case object Done
 
-}
 
 /**
   * A base class for actors that can be used as a sink for a stream and provide
@@ -47,12 +46,11 @@ case object StreamPullModeratorActor {
   * data requests. They also have to setup the source of the stream that is run
   * against this actor sink.
   */
-abstract class StreamPullModeratorActor extends Actor {
-  override def preStart(): Unit = {
+abstract class StreamPullModeratorActor extends Actor:
+  override def preStart(): Unit =
     super.preStart()
     import context.system
     createSource().runWith(Sink.actorRefWithBackpressure(self, Init, Ack, Done, convertStreamError))
-  }
 
   /**
     * The service that does the actual management of the stream pulling state.
@@ -80,9 +78,8 @@ abstract class StreamPullModeratorActor extends Actor {
     * @param size   the size of the chunk of data that is desired
     * @param client the actor requesting the data
     */
-  protected def dataRequested(size: Int, client: ActorRef = sender()): Unit = {
+  protected def dataRequested(size: Int, client: ActorRef = sender()): Unit =
     updateState(streamPullReadService.handleDataRequest(client, size))
-  }
 
   /**
     * Converts an exception received from the stream into a message that is
@@ -149,7 +146,7 @@ abstract class StreamPullModeratorActor extends Actor {
     *
     * @return the receive function to handle messages from the stream
     */
-  private def streamReceive: Receive = {
+  private def streamReceive: Receive =
     case Init =>
       sender() ! Ack
 
@@ -158,7 +155,6 @@ abstract class StreamPullModeratorActor extends Actor {
 
     case Done =>
       updateState(streamPullReadService.handleEndOfStream())
-  }
 
   /**
     * Handles an update of the stream pull state. The update is applied, and
@@ -166,11 +162,9 @@ abstract class StreamPullModeratorActor extends Actor {
     *
     * @param update the update to be applied
     */
-  private def updateState(update: StreamPullReadServiceImpl.StateUpdate[StreamPullNotifications]): Unit = {
+  private def updateState(update: StreamPullReadServiceImpl.StateUpdate[StreamPullNotifications]): Unit =
     val (nextState, notifications) = update(pullState)
     pullState = nextState
     notifications.sendData(self, dataMessage)(endOfStreamMessage)
     notifications.sendAck(self, Ack)
     notifications.sendError(self, concurrentRequestMessage)
-  }
-}

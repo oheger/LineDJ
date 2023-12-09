@@ -22,7 +22,7 @@ import org.apache.pekko.actor.{ActorRef, PoisonPill}
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 
-object ActorManagement {
+object ActorManagement:
 
   /**
     * A trait abstracting over stopping a specific actor.
@@ -32,12 +32,11 @@ object ActorManagement {
     * registered at an [[ActorManagement]] instance must have an associated
     * ''ActorStopper'' object.
     */
-  trait ActorStopper {
+  trait ActorStopper:
     /**
       * Stops the actor associated with this instance.
       */
     def stop(): Unit
-  }
 
   /**
     * A data class used internally to store data about the managed actors.
@@ -47,7 +46,6 @@ object ActorManagement {
     */
   private case class ManagedActorData(ref: Option[ActorRef], stopper: ActorStopper)
 
-}
 
 /**
   * A trait providing functionality for managing a set of actors that should be
@@ -77,7 +75,7 @@ object ActorManagement {
   * register such objects. (In this case, the access to the typed actor
   * reference does not work though.)
   */
-trait ActorManagement {
+trait ActorManagement:
   /** A map for storing registered actors. */
   private val managedActors = new ConcurrentHashMap[String, ManagedActorData]
 
@@ -90,10 +88,9 @@ trait ActorManagement {
     * @param actor the actor
     * @return the passed in actor
     */
-  def registerActor(name: String, actor: ActorRef): ActorRef = {
+  def registerActor(name: String, actor: ActorRef): ActorRef =
     registerActor(name, classicActorStopper(actor), Some(actor))
     actor
-  }
 
   /**
     * Registers an object to stop an actor under the given key. Optionally the
@@ -105,9 +102,8 @@ trait ActorManagement {
     * @param stopper the object to stop this actor
     * @param ref     the optional actor reference
     */
-  def registerActor(name: String, stopper: ActorStopper, ref: Option[ActorRef] = None): Unit = {
+  def registerActor(name: String, stopper: ActorStopper, ref: Option[ActorRef] = None): Unit =
     managedActors.put(name, ManagedActorData(ref, stopper))
-  }
 
   /**
     * Removes the registration for the actor with the specified name. An
@@ -128,13 +124,12 @@ trait ActorManagement {
     * @return a flag whether the operation was successful
     */
   def unregisterAndStopActor(name: String): Boolean =
-    unregisterActorData(name) match {
+    unregisterActorData(name) match
       case Some(data) =>
         data.stopper.stop()
         true
       case None =>
         false
-    }
 
   /**
     * Returns the actor reference for the specified name. This actor must have
@@ -144,10 +139,9 @@ trait ActorManagement {
     * @param name the name of the desired actor
     * @return the reference to this actor
     */
-  def getActor(name: String): ActorRef = {
+  def getActor(name: String): ActorRef =
     val optRef = Option(managedActors get name) flatMap (_.ref)
     optRef.getOrElse(throw new NoSuchElementException(s"No actor registered with name '$name'!"))
-  }
 
   /**
     * Returns an ''Iterable'' with the names of the actors that are currently
@@ -162,11 +156,10 @@ trait ActorManagement {
     * method should be called at least at the end of the lifecycle of this
     * object when the actors are no longer needed.
     */
-  def stopActors(): Unit = {
+  def stopActors(): Unit =
     val actors = managedActors.values().asScala
     actors foreach (_.stopper.stop())
     managedActors.clear()
-  }
 
   /**
     * Removes the entry from the managed actors map with the given key and
@@ -188,4 +181,3 @@ trait ActorManagement {
     () => {
       a ! PoisonPill
     }
-}

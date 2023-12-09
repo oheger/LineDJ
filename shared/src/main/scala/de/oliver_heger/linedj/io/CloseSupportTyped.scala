@@ -34,7 +34,7 @@ import org.apache.pekko.{actor => classic}
   * asynchronously, and when it is done, the triggering typed actor is sent a
   * configurable message.
   */
-object CloseSupportTyped {
+object CloseSupportTyped:
   /**
     * Triggers a close operation on the given dependencies. This function sends
     * a close request to each actor in the dependencies and waits for their
@@ -42,17 +42,17 @@ object CloseSupportTyped {
     * died), the provided message is sent to the client actor, indicating the
     * completion of the operation.
     *
-    * @param context      the context of the client actor
-    * @param client       the actor to notify when the operation is complete
-    * @param ackMessage   the message to sent to the client actor
-    * @param dependencies the actors to close
+    * @param clientContext the context of the client actor
+    * @param client        the actor to notify when the operation is complete
+    * @param ackMessage    the message to sent to the client actor
+    * @param dependencies  the actors to close
     * @tparam M the type of notify message
     */
-  def triggerClose[M](context: ActorContext[M],
+  def triggerClose[M](clientContext: ActorContext[M],
                       client: ActorRef[M],
                       ackMessage: M,
-                      dependencies: Iterable[classic.ActorRef]): Unit = {
-    context.actorOf(
+                      dependencies: Iterable[classic.ActorRef]): Unit =
+    clientContext.actorOf(
       classic.Props(new Actor with ChildActorFactory with CloseSupport with classic.ActorLogging {
         override def preStart(): Unit = {
           onCloseRequest(self, dependencies, self, this)
@@ -66,5 +66,3 @@ object CloseSupportTyped {
             context stop self
         }
       }))
-  }
-}

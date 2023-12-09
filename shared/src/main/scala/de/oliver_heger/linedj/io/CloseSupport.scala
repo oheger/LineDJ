@@ -55,7 +55,7 @@ import org.apache.pekko.actor.{ActorRef, Props}
   * running operation; if the message causes the actor to shutdown, it does not
   * matter whether the state is reset.)
   */
-trait CloseSupport {
+trait CloseSupport:
   /** Stores the handler actor for the current close operation. */
   private var currentHandler: Option[ActorRef] = None
 
@@ -81,29 +81,25 @@ trait CloseSupport {
     */
   def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef],
                      target: ActorRef, factory: ChildActorFactory,
-                     conditionState: => Boolean = true): Boolean = {
+                     conditionState: => Boolean = true): Boolean =
     val triggerOperation = currentHandler.isEmpty
-    if (triggerOperation)
+    if triggerOperation then
       currentHandler = Some(factory.createChildActor(Props(classOf[CloseHandlerActor],
         subject, deps, conditionState)))
     factory.createChildActor(Props(classOf[CloseNotifyActor], currentHandler.get,
       subject, target))
     triggerOperation
-  }
 
   /**
     * Notifies this object that the close operation is complete.
     */
-  def onCloseComplete(): Unit = {
+  def onCloseComplete(): Unit =
     currentHandler = None
-  }
 
   /**
     * Notifies this object that an additional condition is satisfied. The close
     * operation can now be completed if all pending ''CloseAck'' messages have
     * been received.
     */
-  def onConditionSatisfied(): Unit = {
+  def onConditionSatisfied(): Unit =
     currentHandler foreach(_ ! ConditionSatisfied)
-  }
-}

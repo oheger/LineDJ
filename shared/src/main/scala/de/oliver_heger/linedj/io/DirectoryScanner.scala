@@ -20,6 +20,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, FileVisitResult, SimpleFileVisitor, Path}
 import java.util.Locale
 
+import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -56,7 +57,7 @@ case class ScanResult(directories: Seq[Path], files: Seq[FileData])
  * @param excludedExtensions a set with file extensions to be excluded; these
  *                           must be in upper case
  */
-class DirectoryScanner(val excludedExtensions: Set[String]) {
+class DirectoryScanner(val excludedExtensions: Set[String]):
   def this() = this(Set.empty)
 
   /**
@@ -67,14 +68,12 @@ class DirectoryScanner(val excludedExtensions: Set[String]) {
    * @return an object with the results of the scan operation
    */
   @throws(classOf[java.io.IOException])
-  def scan(directory: Path): ScanResult = {
+  def scan(directory: Path): ScanResult =
     val visitor = new ScanVisitor(excludedExtensions)
     Files.walkFileTree(directory, visitor)
     ScanResult(directories = visitor.directories, files = visitor.files)
-  }
-}
 
-private object ScanVisitor {
+private object ScanVisitor:
   /** Constant for an undefined file extension. */
   private val NoExtension = ""
 
@@ -86,13 +85,11 @@ private object ScanVisitor {
    * @param path the path
    * @return the extracted extension
    */
-  def extractExtension(path: Path): String = {
+  def extractExtension(path: Path): String =
     val fileName = path.getFileName.toString
     val pos = fileName lastIndexOf Dot
-    if (pos >= 0) fileName.substring(pos + 1)
+    if pos >= 0 then fileName.substring(pos + 1)
     else NoExtension
-  }
-}
 
 /**
  * A visitor implementation which is passed to the file walker API and collects
@@ -100,7 +97,7 @@ private object ScanVisitor {
  *
  * @param exclusions a set with the file extensions to be excluded
  */
-private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Path] {
+private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Path]:
 
   import ScanVisitor._
 
@@ -125,20 +122,17 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
   /**
    * @inheritdoc This implementation stores data about the encountered file.
    */
-  override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    if (!exclusions.contains(extractExtension(file).toUpperCase(Locale.ENGLISH))) {
+  override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult =
+    if !exclusions.contains(extractExtension(file).toUpperCase(Locale.ENGLISH)) then
       fileBuffer += createFileData(file)
-    }
     FileVisitResult.CONTINUE
-  }
 
   /**
    * @inheritdoc This implementation records the current directory.
    */
-  override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = {
+  override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult =
     dirBuffer += dir
     FileVisitResult.CONTINUE
-  }
 
   /**
    * Creates a ''FileData'' object for the specified path.
@@ -146,4 +140,3 @@ private class ScanVisitor(exclusions: Set[String]) extends SimpleFileVisitor[Pat
    * @return the corresponding ''FileData''
    */
   private def createFileData(file: Path): FileData = FileData(file, Files size file)
-}

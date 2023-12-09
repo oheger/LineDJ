@@ -23,7 +23,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-object ChildActorFactorySpec {
+object ChildActorFactorySpec:
 
   /**
     * A test message class processed by the test actors.
@@ -40,7 +40,6 @@ object ChildActorFactorySpec {
     */
   case class TestResponse(request: TestRequest, source: ActorRef)
 
-}
 
 /**
   * Test class for ''ChildActorFactory''.
@@ -50,23 +49,21 @@ object ChildActorFactorySpec {
   * the child actor works as expected.
   */
 class ChildActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll:
   def this() = this(ActorSystem("ChildActorFactorySpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  "A ChildActorFactory" should "create a correct child actor" in {
+  "A ChildActorFactory" should "create a correct child actor" in:
     val msg = TestRequest(42)
     val actor = system.actorOf(Props(new ActorWithChild with ChildActorFactory))
 
     actor ! msg
     val response = expectMsgType[TestResponse]
     response.request should be(msg)
-  }
 
-  it should "generate an actor name" in {
+  it should "generate an actor name" in:
     val actor1, actor2 = system.actorOf(Props(new ActorWithChild with ChildActorFactory))
 
     List(actor1, actor2) foreach { actor =>
@@ -74,13 +71,11 @@ class ChildActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
       val response = expectMsgType[TestResponse]
       response.source.path.elements.last should startWith("SomeChildActor")
     }
-  }
-}
 
 /**
   * A test actor class that creates a child actor.
   */
-class ActorWithChild extends Actor {
+class ActorWithChild extends Actor:
   this: ChildActorFactory =>
 
   /** The child actor. */
@@ -89,27 +84,22 @@ class ActorWithChild extends Actor {
   /** The sending actor. */
   private var client: ActorRef = _
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     child = createChildActor(Props[SomeChildActor]())
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case r: TestRequest =>
       child ! r
       client = sender()
 
     case resp: TestResponse =>
       client ! resp
-  }
-}
 
 /**
   * A test child actor. This actor just wraps an incoming test message into a
   * reply and sends this reply back to the sender.
   */
-class SomeChildActor extends Actor {
-  override def receive: Receive = {
+class SomeChildActor extends Actor:
+  override def receive: Receive =
     case r: TestRequest =>
       sender() ! TestResponse(r, self)
-  }
-}

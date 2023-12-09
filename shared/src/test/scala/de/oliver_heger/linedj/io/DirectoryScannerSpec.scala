@@ -22,15 +22,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, Path}
+import scala.collection.immutable.Seq
 
 /**
  * Test class for ''DirectoryScanner''.
  */
-class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
+class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper:
 
-  after {
+  after:
     tearDownTestFile()
-  }
 
   /**
    * Creates a file with a given name in a given directory. The content of the
@@ -48,17 +48,16 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
    * @param name the name of the new directory
    * @return the newly created directory
    */
-  private def createDir(parent: Path, name: String): Path = {
+  private def createDir(parent: Path, name: String): Path =
     val dir = parent resolve name
     Files.createDirectory(dir)
     dir
-  }
 
   /**
    * Creates a directory structure with some test files and directories.
    * @return a map with all directories and the files created in them
    */
-  private def setUpDirectoryStructure(): Map[Path, Seq[Path]] = {
+  private def setUpDirectoryStructure(): Map[Path, Seq[Path]] =
     val rootFiles = List(createFile(testDirectory, "test.txt"),
       createFile(testDirectory, "noMedium1.mp3"))
     val dir1 = createDir(testDirectory, "medium1")
@@ -77,7 +76,6 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
 
     Map(testDirectory -> rootFiles, dir1 -> dir1Files, sub1 -> sub1Files, sub1Sub ->
       sub1SubFiles, sub2 -> sub2Files)
-  }
 
   /**
     * Extracts the file name of a path.
@@ -87,25 +85,23 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
     */
   private def fileName(path: Path): String =  path.getFileName.toString
 
-  "A DirectoryScanner" should "return all files in the scanned directory structure" in {
+  "A DirectoryScanner" should "return all files in the scanned directory structure" in:
     val fileData = setUpDirectoryStructure()
     val allFiles = fileData.values.flatten.toSeq
     val scanner = new DirectoryScanner
 
     val result = scanner scan testDirectory
-    result.files map (_.path) should contain only (allFiles: _*)
-  }
+    result.files map (_.path) should contain theSameElementsAs allFiles
 
-  it should "return correct file sizes" in {
+  it should "return correct file sizes" in:
     setUpDirectoryStructure()
     val scanner = new DirectoryScanner(Set.empty)
 
     val result = scanner scan testDirectory
     val wrongSizes = result.files filter (d => fileName(d.path).length != d.size)
     wrongSizes shouldBe empty
-  }
 
-  it should "support suppressing files with specific extensions" in {
+  it should "support suppressing files with specific extensions" in:
     setUpDirectoryStructure()
     val scanner = new DirectoryScanner(Set("TXT"))
 
@@ -113,21 +109,17 @@ class DirectoryScannerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter
     val fileNames = result.files.map(f => fileName(f.path)).toSet
     fileNames should not contain "README.TXT"
     fileNames should not contain "test.txt"
-  }
 
-  it should "return all directories in the scanned directory structure" in {
+  it should "return all directories in the scanned directory structure" in:
     val fileData = setUpDirectoryStructure()
     val scanner = new DirectoryScanner(Set("TXT"))
 
     val result = scanner scan testDirectory
-    result.directories should contain only (fileData.keys.toSeq: _*)
-  }
+    result.directories should contain theSameElementsAs fileData.keys.toSeq
 
-  it should "return directories in order of visiting them" in {
+  it should "return directories in order of visiting them" in:
     setUpDirectoryStructure()
     val scanner = new DirectoryScanner
 
     val result = scanner scan testDirectory
     result.directories.head should be(testDirectory)
-  }
-}

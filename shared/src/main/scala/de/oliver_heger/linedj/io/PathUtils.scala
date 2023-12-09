@@ -23,7 +23,7 @@ import scala.language.implicitConversions
 /**
   * A class providing some utility functions related to ''Path'' objects.
   */
-object PathUtils {
+object PathUtils:
 
   /**
     * Constant for a string that is returned by ''extractExtension()'' if a
@@ -39,11 +39,10 @@ object PathUtils {
     * @param path the path
     * @return the file extension
     */
-  def extractExtension(path: String): String = {
+  def extractExtension(path: String): String =
     val pos = path lastIndexOf '.'
-    if (pos >= 0) path.substring(pos + 1)
+    if pos >= 0 then path.substring(pos + 1)
     else NoExtension
-  }
 
   /**
     * Converts the specified string to a ''Path''. The string is taken as is
@@ -54,4 +53,3 @@ object PathUtils {
     * @return the resulting ''Path''
     */
   implicit def asPath(s: String): Path = Paths get s
-}

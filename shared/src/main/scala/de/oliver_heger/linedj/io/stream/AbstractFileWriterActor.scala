@@ -25,7 +25,7 @@ import org.apache.pekko.util.ByteString
 import java.nio.file.{Files, Path}
 import scala.util.{Failure, Success, Try}
 
-object AbstractFileWriterActor {
+object AbstractFileWriterActor:
 
   /**
     * Class representing a stream processing error.
@@ -35,7 +35,6 @@ object AbstractFileWriterActor {
     */
   case class StreamFailure(ex: Throwable, path: Path)
 
-}
 
 /**
   * A base trait for actors that write data from a ''Source'' into a file on
@@ -54,7 +53,7 @@ object AbstractFileWriterActor {
   * to be sent to the client after a successful write operation. In case of a
   * failed operation, the actor stops itself.
   */
-trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
+trait AbstractFileWriterActor extends AbstractStreamProcessingActor:
   this: CancelableStreamSupport with ActorLogging =>
   /**
     * Sends the specified result to the original caller. This method is called
@@ -65,16 +64,14 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @param client the client to receive the response
     * @param result the result message
     */
-  override protected def propagateResult(client: ActorRef, result: Any): Unit = {
-    result match {
+  override protected def propagateResult(client: ActorRef, result: Any): Unit =
+    result match
       case f@StreamFailure(ex, p) =>
         log.error(ex, s"Could not write file $p!")
         handleFailure(client, f)
 
       case r =>
         super.propagateResult(client, r)
-    }
-  }
 
   /**
     * Executes a write operation by streaming the specified source into the
@@ -86,8 +83,8 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @param client    the client actor to receive a result message
     */
   protected def writeFile(source: Source[ByteString, Any], target: Path,
-                          resultMsg: => Any, client: ActorRef = sender()): Unit = {
-    createTargetDirectoryIfNecessary(target) match {
+                          resultMsg: => Any, client: ActorRef = sender()): Unit =
+    createTargetDirectoryIfNecessary(target) match
       case Failure(e) =>
         log.error(e, "Could not create target directory for " + target)
         handleFailure(client, StreamFailure(e, target))
@@ -99,8 +96,6 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
           .run()
         val futWrite = futIO map { _ => resultMsg }
         processStreamResult(futWrite, ks, client)(f => StreamFailure(f.exception, target))
-    }
-  }
 
   /**
     * Method to handle a (fatal) error during a write operation. This
@@ -110,9 +105,8 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @param client the current client actor
     * @param failure an object with information about the failure
     */
-  protected def handleFailure(client: ActorRef, failure: StreamFailure): Unit = {
+  protected def handleFailure(client: ActorRef, failure: StreamFailure): Unit =
     context stop self
-  }
 
   /**
     * Creates the target directory. This method is called if the target
@@ -121,9 +115,8 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @param dir the target directory
     * @return the newly created target path
     */
-  private[stream] def createTargetDirectory(dir: Path): Path = {
+  private[stream] def createTargetDirectory(dir: Path): Path =
     Files.createDirectories(dir)
-  }
 
   /**
     * Checks whether the target directory of the write operation already
@@ -133,10 +126,8 @@ trait AbstractFileWriterActor extends AbstractStreamProcessingActor {
     * @return a ''Try'' with the target directory
     */
   private def createTargetDirectoryIfNecessary(target: Path): Try[Path] =
-    Try {
+    Try:
       val dir = target.getParent
-      if (!Files.exists(dir)) {
+      if !Files.exists(dir) then
         createTargetDirectory(dir)
-      } else dir
-    }
-}
+      else dir

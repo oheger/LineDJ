@@ -22,7 +22,7 @@ import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, Ou
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.util.ByteString
 
-object ParserStage {
+object ParserStage:
   /**
     * Definition of a parser function which can process a chunk of data and
     * return a sequence of partial result objects.
@@ -41,7 +41,6 @@ object ParserStage {
     */
   type ChunkSequenceParser[A] =
     (ByteString, Option[Failure], Boolean) => (Iterable[A], Option[Failure])
-}
 
 /**
   * A custom processing stage that applies a parser on a source of byte
@@ -56,14 +55,14 @@ object ParserStage {
   * @param parser the function for parsing single chunks
   */
 class ParserStage[A](parser: ChunkSequenceParser[A])
-  extends GraphStage[FlowShape[ByteString, A]] {
+  extends GraphStage[FlowShape[ByteString, A]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("ParserStage.in")
   val out: Outlet[A] = Outlet[A]("ParserStage.out")
 
   override val shape: FlowShape[ByteString, A] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       var previousChunk: Option[ByteString] = None
       var lastFailure: Option[Failure] = None
 
@@ -76,7 +75,7 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
             case Some(bs) =>
               val (results, nextFailure) = parser(bs, lastFailure, false)
               lastFailure = nextFailure
-              if (results.nonEmpty) {
+              if results.nonEmpty then {
                 emitMultiple(out, results.iterator)
               } else {
                 pull(in)
@@ -101,5 +100,3 @@ class ParserStage[A](parser: ChunkSequenceParser[A])
           pull(in)
         }
       })
-    }
-}

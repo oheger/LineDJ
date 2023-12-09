@@ -90,7 +90,7 @@ case class UpdateOperationCompleted(processor: Option[ActorRef])
   * of the operation. Concrete sub classes will then contain either an actual
   * result or an error message.
   */
-sealed trait MetaDataProcessingResult {
+sealed trait MetaDataProcessingResult:
   /**
     * Returns the ID of the medium the media file belongs to
     *
@@ -104,7 +104,6 @@ sealed trait MetaDataProcessingResult {
     * @return the URI
     */
   def uri: MediaFileUri
-}
 
 /**
   * A message with the successful result of meta data extraction for a single
@@ -120,7 +119,7 @@ sealed trait MetaDataProcessingResult {
   */
 case class MetaDataProcessingSuccess(override val mediumID: MediumID,
                                      override val uri: MediaFileUri, metaData: MediaMetaData)
-  extends MetaDataProcessingResult {
+  extends MetaDataProcessingResult:
   /**
     * Returns a new instance of ''MetaDataProcessingResult'' with the same
     * properties as this instance, but with updated meta data.
@@ -141,7 +140,6 @@ case class MetaDataProcessingSuccess(override val mediumID: MediumID,
     */
   def toError(exception: Throwable): MetaDataProcessingError =
     MetaDataProcessingError(uri = uri, mediumID = mediumID, exception = exception)
-}
 
 /**
   * A message indicating a failure during a meta data extraction operation.

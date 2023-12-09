@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Success}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object JSONParserSpec {
+object JSONParserSpec:
   /** A test JSON text. */
   private val JsonText =
     """
@@ -52,26 +52,23 @@ object JSONParserSpec {
     * @param split the position at which to split the test text
     * @return the result of the parse operation
     */
-  private def chunkTest(split: Int): ParserTypes.Result[JSONData] = {
+  private def chunkTest(split: Int): ParserTypes.Result[JSONData] =
     val input1 = JsonText.substring(0, split)
     val input2 = JsonText.substring(split)
-    ParserImpl.runChunk(jsonParser)(input1, lastChunk = false) match {
+    ParserImpl.runChunk(jsonParser)(input1, lastChunk = false) match
       case f@Failure(_, _, _) =>
         ParserImpl.runChunk(jsonParser)(input2, lastChunk = true, optFailure = Some(f))
       case s => s
-    }
-  }
 
-}
 
 /**
   * Test class for the JSON parser.
   */
-class JSONParserSpec extends AnyFlatSpec with Matchers {
+class JSONParserSpec extends AnyFlatSpec with Matchers:
 
   import JSONParserSpec._
 
-  "A JSONParser" should "parse a JSON string" in {
+  "A JSONParser" should "parse a JSON string" in:
     val result = ParserImpl.runChunk(jsonParser)(JsonText, lastChunk = true)
 
     result shouldBe a[Success[_]]
@@ -88,18 +85,16 @@ class JSONParserSpec extends AnyFlatSpec with Matchers {
     song2("artist") should be("Dire Straits")
     song2("trackNo") should be("6")
     song2("year") should be("1978")
-  }
 
-  it should "support parsing chunks" in {
+  it should "support parsing chunks" in:
     val result = ParserImpl.runChunk(jsonParser)(JsonText, lastChunk = true)
       .asInstanceOf[Success[JSONData]]
     val results = (1 until JsonText.length).map(chunkTest)
     val errors = results.zipWithIndex.filter(_._1.isInstanceOf[Failure])
     errors shouldBe empty
     results.filter(_.asInstanceOf[Success[JSONData]].get != result.get) should have size 0
-  }
 
-  it should "support parsing multiple chunks" in {
+  it should "support parsing multiple chunks" in:
     val input1 = JsonText.substring(0, 18)
     val input2 = JsonText.substring(18, 124)
     val input3 = JsonText.substring(124)
@@ -113,5 +108,3 @@ class JSONParserSpec extends AnyFlatSpec with Matchers {
     val resultSingle = ParserImpl.runChunk(jsonParser)(JsonText,
       lastChunk = true).asInstanceOf[Success[JSONData]]
     result3.get should be(resultSingle.get)
-  }
-}

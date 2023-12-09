@@ -35,19 +35,17 @@ import org.apache.pekko.testkit.TestActorRef
  * @param childProps the properties for creating the child actor
  */
 class SupervisionTestActor(override val supervisorStrategy: SupervisorStrategy, childProps:
-Props) extends Actor {
+Props) extends Actor:
   /** The child actor created by this actor. */
   var childActor: ActorRef = _
 
   override def receive: Receive = Actor.emptyBehavior
 
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     childActor = context.actorOf(childProps)
-  }
-}
 
-object SupervisionTestActor {
+object SupervisionTestActor:
   /**
    * Creates a test reference of type ''SupervisionTestActor'' with the specified parameters.
    * @param system the actor system
@@ -59,4 +57,3 @@ object SupervisionTestActor {
   TestActorRef[SupervisionTestActor] =
     TestActorRef[SupervisionTestActor](Props(classOf[SupervisionTestActor], supervisorStrategy,
       childProps))(system)
-}

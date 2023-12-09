@@ -22,16 +22,13 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''SystemPropertyAccess''.
   */
-class SystemPropertyAccessSpec extends AnyFlatSpec with Matchers {
-  "A SystemPropertyAccess" should "support querying system properties" in {
+class SystemPropertyAccessSpec extends AnyFlatSpec with Matchers:
+  "A SystemPropertyAccess" should "support querying system properties" in:
     val access = new SystemPropertyAccess {}
 
     access.getSystemProperty("user.home").get should be(System.getProperty("user.home"))
-  }
 
-  it should "return None for an undefined system property" in {
+  it should "return None for an undefined system property" in:
     val access = new SystemPropertyAccess {}
 
     access getSystemProperty "an undefined property" should be(None)
-  }
-}

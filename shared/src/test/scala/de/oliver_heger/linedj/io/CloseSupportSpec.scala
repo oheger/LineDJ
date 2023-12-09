@@ -31,12 +31,11 @@ import org.scalatestplus.mockito.MockitoSugar
   * Test class for ''CloseSupport''.
   */
 class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("CloseSupportSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
   /**
     * Creates an object which can be tested.
@@ -62,10 +61,9 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param conditionState the condition state flag
     */
   private def verifyHandlerCreation(subject: ActorRef, deps: List[ActorRef], factory:
-  ChildActorFactory, conditionState: Boolean): Unit = {
+  ChildActorFactory, conditionState: Boolean): Unit =
     verify(factory).createChildActor(Props(classOf[CloseHandlerActor], subject, deps,
       conditionState))
-  }
 
   /**
     * Prepares a factory mock to return the specified actor reference for the
@@ -79,21 +77,19 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   OngoingStubbing[ActorRef] =
     when(factory.createChildActor(any(classOf[Props]))).thenReturn(handler)
 
-  "A CloseSupport" should "not have a request in progress initially" in {
+  "A CloseSupport" should "not have a request in progress initially" in:
     val support = createTestInstance()
 
     support.isCloseRequestInProgress shouldBe false
-  }
 
-  it should "indicate a request in progress after receiving one" in {
+  it should "indicate a request in progress after receiving one" in:
     val support = createTestInstance()
 
     support.onCloseRequest(mockActor(), List(mockActor()), mockActor(),
       mock[ChildActorFactory]) shouldBe true
     support.isCloseRequestInProgress shouldBe true
-  }
 
-  it should "create a correct close handler actor" in {
+  it should "create a correct close handler actor" in:
     val subject = mockActor()
     val deps = List(mockActor(), mockActor())
     val factory = mock[ChildActorFactory]
@@ -101,9 +97,8 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     support.onCloseRequest(subject, deps, mockActor(), factory)
     verifyHandlerCreation(subject, deps, factory, conditionState = true)
-  }
 
-  it should "take the condition state flag into account when creating the handler" in {
+  it should "take the condition state flag into account when creating the handler" in:
     val subject = mockActor()
     val deps = List(mockActor(), mockActor())
     val factory = mock[ChildActorFactory]
@@ -111,9 +106,8 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     support.onCloseRequest(subject, deps, mockActor(), factory, conditionState = false)
     verifyHandlerCreation(subject, deps, factory, conditionState = false)
-  }
 
-  it should "create a correct notifier actor" in {
+  it should "create a correct notifier actor" in:
     val subject = mockActor()
     val deps = List(mockActor(), mockActor())
     val target = mockActor()
@@ -125,9 +119,8 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     support.onCloseRequest(subject, deps, target, factory)
     verify(factory).createChildActor(Props(classOf[CloseNotifyActor], handler, subject,
       target))
-  }
 
-  it should "create only a single handler actor per close request" in {
+  it should "create only a single handler actor per close request" in:
     val subject = mockActor()
     val deps = List(mockActor(), mockActor())
     val factory = mock[ChildActorFactory]
@@ -136,18 +129,16 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     support.onCloseRequest(subject, deps, mockActor(), factory) shouldBe false
     verifyHandlerCreation(subject, deps, factory, conditionState = true)
-  }
 
-  it should "reset the in-progress flag in the complete() method" in {
+  it should "reset the in-progress flag in the complete() method" in:
     val support = createTestInstance()
     support.onCloseRequest(mockActor(), List(mockActor()), mockActor(),
       mock[ChildActorFactory])
 
     support.onCloseComplete()
     support.isCloseRequestInProgress shouldBe false
-  }
 
-  it should "support notifications about a satisfied condition" in {
+  it should "support notifications about a satisfied condition" in:
     val handler = TestProbe()
     val factory = mock[ChildActorFactory]
     prepareHandlerActorCreation(handler.ref, factory)
@@ -157,11 +148,8 @@ class CloseSupportSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     support.onConditionSatisfied()
     handler.expectMsg(CloseHandlerActor.ConditionSatisfied)
-  }
 
-  it should "ignore a satisfied condition if no close operation is in progress" in {
+  it should "ignore a satisfied condition if no close operation is in progress" in:
     val support = createTestInstance()
 
     support.onConditionSatisfied()
-  }
-}

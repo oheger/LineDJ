@@ -21,7 +21,7 @@ import org.apache.pekko.actor.Actor
 
 import java.nio.file.{Files, Path}
 
-object RemoveFileActor {
+object RemoveFileActor:
 
   /**
    * A message processed by [[RemoveFileActor]] triggering the removal of the
@@ -42,7 +42,6 @@ object RemoveFileActor {
    */
   case class FileRemoved(path: Path)
 
-}
 
 /**
  * An actor for removing files.
@@ -55,10 +54,8 @@ object RemoveFileActor {
  * the supervisor will be notified and can decide how to deal with this
  * problem.
  */
-class RemoveFileActor extends Actor {
-  override def receive: Receive = {
+class RemoveFileActor extends Actor:
+  override def receive: Receive =
     case RemoveFile(path) =>
       Files delete path
       sender() ! FileRemoved(path)
-  }
-}

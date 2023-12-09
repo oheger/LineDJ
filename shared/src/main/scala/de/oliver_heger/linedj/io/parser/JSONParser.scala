@@ -9,7 +9,8 @@
  */
 package de.oliver_heger.linedj.io.parser
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.collection.immutable.IndexedSeq
+import scala.language.implicitConversions
 
 /**
   * Defines a parser for JSON using the parser combinator library.
@@ -23,25 +24,18 @@ import scala.language.{higherKinds, implicitConversions}
   * This code is derived from chapter 9 of "Functional Programming in Scala"
   * by Chiusano and Bjarnason.
   */
-object JSONParser {
+object JSONParser:
   type JSONData = IndexedSeq[Map[String, String]]
 
-  def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSONData] = {
-    // we'll hide the string implicit conversion and promote strings to tokens instead
-    import P._
-    // we'll shadow the string implicit conversion from the Parsers trait and promote strings to tokens instead
-    // this is a bit nicer than having to write token everywhere
-    implicit def string(s: String): Parser[String] = token(P.string(s))
+  def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSONData] =
+    import P.*
 
-    def array = surround("[","]")(
-      obj sep "," map (vs => vs.toIndexedSeq)) scope "array"
-    def obj = surround("{","}")(
-      keyval sep "," map (kvs => kvs.toMap)) scope "object"
-    def keyval = escapedQuoted ** (":" *> lit)
-    def lit = scope("literal") {
+    def array = surround(token("["), token("]"))(
+      obj sep token(",") map (vs => vs.toIndexedSeq)) scope "array"
+    def obj = surround(token("{"), token("}"))(
+      keyval sep token(",") map (kvs => kvs.toMap)) scope "object"
+    def keyval = escapedQuoted ** (token(":") *> lit)
+    def lit = scope("literal"):
       doubleString |
       escapedQuoted
-    }
     root(whitespace *> array)
-  }
-}

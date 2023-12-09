@@ -30,7 +30,7 @@ import scala.concurrent.duration.FiniteDuration
  * can inject a special mock implementation to verify that the scheduler was
  * correctly used.
  */
-trait SchedulerSupport extends Actor {
+trait SchedulerSupport extends Actor:
   import context.dispatcher
 
   /**
@@ -57,4 +57,3 @@ trait SchedulerSupport extends Actor {
     */
   def scheduleMessageOnce(delay: FiniteDuration, receiver: ActorRef, message: Any): Cancellable =
     context.system.scheduler.scheduleOnce(delay, receiver, message)
-}

@@ -29,15 +29,14 @@ import java.util.concurrent.atomic.AtomicBoolean
   * Test class for ''ActorFactory''.
   */
 class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("ActorFactorySpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
-  "An ActorFactory" should "allow creating a new classic actor" in {
+  "An ActorFactory" should "allow creating a new classic actor" in:
     val props = Props[DummyActor]()
     val Name = "MyTestActor"
 
@@ -48,15 +47,13 @@ class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     val message = TestMessage()
     ref ! message
     awaitCond(message.flag.get())
-  }
 
-  it should "allow creating a typed actor" in {
+  it should "allow creating a typed actor" in:
     val Name = "MyTypedTestActor"
-    val behavior = Behaviors.receiveMessage[TestMessage] {
+    val behavior = Behaviors.receiveMessage[TestMessage]:
       case TestMessage(flag) =>
         flag.set(true)
         Behaviors.same
-    }
 
     val factory = new ActorFactory(system)
     val ref = factory.createActor(behavior, Name)
@@ -65,8 +62,6 @@ class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     val message = TestMessage()
     ref ! message
     awaitCond(message.flag.get())
-  }
-}
 
 /**
   * A message class used to test whether actors have been created successfully.
@@ -75,9 +70,7 @@ class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
   */
 case class TestMessage(flag: AtomicBoolean = new AtomicBoolean)
 
-class DummyActor extends Actor {
-  override def receive: Receive = {
+class DummyActor extends Actor:
+  override def receive: Receive =
     case TestMessage(flag) =>
       flag.set(true)
-  }
-}

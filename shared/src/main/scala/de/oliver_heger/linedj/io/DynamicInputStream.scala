@@ -23,7 +23,7 @@ import java.io.{IOException, InputStream}
 /**
   * Companion object of ''DynamicInputStream''.
   */
-object DynamicInputStream {
+object DynamicInputStream:
   /**
     * Constant for the default capacity of a dynamic input stream. When
     * creating a new stream, this capacity is used per default. When
@@ -35,7 +35,6 @@ object DynamicInputStream {
     * Constant for an index used to represent an undefined mark position.
     */
   private val UndefinedMarkIndex = -1
-}
 
 /**
   * A specialized ''InputStream'' class whose content can be defined dynamically
@@ -62,7 +61,7 @@ object DynamicInputStream {
   *                        dynamically if necessary
   */
 class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapacity) extends
-  InputStream {
+  InputStream:
 
   import de.oliver_heger.linedj.io.DynamicInputStream._
 
@@ -106,10 +105,9 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @return a reference to this stream
     * @throws IllegalStateException if the stream is already complete
     */
-  def append(data: ByteString): DynamicInputStream = {
-    if (completed) {
+  def append(data: ByteString): DynamicInputStream =
+    if completed then
       throw new IllegalStateException("Cannot add data to a completed stream!")
-    }
 
     checkMarkReadLimit()
     ensureCapacity()
@@ -117,7 +115,6 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     appendChunk = increaseChunkIndex(appendChunk)
     bytesAvailable += data.length
     this
-  }
 
   /**
     * Appends the content of the given array to this stream. Note that for
@@ -135,14 +132,13 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * Clears the whole content of this stream. After this operation, the
     * stream is empty and can again be filled an reused.
     */
-  def clear(): Unit = {
+  def clear(): Unit =
     bytesAvailable = 0
     currentChunk = 0
     appendChunk = 0
     currentPosition = 0
     markedChunk = UndefinedMarkIndex
     contentCompleted = false
-  }
 
   /**
     * Marks this stream as complete. This means that the whole content has been
@@ -150,10 +146,9 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     *
     * @return a reference to this stream
     */
-  def complete(): DynamicInputStream = {
+  def complete(): DynamicInputStream =
     contentCompleted = true
     this
-  }
 
   /**
     * Returns a flag whether the content of this stream has already been
@@ -182,18 +177,16 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @param b the byte to be searched
     * @return a flag whether the byte was found in the data available
     */
-  def find(b: Byte): Boolean = {
+  def find(b: Byte): Boolean =
     var found = false
     process(available()) { (src, pos, _, _) =>
       val hit = src.indexOf(b, pos)
-      if (hit < 0) hit
-      else {
+      if hit < 0 then hit
+      else
         found = true
         hit + 1
-      }
     }
     found
-  }
 
   /**
     * Returns a flag whether this stream implementation supports mark
@@ -213,26 +206,23 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     *             It is preferable to use one of the ''read()'' methods
     *             operating on an array.
     */
-  override def read(): Int = {
-    if (bytesAvailable > 0) {
+  override def read(): Int =
+    if bytesAvailable > 0 then
       val buf = new Array[Byte](1)
       read(buf, 0, 1)
       buf(0)
-    } else -1
-  }
+    else -1
 
   override def read(b: Array[Byte]): Int = read(b, 0, b.length)
 
-  override def read(b: Array[Byte], off: Int, len: Int): Int = {
+  override def read(b: Array[Byte], off: Int, len: Int): Int =
     val readLength = checkAvailable(len)
-    if (readLength == 0 && completed) -1
-    else {
+    if readLength == 0 && completed then -1
+    else
       process(readLength) { (src, pos, length, offset) =>
         System.arraycopy(src.toArray, pos, b, offset + off, length)
         -1
       }
-    }
-  }
 
   /**
     * @inheritdoc This stream implementation supports mark and reset operations.
@@ -240,28 +230,25 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     *             beyond the specified limit, the marked position is lost.
     * @param readlimit the number of bytes to keep before a reset
     */
-  override def mark(readlimit: Int): Unit = {
+  override def mark(readlimit: Int): Unit =
     markedChunk = currentChunk
     markedPosition = currentPosition
     bytesReadAfterMark = 0
     markReadLimit = readlimit
-  }
 
   /**
     * @inheritdoc This implementation restores the position selected by the
     *             previous mark operation. If there was none, an exception
     *             is thrown.
     */
-  override def reset(): Unit = {
-    if (markedChunk == UndefinedMarkIndex) {
+  override def reset(): Unit =
+    if markedChunk == UndefinedMarkIndex then
       throw new IOException("reset without mark!")
-    }
 
     currentChunk = markedChunk
     currentPosition = markedPosition
     bytesAvailable += bytesReadAfterMark
     bytesReadAfterMark = 0
-  }
 
   /**
     * @inheritdoc The skip() method is implemented here explicitly in a more
@@ -277,10 +264,9 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     *
     * @param count the number of bytes which has been read
     */
-  private def bytesRead(count: Int): Unit = {
+  private def bytesRead(count: Int): Unit =
     bytesAvailable -= count
     bytesReadAfterMark += count
-  }
 
   /**
     * A type definition for a function used by the ''process()'' method. This
@@ -306,54 +292,48 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @param func  the processing function
     * @return the number of bytes that have been processed
     */
-  private def process(count: Int)(func: ProcessingFunc): Int = {
+  private def process(count: Int)(func: ProcessingFunc): Int =
     var bytesProcessed = 0
     var bytesToProcess = count
     var done = false
 
-    while (bytesProcessed < count && !done) {
+    while bytesProcessed < count && !done do
       val chunkReadLength = math.min(chunks(currentChunk).length - currentPosition, bytesToProcess)
-      if (chunkReadLength > 0) {
+      if chunkReadLength > 0 then
         val pos = func(chunks(currentChunk), currentPosition, chunkReadLength, bytesProcessed)
-        val processedInChunk = if (pos < 0) chunkReadLength
+        val processedInChunk = if pos < 0 then chunkReadLength
         else pos - currentPosition
         currentPosition += processedInChunk
         bytesToProcess -= processedInChunk
         bytesProcessed += processedInChunk
         done = pos >= 0
-      } else {
+      else
         currentChunk = increaseChunkIndex(currentChunk)
         currentPosition = 0
-      }
-    }
 
     bytesRead(bytesProcessed)
     bytesProcessed
-  }
 
   /**
     * Ensures that the stream has sufficient capacity to add another chunk.
     * If necessary, the internal array is enlarged. (Every time the capacity is
     * increased, the array's size is doubled.)
     */
-  private def ensureCapacity(): Unit = {
-    val chunkIndex = if (markedChunk != UndefinedMarkIndex) markedChunk
+  private def ensureCapacity(): Unit =
+    val chunkIndex = if markedChunk != UndefinedMarkIndex then markedChunk
     else currentChunk
 
-    if (appendChunk == chunkIndex && available() > 0) {
+    if appendChunk == chunkIndex && available() > 0 then
       val newChunks = copyChunks(chunkIndex)
-      if (markedChunk != UndefinedMarkIndex) {
-        val delta = if (markedChunk <= currentChunk) currentChunk - markedChunk
+      if markedChunk != UndefinedMarkIndex then
+        val delta = if markedChunk <= currentChunk then currentChunk - markedChunk
         else capacity + currentChunk - markedChunk
         markedChunk = 0
         currentChunk = delta
-      } else {
+      else
         currentChunk = 0
-      }
       appendChunk = chunks.length
       chunks = newChunks
-    }
-  }
 
   /**
     * Checks whether the read limit specified when calling mark() has been
@@ -361,11 +341,9 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * operation are reset. It is then no longer possible to reset the stream to
     * this position.
     */
-  private def checkMarkReadLimit(): Unit = {
-    if (markedChunk != UndefinedMarkIndex && bytesReadAfterMark >= markReadLimit) {
+  private def checkMarkReadLimit(): Unit =
+    if markedChunk != UndefinedMarkIndex && bytesReadAfterMark >= markReadLimit then
       markedChunk = UndefinedMarkIndex
-    }
-  }
 
   /**
     * Creates a new array with chunks and copies the content of the old array
@@ -374,15 +352,13 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @param startChunkIndex the index of the chunks where to start the copying
     * @return the new array with chunks
     */
-  private def copyChunks(startChunkIndex: Int): Array[ByteString] = {
+  private def copyChunks(startChunkIndex: Int): Array[ByteString] =
     val newChunks = new Array[ByteString](chunks.length * 2)
     var orgIndex = startChunkIndex
-    for (i <- chunks.indices) {
+    for i <- chunks.indices do
       newChunks(i) = chunks(orgIndex)
       orgIndex = increaseChunkIndex(orgIndex)
-    }
     newChunks
-  }
 
   /**
     * Convenience method determining the minimum of the passed in length and the
@@ -401,6 +377,5 @@ class DynamicInputStream(initialCapacity: Int = DynamicInputStream.DefaultCapaci
     * @return the increased index value
     */
   private def increaseChunkIndex(index: Int): Int =
-    if (index < capacity - 1) index + 1
+    if index < capacity - 1 then index + 1
     else 0
-}

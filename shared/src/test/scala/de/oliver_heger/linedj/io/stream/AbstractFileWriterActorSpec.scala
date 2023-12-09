@@ -36,24 +36,22 @@ import scala.concurrent.duration._
   * Test class for ''AbstractFileWriterActor''.
   */
 class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper {
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
   def this() = this(ActorSystem("AbstractFileWriterActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     tearDownTestFile()
-  }
 
   /**
     * Expects that the specified actor has been stopped.
     *
     * @param actor the actor to be checked
     */
-  private def expectStopped(actor: ActorRef): Unit = {
+  private def expectStopped(actor: ActorRef): Unit =
     val watcher = TestProbe()
     watcher watch actor
     watcher.expectMsgType[Terminated]
-  }
 
   /**
     * Creates a source with test data.
@@ -68,7 +66,7 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     *
     * @param target the target file
     */
-  private def checkWriteOperation(target: Path): Unit = {
+  private def checkWriteOperation(target: Path): Unit =
     val source = createTestSource()
     val request = WriteRequest(target = target, source = source)
     val actor = system.actorOf(Props[FileWriterActorTestImpl]())
@@ -78,22 +76,19 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     response.target should be(request.target)
     val content = readDataFile(target)
     content should be(FileTestHelper.TestData)
-  }
 
-  "A FileWriterActor" should "write data to a target file" in {
+  "A FileWriterActor" should "write data to a target file" in:
     val target = createPathInDirectory("writeTest.txt")
 
     checkWriteOperation(target)
-  }
 
-  it should "create the target directory if necessary" in {
+  it should "create the target directory if necessary" in:
     val target = createPathInDirectory("sub").resolve("foo").resolve("bar")
       .resolve("out.txt")
 
     checkWriteOperation(target)
-  }
 
-  it should "stop if the target directory cannot be created" in {
+  it should "stop if the target directory cannot be created" in:
     val actor = system.actorOf(Props(new FileWriterActorTestImpl {
       override private[stream] def createTargetDirectory(dir: Path): Path =
         throw new IOException("Cannot create directory " + dir)
@@ -102,9 +97,8 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())),
       Paths.get("invalid", "path"))
     expectStopped(actor)
-  }
 
-  it should "stop if there is a failure when writing the target file" in {
+  it should "stop if there is a failure when writing the target file" in:
     val target = createPathInDirectory("failure").resolve("sub")
     val actor = system.actorOf(Props(new FileWriterActorTestImpl {
       // override to not create the directory
@@ -113,9 +107,8 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())), target)
     expectStopped(actor)
-  }
 
-  it should "support cancellation of a write operation" in {
+  it should "support cancellation of a write operation" in:
     val source = createTestSource().delay(1.second, DelayOverflowStrategy.backpressure)
     val target = createPathInDirectory("delayed.txt")
     val actor = TestActorRef[FileWriterActorTestImpl](Props[FileWriterActorTestImpl]())
@@ -125,9 +118,8 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     expectMsgType[FileWritten]
     val content = readDataFile(target)
     content.length should be < FileTestHelper.TestData.length
-  }
 
-  it should "allow overriding the error handling function for write errors" in {
+  it should "allow overriding the error handling function for write errors" in:
     val target = createPathInDirectory("customFailureHandling").resolve("sub")
     val actor = system.actorOf(Props(new FileWriterActorTestImpl {
       // override to not create the directory
@@ -141,9 +133,8 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())), target)
     expectMsgType[IOOperationIncompleteException]
-  }
 
-  it should "allow overriding the error handling function for create dir errors" in {
+  it should "allow overriding the error handling function for create dir errors" in:
     val targetPath = Paths.get("invalid", "path")
     val exception = new IOException("Cannot create directory!")
     val actor = system.actorOf(Props(new FileWriterActorTestImpl {
@@ -160,8 +151,6 @@ class AbstractFileWriterActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! WriteRequest(Source.single(ByteString(FileTestHelper.testBytes())),
       targetPath)
     expectMsg(exception)
-  }
-}
 
 /**
   * Message class for sending write requests.
@@ -181,8 +170,7 @@ private case class FileWritten(target: Path)
 /**
   * A test actor implementation that triggers the write operation.
   */
-class FileWriterActorTestImpl extends AbstractFileWriterActor with CancelableStreamSupport with
-  ActorLogging {
+class FileWriterActorTestImpl extends AbstractFileWriterActor with CancelableStreamSupport with ActorLogging:
 
   /**
     * The custom receive function. Here derived classes can provide their own
@@ -190,8 +178,6 @@ class FileWriterActorTestImpl extends AbstractFileWriterActor with CancelableStr
     *
     * @return the custom receive method
     */
-  override protected def customReceive: Receive = {
+  override protected def customReceive: Receive =
     case req: WriteRequest =>
       writeFile(req.source, req.target, FileWritten(req.target))
-  }
-}

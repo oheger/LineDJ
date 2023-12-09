@@ -254,7 +254,7 @@ case class ArchiveComponentStatistics(archiveComponentID: String,
                                       mediaCount: Int,
                                       songCount: Int,
                                       size: Long,
-                                      duration: Long) extends RemoteSerializable {
+                                      duration: Long) extends RemoteSerializable:
   /**
     * Returns a flag whether this is a valid statistics instance. This function
     * can be used to check whether the archive component could be resolved.
@@ -264,4 +264,3 @@ case class ArchiveComponentStatistics(archiveComponentID: String,
     * @return a flag whether this is a valid instance
     */
   def isValid: Boolean = mediaCount >= 0 && songCount >= 0 && size >= 0 && duration >= 0
-}

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 
-object ForwardTestActor {
+object ForwardTestActor:
 
   /**
     * A message sent by [[ForwardTestActor]] to the sender to prove whether
@@ -40,7 +40,6 @@ object ForwardTestActor {
     */
   def apply()(implicit system: ActorSystem): ActorRef =
   system.actorOf(Props[ForwardTestActor]())
-}
 
 /**
   * A test actor implementation which can be used for testing forwarding of
@@ -52,9 +51,7 @@ object ForwardTestActor {
   * sender. If forwarding has been implemented correctly, the original sender
   * actor should receive this message.
   */
-class ForwardTestActor extends Actor {
-  override def receive: Receive = {
+class ForwardTestActor extends Actor:
+  override def receive: Receive =
     case msg =>
       sender() ! ForwardedMessage(msg)
-  }
-}

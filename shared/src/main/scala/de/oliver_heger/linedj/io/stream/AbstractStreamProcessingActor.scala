@@ -24,7 +24,7 @@ import org.apache.pekko.stream.KillSwitch
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object AbstractStreamProcessingActor {
+object AbstractStreamProcessingActor:
 
   /**
     * A message telling the stream processing actor to cancel all current
@@ -44,7 +44,6 @@ object AbstractStreamProcessingActor {
     */
   private case class StreamCompleted(client: ActorRef, result: Any, killSwitchID: Int)
 
-}
 
 /**
   * An abstract base actor trait providing generic functionality for the
@@ -62,7 +61,7 @@ object AbstractStreamProcessingActor {
   * Derived classes can implement their own message handling in the
   * ''customReceive'' function.
   */
-trait AbstractStreamProcessingActor extends Actor {
+trait AbstractStreamProcessingActor extends Actor:
   this: CancelableStreamSupport =>
   /**
     * An implicit execution context definition. This allows sub classes to
@@ -109,16 +108,14 @@ trait AbstractStreamProcessingActor extends Actor {
     */
   protected def processStreamResult[M](result: Future[M], ks: KillSwitch,
                                        client: ActorRef = sender())
-                                      (errHandler: Failure[M] => Any): Unit = {
+                                      (errHandler: Failure[M] => Any): Unit =
     val killSwitchID = registerKillSwitch(ks)
     result onComplete { triedResult =>
-      val result = triedResult match {
+      val result = triedResult match
         case Success(r) => r
         case f@Failure(_) => errHandler(f)
-      }
       self ! StreamCompleted(client, result, killSwitchID)
     }
-  }
 
   /**
     * Sends the specified result to the original caller. This method is called
@@ -129,9 +126,8 @@ trait AbstractStreamProcessingActor extends Actor {
     * @param client the client to receive the response
     * @param result the result message
     */
-  protected def propagateResult(client: ActorRef, result: Any): Unit = {
+  protected def propagateResult(client: ActorRef, result: Any): Unit =
     client ! result
-  }
 
   /**
     * A receive function that handles the messages which are directly
@@ -139,12 +135,10 @@ trait AbstractStreamProcessingActor extends Actor {
     *
     * @return the processing function for internal messages
     */
-  private def internalReceive: Receive = {
+  private def internalReceive: Receive =
     case StreamCompleted(client, result, ksID) =>
       propagateResult(client, result)
       unregisterKillSwitch(ksID)
 
     case CancelStreams =>
       cancelCurrentStreams()
-  }
-}

@@ -24,7 +24,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-object StreamPullReadServiceSpec {
+object StreamPullReadServiceSpec:
   /** Constant for the request size for data requests. */
   private val DataRequestSize = FileTestHelper.TestData.length
 
@@ -53,34 +53,30 @@ object StreamPullReadServiceSpec {
     * @return the updated state
     */
   private def modifyState(s: StreamPullReadServiceImpl.StateUpdate[Unit],
-                          oldState: StreamPullState = StreamPullReadServiceImpl.InitialState): StreamPullState = {
+                          oldState: StreamPullState = StreamPullReadServiceImpl.InitialState): StreamPullState =
     val (next, _) = updateState(s, oldState)
     next
-  }
-}
 
 /**
   * Test class for ''StreamPullReadService'' and related classes.
   */
 class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers {
+  with BeforeAndAfterAll with Matchers:
   def this() = this(ActorSystem("StreamPullReadServiceSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   import StreamPullReadServiceSpec._
 
-  "StreamPullNotifications" should "handle an undefined receiver of data" in {
+  "StreamPullNotifications" should "handle an undefined receiver of data" in:
     val notifications = StreamPullNotifications(dataReceiver = None, data = ByteString("foo"), ack = None,
       error = None)
 
     notifications.sendData(testActor, _.utf8String)("")
-  }
 
-  it should "send a portion of data to the receiver" in {
+  it should "send a portion of data to the receiver" in:
     val Data = "MyTestData"
     val receiver = TestProbe()
     val notifications = StreamPullNotifications(dataReceiver = Some(receiver.ref),
@@ -88,9 +84,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     notifications.sendData(testActor, _.utf8String)(throw new UnsupportedOperationException("Unexpected evaluation"))
     receiver.expectMsg(Data)
-  }
 
-  it should "send an end-of-stream message to the receiver if appropriate" in {
+  it should "send an end-of-stream message to the receiver if appropriate" in:
     val EndOfStream = "End reached"
     val receiver = TestProbe()
     val notifications = StreamPullNotifications(dataReceiver = Some(receiver.ref),
@@ -99,15 +94,13 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     notifications.sendData(testActor,
       _ => throw new UnsupportedOperationException("Unexpected evaluation"))(EndOfStream)
     receiver.expectMsg(EndOfStream)
-  }
 
-  it should "handle an undefined ACK receiver" in {
+  it should "handle an undefined ACK receiver" in:
     val notifications = StreamPullNotifications(ack = None, data = ByteString.empty, dataReceiver = None, error = None)
 
     notifications.sendAck(testActor, throw new UnsupportedOperationException("Unexpected evaluation"))
-  }
 
-  it should "send an ACK message to the corresponding receiver" in {
+  it should "send an ACK message to the corresponding receiver" in:
     val AckMsg = "ACK"
     val ackActor = TestProbe()
     val notifications = StreamPullNotifications(ack = Some(ackActor.ref), dataReceiver = None, data = ByteString.empty,
@@ -115,15 +108,13 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     notifications.sendAck(testActor, AckMsg)
     ackActor.expectMsg(AckMsg)
-  }
 
-  it should "handle an undefined error actor" in {
+  it should "handle an undefined error actor" in:
     val notifications = StreamPullNotifications(error = None, ack = None, data = ByteString.empty, dataReceiver = None)
 
     notifications.sendError(testActor, throw new UnsupportedOperationException("Unexpected evaluation"))
-  }
 
-  it should "send an error message to the corresponding receiver" in {
+  it should "send an error message to the corresponding receiver" in:
     val ErrMsg = "ERROR!"
     val errActor = TestProbe()
     val notifications = StreamPullNotifications(error = Some(errActor.ref), ack = None, dataReceiver = None,
@@ -131,27 +122,24 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     notifications.sendError(testActor, ErrMsg)
     errActor.expectMsg(ErrMsg)
-  }
 
-  "StreamPullReadServiceImpl" should "define a constant for the initial state" in {
+  "StreamPullReadServiceImpl" should "define a constant for the initial state" in:
     StreamPullReadServiceImpl.InitialState.requestClient should be(None)
     StreamPullReadServiceImpl.InitialState.dataAvailable should be(None)
     StreamPullReadServiceImpl.InitialState.requestClient should be(None)
     StreamPullReadServiceImpl.InitialState.ackPending should be(None)
     StreamPullReadServiceImpl.InitialState.errorClient should be(None)
     StreamPullReadServiceImpl.InitialState.streamComplete shouldBe false
-  }
 
-  it should "update the state for a data request if no data is available" in {
+  it should "update the state for a data request if no data is available" in:
     val ExpState = StreamPullReadServiceImpl.InitialState
       .copy(requestClient = Some(testActor), requestSize = DataRequestSize)
 
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize)
     val nextState = modifyState(update)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for a data request if data is available" in {
+  it should "update the state for a data request if data is available" in:
     val state = StreamPullReadServiceImpl.InitialState.copy(dataAvailable = Some(TestString))
     val ExpState = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
       dataToSend = Some(TestString))
@@ -159,9 +147,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for a data request if too much data is available" in {
+  it should "update the state for a data request if too much data is available" in:
     val AdditionalData = "More data that is available"
     val ackActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(ackPending = Some(ackActor),
@@ -173,9 +160,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for a data request if too much data is available and the stream is complete" in {
+  it should "update the state for a data request if too much data is available and the stream is complete" in:
     val AdditionalData = "The final chunk of data in the stream"
     val state = StreamPullReadServiceImpl.InitialState.copy(streamComplete = true,
       dataAvailable = Some(ByteString(FileTestHelper.TestData + AdditionalData)))
@@ -186,9 +172,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for a data request if the stream is fully read" in {
+  it should "update the state for a data request if the stream is fully read" in:
     val state = StreamPullReadServiceImpl.InitialState.copy(streamComplete = true)
     val ExpState = state.copy(dataToSend = Some(ByteString.empty), requestClient = Some(testActor),
       streamComplete = true)
@@ -196,18 +181,16 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for incoming data if no request is pending" in {
+  it should "update the state for incoming data if no request is pending" in:
     val ExpState = StreamPullReadServiceImpl.InitialState.copy(ackPending = Some(testActor),
       dataAvailable = Some(TestString))
 
     val update = StreamPullReadServiceImpl.nextData(TestString, testActor)
     val nextState = modifyState(update)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for incoming data if a request is pending" in {
+  it should "update the state for incoming data if a request is pending" in:
     val AdditionalData = "+"
     val dataSender = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
@@ -219,17 +202,15 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.nextData(ByteString(FileTestHelper.TestData + AdditionalData), dataSender)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for an end-of-stream message if no request is pending" in {
+  it should "update the state for an end-of-stream message if no request is pending" in:
     val ExpState = StreamPullReadServiceImpl.InitialState.copy(streamComplete = true)
 
     val update = StreamPullReadServiceImpl.endOfStream()
     val nextState = modifyState(update)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for an end-of-stream message if a request is pending" in {
+  it should "update the state for an end-of-stream message if a request is pending" in:
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
       requestSize = DataRequestSize)
     val ExpState = StreamPullReadServiceImpl.InitialState.copy(dataToSend = Some(ByteString.empty),
@@ -238,27 +219,24 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.endOfStream()
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "update the state for an end-of-stream message if data is still available" in {
+  it should "update the state for an end-of-stream message if data is still available" in:
     val state = StreamPullReadServiceImpl.InitialState.copy(dataAvailable = Some(TestString))
     val ExpState = state.copy(streamComplete = true)
 
     val update = StreamPullReadServiceImpl.endOfStream()
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "calculate notifications if no messages are to be sent" in {
+  it should "calculate notifications if no messages are to be sent" in:
     val ExpNotifications = StreamPullNotifications(None, ByteString.empty, None, None)
 
     val update = StreamPullReadServiceImpl.evalNotifications()
     val (nextState, notifications) = updateState(update)
     nextState should be(StreamPullReadServiceImpl.InitialState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "calculate notifications if a message and an ACK can be sent" in {
+  it should "calculate notifications if a message and an ACK can be sent" in:
     val ackActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
       ackPending = Some(ackActor), dataToSend = Some(TestString))
@@ -269,9 +247,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(StreamPullReadServiceImpl.InitialState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "calculate notifications if a message, but no ACK can be sent" in {
+  it should "calculate notifications if a message, but no ACK can be sent" in:
     val RemainingData = Some(ByteString("remaining"))
     val ackActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
@@ -285,9 +262,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(ExpState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "detect illegal concurrent requests" in {
+  it should "detect illegal concurrent requests" in:
     val client = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(client),
       requestSize = DataRequestSize)
@@ -296,9 +272,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val update = StreamPullReadServiceImpl.dataRequested(testActor, DataRequestSize - 1)
     val nextState = modifyState(update, state)
     nextState should be(ExpState)
-  }
 
-  it should "add an illegal client to the notifications if no other message is sent" in {
+  it should "add an illegal client to the notifications if no other message is sent" in:
     val requestClient = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(requestClient),
       requestSize = 42, errorClient = Some(testActor))
@@ -310,9 +285,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(ExpState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "add an illegal client to the notifications if a message can be sent" in {
+  it should "add an illegal client to the notifications if a message can be sent" in:
     val ackActor = TestProbe().ref
     val errActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
@@ -324,9 +298,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(StreamPullReadServiceImpl.InitialState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "handle a data request" in {
+  it should "handle a data request" in:
     val ackActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(dataAvailable = Some(TestString),
       ackPending = Some(ackActor))
@@ -337,9 +310,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(StreamPullReadServiceImpl.InitialState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "handle another chunk of data" in {
+  it should "handle another chunk of data" in:
     val ackActor = TestProbe().ref
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
       requestSize = DataRequestSize)
@@ -350,9 +322,8 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(StreamPullReadServiceImpl.InitialState)
     notifications should be(ExpNotifications)
-  }
 
-  it should "handle an end-of-stream notification" in {
+  it should "handle an end-of-stream notification" in:
     val state = StreamPullReadServiceImpl.InitialState.copy(requestClient = Some(testActor),
       requestSize = DataRequestSize)
     val ExpState = StreamPullReadServiceImpl.InitialState.copy(streamComplete = true)
@@ -363,5 +334,3 @@ class StreamPullReadServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
     val (nextState, notifications) = updateState(update, state)
     nextState should be(ExpState)
     notifications should be(ExpNotifications)
-  }
-}
