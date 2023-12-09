@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec, PlayerEvent}
+import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -34,10 +34,10 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
-object PlayerFacadeActorSpec {
+object PlayerFacadeActorSpec:
   /** The classes of child actors created dynamically. */
   private val DynamicChildrenClasses = List(classOf[LocalBufferActor],
     classOf[SourceDownloadActor], classOf[SourceReaderActor],
@@ -124,15 +124,13 @@ object PlayerFacadeActorSpec {
   private def delayedMsg(msg: Any, target: TestProbe, delay: FiniteDuration =
   PlayerFacadeActor.NoDelay): DelayActor.Propagate =
     DelayActor.Propagate(msg, target.ref, delay)
-}
 
 /**
   * Test class for ''PlayerFacadeActor''. Note: This class also tests the
   * ''SourceActorCreator'' function used by [[AudioPlayer]].
   */
-class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with
-  ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper
-  with MockitoSugar {
+class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar:
   def this() = this(ActorSystem("PlayerFacadeActorSpec"))
 
   /** The test kit for testing typed actors. */
@@ -140,11 +138,10 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   import PlayerFacadeActorSpec._
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
     tearDownTestFile()
-  }
 
   /**
     * Creates a test audio player configuration.
@@ -156,7 +153,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       bufferFilePrefix = BufferFilePrefix,
       bufferFileExtension = BufferFileExt)
 
-  "A PlayerFacadeActor" should "create correct creation Props" in {
+  "A PlayerFacadeActor" should "create correct creation Props" in:
     val config = createPlayerConfig()
     val eventActor = testKit.createTestProbe[PlayerEvent]()
     val scheduleActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
@@ -171,23 +168,20 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(config, eventActor.ref, scheduleActor.ref, factoryActor.ref, lineWriter.ref,
       srcCreator))
-  }
 
-  it should "create correct child actors immediately" in {
+  it should "create correct child actors immediately" in:
     val helper = new PlayerFacadeTestHelper
 
     helper.checkChildActorCreations(helper.expectActorCreations(TotalChildrenCount))
-  }
 
-  it should "create a delay actor" in {
+  it should "create a delay actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
 
     val cdDelay = findActorCreation[DelayActor](creations)
     cdDelay.props.args should contain only helper.scheduler.ref
-  }
 
-  it should "dispatch a message to the download actor" in {
+  it should "dispatch a message to the download actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
@@ -195,9 +189,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetSourceReader("AudioPlayer.DownloadActor")))
     findProbeFor[DelayActor](creations).expectMsg(expMsg)
-  }
 
-  it should "dispatch a message to the playback actor" in {
+  it should "dispatch a message to the playback actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
@@ -205,9 +198,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetPlaybackActor))
     findProbeFor[DelayActor](creations).expectMsg(expMsg)
-  }
 
-  it should "dispatch a delayed message to the download actor" in {
+  it should "dispatch a delayed message to the download actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
@@ -217,9 +209,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetSourceReader("AudioPlayer.DownloadActor"),
       delay))
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
-  }
 
-  it should "dispatch a delayed message to the playback actor" in {
+  it should "dispatch a delayed message to the playback actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = testMsg()
@@ -228,27 +219,24 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, PlayerFacadeActor.TargetPlaybackActor, delay))
     findProbeFor[DelayActor](creations).expectMsg(dispMsg)
-  }
 
-  it should "dispatch a Propagate message to the delay actor" in {
+  it should "dispatch a Propagate message to the delay actor" in:
     val helper = new PlayerFacadeTestHelper
     val creations = helper.expectActorCreations(TotalChildrenCount)
     val msg = delayedMsg(testMsg(), TestProbe(), 3.minutes)
 
     helper post msg
     findProbeFor[DelayActor](creations).expectMsg(msg)
-  }
 
-  it should "trigger a close operation on an engine reset" in {
+  it should "trigger a close operation on an engine reset" in:
     val helper = new PlayerFacadeTestHelper
 
     helper.resetEngine()
       .awaitChildrenCloseRequest()
       .sendCloseCompleted()
       .awaitCloseComplete()
-  }
 
-  it should "stop the dynamic children when a close request completes" in {
+  it should "stop the dynamic children when a close request completes" in:
     val helper = new PlayerFacadeTestHelper
     val probeWatcher = TestProbe()
     val creations = helper.resetEngine().expectActorCreations(TotalChildrenCount)
@@ -259,17 +247,15 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       probeWatcher watch a
       probeWatcher.expectMsgType[Terminated]
     }
-  }
 
-  it should "re-create child actors after a reset of the engine" in {
+  it should "re-create child actors after a reset of the engine" in:
     val helper = new PlayerFacadeTestHelper
     helper.resetEngine().awaitChildrenCloseRequest().sendCloseCompleted()
 
     val creations = helper.expectActorCreations(DynamicChildrenCount)
     helper.checkChildActorCreations(creations)
-  }
 
-  it should "correctly dispatch messages again after an engine reset" in {
+  it should "correctly dispatch messages again after an engine reset" in:
     val helper = new PlayerFacadeTestHelper
     val allCreations = helper.expectActorCreations(TotalChildrenCount)
     val probeDelay = findProbeFor[DelayActor](allCreations)
@@ -281,9 +267,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.post(PlayerFacadeActor.Dispatch(msg, TargetPlaybackActor))
     probeDelay.expectMsg(expMsg)
-  }
 
-  it should "buffer incoming messages during a reset of the engine" in {
+  it should "buffer incoming messages during a reset of the engine" in:
     val helper = new PlayerFacadeTestHelper
     val allCreations = helper.expectActorCreations(TotalChildrenCount)
     val probeDelay = findProbeFor[DelayActor](allCreations)
@@ -297,9 +282,8 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val probePlayback = findProbeFor[PlaybackActor](creations)
     probeDelay.expectMsg(delayedMsg(msg1, probePlayback))
     probeDelay.expectMsg(delayedMsg(msg2, probePlayback))
-  }
 
-  it should "handle another reset request while one is in progress" in {
+  it should "handle another reset request while one is in progress" in:
     val helper = new PlayerFacadeTestHelper
     val allCreations = helper.expectActorCreations(TotalChildrenCount)
     val probeDelay = findProbeFor[DelayActor](allCreations)
@@ -314,18 +298,16 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val creations = helper.expectActorCreations(DynamicChildrenCount)
     probeDelay.expectMsg(delayedMsg(msgExp, findProbeFor[PlaybackActor](creations)))
     helper.numberOfCloseRequests should be(1)
-  }
 
-  it should "not send a CloseAck after a reset engine request" in {
+  it should "not send a CloseAck after a reset engine request" in:
     val helper = new PlayerFacadeTestHelper
     helper.resetEngine().awaitChildrenCloseRequest()
       .sendCloseCompleted().awaitCloseComplete()
 
     helper.closeNotifyActor should not be null
     helper.closeNotifyActor should not be testActor
-  }
 
-  it should "handle a close request" in {
+  it should "handle a close request" in:
     val helper = new PlayerFacadeTestHelper
 
     helper.post(CloseRequest)
@@ -333,12 +315,11 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .sendCloseCompleted()
       .expectNoActorCreation()
     helper.closeNotifyActor should be(testActor)
-  }
 
   /**
     * Test helper class managing a test instance and its dependencies.
     */
-  private class PlayerFacadeTestHelper {
+  private class PlayerFacadeTestHelper:
     /** Test probe for the event manager actor. */
     private val eventManager = testKit.createTestProbe[PlayerEvent]()
 
@@ -379,10 +360,9 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param msg the message to be posted
       * @return this test helper
       */
-    def post(msg: Any): PlayerFacadeTestHelper = {
+    def post(msg: Any): PlayerFacadeTestHelper =
       facadeActor ! msg
       this
-    }
 
     /**
       * Expects the given number of actor creations and returns corresponding
@@ -391,23 +371,21 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param count the number of expected actor creations
       * @return a collection with actor creation data
       */
-    def expectActorCreations(count: Int): Iterable[ActorCreationData] = {
+    def expectActorCreations(count: Int): Iterable[ActorCreationData] =
       (1 to count) map { _ =>
         val data = actorCreationQueue.poll(3, TimeUnit.SECONDS)
         data should not be null
         data
       }
-    }
 
     /**
       * Checks that no child actors have been created.
       *
       * @return this test helper
       */
-    def expectNoActorCreation(): PlayerFacadeTestHelper = {
+    def expectNoActorCreation(): PlayerFacadeTestHelper =
       actorCreationQueue shouldBe empty
       this
-    }
 
     /**
       * Checks whether all expected child actors have been created with correct
@@ -417,7 +395,7 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def checkChildActorCreations(creations: Iterable[ActorCreationData]):
-    PlayerFacadeTestHelper = {
+    PlayerFacadeTestHelper =
       val cdBuffer = findActorCreation[LocalBufferActor](creations)
       val cdSrcReader = findActorCreation[SourceReaderActor](creations)
       val cdSrcDownload = findActorCreation[SourceDownloadActor](creations)
@@ -441,7 +419,6 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       cdPlayback.props.args should contain theSameElementsAs List(config,
         cdSrcReader.testProbe.ref, lineWriter.ref, eventManager.ref, factoryActor.ref)
       this
-    }
 
     /**
       * Waits for a close operation of the dynamic child actors. If a
@@ -453,43 +430,39 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def awaitChildrenCloseRequest(optCreations: Option[Iterable[ActorCreationData]] = None):
-    PlayerFacadeTestHelper = {
+    PlayerFacadeTestHelper =
       val creations = optCreations getOrElse expectActorCreations(TotalChildrenCount)
       val childActors = creations.map(_.testProbe.ref).toSet
       awaitCond(closeOperationTriggered(childActors))
       refClosedActors set null
       this
-    }
 
     /**
       * Waits until a close operation is complete.
       *
       * @return this test helper
       */
-    def awaitCloseComplete(): PlayerFacadeTestHelper = {
+    def awaitCloseComplete(): PlayerFacadeTestHelper =
       awaitCond(numberOfCompletedCloseRequests == 1)
       this
-    }
 
     /**
       * Sends a message to reset the engine to the test actor.
       *
       * @return this test helper
       */
-    def resetEngine(): PlayerFacadeTestHelper = {
+    def resetEngine(): PlayerFacadeTestHelper =
       post(PlayerFacadeActor.ResetEngine)
       this
-    }
 
     /**
       * Sends a message about a completed close operation to the test actor.
       *
       * @return this test helper
       */
-    def sendCloseCompleted(): PlayerFacadeTestHelper = {
+    def sendCloseCompleted(): PlayerFacadeTestHelper =
       post(CloseComplete)
       this
-    }
 
     /**
       * Returns the number of close operations triggered by the test actor.
@@ -520,17 +493,16 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param actors the expected actors
       * @return a flag whether these actors have been closed
       */
-    private def closeOperationTriggered(actors: Set[ActorRef]): Boolean = {
+    private def closeOperationTriggered(actors: Set[ActorRef]): Boolean =
       val closedActors = refClosedActors.get()
       closedActors != null && closedActors.toSet == actors
-    }
 
     /**
       * Creates a test actor reference.
       *
       * @return the test actor reference
       */
-    private def createTestActor(): ActorRef = {
+    private def createTestActor(): ActorRef =
       system.actorOf(Props(new PlayerFacadeActor(config, eventManager.ref, scheduler.ref, factoryActor.ref,
         lineWriter.ref, AudioPlayer.AudioPlayerSourceCreator) with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
@@ -566,7 +538,4 @@ class PlayerFacadeActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         override def isCloseRequestInProgress: Boolean =
           closeCount.get() > closeCompletedCount.get()
       }))
-    }
-  }
 
-}

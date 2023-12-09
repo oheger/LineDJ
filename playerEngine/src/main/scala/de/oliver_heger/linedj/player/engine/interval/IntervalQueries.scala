@@ -27,7 +27,7 @@ import scala.annotation.tailrec
   * An object defining functions for defining time intervals and querying their
   * relations to dates.
   */
-object IntervalQueries {
+object IntervalQueries:
   /**
     * A list defining an order of fields that need to be processed when
     * trimming a date.
@@ -128,12 +128,11 @@ object IntervalQueries {
     * @param until the end day (exclusive)
     * @return the new interval query
     */
-  def weekDays(from: Int, until: Int): IntervalQuery = {
+  def weekDays(from: Int, until: Int): IntervalQuery =
     val fSet = (date: LocalDateTime, value: Int) => trimTo(date.`with`(ChronoField.DAY_OF_WEEK,
       value), IdxHourField, 0)
     val fInc = (date: LocalDateTime) => date plusDays 1
     fieldRangeF(ChronoField.DAY_OF_WEEK, fSet, fInc, from, until)
-  }
 
   /**
     * Convenience function that returns a ''weekDays'' query which selects all
@@ -162,24 +161,21 @@ object IntervalQueries {
     * @param days a set with the numeric values representing the selected days
     * @return the new interval query
     */
-  def weekDaySet(days: Set[Int]): IntervalQuery = {
+  def weekDaySet(days: Set[Int]): IntervalQuery =
     @tailrec def createIntervalQueries(days: List[Int], startDay: Int, currentEnd: Int,
-                                       queries: List[IntervalQuery]): List[IntervalQuery] = {
+                                       queries: List[IntervalQuery]): List[IntervalQuery] =
       def lastInterval(): IntervalQuery = weekDays(startDay, currentEnd + 1)
 
-      days match {
+      days match
         case d :: x =>
-          if (d == currentEnd + 1) createIntervalQueries(x, startDay, d, queries)
+          if d == currentEnd + 1 then createIntervalQueries(x, startDay, d, queries)
           else createIntervalQueries(x, d, d, lastInterval() :: queries)
         case _ =>
           lastInterval() :: queries
-      }
-    }
 
     val dayList = days.toList.sorted
     val queries = dayList.headOption map (d => createIntervalQueries(dayList.tail, d, d, Nil))
     sequence(queries getOrElse List.empty)
-  }
 
   /**
     * Combines two interval queries to a single one. The order of the parameter
@@ -207,15 +203,13 @@ object IntervalQueries {
     * @param wrapped the query to be wrapped
     * @return the resulting cyclic query
     */
-  def cyclic(wrapped: IntervalQuery): IntervalQuery = {
+  def cyclic(wrapped: IntervalQuery): IntervalQuery =
     @tailrec def cycleQuery(date: LocalDateTime): IntervalQueryResult =
-      wrapped(date) match {
+      wrapped(date) match
         case After(f) => cycleQuery(f(date))
         case r => r
-      }
 
     date => cycleQuery(date)
-  }
 
   /*
    * TODO add support for stopping the iteration over all queries when a
@@ -246,10 +240,9 @@ object IntervalQueries {
     * @return the selected result
     */
   def selectResult(results: Iterable[IntervalQueryResult], selector: ResultSelector):
-  Option[IntervalQueryResult] = {
+  Option[IntervalQueryResult] =
     val initSel: Option[IntervalQueryResult] = None
     results.foldLeft(initSel)(selector(_, _))
-  }
 
   /**
     * Helper method that processes a current date against a coarser and a finer
@@ -277,42 +270,36 @@ object IntervalQueries {
   IntervalQuery,
                                                         date: LocalDateTime, optNextDate:
                                                         Option[LocalDateTime]):
-  IntervalQueryResult = {
+  IntervalQueryResult =
     /*
      * Special treatment for an inside result. Insides are not allowed if the
      * coarser query had an Inside result and the finer had an After result.
      * This is checked by this function.
      */
     def suppressInside(result: IntervalQueryResult): IntervalQueryResult =
-    optNextDate match {
+    optNextDate match
       case Some(d) =>
-        result match {
+        result match
           case Inside(_) =>
             // in this case, nextDate is the next interval start date
             Before(new LazyDate(d))
           case r => r
-        }
       case None => result
-    }
 
-    coarser(date) match {
+    coarser(date) match
       case rb@Before(start) =>
-        finer(start.value) match {
+        finer(start.value) match
           case f: Before => f
           case _ => rb
-        }
 
       case Inside(_) =>
-        finer(date) match {
+        finer(date) match
           case After(f) =>
             val nextDate = f(date)
             processCombinedQueryWithNextDate(coarser, finer, nextDate, Some(nextDate))
           case r => suppressInside(r)
-        }
 
       case ra@After(_) => ra
-    }
-  }
 
   /**
     * Creates an ''IntervalQuery'' for an interval in a specific temporal
@@ -323,12 +310,11 @@ object IntervalQueries {
     * @param until the end value of the interval (exclusive)
     * @return the new interval query
     */
-  private def fieldRange(field: ChronoField, from: Int, until: Int): IntervalQuery = {
+  private def fieldRange(field: ChronoField, from: Int, until: Int): IntervalQuery =
     val fieldIdx = Fields indexOf field
     val fSet = (date: LocalDateTime, value: Int) => trimTo(date, fieldIdx, value)
     val fInc = (date: LocalDateTime) => increase(date, fieldIdx)
     fieldRangeF(field, fSet, fInc, from, until)
-  }
 
   /**
     * A generic method for creating an interval query for a range interval. How
@@ -348,14 +334,13 @@ object IntervalQueries {
                           fInc: LocalDateTime => LocalDateTime, from: Int, until: Int):
   IntervalQuery =
     date => {
-      if (date.get(field) >= until) After { _ =>
+      if date.get(field) >= until then After { _ =>
           fInc(fSet(date, date.range(field).getMaximum.toInt))
         }
-      else if (date.get(field) < from) {
+      else if date.get(field) < from then
         Before(new LazyDate(fSet(date, from)))
-      } else {
+      else
         Inside(new LazyDate(fInc(fSet(date, until - 1))))
-      }
     }
 
   /**
@@ -368,16 +353,14 @@ object IntervalQueries {
     * @param fieldIdx the index of the field to be incremented
     * @return the updated date
     */
-  @tailrec def increase(date: LocalDateTime, fieldIdx: Int): LocalDateTime = {
+  @tailrec def increase(date: LocalDateTime, fieldIdx: Int): LocalDateTime =
     val value = date.get(Fields(fieldIdx))
     val range = date.range(Fields(fieldIdx))
 
-    if (value < range.getMaximum) {
+    if value < range.getMaximum then
       date.`with`(Fields(fieldIdx), value + 1)
-    } else {
+    else
       increase(date.`with`(Fields(fieldIdx), range.getMinimum), fieldIdx - 1)
-    }
-  }
 
   /**
     * Sets the value of a specific field in the given date and sets all
@@ -388,10 +371,9 @@ object IntervalQueries {
     * @param value    the value to be set
     * @return the updated date
     */
-  private def trimTo(date: LocalDateTime, fieldIdx: Int, value: Int): LocalDateTime = {
+  private def trimTo(date: LocalDateTime, fieldIdx: Int, value: Int): LocalDateTime =
     Fields.splitAt(fieldIdx + 1)._2.foldLeft(date.`with`(Fields(fieldIdx), value))((d, f) =>
       d.`with`(f, f.range().getMinimum))
-  }
 
   /**
     * Implements the result comparator for the ''longest Inside result''.
@@ -401,20 +383,17 @@ object IntervalQueries {
     * @return the result of the comparison
     */
   private def longestInsideCompare(r1: IntervalQueryResult, r2: IntervalQueryResult): Boolean =
-    r2 match {
+    r2 match
       case After(_) => true
       case Before(d2) =>
-        r1 match {
+        r1 match
           case After(_) => false
           case Inside(_) => true
           case Before(d1) => d1.value.compareTo(d2.value) < 0
-        }
       case Inside(d2) =>
-        r1 match {
+        r1 match
           case Inside(d1) => d1.value.compareTo(d2.value) > 0
           case _ => false
-        }
-    }
 
   /**
     * Implements the result comparator for the ''shortest Inside result''.
@@ -435,11 +414,10 @@ object IntervalQueries {
     */
   private def longestInsideSelect(sel: Option[IntervalQueryResult], current: IntervalQueryResult)
   : Option[IntervalQueryResult] =
-    sel match {
+    sel match
       case None => Some(current)
       case s@Some(r) =>
-        if (longestInsideCompare(r, current)) s else Some(current)
-    }
+        if longestInsideCompare(r, current) then s else Some(current)
 
   /**
     * Calculates a date that lies in the very far future. This date is used
@@ -447,10 +425,8 @@ object IntervalQueries {
     *
     * @return the date in the far future
     */
-  private def forEverDate(): LocalDateTime = {
+  private def forEverDate(): LocalDateTime =
     def max(field: TemporalField): Int = field.range().getMaximum.toInt
 
     LocalDateTime.of(max(ChronoField.YEAR), max(ChronoField.MONTH_OF_YEAR), max(ChronoField
       .DAY_OF_MONTH), max(ChronoField.HOUR_OF_DAY), max(ChronoField.MINUTE_OF_HOUR))
-  }
-}

@@ -25,7 +25,7 @@ import org.apache.pekko.actor.{Actor, ActorRef, Props, typed}
 
 import scala.concurrent.duration._
 
-object PlayerFacadeActor {
+object PlayerFacadeActor:
   /** A delay value that means ''no delay''. */
   final val NoDelay: FiniteDuration = 0.seconds
 
@@ -124,7 +124,6 @@ object PlayerFacadeActor {
             sourceCreator: SourceActorCreator): Props =
     Props(classOf[PlayerFacadeActorImpl], config, eventActor, scheduleActor, factoryActor, lineWriterActor,
       sourceCreator)
-}
 
 /**
   * An actor implementation acting as a facade for the actors comprising the
@@ -169,7 +168,7 @@ class PlayerFacadeActor(config: PlayerConfig,
                         factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                         lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
                         sourceCreator: SourceActorCreator)
-  extends Actor {
+  extends Actor:
   this: ChildActorFactory with CloseSupport =>
 
   import PlayerFacadeActor._
@@ -192,12 +191,11 @@ class PlayerFacadeActor(config: PlayerConfig,
   /** Flag whether this actor has been closed. */
   private var closed = false
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     delayActor = createChildActor(DelayActor(scheduleActor))
     createDynamicChildren()
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case d: Dispatch if isCloseRequestInProgress =>
       messagesDuringReset = d :: messagesDuringReset
 
@@ -209,9 +207,8 @@ class PlayerFacadeActor(config: PlayerConfig,
 
     case ResetEngine =>
       messagesDuringReset = List.empty
-      if (!isCloseRequestInProgress) {
+      if !isCloseRequestInProgress then
         triggerCloseRequest(self)
-      }
 
     case CloseRequest =>
       closed = true
@@ -220,11 +217,9 @@ class PlayerFacadeActor(config: PlayerConfig,
     case CloseComplete =>
       stopDynamicChildren()
       onCloseComplete()
-      if (!closed) {
+      if !closed then
         createDynamicChildren()
         messagesDuringReset.reverse.foreach(dispatchMessage)
-      }
-  }
 
   /**
     * Initiates a close operation by closing all the child actors managed by
@@ -233,19 +228,17 @@ class PlayerFacadeActor(config: PlayerConfig,
     *
     * @param target the target to send a confirmation to
     */
-  private def triggerCloseRequest(target: ActorRef): Unit = {
+  private def triggerCloseRequest(target: ActorRef): Unit =
     val actorsToClose = List(delayActor, playbackActor) ++ sourceReaderActors.values
     onCloseRequest(self, actorsToClose, target, this)
-  }
 
   /**
     * Handles a dispatch message.
     *
     * @param d the message to be handled
     */
-  private def dispatchMessage(d: Dispatch): Unit = {
+  private def dispatchMessage(d: Dispatch): Unit =
     delayActor ! DelayActor.Propagate(d.msg, fetchTargetActor(d.targetActor), d.delay)
-  }
 
   /**
     * Determines the actor referenced by the specified target.
@@ -254,26 +247,22 @@ class PlayerFacadeActor(config: PlayerConfig,
     * @return the corresponding actor
     */
   private def fetchTargetActor(t: TargetActor): ActorRef =
-    t match {
+    t match
       case TargetSourceReader(key) => sourceReaderActors(key)
       case TargetPlaybackActor => playbackActor
-    }
 
   /**
     * Creates the dynamic children of this actor. These are child actors that
     * have to be replaced when the engine is reset.
     */
-  private def createDynamicChildren(): Unit = {
+  private def createDynamicChildren(): Unit =
     sourceReaderActors = sourceCreator(this, config)
     playbackActor = createChildActor(PlaybackActor(config, sourceReaderActors(KeySourceActor), lineWriterActor,
       eventActor, factoryActor))
-  }
 
   /**
     * Stops the child actors that are replaced on a reset of the engine.
     */
-  private def stopDynamicChildren(): Unit = {
+  private def stopDynamicChildren(): Unit =
     sourceReaderActors.values foreach context.stop
     context stop playbackActor
-  }
-}

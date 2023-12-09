@@ -26,7 +26,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.duration._
 
-object PlayerConfigSpec {
+object PlayerConfigSpec:
   /** A test player configuration that can be used by all tests. */
   final val TestPlayerConfig = PlayerConfig(inMemoryBufferSize = 10000,
     playbackContextLimit = 24000,
@@ -42,22 +42,20 @@ object PlayerConfigSpec {
     blockingDispatcherName = None,
     mediaManagerActor = null,
     actorCreator = null)
-}
 
 /**
   * Test class for ''PlayerConfig''.
   */
-class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
-  "PlayerConfig" should "return the same source if no blocking dispatcher is defined" in {
+class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+  "PlayerConfig" should "return the same source if no blocking dispatcher is defined" in:
     val source = Source.single("test")
     val config = TestPlayerConfig.copy(mediaManagerActor = mock[ActorRef], actorCreator = mock[ActorCreator])
 
     val modifiedSource = config.applyBlockingDispatcher(source)
 
     modifiedSource should be theSameInstanceAs source
-  }
 
-  it should "apply the blocking dispatcher to a source" in {
+  it should "apply the blocking dispatcher to a source" in:
     val BlockingDispatcher = "IO-Dispatcher"
     val source = Source.single("blockingTest")
     val config = TestPlayerConfig.copy(blockingDispatcherName = Some(BlockingDispatcher),
@@ -66,10 +64,7 @@ class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     val modifiedSource = config.applyBlockingDispatcher(source)
 
-    modifiedSource.getAttributes.get[ActorAttributes.Dispatcher] match {
+    modifiedSource.getAttributes.get[ActorAttributes.Dispatcher] match
       case Some(value) =>
         value.dispatcher should be(BlockingDispatcher)
       case None => fail("No dispatcher attribute found.")
-    }
-  }
-}

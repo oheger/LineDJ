@@ -16,14 +16,15 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file._
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
 
+import java.nio.file.*
+import java.nio.file.attribute.BasicFileAttributes
 import scala.collection.immutable.ArraySeq
+import scala.collection.immutable.Seq
 
-object BufferFileManager {
+object BufferFileManager:
   /** The system property pointing to the user's home directory. */
   private val PropUserHome = "user.home"
 
@@ -49,11 +50,10 @@ object BufferFileManager {
     * @param config the ''PlayerConfig''
     * @return the newly created ''BufferFileManager'' instance
     */
-  def apply(config: PlayerConfig): BufferFileManager = {
+  def apply(config: PlayerConfig): BufferFileManager =
     val path: Path = determineTempDirectory(config)
     new BufferFileManager(Files createDirectories path, config.bufferFilePrefix, config
       .bufferFileExtension)
-  }
 
   /**
     * Determines the path to the temporary directory based on the specified
@@ -66,13 +66,11 @@ object BufferFileManager {
     * @return the temporary directory for the buffer
     */
   private def determineTempDirectory(config: PlayerConfig): Path =
-    config.bufferTempPath match {
+    config.bufferTempPath match
       case Some(p) => p
       case None =>
         val home = Paths get System.getProperty(PropUserHome)
         config.bufferTempPathParts.foldLeft(home)((p, d) => p resolve d)
-    }
-}
 
 /**
   * A helper class for managing temporary files for [[LocalBufferActor]].
@@ -94,18 +92,17 @@ object BufferFileManager {
  * @param prefix the prefix for temporary files
  * @param extension the file extension for temporary files
  */
-class BufferFileManager(val directory: Path, val prefix: String, val extension: String) {
+class BufferFileManager(val directory: Path, val prefix: String, val extension: String):
   /** An array for storing the files contained in this buffer. */
   private val content = Array[Option[BufferFile]](None, None)
 
   /** A counter for generating file names. */
   private var counter = 0
 
-  def createPath(): Path = {
+  def createPath(): Path =
     val name = s"$prefix$counter$extension"
     counter += 1
     directory resolve name
-  }
 
   /**
    * Returns a flag whether this buffer is already full. This is case if it
@@ -124,10 +121,9 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    * @param path the path to be removed
    * @return the path that was passed in
    */
-  def removePath(path: Path): Path = {
+  def removePath(path: Path): Path =
     Files deleteIfExists path
     path
-  }
 
   /**
     * Safely removes the specified buffer file from disk. Works like
@@ -136,10 +132,9 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
     * @param file the file to be removed
     * @return the file that was passed in
     */
-  def removeFile(file: BufferFile): BufferFile = {
+  def removeFile(file: BufferFile): BufferFile =
     removePath(file.path)
     file
-  }
 
   /**
    * Returns an option for the next file to be read from the buffer.
@@ -155,14 +150,12 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    *
    * @param file the file object to be appended
    */
-  def append(file: BufferFile): Unit = {
-    if (isFull) {
+  def append(file: BufferFile): Unit =
+    if isFull then
       throw new IllegalStateException("Cannot append to a full buffer!")
-    }
 
-    val index = if (content(0).isEmpty) 0 else 1
+    val index = if content(0).isEmpty then 0 else 1
     content(index) = Some(file)
-  }
 
   /**
    * Removes the first file from this buffer and returns it. If the buffer is
@@ -170,12 +163,11 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    *
    * @return the first file in this buffer which has been removed
    */
-  def checkOut(): BufferFile = {
+  def checkOut(): BufferFile =
     val file = content(0).get
     content(0) = content(1)
     content(1) = None
     file
-  }
 
   /**
    * Checks out the first file from this buffer and removes it from disk. This
@@ -193,24 +185,21 @@ class BufferFileManager(val directory: Path, val prefix: String, val extension: 
    *
    * @return a sequence with the paths which were contained in this buffer
    */
-  def removeContainedPaths(): Seq[BufferFile] = {
+  def removeContainedPaths(): Seq[BufferFile] =
     ArraySeq.unsafeWrapArray(content).flatten map removeFile
-  }
 
   /**
    * Removes all files in the managed directory matching the configured prefix
    * and extension. This method can be used to do clean up, e.g. at startup or
    * closing time.
    */
-  def clearBufferDirectory(): Unit = {
+  def clearBufferDirectory(): Unit =
     Files.walkFileTree(directory, new SimpleFileVisitor[Path] {
       override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
         val name = file.getFileName.toString
-        if (name.startsWith(prefix) && name.endsWith(extension)) {
+        if name.startsWith(prefix) && name.endsWith(extension) then {
           removePath(file)
         }
         FileVisitResult.CONTINUE
       }
     })
-  }
-}

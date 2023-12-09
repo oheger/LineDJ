@@ -31,7 +31,7 @@ import scala.reflect.ClassTag
   *
   * @tparam EVENT the event type to be handled
   */
-trait EventTestSupport[EVENT] {
+trait EventTestSupport[EVENT]:
   this: Matchers =>
 
   /**
@@ -43,11 +43,10 @@ trait EventTestSupport[EVENT] {
     * @return the received event
     */
   def expectEvent[T <: EVENT](probe: TestProbe[EVENT])
-                             (implicit t: ClassTag[T]): T = {
+                             (implicit t: ClassTag[T]): T =
     val event = probe.expectMessageType[T]
     assertCurrentTime(eventTimeExtractor(event))
     event
-  }
 
   /**
     * Checks whether the given time is close to the current system time. This
@@ -57,10 +56,9 @@ trait EventTestSupport[EVENT] {
     * @param time        the time to check
     * @param deltaMillis the accepted difference to the system time (in millis)
     */
-  def assertCurrentTime(time: LocalDateTime, deltaMillis: Long = 250): Unit = {
+  def assertCurrentTime(time: LocalDateTime, deltaMillis: Long = 250): Unit =
     val diff = java.time.Duration.between(time, LocalDateTime.now())
     diff.toMillis should be < 250L
-  }
 
   /**
     * Returns a function to extract the time of an event.
@@ -68,4 +66,3 @@ trait EventTestSupport[EVENT] {
     * @return the function to extract the event time
     */
   protected def eventTimeExtractor: EVENT => LocalDateTime
-}

@@ -16,20 +16,19 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackProgressEvent, PlayerEvent}
+import de.oliver_heger.linedj.test.{ActorTestKitSupport, AsyncTestHelper}
 import org.apache.pekko.actor.DeadLetter
-import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.util.Timeout
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object EventManagerActorSpec {
+object EventManagerActorSpec:
   /** An audio source used by tests. */
   private val TestAudioSource = AudioSource("someSong.mp3", 1024, 0, 0)
 
@@ -42,17 +41,15 @@ object EventManagerActorSpec {
   private def progressEvent(index: Int): PlaybackProgressEvent =
     PlaybackProgressEvent(bytesProcessed = index * 1024, playbackTime = index * 1000.seconds,
       currentSource = TestAudioSource)
-}
 
 /**
   * Test class for [[EventManagerActor]].
   */
-class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
-  with AsyncTestHelper {
+class EventManagerActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with AsyncTestHelper:
 
-  import EventManagerActorSpec._
+  import EventManagerActorSpec.*
 
-  "EventManagerActor" should "publish events to registered listeners" in {
+  "EventManagerActor" should "publish events to registered listeners" in:
     val event = AudioSourceStartedEvent(TestAudioSource)
     val listener1 = testKit.createTestProbe[PlayerEvent]()
     val listener2 = testKit.createTestProbe[PlayerEvent]()
@@ -64,9 +61,8 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
 
     listener1.expectMessage(event)
     listener2.expectMessage(event)
-  }
 
-  it should "support removing event listeners" in {
+  it should "support removing event listeners" in:
     val event1 = progressEvent(1)
     val event2 = progressEvent(2)
     val listener1 = testKit.createTestProbe[PlayerEvent]()
@@ -84,9 +80,8 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     listener1.expectMessage(event2)
     listener2.expectMessage(event1)
     listener2.expectNoMessage(500.millis)
-  }
 
-  it should "remove an event listener that died" in {
+  it should "remove an event listener that died" in:
     val mockListener = testKit.spawn(Behaviors.receiveMessage[PlayerEvent] { _ =>
       Behaviors.stopped
     })
@@ -97,15 +92,14 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     eventManager ! EventManagerActor.Publish(progressEvent(1))
     deadLetterProbe.expectTerminated(mockListener)
 
-    val listener = createTestProbe[PlayerEvent]()
+    val listener = testKit.createTestProbe[PlayerEvent]()
     eventManager ! EventManagerActor.RegisterListener(listener.ref)
     eventManager ! EventManagerActor.Publish(progressEvent(2))
     listener.expectMessageType[PlaybackProgressEvent]
 
     deadLetterProbe.expectNoMessage(500.millis)
-  }
 
-  it should "stop itself when receiving the Stop command" in {
+  it should "stop itself when receiving the Stop command" in:
     val deadLetterProbe = testKit.createDeadLetterProbe()
     val eventManager = testKit.spawn(EventManagerActor[PlayerEvent]())
 
@@ -115,9 +109,8 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     eventManager ! message
     val deadLetter = deadLetterProbe.expectMessageType[DeadLetter]
     deadLetter.message should be(message)
-  }
 
-  it should "provide an actor to publish events" in {
+  it should "provide an actor to publish events" in:
     implicit val timeout: Timeout = 3.seconds
     val eventManager = testKit.spawn(EventManagerActor[PlayerEvent]())
 
@@ -131,5 +124,3 @@ class EventManagerActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLi
     publisher ! event
 
     probe.expectMessage(event)
-  }
-}

@@ -1,14 +1,30 @@
+/*
+ * Copyright 2015-2023 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.player.engine.actors
 
 import java.nio.file.{Files, Path, Paths}
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object BufferFileManagerSpec {
+object BufferFileManagerSpec:
   /** A prefix for temporary files. */
   private val FilePrefix = "BufferTestFile"
 
@@ -16,17 +32,15 @@ object BufferFileManagerSpec {
   private val FileSuffix = ".tmp"
 
   private val SourceLengths = List(1024L, 512L, 768L)
-}
 
 /**
  * Test class for ''BufferFileManager''.
  */
-class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper {
-  import BufferFileManagerSpec._
+class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfter with FileTestHelper:
+  import BufferFileManagerSpec.*
 
-  after {
+  after:
     tearDownTestFile()
-  }
 
   /**
    * Creates a default test instance of ''BufferFileManager''.
@@ -36,20 +50,18 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
   private def createManager(): BufferFileManager =
     new BufferFileManager(testDirectory, FilePrefix, FileSuffix)
 
-  "A BufferFileManager" should "be empty initially" in {
+  "A BufferFileManager" should "be empty initially" in:
     val manager = createManager()
     manager.read shouldBe empty
-  }
 
-  it should "not be full initially" in {
+  it should "not be full initially" in:
     val manager = createManager()
     manager should not be Symbol("full")
-  }
 
-  it should "create correct names for buffer files" in {
+  it should "create correct names for buffer files" in:
     val manager = createManager()
     val Count = 8
-    val paths = for (_ <- 0 until Count) yield manager.createPath()
+    val paths = for _ <- 0 until Count yield manager.createPath()
     var index = 0
     paths foreach { p =>
       p.getParent should be(testDirectory)
@@ -57,17 +69,15 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
       name should be(FilePrefix + index + FileSuffix)
       index += 1
     }
-  }
 
-  it should "allow appending and querying a path" in {
+  it should "allow appending and querying a path" in:
     val manager = createManager()
     val path = manager.createPath()
     val file = BufferFile(path, SourceLengths)
     manager append file
     manager.read.get should be(file)
-  }
 
-  it should "have capacity for two temporary files" in {
+  it should "have capacity for two temporary files" in:
     val manager = createManager()
     val path1 = manager.createPath()
     val path2 = manager.createPath()
@@ -75,38 +85,33 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     manager append file
     manager append BufferFile(path2, Nil)
     manager.read.get should be(file)
-  }
 
-  it should "throw an exception when appending to a full buffer" in {
+  it should "throw an exception when appending to a full buffer" in:
     val manager = createManager()
     manager append BufferFile(manager.createPath(), SourceLengths)
     manager append BufferFile(manager.createPath(), Nil)
     manager shouldBe Symbol("full")
 
-    intercept[IllegalStateException] {
+    intercept[IllegalStateException]:
       manager append BufferFile(manager.createPath(), SourceLengths)
-    }
-  }
 
-  it should "not throw when removing a non-existing file" in {
+  it should "not throw when removing a non-existing file" in:
     val manager = createManager()
     val path = createPathInDirectory("nonExisting.file")
     Files.exists(path) shouldBe false
 
     manager.removePath(path) should be(path)
     Files.exists(path) shouldBe false
-  }
 
-  it should "be able to remove a file on disk" in {
+  it should "be able to remove a file on disk" in:
     val manager = createManager()
     val path = createDataFile()
     Files.exists(path) shouldBe true
 
     manager.removePath(path) should be(path)
     Files.exists(path) shouldBe false
-  }
 
-  it should "allow checking out a file from the buffer" in {
+  it should "allow checking out a file from the buffer" in:
     val manager = createManager()
     val path1 = manager.createPath()
     val file = BufferFile(path1, SourceLengths)
@@ -114,17 +119,14 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     manager append file
     manager.checkOut() should be(file)
     manager.read shouldBe empty
-  }
 
-  it should "throw an exception when checking out from an empty buffer" in {
+  it should "throw an exception when checking out from an empty buffer" in:
     val manager = createManager()
 
-    intercept[NoSuchElementException] {
+    intercept[NoSuchElementException]:
       manager.checkOut()
-    }
-  }
 
-  it should "allow checking out multiple paths" in {
+  it should "allow checking out multiple paths" in:
     val manager = createManager()
     val file1 = BufferFile(manager.createPath(), Nil)
     val file2 = BufferFile(manager.createPath(), SourceLengths)
@@ -137,9 +139,8 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     manager.checkOut() should be(file2)
     manager.read.get should be(file3)
     manager.checkOut() should be(file3)
-  }
 
-  it should "allow checking out and removing a path" in {
+  it should "allow checking out and removing a path" in:
     val manager = createManager()
     val path = createDataFile()
     val file = BufferFile(path, SourceLengths)
@@ -147,14 +148,12 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
 
     manager.checkOutAndRemove() should be(file)
     Files.exists(path) shouldBe false
-  }
 
-  it should "not throw when removing the paths in the buffer, but the buffer is empty" in {
+  it should "not throw when removing the paths in the buffer, but the buffer is empty" in:
     val manager = createManager()
     manager.removeContainedPaths() shouldBe empty
-  }
 
-  it should "be able to remove the paths currently contained in the buffer" in {
+  it should "be able to remove the paths currently contained in the buffer" in:
     val manager = createManager()
     val file1 = BufferFile(createDataFile(), SourceLengths)
     val file2 = BufferFile(createDataFile("some other data"), Nil)
@@ -166,7 +165,6 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     paths should contain(file1)
     paths should contain(file2)
     listManagedDirectory() shouldBe empty
-  }
 
   /**
    * Creates a temporary file with the specified name.
@@ -187,7 +185,7 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
   private def createFileWithMatchingName(index: Int): Path =
     createFileWithName(FilePrefix + index + FileSuffix)
 
-  it should "be able to clear all data files in the managed directory" in {
+  it should "be able to clear all data files in the managed directory" in:
     createFileWithMatchingName(1)
     val path = createFileWithName("AnotherFile.dat")
     createFileWithMatchingName(42)
@@ -197,7 +195,6 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
     val paths = listManagedDirectory()
     paths.toSeq should have length 1
     paths should contain(path)
-  }
 
   /**
     * Creates a test player configuration.
@@ -209,28 +206,24 @@ class BufferFileManagerSpec extends AnyFlatSpec with Matchers with BeforeAndAfte
       bufferTempPathParts = List("lineDJTest", "temp"),
       bufferTempPath = Some(createPathInDirectory("bufferTemp")))
 
-  it should "initialize itself from a player configuration" in {
+  it should "initialize itself from a player configuration" in:
     val config = createConfig()
     val manager = BufferFileManager(config)
 
     manager.prefix should be(FilePrefix)
     manager.extension should be(FileSuffix)
     manager.directory should be(config.bufferTempPath.get)
-  }
 
-  it should "create the buffer temp directory if necessary" in {
+  it should "create the buffer temp directory if necessary" in:
     val config = createConfig()
     val manager = BufferFileManager(config)
 
     Files.exists(manager.directory) shouldBe true
-  }
 
-  it should "create a buffer directory below the user's directory" in {
+  it should "create a buffer directory below the user's directory" in:
     val expectedPath = Paths.get(System.getProperty("user.home"), "lineDJTest", "temp")
     val config = createConfig().copy(bufferTempPath = None)
     val manager = BufferFileManager(config)
 
     manager.directory should be(expectedPath)
     Files delete expectedPath
-  }
-}

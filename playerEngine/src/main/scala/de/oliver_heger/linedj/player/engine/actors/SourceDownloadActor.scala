@@ -28,7 +28,7 @@ import scala.collection.mutable
 /**
  * Companion object.
  */
-object SourceDownloadActor {
+object SourceDownloadActor:
 
   /**
    * A message processed by ''SourceDownloadActor'' telling it to send a
@@ -81,12 +81,10 @@ object SourceDownloadActor {
     * The actor simulates an empty reader actor. It reacts on download data
     * requests by returning a ''DownloadComplete'' message immediately.
     */
-  private class DummyReaderActor extends Actor {
-    override def receive: Receive = {
+  private class DummyReaderActor extends Actor:
+    override def receive: Receive =
       case DownloadData(_) =>
         sender() ! DownloadComplete
-    }
-  }
 
   private class SourceDownloadActorImpl(config: PlayerConfig, bufferActor: ActorRef,
                                         readerActor: ActorRef)
@@ -104,7 +102,6 @@ object SourceDownloadActor {
   def apply(config: PlayerConfig, bufferActor: ActorRef, readerActor:
   ActorRef): Props =
     Props(classOf[SourceDownloadActorImpl], config, bufferActor, readerActor)
-}
 
 /**
  * An actor which downloads audio sources from a source actor into the local
@@ -126,7 +123,7 @@ object SourceDownloadActor {
  * @param readerActor the actor which reads audio data from the buffer
  */
 class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerActor: ActorRef)
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   me: SchedulerSupport =>
 
   import SourceDownloadActor._
@@ -153,36 +150,31 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
   private var playlistClosed = false
 
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     super.preStart()
     cancellableReaderAlive = Some(scheduleMessage(config.downloadInProgressNotificationDelay,
       config.downloadInProgressNotificationInterval, self, ReportReaderActorAlive))
-  }
 
   @throws[Exception](classOf[Exception])
-  override def postStop(): Unit = {
+  override def postStop(): Unit =
     cancellableReaderAlive foreach (_.cancel())
     super.postStop()
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case src: AudioSourcePlaylistInfo =>
-      if (playlistClosed) {
+      if playlistClosed then
         sender() ! PlaybackProtocolViolation(src, ErrorSourceAfterPlaylistEnd)
-      } else {
-        if (src == PlaylistEnd) {
-          if (nothingToProcess()) {
+      else
+        if src == PlaylistEnd then
+          if nothingToProcess() then
             bufferActor ! LocalBufferActor.SequenceComplete
-          }
           playlistClosed = true
-        } else {
+        else
           playlist += src
           downloadIfPossible()
-        }
-      }
 
     case response: MediumFileResponse =>
-      resetCurrentDownload() match {
+      resetCurrentDownload() match
         case Some(info) =>
           readerActor ! AudioSource(uri = info.sourceID.uri, length =
             AudioSource.UnknownLength, skip = info.skip, skipTime = info.skipTime)
@@ -191,36 +183,31 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
 
         case None =>
           sender() ! PlaybackProtocolViolation(response, ErrorUnexpectedDownloadResponse)
-      }
 
     case filled: BufferFilled =>
-      currentReadActor match {
+      currentReadActor match
         case Some(actor) =>
           currentReadActor = None
           downloadInProgress = None
           downloadIfPossible()
           context stop actor
-          if (playlistClosed && nothingToProcess()) {
+          if playlistClosed && nothingToProcess() then
             bufferActor ! LocalBufferActor.SequenceComplete
-          }
 
         case None =>
           sender() ! PlaybackProtocolViolation(filled, ErrorUnexpectedBufferFilled)
-      }
 
     case CloseRequest =>
       currentReadActor foreach context.stop
       sender() ! CloseAck(self)
 
     case ReportReaderActorAlive =>
-      for {
+      for
         readerActor <- currentReadActor
         downloadRequest <- downloadInProgress
-      } {
+      do
         config.mediaManagerActor ! DownloadActorAlive(readerActor,
           downloadRequest.fileID)
-      }
-  }
 
   /**
     * Returns a flag if currently no action is triggered by this actor. If this
@@ -229,9 +216,8 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     *
     * @return a flag if this actor is currently idle
     */
-  private def nothingToProcess(): Boolean = {
+  private def nothingToProcess(): Boolean =
     currentReadActor.isEmpty && currentDownload.isEmpty
-  }
 
   /**
    * Checks whether the specified ''AudioSourceDownloadResponse'' object
@@ -250,25 +236,23 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
    *
    * @return the current download before it was reset
    */
-  private def resetCurrentDownload(): Option[AudioSourcePlaylistInfo] = {
+  private def resetCurrentDownload(): Option[AudioSourcePlaylistInfo] =
     val result = currentDownload
     currentDownload = None
     result
-  }
 
   /**
     * Initiates the download of an audio source if this is currently possible.
     *
     * @return a flag whether a download could be started
     */
-  private def downloadIfPossible(): Boolean = {
-    if (playlist.nonEmpty && currentDownload.isEmpty && currentReadActor.isEmpty) {
+  private def downloadIfPossible(): Boolean =
+    if playlist.nonEmpty && currentDownload.isEmpty && currentReadActor.isEmpty then
       val info = playlist.dequeue()
       config.mediaManagerActor ! downloadRequest(info.sourceID)
       currentDownload = Some(info)
       true
-    } else false
-  }
+    else false
 
   /**
     * Triggers a new fill operation when a response for a download request is
@@ -277,15 +261,12 @@ class SourceDownloadActor(config: PlayerConfig, bufferActor: ActorRef, readerAct
     * @param response the response
     * @return the new value for the current reader actor
     */
-  private def triggerFillBuffer(response: MediumFileResponse): Option[ActorRef] = {
-    val downloadActor = if (isValidDownloadResponse(response)) {
+  private def triggerFillBuffer(response: MediumFileResponse): Option[ActorRef] =
+    val downloadActor = if isValidDownloadResponse(response) then
       assert(response.contentReader.isDefined)
       response.contentReader.get
-    } else {
+    else
       log.warning("Download failed! Creating dummy actor.")
       context.actorOf(Props[DummyReaderActor]())
-    }
     bufferActor ! FillBuffer(downloadActor)
     Some(downloadActor)
-  }
-}

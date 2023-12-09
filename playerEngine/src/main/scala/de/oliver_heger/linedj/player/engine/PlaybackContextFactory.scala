@@ -35,7 +35,7 @@ import java.io.InputStream
  * fallback mechanism giving other factory implementations available a chance
  * to check the audio source.
  */
-trait PlaybackContextFactory {
+trait PlaybackContextFactory:
   /**
    * Creates a suitable ''PlaybackContext'' object for the specified audio
    * stream if the format is supported. Otherwise, returns ''None''.
@@ -44,4 +44,3 @@ trait PlaybackContextFactory {
    * @return an optional ''PlaybackContext'' for this audio source
    */
   def createPlaybackContext(stream: InputStream, uri: String): Option[PlaybackContext]
-}

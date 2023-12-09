@@ -27,16 +27,15 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{FiniteDuration, _}
 
-object DelayActorSpec {
+object DelayActorSpec:
   /** A test message object. */
   private val Message = new Object
-}
 
 /**
   * Test class for ''DelayActorSpec''.
   */
 class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll {
+  with AnyFlatSpecLike with Matchers with BeforeAndAfterAll:
 
   import DelayActorSpec._
 
@@ -45,19 +44,17 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
   /** A test kit for testing typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
-  }
 
-  "A DelayActor" should "forward a message directly if there is no delay" in {
+  "A DelayActor" should "forward a message directly if there is no delay" in:
     val helper = new DelayActorTestHelper
 
     helper.propagate(0.seconds).expectNoSchedule()
     helper.targetProbe.expectMsg(Message)
-  }
 
-  it should "forward multiple messages directly if there is no delay" in {
+  it should "forward multiple messages directly if there is no delay" in:
     val otherTarget = TestProbe()
     val otherMessage = 42
     val helper = new DelayActorTestHelper
@@ -67,16 +64,14 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       .expectNoSchedule()
     helper.targetProbe.expectMsg(Message)
     otherTarget.expectMsg(otherMessage)
-  }
 
-  it should "create a scheduled invocation if there is a delay" in {
+  it should "create a scheduled invocation if there is a delay" in:
     val helper = new DelayActorTestHelper
     val delay = 10.seconds
 
     helper.propagate(delay).checkNoMessageForTarget().expectSchedule(delay)
-  }
 
-  it should "create a scheduled invocation for multiple messages if there is a delay" in {
+  it should "create a scheduled invocation for multiple messages if there is a delay" in:
     val otherTarget = TestProbe()
     val otherMessage = 42
     val helper = new DelayActorTestHelper
@@ -86,9 +81,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper.send(propagate)
       .checkNoMessageForTarget()
       .expectMultiSchedule(delay, propagate.sendData)
-  }
 
-  it should "send multiple messages in order" in {
+  it should "send multiple messages in order" in:
     val otherMessage = 84
     val helper = new DelayActorTestHelper
     val propagate = new Propagate(List((Message, helper.targetProbe.ref), (otherMessage, helper.targetProbe.ref)),
@@ -98,9 +92,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       .expectNoSchedule()
     helper.targetProbe.expectMsg(Message)
     helper.targetProbe.expectMsg(otherMessage)
-  }
 
-  it should "drop a pending schedule if another message is received" in {
+  it should "drop a pending schedule if another message is received" in:
     val helper = new DelayActorTestHelper
     val delay = 1.minute
     val invocation = helper.propagate(delay).expectSchedule(delay)
@@ -111,9 +104,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
 
     helper.send(invocation.message)
       .checkNoMessageForTarget()
-  }
 
-  it should "handle multiple targets" in {
+  it should "handle multiple targets" in:
     val helper = new DelayActorTestHelper
     val otherTarget = TestProbe()
     val delay = 45.seconds
@@ -133,18 +125,16 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     otherTarget.expectMsg(ThirdMessage)
     helper.send(invocation2.message)
       .checkNoMessageForTarget()
-  }
 
-  it should "process a DelayedInvocation message" in {
+  it should "process a DelayedInvocation message" in:
     val helper = new DelayActorTestHelper
     val delay = 1.hour
     val invocation = helper.propagate(delay).expectSchedule(delay)
 
     helper send invocation.message
     helper.targetProbe.expectMsg(Message)
-  }
 
-  it should "support multiple delayed invocations" in {
+  it should "support multiple delayed invocations" in:
     val helper = new DelayActorTestHelper
     val delay = 1.hour
     val invocation = helper.propagate(delay).expectSchedule(delay)
@@ -154,9 +144,8 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     val invocation2 = helper.propagate(delay).expectSchedule(delay)
     helper send invocation2.message
     helper.targetProbe.expectMsg(Message)
-  }
 
-  it should "reset data structures when the invocation is done" in {
+  it should "reset data structures when the invocation is done" in:
     val helper = new DelayActorTestHelper
     val delay = 1.minute
     val invocation = helper.propagate(delay).expectSchedule(delay)
@@ -166,25 +155,22 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     val invocation2 = helper.propagate(delay).expectSchedule(delay)
     helper send invocation2.message
     helper.targetProbe.expectMsg(Message)
-  }
 
-  it should "ignore unexpected DelayedInvocation messages" in {
+  it should "ignore unexpected DelayedInvocation messages" in:
     val helper = new DelayActorTestHelper
 
     helper.send(DelayActor.DelayedInvocation(DelayActor.Propagate(Message,
       helper.targetProbe.ref, 10.minutes), 0)).checkNoMessageForTarget()
-  }
 
-  it should "ignore outdated DelayedInvocation messages" in {
+  it should "ignore outdated DelayedInvocation messages" in:
     val helper = new DelayActorTestHelper
     val delay1 = 10.seconds
     val invocation = helper.propagate(delay1).expectSchedule(delay1)
 
     helper.propagate(20.seconds)
     helper.send(invocation.message).checkNoMessageForTarget()
-  }
 
-  it should "drop pending scheduled invocations on a close request" in {
+  it should "drop pending scheduled invocations on a close request" in:
     val helper = new DelayActorTestHelper
     val otherTarget = TestProbe()
     val delay1 = 1.minute
@@ -200,13 +186,12 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       .send(invocation2.message)
       .checkNoMessageForTarget()
     otherTarget.expectNoMessage(500.millis)
-  }
 
   /**
     * A test helper class managing a test actor instance and some related
     * objects.
     */
-  private class DelayActorTestHelper {
+  private class DelayActorTestHelper:
     /** A probe that can serve as target. */
     val targetProbe: TestProbe = TestProbe()
 
@@ -222,10 +207,9 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @param msg the message to be sent
       * @return this test helper
       */
-    def send(msg: Any): DelayActorTestHelper = {
+    def send(msg: Any): DelayActorTestHelper =
       actor receive msg
       this
-    }
 
     /**
       * Sends a ''Propagate'' message to the test actor.
@@ -236,20 +220,18 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return this test helper
       */
     def propagate(delay: FiniteDuration, target: ActorRef = targetProbe.ref,
-                  msg: Any = Message): DelayActorTestHelper = {
+                  msg: Any = Message): DelayActorTestHelper =
       send(DelayActor.Propagate(msg = msg, target = target, delay = delay))
       this
-    }
 
     /**
       * Checks that no scheduler invocation has been created.
       *
       * @return this test helper
       */
-    def expectNoSchedule(): DelayActorTestHelper = {
+    def expectNoSchedule(): DelayActorTestHelper =
       schedulerProbe.expectNoMessage(500.millis)
       this
-    }
 
     /**
       * Expects a scheduled invocation for multiple messages.
@@ -259,21 +241,18 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the scheduled invocation
       */
     def expectMultiSchedule(delay: FiniteDuration, data: Iterable[(Any, ActorRef)]):
-    ScheduledInvocationActor.ClassicActorInvocation = {
+    ScheduledInvocationActor.ClassicActorInvocation =
       val command = schedulerProbe.expectMessageType[ScheduledInvocationActor.ActorInvocationCommand]
       command.delay should be(delay)
-      command.invocation match {
+      command.invocation match
         case inv@ScheduledInvocationActor.ClassicActorInvocation(receiver, message) =>
           receiver should be(actor)
-          message match {
+          message match
             case d: DelayActor.DelayedInvocation =>
               d.propagate.sendData should be(data)
             case m => fail("Unexpected scheduled message: " + m)
-          }
           inv
         case o => fail("Unexpected invocation: " + o)
-      }
-    }
 
     /**
       * Expects a scheduled invocation with the specified parameters.
@@ -293,12 +272,11 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @param target the probe to be checked
       * @return this test helper
       */
-    def checkNoMessageForTarget(target: TestProbe = targetProbe): DelayActorTestHelper = {
+    def checkNoMessageForTarget(target: TestProbe = targetProbe): DelayActorTestHelper =
       val Ping = "TestPingMessage"
       target.ref ! Ping
       target.expectMsg(Ping)
       this
-    }
 
     /**
       * Creates the properties for a test instance.
@@ -306,5 +284,3 @@ class DelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return the ''Props'' for a test instance
       */
     private def createProps(): Props = DelayActor(schedulerProbe.ref)
-  }
-}

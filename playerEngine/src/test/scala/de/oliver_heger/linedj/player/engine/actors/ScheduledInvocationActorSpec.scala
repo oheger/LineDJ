@@ -34,20 +34,19 @@ import scala.concurrent.duration._
   * Test class for [[ScheduledInvocationActor]].
   */
 class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(classic.ActorSystem("ScheduledInvocationActorSpec"))
 
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
 
     super.afterAll()
-  }
 
-  "ScheduledInvocationActor" should "schedule a typed invocation" in {
+  "ScheduledInvocationActor" should "schedule a typed invocation" in:
     val probe = testKit.createTestProbe[String]()
     val message = "A delayed test message"
     val invocation = ScheduledInvocationActor.typedInvocation(probe.ref, message)
@@ -57,9 +56,8 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
     helper.testScheduledInvocation(command, command.delay)
 
     probe.expectMessage(message)
-  }
 
-  it should "schedule a classic invocation" in {
+  it should "schedule a classic invocation" in:
     val probe = TestProbe()
     val message = "A delayed classic test message"
     val invocation = ScheduledInvocationActor.ClassicActorInvocation(probe.ref, message)
@@ -69,9 +67,8 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
     helper.testScheduledInvocation(command, command.delay)
 
     probe.expectMsg(message)
-  }
 
-  it should "create a correct actor instance" in {
+  it should "create a correct actor instance" in:
     val probe = testKit.createTestProbe[String]()
     val message = "Real test message"
     val command = ScheduledInvocationActor.typedInvocationCommand(100.millis, probe.ref, message)
@@ -80,18 +77,16 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
     scheduledInvocationActor ! command
 
     probe.expectMessage(message)
-  }
 
-  it should "stop itself on receiving a Stop command" in {
+  it should "stop itself on receiving a Stop command" in:
     val helper = new ScheduledInvocationTestHelper
 
     helper.testStop()
-  }
 
   /**
     * A test helper class managing an actor under test and its dependencies.
     */
-  private class ScheduledInvocationTestHelper {
+  private class ScheduledInvocationTestHelper:
     /** Mock for the scheduler. */
     private val scheduler = mock[TimerScheduler[ScheduledInvocationActor.ScheduledInvocationCommand]]
 
@@ -108,24 +103,20 @@ class ScheduledInvocationActorSpec(testSystem: classic.ActorSystem) extends Test
       * @param delay   the delay for the invocation
       */
     def testScheduledInvocation(command: ScheduledInvocationActor.ScheduledInvocationCommand,
-                                delay: FiniteDuration): Unit = {
+                                delay: FiniteDuration): Unit =
       scheduledInvocationActor ! command
 
       val capture = ArgumentCaptor.forClass(classOf[ScheduledInvocationActor.ScheduledInvocationCommand])
       verify(scheduler, timeout(3000)).startSingleTimer(capture.capture(), eqArg(delay))
       scheduledInvocationActor ! capture.getValue
-    }
 
     /**
       * Tests whether the actor can stop itself.
       */
-    def testStop(): Unit = {
+    def testStop(): Unit =
       val probeWatcher = testKit.createDeadLetterProbe()
 
       scheduledInvocationActor ! ScheduledInvocationActor.Stop
 
       probeWatcher.expectTerminated(scheduledInvocationActor)
       verify(scheduler, timeout(1000)).cancelAll()
-    }
-  }
-}

@@ -27,7 +27,7 @@ import org.apache.pekko.{actor => classics}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object AudioPlayer {
+object AudioPlayer:
   /** The function to create the source actor for the facade actor. */
   final val AudioPlayerSourceCreator: SourceActorCreator = createSourceActor
 
@@ -54,7 +54,7 @@ object AudioPlayer {
     * @param config the ''PlayerConfig''
     * @return a ''Future'' with the newly created ''AudioPlayer''
     */
-  def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] = {
+  def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] =
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
     val schedulerActor = PlayerControl.createSchedulerActor(config.actorCreator, "schedulerActor")
     val factoryActor = PlayerControl.createPlaybackContextFactoryActor(config.actorCreator,
@@ -65,7 +65,6 @@ object AudioPlayer {
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
       new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor)
     }
-  }
 
   /**
     * Creates a source actor for the audio playback. This implementation
@@ -76,7 +75,7 @@ object AudioPlayer {
     * @param config  the audio player configuration
     * @return a map with the actors that have been created
     */
-  private def createSourceActor(factory: ChildActorFactory, config: PlayerConfig): Map[String, classics.ActorRef] = {
+  private def createSourceActor(factory: ChildActorFactory, config: PlayerConfig): Map[String, classics.ActorRef] =
     val bufMan = BufferFileManager(config)
     val localBufferActor = factory.createChildActor(LocalBufferActor(config, bufMan))
     val sourceReaderActor = factory.createChildActor(Props(classOf[SourceReaderActor], localBufferActor))
@@ -85,8 +84,6 @@ object AudioPlayer {
     Map(PlayerFacadeActor.KeySourceActor -> sourceReaderActor,
       KeyBufferActor -> localBufferActor,
       KeyDownloadActor -> sourceDownloadActor)
-  }
-}
 
 /**
   * A facade on the player engine that allows playing audio files.
@@ -107,7 +104,7 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
                           ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                           protected override val scheduledInvocationActor:
                           ActorRef[ScheduledInvocationActor.ActorInvocationCommand])
-  extends PlayerControl[PlayerEvent] {
+  extends PlayerControl[PlayerEvent]:
 
   import AudioPlayer._
 
@@ -117,9 +114,8 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
     *
     * @param info the info object to be added to the playlist
     */
-  def addToPlaylist(info: AudioSourcePlaylistInfo): Unit = {
+  def addToPlaylist(info: AudioSourcePlaylistInfo): Unit =
     invokeFacadeActor(info, TargetDownloadActor)
-  }
 
   /**
     * Adds a song to the playlist of this audio player. The corresponding
@@ -131,10 +127,9 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
     * @param skip     the optional skip position
     * @param skipTime the optional skip time
     */
-  def addToPlaylist(mid: MediumID, uri: String, skip: Long = 0, skipTime: Long = 0): Unit = {
+  def addToPlaylist(mid: MediumID, uri: String, skip: Long = 0, skipTime: Long = 0): Unit =
     invokeFacadeActor(AudioSourcePlaylistInfo(MediaFileID(mid, uri), skip, skipTime),
       TargetDownloadActor)
-  }
 
   /**
     * Closes the playlist. This method must be called after all audio sources
@@ -142,26 +137,23 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
     * last song may not be played. After closing the playlist, no more audio
     * sources can be added.
     */
-  def closePlaylist(): Unit = {
+  def closePlaylist(): Unit =
     invokeFacadeActor(SourceDownloadActor.PlaylistEnd, TargetDownloadActor)
-  }
 
   /**
     * Skips the current audio source. Playback continues (if enabled) with the
     * next source in the playlist (if any).
     */
-  def skipCurrentSource(): Unit = {
+  def skipCurrentSource(): Unit =
     invokePlaybackActor(PlaybackActor.SkipSource, PlayerControl.NoDelay)
-  }
 
   /**
     * Resets the player engine. This stops playback and clears the current
     * playlist and all audio buffers. This method should be invoked before
     * switching playback to a different source.
     */
-  def reset(): Unit = {
+  def reset(): Unit =
     playerFacadeActor ! PlayerFacadeActor.ResetEngine
-  }
 
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
@@ -170,4 +162,3 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
   override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
     ScheduledInvocationActor.ClassicActorInvocation(playerFacadeActor,
       PlayerFacadeActor.Dispatch(PlaybackActor.StopPlayback, TargetPlaybackActor))
-}

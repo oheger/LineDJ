@@ -33,7 +33,7 @@ import java.io.InputStream
   * Test class for [[PlaybackContextFactoryActor]].
   */
 class PlaybackContextFactoryActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with ImplicitSender
-  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
+  with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("PlaybackContextFactoryActorSpec"))
 
   /** A test URI. */
@@ -42,32 +42,29 @@ class PlaybackContextFactoryActorSpec(testSystem: ActorSystem) extends TestKit(t
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
     super.afterAll()
-  }
 
   /**
     * Returns a mock for a factory. The mock is initialized to return None.
     *
     * @return the mock sub factory
     */
-  private def createFactory(): PlaybackContextFactory = {
+  private def createFactory(): PlaybackContextFactory =
     val subFactory = mock[PlaybackContextFactory]
     when(subFactory.createPlaybackContext(any(classOf[InputStream]), anyString())).thenReturn(None)
     subFactory
-  }
 
-  "PlaybackContextFactoryActor" should "return None if there are no factories" in {
+  "PlaybackContextFactoryActor" should "return None if there are no factories" in:
     val actor = testKit.spawn(PlaybackContextFactoryActor())
 
     actor ! PlaybackContextFactoryActor.CreatePlaybackContext(mock[InputStream], Uri, testActor)
 
     expectMsg(PlaybackContextFactoryActor.CreatePlaybackContextResult(None))
-  }
 
-  it should "invoke the available factories" in {
+  it should "invoke the available factories" in:
     val factory1 = createFactory()
     val factory2 = createFactory()
     val stream = mock[InputStream]
@@ -80,9 +77,8 @@ class PlaybackContextFactoryActorSpec(testSystem: ActorSystem) extends TestKit(t
     expectMsg(PlaybackContextFactoryActor.CreatePlaybackContextResult(None))
     verify(factory1).createPlaybackContext(stream, Uri)
     verify(factory2).createPlaybackContext(stream, Uri)
-  }
 
-  it should "return the first valid playback context" in {
+  it should "return the first valid playback context" in:
     val factory1 = createFactory()
     val factory2 = createFactory()
     val factory3 = createFactory()
@@ -99,9 +95,8 @@ class PlaybackContextFactoryActorSpec(testSystem: ActorSystem) extends TestKit(t
     expectMsg(PlaybackContextFactoryActor.CreatePlaybackContextResult(Some(context)))
     verify(factory2).createPlaybackContext(stream, Uri)
     verifyNoInteractions(factory1)
-  }
 
-  it should "support removing a factory" in {
+  it should "support removing a factory" in:
     val factory1 = createFactory()
     val factory2 = createFactory()
     val stream = mock[InputStream]
@@ -114,14 +109,11 @@ class PlaybackContextFactoryActorSpec(testSystem: ActorSystem) extends TestKit(t
 
     expectMsg(PlaybackContextFactoryActor.CreatePlaybackContextResult(None))
     verifyNoInteractions(factory2)
-  }
 
-  it should "stop itself on receiving a Stop command" in {
+  it should "stop itself on receiving a Stop command" in:
     val actor = testKit.spawn(PlaybackContextFactoryActor())
 
     actor ! PlaybackContextFactoryActor.Stop
 
     val probeWatcher = testKit.createDeadLetterProbe()
     probeWatcher.expectTerminated(actor)
-  }
-}

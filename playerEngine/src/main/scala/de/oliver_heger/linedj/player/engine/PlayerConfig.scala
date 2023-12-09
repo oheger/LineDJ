@@ -22,7 +22,8 @@ import org.apache.pekko.stream.ActorAttributes
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.nio.file.Path
-import scala.concurrent.duration._
+import scala.collection.immutable.Seq
+import scala.concurrent.duration.*
 
 /**
   * A class collecting configuration options for an audio player.
@@ -100,7 +101,7 @@ case class PlayerConfig(inMemoryBufferSize: Int,
                         timeProgressThreshold: FiniteDuration,
                         blockingDispatcherName: Option[String],
                         mediaManagerActor: ActorRef,
-                        actorCreator: ActorCreator) {
+                        actorCreator: ActorCreator):
   /**
     * Modifies the specified ''Props'' to use the blocking dispatcher if it
     * is specified. Otherwise, the ''Props'' are returned unchanged.
@@ -122,4 +123,3 @@ case class PlayerConfig(inMemoryBufferSize: Int,
     */
   def applyBlockingDispatcher[Out, Mat](source: Source[Out, Mat]): Source[Out, Mat] =
     blockingDispatcherName.fold(source) { dispatcher => source.addAttributes(ActorAttributes.dispatcher(dispatcher)) }
-}

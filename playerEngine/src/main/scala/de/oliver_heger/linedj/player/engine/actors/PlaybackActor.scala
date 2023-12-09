@@ -33,7 +33,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Companion object of ''PlaybackActor''.
   */
-object PlaybackActor {
+object PlaybackActor:
   /**
     * A message sent by ''PlaybackActor'' to request new audio data.
     *
@@ -93,7 +93,6 @@ object PlaybackActor {
             eventActor: typed.ActorRef[PlayerEvent],
             factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand]): Props =
     Props(classOf[PlaybackActor], config, dataSource, lineWriter, eventActor, factoryActor)
-}
 
 /**
   * An actor which is responsible for the playback of audio sources.
@@ -131,7 +130,7 @@ class PlaybackActor(config: PlayerConfig,
                     lineWriterActor: typed.ActorRef[LineWriterActor.LineWriterCommand],
                     eventActor: typed.ActorRef[PlayerEvent],
                     factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand])
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   /** The current audio source. */
   private var currentSource: Option[AudioSource] = None
 
@@ -189,9 +188,9 @@ class PlaybackActor(config: PlayerConfig,
   /** A flag whether a playback context is currently created. */
   private var playbackContextCreationPending = false
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case src: AudioSource =>
-      if (currentSource.isEmpty) {
+      if currentSource.isEmpty then
         log.info("Received audio source {}.", src.uri)
         eventActor ! AudioSourceStartedEvent(source = src)
         currentSource = Some(src)
@@ -203,36 +202,31 @@ class PlaybackActor(config: PlayerConfig,
         playbackDuration = src.skipTime.seconds
         lastPlaybackEventDuration = 0.seconds
         requestAudioDataIfPossible()
-      } else {
+      else
         sender() ! PlaybackProtocolViolation(src, "AudioSource is already processed!")
-      }
 
     case res@BufferDataResult(data) =>
-      if (checkAudioDataResponse(res) && currentSource.isDefined) {
+      if checkAudioDataResponse(res) && currentSource.isDefined then
         handleNewAudioData(data)
         playback()
-      }
 
     case BufferDataComplete =>
       log.debug("Received BufferDataComplete.")
-      if (checkAudioDataResponse(BufferDataComplete)) {
+      if checkAudioDataResponse(BufferDataComplete) then
         audioDataStream.complete()
         assert(currentSource.isDefined)
-        if (currentSourceIsInfinite || bytesInAudioBuffer == 0) {
+        if currentSourceIsInfinite || bytesInAudioBuffer == 0 then
           sourceCompleted()
-        }
         playback()
-      }
 
     case AudioDataWritten(length, duration) =>
-      if (!audioPlaybackPending) {
+      if !audioPlaybackPending then
         sender() ! PlaybackProtocolViolation(AudioDataWritten, "Unexpected AudioDataWritten message" +
           " received!")
-      } else {
+      else
         audioPlaybackPending = false
         updatePlaybackProgress(length, duration)
         playback()
-      }
 
     case LineWriterActor.LineDrained =>
       sourceCompleted()
@@ -241,21 +235,19 @@ class PlaybackActor(config: PlayerConfig,
     case PlaybackContextFactoryActor.CreatePlaybackContextResult(optContext) =>
       playbackContextCreationPending = false
       playbackContext = initLine(optContext)
-      playbackContext match {
+      playbackContext match
         case Some(ctx) =>
           audioChunk = createChunkBuffer(ctx)
           chunkPlaybackTime = calculateChunkPlaybackTime(ctx.format)
-          if (chunkPlaybackTime.isDefined) {
+          if chunkPlaybackTime.isDefined then
             // time will be updated while reaching skip position
             playbackDuration = 0.seconds
-          }
           playbackAudioDataIfPossible()
         case None =>
           val source = currentSource.get
           log.warning("Could not create playback context for {}!", source.uri)
           val event = PlaybackContextCreationFailedEvent(source)
           playbackError(event)
-      }
 
     case StartPlayback =>
       playbackEnabled = true
@@ -269,7 +261,6 @@ class PlaybackActor(config: PlayerConfig,
 
     case CloseRequest =>
       handleCloseRequest()
-  }
 
   /**
     * Returns a flag whether playback is currently enabled.
@@ -284,10 +275,9 @@ class PlaybackActor(config: PlayerConfig,
     * case, we have to wait until the playback of the current chunk is finished.
     * Then the close operation can be actually performed.
     */
-  private def closing: Receive = {
+  private def closing: Receive =
     case AudioDataWritten(_, _) =>
       closeActor()
-  }
 
   /**
     * Checks whether a received message regarding new audio data is valid in the
@@ -295,23 +285,19 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @return a flag whether the message is valid and can be handled
     */
-  private def checkAudioDataResponse(msg: Any): Boolean = {
-    if (skipStreamPosition < 0) {
+  private def checkAudioDataResponse(msg: Any): Boolean =
+    if skipStreamPosition < 0 then
       // outstanding data request after skip
       audioDataPending = false
       enterSkipMode(afterError = true)
       false
-    }
-    else {
-      if (!audioDataPending) {
+    else
+      if !audioDataPending then
         sender() ! PlaybackProtocolViolation(msg, "Received unexpected data!")
         false
-      } else {
+      else
         audioDataPending = false
         true
-      }
-    }
-  }
 
   /**
     * Handles new audio data which has been sent to this actor. The
@@ -320,13 +306,11 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @param data the data to be added
     */
-  private def handleNewAudioData(data: ByteString): Unit = {
+  private def handleNewAudioData(data: ByteString): Unit =
     val startPos = skipStreamPosition - bytesProcessed
-    if (data.length > startPos) {
+    if data.length > startPos then
       audioDataStream append data.drop(startPos.toInt)
-    }
     bytesProcessed += data.length
-  }
 
   /**
     * Updates the progress counters for the playback of the current source.
@@ -335,14 +319,12 @@ class PlaybackActor(config: PlayerConfig,
     * @param length   the length of the current chunk
     * @param duration the playback duration of the current chunk
     */
-  private def updatePlaybackProgress(length: Int, duration: FiniteDuration): Unit = {
+  private def updatePlaybackProgress(length: Int, duration: FiniteDuration): Unit =
     bytesPlayed += length
     playbackDuration += (chunkPlaybackTime getOrElse duration)
-    if (playbackDuration - lastPlaybackEventDuration >= config.timeProgressThreshold) {
+    if playbackDuration - lastPlaybackEventDuration >= config.timeProgressThreshold then
       lastPlaybackEventDuration = playbackDuration
       eventActor ! PlaybackProgressEvent(bytesPlayed, playbackDuration, currentSource.get)
-    }
-  }
 
   /**
     * Executes all currently possible steps for playing audio data. This method
@@ -351,86 +333,71 @@ class PlaybackActor(config: PlayerConfig,
     * requesting further audio data, feeding the line writer actor, etc.). This
     * typically triggers one or more messages to be sent to collaborator actors.
     */
-  private def playback(): Unit = {
+  private def playback(): Unit =
     requestAudioDataIfPossible()
     playbackAudioDataIfPossible()
-  }
 
   /**
     * Stops playback. An internal flag is reset indicating that no audio data
     * must be played.
     */
-  private def stopPlayback(): Unit = {
+  private def stopPlayback(): Unit =
     playbackEnabled = false
-  }
 
   /**
     * Sends a request for new audio data to the source actor if this is
     * currently allowed.
     */
-  private def requestAudioDataIfPossible(): Unit = {
-    if (!audioDataPending) {
-      currentSource match {
+  private def requestAudioDataIfPossible(): Unit =
+    if !audioDataPending then
+      currentSource match
         case None =>
           dataSource ! GetAudioSource
           audioDataPending = true
         case Some(_) =>
           requestAudioDataFromSourceIfPossible()
-      }
-    }
-  }
 
   /**
     * Sends a request for new audio data for the current audio source to the
     * source actor if this is currently allowed.
     */
-  private def requestAudioDataFromSourceIfPossible(): Unit = {
-    def audioChunkSize: Int = if (audioChunk != null) audioChunk.length else 0
+  private def requestAudioDataFromSourceIfPossible(): Unit =
+    def audioChunkSize: Int = if audioChunk != null then audioChunk.length else 0
 
-    if (!audioDataStream.completed) {
+    if !audioDataStream.completed then
       val remainingCapacity = config.inMemoryBufferSize - bytesInAudioBuffer
-      if (remainingCapacity > 0 && remainingCapacity >= audioChunkSize) {
+      if remainingCapacity > 0 && remainingCapacity >= audioChunkSize then
         dataSource ! GetAudioData(remainingCapacity)
         audioDataPending = true
-      }
-    }
-  }
 
   /**
     * Communicates with the line writer actor in order to play audio data.
     * Depending on the current state (bytes available in the audio buffer,
     * playback enabled, etc.) messages to the line writer actor are sent.
     */
-  private def playbackAudioDataIfPossible(): Unit = {
-    if (!audioPlaybackPending) {
+  private def playbackAudioDataIfPossible(): Unit =
+    if !audioPlaybackPending then
       fetchPlaybackContext() foreach { ctx =>
-        if (isPlaying) {
-          if (audioBufferFilled(ctx.bufferSize)) {
-            readFromAudioStream(ctx) match {
+        if isPlaying then
+          if audioBufferFilled(ctx.bufferSize) then
+            readFromAudioStream(ctx) match
               case Success(len) =>
-                if (len > 0) {
+                if len > 0 then
                   val offset = scala.math.max(skipPosition - bytesPlayed, 0).toInt
                   val dataLen = len - offset
-                  if (dataLen > 0) {
+                  if dataLen > 0 then
                     val data = ByteString(audioChunk.slice(offset, offset + dataLen))
                     lineWriterActor ! WriteAudioData(ctx.line, data, self)
-                  } else {
+                  else
                     self ! LineWriterActor.AudioDataWritten(len, 0.nanos)
-                  }
                   audioPlaybackPending = true
-                } else {
+                else
                   handleEmptyRead(ctx)
-                }
               case Failure(exception) =>
                 log.error(exception, "Error when reading audio stream!")
                 playbackError(PlaybackErrorEvent(currentSource.get))
-            }
-          }
           requestAudioDataIfPossible()
-        }
       }
-    }
-  }
 
   /**
     * Handles a read operation of audio data that yields an empty result. This
@@ -440,21 +407,17 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @param ctx the current playback context
     */
-  private def handleEmptyRead(ctx: PlaybackContext): Unit = {
+  private def handleEmptyRead(ctx: PlaybackContext): Unit =
     log.info("Empty read.")
-    if (!currentSourceIsInfinite) {
-      if (audioDataStream.completed) {
+    if !currentSourceIsInfinite then
+      if audioDataStream.completed then
         lineWriterActor ! LineWriterActor.DrainLine(ctx.line, self)
-      } else {
+      else
         playbackError(PlaybackErrorEvent(currentSource.get))
-      }
-    } else {
-      if (config.inMemoryBufferSize - bytesInAudioBuffer <= 0) {
+    else
+      if config.inMemoryBufferSize - bytesInAudioBuffer <= 0 then
         log.warning("Playback stalled! Flushing buffer.")
         audioDataStream.clear()
-      }
-    }
-  }
 
   /**
     * Reads data from the current audio stream of the playback context with
@@ -483,9 +446,8 @@ class PlaybackActor(config: PlayerConfig,
     * @param limit the number of bytes that must be contained in the buffer
     * @return a flag whether the audio buffer is filled sufficiently
     */
-  private def audioBufferFilled(limit: Int): Boolean = {
+  private def audioBufferFilled(limit: Int): Boolean =
     bytesInAudioBuffer >= limit || audioDataStream.completed
-  }
 
   /**
     * Sets internal flags that cause the current source to be skipped.
@@ -494,21 +456,18 @@ class PlaybackActor(config: PlayerConfig,
     *                   playback is stopped for an infinite source (because
     *                   there is typically no playlist to continue with)
     */
-  private def enterSkipMode(afterError: Boolean): Unit = {
+  private def enterSkipMode(afterError: Boolean): Unit =
     currentSource foreach { s =>
       val streamCompleted = audioDataStream.completed
       audioDataStream.clear()
-      if (afterError && s.isInfinite) {
+      if afterError && s.isInfinite then
         skipInfiniteSource()
-      } else {
-        skipStreamPosition = if (s.isInfinite) 0 else Long.MaxValue
-        if (streamCompleted) {
+      else
+        skipStreamPosition = if s.isInfinite then 0 else Long.MaxValue
+        if streamCompleted then
           sourceCompleted()
-        }
         requestAudioDataIfPossible()
-      }
     }
-  }
 
   /**
     * Sets internal flags to skip an infinite source. This method is called
@@ -516,27 +475,24 @@ class PlaybackActor(config: PlayerConfig,
     * playback stops after all messages for this source have been processed.
     * (We need to wait until a pending data request comes back.)
     */
-  private def skipInfiniteSource(): Unit = {
+  private def skipInfiniteSource(): Unit =
     playbackEnabled = false
-    if (audioDataPending) {
+    if audioDataPending then
       skipStreamPosition = -1
-    } else {
+    else
       sourceCompleted()
-    }
-  }
 
   /**
     * Marks the current source as completely processed. Playback will continue
     * with the next audio source in the playlist.
     */
-  private def sourceCompleted(): Unit = {
+  private def sourceCompleted(): Unit =
     log.info("Finished playback of audio source {} ({} bytes read).",
       currentSource.get, bytesProcessed)
     audioDataStream.clear()
     closePlaybackContext()
     eventActor ! AudioSourceFinishedEvent(source = currentSource.get)
     currentSource = None
-  }
 
   /**
     * Tries to obtain the current playback context if possible. If a context
@@ -545,9 +501,8 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @return an option for the current playback context
     */
-  private def fetchPlaybackContext(): Option[PlaybackContext] = {
+  private def fetchPlaybackContext(): Option[PlaybackContext] =
     playbackContext orElse createPlaybackContext(currentSource.get)
-  }
 
   /**
     * Creates a new playback context if this is currently possible. The
@@ -556,15 +511,13 @@ class PlaybackActor(config: PlayerConfig,
     * @param audioSource the current audio source
     * @return an option for the new playback context
     */
-  private def createPlaybackContext(audioSource: => AudioSource): Option[PlaybackContext] = {
+  private def createPlaybackContext(audioSource: => AudioSource): Option[PlaybackContext] =
     lazy val source = audioSource
-    if (!playbackContextCreationPending && audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0) {
+    if !playbackContextCreationPending && audioBufferFilled(config.playbackContextLimit) && bytesInAudioBuffer > 0 then
       log.info("Creating playback context for {}.", source.uri)
       factoryActor ! PlaybackContextFactoryActor.CreatePlaybackContext(audioDataStream, source.uri, self)
       playbackContextCreationPending = true
-    }
     None
-  }
 
   /**
     * Calculates the playback duration of a chunk of audio data if the current
@@ -576,8 +529,8 @@ class PlaybackActor(config: PlayerConfig,
     * @return an option with the playback duration of an audio chunk
     */
   private def calculateChunkPlaybackTime(format: AudioFormat): Option[FiniteDuration] =
-    if (format.getFrameRate != AudioSystem.NOT_SPECIFIED && format.getFrameSize !=
-      AudioSystem.NOT_SPECIFIED)
+    if format.getFrameRate != AudioSystem.NOT_SPECIFIED && format.getFrameSize !=
+      AudioSystem.NOT_SPECIFIED then
       Some(math.round(TimeUnit.SECONDS.toNanos(1) * audioChunk.length / format.getFrameSize /
         format.getFrameRate).nanos)
     else None
@@ -588,11 +541,10 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @param errorEvent the error event
     */
-  private def playbackError(errorEvent: PlayerEvent): Unit = {
+  private def playbackError(errorEvent: PlayerEvent): Unit =
     log.warning("Playback error!")
     eventActor ! errorEvent
     enterSkipMode(afterError = true)
-  }
 
   /**
     * Initializes the line in the playback context. The line has to be opened
@@ -604,15 +556,14 @@ class PlaybackActor(config: PlayerConfig,
     */
   private def initLine(ctx: Option[PlaybackContext]): Option[PlaybackContext] =
     ctx flatMap { c =>
-      try {
+      try
         c.line.open(c.format)
         c.line.start()
         Some(c)
-      } catch {
+      catch
         case e: LineUnavailableException =>
           log.error(e, "Could not open line!")
           None
-      }
     }
 
 
@@ -639,23 +590,20 @@ class PlaybackActor(config: PlayerConfig,
     *
     * @param ctx the context to be closed
     */
-  private[actors] def closePlaybackContext(ctx: PlaybackContext): Unit = {
+  private[actors] def closePlaybackContext(ctx: PlaybackContext): Unit =
     ctx.line.close()
-    try {
+    try
       ctx.stream.close()
-    } catch {
+    catch
       case e: IOException =>
         log.error(e, "Could not close audio input stream!")
-    }
-  }
 
   /**
     * Closes the playback context if it exists.
     */
-  private def closePlaybackContext(): Unit = {
+  private def closePlaybackContext(): Unit =
     playbackContext foreach closePlaybackContext
     playbackContext = None
-  }
 
   /**
     * Reacts on a close request message. The actor switches to a state in which
@@ -663,21 +611,17 @@ class PlaybackActor(config: PlayerConfig,
     * ongoing, the request cannot be served immediately; rather, we have to wait
     * until the line writer actor is done.
     */
-  private def handleCloseRequest(): Unit = {
+  private def handleCloseRequest(): Unit =
     closingActor = sender()
     stopPlayback()
     context.become(closing)
-    if (!audioPlaybackPending) {
+    if !audioPlaybackPending then
       closeActor()
-    }
-  }
 
   /**
     * Actually reacts on a close request. Performs cleanup and notifies the
     * triggering actor that the close operation is complete.
     */
-  private def closeActor(): Unit = {
+  private def closeActor(): Unit =
     closePlaybackContext()
     closingActor ! CloseAck(self)
-  }
-}

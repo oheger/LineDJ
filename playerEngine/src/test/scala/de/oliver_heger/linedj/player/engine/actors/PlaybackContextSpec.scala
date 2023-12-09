@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar
 /**
  * Test class for ''PlaybackContext''.
  */
-class PlaybackContextSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class PlaybackContextSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   /**
    * Creates a test ''PlaybackContext'' instance which uses the specified
    * audio format.
@@ -43,19 +43,15 @@ class PlaybackContextSpec extends AnyFlatSpec with Matchers with MockitoSugar {
    * @param frameSize the frame size
    * @return the mock audio format
    */
-  private def createFormat(frameSize: Int): AudioFormat = {
+  private def createFormat(frameSize: Int): AudioFormat =
     val format = mock[AudioFormat]
     when(format.getFrameSize).thenReturn(frameSize)
     format
-  }
 
-  "A PlaybackContext" should "use a default buffer size if possible" in {
+  "A PlaybackContext" should "use a default buffer size if possible" in:
     val context = createContext(createFormat(16))
     context.bufferSize should be(PlaybackContext.DefaultAudioBufferSize)
-  }
 
-  it should "adapt the buffer size if necessary" in {
+  it should "adapt the buffer size if necessary" in:
     val context = createContext(createFormat(17))
     context.bufferSize should be(4097)
-  }
-}

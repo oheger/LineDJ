@@ -710,12 +710,14 @@ lazy val playerEngine = (project in file("playerEngine"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-engine",
+    scalaVersion := VersionScala3,
+    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.*"),
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared % "compile->compile;test->test")
+  ) dependsOn (shared, test3 % "test->compile")
 
 /**
   * Project for the player configuration. This project provides standard functionality for parsing configuration

@@ -38,7 +38,7 @@ import scala.concurrent.duration._
   * When all data has been written the actor answers with an
   * ''AudioDataWritten'' message.
   */
-object LineWriterActor {
+object LineWriterActor:
   /**
     * The base trait for the commands supported by this actor.
     */
@@ -99,7 +99,7 @@ object LineWriterActor {
     * @return the behavior for the new actor instance
     */
   def apply(): Behavior[LineWriterCommand] =
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessage:
       case WriteAudioData(line, data, replyTo) =>
         val startTime = System.nanoTime()
         line.write(data.toArray, 0, data.length)
@@ -110,5 +110,3 @@ object LineWriterActor {
         line.drain()
         replayTo ! LineDrained
         Behaviors.same
-    }
-}

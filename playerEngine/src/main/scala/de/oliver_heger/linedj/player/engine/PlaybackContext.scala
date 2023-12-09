@@ -22,7 +22,7 @@ import javax.sound.sampled.{AudioFormat, SourceDataLine}
 /**
   * Companion object for ''PlaybackContext''.
   */
-object PlaybackContext {
+object PlaybackContext:
   /** Constant for the default audio buffer size. */
   val DefaultAudioBufferSize = 4096
 
@@ -33,10 +33,9 @@ object PlaybackContext {
     * @return the buffer size for this audio format
     */
   private def calculateBufferSize(format: AudioFormat): Int =
-    if (DefaultAudioBufferSize % format.getFrameSize != 0)
+    if DefaultAudioBufferSize % format.getFrameSize != 0 then
       ((DefaultAudioBufferSize / format.getFrameSize) + 1) * format.getFrameSize
     else DefaultAudioBufferSize
-}
 
 /**
   * A class providing all information required during audio playback.
@@ -49,7 +48,7 @@ object PlaybackContext {
   *               special audio stream.
   * @param line   the line used for playback
   */
-case class PlaybackContext(format: AudioFormat, stream: InputStream, line: SourceDataLine) {
+case class PlaybackContext(format: AudioFormat, stream: InputStream, line: SourceDataLine):
 
   /**
     * The size of an audio buffer to be used for this playback context.
@@ -57,4 +56,3 @@ case class PlaybackContext(format: AudioFormat, stream: InputStream, line: Sourc
     * current audio format. This property returns a valid buffer size.
     */
   lazy val bufferSize: Int = PlaybackContext.calculateBufferSize(format)
-}

@@ -19,11 +19,11 @@ package de.oliver_heger.linedj.player.engine.facade
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
-import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine._
+import de.oliver_heger.linedj.player.engine.actors.*
+import de.oliver_heger.linedj.player.engine.*
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import org.apache.pekko.actor.typed.Props
@@ -36,18 +36,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object AudioPlayerSpec {
+object AudioPlayerSpec:
   /** The name of the dispatcher for blocking actors. */
   private val BlockingDispatcherName = "TheBlockingDispatcher"
-}
 
 /**
   * Test class for ''AudioPlayer''.
   */
 class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar with AsyncTestHelper {
+  with BeforeAndAfterAll with Matchers with FileTestHelper with MockitoSugar with AsyncTestHelper:
 
   import AudioPlayerSpec._
 
@@ -58,96 +57,83 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   import system.dispatcher
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
     tearDownTestFile()
-  }
 
-  "An AudioPlayer" should "support adding playlist info objects to the playlist" in {
+  "An AudioPlayer" should "support adding playlist info objects to the playlist" in:
     val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
     val helper = new AudioPlayerTestHelper
 
     helper.player addToPlaylist info
     helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
-  }
 
-  it should "support an overloaded method of adding songs to the playlist" in {
+  it should "support an overloaded method of adding songs to the playlist" in:
     val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"),
       20160413222120L, 20160413222133L)
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri, info.skip, info.skipTime)
     helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
-  }
 
-  it should "set default values for skip properties in addToPlaylist()" in {
+  it should "set default values for skip properties in addToPlaylist()" in:
     val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
     val helper = new AudioPlayerTestHelper
 
     helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)
     helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
-  }
 
-  it should "support closing the playlist" in {
+  it should "support closing the playlist" in:
     val helper = new AudioPlayerTestHelper
 
     helper.player.closePlaylist()
     helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetSourceReader("AudioPlayer.DownloadActor"))
-  }
 
-  it should "support starting playback" in {
+  it should "support starting playback" in:
     val helper = new AudioPlayerTestHelper
 
     helper.player.startPlayback()
     helper.expectFacadeMessage(PlaybackActor.StartPlayback, TargetPlaybackActor)
-  }
 
-  it should "support stopping playback" in {
+  it should "support stopping playback" in:
     val helper = new AudioPlayerTestHelper
 
     helper.player.stopPlayback()
     helper.expectFacadeMessage(PlaybackActor.StopPlayback, TargetPlaybackActor)
-  }
 
-  it should "allow skipping the current source" in {
+  it should "allow skipping the current source" in:
     val helper = new AudioPlayerTestHelper
 
     helper.player.skipCurrentSource()
     helper.expectFacadeMessage(PlaybackActor.SkipSource, TargetPlaybackActor)
-  }
 
-  it should "allow resetting the engine" in {
+  it should "allow resetting the engine" in:
     val helper = new AudioPlayerTestHelper
 
     helper.player.reset()
 
     helper.expectMessageToFacadeActor(PlayerFacadeActor.ResetEngine)
-  }
 
-  it should "correctly implement the close() method" in {
+  it should "correctly implement the close() method" in:
     val helper = new AudioPlayerTestHelper
     implicit val timeout: Timeout = Timeout(100.milliseconds)
-    intercept[AskTimeoutException] {
+    intercept[AskTimeoutException]:
       Await.result(helper.player.close(), 1.second)
-    }
     helper.expectActorsClosed()
-  }
 
-  it should "pass the event actor to the super class" in {
+  it should "pass the event actor to the super class" in:
     val probeListener = testKit.createTestProbe[PlayerEvent]()
     val helper = new AudioPlayerTestHelper
 
     helper.player.addEventListener(probeListener.ref)
 
-    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds) {
+    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
       case EventManagerActor.RegisterListener(listener) if listener == probeListener.ref =>
         FishingOutcomes.complete
       case _ => FishingOutcomes.continueAndIgnore
-    }
-  }
 
-  it should "pass the schedule actor to the super class" in {
+  it should "pass the schedule actor to the super class" in:
     val Delay = 10.minutes
     val helper = new AudioPlayerTestHelper
 
@@ -156,12 +142,11 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val command = helper.expectScheduleCommand()
 
     command.delay should be(Delay)
-  }
 
   /**
     * A test helper class collecting all required dependencies.
     */
-  private class AudioPlayerTestHelper {
+  private class AudioPlayerTestHelper:
     /**
       * The function to check the classic actors created during tests.
       */
@@ -219,10 +204,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @param msg the message
       * @return this test helper
       */
-    def expectMessageToFacadeActor(msg: Any): AudioPlayerTestHelper = {
+    def expectMessageToFacadeActor(msg: Any): AudioPlayerTestHelper =
       facadeActor.expectMsg(msg)
       this
-    }
 
     /**
       * Checks that a message was sent to the facade actor.
@@ -249,10 +233,9 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       *
       * @return this test helper
       */
-    def expectActorsClosed(): AudioPlayerTestHelper = {
+    def expectActorsClosed(): AudioPlayerTestHelper =
       facadeActor.expectMsg(CloseRequest)
       this
-    }
 
     /**
       * Creates a stub [[ActorCreator]] for the configuration of the test
@@ -273,5 +256,3 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     private def createPlayerConfig(): PlayerConfig =
       PlayerConfigSpec.TestPlayerConfig.copy(actorCreator = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName))
-  }
-}

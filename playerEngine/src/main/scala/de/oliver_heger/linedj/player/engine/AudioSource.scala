@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine
 
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
-object AudioSource {
+object AudioSource:
   /**
     * Constant for a length indicating an infinite source. This is used for
     * instance for internet radio streams.
@@ -47,7 +47,6 @@ object AudioSource {
     * @return the new ''AudioSource''
     */
   def infinite(uri: String): AudioSource = apply(uri, InfiniteLength, 0, 0)
-}
 
 /**
  * A data class describing an audio source to be played by the audio player
@@ -60,7 +59,7 @@ object AudioSource {
  *             which is to be ignored; actual playback starts after this position)
  * @param skipTime the skip time
  */
-case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long) {
+case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long):
   /**
     * Checks whether this is a source with an infinite length.
     *
@@ -74,7 +73,6 @@ case class AudioSource(uri: String, length: Long, skip: Long, skipTime: Long) {
     * @return '''true''' if the exact length is unknown; '''false''' otherwise
     */
   def isLengthUnknown: Boolean = length == AudioSource.UnknownLength
-}
 
 /**
  * A data class representing an entry in a playlist.

@@ -27,7 +27,7 @@ import scala.collection.mutable
 /**
   * Companion object.
   */
-object SourceReaderActor {
+object SourceReaderActor:
   /**
     * An error message indicating an invalid request for an audio source. A new
     * audio source can only be requested until the current source has been fully
@@ -90,7 +90,7 @@ object SourceReaderActor {
     * @return the number of bytes available from this source
     */
   private def bytesAvailable(src: AudioSource): Long =
-    if (src.isLengthUnknown) Long.MaxValue else src.length
+    if src.isLengthUnknown then Long.MaxValue else src.length
 
   /**
     * Initializes the length of an audio source.
@@ -110,7 +110,6 @@ object SourceReaderActor {
     */
   private case class AudioDataRequest(sender: ActorRef, request: BufferDataRequest)
 
-}
 
 /**
   * An actor class which reads audio data to be played from the local buffer and
@@ -132,7 +131,7 @@ object SourceReaderActor {
   *
   * @param bufferActor the local buffer actor
   */
-class SourceReaderActor(bufferActor: ActorRef) extends Actor {
+class SourceReaderActor(bufferActor: ActorRef) extends Actor:
 
   import SourceReaderActor._
 
@@ -174,11 +173,10 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     *             local buffer.
     */
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     bufferActor ! ReadBuffer
-  }
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case src: AudioSource =>
       sourceQueue += src
       audioSourceRequest foreach initCurrentAudioSource
@@ -187,31 +185,27 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
       bufferReadActorReceived(readActor)
 
     case GetAudioSource =>
-      currentSource match {
+      currentSource match
         case Some(_) =>
           protocolError(GetAudioSource, ErrorAudioSourceInProgress)
 
         case None =>
-          if (sourceQueue.nonEmpty) {
+          if sourceQueue.nonEmpty then
             initCurrentAudioSource(sender())
-          } else {
+          else
             audioSourceRequest = Some(sender())
-          }
-      }
 
     case data: GetAudioData =>
-      currentSource match {
+      currentSource match
         case Some(source) =>
           currentSource = dataRequestReceived(sender(), source, data)
 
         case None =>
           protocolError(data, ErrorNoAudioSource)
-      }
 
     case dataResult: BufferDataResult =>
-      if (readResultReceived(dataResult)) {
+      if readResultReceived(dataResult) then
         bytesReadInCurrentSource += dataResult.data.length
-      }
 
     case BufferDataComplete =>
       fileReaderEndOfFile()
@@ -220,7 +214,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
       fileReaderActor foreach context.stop
       sender() ! CloseAck(self)
       context become closing
-  }
 
   /**
     * A specialized ''Receive'' function that handles messages after a closing
@@ -230,10 +223,9 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * this case, the reader actor would not be stopped, and the buffer actor
     * could not finish its closing sequence.
     */
-  def closing: Receive = {
+  def closing: Receive =
     case BufferReadActor(actor, _) =>
       context stop actor
-  }
 
   /**
     * Sends a message about a protocol violation to the current sender.
@@ -241,9 +233,8 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @param msg       the unexpected message
     * @param errorText the error text
     */
-  private def protocolError(msg: Any, errorText: String): Unit = {
+  private def protocolError(msg: Any, errorText: String): Unit =
     sender() ! PlaybackProtocolViolation(msg, errorText)
-  }
 
   /**
     * Initializes the current audio source from the queue and notifies the
@@ -252,7 +243,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @param client the actor requesting the audio source
     * @return the new current audio source
     */
-  private def initCurrentAudioSource(client: ActorRef): AudioSource = {
+  private def initCurrentAudioSource(client: ActorRef): AudioSource =
     assert(sourceQueue.nonEmpty, "No sources available")
     val src = initSourceLengthFromCurrentFile(sourceQueue.dequeue())
 
@@ -261,7 +252,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     bytesReadInCurrentSource = 0
     audioSourceRequest = None
     src
-  }
 
   /**
     * Notifies this object that a file reader actor from the local buffer was
@@ -270,8 +260,8 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     *
     * @param msg the message regarding the file reader actor
     */
-  private def bufferReadActorReceived(msg: BufferReadActor): Unit = {
-    fileReaderActor match {
+  private def bufferReadActorReceived(msg: BufferReadActor): Unit =
+    fileReaderActor match
       case Some(_) =>
         protocolError(msg, ErrorUnexpectedBufferReadActor)
 
@@ -280,8 +270,6 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
         sourceLengthsInCurrentFile = msg.sourceLengths
         currentSource = currentSource map initSourceLengthFromCurrentFile
         serveDataRequestIfPossible()
-    }
-  }
 
   /**
     * Initializes the length of the specified source from the data of the
@@ -292,14 +280,13 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @return the source with an initialized length if possible
     */
   private def initSourceLengthFromCurrentFile(src: AudioSource): AudioSource =
-    if (src.isLengthUnknown) {
-      sourceLengthsInCurrentFile match {
+    if src.isLengthUnknown then
+      sourceLengthsInCurrentFile match
         case h :: t =>
           sourceLengthsInCurrentFile = t
           initSourceLength(src, h)
         case _ => src
-      }
-    } else src
+    else src
 
   /**
     * A request for audio data was received. It is either handled directly or
@@ -311,24 +298,21 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @return the next current audio source; this may be ''None'' when the end was reached
     */
   private def dataRequestReceived(client: ActorRef, source: AudioSource, msg: GetAudioData):
-  Option[AudioSource] = {
-    if (pendingDataRequest.isDefined) {
+  Option[AudioSource] =
+    if pendingDataRequest.isDefined then
       protocolError(msg, ErrorUnexpectedGetAudioData)
       Some(source)
 
-    } else {
+    else
       val remainingSize = bytesAvailable(source) - bytesReadInCurrentSource
-      if (remainingSize > 0) {
+      if remainingSize > 0 then
         pendingDataRequest = Some(AudioDataRequest(client, BufferDataRequest(math.min(msg.length,
           remainingSize).toInt)))
         serveDataRequestIfPossible()
         Some(source)
-      } else {
+      else
         client ! BufferDataComplete
         None
-      }
-    }
-  }
 
   /**
     * The result of a read operation was received. This method ensures that it
@@ -337,8 +321,8 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @param result the read result
     * @return a flag whether this was a valid read result
     */
-  private def readResultReceived(result: BufferDataResult): Boolean = {
-    currentDataRequest match {
+  private def readResultReceived(result: BufferDataResult): Boolean =
+    currentDataRequest match
       case Some(req) =>
         req.sender ! result
         currentDataRequest = None
@@ -347,38 +331,33 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
       case None =>
         protocolError(result, ErrorUnexpectedReadResults)
         false
-    }
-  }
 
   /**
     * A ''BufferDataComplete'' was received from the current file reader actor.
     * In this case, a new reader actor has to be requested.
     */
-  private def fileReaderEndOfFile(): Unit = {
-    if (currentDataRequest.isEmpty) {
+  private def fileReaderEndOfFile(): Unit =
+    if currentDataRequest.isEmpty then
       protocolError(BufferDataComplete, ErrorUnexpectedEndOfFile)
 
-    } else {
+    else
       pendingDataRequest = currentDataRequest
       fetchAndResetCurrentFileReaderActor() foreach { act =>
         bufferActor ! LocalBufferActor.BufferReadComplete(act)
         bufferActor ! ReadBuffer
       }
-    }
-  }
 
   /**
     * Checks whether a request for audio data can now be handled. If so, it is
     * passed to the file reader actor.
     */
-  private def serveDataRequestIfPossible(): Unit = {
-    val req = for {
+  private def serveDataRequestIfPossible(): Unit =
+    val req = for
       src <- currentSource
       actor <- fileReaderActor
       request <- ensureRequestSizeRestriction(src, fetchAndResetPendingDataRequest())
-    } yield (actor, request)
+    yield (actor, request)
     req foreach (t => handleDataRequest(t._1, t._2))
-  }
 
   /**
     * Ensures that a pending request for audio data does not exceed the
@@ -394,7 +373,7 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
   Option[AudioDataRequest] =
     request.map { r =>
       val remainingSize = bytesAvailable(src) - bytesReadInCurrentSource
-      if (r.request.chunkSize > remainingSize)
+      if r.request.chunkSize > remainingSize then
         r.copy(request = r.request.copy(chunkSize = remainingSize.toInt))
       else r
     }
@@ -409,15 +388,13 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     * @param readActor the current file reader actor
     * @param request   the request for audio data
     */
-  private def handleDataRequest(readActor: ActorRef, request: AudioDataRequest): Unit = {
-    if (request.request.chunkSize > 0) {
+  private def handleDataRequest(readActor: ActorRef, request: AudioDataRequest): Unit =
+    if request.request.chunkSize > 0 then
       readActor ! request.request
-    } else {
+    else
       request.sender ! BufferDataComplete
       currentDataRequest = None
       currentSource = None
-    }
-  }
 
   /**
     * Returns the optional pending request for audio data. If it is defined,
@@ -425,20 +402,17 @@ class SourceReaderActor(bufferActor: ActorRef) extends Actor {
     *
     * @return the pending audio data request
     */
-  private def fetchAndResetPendingDataRequest(): Option[AudioDataRequest] = {
+  private def fetchAndResetPendingDataRequest(): Option[AudioDataRequest] =
     currentDataRequest = pendingDataRequest
     pendingDataRequest = None
     currentDataRequest
-  }
 
   /**
     * Returns the optional current file reader actor. If it is defined, it is reset.
     *
     * @return the current file reader actor
     */
-  private def fetchAndResetCurrentFileReaderActor(): Option[ActorRef] = {
+  private def fetchAndResetCurrentFileReaderActor(): Option[ActorRef] =
     val result = fileReaderActor
     fileReaderActor = None
     result
-  }
-}

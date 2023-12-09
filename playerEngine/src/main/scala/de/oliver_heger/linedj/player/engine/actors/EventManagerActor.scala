@@ -34,7 +34,7 @@ import scala.reflect.ClassTag
   * This actor watches the registered event listener actors; in case a listener
   * dies, it is automatically removed from the managed list of listeners.
   */
-object EventManagerActor {
+object EventManagerActor:
   /**
     * The base trait for the commands processed by this actor. All commands are
     * typed by the events that are to be processed.
@@ -107,7 +107,7 @@ object EventManagerActor {
     * @tparam E the event type supported by this actor
     * @return the behavior of the actor instance
     */
-  def apply[E]()(implicit t: ClassTag[E]): Behavior[EventManagerCommand[E]] = Behaviors.setup[EventManagerCommand[E]] {
+  def apply[E]()(implicit t: ClassTag[E]): Behavior[EventManagerCommand[E]] = Behaviors.setup[EventManagerCommand[E]]:
     context =>
       val publisher: ActorRef[E] = context.messageAdapter(event => Publish(event))
 
@@ -131,12 +131,9 @@ object EventManagerActor {
           case Stop() =>
             context.log.info("Stopping EventManagerActor {}.", context.self.path.name)
             Behaviors.stopped
-        }.receiveSignal {
+        }.receiveSignal:
           case (context, Terminated(ref)) =>
             context.log.info(s"Removing terminated event listener ${ref.path.name}")
             handleCommands(listeners.filterNot(_ == ref))
-        }
 
       handleCommands(List.empty)
-  }
-}

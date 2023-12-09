@@ -21,11 +21,11 @@ import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 
 import scala.concurrent.duration._
 
-object DelayActor {
+object DelayActor:
   /** A delay value that means ''no delay''. */
   val NoDelay: FiniteDuration = 0.seconds
 
-  case object Propagate {
+  case object Propagate:
     /**
       * Returns a new instance of ''Propagate'' that contains only a single
       * message to be forwarded to a target actor after a delay.
@@ -37,7 +37,6 @@ object DelayActor {
       */
     def apply(msg: Any, target: ActorRef, delay: FiniteDuration): Propagate =
       new Propagate(List((msg, target)), delay)
-  }
 
   /**
     * A message processed by [[DelayActor]] that causes the specified
@@ -46,7 +45,7 @@ object DelayActor {
     * @param sendData contains the messages and their target actors
     * @param delay    the delay
     */
-  case class Propagate(sendData: Iterable[(Any, ActorRef)], delay: FiniteDuration) {
+  case class Propagate(sendData: Iterable[(Any, ActorRef)], delay: FiniteDuration):
     /**
       * Returns the actor reference considered the target of this propagation.
       * This is, by coincidence, the first target in the list of messages. Note
@@ -55,7 +54,6 @@ object DelayActor {
       * @return the target actor of this propagation
       */
     def target: ActorRef = sendData.head._2
-  }
 
   /**
     * A data class used internally to store information about pending delayed
@@ -88,7 +86,6 @@ object DelayActor {
     */
   def apply(schedulerActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand]): Props =
     Props(classOf[DelayActor], schedulerActor)
-}
 
 /**
   * An actor class which can delay messages to a target actor.
@@ -121,7 +118,7 @@ object DelayActor {
   * target actor is considered the relevant one.
   */
 class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand])
-  extends Actor with ActorLogging {
+  extends Actor with ActorLogging:
   import DelayActor._
 
   /** A map for the pending scheduled invocations. */
@@ -130,28 +127,25 @@ class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.Schedul
   /** A counter for generating sequence numbers. */
   private var sequenceCounter = 0
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case p: Propagate =>
       pendingSchedules.remove(p.target)
-      if (p.delay > NoDelay) {
+      if p.delay > NoDelay then
         pendingSchedules += p.target -> scheduleInvocation(p)
-      } else {
+      else
         propagate(p)
-      }
 
     case DelayedInvocation(prop, seqNo) =>
       log.debug("Received delayed invocation.")
-      pendingSchedules.remove(prop.target) match {
+      pendingSchedules.remove(prop.target) match
         case Some(DelayData(seq)) if seqNo == seq =>
           log.debug("Propagating: {}.", prop)
           propagate(prop)
         case _ => // outdated or unexpected
-      }
 
     case CloseRequest =>
       pendingSchedules.clear()
       sender() ! CloseAck(self)
-  }
 
   /**
     * Prepares the scheduler to handle a propagation after the specified
@@ -160,7 +154,7 @@ class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.Schedul
     * @param p the ''Propagate'' object
     * @return the internal data for this delayed invocation
     */
-  private def scheduleInvocation(p: Propagate): DelayData = {
+  private def scheduleInvocation(p: Propagate): DelayData =
     log.debug("Scheduling invocation for {}.", p)
     val currentCount = sequenceCounter
     sequenceCounter += 1
@@ -169,16 +163,13 @@ class DelayActor(schedulerActor: typed.ActorRef[ScheduledInvocationActor.Schedul
     schedulerActor ! ScheduledInvocationActor.ActorInvocationCommand(p.delay, invocation)
 
     DelayData(currentCount)
-  }
 
   /**
     * Handles propagation. Sends the messages to their target actors.
     *
     * @param propagate the ''Propagate'' object
     */
-  private def propagate(propagate: Propagate): Unit = {
+  private def propagate(propagate: Propagate): Unit =
     propagate.sendData foreach { t =>
       t._2 ! t._1
     }
-  }
-}

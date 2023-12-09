@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
+import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
-import org.mockito.ArgumentMatchers.{anyInt, eq => argEq}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{anyInt, eq as argEq}
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -31,25 +31,24 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import javax.sound.sampled.SourceDataLine
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /**
   * Test class for ''LineWriterActor''.
   */
 class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
-  with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar {
+  with Matchers with ImplicitSender with BeforeAndAfterAll with MockitoSugar:
 
   def this() = this(ActorSystem("LineWriterActorSpec"))
 
   /** The test kit for testing typed actors. */
   private val testKit = ActorTestKit()
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     testKit.shutdownTestKit()
     TestKit shutdownActorSystem system
-  }
 
-  "A LineWriterActor" should "handle a WriteAudioData message" in {
+  "A LineWriterActor" should "handle a WriteAudioData message" in:
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
@@ -61,9 +60,8 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val written = probe.expectMsgType[AudioDataWritten]
     written.chunkLength should be(data.length)
     verify(line).write(dataArray, 0, dataArray.length)
-  }
 
-  it should "handle a DrainLine message" in {
+  it should "handle a DrainLine message" in:
     val line = mock[SourceDataLine]
     val probe = TestProbe()
     val actor = testKit.spawn(LineWriterActor())
@@ -72,9 +70,8 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     probe.expectMsg(LineWriterActor.LineDrained)
     verify(line).drain()
-  }
 
-  it should "measure the playback time" in {
+  it should "measure the playback time" in:
     val line = mock[SourceDataLine]
     val dataArray = FileTestHelper.testBytes()
     val data = ByteString(FileTestHelper.TestData)
@@ -93,5 +90,3 @@ class LineWriterActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val duration = (endTime - startTime).nanos
     written.duration should be <= duration
     written.duration should be >= 45.millis
-  }
-}

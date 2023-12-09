@@ -25,10 +25,9 @@ import scala.concurrent.duration.FiniteDuration
   * Events can be used to keep track of the state of the player engine, e.g.
   * when playback of a new source starts or finishes.
   */
-sealed trait PlayerEvent {
+sealed trait PlayerEvent:
   /** The time when this event was generated. */
   val time: LocalDateTime
-}
 
 /**
   * A player event indicating the start of a new audio source.

@@ -1,19 +1,35 @@
+/*
+ * Copyright 2015-2023 The Developers Team.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License")
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package de.oliver_heger.linedj.player.engine.actors
 
-import de.oliver_heger.linedj.io._
+import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
-import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
+import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.*
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
+import de.oliver_heger.linedj.test.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import org.apache.pekko.actor.SupervisorStrategy.Stop
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -26,9 +42,9 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import java.util.regex.Pattern
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
-object LocalBufferActorSpec {
+object LocalBufferActorSpec:
   /** The test chunk size for IO operations. */
   val ChunkSize = 16
 
@@ -57,41 +73,37 @@ object LocalBufferActorSpec {
     * @return the name of the buffer file with this index
     */
   private def createBufferFileName(index: Int): String = FilePrefix + index + FileSuffix
-}
 
 /**
   * Test class for ''LocalBufferActor''.
   */
 class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with AnyFlatSpecLike with ImplicitSender with BeforeAndAfterAll with BeforeAndAfterEach with Matchers
-  with MockitoSugar with FileTestHelper {
+  with MockitoSugar with FileTestHelper:
 
   import FileTestHelper._
   import LocalBufferActorSpec._
 
   def this() = this(ActorSystem("LocalBufferActorSpec"))
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
-  }
 
-  override protected def afterEach(): Unit = {
+  override protected def afterEach(): Unit =
     tearDownTestFile()
     super.afterEach()
-  }
 
   /**
     * Checks whether a correct file name was passed to a write actor.
     *
     * @param writeData the data object to be checked
     */
-  private def checkWriteFileName(writeData: FileWriteData): Unit = {
+  private def checkWriteFileName(writeData: FileWriteData): Unit =
     writeData.path.getFileName.toString should fullyMatch regex (FilePrefix + "\\d+" + Pattern
       .quote(FileSuffix))
     writeData.path.getParent should be(testDirectory)
-  }
 
-  "A LocalBufferActor" should "create a correct Props object" in {
+  "A LocalBufferActor" should "create a correct Props object" in:
     val bufferManager = mock[BufferFileManager]
     val props = LocalBufferActor(Config, bufferManager)
 
@@ -101,7 +113,6 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val bufferActor = TestActorRef[LocalBufferActor](props)
     bufferActor.underlyingActor shouldBe a[LocalBufferActor]
     bufferActor.underlyingActor shouldBe a[ChildActorFactory]
-  }
 
   /**
     * Reads the data produced by a buffer file actor and returns the content of
@@ -110,7 +121,7 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     * @param bufferActor the reader actor received from the buffer
     * @return the content of the file that was read
     */
-  private def readBufferActor(bufferActor: ActorRef): String = {
+  private def readBufferActor(bufferActor: ActorRef): String =
     val readActor = system.actorOf(Props(new Actor {
       private var result = ByteString.empty
       private var client: ActorRef = _
@@ -133,45 +144,40 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     readActor ! BufferDataRequest(ChunkSize)
     val result = expectMsgType[BufferFileReadResult]
     result.content
-  }
 
-  it should "allow filling the buffer from a source reader" in {
+  it should "allow filling the buffer from a source reader" in:
     val helper = new BufferTestHelper
 
     helper.fillBuffer(testBytes())
       .checkNextBufferFile(testBytes())
       .expectBufferFilled()
       .checkNoMoreFiles()
-  }
 
-  it should "create temporary files of the configured size" in {
+  it should "create temporary files of the configured size" in:
     val AdditionalData = "more"
     val helper = new BufferTestHelper
 
     helper.fillBuffer(toBytes(TestData + AdditionalData))
       .checkNextBufferFile(testBytes())
       .expectBufferFilled()
-  }
 
-  it should "create no more temporary files when the buffer is full" in {
+  it should "create no more temporary files when the buffer is full" in:
     val helper = new BufferTestHelper
 
     helper.fillBuffer(toBytes(TestData * 3))
     helper.nextBufferFile()
     helper.nextBufferFile()
     helper.checkNoMoreFiles()
-  }
 
-  it should "send a busy message for simultaneous fill requests" in {
+  it should "send a busy message for simultaneous fill requests" in:
     val helper = new BufferTestHelper
     helper.send(FillBuffer(testActor))
 
     expectMsgType[DownloadData]
     helper.send(FillBuffer(testActor))
     expectMsg(BufferBusy)
-  }
 
-  it should "allow another fill operation after the previous one is complete" in {
+  it should "allow another fill operation after the previous one is complete" in:
     val AdditionalData = "Some more data"
     val helper = new BufferTestHelper
 
@@ -182,26 +188,23 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .nextBufferFile()
     val dataStr = new String(writeData.data, StandardCharsets.UTF_8)
     dataStr should startWith(AdditionalData)
-  }
 
-  it should "not write new data into the buffer when it is full" in {
+  it should "not write new data into the buffer when it is full" in:
     val helper = new BufferTestHelper
 
     helper.withFileManagerMock { bufferManager =>
       when(bufferManager.isFull).thenReturn(true)
     }.fillBuffer(testBytes())
       .checkNoMoreFiles()
-  }
 
-  it should "send a busy message for simultaneous read requests" in {
+  it should "send a busy message for simultaneous read requests" in:
     val helper = new BufferTestHelper
 
     helper.send(ReadBuffer)
       .send(ReadBuffer)
     expectMsg(BufferBusy)
-  }
 
-  it should "support reading from the buffer" in {
+  it should "support reading from the buffer" in:
     val sourceLengths = List(1L, 2L, 3L, 4L)
     val helper = new BufferTestHelper
 
@@ -210,9 +213,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val readActorMsg = expectMsgType[BufferReadActor]
     readActorMsg.sourceLengths should be(sourceLengths)
     readBufferActor(readActorMsg.readerActor) should be(FileTestHelper.TestData)
-  }
 
-  it should "handle an error when opening a buffer file" in {
+  it should "handle an error when opening a buffer file" in:
     val helper = new BufferTestHelper
 
     helper.withFileManagerMock { bufferManager =>
@@ -223,9 +225,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val watcher = TestProbe()
     watcher watch readActorMsg.readerActor
     watcher.expectTerminated(readActorMsg.readerActor)
-  }
 
-  it should "checkout a temporary file after it has been read" in {
+  it should "checkout a temporary file after it has been read" in:
     val sourceLengths = List(20180227220401L)
     val latch = new CountDownLatch(1)
     val helper = new BufferTestHelper
@@ -241,9 +242,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     readActorMsg.sourceLengths should be(sourceLengths)
     helper.send(LocalBufferActor.BufferReadComplete(readActorMsg.readerActor))
     latch.await(5, TimeUnit.SECONDS) shouldBe true
-  }
 
-  it should "react on a terminated reader actor" in {
+  it should "react on a terminated reader actor" in:
     val latch = new CountDownLatch(1)
     val helper = new BufferTestHelper
 
@@ -258,9 +258,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     readActorMsg.sourceLengths should be(Nil)
     system stop readActorMsg.readerActor
     latch.await(5, TimeUnit.SECONDS) shouldBe true
-  }
 
-  it should "allow multiple read request in series" in {
+  it should "allow multiple read request in series" in:
     val Content2 = FileTestHelper.TestData.reverse
     val helper = new BufferTestHelper
 
@@ -279,15 +278,13 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         true
     }.asInstanceOf[BufferReadActor]
     readBufferActor(readActorMsg2.readerActor) should be(Content2)
-  }
 
-  it should "ignore a BufferReadComplete message for an unknown actor" in {
+  it should "ignore a BufferReadComplete message for an unknown actor" in:
     val bufferActor = TestActorRef(LocalBufferActor(Config, mock[BufferFileManager]))
 
     bufferActor receive LocalBufferActor.BufferReadComplete(testActor)
-  }
 
-  it should "serve a read request when new data is available" in {
+  it should "serve a read request when new data is available" in:
     val path = createDataFile()
     val probe = TestProbe()
     val helper = new BufferTestHelper
@@ -299,9 +296,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectBufferFilled()
     val readActorMsg = probe.expectMsgType[BufferReadActor]
     readBufferActor(readActorMsg.readerActor) should be(FileTestHelper.TestData)
-  }
 
-  it should "continue a fill operation after space is available again in the buffer" in {
+  it should "continue a fill operation after space is available again in the buffer" in:
     val helper = new BufferTestHelper
 
     helper.expectReads(FileReadData())
@@ -316,22 +312,20 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val readActorMsg2 = expectMsgType[BufferReadActor]
     helper.send(LocalBufferActor.BufferReadComplete(readActorMsg2.readerActor))
       .expectBufferFilled()
-  }
 
-  it should "reset pending fill requests when they have been processed" in {
+  it should "reset pending fill requests when they have been processed" in:
     val fillActor = TestProbe()
     val Content1 = FileTestHelper.TestData + "_read1"
     val Content2 = FileTestHelper.TestData + "_read2"
     val Content3 = FileTestHelper.TestData + "_read3"
     val helper = new BufferTestHelper
 
-    def readRequest(expContent: String): ActorRef = {
+    def readRequest(expContent: String): ActorRef =
       helper send ReadBuffer
       val readActorMsg = expectMsgType[BufferReadActor]
       readBufferActor(readActorMsg.readerActor) should be(expContent)
       helper send LocalBufferActor.BufferReadComplete(readActorMsg.readerActor)
       readActorMsg.readerActor
-    }
 
     helper.withFileManagerMock { bufferManager =>
       when(bufferManager.isFull).thenReturn(true, false)
@@ -346,46 +340,40 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper send FillBuffer(testActor)
     expectMsg(BufferBusy)
     readRequest(Content3)
-  }
 
-  it should "not crash when receiving an unexpected end-of-data message" in {
+  it should "not crash when receiving an unexpected end-of-data message" in:
     val bufferActor = TestActorRef(LocalBufferActor(Config, mock[BufferFileManager]))
 
     bufferActor receive BufferDataComplete
-  }
 
   /**
     * Prepares a test for the close operation of the buffer.
     *
     * @return the buffer actor
     */
-  private def prepareClosingTest(): ActorRef = {
+  private def prepareClosingTest(): ActorRef =
     val bufferActor = system.actorOf(LocalBufferActor(Config, mock[BufferFileManager]))
 
     bufferActor ! CloseRequest
     expectMsg(CloseAck(bufferActor))
     bufferActor
-  }
 
-  it should "answer a close request if no operations are pending" in {
+  it should "answer a close request if no operations are pending" in:
     prepareClosingTest()
-  }
 
-  it should "reject a fill request after the buffer was closed" in {
+  it should "reject a fill request after the buffer was closed" in:
     val bufferActor = prepareClosingTest()
     bufferActor ! FillBuffer(testActor)
 
     expectMsg(BufferBusy)
-  }
 
-  it should "reject a read request after the buffer was closed" in {
+  it should "reject a read request after the buffer was closed" in:
     val bufferActor = prepareClosingTest()
     bufferActor ! ReadBuffer
 
     expectMsg(BufferBusy)
-  }
 
-  it should "terminate a fill operation on closing" in {
+  it should "terminate a fill operation on closing" in:
     val TestContent = "some data"
     val filePath = testDirectory.resolve(createBufferFileName(1))
     val helper = new BufferTestHelper
@@ -396,9 +384,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectBufferClosed()
     val writtenData = readDataFile(filePath)
     writtenData should be(TestContent)
-  }
 
-  it should "wait on closing until a read operation is complete" in {
+  it should "wait on closing until a read operation is complete" in:
     val helper = new BufferTestHelper
 
     helper.expectReads(FileReadData())
@@ -415,9 +402,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val watcher = TestProbe()
     watcher watch readActorMsg.readerActor
     watcher.expectTerminated(readActorMsg.readerActor)
-  }
 
-  it should "wait on closing until a read actor was stopped" in {
+  it should "wait on closing until a read actor was stopped" in:
     val helper = new BufferTestHelper
     helper.expectReads(FileReadData())
       .send(ReadBuffer)
@@ -430,25 +416,22 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .withFileManagerMock { bufferManager =>
         verify(bufferManager).checkOutAndRemove()
       }
-  }
 
-  it should "not wait on closing if no read actor exists yet" in {
+  it should "not wait on closing if no read actor exists yet" in:
     val helper = new BufferTestHelper
 
     helper.send(ReadBuffer)
       .send(CloseRequest)
       .expectBufferClosed()
-  }
 
-  it should "perform cleanup on closing" in {
+  it should "perform cleanup on closing" in:
     val helper = new BufferTestHelper
 
     helper.send(CloseRequest)
       .expectBufferClosed()
       .withFileManagerMock(verify(_).removeContainedPaths())
-  }
 
-  it should "ignore read results when closing" in {
+  it should "ignore read results when closing" in:
     val helper = new BufferTestHelper
 
     helper.send(FillBuffer(testActor))
@@ -461,9 +444,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.withFileManagerMock { bufferManager =>
       verify(bufferManager, never()).createPath()
     }
-  }
 
-  it should "allow completing the current playlist" in {
+  it should "allow completing the current playlist" in:
     val TestContent = toBytes("a small chunk of test data")
     val helper = new BufferTestHelper
 
@@ -471,16 +453,14 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectBufferFilled()
       .send(SequenceComplete)
       .checkNextBufferFile(TestContent)
-  }
 
-  it should "do nothing on completion of the current playlist if no file is written" in {
+  it should "do nothing on completion of the current playlist if no file is written" in:
     val bufferActor = system.actorOf(LocalBufferActor(Config, mock[BufferFileManager]))
 
     bufferActor ! SequenceComplete
     expectNoMessage(1.second)
-  }
 
-  it should "send a busy message when completing the playlist on closing" in {
+  it should "send a busy message when completing the playlist on closing" in:
     val helper = new BufferTestHelper
 
     helper.fillBuffer(toBytes("a small chunk"))
@@ -489,12 +469,10 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .send(SequenceComplete)
     expectMsg(BufferBusy)
     helper.expectBufferClosed()
-  }
 
-  it should "watch the current fill actor to react on a failed read operation" in {
-    val strategy = OneForOneStrategy() {
+  it should "watch the current fill actor to react on a failed read operation" in:
+    val strategy = OneForOneStrategy():
       case _: IOException => Stop
-    }
     val supervisionTestActor = SupervisionTestActor(system, strategy, Props(new Actor {
       override def receive: Receive = {
         case DownloadData(_) =>
@@ -508,9 +486,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val filledMsg = expectMsgType[LocalBufferActor.BufferFilled]
     filledMsg.readerActor should be(fillActor)
     filledMsg.sourceLength should be(0)
-  }
 
-  it should "not create multiple reader actors at the same time" in {
+  it should "not create multiple reader actors at the same time" in:
     val probe = TestProbe()
     val path = createDataFile()
     val helper = new BufferTestHelper
@@ -521,9 +498,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .fillBuffer(toBytes(TestData * 3))
     probe.expectMsgType[BufferReadActor]
     probe.expectNoMessage(500.millis)
-  }
 
-  it should "record and report source lengths when filling the buffer" in {
+  it should "record and report source lengths when filling the buffer" in:
     val data1 = toBytes("Some data 1")
     val data2 = toBytes("And some more data")
     val helper = new BufferTestHelper
@@ -542,9 +518,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       captor.getAllValues.get(0).sourceLengths should be(List(data1.length, data2.length))
       captor.getAllValues.get(1).sourceLengths should have length 0
     }
-  }
 
-  it should "handle a failed download if the buffer is full" in {
+  it should "handle a failed download if the buffer is full" in:
     val expSrcLength = (2 * TestData.length / ChunkSize + 1) * ChunkSize
     // plus the part which has been downloaded and is stored in-memory
     val helper = new BufferTestHelper
@@ -570,9 +545,8 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         captor.getAllValues.get(1).sourceLengths should have length 0
         captor.getAllValues.get(2).sourceLengths.head should be(expSrcLength)
       }
-  }
 
-  it should "handle a read complete message while writing into the buffer" in {
+  it should "handle a read complete message while writing into the buffer" in:
     val helper = new BufferTestHelper
 
     helper.expectReads(FileReadData())
@@ -581,12 +555,11 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val msgReadActor = expectMsgType[BufferReadActor]
     helper.send(BufferReadComplete(msgReadActor.readerActor))
       .expectBufferFilled()
-  }
 
   /**
     * A test helper class managing an actor to be tested and its dependencies.
     */
-  private class BufferTestHelper {
+  private class BufferTestHelper:
     /** A queue to store the paths returned by the buffer manager. */
     private val bufferFilesQueue = new LinkedBlockingQueue[Path]
 
@@ -614,10 +587,9 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param sender the sender reference of the message
       * @return this test helper
       */
-    def send(msg: Any, sender: ActorRef = testActor): BufferTestHelper = {
+    def send(msg: Any, sender: ActorRef = testActor): BufferTestHelper =
       bufferActor.tell(msg, sender)
       this
-    }
 
     /**
       * Invokes the given function with the buffer file manager mock. This can
@@ -626,10 +598,9 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param f the function acting with the mock
       * @return this test helper
       */
-    def withFileManagerMock(f: BufferFileManager => Unit): BufferTestHelper = {
+    def withFileManagerMock(f: BufferFileManager => Unit): BufferTestHelper =
       f(bufferManager)
       this
-    }
 
     /**
       * Prepares the mock for the buffer file manager to return paths to
@@ -640,16 +611,14 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param more  further read operations
       * @return this test helper
       */
-    def expectReads(first: FileReadData, more: FileReadData*): BufferTestHelper = {
-      def toBufferFile(readData: FileReadData): Option[BufferFile] = {
+    def expectReads(first: FileReadData, more: FileReadData*): BufferTestHelper =
+      def toBufferFile(readData: FileReadData): Option[BufferFile] =
         val path = createDataFile(readData.data)
         Some(BufferFile(path, readData.positions))
-      }
 
       withFileManagerMock { manager =>
         when(manager.read).thenReturn(toBufferFile(first), more.map(toBufferFile): _*)
       }
-    }
 
     /**
       * Simulates a fill operation of the buffer with the data provided. Sends
@@ -659,12 +628,11 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param data the data to be downloaded
       * @return this test helper
       */
-    def fillBuffer(data: Array[Byte]): BufferTestHelper = {
+    def fillBuffer(data: Array[Byte]): BufferTestHelper =
       val downloadActor = createDownloadActor(data)
       currentDownloadActor = downloadActor
       currentSourceLength = data.length
       send(FillBuffer(downloadActor))
-    }
 
     /**
       * Returns data about the next buffer file that has been written. Fails if
@@ -672,11 +640,10 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return the data object describing the next buffer file
       */
-    def nextBufferFile(): FileWriteData = {
+    def nextBufferFile(): FileWriteData =
       val filePath = bufferFilesQueue.poll(3, TimeUnit.SECONDS)
       filePath should not be null
       FileWriteData(filePath, toBytes(readDataFile(filePath)))
-    }
 
     /**
       * Checks that another buffer file was written with a valid file name and
@@ -685,44 +652,40 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @param expData the expected data in the file
       * @return this test helper
       */
-    def checkNextBufferFile(expData: Array[Byte]): BufferTestHelper = {
+    def checkNextBufferFile(expData: Array[Byte]): BufferTestHelper =
       val writeData = nextBufferFile()
       checkWriteFileName(writeData)
       writeData.data should be(expData)
       this
-    }
 
     /**
       * Checks that no further buffer files have been written.
       *
       * @return this test helper
       */
-    def checkNoMoreFiles(): BufferTestHelper = {
+    def checkNoMoreFiles(): BufferTestHelper =
       bufferFilesQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
       this
-    }
 
     /**
       * Expects a notification that the buffer was filled.
       *
       * @return this test helper
       */
-    def expectBufferFilled(): BufferTestHelper = {
+    def expectBufferFilled(): BufferTestHelper =
       val filled = expectMsgType[BufferFilled]
       filled.readerActor should be(currentDownloadActor)
       filled.sourceLength should be(currentSourceLength)
       this
-    }
 
     /**
       * Expects a close confirmation message for the test actor.
       *
       * @return this test helper
       */
-    def expectBufferClosed(): BufferTestHelper = {
+    def expectBufferClosed(): BufferTestHelper =
       expectMsg(CloseAck(bufferActor))
       this
-    }
 
     /**
       * Creates a simulated download actor that feeds the given data into the
@@ -749,7 +712,7 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return the mock for the ''BufferFileManager''
       */
-    private def createBufferFileManager(): BufferFileManager = {
+    private def createBufferFileManager(): BufferFileManager =
       val pathCounter = new AtomicInteger
       val tempFileCounter = new AtomicInteger
       val manager = mock[BufferFileManager]
@@ -773,7 +736,6 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
           null
         })
       manager
-    }
 
     /**
       * Creates a ''Props'' object for the creation of a test actor instance.
@@ -792,14 +754,11 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       *
       * @return the test actor instance
       */
-    private def createBufferActor(): ActorRef = {
+    private def createBufferActor(): ActorRef =
       val actor = system.actorOf(testActorProps())
       awaitCond(isBufferDirectoryCleared)
       actor
-    }
-  }
 
-}
 
 /**
   * A helper class for storing information about a file that was written into the
@@ -835,19 +794,16 @@ private case class BufferFileReadResult(content: String)
   *
   * @param data the data to be sent chunk-wise to the test actor
   */
-private class DownloadTestActor(data: Array[Byte]) extends Actor {
+private class DownloadTestActor(data: Array[Byte]) extends Actor:
   private var pos = 0
 
-  override def receive: Receive = {
+  override def receive: Receive =
     case DownloadData(LocalBufferActorSpec.ChunkSize) =>
-      if (pos >= data.length) {
+      if pos >= data.length then
         sender() ! DownloadComplete
-      } else {
+      else
         val actCount = scala.math.min(data.length - pos, LocalBufferActorSpec.ChunkSize)
         val resultData = new Array[Byte](actCount)
         System.arraycopy(data, pos, resultData, 0, actCount)
         sender() ! DownloadDataResult(ByteString(resultData))
         pos += actCount
-      }
-  }
-}

@@ -21,7 +21,7 @@ import java.time.LocalDateTime
 /**
   * An object defining the central data types used by the interval framework.
   */
-object IntervalTypes {
+object IntervalTypes:
   /**
     * An interval query checks the relation of a date to a specific temporal
     * interval.
@@ -81,4 +81,3 @@ object IntervalTypes {
     */
   type ResultSelector = (Option[IntervalQueryResult], IntervalQueryResult) =>
     Option[IntervalQueryResult]
-}

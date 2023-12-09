@@ -27,9 +27,8 @@ import java.time.LocalDateTime
   *
   * @param ref the reference to the date managed by this instance
   */
-class LazyDate(ref: => LocalDateTime) {
+class LazyDate(ref: => LocalDateTime):
   /**
     * The value of this ''LazyDate'', i.e. the wrapped date.
     */
   lazy val value = ref
-}

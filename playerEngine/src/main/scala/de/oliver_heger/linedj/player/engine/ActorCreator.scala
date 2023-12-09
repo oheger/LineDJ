@@ -29,7 +29,7 @@ import org.apache.pekko.{actor => classic}
   * responsibility of the creator component. So, an implementation may want to
   * keep track on newly created actors, so that they can be stopped later.
   */
-trait ActorCreator {
+trait ActorCreator:
   /**
     * Creates a typed actor for the given behavior with the specified name.
     * Since there is no default way to stop typed actors, it is possible to
@@ -58,4 +58,3 @@ trait ActorCreator {
     * @return the reference to the newly created actor
     */
   def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any] = None): classic.ActorRef
-}

@@ -30,7 +30,7 @@ import java.io.InputStream
   * The actor supports messages for adding and removing factories. In addition,
   * it can be asked to create a [[PlaybackContext]] for a given audio stream.
   */
-object PlaybackContextFactoryActor {
+object PlaybackContextFactoryActor:
   /**
     * The base trait for the commands supported by this actor.
     */
@@ -91,7 +91,7 @@ object PlaybackContextFactoryActor {
     * of sub factories.
     */
   private class CombinedPlaybackContextFactory(val subFactories: List[PlaybackContextFactory])
-    extends PlaybackContextFactory {
+    extends PlaybackContextFactory:
     /**
       * Creates a new instance of ''CombinedPlaybackContextFactory'' which has the
       * specified ''PlaybackContextFactory'' as a sub factory.
@@ -117,12 +117,10 @@ object PlaybackContextFactoryActor {
       *             (in no specific order). The first ''PlaybackContext'' which is
       *             created is returned.
       */
-    override def createPlaybackContext(stream: InputStream, uri: String): Option[PlaybackContext] = {
+    override def createPlaybackContext(stream: InputStream, uri: String): Option[PlaybackContext] =
       subFactories.foldLeft[Option[PlaybackContext]](None) { (optCtx, f) =>
         optCtx orElse f.createPlaybackContext(stream, uri)
       }
-    }
-  }
 
   /**
     * Returns a ''Behavior'' to create a new actor instance.
@@ -140,7 +138,7 @@ object PlaybackContextFactoryActor {
     * @return the updated ''Behavior''
     */
   private def handle(combinedFactory: CombinedPlaybackContextFactory): Behavior[PlaybackContextCommand] =
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessage:
       case AddPlaybackContextFactory(factory) =>
         handle(combinedFactory.addSubFactory(factory))
 
@@ -154,5 +152,3 @@ object PlaybackContextFactoryActor {
 
       case Stop =>
         Behaviors.stopped
-    }
-}

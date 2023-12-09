@@ -24,22 +24,20 @@ import org.scalatest.matchers.should.Matchers
 /**
   * Test class for ''LazyDate''.
   */
-class LazyDateSpec extends AnyFlatSpec with Matchers {
-  "A LazyDate" should "not directly evaluate the passed in date" in {
+class LazyDateSpec extends AnyFlatSpec with Matchers:
+  "A LazyDate" should "not directly evaluate the passed in date" in:
     val creator = new DateCreator
 
     new LazyDate(creator.createDateAndRecord())
     creator.invocationCount should be(0)
-  }
 
-  it should "return the correct date" in {
+  it should "return the correct date" in:
     val creator = new DateCreator
     val lazyDate = new LazyDate(creator.createDateAndRecord())
 
     lazyDate.value should be(creator.createDate())
-  }
 
-  it should "call the date creation function only once" in {
+  it should "call the date creation function only once" in:
     val creator = new DateCreator
     val refDate = creator.createDate()
     val lazyDate = new LazyDate(creator.createDateAndRecord())
@@ -47,12 +45,11 @@ class LazyDateSpec extends AnyFlatSpec with Matchers {
     lazyDate.value.toString should be(refDate.toString)
 
     creator.invocationCount should be(1)
-  }
 
   /**
     * A helper class that creates a date and counts the number of invocations.
     */
-  private class DateCreator {
+  private class DateCreator:
     /** A counter for date creation calls. */
     var invocationCount = 0
 
@@ -69,10 +66,7 @@ class LazyDateSpec extends AnyFlatSpec with Matchers {
       *
       * @return the new test date
       */
-    def createDateAndRecord(): LocalDateTime = {
+    def createDateAndRecord(): LocalDateTime =
       invocationCount += 1
       createDate()
-    }
-  }
 
-}

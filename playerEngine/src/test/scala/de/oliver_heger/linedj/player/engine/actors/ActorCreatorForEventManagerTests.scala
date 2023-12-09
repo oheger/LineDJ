@@ -35,7 +35,7 @@ import scala.language.existentials
   * The module provides a configurable [[ActorCreator]] implementation that can
   * already handle the actors needed by players to support event generation.
   */
-object ActorCreatorForEventManagerTests {
+object ActorCreatorForEventManagerTests:
   /**
     * Alias for a function that checks the creation parameters of a typed actor
     * and returns a corresponding (stub) actor reference. The function is
@@ -56,7 +56,6 @@ object ActorCreatorForEventManagerTests {
 
   /** A check function for classic actors that does not contain any checks. */
   final val EmptyClassicActorCheckFunc: ClassicActorCheckFunc = _ => PartialFunction.empty
-}
 
 /**
   * A special implementation of [[ActorCreator]] that supports creating test
@@ -81,7 +80,7 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
                                               customChecks: ActorCheckFunc = EmptyCheckFunc,
                                               customClassicChecks: ClassicActorCheckFunc = EmptyClassicActorCheckFunc)
                                              (implicit system: ActorSystem)
-  extends ActorCreator {
+  extends ActorCreator:
   this: Matchers =>
 
   /** Test probe for the event manager actor. */
@@ -97,11 +96,10 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
     * publisher test probe.
     */
   private val mockEventManagerBehavior =
-    Behaviors.receiveMessagePartial[EventManagerActor.EventManagerCommand[EVENT]] {
+    Behaviors.receiveMessagePartial[EventManagerActor.EventManagerCommand[EVENT]]:
       case EventManagerActor.GetPublisher(client) =>
         client ! EventManagerActor.PublisherReference(probePublisherActor.ref)
         Behaviors.same
-    }
 
   /** The actor reference for the event manager actor. */
   val eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[EVENT]] =
@@ -122,20 +120,17 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
   override def createActor[T](behavior: Behavior[T],
                               name: String,
                               optStopCommand: Option[T],
-                              props: Props): ActorRef[T] = {
+                              props: Props): ActorRef[T] =
     val checkFunc = customChecks(behavior, optStopCommand, props)
       .orElse(eventManagerCheck(behavior, optStopCommand, props))
     checkFunc.isDefinedAt(name) shouldBe true
     val ref = checkFunc(name)
     ref.asInstanceOf[ActorRef[T]]
-  }
 
   override def createClassicActor(props: classic.Props,
                                   name: String,
-                                  optStopCommand: Option[Any]): classic.ActorRef = {
+                                  optStopCommand: Option[Any]): classic.ActorRef =
     optStopCommand shouldBe empty
     val checkFunc = customClassicChecks(props)
     checkFunc.isDefinedAt(name) shouldBe true
     checkFunc(name)
-  }
-}
