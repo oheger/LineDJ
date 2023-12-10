@@ -48,9 +48,9 @@ lazy val VersionDisruptor = "3.4.4"
 lazy val VersionScalaTest = "3.2.17"
 lazy val VersionScalaTestMockito = "3.2.17.0"
 
-ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
+ThisBuild / scalacOptions ++= scala3Options
 ThisBuild / version := "1.0-SNAPSHOT"
-ThisBuild / scalaVersion := VersionScala
+ThisBuild / scalaVersion := VersionScala3
 
 ThisBuild / assemblyMergeStrategy := {
   case "module-info.class" => MergeStrategy.first
@@ -98,13 +98,13 @@ lazy val pekkoHttpDependencies = Seq(
   * to actors, including serialization.
   */
 lazy val remotingDependencies = Seq(
-  "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
+  ("com.typesafe" %% "ssl-config-core" % VersionSslConfig).cross(CrossVersion.for3Use2_13),
   "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
   "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
   "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % VersionJackson,
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson,
+  ("com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson).cross(CrossVersion.for3Use2_13),
   "com.fasterxml.jackson.module" % "jackson-module-paranamer" % VersionJackson,
   "io.aeron" % "aeron-client" % VersionAeron,
   "io.aeron" % "aeron-driver" % VersionAeron
@@ -181,8 +181,6 @@ lazy val shared = (project in file("shared"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-shared",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies += ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
     libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
@@ -201,8 +199,6 @@ lazy val test3 = (project in file("test3"))
   .settings(defaultSettings)
   .settings(
     name := "linedj-test3",
-    scalacOptions := scala3Options,
-    scalaVersion := VersionScala3,
     libraryDependencies ++= Seq(
       ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
       ("org.apache.pekko" %% "pekko-testkit" % VersionPekko).cross(CrossVersion.for3Use2_13),
@@ -226,8 +222,6 @@ lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-extract",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
@@ -244,8 +238,6 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-id3extract",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
@@ -262,8 +254,6 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-common",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     libraryDependencies += collectionsDependency,
@@ -283,8 +273,6 @@ lazy val archive = (project in file("mediaArchive/archive"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*"),
@@ -301,8 +289,6 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-union",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
@@ -320,8 +306,6 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-http",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
@@ -345,8 +329,6 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-protocol-webdav",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
@@ -366,8 +348,6 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-protocol-onedrive",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
@@ -387,8 +367,6 @@ lazy val platform = (project in file("platform"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-platform",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
@@ -411,8 +389,6 @@ lazy val actorSystem = (project in file("actorSystem"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actorSystem",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko).cross(CrossVersion.for3Use2_13),
     // need to import packages of pekko modules whose configuration has to be added
@@ -439,8 +415,6 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveStartup",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=
@@ -460,8 +434,6 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveLocalStartup",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
@@ -481,8 +453,6 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveHttpStartup",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
@@ -504,8 +474,6 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archiveAdmin",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
@@ -527,8 +495,6 @@ lazy val mediaBrowser = (project in file("browser"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-browser",
-    scalacOptions := scala3Options,
-    scalaVersion := VersionScala3,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -554,8 +520,6 @@ lazy val playlistEditor = (project in file("pleditor"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-pleditor",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
@@ -584,8 +548,6 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-medium",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.medium.*"
     ),
@@ -605,8 +567,6 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-album",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.album.*"
     ),
@@ -626,8 +586,6 @@ lazy val reorderArtist = (project in file("reorder/reorderArtist"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-artist",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.artist.*"
     ),
@@ -648,8 +606,6 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-songs",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.random.*"
     ),
@@ -670,8 +626,6 @@ lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists")
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-artists",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.randomartist.*"
     ),
@@ -693,8 +647,6 @@ lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-reorder-random-albums",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.reorder.randomalbum.*"
     ),
@@ -712,8 +664,6 @@ lazy val playerEngine = (project in file("playerEngine"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-engine",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.*"),
@@ -730,8 +680,6 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-config",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies += configDependency,
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
@@ -749,8 +697,6 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player-engine",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     OsgiKeys.exportPackage := Seq(
@@ -768,8 +714,6 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player-config",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies += configDependency,
     libraryDependencies ++= testDependencies,
     libraryDependencies += collectionsDependency % Test,
@@ -788,8 +732,6 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .settings(spiFlySettings)
   .settings(
     name := "linedj-mp3-playback-context-factory",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     fork := true,
     libraryDependencies ++= Seq(
       "com.googlecode.soundlibs" % "jlayer" % VersionJLayer,
@@ -817,8 +759,6 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player",
-    scalacOptions := scala3Options,
-    scalaVersion := VersionScala3,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -840,8 +780,6 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-actors-MediaIfc",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.platform.mediaifc.actors.impl.*",
       "de.oliver_heger.linedj.platform.mediaifc.actors.*"
@@ -862,8 +800,6 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-remote-MediaIfc",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.remote.*"
@@ -883,8 +819,6 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-embedded-MediaIfc",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.embedded.*"
@@ -905,8 +839,6 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-disabled-MediaIfc",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -928,8 +860,6 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-shutdownOneForAll",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.oneforall.*"
@@ -952,8 +882,6 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-appMgr-windowHiding",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
@@ -974,8 +902,6 @@ lazy val trayWindowList = (project in file("trayWindowList"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-trayWindowList",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.app.tray.wndlist.*"
@@ -995,8 +921,6 @@ lazy val audioPlatform = (project in file("audioPlatform"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-platform",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.exportPackage := Seq(
       "!de.oliver_heger.linedj.platform.audio.impl.*",
@@ -1021,8 +945,6 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-persistent-playlist-handler",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.playlist.persistence.*"
@@ -1042,8 +964,6 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-audio-player-ui",
-    scalaVersion := VersionScala3,
-    scalacOptions := scala3Options,
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -1067,8 +987,6 @@ lazy val playerServer = (project in file("playerServer"))
   .settings(defaultSettings)
   .settings(
     name := "linedj-player-server",
-    scalacOptions := scala3Options,
-    scalaVersion := VersionScala3,
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies ++= Seq(
