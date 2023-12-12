@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll

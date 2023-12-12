@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archive.media
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.io.stream.ActorSource
 import de.oliver_heger.linedj.io.stream.ActorSource.{ActorCompletionResult, ActorDataResult}
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.FileIO
 import org.apache.pekko.testkit.TestKit

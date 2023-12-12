@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.media
 
+import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
@@ -26,7 +27,6 @@ import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport,
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
-import de.oliver_heger.linedj.test.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}

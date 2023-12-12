@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.AbstractFileWriterActor.StreamFailure
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}

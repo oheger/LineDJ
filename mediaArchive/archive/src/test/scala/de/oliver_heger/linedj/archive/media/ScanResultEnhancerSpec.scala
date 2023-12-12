@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archive.media
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

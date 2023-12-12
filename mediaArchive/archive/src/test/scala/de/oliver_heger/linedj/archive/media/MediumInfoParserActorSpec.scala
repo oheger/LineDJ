@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archive.media
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo, ParseMediumInfoResult}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.Source
