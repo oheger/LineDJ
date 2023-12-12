@@ -241,7 +241,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared, metaDataExtract, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", metaDataExtract)
 
 /**
   * An utility project providing common functionality needed by multiple

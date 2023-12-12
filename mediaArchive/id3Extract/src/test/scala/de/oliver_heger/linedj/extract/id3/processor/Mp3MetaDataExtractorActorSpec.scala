@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
-import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source

@@ -15,8 +15,8 @@
  */
 package de.oliver_heger.linedj.extract.id3.model
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
