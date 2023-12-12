@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
+import de.oliver_heger.linedj.RecordingSchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
-import de.oliver_heger.linedj.test.RecordingSchedulerSupport
 import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}

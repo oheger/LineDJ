@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

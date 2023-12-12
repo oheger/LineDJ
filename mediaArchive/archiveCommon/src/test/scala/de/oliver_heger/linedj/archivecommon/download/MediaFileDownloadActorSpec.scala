@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
+import de.oliver_heger.linedj.{FileTestHelper, SupervisionTestActor}
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.DownloadTransformFunc
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.test.{FileTestHelper, SupervisionTestActor}
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, Terminated}
 import org.apache.pekko.stream.DelayOverflowStrategy

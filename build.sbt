@@ -260,7 +260,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared, test3 % "test->compile")
+  ) dependsOn (shared % "compile->compile;test->test")
 
 /**
   * The media archive project. This contains code to scan a local folder
