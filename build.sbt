@@ -294,7 +294,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared, test3 % "test->compile")
+  ) dependsOn (shared % "compile->compile;test->test")
 
 /**
   * The HTTP archive project. Via this project media files can be managed that
