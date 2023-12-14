@@ -508,7 +508,7 @@ lazy val mediaBrowser = (project in file("browser"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/browserapp_component.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared, platform, audioPlatform, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the playlist editor client application. This application

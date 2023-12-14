@@ -16,6 +16,8 @@
 
 package de.oliver_heger.linedj.browser.media
 
+import de.oliver_heger.linedj.platform.ActionTestHelper
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -25,7 +27,6 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.Avai
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MediumContent, MetaDataRegistration, RemoveMetaDataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.test.{ActionTestHelper, ConsumerRegistrationProviderTestHelper}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.*
@@ -755,7 +756,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     */
   private class MediaControllerTestHelper extends ActionTestHelper with MockitoSugar:
 
-    import ConsumerRegistrationProviderTestHelper._
+    import ConsumerRegistrationProviderTestHelper.*
 
     val songFactory: SongDataFactory = (id: MediaFileID, metaData: MediaMetaData) =>
       SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
