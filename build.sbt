@@ -463,7 +463,7 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, archiveHttp, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", archiveHttp)
 
 /**
   * A project which implements an admin UI for the media archive.

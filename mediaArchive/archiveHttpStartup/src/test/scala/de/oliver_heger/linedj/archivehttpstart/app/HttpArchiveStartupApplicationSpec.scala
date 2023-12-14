@@ -24,12 +24,12 @@ import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.io.oauth.OAuthStorageServiceImpl
 import de.oliver_heger.linedj.archivehttpstart.app.HttpArchiveStates.*
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
-import de.oliver_heger.linedj.platform.app.{ApplicationSyncStartup, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.{MediaArchiveAvailabilityEvent, MediaFacadeActors}
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
-import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport, ClientApplicationContextImpl, MessageBusTestImpl}
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.di.impl.DefaultBeanStore

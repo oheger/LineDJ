@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.AuthConfig
 import com.github.cloudfiles.crypt.alg.aes.Aes
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.archivehttp.HttpArchiveManagementActor
 import de.oliver_heger.linedj.archivehttp.config.{HttpArchiveConfig, UserCredentials}
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
@@ -27,7 +28,6 @@ import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
-import de.oliver_heger.linedj.test.AsyncTestHelper
 import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}

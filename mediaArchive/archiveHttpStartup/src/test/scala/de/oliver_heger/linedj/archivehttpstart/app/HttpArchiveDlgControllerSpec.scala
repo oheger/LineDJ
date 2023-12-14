@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import com.github.cloudfiles.crypt.alg.aes.Aes
-import de.oliver_heger.linedj.test.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.StaticTextHandler
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent}
