@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
-import de.oliver_heger.linedj.test.FileTestHelper
+import de.oliver_heger.linedj.FileTestHelper
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.{DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString

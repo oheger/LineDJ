@@ -317,7 +317,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared, archiveCommon, id3Extract, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav

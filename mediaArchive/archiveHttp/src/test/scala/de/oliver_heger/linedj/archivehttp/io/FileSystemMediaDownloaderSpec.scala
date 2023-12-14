@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.io
 import com.github.cloudfiles.core.delegate.ExtensibleFileSystem
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.{FileSystem, Model}
-import de.oliver_heger.linedj.test.{ActorTestKitSupport, AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.{ActorTestKitSupport, AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Uri}
 import org.apache.pekko.stream.scaladsl.Source

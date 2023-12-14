@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archivehttp.io.oauth
 
 import com.github.cloudfiles.core.http.Secret
 import com.github.cloudfiles.core.http.auth.OAuthTokenData
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
 import org.apache.commons.configuration.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit

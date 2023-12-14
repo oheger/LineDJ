@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.temp
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.RemoveFileActor
-import de.oliver_heger.linedj.test.FileTestHelper
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}

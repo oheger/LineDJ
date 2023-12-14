@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.io
 import com.github.cloudfiles.core.http.HttpRequestSender
 import com.github.cloudfiles.core.http.HttpRequestSender.DiscardEntityMode.DiscardEntityMode
 import com.github.cloudfiles.core.http.HttpRequestSender.{DiscardEntityMode, FailedResponseException}
-import de.oliver_heger.linedj.test.ActorTestKitSupport
+import de.oliver_heger.linedj.ActorTestKitSupport
 import org.apache.pekko.actor.testkit.typed.scaladsl.BehaviorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.http.scaladsl.model.*

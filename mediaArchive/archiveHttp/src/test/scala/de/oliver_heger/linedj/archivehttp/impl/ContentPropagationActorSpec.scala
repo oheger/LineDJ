@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
+import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
-import de.oliver_heger.linedj.test.StateTestHelper
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.mockito.Mockito.*

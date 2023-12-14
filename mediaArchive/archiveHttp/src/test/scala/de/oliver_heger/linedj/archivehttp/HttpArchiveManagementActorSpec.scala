@@ -17,6 +17,8 @@
 package de.oliver_heger.linedj.archivehttp
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
+import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
+import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.*
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
@@ -27,8 +29,6 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
-import de.oliver_heger.linedj.test.ForwardTestActor.ForwardedMessage
-import de.oliver_heger.linedj.test.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.*
@@ -157,7 +157,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
   with AsyncTestHelper:
 
-  import HttpArchiveManagementActorSpec._
+  import HttpArchiveManagementActorSpec.*
 
   def this() = this(ActorSystem("HttpArchiveManagementActorSpec"))
 

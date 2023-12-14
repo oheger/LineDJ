@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttp.impl.download
 
+import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.test.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.Uri
@@ -70,7 +70,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     TestKit shutdownActorSystem system
     super.afterAll()
 
-  import HttpDownloadActorSpec._
+  import HttpDownloadActorSpec.*
 
   "HttpDownloadActor" should "create correct Props" in:
     val SkipSize = 20220325
