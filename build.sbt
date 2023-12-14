@@ -535,7 +535,7 @@ lazy val playlistEditor = (project in file("pleditor"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(shared, platform, audioPlatform, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the playlist medium reorder component. This is an

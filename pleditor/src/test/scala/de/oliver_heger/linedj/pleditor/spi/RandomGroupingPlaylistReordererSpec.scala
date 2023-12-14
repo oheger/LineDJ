@@ -76,11 +76,11 @@ class RandomGroupingPlaylistReordererSpec extends AnyFlatSpec with Matchers:
     new RandomGroupingPlaylistReorderer[Char]:
 
       override val groupOrdering: Ordering[SongData] =
-        (x: SongData, y: SongData) => x.title compareTo y.getTitle()
+        (x: SongData, y: SongData) => x.title compareTo y.title
 
       override val resourceBundleBaseName: String = "Irrelevant"
 
-      override def groupSong(s: SongData): Char = s.getTitle().head
+      override def groupSong(s: SongData): Char = s.title.head
 
   /**
     * Reorders the test songs using a test instance and evaluates the outcome.

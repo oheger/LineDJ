@@ -16,13 +16,15 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist
 
+import de.oliver_heger.linedj.platform.ActionTestHelper
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper
+
 import java.util
 import de.oliver_heger.linedj.platform.audio.model.{DefaultSongDataFactory, SongData, UnknownPropertyResolver}
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.test.{ActionTestHelper, ConsumerRegistrationProviderTestHelper}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.ArgumentMatchers.anyInt
