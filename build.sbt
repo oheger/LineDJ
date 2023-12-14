@@ -483,7 +483,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, archive, test3 % "test->compile")
+  ) dependsOn(platform % "compile->compile;test->test", archive)
 
 /**
   * Project for the media browser client application. This application allows

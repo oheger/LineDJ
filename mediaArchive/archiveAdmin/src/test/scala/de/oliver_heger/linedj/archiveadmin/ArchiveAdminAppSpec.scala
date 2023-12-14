@@ -17,11 +17,10 @@
 package de.oliver_heger.linedj.archiveadmin
 
 import de.oliver_heger.linedj.archiveadmin.ArchiveAdminAppSpec.ActorInvocation
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication}
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.testkit.{TestKit, TestProbe}

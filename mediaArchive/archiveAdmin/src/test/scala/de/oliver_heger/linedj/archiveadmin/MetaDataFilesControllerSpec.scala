@@ -17,7 +17,9 @@
 package de.oliver_heger.linedj.archiveadmin
 
 import de.oliver_heger.linedj.archiveadmin.MetaDataFilesController.MetaDataFileData
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper.{checkRegistrationIDs, findRegistration}
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -29,8 +31,6 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{Stat
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetaDataFileInfo
-import de.oliver_heger.linedj.test.ActionTestHelper
-import de.oliver_heger.linedj.test.ConsumerRegistrationProviderTestHelper.{checkRegistrationIDs, findRegistration}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -146,7 +146,7 @@ object MetaDataFilesControllerSpec:
 class MetaDataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers:
 
-  import MetaDataFilesControllerSpec._
+  import MetaDataFilesControllerSpec.*
 
   def this() = this(ActorSystem("MetaDataFilesControllerSpec"))
 

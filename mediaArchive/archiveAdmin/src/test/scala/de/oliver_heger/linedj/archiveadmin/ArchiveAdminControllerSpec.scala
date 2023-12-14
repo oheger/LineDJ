@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archiveadmin
 
+import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelper.{checkRegistrationIDs, findRegistration}
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport
 import de.oliver_heger.linedj.platform.app.support.ActorClientSupport.ActorRequest
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, StateListenerExtension}
 import de.oliver_heger.linedj.shared.archive.metadata.*
-import de.oliver_heger.linedj.test.ConsumerRegistrationProviderTestHelper.{checkRegistrationIDs, findRegistration}
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
