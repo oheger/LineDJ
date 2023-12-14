@@ -439,7 +439,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, archive, archiveAdmin, test3 % "test->compile")
+  ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin)
 
 /**
   * A project which is responsible for starting up an HTTP media archive in
