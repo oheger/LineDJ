@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
+import de.oliver_heger.linedj.{ActorTestKitSupport, AsyncTestHelper}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackProgressEvent, PlayerEvent}
-import de.oliver_heger.linedj.test.{ActorTestKitSupport, AsyncTestHelper}
 import org.apache.pekko.actor.DeadLetter
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors

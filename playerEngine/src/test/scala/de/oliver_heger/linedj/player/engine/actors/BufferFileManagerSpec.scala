@@ -16,10 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
+import de.oliver_heger.linedj.FileTestHelper
+
 import java.nio.file.{Files, Path, Paths}
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

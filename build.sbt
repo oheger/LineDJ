@@ -669,7 +669,7 @@ lazy val playerEngine = (project in file("playerEngine"))
       "de.oliver_heger.linedj.player.engine.*"),
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared, test3 % "test->compile")
+  ) dependsOn (shared % "compile->compile;test->test")
 
 /**
   * Project for the player configuration. This project provides standard functionality for parsing configuration

@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.actors.LineWriterActor.{AudioDataWritten, WriteAudioData}
-import de.oliver_heger.linedj.test.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
