@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import de.oliver_heger.linedj.platform.app.ClientApplicationContext
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
@@ -26,7 +27,6 @@ import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.test.{ClientApplicationContextImpl, MessageBusTestImpl}
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.testkit.typed.scaladsl

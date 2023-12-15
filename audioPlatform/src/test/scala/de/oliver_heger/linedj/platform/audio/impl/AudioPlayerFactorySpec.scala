@@ -16,11 +16,11 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
-import de.oliver_heger.linedj.test.AsyncTestHelper
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.ActorSystem

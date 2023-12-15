@@ -16,12 +16,12 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistMetaDataUnregistration}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.*
-import de.oliver_heger.linedj.test.MessageBusTestImpl
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.Timeout

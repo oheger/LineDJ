@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
@@ -24,7 +25,6 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.player.engine.facade.{AudioPlayer, PlayerControl}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceFinishedEvent, AudioSourcePlaylistInfo, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.test.MessageBusTestImpl
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito.*
