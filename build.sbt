@@ -162,7 +162,7 @@ lazy val LineDJ = (project in file("."))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-parent"
-  ) aggregate(test3, shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
+  ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
   reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
   reorderAlbum, reorderArtist, playerEngine, playerEngineConfig, radioPlayerEngine, radioPlayerEngineConfig,
   radioPlayer, mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
@@ -187,29 +187,6 @@ lazy val shared = (project in file("shared"))
     OsgiKeys.privatePackage := Seq.empty,
     SpiFlyKeys.skipSpiFly := true
   )
-
-/**
-  * A project duplicating test helper classes from the shared and platform
-  * projects to be used by projects targeting Scala 3. This project is used
-  * temporarily during the migration to Scala 3. It is needed because (due to
-  * the usage of macros is ScalaTest) the test helper classes from Scala 2
-  * projects cannot be shared with Scala 3 projects.
-  */
-lazy val test3 = (project in file("test3"))
-  .settings(defaultSettings)
-  .settings(
-    name := "linedj-test3",
-    libraryDependencies ++= Seq(
-      ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
-      ("org.apache.pekko" %% "pekko-testkit" % VersionPekko).cross(CrossVersion.for3Use2_13),
-      ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko).cross(CrossVersion.for3Use2_13),
-      "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe classifier "tests",
-      "org.scalatest" %% "scalatest" % VersionScalaTest,
-      "org.scalatestplus" %% "mockito-4-11" % VersionScalaTestMockito,
-      "net.bytebuddy" % "byte-buddy" % VersionByteBuddy,
-      "net.bytebuddy" % "byte-buddy-agent" % VersionByteBuddy,
-    )
-  ) dependsOn(shared, platform)
 
 /**
   * A project with traits and classes dealing with the generic extraction of
