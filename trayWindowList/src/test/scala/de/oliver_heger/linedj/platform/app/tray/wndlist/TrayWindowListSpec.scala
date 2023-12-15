@@ -20,8 +20,7 @@ import java.awt.event.ItemEvent
 import java.awt.{CheckboxMenuItem, Image, PopupMenu}
 import java.util.Locale
 import de.oliver_heger.linedj.platform.app.hide.*
-import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext}
-import de.oliver_heger.linedj.test.ClientApplicationContextImpl
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContext, ClientApplicationContextImpl}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito.*

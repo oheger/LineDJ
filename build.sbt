@@ -909,7 +909,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, appWindowHiding, test3 % "test->compile")
+  ) dependsOn(platform % "compile->compile;test->test", appWindowHiding)
 
 /**
   * Project for the audio platform. This project provides basic services for
