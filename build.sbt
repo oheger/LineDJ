@@ -953,7 +953,7 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, audioPlatform, test3 % "test->compile")
+  ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the audio player UI. This project implements a UI for an

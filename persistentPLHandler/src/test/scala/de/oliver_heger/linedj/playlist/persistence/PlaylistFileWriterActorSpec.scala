@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.test.FileTestHelper
+import de.oliver_heger.linedj.FileTestHelper
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
