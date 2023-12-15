@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
+import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{AudioChunkSize, aggregateSink}
-import de.oliver_heger.linedj.test.AsyncTestHelper
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.ClosedShape

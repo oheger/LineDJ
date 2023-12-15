@@ -703,7 +703,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq(),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (shared, playerEngine % "compile->compile;test->test", test3 % "test->compile")
+  ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
 
 /**
   * Project for the radio player configuration. This project provides standard functionality for parsing configuration

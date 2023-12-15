@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
+import de.oliver_heger.linedj.ActorTestKitSupport
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.test.ActorTestKitSupport
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.actor.typed.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec

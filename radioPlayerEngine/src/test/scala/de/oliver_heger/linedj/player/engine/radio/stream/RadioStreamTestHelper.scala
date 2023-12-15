@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.test.{AsyncTestHelper, FileTestHelper}
+import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ClassicActorSystemProvider
 import org.apache.pekko.http.scaladsl.Http
