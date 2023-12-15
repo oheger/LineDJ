@@ -686,7 +686,7 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.client.config.*"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn (playerEngine, test3 % "test->compile")
+  ) dependsOn (playerEngine, shared % "compile->compile;test->test")
 
 /**
   * Project for the radio player engine.

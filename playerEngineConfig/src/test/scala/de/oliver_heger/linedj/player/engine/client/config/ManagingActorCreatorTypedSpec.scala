@@ -16,10 +16,10 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
+import de.oliver_heger.linedj.ActorTestKitSupport
 import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
-import de.oliver_heger.linedj.test.ActorTestKitSupport
 import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
 import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
 import org.apache.pekko.actor.typed.Props
