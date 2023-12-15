@@ -16,10 +16,9 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplication, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.apache.commons.configuration.Configuration
 import org.scalatest.flatspec.AnyFlatSpec

@@ -978,7 +978,7 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
-  ) dependsOn(platform, audioPlatform, test3 % "test->compile")
+  ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
 
 /**
   * Project for the player server. This project exposes player functionality

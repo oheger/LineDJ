@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.ui
 
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.*
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.AutoStartNever
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.test.MessageBusTestImpl
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec

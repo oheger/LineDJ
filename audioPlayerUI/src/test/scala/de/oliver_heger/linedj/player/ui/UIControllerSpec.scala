@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.ui
 
+import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
@@ -24,7 +25,6 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.player.ui.AudioPlayerConfig.{AutoStartAlways, AutoStartIfClosed, AutoStartMode, AutoStartNever}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.test.ActionTestHelper
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
