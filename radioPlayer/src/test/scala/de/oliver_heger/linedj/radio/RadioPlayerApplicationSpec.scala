@@ -17,12 +17,12 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.io.CloseAck
-import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ApplicationSyncStartup, ClientApplicationContext}
+import de.oliver_heger.linedj.platform.MessageBusTestImpl
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
-import de.oliver_heger.linedj.test.{AppWithTestPlatform, ApplicationTestSupport, ClientApplicationContextImpl, MessageBusTestImpl}
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.Configuration
