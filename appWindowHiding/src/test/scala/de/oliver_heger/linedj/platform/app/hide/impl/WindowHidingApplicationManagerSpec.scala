@@ -17,10 +17,9 @@
 package de.oliver_heger.linedj.platform.app.hide.impl
 
 import de.oliver_heger.linedj.platform.app.hide.*
-import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication}
+import de.oliver_heger.linedj.platform.app.{ApplicationManager, ClientApplication, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
-import de.oliver_heger.linedj.test.ClientApplicationContextImpl
 import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.mockito.ArgumentCaptor
