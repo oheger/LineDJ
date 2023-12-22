@@ -71,12 +71,10 @@ object ConfigurationExtensions:
     override protected val convert: Int => FiniteDuration = _.hours
 
   /**
-    * A class extending the [[Configuration]] interface by additional
-    * operations.
-    *
-    * @param c the wrapped [[Configuration]] object
+    * An extension that adds some operations to the [[Configuration]] 
+    * interface.
     */
-  implicit class ConfigurationOps(c: Configuration):
+  extension(c: Configuration)
     /**
       * Returns the configuration value with the given key of type [[Duration]].
       * It is possible to specify the unit of the duration in an attribute of the
