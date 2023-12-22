@@ -65,6 +65,17 @@ trait RadioSourceConfig:
   def sources: immutable.Seq[RadioSource] = namedSources map (_._2)
 
   /**
+    * Returns a list with the radio sources that are marked as favorites and
+    * their names. A player application may handle such sources in a special
+    * way, e.g. by allowing fast access to them in the UI. The names can be
+    * different from the normal names of radio sources, to support an optimized
+    * display.
+    *
+    * @return a list with the favorite radio sources and their names
+    */
+  def favorites: immutable.Seq[(String, RadioSource)] = Nil
+
+  /**
     * Returns exclusions for specific radio sources. This function returns a
     * collection of interval queries defining time intervals in which the given
     * source should not be played. An empty sequence means that there are no

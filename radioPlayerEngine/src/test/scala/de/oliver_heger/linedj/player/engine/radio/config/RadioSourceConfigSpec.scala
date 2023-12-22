@@ -47,6 +47,9 @@ class RadioSourceConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val source = RadioSource("anotherTestSource")
 
     RadioSourceConfig.Empty.ranking(source) should be(RadioSourceConfig.DefaultRanking)
+    
+  it should "return an empty sequence of favorites" in:
+    RadioSourceConfig.Empty.favorites shouldBe empty  
 
   "The Empty MetadataConfig" should "not contain any exclusions" in:
     MetadataConfig.Empty.exclusions shouldBe empty
