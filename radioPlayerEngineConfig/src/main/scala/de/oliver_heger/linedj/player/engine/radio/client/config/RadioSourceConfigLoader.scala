@@ -108,6 +108,8 @@ import scala.util.Try
   *     <name>HR 1</name>
   *     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
   *     <ranking>42</ranking>
+  *     <favoriteIndex>5</favoriteIndex>
+  *     <favoriteName>Hessen</favoriteName>
   *     <extension>mp3</extension>
   *     <exclusions>
   *       <exclusion>
@@ -172,6 +174,12 @@ object RadioSourceConfigLoader:
 
   /** Configuration key for the ranking of a radio source. */
   private val KeySourceRanking = "ranking"
+
+  /** Configuration key for the favorite index. */
+  private val KeyFavoriteIndex = "favoriteIndex"
+
+  /** Configuration key for the favorite name. */
+  private val KeyFavoriteName = "favoriteName"
 
   /** Configuration key for the extension of a radio source. */
   private val KeySourceExtension = "extension"
@@ -260,9 +268,12 @@ object RadioSourceConfigLoader:
   def loadSourceConfig(config: HierarchicalConfiguration, rootKey: String = KeyRadio): RadioSourceConfig =
     val srcData = readSourcesFromConfig(config, rootKey)
     val sources = srcData map (t => (t._1, t._2))
+    val favorites = srcData.filter(_._5 >= 0)
+      .sortBy(_._5)
+      .map(t => (t._6, t._2))
     val exclusions = srcData map (t => (t._2, t._4))
     val ranking = srcData.map(t => (t._2, t._3)).toMap
-    RadioSourceConfigImpl(sources, exclusions.toMap, ranking)
+    RadioSourceConfigImpl(sources, exclusions.toMap, ranking, favorites)
 
   /**
     * Creates a new instance of [[MetadataConfig]] with the content of the
@@ -285,10 +296,12 @@ object RadioSourceConfigLoader:
     * @param config  the configuration to be processed
     * @param rootKey the root key of the source configuration
     * @return a sequence with the extracted radio sources: the name, the source
-    *         itself, the ranking, and the associated interval queries
+    *         itself, the ranking, the associated interval queries, the
+    *         favorite index (-1 if the source is not a favorite), and the
+    *         favorite name
     */
   private def readSourcesFromConfig(config: HierarchicalConfiguration, rootKey: String):
-  Seq[(String, RadioSource, Int, Seq[IntervalQuery])] =
+  Seq[(String, RadioSource, Int, Seq[IntervalQuery], Int, String)] =
     val rootConfig = Try {
       config configurationAt rootKey
     } getOrElse new HierarchicalConfiguration
@@ -296,9 +309,15 @@ object RadioSourceConfigLoader:
     val exclusionSets = readExclusionSets(rootConfig, namedExclusions)
 
     val sources = sourcesConfig(rootConfig) map { c =>
-      (c.getString(KeySourceName), RadioSource(c.getString(KeySourceURI), Option(c.getString(KeySourceExtension))),
+      val name = c.getString(KeySourceName)
+      (name,
+        RadioSource(c.getString(KeySourceURI),
+          Option(c.getString(KeySourceExtension))),
         c.getInt(KeySourceRanking, DefaultRanking),
-        readExclusionsSection(c, namedExclusions, exclusionSets))
+        readExclusionsSection(c, namedExclusions, exclusionSets),
+        c.getInt(KeyFavoriteIndex, -1),
+        c.getString(KeyFavoriteName, name)
+      )
     }
 
     sources.sortWith(compareSources)
@@ -411,8 +430,8 @@ object RadioSourceConfigLoader:
     * @param t2 the second tuple
     * @return '''true''' if t1 is less than t2
     */
-  private def compareSources(t1: (String, RadioSource, Int, Seq[_]),
-                             t2: (String, RadioSource, Int, Seq[_])): Boolean =
+  private def compareSources(t1: (String, RadioSource, Int, Seq[_], Int, String),
+                             t2: (String, RadioSource, Int, Seq[_], Int, String)): Boolean =
     if t1._3 != t2._3 then t1._3 > t2._3
     else t1._1 < t2._1
 
@@ -534,10 +553,12 @@ object RadioSourceConfigLoader:
     * @param namedSources  the list with sources
     * @param exclusionsMap the map with exclusions
     * @param rankingMap    a map with source rankings
+    * @param favorites     the list with favorite sources
     */
   private case class RadioSourceConfigImpl(override val namedSources: Seq[(String, RadioSource)],
                                            exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
-                                           rankingMap: Map[RadioSource, Int])
+                                           rankingMap: Map[RadioSource, Int],
+                                           override val favorites: Seq[(String, RadioSource)])
     extends RadioSourceConfig:
     override def ranking(source: RadioSource): Int =
       rankingMap.getOrElse(source, DefaultRanking)

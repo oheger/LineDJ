@@ -255,7 +255,7 @@ object RadioSourceConfigLoaderSpec:
   */
 class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
 
-  import RadioSourceConfigLoaderSpec._
+  import RadioSourceConfigLoaderSpec.*
 
   /**
     * Checks whether the specified interval query yields a Before result for
@@ -690,6 +690,16 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
 
     sourceConfig ranking radioSource(28) should be(RadioSourceConfigLoader.DefaultRanking)
+    
+  it should "return the favorite sources in correct order" in:
+    val expectedFavorites = List(
+      "Classic Rock" -> RadioSource("http://www.rockantenne.de/webradio/channels/classic-perlen.m3u", Some("mp3")),
+      "SWR 1 BW" -> RadioSource("http://mp3-live.swr.de/swr1bw_m.m3u", Some("mp3")),
+      "HR 1" -> RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u", Some("mp3"))
+    )
+    val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(TestConfig)
+    
+    sourceConfig.favorites should contain theSameElementsInOrderAs expectedFavorites
 
   it should "read global metadata exclusions" in:
     val metaConfig = RadioSourceConfigLoader.loadMetadataConfig(TestConfig)
