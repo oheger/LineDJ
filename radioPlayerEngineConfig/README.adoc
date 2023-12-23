@@ -348,6 +348,8 @@ element under the `radio` element. Each radio source is configured in a sub
     <name>HR 1</name>
     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
     <ranking>42</ranking>
+    <favoriteIndex>5</favoriteIndex>
+    <favoriteName>Classic Rock</favoriteName>
     <extension>mp3</extension>
     <exclusions>
       <exclusion>
@@ -399,6 +401,21 @@ element. Optionally, a source can be assigned a _ranking_ which defines a
 priority for a source. When searching for a replacement source (if an exclusion
 is detected for the current source, or it has a playback error) radio sources
 with a higher ranking are preferred.
+
+Sources can also be marked as _favorites_. This is orthogonal to the ranking,
+and is rather intended to be used by radio player applications. The idea here
+is that the application presents the favorite radio sources at a prominent
+place in the UI, so that users can easily switch to them. But whether a radio
+source is a favorite or not, has no impact on searching for a replacement
+source. To mark a radio source as a favorite, it must be assigned a numeric
+index >= 0 in its `favoriteIndex` property. The concrete index value is a hint
+to the player application for the order in which to display favorites.
+Optionally, the configuration can contain the `favoriteName` property which
+assigns a special favorite name to the source. The background here is that
+favorites may be displayed in a space-saving way, for instance just as buttons.
+For such a view, the regular name of the radio source may be too long; so
+having a way to assign an abbreviation may be beneficial. The favorite name is
+optional; if it is not specified, the normal source name is used instead.
 
 With the `exclusions` element, time-based exclusions can be defined for the
 source. This is possible by either inlining interval declarations using the
