@@ -450,6 +450,29 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
         actualTestSources should contain theSameElementsAs sources
     }
   }
+  
+  it should "define a route to query existing radio sources that handles favorite sources" in :
+    val favorite1 = ServerConfigTestHelper.TestRadioSource("f1", favoriteIndex = 0, optFavoriteName = Some("Favorite"))
+    val favorite2 = ServerConfigTestHelper.TestRadioSource("f2", favoriteIndex = 1)
+    val otherSources = (1 to 4).map { idx =>
+      ServerConfigTestHelper.TestRadioSource("radioSource" + idx, idx)
+    }.toList
+    val sources = favorite2 :: otherSources.appended(favorite1)
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      sources)
+    val radioPlayer = mock[RadioPlayer]
+    val favoriteModel1 = RadioModel.RadioSource("", "f1", 0, 0, "Favorite")
+    val favoriteModel2 = RadioModel.RadioSource("", "f2", 0, 1, "f2")
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourcesRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources"))
+
+      for
+        sourcesResponse <- sendAndCheckRequest(sourcesRequest)
+        actualSources <- unmarshal[RadioModel.RadioSources](sourcesResponse)
+      yield
+        actualSources.sources.map(src => src.copy(id = "")) should contain allOf(favoriteModel1, favoriteModel2)
+    }
 
   it should "define a route to set the current radio source" in {
     val source = ServerConfigTestHelper.TestRadioSource("myFavoriteSource", 99)

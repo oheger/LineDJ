@@ -40,11 +40,15 @@ object ServerConfigTestHelper:
     * functionality to generate a radio source configuration out of instances
     * of this class.
     *
-    * @param name    the name of the radio source
-    * @param ranking a ranking for this source
+    * @param name            the name of the radio source
+    * @param ranking         a ranking for this source
+    * @param favoriteIndex   the favorite index for favorite sources
+    * @param optFavoriteName optional favorite name
     */
   case class TestRadioSource(name: String,
-                             ranking: Int = 0):
+                             ranking: Int = 0,
+                             favoriteIndex: Int = -1,
+                             optFavoriteName: Option[String] = None):
     /**
       * Return a URI for this radio source that is derived from the name.
       *
@@ -106,6 +110,11 @@ object ServerConfigTestHelper:
 
       override def ranking(source: RadioSource): Int =
         testSources.find(_.uri == source.uri).map(_.ranking).getOrElse(0)
+
+      override def favorites: immutable.Seq[(String, RadioSource)] =
+        testSources.filter(_.favoriteIndex >= 0)
+          .sortBy(_.favoriteIndex)
+          .map(source => (source.optFavoriteName getOrElse source.name, source.toRadioSource))
 
   /**
     * Creates a [[PlayerServerConfig]] object with default settings and the

@@ -77,13 +77,18 @@ object RadioModel:
   /**
     * A data class representing a radio source.
     *
-    * @param id      an internal ID assigned to the radio source
-    * @param name    the name of the radio source
-    * @param ranking a ranking
+    * @param id            an internal ID assigned to the radio source
+    * @param name          the name of the radio source
+    * @param ranking       a ranking
+    * @param favoriteIndex an index >= 0 if this source is a favorite; 
+    *                      otherwise, the value is less than 0
+    * @param favoriteName  the name to use for this source if it is a favorite
     */
   final case class RadioSource(id: String,
                                name: String,
-                               ranking: Int)
+                               ranking: Int,
+                               favoriteIndex: Int = -1,
+                               favoriteName: String = "")
 
   /**
     * A data class representing the list of [[RadioSource]] objects currently
@@ -128,7 +133,7 @@ object RadioModel:
     */
   trait RadioJsonSupport extends SprayJsonSupport with DefaultJsonProtocol:
     implicit val playbackStatusFormat: RootJsonFormat[PlaybackStatus] = jsonFormat1(PlaybackStatus.apply)
-    implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat3(RadioSource.apply)
+    implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat5(RadioSource.apply)
     implicit val radioSourcesFormat: RootJsonFormat[RadioSources] = jsonFormat1(RadioSources.apply)
     implicit val radioSourceStatusFormat: RootJsonFormat[RadioSourceStatus] = jsonFormat2(RadioSourceStatus.apply)
     implicit val radioMessageFormat: RootJsonFormat[RadioMessage] = jsonFormat2(RadioMessage.apply)

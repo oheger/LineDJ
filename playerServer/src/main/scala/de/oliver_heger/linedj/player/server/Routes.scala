@@ -222,9 +222,20 @@ object Routes extends RadioModel.RadioJsonSupport:
     */
   private def radioSourceMappings(radioSourceConfig: RadioSourceConfig):
   (Map[String, RadioModel.RadioSource], Map[String, SourceData], Map[RadioSource, String]) =
+    val favorites = radioSourceConfig.favorites.zipWithIndex.map { (t, index) =>
+      t._2 -> (t._1, index)
+    }.toMap
+
     val mappings = radioSourceConfig.namedSources.map { (name, source) =>
       val id = calculateID(name, source.uri)
-      val modelSource = RadioModel.RadioSource(id, name, radioSourceConfig.ranking(source))
+      val favoriteData = favorites.get(source)
+      val modelSource = RadioModel.RadioSource(
+        id,
+        name,
+        radioSourceConfig.ranking(source),
+        favoriteData.map(_._2) getOrElse -1,
+        favoriteData.map(_._1) getOrElse name
+      )
       val modelSourceMapping = name -> modelSource
       val engineSourceMapping = id -> SourceData(source, modelSource)
       (modelSourceMapping, engineSourceMapping)
