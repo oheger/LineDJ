@@ -53,7 +53,7 @@ ThisBuild / version := "1.0-SNAPSHOT"
 ThisBuild / scalaVersion := VersionScala3
 
 ThisBuild / assemblyMergeStrategy := {
-  case "module-info.class" => MergeStrategy.first
+  case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.first
   case x =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)

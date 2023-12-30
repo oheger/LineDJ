@@ -17,4 +17,4 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.6")
 
 addSbtPlugin("com.github.oheger.sbt" % "sbt-spifly" % "0.4.0")
 
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.1.1")
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.1.5")
