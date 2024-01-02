@@ -538,6 +538,43 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
         checkEvalFunc(sourcesConfig, source, evalFunc, SeqNo + 1)
       case a => fail("Unexpected state action: " + a)
 
+  it should "check whether the source is enabled when setting a new source" in:
+    val SeqNo = 77
+    val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
+    val oldSource = sourcesConfig.sources.head
+    val newSource = sourcesConfig.sources(1)
+    val replacementSource = sourcesConfig.sources(2)
+    val state = RadioSourceStateServiceImpl.InitialState.copy(currentSource = Some(oldSource),
+      replacementSource = Some(replacementSource),
+      seqNo = SeqNo,
+      disabledSources = Set(newSource),
+      sourcesConfig = sourcesConfig)
+
+    val service = new RadioSourceStateServiceImpl(TestConfig)
+    val nextState = modifyState(service.setCurrentSource(newSource), state)
+
+    nextState.seqNo should be(SeqNo + 1)
+    nextState.currentSource should be(Some(newSource))
+
+    nextState.actions should have size 2
+    val reportNewSourceAction = ReportNewSelectedSource(newSource)
+    val triggerActions = nextState.actions.filterNot(_ == reportNewSourceAction)
+    triggerActions should have size 1
+    triggerActions.head match
+      case TriggerEvaluation(evalFunc, true) =>
+        val evalService = mock[EvaluateIntervalsService]
+        val refDate = LocalDateTime.of(2024, Month.JANUARY, 2, 21, 58, 27)
+        val expUntilDate = refDate.plusSeconds(TestConfig.maximumEvalDelay.toSeconds)
+        val ec = mock[ExecutionContext]
+        val evalResult = futureResult(evalFunc(evalService, refDate, ec))
+        evalResult.seqNo should be(SeqNo + 1)
+        evalResult.result match
+          case Inside(until) =>
+            until.value should be(expUntilDate)
+          case res => fail("Unexpected evaluation result: " + res)
+
+      case a => fail("Unexpected action: " + a)
+
   it should "support disabling a source" in:
     val source1 = radioSource(42)
     val source2 = radioSource(84)

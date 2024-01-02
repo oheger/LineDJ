@@ -291,13 +291,30 @@ object RadioSourceStateServiceImpl:
                                          sourcesConfig: RadioSourceConfig,
                                          radioConfig: RadioPlayerConfig): List[RadioSourceStateService.StateAction] =
     addActionForSource(state) { source =>
-      val evalFunc: EvalFunc = (service, time, ec) =>
-        if state.disabledSources.contains(source) then
-          val until = new LazyDate(time.plusSeconds(radioConfig.maximumEvalDelay.toSeconds))
-          Future.successful(EvaluateIntervalsResponse(Inside(until), state.seqNo))
-        else service.evaluateIntervals(sourcesConfig.exclusions(source), time, state.seqNo)(ec)
+      val evalFunc = checkSourceEvalFunc(source, state, sourcesConfig, radioConfig, state.seqNo)
       TriggerEvaluation(evalFunc, sourceChanged = false)
     }
+
+  /**
+    * Returns an [[EvalFunc]] that tests the given radio source. The function
+    * checks for time-based exclusions and if the source is disabled.
+    *
+    * @param source        the source to be checked
+    * @param state         the current [[RadioSourceState]]
+    * @param sourcesConfig the configuration of radio sources
+    * @param radioConfig   the configuration of the radio player
+    * @param nextSeq       the next sequence number to set
+    * @return the evaluation function
+    */
+  private def checkSourceEvalFunc(source: RadioSource,
+                                  state: RadioSourceState,
+                                  sourcesConfig: RadioSourceConfig,
+                                  radioConfig: RadioPlayerConfig,
+                                  nextSeq: Int): EvalFunc = (service, time, ec) =>
+    if state.disabledSources.contains(source) then
+      val until = new LazyDate(time.plusSeconds(radioConfig.maximumEvalDelay.toSeconds))
+      Future.successful(EvaluateIntervalsResponse(Inside(until), nextSeq))
+    else service.evaluateIntervals(sourcesConfig.exclusions(source), time, nextSeq)(ec)
 
   /**
     * Returns an updated state in case the current radio source can be played.
@@ -424,8 +441,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
 
   override def setCurrentSource(source: RadioSource): StateUpdate[Unit] = modify { s =>
     val nextSeq = s.seqNo + 1
-    val evalFunc: EvalFunc = (service, time, ec) =>
-      service.evaluateIntervals(s.sourcesConfig.exclusions(source), time, nextSeq)(ec)
+    val evalFunc = checkSourceEvalFunc(source, s, s.sourcesConfig, config, nextSeq)
     val sourceChanged = !s.currentSource.contains(source)
     val trigger = TriggerEvaluation(evalFunc, sourceChanged = sourceChanged)
     val actionsWithTrigger = trigger :: s.actions
