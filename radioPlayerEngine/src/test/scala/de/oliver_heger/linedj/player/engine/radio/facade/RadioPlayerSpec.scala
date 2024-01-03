@@ -163,7 +163,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "return the current playback state" in:
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(RadioSource("testSource")),
-      Some(RadioSource("selectedSource")), playbackActive = true)
+      Some(RadioSource("selectedSource")), playbackActive = true, Some(CurrentMetadata("artist / title")))
     val helper = new RadioPlayerTestHelper
 
     val futState = helper.player.currentPlaybackState

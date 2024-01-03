@@ -276,7 +276,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
   it should "define a route to query the current playback status" in {
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = true)
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = true, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -307,7 +307,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
     val radioPlayer = mock[RadioPlayer]
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
-      Some(sourceSelected.toRadioSource), playbackActive = false)
+      Some(sourceSelected.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       List(sourceCurrent, sourceSelected))
@@ -327,7 +327,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
   it should "define a route to query the current radio source if it is undefined" in {
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false)
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -357,7 +357,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
     val radioPlayer = mock[RadioPlayer]
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
-      Some(sourceSelected.toRadioSource), playbackActive = false)
+      Some(sourceSelected.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       List(sourceCurrent, sourceSelected))
@@ -376,7 +376,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
   it should "define a route to query the current source status if no sources are defined" in {
     val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false)
+    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
 
@@ -396,7 +396,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
     val radioPlayer = mock[RadioPlayer]
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
-      Some(sourceCurrent.toRadioSource), playbackActive = false)
+      Some(sourceCurrent.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       List(sourceCurrent))

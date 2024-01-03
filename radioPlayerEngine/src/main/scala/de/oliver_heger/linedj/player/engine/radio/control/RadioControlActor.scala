@@ -20,13 +20,13 @@ import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.Sche
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamManagerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, MetadataNotSupported, RadioEvent, RadioMetadataEvent, RadioSource}
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.util.Timeout
-import org.apache.pekko.{actor => classic}
+import org.apache.pekko.actor as classic
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
 /**
@@ -139,10 +139,13 @@ object RadioControlActor:
     * @param selectedSource an option with the radio source that has been
     *                       selected by the user
     * @param playbackActive flag whether playback is currently active
+    * @param titleInfo      information about the currently played title if
+    *                       available
     */
   case class CurrentPlaybackState(currentSource: Option[RadioSource],
                                   selectedSource: Option[RadioSource],
-                                  playbackActive: Boolean)
+                                  playbackActive: Boolean,
+                                  titleInfo: Option[CurrentMetadata])
 
   /**
     * An internal command indicating that playback should change to the
@@ -178,6 +181,16 @@ object RadioControlActor:
     */
   private case class ForwardPlaybackState(state: CurrentPlaybackState,
                                           forwardTo: ActorRef[CurrentPlaybackState]) extends RadioControlCommand
+
+  /**
+    * An internal command this actor sends to itself to handle a radio event
+    * that was received by the event listener. This is used to keep track on
+    * current radio metadata, so that this can be reported as part of the
+    * current playback state.
+    *
+    * @param event the radio event to be handled
+    */
+  private case class HandleRadioEvent(event: RadioEvent) extends RadioControlCommand
 
   /**
     * A trait that defines a factory function for creating a ''Behavior'' for a
@@ -286,7 +299,10 @@ object RadioControlActor:
         scheduleActor,
         eventManagerActor), GuardianActorName)
 
-      handle(context, sourceStateActor, playStateActor, errorStateActor, metadataStateActor, askTimeout)
+      val eventListener = context.messageAdapter[RadioEvent](HandleRadioEvent.apply)
+      eventManagerActor ! EventManagerActor.RegisterListener(eventListener)
+
+      handle(context, sourceStateActor, playStateActor, errorStateActor, metadataStateActor, askTimeout, None)
     }
 
   /**
@@ -298,6 +314,7 @@ object RadioControlActor:
     * @param errorStateActor    the actor managing the error state
     * @param metadataStateActor the actor managing the metadata state
     * @param askTimeout         the timeout for ask interactions
+    * @param optTitleInfo       current title information if available
     * @return the updated behavior
     */
   private def handle(context: ActorContext[RadioControlCommand],
@@ -305,7 +322,8 @@ object RadioControlActor:
                      playStateActor: ActorRef[PlaybackStateActor.PlaybackStateCommand],
                      errorStateActor: ActorRef[ErrorStateActor.ErrorStateCommand],
                      metadataStateActor: ActorRef[MetadataStateActor.MetadataExclusionStateCommand],
-                     askTimeout: Timeout): Behavior[RadioControlCommand] = Behaviors.receiveMessage:
+                     askTimeout: Timeout,
+                     optTitleInfo: Option[CurrentMetadata]): Behavior[RadioControlCommand] = Behaviors.receiveMessage:
     case InitRadioSourceConfig(config) =>
       sourceStateActor ! RadioSourceStateActor.InitRadioSourceConfig(config)
       Behaviors.same
@@ -348,15 +366,37 @@ object RadioControlActor:
       context.ask(playStateActor, PlaybackStateActor.GetPlaybackState.apply):
         case Failure(exception) =>
           context.log.error("Error when querying playback state.", exception)
-          ForwardPlaybackState(CurrentPlaybackState(None, None, playbackActive = false), replyTo)
+          ForwardPlaybackState(CurrentPlaybackState(None, None, playbackActive = false, titleInfo = None), replyTo)
         case Success(value) =>
-          val state = CurrentPlaybackState(value.currentSource, value.selectedSource, value.playbackActive)
+          val state =
+            CurrentPlaybackState(value.currentSource, value.selectedSource, value.playbackActive, optTitleInfo)
           ForwardPlaybackState(state, replyTo)
       Behaviors.same
 
     case ForwardPlaybackState(state, forwardTo) =>
       forwardTo ! state
       Behaviors.same
+
+    case HandleRadioEvent(event) =>
+      event match
+        case RadioMetadataEvent(_, md@CurrentMetadata(_), _) =>
+          handle(context,
+            sourceStateActor,
+            playStateActor,
+            errorStateActor,
+            metadataStateActor,
+            askTimeout,
+            Some(md))
+        case RadioMetadataEvent(_, MetadataNotSupported, _) =>
+          handle(context,
+            sourceStateActor,
+            playStateActor,
+            errorStateActor,
+            metadataStateActor,
+            askTimeout,
+            None)
+        case _ =>
+          Behaviors.same
 
     case Stop =>
       Behaviors.stopped
