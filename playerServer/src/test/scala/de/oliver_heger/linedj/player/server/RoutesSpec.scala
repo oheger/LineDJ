@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.server
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementStartEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.Done
@@ -371,6 +371,33 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
       yield
         actualSource.currentSourceId should be(Some(sourceSelected.id))
         actualSource.replacementSourceId should be(Some(sourceCurrent.id))
+        actualSource.titleInfo shouldBe empty
+    }
+  }
+
+  it should "define a route to query the current source status including title information" in {
+    val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
+    val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
+    val Title = "ACDC / Highway to Hell"
+    val radioPlayer = mock[RadioPlayer]
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+      Some(sourceSelected.toRadioSource),
+      playbackActive = true,
+      Some(CurrentMetadata(s"StreamTitle='$Title';")))
+    when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+      List(sourceCurrent, sourceSelected))
+
+    runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
+      val sourceRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources/current?full=true"))
+
+      for
+        sourceResponse <- sendAndCheckRequest(sourceRequest)
+        actualSource <- unmarshal[RadioModel.RadioSourceStatus](sourceResponse)
+      yield
+        actualSource.currentSourceId should be(Some(sourceSelected.id))
+        actualSource.replacementSourceId should be(Some(sourceCurrent.id))
+        actualSource.titleInfo should be(Some(Title))
     }
   }
 
@@ -450,7 +477,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
         actualTestSources should contain theSameElementsAs sources
     }
   }
-  
+
   it should "define a route to query existing radio sources that handles favorite sources" in :
     val favorite1 = ServerConfigTestHelper.TestRadioSource("f1", favoriteIndex = 0, optFavoriteName = Some("Favorite"))
     val favorite2 = ServerConfigTestHelper.TestRadioSource("f2", favoriteIndex = 1)

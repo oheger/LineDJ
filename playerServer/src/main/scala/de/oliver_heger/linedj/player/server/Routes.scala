@@ -154,7 +154,8 @@ object Routes extends RadioModel.RadioJsonSupport:
                       RadioModel.RadioSourceStatus(
                         currentSourceId = state.selectedSource flatMap sourceToID.get,
                         replacementSourceId = if state.currentSource == state.selectedSource then None
-                        else state.currentSource flatMap sourceToID.get
+                        else state.currentSource flatMap sourceToID.get,
+                        state.titleInfo.map(_.title)
                       )
                     }
                     onSuccess(futSourceStatus) {

@@ -101,12 +101,16 @@ object RadioModel:
   /**
     * A data class representing the status of the radio source. It contains the
     * IDs of the currently selected source and a replacement source if defined.
+    * If available, information about the current title is included as well.
     *
     * @param currentSourceId     the optional ID of the selected radio source
     * @param replacementSourceId the optional ID of the replacement source
+    * @param titleInfo           an optional string for the currently played 
+    *                            title
     */
   final case class RadioSourceStatus(currentSourceId: Option[String],
-                                     replacementSourceId: Option[String])
+                                     replacementSourceId: Option[String],
+                                     titleInfo: Option[String])
 
   /**
     * A data class defining messages sent from the server to interested clients
@@ -135,6 +139,6 @@ object RadioModel:
     implicit val playbackStatusFormat: RootJsonFormat[PlaybackStatus] = jsonFormat1(PlaybackStatus.apply)
     implicit val radioSourceFormat: RootJsonFormat[RadioSource] = jsonFormat5(RadioSource.apply)
     implicit val radioSourcesFormat: RootJsonFormat[RadioSources] = jsonFormat1(RadioSources.apply)
-    implicit val radioSourceStatusFormat: RootJsonFormat[RadioSourceStatus] = jsonFormat2(RadioSourceStatus.apply)
+    implicit val radioSourceStatusFormat: RootJsonFormat[RadioSourceStatus] = jsonFormat3(RadioSourceStatus.apply)
     implicit val radioMessageFormat: RootJsonFormat[RadioMessage] = jsonFormat2(RadioMessage.apply)
   end RadioJsonSupport
