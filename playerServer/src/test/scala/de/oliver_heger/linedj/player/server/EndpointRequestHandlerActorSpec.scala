@@ -64,23 +64,75 @@ object EndpointRequestHandlerActorSpec:
       * waiting on the socket.
       */
     def stopTest(): Unit =
-      if !socket.isClosed then
-        socket.close()
+      closeSocket(socket)
 
     override def run(): Unit =
-      Using(socket) { socket =>
-        val packet = new DatagramPacket(code.getBytes,
-          code.length,
+      Using(socket) { sock =>
+        val msgCode = requestCode
+        val packet = new DatagramPacket(msgCode.getBytes,
+          msgCode.length,
           InetAddress.getByName(GroupAddress),
           port)
-        socket.send(packet)
+        sock.send(packet)
 
-        val buf = new Array[Byte](256)
-        val receivePacket = new DatagramPacket(buf, buf.length)
-        socket.receive(receivePacket)
-        val response = new String(receivePacket.getData, 0, receivePacket.getLength)
-        queue offer response
+        receiveResponse(sock)
       }
+
+    /**
+      * Returns the code to be sent in the request message.
+      *
+      * @return the code for the request message
+      */
+    protected def requestCode: String = code
+
+    /**
+      * Uses the given socket to receive a response from the server. If this
+      * succeeds, the response message is added to the queue.
+      *
+      * @param socket the socket for receiving
+      */
+    protected def receiveResponse(socket: DatagramSocket): Unit =
+      val buf = new Array[Byte](256)
+      val receivePacket = new DatagramPacket(buf, buf.length)
+      socket.receive(receivePacket)
+      val response = new String(receivePacket.getData, 0, receivePacket.getLength)
+      queue offer response
+
+    /**
+      * Closes the given socket if it is not yet closed.
+      *
+      * @param sock the socket to close
+      */
+    protected def closeSocket(sock: DatagramSocket): Unit =
+      if !sock.isClosed then
+        sock.close()
+  end UdpClientThread
+
+  /**
+    * An alternative client implementation for the test actor. This
+    * implementation uses a different socket for receiving responses than for
+    * sending requests. This is used to test whether the receiver port can be
+    * specified in the request message.
+    *
+    * @param queue the queue to put the response
+    * @param code  the code to send
+    * @param port  the port the handler actor is listening
+    */
+  private class UdpClientThreadWithReceiverSocket(queue: BlockingQueue[String],
+                                                  code: String,
+                                                  port: Int) extends UdpClientThread(queue, code, port):
+    /** The socket to be used for receiving a response. */
+    private val receiveSocket = new DatagramSocket
+
+    override def stopTest(): Unit =
+      closeSocket(receiveSocket)
+      super.stopTest()
+
+    override protected def requestCode: String = s"$code:${receiveSocket.getLocalPort}"
+
+    override protected def receiveResponse(socket: DatagramSocket): Unit = super.receiveResponse(receiveSocket)
+  end UdpClientThreadWithReceiverSocket
+end EndpointRequestHandlerActorSpec
 
 /**
   * Test class for [[EndpointRequestHandlerActor]]. Note: This test class
@@ -100,17 +152,37 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
 
   import EndpointRequestHandlerActorSpec.*
 
-  "EndpointRequestHandlerActor" should "answer a request for the endpoint" in {
-    Using(new TestClient) { client =>
+  /**
+    * Executes a test against the test actor using the given client. Checks
+    * whether the expected response is received.
+    *
+    * @param testClient the test client to be used
+    */
+  private def checkActorResponse(testClient: TestClient): Unit =
+    Using(testClient) { client =>
       if client.sendRequest() then
         val receivedResponse = client.expectResponse()
         receivedResponse should fullyMatch regex "http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:8080/ui/index.html"
     }.success
+
+  "EndpointRequestHandlerActor" should "answer a request for the endpoint" in {
+    checkActorResponse(new TestClient)
+  }
+
+  it should "support overriding the receiver port in the request" in {
+    checkActorResponse(new TestClientWithReceiverSocket)
   }
 
   it should "ignore a request with a wrong code" in {
     Using(new TestClient) { client =>
-      if client.sendRequest("unexpected request") then
+      if client.sendRequest(RequestCode + "-foo") then
+        client.expectNoResponse()
+    }.success
+  }
+
+  it should "ignore a request with an invalid target port" in {
+    Using(new TestClient) { client =>
+      if client.sendRequest(RequestCode + ":invalidPort") then
         client.expectNoResponse()
     }.success
   }
@@ -119,7 +191,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
     */
-  class TestClient extends AutoCloseable:
+  private class TestClient extends AutoCloseable:
     /** A queue for receiving the response from the actor. */
     private val queue = new LinkedBlockingQueue[String]
 
@@ -139,7 +211,8 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     val handlerActor: ActorRef = createHandlerActor()
 
     /**
-      * Sends the request to the test actor after it
+      * Sends the request to the test actor after making sure that it is ready
+      * to handle requests.
       *
       * @param code the request code to sent to the test actor
       * @return a flag whether a test is possible; '''false''' means that no
@@ -148,7 +221,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     def sendRequest(code: String = RequestCode): Boolean =
       val readyMessage = readyListener.expectMessageType[EndpointRequestHandlerActor.HandlerReady]
       if readyMessage.interfaces.nonEmpty then
-        val thread = createClientThread(code)
+        val thread = createClientThread(queue, code, port)
         thread.start()
         optClientThread = Some(thread)
         true
@@ -186,10 +259,12 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     /**
       * Creates the thread that handles the UDP communication.
       *
-      * @param code the request code to send
+      * @param queue the queue to put the response
+      * @param code  the request code to send
+      * @param port  the port the handler actor is listening
       * @return the UDP client thread
       */
-    private def createClientThread(code: String): UdpClientThread =
+    protected def createClientThread(queue: LinkedBlockingQueue[String], code: String, port: Int): UdpClientThread =
       new UdpClientThread(queue, code, port)
 
     /**
@@ -216,3 +291,15 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
       val probe = TestProbe()
       probe.watch(handlerActor)
       probe.expectTerminated(handlerActor)
+  end TestClient
+
+  /**
+    * An alternative test client implementation that uses a second socket for
+    * receiving responses. This is used to test whether responses can be sent
+    * to a different port.
+    */
+  private class TestClientWithReceiverSocket extends TestClient:
+    override protected def createClientThread(queue: LinkedBlockingQueue[String],
+                                              code: String,
+                                              port: Int): UdpClientThread =
+      new UdpClientThreadWithReceiverSocket(queue, code, port)

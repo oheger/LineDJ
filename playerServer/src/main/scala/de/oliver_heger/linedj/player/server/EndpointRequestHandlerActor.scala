@@ -17,12 +17,13 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{HandlerReady, MulticastConfig, PlaceHolderAddress}
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, typed}
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.io.Inet.SocketOptionV2
 import org.apache.pekko.io.{IO, Udp}
 import org.apache.pekko.util.ByteString
 
 import java.net.{DatagramSocket, InetAddress, InetSocketAddress, NetworkInterface}
+import java.util.regex.Pattern
 import scala.jdk.CollectionConverters.*
 
 private object EndpointRequestHandlerActor:
@@ -86,7 +87,12 @@ private object EndpointRequestHandlerActor:
   * interfaces and answers them. Both, the request code and the answer can be
   * configured when creating an instance.
   *
-  * The answer is actually a template that can contain the placeholders
+  * The most simple request handled by this actor just consists of the request
+  * code. In this case, the answer is sent to the address of the caller. It is
+  * also possible to specify an alternative target port by appending the
+  * desired port to the request code separated by a colon (':').
+  *
+  * The answer is actually a template that can contain the placeholder
   * ''$address''. This placeholder is replaced by a local IP address of one of
   * the interfaces the actor was bound to. Since the HTTP server typically uses
   * the same local address, the URL to its endpoint can be generated this way.
@@ -107,6 +113,12 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
 
   import context.system
 
+  /**
+    * A regular expression to detect requests with an alternative response
+    * port.
+    */
+  private val regExRequestWithPort = (Pattern.quote(requestCode) + ":(\\d{4,5})").r
+
   override def preStart(): Unit =
     IO(Udp) ! Udp.Bind(self, new InetSocketAddress(port), List(groups))
 
@@ -122,8 +134,9 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
     case Udp.Received(data, remote) =>
       val request = data.utf8String
       log.info("Received request '{}' from {}.", request, remote)
-      if request == requestCode then
-        socket ! Udp.Send(ByteString(response), remote)
+      responseAddress(request, remote) foreach { address =>
+        socket ! Udp.Send(ByteString(response), address)
+      }
 
     case Udp.Unbind =>
       socket ! Udp.Unbind
@@ -151,3 +164,20 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
         .getOrElse(responseTemplate)
     else
       responseTemplate
+
+  /**
+    * Checks the given request, and for valid requests, returns the address
+    * where to send the response to.
+    *
+    * @param request the request as string that was received
+    * @param remote  the address of the caller
+    * @return an ''Option'' with the response address; ''None'' means that no
+    *         response should be sent, since the request was invalid
+    */
+  private def responseAddress(request: String, remote: InetSocketAddress): Option[InetSocketAddress] =
+    request match
+      case `requestCode` =>
+        Some(remote)
+      case regExRequestWithPort(port) =>
+        Some(new InetSocketAddress(remote.getAddress, port.toInt))
+      case _ => None
