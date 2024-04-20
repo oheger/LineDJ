@@ -16,8 +16,15 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.util.Timeout
+
+import scala.concurrent.duration.*
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * A module providing a special stage implementation that allows pausing audio
@@ -104,6 +111,13 @@ object PausePlaybackStage {
   end PlaybackState
 
   /**
+    * The implicit timeout when waiting for playback to be enabled. Since it is
+    * not possible to specify an infinite duration here, just a large value is
+    * used (the maximum allowed delay).
+    */
+  private given waitForPlaybackTimeout: Timeout = Timeout(21474835.seconds)
+
+  /**
     * Returns the behavior for a new instance of the pause playback actor. The
     * actor is initialized with the given [[PlaybackState]].
     *
@@ -112,6 +126,23 @@ object PausePlaybackStage {
     */
   def pausePlaybackActor(initialState: PlaybackState): Behavior[PausePlaybackCommand] =
     handlePausePlaybackCommand(initialState)
+
+  /**
+    * Returns a stage that allows pausing playback with the help of the given
+    * pause playback actor.
+    *
+    * @param pauseActor the actor to control the [[PlaybackState]]
+    * @tparam T the type of data processed by the stage
+    * @return the new pause playback stage
+    */
+  def pausePlaybackStage[T](pauseActor: ActorRef[PausePlaybackCommand])
+                           (using system: ActorSystem[_]): Flow[T, T, NotUsed] =
+    given ec: ExecutionContext = system.executionContext
+
+    Flow[T].mapAsync(1) { data =>
+      val futReply: Future[PlaybackPossible] = pauseActor.ask(ref => WaitForPlaybackPossible(ref))
+      futReply.map(_ => data)
+    }
 
   /**
     * The command handler function of the pause playback actor.
