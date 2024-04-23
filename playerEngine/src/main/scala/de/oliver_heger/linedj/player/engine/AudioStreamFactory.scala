@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
 
 import java.io.InputStream
-import javax.sound.sampled.AudioInputStream
+import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
 
 object AudioStreamFactory:
   /**
@@ -27,6 +27,43 @@ object AudioStreamFactory:
     * an [[AudioInputStream]].
     */
   type AudioStreamCreator = InputStream => AudioInputStream
+
+  /**
+    * A default [[AudioStreamCreator]] function that uses Java's
+    * [[AudioSystem]] class to obtain an [[AudioInputStream]] for a given
+    * stream. This implementation works if the passed in stream contains audio
+    * data that can be processed by the Java audio system out of the box.
+    */
+  final val DefaultAudioStreamCreator: AudioStreamCreator = AudioSystem.getAudioInputStream
+
+  /** Constant for the default audio buffer size. */
+  final val DefaultAudioBufferSize = 4096
+
+  /**
+    * Calculates the size of a buffer for playing audio data of the given
+    * format. The buffer size is determined based on the frame size; it is
+    * ensured that full frames fit into the buffer.
+    *
+    * @param format the [[AudioFormat]]
+    * @return the size of a buffer for playing audio of this format
+    */
+  def audioBufferSize(format: AudioFormat): Int =
+    if DefaultAudioBufferSize % format.getFrameSize != 0 then
+      ((DefaultAudioBufferSize / format.getFrameSize) + 1) * format.getFrameSize
+    else DefaultAudioBufferSize
+
+  /**
+    * Checks whether the given URI strings ends with the given extension
+    * ignoring case.
+    *
+    * @param uri       the URI
+    * @param extension the extension to test (without a leading dot)
+    * @return a flag whether the extension is matched
+    */
+  def isFileExtensionIgnoreCase(uri: String, extension: String): Boolean =
+    val posExtension = uri.lastIndexOf('.')
+    if posExtension < 0 then false
+    else uri.substring(posExtension + 1).equalsIgnoreCase(extension)
 
 /**
   * A trait defining an object that can create an [[AudioInputStream]] from an
