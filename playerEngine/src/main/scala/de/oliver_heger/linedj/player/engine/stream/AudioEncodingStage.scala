@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.io.DynamicInputStream
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioEncodingStageConfig
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
@@ -27,17 +28,9 @@ import scala.annotation.tailrec
 
 object AudioEncodingStage:
   /**
-    * Type definition for a function that returns an encoding stream for a 
-    * given input stream. The function is called with the stream containing the
-    * audio data to be played. It should return an audio stream with the 
-    * correct target audio format.
-    */
-  type EncoderStreamFactory = InputStream => InputStream
-
-  /**
     * A class defining the configuration settings of [[AudioEncodingStage]].
     *
-    * @param streamFactory          the function to obtain the encoded stream
+    * @param streamCreator          the function to obtain the encoded stream
     * @param streamFactoryLimit     the number of bytes that should be
     *                               available before calling the stream
     *                               factory
@@ -47,7 +40,7 @@ object AudioEncodingStage:
     * @param encoderStreamChunkSize the chunk size for reading from the
     *                               encoded stream
     */
-  case class AudioEncodingStageConfig(streamFactory: EncoderStreamFactory,
+  case class AudioEncodingStageConfig(streamCreator: AudioStreamCreator,
                                       streamFactoryLimit: Int,
                                       encoderStreamLimit: Int,
                                       encoderStreamChunkSize: Int)
@@ -145,7 +138,7 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
           case Some(stream) =>
             stream
           case None =>
-            val stream = config.streamFactory(dataStream)
+            val stream = config.streamCreator(dataStream)
             optEncodedStream = Some(stream)
             limit = config.encoderStreamLimit
             stream

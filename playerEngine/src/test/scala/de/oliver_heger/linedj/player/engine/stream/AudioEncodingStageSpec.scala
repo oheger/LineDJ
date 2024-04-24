@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
@@ -26,6 +27,7 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.io.InputStream
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
+import javax.sound.sampled.{AudioFormat, AudioInputStream}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 import scala.util.Random
@@ -46,6 +48,9 @@ object AudioEncodingStageSpec:
   /** The byte used for XOR encoding. */
   private val EncodeByte: Byte = 42
 
+  /** A format used by the test audio input streams. */
+  private val Format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 4, 44100.0, false)
+
   /**
     * A data class storing information about a read operation. This is used by
     * [[DummyEncoderStream]] to provide information about the reads done by
@@ -64,7 +69,8 @@ object AudioEncodingStageSpec:
     * @param source    the source stream to read data from
     * @param readQueue a queue to propagate read information
     */
-  private class DummyEncoderStream(source: InputStream, readQueue: BlockingQueue[ReadData]) extends InputStream:
+  private class DummyEncoderStream(source: InputStream, readQueue: BlockingQueue[ReadData])
+    extends AudioInputStream(source, Format, 8192):
     override def read(): Int =
       throw UnsupportedOperationException("Unexpected invocation.")
 
@@ -106,13 +112,13 @@ object AudioEncodingStageSpec:
     * @return the configuration for the test stage
     */
   private def createStageConfig(readDataQueue: BlockingQueue[ReadData]): AudioEncodingStage.AudioEncodingStageConfig =
-    val streamFactory: AudioEncodingStage.EncoderStreamFactory = input => {
+    val streamCreator: AudioStreamFactory.AudioStreamCreator = input => {
       readDataQueue.offer(ReadData(input.available(), -1))
       new DummyEncoderStream(input, readDataQueue)
     }
 
     AudioEncodingStage.AudioEncodingStageConfig(
-      streamFactory = streamFactory,
+      streamCreator = streamCreator,
       streamFactoryLimit = StreamFactoryLimit,
       encoderStreamLimit = EncoderStreamLimit,
       encoderStreamChunkSize = EncoderStreamChunkSize
