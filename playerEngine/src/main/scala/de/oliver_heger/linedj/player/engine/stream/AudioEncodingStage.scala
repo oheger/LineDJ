@@ -18,15 +18,42 @@ package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.io.DynamicInputStream
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
-import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.AudioEncodingStageConfig
+import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.{AudioChunk, AudioData, AudioEncodingStageConfig, AudioStreamHeader}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.util.ByteString
 
 import java.io.InputStream
+import javax.sound.sampled.AudioFormat
 import scala.annotation.tailrec
 
 object AudioEncodingStage:
+  /**
+    * A class defining the header of an audio stream. An instance of this class
+    * is sent as very first element of the stream to following stages. The
+    * information stored here can be used to set up the infrastructure for 
+    * playing audio.
+    *
+    * @param format the [[AudioFormat]] for the audio data
+    */
+  case class AudioStreamHeader(format: AudioFormat)
+
+  /**
+    * A class defining a chunk of audio data in an audio stream. An instance 
+    * includes the raw audio data. After the initial header (an instance of
+    * [[AudioStreamHeader]]), all following elements in the stream are objects
+    * of this class.
+    *
+    * @param data the actual audio data
+    */
+  case class AudioChunk(data: ByteString)
+
+  /**
+    * Definition for the type of the objects sent through an audio stream. This
+    * is the output type of [[AudioEncodingStage]].
+    */
+  type AudioData = AudioStreamHeader | AudioChunk
+
   /**
     * A class defining the configuration settings of [[AudioEncodingStage]].
     *
@@ -53,7 +80,10 @@ end AudioEncodingStage
   * The stage is configured with a function that creates an encoding stream
   * (such as an ''AudioInputStream'') for a provided stream returning the data
   * from the source. The data passed downstream is read from this encoding
-  * stream. It can be fed into a line for audio playback.
+  * stream. It can be fed into a line for audio playback. To enable a dynamic
+  * setup of a line, the data format supports a header with a format 
+  * description of the audio data that follows. This is reflected in the output
+  * type of this stage.
   *
   * The [[AudioEncodingStageConfig]] object passed to the constructor supports
   * some more settings. It can be configured that before creating the stream
@@ -64,14 +94,14 @@ end AudioEncodingStage
   *
   * @param config the configuration for this stage
   */
-class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[FlowShape[ByteString, ByteString]]:
+class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[FlowShape[ByteString, AudioData]]:
   private val in = Inlet[ByteString]("AudioEncoding.in")
-  private val out = Outlet[ByteString]("AudioEncoding.out")
+  private val out = Outlet[AudioData]("AudioEncoding.out")
 
-  override def shape: FlowShape[ByteString, ByteString] = FlowShape.of(in, out)
+  override def shape: FlowShape[ByteString, AudioData] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape) {
+    new GraphStageLogic(shape):
       /** A stream serving as buffer for data from upstream. */
       private val dataStream = new DynamicInputStream
 
@@ -94,14 +124,16 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
           dataStream.append(grab(in))
 
           if dataStream.available() >= limit then
-            val size = encodedStream.read(buffer)
+            val (optHeader, stream) = getOrCreateEncodedStream()
+            val size = stream.read(buffer)
             if size > 0 then
-              push(out, ByteString.fromArray(buffer, 0, size))
+              emitWithHeader(optHeader, List(AudioChunk(ByteString.fromArray(buffer, 0, size))))
             else
               // A read result of 0 bytes typically means that the input buffer contains invalid data.
               // Clean it, in the hope that further data from upstream can be encoded.
               dataStream.clear()
-              pull(in)
+              if !emitWithHeader(optHeader, Nil) then
+                pull(in)
           else
             pull(in)
       })
@@ -117,29 +149,51 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
         * fulfilled or not.
         */
       private def pushRemaining(): Unit =
-        val encStream = encodedStream
+        val (optHeader, encStream) = getOrCreateEncodedStream()
 
-        @tailrec def readRemaining(chunks: List[ByteString]): List[ByteString] =
+        @tailrec def readRemaining(chunks: List[AudioChunk]): List[AudioChunk] =
           val size = encStream.read(buffer)
           if size <= 0 then chunks
-          else readRemaining(ByteString.fromArray(buffer, 0, size) :: chunks)
+          else readRemaining(AudioChunk(ByteString.fromArray(buffer, 0, size)) :: chunks)
 
         val remainingChunks = readRemaining(Nil)
-        emitMultiple(out, remainingChunks.reverse)
+        emitWithHeader(optHeader, remainingChunks.reverse)
 
       /**
-        * Return the stream for encoding data. Create it using the factory if
-        * it has not yet been obtained.
+        * Returns the stream for encoding data. Creates it using the factory if
+        * it has not yet been obtained. In this case, the function also returns
+        * the [[AudioStreamHeader]], which needs to be passed downstream as the
+        * first stream element.
         *
-        * @return the encoding stream
+        * @return a tuple with the optional header and the encoding stream
         */
-      private def encodedStream: InputStream =
+      private def getOrCreateEncodedStream(): (Option[AudioStreamHeader], InputStream) =
         optEncodedStream match
           case Some(stream) =>
-            stream
+            (None, stream)
           case None =>
             val stream = config.streamCreator(dataStream)
+            val header = AudioStreamHeader(stream.getFormat)
             optEncodedStream = Some(stream)
             limit = config.encoderStreamLimit
-            stream
-    }
+            (Some(header), stream)
+
+      /**
+        * Emits data handling optional elements. This function emits all the
+        * passed in data (header and chunks) that are defined.
+        *
+        * @param optHeader the optional header
+        * @param chunks    the chunks (can be empty)
+        * @return a flag whether data was output
+        */
+      private def emitWithHeader(optHeader: Option[AudioStreamHeader], chunks: List[AudioChunk]): Boolean =
+        val output = optHeader.fold(chunks)(_ :: chunks)
+        output match
+          case _ :: tail if tail.nonEmpty =>
+            emitMultiple(out, output)
+            true
+          case h :: _ =>
+            emit(out, h)
+            true
+          case Nil =>
+            false

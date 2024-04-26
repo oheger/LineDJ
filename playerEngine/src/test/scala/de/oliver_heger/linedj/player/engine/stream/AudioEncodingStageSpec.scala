@@ -51,6 +51,9 @@ object AudioEncodingStageSpec:
   /** A format used by the test audio input streams. */
   private val Format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 4, 44100.0, false)
 
+  /** The header element expected to be received in test streams. */
+  private val ExpectedHeader = AudioEncodingStage.AudioStreamHeader(Format)
+
   /**
     * A data class storing information about a read operation. This is used by
     * [[DummyEncoderStream]] to provide information about the reads done by
@@ -60,6 +63,22 @@ object AudioEncodingStageSpec:
     * @param bufferSize the size of the read buffer
     */
   private case class ReadData(available: Int, bufferSize: Int)
+
+  /**
+    * A class to store the aggregated audio data that was received from a test
+    * stream. It consists of the header and the collected audio data.
+    *
+    * @param header the header
+    * @param data   the aggregated simulated audio data
+    */
+  private case class AggregatedAudioData(header: Option[AudioEncodingStage.AudioStreamHeader],
+                                         data: ByteString)
+
+  /**
+    * Constant for an [[AggregatedAudioData]] instance that has not yet 
+    * received any audio data.
+    */
+  private val InitialAudioData = AggregatedAudioData(None, ByteString.empty)
 
   /**
     * Implementation of a stream that performs a dummy encoding based on the
@@ -123,15 +142,6 @@ object AudioEncodingStageSpec:
       encoderStreamLimit = EncoderStreamLimit,
       encoderStreamChunkSize = EncoderStreamChunkSize
     )
-
-  /**
-    * Returns a [[Sink]] that combines all byte strings received through the
-    * stream.
-    *
-    * @return the [[Sink]] performing a ''fold'' operation
-    */
-  private def foldSink(): Sink[ByteString, Future[ByteString]] =
-    Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
 end AudioEncodingStageSpec
 
 /**
@@ -148,6 +158,23 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
   import AudioEncodingStageSpec.*
 
   /**
+    * Returns a [[Sink]] that combines all elements received through the
+    * stream.
+    *
+    * @return the [[Sink]] performing a ''fold'' operation
+    */
+  private def foldSink(): Sink[AudioEncodingStage.AudioData, Future[AggregatedAudioData]] =
+    Sink.fold[AggregatedAudioData, AudioEncodingStage.AudioData](InitialAudioData) { (agg, chunk) =>
+      chunk match
+        case header: AudioEncodingStage.AudioStreamHeader =>
+          agg should be(InitialAudioData)
+          agg.copy(header = Some(header))
+        case data: AudioEncodingStage.AudioChunk =>
+          agg.header should not be empty
+          agg.copy(data = agg.data ++ data.data)
+    }
+
+  /**
     * Runs a stream on the given data with an [[AudioEncodingStage]] and checks
     * whether the correct encoded result is produced.
     *
@@ -162,7 +189,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val sink = foldSink()
     val stage = new AudioEncodingStage(createStageConfig(readDataQueue))
     source.via(stage).runWith(sink) map { streamResult =>
-      val expectedResult = ByteString(encodeBytes(data.toArray))
+      val expectedResult = AggregatedAudioData(Some(ExpectedHeader), ByteString(encodeBytes(data.toArray)))
       streamResult should be(expectedResult)
     }
 
@@ -233,7 +260,8 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val stage = new AudioEncodingStage(createStageConfig(new LinkedBlockingQueue))
 
     source.via(stage).runWith(sink) map { streamResult =>
-      val expectedResult = ByteString(encodeBytes(chunk2)) ++ ByteString(encodeBytes(chunk3))
+      val expectedData = ByteString(encodeBytes(chunk2)) ++ ByteString(encodeBytes(chunk3))
+      val expectedResult = AggregatedAudioData(Some(ExpectedHeader), expectedData)
       streamResult should be(expectedResult)
     }
 
@@ -245,9 +273,9 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val source = Source(List(ByteString(chunk)))
     val sink = foldSink()
     val stage = new AudioEncodingStage(createStageConfig(new LinkedBlockingQueue))
-    
+
     source.via(stage).runWith(sink) map { streamResult =>
-      val expectedResult = ByteString(encodeBytes(chunk.take(EncoderStreamChunkSize)))
+      val expectedData = ByteString(encodeBytes(chunk.take(EncoderStreamChunkSize)))
+      val expectedResult = AggregatedAudioData(Some(ExpectedHeader), expectedData)
       streamResult should be(expectedResult)
     }
-    
