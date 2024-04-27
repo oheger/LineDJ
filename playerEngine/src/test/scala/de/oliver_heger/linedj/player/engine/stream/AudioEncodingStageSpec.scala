@@ -37,19 +37,19 @@ object AudioEncodingStageSpec:
   private val InputChunkSize = 64
 
   /** The limit before the stream factory can be invoked. */
-  private val StreamFactoryLimit = 129
+  private val StreamFactoryLimit = 10000
 
   /** The limit of the encoder stream. */
-  private val EncoderStreamLimit = 100
+  private val EncoderStreamLimit = 5200
 
   /** The chunk size for reading from the encoder stream. */
-  private val EncoderStreamChunkSize = 70
+  private val EncoderStreamChunkSize = 4097
 
   /** The byte used for XOR encoding. */
   private val EncodeByte: Byte = 42
 
   /** A format used by the test audio input streams. */
-  private val Format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 4, 44100.0, false)
+  private val Format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 17, 44100.0, false)
 
   /** The header element expected to be received in test streams. */
   private val ExpectedHeader = AudioEncodingStage.AudioStreamHeader(Format)
@@ -139,8 +139,7 @@ object AudioEncodingStageSpec:
     AudioEncodingStage.AudioEncodingStageConfig(
       streamCreator = streamCreator,
       streamFactoryLimit = StreamFactoryLimit,
-      encoderStreamLimit = EncoderStreamLimit,
-      encoderStreamChunkSize = EncoderStreamChunkSize
+      encoderStreamLimit = EncoderStreamLimit
     )
 end AudioEncodingStageSpec
 
@@ -206,7 +205,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     random.nextBytes(size)
 
   "AudioEncodingStage" should "produce the correct encoded result" in :
-    val data = generateData(20240310205425L, 768)
+    val data = generateData(20240310205425L, 16384)
     data(17) = 0 // Make sure that filtering has to be applied.
 
     runEncoding(ByteString(data))
@@ -217,7 +216,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     runEncoding(ByteString(data))
 
   it should "use the correct chunk size when reading from the encoded stream" in :
-    val data = generateData(20240311213005L, 512)
+    val data = generateData(20240311213005L, 32767)
     val readQueue = new LinkedBlockingQueue[ReadData]
 
     runEncoding(ByteString(data), readQueue) map { _ =>
@@ -238,14 +237,14 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }
 
   it should "only read from the encoded stream if the limit is reached" in :
-    val data = generateData(20240311220000L, 2048)
+    val data = generateData(20240311220000L, 64535)
     val readQueue = new LinkedBlockingQueue[ReadData]
 
     runEncoding(ByteString(data), readQueue) map { _ =>
       var reads = List.empty[ReadData]
       while !readQueue.isEmpty do
         reads = readQueue.poll() :: reads
-      reads.reverse.take(25)
+      reads.reverse.take(16)
         .forall(_.available >= EncoderStreamLimit) shouldBe true
     }
 

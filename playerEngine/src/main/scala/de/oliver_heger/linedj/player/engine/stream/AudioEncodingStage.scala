@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.io.DynamicInputStream
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.{AudioChunk, AudioData, AudioEncodingStageConfig, AudioStreamHeader}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -64,13 +65,10 @@ object AudioEncodingStage:
     * @param encoderStreamLimit     the number of bytes that should be
     *                               available before reading a chunk from the
     *                               encoded stream
-    * @param encoderStreamChunkSize the chunk size for reading from the
-    *                               encoded stream
     */
   case class AudioEncodingStageConfig(streamCreator: AudioStreamCreator,
                                       streamFactoryLimit: Int,
-                                      encoderStreamLimit: Int,
-                                      encoderStreamChunkSize: Int)
+                                      encoderStreamLimit: Int)
 end AudioEncodingStage
 
 /**
@@ -111,8 +109,12 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
       /** The current limit of available data. */
       private var limit = config.streamFactoryLimit
 
-      /** The buffer for reading from the encoder stream. */
-      private val buffer = Array.ofDim[Byte](config.encoderStreamChunkSize)
+      /**
+        * The buffer for reading from the encoder stream. It is created when
+        * the audio buffer size can be determined from the audio format to be
+        * played.
+        */
+      private var buffer: Array[Byte] = _
 
       setHandler(in, new InHandler {
         override def onUpstreamFinish(): Unit =
@@ -173,7 +175,9 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
             (None, stream)
           case None =>
             val stream = config.streamCreator(dataStream)
-            val header = AudioStreamHeader(stream.getFormat)
+            val format = stream.getFormat
+            buffer = new Array(AudioStreamFactory.audioBufferSize(format))
+            val header = AudioStreamHeader(format)
             optEncodedStream = Some(stream)
             limit = config.encoderStreamLimit
             (Some(header), stream)
