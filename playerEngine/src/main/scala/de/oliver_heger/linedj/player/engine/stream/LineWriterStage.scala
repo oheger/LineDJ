@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
-import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.PlayedAudioChunk
+import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.{LineCreatorFunc, PlayedAudioChunk}
 import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.{ActorAttributes, Attributes, FlowShape, Graph, Inlet, Outlet}
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.*
 import org.apache.pekko.util.ByteString
 
-import javax.sound.sampled.SourceDataLine
+import javax.sound.sampled.{AudioSystem, DataLine, SourceDataLine}
 import scala.concurrent.duration.*
 
 object LineWriterStage:
@@ -32,6 +32,22 @@ object LineWriterStage:
     * configuration is referenced.
     */
   final val BlockingDispatcherName = "pekko.stream.blocking-io-dispatcher"
+
+  /**
+    * Definition of a function type for creating a [[SourceDataLine]] from the
+    * header of an audio stream. This is used to create a line compatible with
+    * the audio data to be played.
+    */
+  type LineCreatorFunc = AudioEncodingStage.AudioStreamHeader => SourceDataLine
+
+  /**
+    * The default function to create a [[SourceDataLine]]. This is fully
+    * functional.
+    */
+  val DefaultLineCreatorFunc: LineCreatorFunc =
+    header =>
+      val info = new DataLine.Info(classOf[SourceDataLine], header.format)
+      AudioSystem.getLine(info).asInstanceOf[SourceDataLine]
 
   /**
     * A data class describing a chunk of audio data that has been played by
@@ -48,51 +64,61 @@ object LineWriterStage:
     * the given line. With the given ''close'' flag, it can be controlled
     * whether the line should be closed after stream processing.
     *
-    * @param line           the line to write data to
+    * @param lineCreator    the function to create the audio line
     * @param dispatcherName the name of the dispatcher to be used for this
     *                       stage
-    * @param closeLine      flag whether the line should be closed
     * @return the new stage instance
     */
-  def apply(line: SourceDataLine,
-            dispatcherName: String = BlockingDispatcherName,
-            closeLine: Boolean = true): Graph[FlowShape[ByteString, PlayedAudioChunk], NotUsed] =
-    new LineWriterStage(line, closeLine).withAttributes(ActorAttributes.dispatcher(dispatcherName))
+  def apply(lineCreator: LineCreatorFunc,
+            dispatcherName: String = BlockingDispatcherName):
+  Graph[FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk], NotUsed] =
+    new LineWriterStage(lineCreator).withAttributes(ActorAttributes.dispatcher(dispatcherName))
 end LineWriterStage
 
 /**
   * A [[GraphStage]] implementation that feeds audio data into a
   * [[SourceDataLine]], so that audio is played.
   *
-  * An instance is initialized with the [[SourceDataLine]] to interact with.
-  * This line must be compatible with the audio data received from upstream.
+  * An instance created with default settings creates a [[SourceDataLine]] that
+  * is compatible with the audio data in the stream once the audio format is
+  * known. Optionally, a function can be provided that allows adapting the line
+  * creation process.
+  *
   * The stage writes the data into the line and measures the time for the
   * playback. It produces data that allows keeping track on the audio playback.
   * This data is passed downstream.
   *
-  * When the audio data to be played is complete, the line is drained.
-  * Optionally, it can be closed as well.
+  * When the audio data to be played is complete, the line is drained and 
+  * closed.
   *
   * Note that the operations against the line are blocking. Therefore, this
   * stage should run on a dedicated dispatcher for blocking operations. The
   * companion object provides a factory function that fulfills this criterion.
   *
-  * @param line      the line for audio playback
-  * @param closeLine flag whether the stage is responsible for closing the line
+  * @param lineCreator the function for creating the line
   */
-class LineWriterStage private(line: SourceDataLine,
-                              closeLine: Boolean) extends GraphStage[FlowShape[ByteString, PlayedAudioChunk]]:
-  private val in = Inlet[ByteString]("LineWriterStage.in")
+class LineWriterStage private(lineCreator: LineCreatorFunc)
+  extends GraphStage[FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk]]:
+  private val in = Inlet[AudioEncodingStage.AudioData]("LineWriterStage.in")
   private val out = Outlet[PlayedAudioChunk]("LineWriterStage.out")
 
-  override def shape: FlowShape[ByteString, PlayedAudioChunk] = FlowShape.of(in, out)
+  override def shape: FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape):
+    /** The line to output the audio data. */
+    private var line: SourceDataLine = _
+
     setHandler(in, new InHandler:
       override def onPush(): Unit =
-        val chunk = grab(in)
-        val duration = playAudio(chunk)
-        push(out, PlayedAudioChunk(chunk.size, duration))
+        grab(in) match
+          case header: AudioEncodingStage.AudioStreamHeader =>
+            line = lineCreator(header)
+            line.open(header.format)
+            line.start()
+            pull(in)
+          case chunk: AudioEncodingStage.AudioChunk =>
+            val duration = playAudio(chunk.data)
+            push(out, PlayedAudioChunk(chunk.data.size, duration))
     )
 
     setHandler(out, new OutHandler:
@@ -101,18 +127,19 @@ class LineWriterStage private(line: SourceDataLine,
     )
 
     override def postStop(): Unit =
-      line.drain()
-      if closeLine then line.close()
+      if line != null then
+        line.drain()
+        line.close()
       super.postStop()
-
-  /**
-    * Plays the given chunk of audio on the owned line and returns the playback
-    * duration.
-    *
-    * @param data the audio data to be played
-    * @return the playback duration
-    */
-  private def playAudio(data: ByteString): FiniteDuration =
-    val startTime = System.nanoTime()
-    line.write(data.toArray, 0, data.size)
-    (System.nanoTime() - startTime).nanos
+  
+    /**
+      * Plays the given chunk of audio on the owned line and returns the playback
+      * duration.
+      *
+      * @param data the audio data to be played
+      * @return the playback duration
+      */
+    private def playAudio(data: ByteString): FiniteDuration =
+      val startTime = System.nanoTime()
+      line.write(data.toArray, 0, data.size)
+      (System.nanoTime() - startTime).nanos
