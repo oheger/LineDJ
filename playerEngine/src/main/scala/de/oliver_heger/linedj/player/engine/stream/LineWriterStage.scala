@@ -16,13 +16,15 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
-import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.{LineCreatorFunc, PlayedAudioChunk}
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory
+import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.{LineCreatorFunc, PlayedAudioChunk, calculateChunkDuration}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.stream.*
 import org.apache.pekko.util.ByteString
 
-import javax.sound.sampled.{AudioSystem, DataLine, SourceDataLine}
+import java.util.concurrent.TimeUnit
+import javax.sound.sampled.{AudioFormat, AudioSystem, DataLine, SourceDataLine}
 import scala.concurrent.duration.*
 
 object LineWriterStage:
@@ -73,6 +75,22 @@ object LineWriterStage:
             dispatcherName: String = BlockingDispatcherName):
   Graph[FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk], NotUsed] =
     new LineWriterStage(lineCreator).withAttributes(ActorAttributes.dispatcher(dispatcherName))
+
+  /**
+    * Calculates the duration of a chunk of audio data in nanoseconds. This
+    * corresponds to the playback duration of one element passed through the
+    * stream.
+    *
+    * @param format the [[AudioFormat]]
+    * @return the duration of a chunk in nanoseconds or ''None'' if this cannot
+    *         be determined for this [[AudioFormat]]
+    */
+  private def calculateChunkDuration(format: AudioFormat): Option[FiniteDuration] =
+    if format.getFrameRate != AudioSystem.NOT_SPECIFIED && format.getFrameSize !=
+      AudioSystem.NOT_SPECIFIED then
+      val chunkSize = AudioStreamFactory.audioBufferSize(format)
+      Some(math.round(TimeUnit.SECONDS.toNanos(1) * chunkSize / format.getFrameSize / format.getFrameRate).nanos)
+    else None
 end LineWriterStage
 
 /**
@@ -108,6 +126,13 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
     /** The line to output the audio data. */
     private var line: SourceDataLine = _
 
+    /**
+      * Stores the duration of a single chunk of audio data. This value is
+      * initialized from the header of the audio stream and - if available -
+      * used later to determine the playback duration.
+      */
+    private var optChunkDuration: Option[FiniteDuration] = None
+
     setHandler(in, new InHandler:
       override def onPush(): Unit =
         grab(in) match
@@ -115,9 +140,11 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
             line = lineCreator(header)
             line.open(header.format)
             line.start()
+            optChunkDuration = calculateChunkDuration(header.format)
             pull(in)
           case chunk: AudioEncodingStage.AudioChunk =>
-            val duration = playAudio(chunk.data)
+            val playbackDuration = playAudio(chunk.data)
+            val duration = optChunkDuration getOrElse playbackDuration
             push(out, PlayedAudioChunk(chunk.data.size, duration))
     )
 
@@ -131,7 +158,7 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
         line.drain()
         line.close()
       super.postStop()
-  
+
     /**
       * Plays the given chunk of audio on the owned line and returns the playback
       * duration.

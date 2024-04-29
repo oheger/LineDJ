@@ -30,7 +30,7 @@ import org.mockito.stubbing.Answer
 import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, OptionValues, Succeeded, TryValues}
+import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues, Succeeded, TryValues}
 import org.scalatestplus.mockito.MockitoSugar
 
 import javax.sound.sampled.{AudioFormat, AudioSystem, SourceDataLine}
@@ -61,14 +61,16 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     *
     * @param source the source defining the stream input
     * @param stage  the test stage
+    * @param format the [[AudioFormat]] of the test audio stream
     * @return the accumulated (reversed) output of the stream
     */
   private def runStream(source: Source[ByteString, Any],
                         stage: Graph[FlowShape[AudioEncodingStage.AudioData, LineWriterStage.PlayedAudioChunk],
-                          NotUsed]):
+                          NotUsed],
+                        format: AudioFormat = Format):
   Future[List[LineWriterStage.PlayedAudioChunk]] =
     val headerSource: Source[AudioEncodingStage.AudioData, NotUsed] =
-      Source.single(AudioEncodingStage.AudioStreamHeader(Format))
+      Source.single(AudioEncodingStage.AudioStreamHeader(format))
     val chunkSource: Source[AudioEncodingStage.AudioData, Any] =
       source.map(AudioEncodingStage.AudioChunk.apply)
     val streamSource = Source.combine(headerSource, chunkSource)(Concat(_))
@@ -82,12 +84,13 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * Returns a function to create a line that returns the given mock line and
     * checks for the input parameter.
     *
-    * @param line the mock line to return
+    * @param line   the mock line to return
+    * @param format the expected audio format passed to the function
     * @return the line creator function
     */
-  private def lineCreatorFunc(line: SourceDataLine): LineWriterStage.LineCreatorFunc =
+  private def lineCreatorFunc(line: SourceDataLine, format: AudioFormat = Format): LineWriterStage.LineCreatorFunc =
     header =>
-      header.format should be(Format)
+      header.format should be(format)
       line
 
   "LineWriterStage" should "be prepared to run on a blocking dispatcher" in :
@@ -129,20 +132,47 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       result =>
         result.map(_.size) should be(List(5, 3, 3))
 
-  it should "produce results with playback times" in :
+  /**
+    * Checks whether results with playback times are produced in case the
+    * playback duration cannot be determined from the audio format.
+    *
+    * @param format the format to be used
+    */
+  private def checkMeasuredPlaybackTimes(format: AudioFormat): Future[Assertion] =
     val line = mock[SourceDataLine]
     when(line.write(any(), any(), any())).thenAnswer((invocation: InvocationOnMock) =>
       Thread.sleep(1)
       1)
     val data = List(ByteString("x"), ByteString("y"), ByteString("z"), ByteString("!"))
-    val stage = LineWriterStage(lineCreatorFunc(line))
+    val stage = LineWriterStage(lineCreatorFunc(line, format))
 
-    runStream(Source(data), stage) map :
+    runStream(Source(data), stage, format) map :
       result =>
         val durations = result.map(_.duration)
         forAll(durations) {
           _ should be >= 1.millis
         }
+
+  it should "produce results with playback times if not frame rate is specified in the format" in :
+    val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 2, AudioSystem.NOT_SPECIFIED, false)
+    checkMeasuredPlaybackTimes(format)
+
+  it should "produce results with playback times if not frame size is specified in the format" in :
+    val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, AudioSystem.NOT_SPECIFIED, 44100.0, false)
+    checkMeasuredPlaybackTimes(format)
+
+  it should "produce results with exact playback times based on the audio format" in :
+    val line = mock[SourceDataLine]
+    val data = (1 to 5).map:
+      idx =>
+        val chunk = Array.fill(4096)(idx.toByte)
+        ByteString(chunk)
+    val stage = LineWriterStage(lineCreatorFunc(line))
+
+    runStream(Source(data), stage) map :
+      result =>
+        val duration = result.map(_.duration).fold(0.nanos) { (agg, time) => agg + time }
+        duration should be(232199540.nanos)
 
   it should "drain and close the line after completion of the stream" in :
     val line = mock[SourceDataLine]
