@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory.{AudioStreamCreator, DefaultAudioStreamCreator}
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
@@ -82,3 +82,14 @@ trait AudioStreamFactory:
     *         audio stream for this audio data
     */
   def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator]
+
+/**
+  * An implementation of [[AudioStreamFactory]] that returns a default
+  * [[AudioStreamCreator]] which solely relies on Java's [[AudioSystem]]. The
+  * implementation accepts all kinds of URIs and then delegates to the audio
+  * system to obtain an audio stream. Whether this works or not in a concrete
+  * case, may depend on the audio codecs installed on the current system.
+  */
+object DefaultAudioStreamFactory extends AudioStreamFactory:
+  override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
+    Some(DefaultAudioStreamCreator)

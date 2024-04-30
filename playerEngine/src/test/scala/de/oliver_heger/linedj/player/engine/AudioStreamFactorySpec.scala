@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import org.scalatest.TryValues
+import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -27,9 +27,15 @@ import scala.util.Using
   * Test class for functionality provided by the companion object for
   * [[AudioStreamFactory]].
   */
-class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues:
-  "DefaultAudioStreamCreator" should "return an audio stream for a wav file" in :
-    Using(AudioStreamFactory.DefaultAudioStreamCreator(getClass.getResourceAsStream("/test.wav"))) { audioStream =>
+class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues with OptionValues:
+  /**
+    * Tests whether the given creator can handle the audio stream for the test
+    * wav file.
+    *
+    * @param creator the audio stream creator to test
+    */
+  private def checkAudioStreamCreator(creator: AudioStreamFactory.AudioStreamCreator): Unit =
+    Using(creator(getClass.getResourceAsStream("/test.wav"))) { audioStream =>
       val format = audioStream.getFormat
 
       format.getChannels should be(2)
@@ -37,6 +43,9 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues:
       format.getSampleSizeInBits should be(16)
       format.getFrameSize should be(4)
     }.success
+
+  "DefaultAudioStreamCreator" should "return an audio stream for a wav file" in :
+    checkAudioStreamCreator(AudioStreamFactory.DefaultAudioStreamCreator)
 
   "audioBufferSize" should "return the default buffer size if possible" in :
     val format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44100.0, 16, 2, 4, 1411, false)
@@ -65,3 +74,13 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues:
 
   it should "handle a trailing dot in the file name correctly" in :
     AudioStreamFactory.isFileExtensionIgnoreCase("test.mp3.", "mp3") shouldBe false
+
+  "DefaultAudioStreamFactory" should "return an audio stream creator for a wav file" in :
+    val creator = DefaultAudioStreamFactory.audioStreamCreatorFor("test.wav")
+
+    checkAudioStreamCreator(creator.value)
+
+  it should "ignore the file extension of the URI" in :
+    val creator = DefaultAudioStreamFactory.audioStreamCreatorFor("test.what.ever")
+
+    checkAudioStreamCreator(creator.value)
