@@ -58,6 +58,12 @@ object AudioPlayerShell:
             streamHandler.newAudioStream(args.head)
           }
 
+        case "start" =>
+          streamHandler.startPlayback()
+
+        case "stop" =>
+          streamHandler.stopPlayback()
+
         case "" => // ignore empty input
 
         case _ =>
@@ -99,9 +105,17 @@ end AudioPlayerShell
 /**
   * Prints the prompt for user input.
   */
-private def prompt(): Unit = {
+private def prompt(): Unit =
   print("$ ")
-}
+
+/**
+  * Prints a message and shows a new prompt.
+  *
+  * @param msg the message to be printed
+  */
+private def printAndPrompt(msg: String): Unit =
+  println(msg)
+  prompt()
 
 /**
   * A helper class that manages a currently played audio stream. It can create
@@ -147,9 +161,8 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
 
         futDone andThen {
           case Success(_) =>
-            println(s"Audio stream for '$uri' was completed successfully.")
+            printAndPrompt(s"Audio stream for '$uri' was completed successfully.")
             refCancelStream.set(null)
-            prompt()
           case Failure(exception) =>
             println(s"Failed to play audio stream for '$uri'.")
             exception.printStackTrace()
@@ -158,8 +171,7 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
         }
 
       case None =>
-        println(s"No audio stream creator found for '$uri'.")
-        prompt()
+        printAndPrompt(s"No audio stream creator found for '$uri'.")
 
   /**
     * Cancels an audio stream that is currently played. If no audio stream is
@@ -171,6 +183,20 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
         println("Canceling current audio stream.")
         killSwitch.shutdown()
         refCancelStream.set(null)
+
+  /**
+    * Stops audio playback.
+    */
+  def stopPlayback(): Unit =
+    pauseActor ! PausePlaybackStage.StopPlayback
+    printAndPrompt("Audio playback stopped.")
+
+  /**
+    * Starts audio playback.
+    */
+  def startPlayback(): Unit =
+    pauseActor ! PausePlaybackStage.StartPlayback
+    printAndPrompt("Audio playback started.")
 
   /**
     * Shuts down this object and frees the resources in use.
