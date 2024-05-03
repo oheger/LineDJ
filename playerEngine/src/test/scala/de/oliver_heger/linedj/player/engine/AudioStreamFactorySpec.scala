@@ -16,9 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine
 
+import org.mockito.Mockito.*
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 import javax.sound.sampled.AudioFormat
 import scala.util.Using
@@ -27,7 +29,7 @@ import scala.util.Using
   * Test class for functionality provided by the companion object for
   * [[AudioStreamFactory]].
   */
-class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues with OptionValues:
+class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues with OptionValues with MockitoSugar:
   /**
     * Tests whether the given creator can handle the audio stream for the test
     * wav file.
@@ -84,3 +86,28 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
     val creator = DefaultAudioStreamFactory.audioStreamCreatorFor("test.what.ever")
 
     checkAudioStreamCreator(creator.value)
+
+  "CompositeAudioStreamFactory" should "return None if no child factory supports the URI" in :
+    val AudioFileUri = "myAudioFile.xyz"
+    val childFactories: List[AudioStreamFactory] = List(mock, mock, mock)
+    childFactories.foreach { factory =>
+      when(factory.audioStreamCreatorFor(AudioFileUri)).thenReturn(None)
+    }
+
+    val factory = new CompositeAudioStreamFactory(childFactories)
+    factory.audioStreamCreatorFor(AudioFileUri) shouldBe empty
+
+  it should "return the result from the first supporting child factory" in :
+    val AudioFileUri = "supportedAudioFile.lala"
+    val childFactory1 = mock[AudioStreamFactory]
+    val childFactory2 = mock[AudioStreamFactory]
+    val childFactory3 = mock[AudioStreamFactory]
+    val creator = mock[AudioStreamFactory.AudioStreamCreator]
+    when(childFactory1.audioStreamCreatorFor(AudioFileUri)).thenReturn(None)
+    when(childFactory2.audioStreamCreatorFor(AudioFileUri)).thenReturn(Some(creator))
+
+    val factory = new CompositeAudioStreamFactory(List(childFactory1, childFactory2, childFactory3))
+    val optCreator = factory.audioStreamCreatorFor(AudioFileUri)
+
+    optCreator.value should be(creator)
+    verifyNoInteractions(childFactory3)

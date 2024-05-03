@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.player.engine.AudioStreamFactory.{AudioStreamCreat
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
+import scala.annotation.tailrec
 
 object AudioStreamFactory:
   /**
@@ -93,3 +94,35 @@ trait AudioStreamFactory:
 object DefaultAudioStreamFactory extends AudioStreamFactory:
   override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
     Some(DefaultAudioStreamCreator)
+
+/**
+  * An implementation of [[AudioStreamFactory]] that wraps a number of other
+  * [[AudioStreamFactory]] objects. When asked for an [[AudioStreamCreator]],
+  * this implementation queries its child factories in the given order and
+  * returns the first result that is not ''None''. Only if none of the child
+  * factories can handle the URL, a ''None'' result is returned.
+  *
+  * @param factories a list with the child factories
+  */
+class CompositeAudioStreamFactory(val factories: List[AudioStreamFactory]) extends AudioStreamFactory:
+  override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
+    audioStreamCreatorFromChildFactories(uri, factories)
+
+  /**
+    * Queries the child factories for an [[AudioStreamCreator]] for the given
+    * file URI.
+    *
+    * @param uri            the URI of the audio file
+    * @param childFactories the list of factories to query
+    * @return an optional creator from the child factories
+    */
+  @tailrec private def audioStreamCreatorFromChildFactories(uri: String,
+                                                            childFactories: List[AudioStreamFactory]):
+  Option[AudioStreamCreator] =
+    childFactories match
+      case h :: t =>
+        h.audioStreamCreatorFor(uri) match
+          case optCreator@Some(_) => optCreator
+          case None => audioStreamCreatorFromChildFactories(uri, t)
+      case Nil =>
+        None
