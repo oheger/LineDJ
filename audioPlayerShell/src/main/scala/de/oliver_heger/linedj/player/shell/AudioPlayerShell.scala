@@ -141,10 +141,10 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
     * @param uri the URI to the audio stream to be played
     */
   def newAudioStream(uri: String): Unit =
-    audioStreamFactory.audioStreamCreatorFor(uri) match
+    audioStreamFactory.playbackDataFor(uri) match
       case Some(value) =>
         cancelCurrentStream()
-        val encodingConfig = AudioEncodingStage.AudioEncodingStageConfig(streamCreator = value,
+        val encodingConfig = AudioEncodingStage.AudioEncodingStageConfig(streamCreator = value.streamCreator,
           streamFactoryLimit = 4096,
           encoderStreamLimit = 4096)
         val source = FileIO.fromPath(Paths.get(uri))

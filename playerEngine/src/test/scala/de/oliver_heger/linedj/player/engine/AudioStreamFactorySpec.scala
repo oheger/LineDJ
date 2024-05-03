@@ -78,24 +78,29 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
     AudioStreamFactory.isFileExtensionIgnoreCase("test.mp3.", "mp3") shouldBe false
 
   "DefaultAudioStreamFactory" should "return an audio stream creator for a wav file" in :
-    val creator = DefaultAudioStreamFactory.audioStreamCreatorFor("test.wav")
+    val playbackData = DefaultAudioStreamFactory.playbackDataFor("test.wav")
 
-    checkAudioStreamCreator(creator.value)
+    checkAudioStreamCreator(playbackData.value.streamCreator)
 
   it should "ignore the file extension of the URI" in :
-    val creator = DefaultAudioStreamFactory.audioStreamCreatorFor("test.what.ever")
+    val playbackData = DefaultAudioStreamFactory.playbackDataFor("test.what.ever")
 
-    checkAudioStreamCreator(creator.value)
+    checkAudioStreamCreator(playbackData.value.streamCreator)
+    
+  it should "return a correctly initialized playback data instance" in:
+    val playbackData = DefaultAudioStreamFactory.playbackDataFor("test.wav").value
+    
+    playbackData.streamFactoryLimit should be(2 * AudioStreamFactory.DefaultAudioBufferSize)
 
   "CompositeAudioStreamFactory" should "return None if no child factory supports the URI" in :
     val AudioFileUri = "myAudioFile.xyz"
     val childFactories: List[AudioStreamFactory] = List(mock, mock, mock)
     childFactories.foreach { factory =>
-      when(factory.audioStreamCreatorFor(AudioFileUri)).thenReturn(None)
+      when(factory.playbackDataFor(AudioFileUri)).thenReturn(None)
     }
 
     val factory = new CompositeAudioStreamFactory(childFactories)
-    factory.audioStreamCreatorFor(AudioFileUri) shouldBe empty
+    factory.playbackDataFor(AudioFileUri) shouldBe empty
 
   it should "return the result from the first supporting child factory" in :
     val AudioFileUri = "supportedAudioFile.lala"
@@ -103,11 +108,13 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
     val childFactory2 = mock[AudioStreamFactory]
     val childFactory3 = mock[AudioStreamFactory]
     val creator = mock[AudioStreamFactory.AudioStreamCreator]
-    when(childFactory1.audioStreamCreatorFor(AudioFileUri)).thenReturn(None)
-    when(childFactory2.audioStreamCreatorFor(AudioFileUri)).thenReturn(Some(creator))
+    val playbackData = AudioStreamFactory.AudioStreamPlaybackData(streamCreator = creator,
+      streamFactoryLimit = 17384)
+    when(childFactory1.playbackDataFor(AudioFileUri)).thenReturn(None)
+    when(childFactory2.playbackDataFor(AudioFileUri)).thenReturn(Some(playbackData))
 
     val factory = new CompositeAudioStreamFactory(List(childFactory1, childFactory2, childFactory3))
-    val optCreator = factory.audioStreamCreatorFor(AudioFileUri)
+    val optData = factory.playbackDataFor(AudioFileUri)
 
-    optCreator.value should be(creator)
+    optData.value should be(playbackData)
     verifyNoInteractions(childFactory3)

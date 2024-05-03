@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory.{AudioStreamCreator, DefaultAudioStreamCreator}
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
@@ -39,6 +39,28 @@ object AudioStreamFactory:
 
   /** Constant for the default audio buffer size. */
   final val DefaultAudioBufferSize = 4096
+
+  /**
+    * A class storing information required to create an [[AudioInputStream]]
+    * for an audio source and to play it. Objects of this class are returned by
+    * an [[AudioStreamFactory]] implementation when it can handle the source.
+    * Based on the information in this class, the encoding of audio data and
+    * passing it to a line is possible.
+    *
+    * @param streamCreator      the function to obtain the encoded stream
+    * @param streamFactoryLimit the number of bytes that should be
+    *                           available before calling the stream
+    *                           creator
+    */
+  case class AudioStreamPlaybackData(streamCreator: AudioStreamCreator,
+                                     streamFactoryLimit: Int)
+
+  /**
+    * A default instance for playback data which is returned by the default
+    * factory implementation.
+    */
+  final val DefaultPlaybackData = AudioStreamPlaybackData(streamCreator = DefaultAudioStreamCreator,
+    streamFactoryLimit = 2 * DefaultAudioBufferSize)
 
   /**
     * Calculates the size of a buffer for playing audio data of the given
@@ -65,6 +87,7 @@ object AudioStreamFactory:
     val posExtension = uri.lastIndexOf('.')
     if posExtension < 0 then false
     else uri.substring(posExtension + 1).equalsIgnoreCase(extension)
+end AudioStreamFactory
 
 /**
   * A trait defining an object that can create an [[AudioInputStream]] from an
@@ -74,55 +97,62 @@ object AudioStreamFactory:
   */
 trait AudioStreamFactory:
   /**
-    * Returns an [[AudioStreamCreator]] for a file with the given URI if this
-    * URI is supported by this factory implementation. Currently, supported
-    * formats are detected based on file extensions.
+    * Returns an [[AudioStreamPlaybackData]] instance for a file with the given
+    * URI if this URI is supported by this factory implementation. Currently,
+    * supported formats are detected based on file extensions. If a data object
+    * is returned, it contains all information relevant for playing this audio
+    * source.
     *
     * @param uri the uri of the audio file/stream
     * @return an [[Option]] with an [[AudioStreamCreator]] that can create an
     *         audio stream for this audio data
     */
-  def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator]
+  def playbackDataFor(uri: String): Option[AudioStreamPlaybackData]
+end AudioStreamFactory
 
 /**
-  * An implementation of [[AudioStreamFactory]] that returns a default
+  * An implementation of [[AudioStreamFactory]] that returns an 
+  * [[AudioStreamPlaybackData]] with default properties including an
   * [[AudioStreamCreator]] which solely relies on Java's [[AudioSystem]]. The
   * implementation accepts all kinds of URIs and then delegates to the audio
   * system to obtain an audio stream. Whether this works or not in a concrete
   * case, may depend on the audio codecs installed on the current system.
   */
 object DefaultAudioStreamFactory extends AudioStreamFactory:
-  override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
-    Some(DefaultAudioStreamCreator)
+  override def playbackDataFor(uri: String): Option[AudioStreamPlaybackData] =
+    Some(AudioStreamFactory.DefaultPlaybackData)
+end DefaultAudioStreamFactory
 
 /**
   * An implementation of [[AudioStreamFactory]] that wraps a number of other
-  * [[AudioStreamFactory]] objects. When asked for an [[AudioStreamCreator]],
-  * this implementation queries its child factories in the given order and
-  * returns the first result that is not ''None''. Only if none of the child
-  * factories can handle the URL, a ''None'' result is returned.
+  * [[AudioStreamFactory]] objects. When asked for an 
+  * [[AudioStreamPlaybackData]], this implementation queries its child 
+  * factories in the given order and returns the first result that is not
+  * ''None''. Only if none of the child factories can handle the URL, a 
+  * ''None'' result is returned.
   *
   * @param factories a list with the child factories
   */
 class CompositeAudioStreamFactory(val factories: List[AudioStreamFactory]) extends AudioStreamFactory:
-  override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
-    audioStreamCreatorFromChildFactories(uri, factories)
+  override def playbackDataFor(uri: String): Option[AudioStreamPlaybackData] =
+    playbackDataFromChildFactories(uri, factories)
 
   /**
-    * Queries the child factories for an [[AudioStreamCreator]] for the given
-    * file URI.
+    * Queries the child factories for an [[AudioStreamPlaybackData]] for the 
+    * given file URI.
     *
     * @param uri            the URI of the audio file
     * @param childFactories the list of factories to query
     * @return an optional creator from the child factories
     */
-  @tailrec private def audioStreamCreatorFromChildFactories(uri: String,
-                                                            childFactories: List[AudioStreamFactory]):
-  Option[AudioStreamCreator] =
+  @tailrec private def playbackDataFromChildFactories(uri: String,
+                                                      childFactories: List[AudioStreamFactory]):
+  Option[AudioStreamPlaybackData] =
     childFactories match
       case h :: t =>
-        h.audioStreamCreatorFor(uri) match
+        h.playbackDataFor(uri) match
           case optCreator@Some(_) => optCreator
-          case None => audioStreamCreatorFromChildFactories(uri, t)
+          case None => playbackDataFromChildFactories(uri, t)
       case Nil =>
         None
+end CompositeAudioStreamFactory

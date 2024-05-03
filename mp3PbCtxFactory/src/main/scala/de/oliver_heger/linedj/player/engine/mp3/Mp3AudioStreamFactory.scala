@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.mp3
 
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlaybackData
 
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
@@ -32,9 +32,17 @@ object Mp3AudioStreamFactory extends AudioStreamFactory:
   /** The expected file extension for audio files supported by this factory. */
   final val FileExtension = "mp3"
 
-  override def audioStreamCreatorFor(uri: String): Option[AudioStreamCreator] =
+  /**
+    * Constant for the amount of data that should be available in the audio
+    * stream before the audio stream can be obtained.
+    */
+  private val Mp3StreamFactoryLimit = 1048570
+
+  override def playbackDataFor(uri: String): Option[AudioStreamPlaybackData] =
     if AudioStreamFactory.isFileExtensionIgnoreCase(uri, FileExtension) then
-      Some(createAudioStream)
+      val playbackData = AudioStreamPlaybackData(streamCreator = createAudioStream,
+        streamFactoryLimit = Mp3StreamFactoryLimit)
+      Some(playbackData)
     else
       None
 
@@ -43,7 +51,8 @@ object Mp3AudioStreamFactory extends AudioStreamFactory:
     * exception if the format cannot be encoded.
     *
     * @param stream the input stream
-    * @return the MP3 audio stream for this input
+    * @return the MP3 audio stream for this input and the format to obtain a 
+    *         line
     */
   private def createAudioStream(stream: InputStream): AudioInputStream =
     val in = AudioSystem getAudioInputStream stream
