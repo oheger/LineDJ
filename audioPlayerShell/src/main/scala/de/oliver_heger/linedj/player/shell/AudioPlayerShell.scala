@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.player.ui
+package de.oliver_heger.linedj.player.shell
 
-import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, DefaultAudioStreamFactory}
+import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
+import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, CompositeAudioStreamFactory, DefaultAudioStreamFactory}
 import de.oliver_heger.linedj.player.engine.stream.PausePlaybackStage.PlaybackState
 import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, LineWriterStage, PausePlaybackStage}
 import org.apache.pekko.actor as classic
@@ -42,7 +43,8 @@ object AudioPlayerShell:
     println("Audio Player Shell")
 
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
-    val streamHandler = new AudioStreamHandler(DefaultAudioStreamFactory)
+    val audioStreamFactory = new CompositeAudioStreamFactory(List(Mp3AudioStreamFactory, DefaultAudioStreamFactory))
+    val streamHandler = new AudioStreamHandler(audioStreamFactory)
     var done = false
 
     while !done do

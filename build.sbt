@@ -169,7 +169,8 @@ lazy val LineDJ = (project in file("."))
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer)
+  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer,
+  audioPlayerShell)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -956,6 +957,25 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
       Map("Service-Component" -> "OSGI-INF/*.xml"),
     SpiFlyKeys.skipSpiFly := true
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
+
+/**
+  * A project that implements a simple audio player that can be controlled via
+  * shell commands. This is mainly used for testing of the new, stream-based
+  * implementation of the player engine.
+  */
+lazy val audioPlayerShell = (project in file("audioPlayerShell"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-audio-player-shell",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies ++= Seq(
+      "com.lmax" % "disruptor" % VersionDisruptor,
+      collectionsDependency,
+      beanUtilsDependency
+    ),
+    assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
+  ) dependsOn(playerEngine, mp3PlaybackContextFactory)
 
 /**
   * Project for the player server. This project exposes player functionality
