@@ -142,11 +142,8 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
     */
   def newAudioStream(uri: String): Unit =
     audioStreamFactory.playbackDataFor(uri) match
-      case Some(value) =>
+      case Some(playbackData) =>
         cancelCurrentStream()
-        val encodingConfig = AudioEncodingStage.AudioEncodingStageConfig(streamCreator = value.streamCreator,
-          streamFactoryLimit = 4096,
-          encoderStreamLimit = 4096)
         val source = FileIO.fromPath(Paths.get(uri))
         val sink = Sink.ignore
         implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
@@ -154,7 +151,7 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
 
         println(s"Starting audio stream for '$uri'.'")
         val (ks, futDone) = source.viaMat(KillSwitches.single)(Keep.right)
-          .via(AudioEncodingStage(encodingConfig))
+          .via(AudioEncodingStage(playbackData))
           .via(PausePlaybackStage.pausePlaybackStage(pauseActor))
           .via(LineWriterStage(LineWriterStage.DefaultLineCreatorFunc))
           .toMat(sink)(Keep.both)

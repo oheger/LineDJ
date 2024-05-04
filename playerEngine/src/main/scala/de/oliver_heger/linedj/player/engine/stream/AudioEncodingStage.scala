@@ -18,10 +18,9 @@ package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.io.DynamicInputStream
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamCreator
-import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.{AudioChunk, AudioData, AudioEncodingStageConfig, AudioStreamHeader}
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.{AudioChunk, AudioData, AudioStreamHeader}
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.util.ByteString
 
 import java.io.InputStream
@@ -54,21 +53,6 @@ object AudioEncodingStage:
     * is the output type of [[AudioEncodingStage]].
     */
   type AudioData = AudioStreamHeader | AudioChunk
-
-  /**
-    * A class defining the configuration settings of [[AudioEncodingStage]].
-    *
-    * @param streamCreator          the function to obtain the encoded stream
-    * @param streamFactoryLimit     the number of bytes that should be
-    *                               available before calling the stream
-    *                               factory
-    * @param encoderStreamLimit     the number of bytes that should be
-    *                               available before reading a chunk from the
-    *                               encoded stream
-    */
-  case class AudioEncodingStageConfig(streamCreator: AudioStreamCreator,
-                                      streamFactoryLimit: Int,
-                                      encoderStreamLimit: Int)
 end AudioEncodingStage
 
 /**
@@ -90,9 +74,10 @@ end AudioEncodingStage
   * delayed until a configurable amount of source data is available. Refer to
   * [[AudioEncodingStageConfig]] for all supported configuration options.
   *
-  * @param config the configuration for this stage
+  * @param playbackData information how to encode and play the audio data
   */
-class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[FlowShape[ByteString, AudioData]]:
+class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackData)
+  extends GraphStage[FlowShape[ByteString, AudioData]]:
   private val in = Inlet[ByteString]("AudioEncoding.in")
   private val out = Outlet[AudioData]("AudioEncoding.out")
 
@@ -107,7 +92,7 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
       private var optEncodedStream: Option[InputStream] = None
 
       /** The current limit of available data. */
-      private var limit = config.streamFactoryLimit
+      private var limit = playbackData.streamFactoryLimit
 
       /**
         * The buffer for reading from the encoder stream. It is created when
@@ -174,12 +159,12 @@ class AudioEncodingStage(config: AudioEncodingStageConfig) extends GraphStage[Fl
           case Some(stream) =>
             (None, stream)
           case None =>
-            val stream = config.streamCreator(dataStream)
+            val stream = playbackData.streamCreator(dataStream)
             val format = stream.getFormat
             buffer = new Array(AudioStreamFactory.audioBufferSize(format))
+            limit = buffer.length
             val header = AudioStreamHeader(format)
             optEncodedStream = Some(stream)
-            limit = config.encoderStreamLimit
             (Some(header), stream)
 
       /**

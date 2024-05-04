@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
+import de.oliver_heger.linedj.player.engine
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -38,9 +39,6 @@ object AudioEncodingStageSpec:
 
   /** The limit before the stream factory can be invoked. */
   private val StreamFactoryLimit = 10000
-
-  /** The limit of the encoder stream. */
-  private val EncoderStreamLimit = 5200
 
   /** The chunk size for reading from the encoder stream. */
   private val EncoderStreamChunkSize = 4097
@@ -125,22 +123,20 @@ object AudioEncodingStageSpec:
     buf.toArray
 
   /**
-    * Returns a configuration for the test stage.
+    * Returns a playback data object to configure the test stage.
     *
     * @param readDataQueue the queue where to store read information
     * @return the configuration for the test stage
     */
-  private def createStageConfig(readDataQueue: BlockingQueue[ReadData]): AudioEncodingStage.AudioEncodingStageConfig =
+  private def createStageConfig(readDataQueue: BlockingQueue[ReadData]): AudioStreamFactory.AudioStreamPlaybackData =
     val streamCreator: AudioStreamFactory.AudioStreamCreator = input => {
       readDataQueue.offer(ReadData(input.available(), -1))
       new DummyEncoderStream(input, readDataQueue)
     }
 
-    AudioEncodingStage.AudioEncodingStageConfig(
+    AudioStreamFactory.AudioStreamPlaybackData(
       streamCreator = streamCreator,
-      streamFactoryLimit = StreamFactoryLimit,
-      encoderStreamLimit = EncoderStreamLimit
-    )
+      streamFactoryLimit = StreamFactoryLimit)
 end AudioEncodingStageSpec
 
 /**
@@ -177,8 +173,8 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * Runs a stream on the given data with an [[AudioEncodingStage]] and checks
     * whether the correct encoded result is produced.
     *
-    * @param data          the source data to pass through the stream
-    * @param readDataQueue the queue to propagate read information
+    * @param data           the source data to pass through the stream
+    * @param readDataQueue  the queue to propagate read information
     * @return a ''Future'' with the test assertion
     */
   private def runEncoding(data: ByteString,
@@ -245,7 +241,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
       while !readQueue.isEmpty do
         reads = readQueue.poll() :: reads
       reads.reverse.take(16)
-        .forall(_.available >= EncoderStreamLimit) shouldBe true
+        .forall(_.available >= EncoderStreamChunkSize) shouldBe true
     }
 
   it should "wipe out the data stream if an empty read occurs" in :
