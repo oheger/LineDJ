@@ -59,6 +59,8 @@ ThisBuild / assemblyMergeStrategy := {
     oldStrategy(x)
 }
 
+ThisBuild / Test / fork := true
+
 /** The options to set for the scala compiler for Scala 3 projects. */
 lazy val scala3Options = Seq(
   "-deprecation",
