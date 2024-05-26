@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archivehttpstart.app
 import com.github.cloudfiles.core.http.Secret
 import de.oliver_heger.linedj.archivehttp.config.UserCredentials
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.ClientApplicationContextImpl
-import net.sf.jguiraffe.gui.app.ApplicationContext
+import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationSyncStartup, ClientApplicationContextImpl}
+import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.utils.MessageOutput
 import net.sf.jguiraffe.resources.Message
 import org.apache.pekko.actor.ActorSystem
@@ -264,7 +264,7 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
       * @return the initialized application mock
       */
     private def createApplication(): HttpArchiveStartupApplication =
-      val app = spy(new HttpArchiveStartupApplication)
+      val app = spy(new HttpArchiveStartupApplicationTestImpl)
       val clientContext = new ClientApplicationContextImpl(messageBus = messageBus, actorSystem = system)
       app.initClientContext(clientContext)
       when(app.getApplicationContext).thenReturn(applicationContext)
@@ -279,3 +279,12 @@ class SuperPasswordControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     private def createController(): SuperPasswordController =
       new SuperPasswordController(application, storageService)
 
+  /**
+    * A test implementation of the startup application which skips creation of
+    * the UI.
+    */
+  private class HttpArchiveStartupApplicationTestImpl extends HttpArchiveStartupApplication
+    with ApplicationSyncStartup with AppWithTestPlatform:
+    override def startApplication(app: Application, configName: String): Unit = {}
+
+    override def initGUI(appCtx: ApplicationContext): Unit = {}
