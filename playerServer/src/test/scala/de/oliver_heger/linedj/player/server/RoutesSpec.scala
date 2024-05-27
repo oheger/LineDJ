@@ -115,14 +115,23 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   /**
     * Returns a [[PlayerServerConfig]] that can be used to start an HTTP
     * server. It is initialized from a base configuration with an unused server
-    * port and the path to the folder containing the test UI.
+    * port and the path to the folder containing the test UI. Unfortunately,
+    * the latter is different when the test is launched from the IDE or
+    * directly via SBT.
     *
     * @param baseConfig the base configuration
     * @return the configuration
     */
   private def httpServerConfig(baseConfig: PlayerServerConfig = baseServerConfig): PlayerServerConfig =
+    val ProjectName = "playerServer"
+    val currentDir = Paths.get("").toAbsolutePath
+    val projectDir = if currentDir.getFileName.toString == ProjectName then currentDir
+    else currentDir.resolve(ProjectName)
+    val uiFolderPathRelative = Paths.get("src", "test", "resources", "ui")
+    val uiFolderPath = projectDir.resolve(uiFolderPathRelative).normalize()
+
     baseConfig.copy(serverPort = freePort(),
-      uiContentFolder = Paths.get("playerServer", "src", "test", "resources", "ui"),
+      uiContentFolder = uiFolderPath,
       uiPath = "/ui/index.html")
 
   /**
