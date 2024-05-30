@@ -23,6 +23,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
+import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
@@ -40,6 +41,9 @@ object AudioEncodingStageSpec:
 
   /** The chunk size for reading from the encoder stream. */
   private val EncoderStreamChunkSize = 4097
+
+  /** The size of the in-memory buffer to be used by the stage. */
+  private val InMemoryBufferSize = 20000
 
   /** The header element expected to be received in test streams. */
   private val ExpectedHeader = AudioEncodingStage.AudioStreamHeader(AudioStreamTestHelper.Format)
@@ -66,7 +70,7 @@ object AudioEncodingStageSpec:
     * @param readDataQueue the queue where to store read information
     * @return the configuration for the test stage
     */
-  private def createStageConfig(readDataQueue: BlockingQueue[ReadData]): AudioStreamFactory.AudioStreamPlaybackData =
+  private def createPlaybackData(readDataQueue: BlockingQueue[ReadData]): AudioStreamFactory.AudioStreamPlaybackData =
     val streamCreator: AudioStreamFactory.AudioStreamCreator = input => {
       readDataQueue.offer(ReadData(input.available(), -1))
       new DummyEncoderStream(input, readDataQueue)
@@ -75,6 +79,19 @@ object AudioEncodingStageSpec:
     AudioStreamFactory.AudioStreamPlaybackData(
       streamCreator = streamCreator,
       streamFactoryLimit = StreamFactoryLimit)
+
+  /**
+    * Polls a blocking queue with [[ReadData]] objects and returns its content
+    * as a list.
+    *
+    * @param readQueue the queue to poll
+    * @return the list of found [[ReadData]] objects
+    */
+  private def fetchReadData(readQueue: LinkedBlockingQueue[ReadData]): List[ReadData] =
+    var reads = List.empty[ReadData]
+    while !readQueue.isEmpty do
+      reads = readQueue.poll() :: reads
+    reads
 end AudioEncodingStageSpec
 
 /**
@@ -113,14 +130,17 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     *
     * @param data           the source data to pass through the stream
     * @param readDataQueue  the queue to propagate read information
+    * @param inputChunkSize the chunk size of the input source
     * @return a ''Future'' with the test assertion
     */
   private def runEncoding(data: ByteString,
-                          readDataQueue: BlockingQueue[ReadData] = new LinkedBlockingQueue[ReadData]):
+                          readDataQueue: BlockingQueue[ReadData] = new LinkedBlockingQueue[ReadData],
+                          inputChunkSize: Int = InputChunkSize):
   Future[Assertion] =
-    val source = Source(data.grouped(InputChunkSize).toList)
+    val source = Source(data.grouped(inputChunkSize).toList)
     val sink = foldSink()
-    val stage = new AudioEncodingStage(createStageConfig(readDataQueue))
+    val stage = new AudioEncodingStage(createPlaybackData(readDataQueue), InMemoryBufferSize)
+
     source.via(stage).runWith(sink) map { streamResult =>
       val expectedResult = AggregatedAudioData(Some(ExpectedHeader), ByteString(encodeBytes(data.toArray)))
       streamResult should be(expectedResult)
@@ -155,9 +175,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     runEncoding(ByteString(data), readQueue) map { _ =>
       readQueue.poll() // The first item is from the factory.
-      var reads = List.empty[ReadData]
-      while !readQueue.isEmpty do
-        reads = readQueue.poll() :: reads
+      val reads = fetchReadData(readQueue)
       reads.forall(_.bufferSize == EncoderStreamChunkSize) shouldBe true
     }
 
@@ -175,9 +193,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val readQueue = new LinkedBlockingQueue[ReadData]
 
     runEncoding(ByteString(data), readQueue) map { _ =>
-      var reads = List.empty[ReadData]
-      while !readQueue.isEmpty do
-        reads = readQueue.poll() :: reads
+      val reads = fetchReadData(readQueue)
       reads.reverse.take(16)
         .forall(_.available >= EncoderStreamChunkSize) shouldBe true
     }
@@ -190,7 +206,7 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val (chunk2, chunk3) = generateData(20240312220501L, 2 * StreamFactoryLimit).splitAt(StreamFactoryLimit)
     val source = Source(List(chunk1, chunk2, chunk3)).map(ByteString.apply)
     val sink = foldSink()
-    val stage = new AudioEncodingStage(createStageConfig(new LinkedBlockingQueue))
+    val stage = new AudioEncodingStage(createPlaybackData(new LinkedBlockingQueue))
 
     source.via(stage).runWith(sink) map { streamResult =>
       val expectedData = ByteString(encodeBytes(chunk2)) ++ ByteString(encodeBytes(chunk3))
@@ -205,10 +221,22 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
     chunk(3 * EncoderStreamChunkSize + 5) = 'z'
     val source = Source(List(ByteString(chunk)))
     val sink = foldSink()
-    val stage = new AudioEncodingStage(createStageConfig(new LinkedBlockingQueue))
+    val stage = new AudioEncodingStage(createPlaybackData(new LinkedBlockingQueue))
 
     source.via(stage).runWith(sink) map { streamResult =>
       val expectedData = ByteString(encodeBytes(chunk.take(EncoderStreamChunkSize)))
       val expectedResult = AggregatedAudioData(Some(ExpectedHeader), expectedData)
       streamResult should be(expectedResult)
+    }
+
+  it should "not exceed the in-memory buffer size" in :
+    val inputChunkSize = 8192
+    val data = generateData(20240529221414L, 128000)
+    val readQueue = new LinkedBlockingQueue[ReadData]
+
+    runEncoding(ByteString(data), readQueue, inputChunkSize) map { _ =>
+      val reads = fetchReadData(readQueue)
+      forAll(reads) {
+        _.available should be < (InMemoryBufferSize + inputChunkSize)
+      }
     }
