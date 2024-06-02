@@ -142,6 +142,14 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .expectResult("source1")
       .expectResult("anotherSource")
 
+  it should "correctly configure the encoding stage" in :
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.addAudioSource("testSource", 1024)
+      // Set a too low memory size, this should stall playback.
+      .runPlaylistStream(List("testSource"), memorySize = 128)
+      .expectNoResult()
+
   /**
     * A test helper class for running a playlist stream against a test stage.
     */
@@ -181,15 +189,18 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     /**
       * Executes a playlist stream with the given sources. The results are
-      * stored in a queue and can be queried using ''nextResult()''. 
+      * stored in a queue and can be queried using ''nextResult()''.
       *
-      * @param sources the sources for the playlist
+      * @param sources    the sources for the playlist
+      * @param memorySize the size of the in-memory buffer
       * @return this test helper
       */
-    def runPlaylistStream(sources: List[String]): StreamPlayerStageTestHelper =
+    def runPlaylistStream(sources: List[String],
+                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize):
+    StreamPlayerStageTestHelper =
       val source = Source(sources)
       val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
-      source.via(AudioStreamPlayerStage(createStageConfig(sources))).runWith(sink)
+      source.via(AudioStreamPlayerStage(createStageConfig(sources, memorySize))).runWith(sink)
       this
 
     /**
@@ -215,6 +226,16 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
       val expectedSize = AudioStreamTestHelper.encodeBytes(audioSourceData(name).content).length
       playedChunks.totalSize should be(expectedSize)
+      this
+
+    /**
+      * Checks that no result is received from the playlist stream, which means
+      * that playback is not possible for whatever reason.
+      *
+      * @return this test helper
+      */
+    def expectNoResult(): StreamPlayerStageTestHelper =
+      resultQueue.poll(500, TimeUnit.MILLISECONDS) should be(null)
       this
 
     /**
@@ -297,16 +318,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Creates the configuration for the player stage to be tested.
       *
-      * @param sources the list of expected sources
+      * @param sources    the list of expected sources
+      * @param memorySize the size of the in-memory buffer
       * @return the configuration for the stage
       */
-    private def createStageConfig(sources: List[String]):
+    private def createStageConfig(sources: List[String], memorySize: Int):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveSource,
         audioStreamFactory = createAudioStreamFactory(),
         pauseActor = pauseActor,
         sinkProviderFunc = createSink,
-        lineCreatorFunc = createLineCreator(sources)
+        lineCreatorFunc = createLineCreator(sources),
+        inMemoryBufferSize = memorySize
       )
-      

@@ -107,7 +107,7 @@ object AudioStreamPlayerStage:
     }.mapAsync(parallelism = 1) { (streamSource, sink) =>
       val playbackData = config.audioStreamFactory.playbackDataFor(streamSource.url).get
       streamSource.source
-        .via(AudioEncodingStage(playbackData))
+        .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
         .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
         .runWith(sink)
     }
