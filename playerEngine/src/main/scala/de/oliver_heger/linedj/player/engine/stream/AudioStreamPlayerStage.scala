@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.player.engine.stream
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFunc
 import org.apache.pekko.{NotUsed, actor as classic}
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import org.apache.pekko.stream.{FlowShape, Graph, Materializer}
 import org.apache.pekko.util.ByteString
@@ -100,13 +101,16 @@ object AudioStreamPlayerStage:
     */
   def apply[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK])
                      (using system: classic.ActorSystem): Graph[FlowShape[SRC, SNK], NotUsed] =
-    implicit val ec: ExecutionContext = system.dispatcher
+    given typedSystem: ActorSystem[Nothing] = system.toTyped
+
+    given ec: ExecutionContext = system.dispatcher
 
     Flow[SRC].mapAsync(parallelism = 1) { src =>
       config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
     }.mapAsync(parallelism = 1) { (streamSource, sink) =>
       val playbackData = config.audioStreamFactory.playbackDataFor(streamSource.url).get
       streamSource.source
+        .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
         .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
         .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
         .runWith(sink)

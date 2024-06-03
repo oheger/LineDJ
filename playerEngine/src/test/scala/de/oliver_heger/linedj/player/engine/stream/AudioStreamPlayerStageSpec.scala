@@ -150,6 +150,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .runPlaylistStream(List("testSource"), memorySize = 128)
       .expectNoResult()
 
+  it should "correctly integrate the pause actor" in :
+    val sourceName = "pausedSource"
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.sendPausePlaybackCommand(PausePlaybackStage.StopPlayback)
+      .addAudioSource(sourceName, 2048)
+      .runPlaylistStream(List(sourceName))
+      .expectNoResult()
+      .sendPausePlaybackCommand(PausePlaybackStage.StartPlayback)
+      .expectResult(sourceName)
+
   /**
     * A test helper class for running a playlist stream against a test stage.
     */
@@ -236,6 +247,16 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       */
     def expectNoResult(): StreamPlayerStageTestHelper =
       resultQueue.poll(500, TimeUnit.MILLISECONDS) should be(null)
+      this
+
+    /**
+      * Sends the given command to the managed pause actor.
+      *
+      * @param command the command to send
+      * @return this test helper
+      */
+    def sendPausePlaybackCommand(command: PausePlaybackStage.PausePlaybackCommand): StreamPlayerStageTestHelper =
+      pauseActor ! command
       this
 
     /**
