@@ -161,6 +161,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .sendPausePlaybackCommand(PausePlaybackStage.StartPlayback)
       .expectResult(sourceName)
 
+  it should "skip elements that cannot be handled by the AudioStreamFactory" in :
+    val firstSource = "theFirstSource"
+    val lastSource = "theLastSource"
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.addAudioSource(firstSource, 512)
+      .addAudioSource(lastSource, 256)
+      .runPlaylistStream(List(firstSource, "ignoredSource", lastSource))
+      .expectResult(firstSource)
+      .expectResult(lastSource)
+
   /**
     * A test helper class for running a playlist stream against a test stage.
     */
@@ -328,7 +339,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @return the function to obtain the next line
       */
     private def createLineCreator(sources: List[String]): LineWriterStage.LineCreatorFunc =
-      val refSources = new AtomicReference(sources)
+      val refSources = new AtomicReference(sources.filter(audioSourceData.contains))
       header =>
         header.format should be(AudioStreamTestHelper.Format)
         val currentSources = refSources.get()

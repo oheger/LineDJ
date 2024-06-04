@@ -106,12 +106,17 @@ object AudioStreamPlayerStage:
     given ec: ExecutionContext = system.dispatcher
 
     Flow[SRC].mapAsync(parallelism = 1) { src =>
-      config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
-    }.mapAsync(parallelism = 1) { (streamSource, sink) =>
-      val playbackData = config.audioStreamFactory.playbackDataFor(streamSource.url).get
-      streamSource.source
-        .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
-        .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
-        .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
-        .runWith(sink)
-    }
+        config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
+      }.map { (streamSource, sink) =>
+        config.audioStreamFactory.playbackDataFor(streamSource.url).map { playbackData =>
+          (streamSource, sink, playbackData)
+        }
+      }.filter(_.isDefined)
+      .map(_.get)
+      .mapAsync(parallelism = 1) { (streamSource, sink, playbackData) =>
+        streamSource.source
+          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
+          .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
+          .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
+          .runWith(sink)
+      }
