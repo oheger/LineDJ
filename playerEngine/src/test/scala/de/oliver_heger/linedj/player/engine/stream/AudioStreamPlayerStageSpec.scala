@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.stream.{KillSwitches, SharedKillSwitch}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
@@ -172,6 +173,19 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .expectResult(firstSource)
       .expectResult(lastSource)
 
+  it should "support a kill switch to cancel the audio stream" in :
+    val source = "SourceToBeCanceled"
+    val killSwitch = KillSwitches.shared("testKillSwitch")
+    val helper = new StreamPlayerStageTestHelper
+    helper.addAudioSource(source, 65536)
+      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch))
+
+    killSwitch.shutdown()
+
+    val encodedSourceContent = AudioStreamTestHelper.encodeBytes(helper.sourceData(source).content)
+    val result = helper.nextResult().value
+    result.totalSize should be < encodedSourceContent.length
+
   /**
     * A test helper class for running a playlist stream against a test stage.
     */
@@ -213,16 +227,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * Executes a playlist stream with the given sources. The results are
       * stored in a queue and can be queried using ''nextResult()''.
       *
-      * @param sources    the sources for the playlist
-      * @param memorySize the size of the in-memory buffer
+      * @param sources       the sources for the playlist
+      * @param memorySize    the size of the in-memory buffer
+      * @param optKillSwitch an optional kill switch to add to the stream
       * @return this test helper
       */
     def runPlaylistStream(sources: List[String],
-                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize):
-    StreamPlayerStageTestHelper =
+                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
+                          optKillSwitch: Option[SharedKillSwitch] = None): StreamPlayerStageTestHelper =
       val source = Source(sources)
       val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
-      source.via(AudioStreamPlayerStage(createStageConfig(sources, memorySize))).runWith(sink)
+      source.via(AudioStreamPlayerStage(createStageConfig(sources, memorySize, optKillSwitch))).runWith(sink)
       this
 
     /**
@@ -350,11 +365,12 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Creates the configuration for the player stage to be tested.
       *
-      * @param sources    the list of expected sources
-      * @param memorySize the size of the in-memory buffer
+      * @param sources       the list of expected sources
+      * @param memorySize    the size of the in-memory buffer
+      * @param optKillSwitch the kill switch for the config
       * @return the configuration for the stage
       */
-    private def createStageConfig(sources: List[String], memorySize: Int):
+    private def createStageConfig(sources: List[String], memorySize: Int, optKillSwitch: Option[SharedKillSwitch]):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveSource,
@@ -362,5 +378,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         pauseActor = pauseActor,
         sinkProviderFunc = createSink,
         lineCreatorFunc = createLineCreator(sources),
+        optKillSwitch = optKillSwitch,
         inMemoryBufferSize = memorySize
       )

@@ -22,7 +22,7 @@ import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
-import org.apache.pekko.stream.{FlowShape, Graph, Materializer}
+import org.apache.pekko.stream.{FlowShape, Graph, Materializer, SharedKillSwitch}
 import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -74,6 +74,8 @@ object AudioStreamPlayerStage:
     * @param pauseActor         the actor to pause playback
     * @param inMemoryBufferSize the in-memory buffer size
     * @param lineCreatorFunc    the function to create audio line objects
+    * @param optKillSwitch      an optional [[SharedKillSwitch]] to cancel the
+    *                           audio stream
     * @param dispatcherName     the dispatcher for writing to lines
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the result type of the sinks for audio streams
@@ -85,6 +87,7 @@ object AudioStreamPlayerStage:
                                                inMemoryBufferSize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                                lineCreatorFunc: LineCreatorFunc =
                                                LineWriterStage.DefaultLineCreatorFunc,
+                                               optKillSwitch: Option[SharedKillSwitch] = None,
                                                dispatcherName: String = LineWriterStage.BlockingDispatcherName)
 
   /**
@@ -114,7 +117,10 @@ object AudioStreamPlayerStage:
       }.filter(_.isDefined)
       .map(_.get)
       .mapAsync(parallelism = 1) { (streamSource, sink, playbackData) =>
-        streamSource.source
+        val source = config.optKillSwitch.fold(streamSource.source) { ks =>
+          streamSource.source.via(ks.flow)
+        }
+        source
           .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
           .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
