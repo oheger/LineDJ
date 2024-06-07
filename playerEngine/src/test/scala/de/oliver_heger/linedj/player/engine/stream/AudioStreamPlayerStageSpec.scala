@@ -37,7 +37,8 @@ import java.io.InputStream
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import javax.sound.sampled.{AudioInputStream, SourceDataLine}
-import scala.concurrent.Future
+import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 object AudioStreamPlayerStageSpec:
@@ -47,8 +48,34 @@ object AudioStreamPlayerStageSpec:
   /** The chunk size used by audio sources. */
   private val SourceChunkSize = 64
 
+  /**
+    * A special instance of [[PlayedChunks]] to indicate the end of the
+    * playlist stream. The test helper writes this value into the results
+    * queue when the stream ends.
+    */
+  private val PlaylistEnd = PlayedChunks("", -1)
+
   /** A counter for generating unique actor names. */
   private var actorNameCounter = 0
+
+  /**
+    * A data class used to aggregate over the played audio chunks for a single
+    * audio source.
+    *
+    * @param sourceName the name of the source
+    * @param totalSize  the total size in bytes of this source
+    */
+  private case class PlayedChunks(sourceName: String,
+                                  totalSize: Int):
+    /**
+      * Returns an updated instance that incorporates the given chunk.
+      *
+      * @param chunk a chunk played for this source
+      * @return the updated instance
+      */
+    def addChunk(chunk: LineWriterStage.PlayedAudioChunk): PlayedChunks =
+      copy(totalSize = totalSize + chunk.size)
+  end PlayedChunks
 
   /**
     * Generates a unique name for an actor to pause playback.
@@ -102,25 +129,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     def verifyLine(): Unit =
       lineData.get().toArray should be(AudioStreamTestHelper.encodeBytes(content))
   end AudioSourceData
-
-  /**
-    * A data class used to aggregate over the played audio chunks for a single
-    * audio source.
-    *
-    * @param sourceName the name of the source
-    * @param totalSize  the total size in bytes of this source
-    */
-  private case class PlayedChunks(sourceName: String,
-                                  totalSize: Int):
-    /**
-      * Returns an updated instance that incorporates the given chunk.
-      *
-      * @param chunk a chunk played for this source
-      * @return the updated instance
-      */
-    def addChunk(chunk: LineWriterStage.PlayedAudioChunk): PlayedChunks =
-      copy(totalSize = totalSize + chunk.size)
-  end PlayedChunks
 
   "AudioStreamPlayerStage" should "set up a correct line writer stage" in :
     val helper = new StreamPlayerStageTestHelper
@@ -178,13 +186,36 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     val killSwitch = KillSwitches.shared("testKillSwitch")
     val helper = new StreamPlayerStageTestHelper
     helper.addAudioSource(source, 65536)
-      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch))
+      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch), reportSourceStart = true)
+    val sourceStartResult = helper.nextResult().value
+    sourceStartResult should be(PlayedChunks(source, 0))
 
     killSwitch.shutdown()
 
     val encodedSourceContent = AudioStreamTestHelper.encodeBytes(helper.sourceData(source).content)
     val result = helper.nextResult().value
     result.totalSize should be < encodedSourceContent.length
+
+  "runPlaylistStream" should "cancel the playlist stream when the kill switch is triggered" in :
+    val killSwitch = KillSwitches.shared("playlistKiller")
+    val SourceCount = 16
+    val helper = new StreamPlayerStageTestHelper
+    val sources = (1 to SourceCount).map(idx => s"AudioSource$idx")
+    sources.foreach { src =>
+      helper.addAudioSource(src, 1024)
+    }
+
+    helper.runPlaylistStream(sources.toList, optKillSwitch = Some(killSwitch))
+    helper.nextResult()
+    killSwitch.shutdown()
+
+    @tailrec def fetchResults(count: Int): Int =
+      helper.nextResult() match
+        case Some(PlaylistEnd) => count
+        case _ => fetchResults(count + 1)
+
+    val resultCount = fetchResults(0)
+    resultCount should be < SourceCount - 1
 
   /**
     * A test helper class for running a playlist stream against a test stage.
@@ -227,17 +258,26 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * Executes a playlist stream with the given sources. The results are
       * stored in a queue and can be queried using ''nextResult()''.
       *
-      * @param sources       the sources for the playlist
-      * @param memorySize    the size of the in-memory buffer
-      * @param optKillSwitch an optional kill switch to add to the stream
+      * @param sources           the sources for the playlist
+      * @param memorySize        the size of the in-memory buffer
+      * @param optKillSwitch     an optional kill switch to add to the stream
+      * @param reportSourceStart flag whether a result for a newly started
+      *                          audio source should be published
       * @return this test helper
       */
     def runPlaylistStream(sources: List[String],
                           memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
-                          optKillSwitch: Option[SharedKillSwitch] = None): StreamPlayerStageTestHelper =
+                          optKillSwitch: Option[SharedKillSwitch] = None,
+                          reportSourceStart: Boolean = false): StreamPlayerStageTestHelper =
+      given ec: ExecutionContext = system.dispatcher
+
       val source = Source(sources)
       val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
-      source.via(AudioStreamPlayerStage(createStageConfig(sources, memorySize, optKillSwitch))).runWith(sink)
+      val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart)
+
+      AudioStreamPlayerStage.runPlaylistStream(config, source, sink).foreach { _ =>
+        resultQueue.offer(PlaylistEnd)
+      }
       this
 
     /**
@@ -350,34 +390,44 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Returns a function to create the next source data line.
       *
-      * @param sources the list of expected sources
+      * @param sources        the list of expected sources
+      * @param reportCreation flag whether the function should put a chunks
+      *                       object in the result queue to indicate the start
+      *                       of a new source; this is used by some test cases
       * @return the function to obtain the next line
       */
-    private def createLineCreator(sources: List[String]): LineWriterStage.LineCreatorFunc =
+    private def createLineCreator(sources: List[String], reportCreation: Boolean): LineWriterStage.LineCreatorFunc =
       val refSources = new AtomicReference(sources.filter(audioSourceData.contains))
       header =>
         header.format should be(AudioStreamTestHelper.Format)
         val currentSources = refSources.get()
         val nextSource = currentSources.head
         refSources.set(currentSources.tail)
+        if reportCreation then
+          resultQueue.offer(PlayedChunks(nextSource, 0))
         audioSourceData(nextSource).line
 
     /**
       * Creates the configuration for the player stage to be tested.
       *
-      * @param sources       the list of expected sources
-      * @param memorySize    the size of the in-memory buffer
-      * @param optKillSwitch the kill switch for the config
+      * @param sources           the list of expected sources
+      * @param memorySize        the size of the in-memory buffer
+      * @param optKillSwitch     the kill switch for the config
+      * @param reportSourceStart flag whether a result for a newly started
+      *                          audio source should be published
       * @return the configuration for the stage
       */
-    private def createStageConfig(sources: List[String], memorySize: Int, optKillSwitch: Option[SharedKillSwitch]):
+    private def createStageConfig(sources: List[String],
+                                  memorySize: Int,
+                                  optKillSwitch: Option[SharedKillSwitch],
+                                  reportSourceStart: Boolean):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveSource,
         audioStreamFactory = createAudioStreamFactory(),
         pauseActor = pauseActor,
         sinkProviderFunc = createSink,
-        lineCreatorFunc = createLineCreator(sources),
+        lineCreatorFunc = createLineCreator(sources, reportSourceStart),
         optKillSwitch = optKillSwitch,
         inMemoryBufferSize = memorySize
       )

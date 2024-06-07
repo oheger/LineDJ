@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFu
 import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.{FlowShape, Graph, Materializer, SharedKillSwitch}
 import org.apache.pekko.util.ByteString
 
@@ -120,9 +120,48 @@ object AudioStreamPlayerStage:
         val source = config.optKillSwitch.fold(streamSource.source) { ks =>
           streamSource.source.via(ks.flow)
         }
-        source
+        appendOptionalKillSwitch(streamSource.source, config)
           .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
           .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
           .runWith(sink)
       }
+
+  /**
+    * Runs a stream with a full playlist. For each element issued by the given
+    * source, an audio playback stream is spawned using the given sink to
+    * collect the results.
+    *
+    * @param config the configuration for the audio player stage
+    * @param source the source with playlist items
+    * @param sink   the sink of the playlist stream
+    * @param system the actor system
+    * @tparam SRC the type of the data identifying audio sources
+    * @tparam SNK the result type of the sinks for audio streams
+    * @tparam RES the result type of the sink for the playlist stream
+    * @return the materialized value of the playlist stream sink
+    */
+  def runPlaylistStream[SRC, SNK, RES](config: AudioStreamPlayerConfig[SRC, SNK],
+                                       source: Source[SRC, Any],
+                                       sink: Sink[SNK, RES])
+                                      (using system: classic.ActorSystem): RES =
+    appendOptionalKillSwitch(source, config).via(apply(config)).runWith(sink)
+
+  /**
+    * Appends the [[SharedKillSwitch]] from the configuration to the given
+    * source if it is defined.
+    *
+    * @param source the source
+    * @param config the configuration
+    * @tparam SRC the type of the data identifying audio sources
+    * @tparam SNK the result type of the sinks for audio streams
+    * @tparam OUT the type of the source
+    * @tparam MAT the type of the materialized value of the source
+    * @return the source decorated with the kill switch
+    */
+  private def appendOptionalKillSwitch[SRC, SNK, OUT, MAT](source: Source[OUT, MAT],
+                                                           config: AudioStreamPlayerConfig[SRC, SNK]):
+  Source[OUT, MAT] =
+    config.optKillSwitch.fold(source) { ks =>
+      source.viaMat(ks.flow)(Keep.left)
+    }
