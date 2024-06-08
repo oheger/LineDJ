@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
-import org.apache.pekko.actor as classic
+import org.apache.pekko.{Done, actor as classic}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.{KillSwitches, SharedKillSwitch}
@@ -28,6 +28,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
@@ -223,7 +224,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     val resultCount = fetchResults(0)
     resultCount should be < SourceCount - 1
 
-  it should "continue with the next audio source when playback crashes" in:
+  it should "continue with the next audio source when playback crashes" in :
     val sources = List("firstSource", ErrorSource, "sourceAfterError")
     val helper = new StreamPlayerStageTestHelper
 
@@ -233,6 +234,19 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .runPlaylistStream(sources)
       .expectResult(sources.head)
       .expectResult(sources.last)
+
+  it should "return the materialized value of the source" in :
+    val sources = List("song1", "song2", "song3")
+    val playlistSource = Source.queue[String](5)
+    val helper = new StreamPlayerStageTestHelper
+    helper.addAudioSource("song1", 1024)
+      .addAudioSource("song2", 768)
+      .addAudioSource("song3", 2048)
+
+    val (queue, _) = helper.runPlaylistStreamWithSource(playlistSource, sources)
+    sources.foreach(queue.offer)
+
+    forAll(sources)(helper.expectResult)
 
   /**
     * A test helper class for running a playlist stream against a test stage.
@@ -289,13 +303,35 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       given ec: ExecutionContext = system.dispatcher
 
       val source = Source(sources)
+      val (_, futSink) = runPlaylistStreamWithSource(source, sources, memorySize, optKillSwitch, reportSourceStart)
+      futSink.foreach { _ => resultQueue.offer(PlaylistEnd) }
+      this
+
+    /**
+      * Executes a playlist with the given parameters. With this function, the
+      * [[Source]] of the stream can be explicitly specified, and its
+      * materialized value is returned.
+      *
+      * @param source            the source for the audio sources in the playlist
+      * @param sources           the audio sources to be played
+      * @param memorySize        the size of the in-memory buffer
+      * @param optKillSwitch     an optional kill switch to add to the stream
+      * @param reportSourceStart flag whether a result for a newly started
+      *                          audio source should be published
+      * @tparam MAT the type of the data materialized by the source
+      * @return the materialized data from the source
+      */
+    def runPlaylistStreamWithSource[MAT](source: Source[String, MAT],
+                                         sources: List[String],
+                                         memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
+                                         optKillSwitch: Option[SharedKillSwitch] = None,
+                                         reportSourceStart: Boolean = false): (MAT, Future[Done]) =
+      given ec: ExecutionContext = system.dispatcher
+
       val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
       val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart)
 
-      AudioStreamPlayerStage.runPlaylistStream(config, source, sink).foreach { _ =>
-        resultQueue.offer(PlaylistEnd)
-      }
-      this
+      AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
 
     /**
       * Returns the next result from the playlist stream sink or ''None'' if 

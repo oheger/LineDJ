@@ -146,12 +146,14 @@ object AudioStreamPlayerStage:
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the result type of the sinks for audio streams
     * @tparam RES the result type of the sink for the playlist stream
-    * @return the materialized value of the playlist stream sink
+    * @tparam MAT the type of the data materialized by the source
+    * @return a tuple with the materialized values of the playlist stream
+    *         source and sink
     */
-  def runPlaylistStream[SRC, SNK, RES](config: AudioStreamPlayerConfig[SRC, SNK],
-                                       source: Source[SRC, Any],
-                                       sink: Sink[SNK, RES])
-                                      (using system: classic.ActorSystem): RES =
+  def runPlaylistStream[SRC, SNK, RES, MAT](config: AudioStreamPlayerConfig[SRC, SNK],
+                                            source: Source[SRC, MAT],
+                                            sink: Sink[SNK, RES])
+                                           (using system: classic.ActorSystem): (MAT, RES) =
     val playlistStream = appendOptionalKillSwitch(source, config)
       .via(apply(config))
       .log("playlistStream")
@@ -161,8 +163,8 @@ object AudioStreamPlayerStage:
           onFinish = Attributes.LogLevels.Info,
           onFailure = Attributes.LogLevels.Error
         )
-      ).toMat(sink)(Keep.right)
-    
+      ).toMat(sink)(Keep.both)
+
     val supervisedStream = playlistStream.withAttributes(ActorAttributes.supervisionStrategy(playlistStreamDecider))
     supervisedStream.run()
 
