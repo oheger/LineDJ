@@ -22,7 +22,7 @@ import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.{FlowShape, Graph, Materializer, SharedKillSwitch}
+import org.apache.pekko.stream.{ActorAttributes, Attributes, FlowShape, Graph, Materializer, SharedKillSwitch, Supervision}
 import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -91,6 +91,13 @@ object AudioStreamPlayerStage:
                                                dispatcherName: String = LineWriterStage.BlockingDispatcherName)
 
   /**
+    * A supervision strategy to be applied to playlist streams. This strategy
+    * continues playback with the next element if the playback for one audio
+    * source fails for whatever reason.
+    */
+  private val playlistStreamDecider: Supervision.Decider = _ => Supervision.resume
+
+  /**
     * Creates a stage for playing audio streams based on the given
     * configuration. The stage expects as input data that can be resolved by
     * the [[SourceResolverFunc]]. It yields the materialized data of the sink
@@ -145,7 +152,19 @@ object AudioStreamPlayerStage:
                                        source: Source[SRC, Any],
                                        sink: Sink[SNK, RES])
                                       (using system: classic.ActorSystem): RES =
-    appendOptionalKillSwitch(source, config).via(apply(config)).runWith(sink)
+    val playlistStream = appendOptionalKillSwitch(source, config)
+      .via(apply(config))
+      .log("playlistStream")
+      .addAttributes(
+        Attributes.logLevels(
+          onElement = Attributes.LogLevels.Off,
+          onFinish = Attributes.LogLevels.Info,
+          onFailure = Attributes.LogLevels.Error
+        )
+      ).toMat(sink)(Keep.right)
+    
+    val supervisedStream = playlistStream.withAttributes(ActorAttributes.supervisionStrategy(playlistStreamDecider))
+    supervisedStream.run()
 
   /**
     * Appends the [[SharedKillSwitch]] from the configuration to the given

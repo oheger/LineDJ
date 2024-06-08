@@ -49,6 +49,12 @@ object AudioStreamPlayerStageSpec:
   private val SourceChunkSize = 64
 
   /**
+    * The name of a source that triggers an error when creating a line. This is
+    * used for testing error handling.
+    */
+  private val ErrorSource = "willFail"
+
+  /**
     * A special instance of [[PlayedChunks]] to indicate the end of the
     * playlist stream. The test helper writes this value into the results
     * queue when the stream ends.
@@ -216,6 +222,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     val resultCount = fetchResults(0)
     resultCount should be < SourceCount - 1
+
+  it should "continue with the next audio source when playback crashes" in:
+    val sources = List("firstSource", ErrorSource, "sourceAfterError")
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.addAudioSource(sources.head, 128)
+      .addAudioSource(ErrorSource, 42)
+      .addAudioSource(sources.last, 256)
+      .runPlaylistStream(sources)
+      .expectResult(sources.head)
+      .expectResult(sources.last)
 
   /**
     * A test helper class for running a playlist stream against a test stage.
@@ -403,8 +420,11 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         val currentSources = refSources.get()
         val nextSource = currentSources.head
         refSources.set(currentSources.tail)
+
         if reportCreation then
           resultQueue.offer(PlayedChunks(nextSource, 0))
+        if nextSource == ErrorSource then
+          throw new IllegalStateException("Test exception: Unsupported audio source.")
         audioSourceData(nextSource).line
 
     /**
