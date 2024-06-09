@@ -17,22 +17,20 @@
 package de.oliver_heger.linedj.player.shell
 
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
-import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, CompositeAudioStreamFactory, DefaultAudioStreamFactory}
 import de.oliver_heger.linedj.player.engine.stream.PausePlaybackStage.PlaybackState
-import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, CompositeAudioStreamFactory, DefaultAudioStreamFactory}
 import org.apache.pekko.actor as classic
-import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
-import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
+import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 
 import java.nio.file.Paths
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.IndexedSeq
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.StdIn.readLine
-import scala.util.{Failure, Success}
 
 /**
   * An object implementing a simple shell for issuing commands to create and
@@ -44,7 +42,7 @@ object AudioPlayerShell:
 
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
     val audioStreamFactory = new CompositeAudioStreamFactory(List(Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new AudioStreamHandler(audioStreamFactory)
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory)
     var done = false
 
     while !done do
@@ -57,7 +55,7 @@ object AudioPlayerShell:
 
         case "play" =>
           checkArgumentsAndRun(command, arguments, 1, 1) { args =>
-            streamHandler.newAudioStream(args.head)
+            streamHandler.addToPlaylist(args.head)
           }
 
         case "start" =>
@@ -72,7 +70,6 @@ object AudioPlayerShell:
           println(s"Unknown command '${command.head}'.")
 
     println("Shutting down shell...")
-    streamHandler.cancelCurrentStream()
     streamHandler.shutdown()
     actorSystem.terminate()
 
@@ -120,19 +117,29 @@ private def printAndPrompt(msg: String): Unit =
   prompt()
 
 /**
-  * A helper class that manages a currently played audio stream. It can create
-  * a new stream, cancel the current one, and pause or resume playback.
+  * A helper class that manages the current playlist. It can add  a new source
+  * to the playlist, and pause or resume playback.
   *
   * @param audioStreamFactory the [[AudioStreamFactory]]
   * @param system             the implicit actor system
   */
-private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
-                                (implicit val system: classic.ActorSystem):
+private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
+                                   (implicit val system: classic.ActorSystem):
+  /** The execution context for operations with futures. */
+  private given executionContext: ExecutionContext = system.dispatcher
+
   /** Stores the kill switch to cancel the current audio stream. */
   private val refCancelStream = new AtomicReference[KillSwitch]
 
+  /** The actor to pause and resume playback. */
   private val pauseActor = system.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPossible),
     "pauseActor")
+
+  /** The kill switch for stopping the whole playlist. */
+  private val playlistKillSwitch = KillSwitches.shared("stopPlaylist")
+
+  /** The queue for adding new audio sources to the playlist. */
+  private val playlistQueue = startPlaylistStream()
 
   /**
     * Starts a new audio stream. If one is currently in progress, it is
@@ -140,48 +147,9 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
     *
     * @param uri the URI to the audio stream to be played
     */
-  def newAudioStream(uri: String): Unit =
-    audioStreamFactory.playbackDataFor(uri) match
-      case Some(playbackData) =>
-        cancelCurrentStream()
-        val source = FileIO.fromPath(Paths.get(uri))
-        val sink = Sink.ignore
-        implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
-        implicit val executionContext: ExecutionContext = typedSystem.executionContext
-
-        println(s"Starting audio stream for '$uri'.'")
-        val (ks, futDone) = source.viaMat(KillSwitches.single)(Keep.right)
-          .via(AudioEncodingStage(playbackData))
-          .via(PausePlaybackStage.pausePlaybackStage(pauseActor))
-          .via(LineWriterStage(LineWriterStage.DefaultLineCreatorFunc))
-          .toMat(sink)(Keep.both)
-          .run()
-        refCancelStream.set(ks)
-
-        futDone andThen {
-          case Success(_) =>
-            printAndPrompt(s"Audio stream for '$uri' was completed successfully.")
-            refCancelStream.set(null)
-          case Failure(exception) =>
-            println(s"Failed to play audio stream for '$uri'.")
-            exception.printStackTrace()
-            refCancelStream.set(null)
-            prompt()
-        }
-
-      case None =>
-        printAndPrompt(s"No audio stream creator found for '$uri'.")
-
-  /**
-    * Cancels an audio stream that is currently played. If no audio stream is
-    * played currently, this function has no effect.
-    */
-  def cancelCurrentStream(): Unit =
-    Option(refCancelStream.get()) foreach :
-      killSwitch =>
-        println("Canceling current audio stream.")
-        killSwitch.shutdown()
-        refCancelStream.set(null)
+  def addToPlaylist(uri: String): Unit =
+    playlistQueue.offer(uri)
+    printAndPrompt(s"Added '$uri' to current playlist.")
 
   /**
     * Stops audio playback.
@@ -198,8 +166,51 @@ private class AudioStreamHandler(audioStreamFactory: AudioStreamFactory)
     printAndPrompt("Audio playback started.")
 
   /**
-    * Shuts down this object and frees the resources in use.
+    * Shuts down this object and stops the playlist.
     */
   def shutdown(): Unit =
+    playlistKillSwitch.shutdown()
     pauseActor ! PausePlaybackStage.Stop
-end AudioStreamHandler
+
+  /**
+    * Starts the stream for the playlist and returns the queue for adding new
+    * audio sources to be played.
+    *
+    * @return the queue for adding elements to the playlist
+    */
+  private def startPlaylistStream(): BoundedSourceQueue[String] =
+    val config = AudioStreamPlayerStage.AudioStreamPlayerConfig(
+      sourceResolverFunc = resolveAudioSource,
+      sinkProviderFunc = audioStreamSink,
+      audioStreamFactory = audioStreamFactory,
+      pauseActor = pauseActor,
+      optKillSwitch = Some(playlistKillSwitch)
+    )
+    val source = Source.queue[String](10)
+    val sink = Sink.foreach[String] { audioSourcePath =>
+      printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
+    }
+    AudioStreamPlayerStage.runPlaylistStream(config, source, sink)._1
+
+  /**
+    * A function to resolve audio sources in the playlist. The string is 
+    * interpreted as path to the audio file to be played.
+    *
+    * @param path the path to the audio file
+    * @return a ''Future'' with the source to be played
+    */
+  private def resolveAudioSource(path: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
+    Future {
+      AudioStreamPlayerStage.AudioStreamSource(path, FileIO.fromPath(Paths.get(path)))
+    }
+
+  /**
+    * Returns the sink for the audio stream with the given path. The sink 
+    * issues the path of the source when playback is done.
+    *
+    * @param audioSourcePath the path of the current audio source
+    * @return the sink for playing a single audio stream
+    */
+  private def audioStreamSink(audioSourcePath: String): Sink[LineWriterStage.PlayedAudioChunk, Future[String]] =
+    Sink.last[LineWriterStage.PlayedAudioChunk].mapMaterializedValue(_.map(_ => audioSourcePath))
+end PlaylistStreamHandler
