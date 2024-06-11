@@ -128,8 +128,8 @@ object AudioStreamPlayerStage:
           streamSource.source.via(ks.flow)
         }
         appendOptionalKillSwitch(streamSource.source, config)
-          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
+          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
           .runWith(sink)
       }

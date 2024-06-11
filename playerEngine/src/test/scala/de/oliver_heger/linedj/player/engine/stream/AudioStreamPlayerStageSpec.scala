@@ -40,6 +40,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import javax.sound.sampled.{AudioInputStream, SourceDataLine}
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.*
 import scala.util.Random
 
 object AudioStreamPlayerStageSpec:
@@ -193,7 +194,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     val killSwitch = KillSwitches.shared("testKillSwitch")
     val helper = new StreamPlayerStageTestHelper
     helper.addAudioSource(source, 65536)
-      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch), reportSourceStart = true)
+      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch), reportSourceStart = true, withDelay = true)
     val sourceStartResult = helper.nextResult().value
     sourceStartResult should be(PlayedChunks(source, 0))
 
@@ -294,16 +295,25 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @param optKillSwitch     an optional kill switch to add to the stream
       * @param reportSourceStart flag whether a result for a newly started
       *                          audio source should be published
+      * @param withDelay         flag whether audio sources should be delayed
       * @return this test helper
       */
     def runPlaylistStream(sources: List[String],
                           memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                           optKillSwitch: Option[SharedKillSwitch] = None,
-                          reportSourceStart: Boolean = false): StreamPlayerStageTestHelper =
+                          reportSourceStart: Boolean = false,
+                          withDelay: Boolean = false): StreamPlayerStageTestHelper =
       given ec: ExecutionContext = system.dispatcher
 
       val source = Source(sources)
-      val (_, futSink) = runPlaylistStreamWithSource(source, sources, memorySize, optKillSwitch, reportSourceStart)
+      val (_, futSink) = runPlaylistStreamWithSource(
+        source,
+        sources,
+        memorySize,
+        optKillSwitch,
+        reportSourceStart,
+        withDelay
+      )
       futSink.foreach { _ => resultQueue.offer(PlaylistEnd) }
       this
 
@@ -318,6 +328,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @param optKillSwitch     an optional kill switch to add to the stream
       * @param reportSourceStart flag whether a result for a newly started
       *                          audio source should be published
+      * @param withDelay         flag whether audio sources should be delayed
       * @tparam MAT the type of the data materialized by the source
       * @return the materialized data from the source
       */
@@ -325,11 +336,12 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
                                          sources: List[String],
                                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                          optKillSwitch: Option[SharedKillSwitch] = None,
-                                         reportSourceStart: Boolean = false): (MAT, Future[Done]) =
+                                         reportSourceStart: Boolean = false,
+                                         withDelay: Boolean = false): (MAT, Future[Done]) =
       given ec: ExecutionContext = system.dispatcher
 
       val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
-      val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart)
+      val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart, withDelay)
 
       AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
 
@@ -422,13 +434,15 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * with the content of a registered source. If the name cannot be 
       * resolved, a dummy source is returned.
       *
-      * @param name the name of the audio source
+      * @param withDelay flag whether the source should be delayed
+      * @param name      the name of the audio source
       * @return a ''Future'' with the resolved source
       */
-    private def resolveSource(name: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
+    private def resolveSource(withDelay: Boolean)(name: String): Future[AudioStreamPlayerStage.AudioStreamSource] =
       val data = audioSourceData.get(name).map(src => ByteString(src.content)).getOrElse(ByteString("DummyData"))
       val source = Source(data.grouped(SourceChunkSize).toList)
-      Future.successful(AudioStreamPlayerStage.AudioStreamSource(name, source))
+      val delayedSource = if withDelay then source.delay(50.millis) else source
+      Future.successful(AudioStreamPlayerStage.AudioStreamSource(name, delayedSource))
 
     /**
       * Creates a [[Sink]] for a given audio source. This is used as the sink
@@ -471,15 +485,18 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @param optKillSwitch     the kill switch for the config
       * @param reportSourceStart flag whether a result for a newly started
       *                          audio source should be published
+      * @param withDelay         flag whether the audio source should be
+      *                          delayed
       * @return the configuration for the stage
       */
     private def createStageConfig(sources: List[String],
                                   memorySize: Int,
                                   optKillSwitch: Option[SharedKillSwitch],
-                                  reportSourceStart: Boolean):
+                                  reportSourceStart: Boolean,
+                                  withDelay: Boolean):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
-        sourceResolverFunc = resolveSource,
+        sourceResolverFunc = resolveSource(withDelay),
         audioStreamFactory = createAudioStreamFactory(),
         pauseActor = pauseActor,
         sinkProviderFunc = createSink,
