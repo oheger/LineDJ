@@ -37,8 +37,24 @@ import scala.io.StdIn.readLine
   * manipulate audio streams.
   */
 object AudioPlayerShell:
+  /**
+    * A map defining the names of the existing commands and help texts for
+    * them. The help texts consist of multiple lines.
+    */
+  private val Commands = Map(
+    "exit" -> List("Stops this application."),
+    "play" -> List(
+      "play <path>",
+      "Enqueues an audio file as denoted by <path> to the playlist. The argument is interpreted as path to the " +
+        "audio file. If the path contains whitespace, it must be surrounded by quotes."
+    ),
+    "stop" -> List("Pauses playback."),
+    "start" -> List("Resumes playback if it is currently paused.")
+  )
+
   def main(args: Array[String]): Unit =
     println("Audio Player Shell")
+    println("Type `help` for a list of available commands.")
 
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
     val audioStreamFactory = new CompositeAudioStreamFactory(List(Mp3AudioStreamFactory, DefaultAudioStreamFactory))
@@ -63,6 +79,24 @@ object AudioPlayerShell:
 
         case "stop" =>
           streamHandler.stopPlayback()
+
+        case "help" =>
+          checkArgumentsAndRun(command, arguments, 0, 1) { args =>
+            if args.isEmpty then
+              println("Available commands:")
+              println()
+              Commands.keys.toList.sorted.foreach(println)
+              println()
+              println("Type `help <command>` to get information about a specific command.")
+            else
+              Commands.get(args.head) match
+                case Some(help) =>
+                  println(s"Command `${args.head}`:")
+                  help.foreach(println)
+                case None =>
+                  println(s"Unknown command `${args.head}`")
+                  println("Type `help` for a list of all supported commands.")
+          }
 
         case "" => // ignore empty input
 
