@@ -61,7 +61,19 @@ object AudioStreamPlayerStageSpec:
     * playlist stream. The test helper writes this value into the results
     * queue when the stream ends.
     */
-  private val PlaylistEnd = PlayedChunks("", -1)
+  private val PlaylistEnd = AudioStreamPlayerStage.AudioStreamEnd(PlayedChunks("", -1))
+
+  /**
+    * The timeout (in milliseconds) when polling the result queue and no result
+    * is expected.
+    */
+  private val TimeoutNoResultMs = 500
+
+  /**
+    * The timeout (in milliseconds) when polling he result queue for an
+    * expected result.
+    */
+  private val TimeoutResultMs = 3000
 
   /** A counter for generating unique actor names. */
   private var actorNameCounter = 0
@@ -165,7 +177,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     helper.addAudioSource("testSource", 1024)
       // Set a too low memory size, this should stall playback.
       .runPlaylistStream(List("testSource"), memorySize = 128)
-      .expectNoResult()
+      .expectNoResult(skip = 1)
 
   it should "correctly integrate the pause actor" in :
     val sourceName = "pausedSource"
@@ -174,7 +186,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     helper.sendPausePlaybackCommand(PausePlaybackStage.StopPlayback)
       .addAudioSource(sourceName, 2048)
       .runPlaylistStream(List(sourceName))
-      .expectNoResult()
+      .expectNoResult(skip = 1)
       .sendPausePlaybackCommand(PausePlaybackStage.StartPlayback)
       .expectResult(sourceName)
 
@@ -219,7 +231,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     @tailrec def fetchResults(count: Int): Int =
       helper.nextResult() match
-        case Some(PlaylistEnd) => count
+        case Some(PlaylistEnd.result) => count
         case _ => fetchResults(count + 1)
 
     val resultCount = fetchResults(0)
@@ -249,6 +261,21 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     forAll(sources)(helper.expectResult)
 
+  it should "include elements indicating the start of an audio source" in :
+    val SourceName = "testAudioSource"
+    val helper = new StreamPlayerStageTestHelper
+    helper.addAudioSource(SourceName, 4096)
+      .sendPausePlaybackCommand(PausePlaybackStage.StopPlayback)
+      .runPlaylistStream(List(SourceName))
+
+    val startEvent = helper.nextPlaylistResult().value
+
+    startEvent should be(AudioStreamPlayerStage.AudioStreamStart(SourceName))
+
+    helper.expectNoResult()
+      .sendPausePlaybackCommand(PausePlaybackStage.StartPlayback)
+      .expectResult(SourceName)
+
   /**
     * A test helper class for running a playlist stream against a test stage.
     */
@@ -263,7 +290,8 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     private val pauseActor = createPauseActor()
 
     /** A queue for collecting stream results. */
-    private val resultQueue = new LinkedBlockingQueue[PlayedChunks]
+    private val resultQueue =
+      new LinkedBlockingQueue[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]]
 
     /**
       * Adds a test audio source that can be part of a playlist stream.
@@ -340,20 +368,32 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
                                          withDelay: Boolean = false): (MAT, Future[Done]) =
       given ec: ExecutionContext = system.dispatcher
 
-      val sink = Sink.foreach[PlayedChunks](resultQueue.offer)
+      val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]](resultQueue.offer)
       val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart, withDelay)
 
       AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
 
     /**
       * Returns the next result from the playlist stream sink or ''None'' if 
-      * there is none in the given timeout.
+      * there is none in the given timeout. 
       *
-      * @param timeoutMillis the timeout
       * @return an ''Option'' with the next result
       */
-    def nextResult(timeoutMillis: Long = 3000): Option[PlayedChunks] =
-      Option(resultQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS))
+    def nextPlaylistResult():
+    Option[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]] =
+      pollResultQueue(TimeoutResultMs)
+
+    /**
+      * Returns the next [[PlayedChunks]] result from the playlist stream sink
+      * or ''None'' if there is none in the given timeout. 
+      *
+      * @return an ''Option'' with the next [[PlayedChunks]]
+      */
+    def nextResult(): Option[PlayedChunks] =
+      nextPlaylistResult() match
+        case None => None
+        case Some(AudioStreamPlayerStage.AudioStreamEnd(result)) => Some(result)
+        case Some(_: AudioStreamPlayerStage.AudioStreamStart[String]) => nextResult()
 
     /**
       * Obtains the next result from the playlist stream sink and compares it
@@ -372,12 +412,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     /**
       * Checks that no result is received from the playlist stream, which means
-      * that playback is not possible for whatever reason.
+      * that playback is not possible for whatever reason. Optionally, a number
+      * of expected results can be skipped.
       *
+      * @param skip the number of results to skip
       * @return this test helper
       */
-    def expectNoResult(): StreamPlayerStageTestHelper =
-      resultQueue.poll(500, TimeUnit.MILLISECONDS) should be(null)
+    def expectNoResult(skip: Int = 0): StreamPlayerStageTestHelper =
+      forAll((1 to skip).toList) { _ =>
+        pollResultQueue(TimeoutResultMs).value
+      }
+      pollResultQueue(TimeoutNoResultMs) should be(None)
       this
 
     /**
@@ -389,6 +434,18 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     def sendPausePlaybackCommand(command: PausePlaybackStage.PausePlaybackCommand): StreamPlayerStageTestHelper =
       pauseActor ! command
       this
+
+    /**
+      * Reads an item from the result queue waiting for the given timeout.
+      * Result is an undefined option if no result was received within this
+      * timeout.
+      *
+      * @param timeoutMs the timeout (in milliseconds)
+      * @return an ''Option'' with the received result
+      */
+    private def pollResultQueue(timeoutMs: Long):
+    Option[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]] =
+      Option(resultQueue.poll(500, TimeUnit.MILLISECONDS))
 
     /**
       * Creates a mock for a line that records the data that is written to it.
@@ -472,7 +529,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         refSources.set(currentSources.tail)
 
         if reportCreation then
-          resultQueue.offer(PlayedChunks(nextSource, 0))
+          resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(PlayedChunks(nextSource, 0)))
         if nextSource == ErrorSource then
           throw new IllegalStateException("Test exception: Unsupported audio source.")
         audioSourceData(nextSource).line

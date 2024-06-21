@@ -91,6 +91,35 @@ object AudioStreamPlayerStage:
                                                dispatcherName: String = LineWriterStage.BlockingDispatcherName)
 
   /**
+    * The root element of a type hierarchy that defines the results returned by
+    * a playlist stream. Via these classes, certain lifecycle events are passed
+    * downstream.
+    *
+    * @tparam SRC the type of the data identifying audio sources
+    * @tparam SNK the type of results produced by the audio stream sink
+    */
+  sealed trait PlaylistStreamResult[+SRC, +SNK]
+
+  /**
+    * A [[PlaylistStreamResult]] indicating the start of a new audio stream.
+    * An instance contains the audio source to be played.
+    *
+    * @param source the audio source of the stream
+    * @tparam SRC the type of the data identifying audio sources
+    */
+  case class AudioStreamStart[+SRC](source: SRC) extends PlaylistStreamResult[SRC, Nothing]
+
+  /**
+    * A [[PlaylistStreamResult]] indicating that an audio stream completed.
+    * From an instance, the result produced by the sink of the audio stream can
+    * be obtained.
+    *
+    * @param result the materialized value of the audio stream sink
+    * @tparam SNK the type of results produced by the audio stream sink
+    */
+  case class AudioStreamEnd[+SNK](result: SNK) extends PlaylistStreamResult[Nothing, SNK]
+
+  /**
     * A supervision strategy to be applied to playlist streams. This strategy
     * continues playback with the next element if the playback for one audio
     * source fails for whatever reason.
@@ -112,8 +141,6 @@ object AudioStreamPlayerStage:
   def apply[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK])
                      (using system: classic.ActorSystem): Graph[FlowShape[SRC, SNK], NotUsed] =
     given typedSystem: ActorSystem[Nothing] = system.toTyped
-
-    given ec: ExecutionContext = system.dispatcher
 
     Flow[SRC].mapAsync(parallelism = 1) { src =>
         config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
@@ -152,10 +179,15 @@ object AudioStreamPlayerStage:
     */
   def runPlaylistStream[SRC, SNK, RES, MAT](config: AudioStreamPlayerConfig[SRC, SNK],
                                             source: Source[SRC, MAT],
-                                            sink: Sink[SNK, RES])
+                                            sink: Sink[PlaylistStreamResult[SRC, SNK], RES])
                                            (using system: classic.ActorSystem): (MAT, RES) =
     val playlistStream = appendOptionalKillSwitch(source, config)
-      .via(apply(config))
+      .mapConcat { src =>
+        val startEvent = Future.successful(AudioStreamStart(src))
+        val streamResult = runAudioStream(config, src)
+        List(startEvent, streamResult)
+      }
+      .mapAsync(1)(identity)
       .log("playlistStream")
       .addAttributes(
         Attributes.logLevels(
@@ -186,3 +218,26 @@ object AudioStreamPlayerStage:
     config.optKillSwitch.fold(source) { ks =>
       source.viaMat(ks.flow)(Keep.left)
     }
+
+  /**
+    * Runs an audio stream for a specific audio source and returns the
+    * ''Future'' with the result produced by the sink.
+    *
+    * @param config the configuration for the audio stream
+    * @param src    the audio source to be played
+    * @param system the actor system
+    * @tparam SRC the type of the data identifying audio sources
+    * @tparam SNK the result type of the sink for the audio stream
+    * @return the ''Future'' with the result of the stream sink
+    */
+  private def runAudioStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK], src: SRC)
+                                      (using system: classic.ActorSystem): Future[AudioStreamEnd[SNK]] =
+    Source.single(src).via(apply(config)).runWith(Sink.last).map(AudioStreamEnd.apply)
+
+  /**
+    * Provides an [[ExecutionContext]] from an actor system in the context.
+    *
+    * @param system the actor system
+    * @return the execution context
+    */
+  private given executionContext(using system: classic.ActorSystem): ExecutionContext = system.dispatcher

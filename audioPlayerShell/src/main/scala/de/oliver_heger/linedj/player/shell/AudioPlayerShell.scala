@@ -221,8 +221,10 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
       optKillSwitch = Some(playlistKillSwitch)
     )
     val source = Source.queue[String](10)
-    val sink = Sink.foreach[String] { audioSourcePath =>
-      printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
+    val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, String]] {
+      case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath) =>
+        printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
+      case _ =>
     }
     AudioStreamPlayerStage.runPlaylistStream(config, source, sink)._1
 
