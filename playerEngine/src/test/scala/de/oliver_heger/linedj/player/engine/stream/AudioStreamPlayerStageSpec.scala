@@ -268,13 +268,49 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .sendPausePlaybackCommand(PausePlaybackStage.StopPlayback)
       .runPlaylistStream(List(SourceName))
 
-    val startEvent = helper.nextPlaylistResult().value
+    val startEvent = helper.nextAudioStreamStartEvent()
 
-    startEvent should be(AudioStreamPlayerStage.AudioStreamStart(SourceName))
+    startEvent.source should be(SourceName)
 
     helper.expectNoResult()
       .sendPausePlaybackCommand(PausePlaybackStage.StartPlayback)
       .expectResult(SourceName)
+
+  it should "support cancelling an audio stream via the kill switch in the start event" in :
+    val CanceledSource = "SourceToBeCanceled"
+    val CanceledSourceSize = 65536
+    val OtherSource = "anotherSource"
+    val OtherSourceSize = 1024
+    val helper = new StreamPlayerStageTestHelper
+    helper.addAudioSource(CanceledSource, CanceledSourceSize)
+      .addAudioSource(OtherSource, OtherSourceSize)
+      .runPlaylistStream(List(CanceledSource, OtherSource), withDelay = true)
+    val startEvent = helper.nextAudioStreamStartEvent()
+
+    startEvent.killSwitch.shutdown()
+
+    val endEvent = helper.nextResult().value
+    endEvent.sourceName should be(CanceledSource)
+    endEvent.totalSize should be < CanceledSourceSize
+
+    val otherStartEvent = helper.nextAudioStreamStartEvent()
+    otherStartEvent.source should be(OtherSource)
+    otherStartEvent.killSwitch should not be startEvent.killSwitch
+    helper.expectResult(OtherSource)
+
+  it should "support cancelling an audio stream even if playback is stopped" in :
+    val SourceName = "AnotherCanceledSource"
+    val helper = new StreamPlayerStageTestHelper
+    helper.addAudioSource(SourceName, 32368)
+      .sendPausePlaybackCommand(PausePlaybackStage.StopPlayback)
+      .runPlaylistStream(List(SourceName))
+    val startEvent = helper.nextAudioStreamStartEvent()
+
+    startEvent.killSwitch.shutdown()
+
+    val result = helper.nextResult().value
+    result.sourceName should be(SourceName)
+    result.totalSize should be(0)
 
   /**
     * A test helper class for running a playlist stream against a test stage.
@@ -374,16 +410,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
 
     /**
-      * Returns the next result from the playlist stream sink or ''None'' if 
-      * there is none in the given timeout. 
-      *
-      * @return an ''Option'' with the next result
-      */
-    def nextPlaylistResult():
-    Option[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]] =
-      pollResultQueue(TimeoutResultMs)
-
-    /**
       * Returns the next [[PlayedChunks]] result from the playlist stream sink
       * or ''None'' if there is none in the given timeout. 
       *
@@ -426,6 +452,20 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       this
 
     /**
+      * Obtains the next [[AudioStreamPlayerStage.PlaylistStreamResult]] from
+      * the audio stream, checks that it is a stream start event and returns
+      * it. Otherwise, a test failure is generated.
+      *
+      * @return the next [[AudioStreamPlayerStage.AudioStreamStart]] event
+      */
+    def nextAudioStreamStartEvent(): AudioStreamPlayerStage.AudioStreamStart[String] =
+      val startEvent = nextPlaylistResult().value
+
+      startEvent match
+        case start: AudioStreamPlayerStage.AudioStreamStart[String] => start
+        case e => fail("Unexpected start event: " + e)
+
+    /**
       * Sends the given command to the managed pause actor.
       *
       * @param command the command to send
@@ -434,6 +474,16 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     def sendPausePlaybackCommand(command: PausePlaybackStage.PausePlaybackCommand): StreamPlayerStageTestHelper =
       pauseActor ! command
       this
+
+    /**
+      * Returns the next result from the playlist stream sink or ''None'' if 
+      * there is none in the given timeout. 
+      *
+      * @return an ''Option'' with the next result
+      */
+    private def nextPlaylistResult():
+    Option[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]] =
+      pollResultQueue(TimeoutResultMs)
 
     /**
       * Reads an item from the result queue waiting for the given timeout.

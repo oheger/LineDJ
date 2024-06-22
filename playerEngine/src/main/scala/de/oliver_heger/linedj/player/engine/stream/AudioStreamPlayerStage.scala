@@ -22,9 +22,10 @@ import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.{ActorAttributes, Attributes, FlowShape, Graph, Materializer, SharedKillSwitch, Supervision}
+import org.apache.pekko.stream.{ActorAttributes, Attributes, FlowShape, Graph, KillSwitch, KillSwitches, Materializer, SharedKillSwitch, Supervision}
 import org.apache.pekko.util.ByteString
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -102,12 +103,17 @@ object AudioStreamPlayerStage:
 
   /**
     * A [[PlaylistStreamResult]] indicating the start of a new audio stream.
-    * An instance contains the audio source to be played.
+    * An instance contains the audio source to be played. In addition, there is
+    * a [[KillSwitch]] that allows terminating the audio stream. That way, this
+    * audio source can be skipped to forward to the next element of the 
+    * playlist.
     *
-    * @param source the audio source of the stream
+    * @param source     the audio source of the stream
+    * @param killSwitch the [[KillSwitch]] to terminate the stream
     * @tparam SRC the type of the data identifying audio sources
     */
-  case class AudioStreamStart[+SRC](source: SRC) extends PlaylistStreamResult[SRC, Nothing]
+  case class AudioStreamStart[+SRC](source: SRC,
+                                    killSwitch: KillSwitch) extends PlaylistStreamResult[SRC, Nothing]
 
   /**
     * A [[PlaylistStreamResult]] indicating that an audio stream completed.
@@ -126,6 +132,12 @@ object AudioStreamPlayerStage:
     */
   private val playlistStreamDecider: Supervision.Decider = _ => Supervision.resume
 
+  /** A counter for generating unique names for kill switches. */
+  private val killSwitchCounter = new AtomicInteger
+
+  /** The prefix for the names generated for kill switches. */
+  private val KillSwitchNamePrefix = "AudioStreamKillSwitch_"
+
   /**
     * Creates a stage for playing audio streams based on the given
     * configuration. The stage expects as input data that can be resolved by
@@ -140,31 +152,18 @@ object AudioStreamPlayerStage:
     */
   def apply[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK])
                      (using system: classic.ActorSystem): Graph[FlowShape[SRC, SNK], NotUsed] =
-    given typedSystem: ActorSystem[Nothing] = system.toTyped
-
-    Flow[SRC].mapAsync(parallelism = 1) { src =>
-        config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
-      }.map { (streamSource, sink) =>
-        config.audioStreamFactory.playbackDataFor(streamSource.url).map { playbackData =>
-          (streamSource, sink, playbackData)
-        }
-      }.filter(_.isDefined)
-      .map(_.get)
-      .mapAsync(parallelism = 1) { (streamSource, sink, playbackData) =>
-        val source = config.optKillSwitch.fold(streamSource.source) { ks =>
-          streamSource.source.via(ks.flow)
-        }
-        appendOptionalKillSwitch(streamSource.source, config)
-          .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
-          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
-          .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
-          .runWith(sink)
-      }
+    createPlaylistStream(config, config.optKillSwitch)
 
   /**
     * Runs a stream with a full playlist. For each element issued by the given
     * source, an audio playback stream is spawned using the given sink to
     * collect the results.
+    *
+    * Note that when using this function, the [[KillSwitch]] contained in the
+    * configuration is used to cancel the whole playlist stream. In order to
+    * cancel a single audio stream (for a specific element in the playlist),
+    * the kill switch from the [[AudioStreamStart]] event fired for the stream
+    * can be used.
     *
     * @param config the configuration for the audio player stage
     * @param source the source with playlist items
@@ -181,10 +180,11 @@ object AudioStreamPlayerStage:
                                             source: Source[SRC, MAT],
                                             sink: Sink[PlaylistStreamResult[SRC, SNK], RES])
                                            (using system: classic.ActorSystem): (MAT, RES) =
-    val playlistStream = appendOptionalKillSwitch(source, config)
+    val playlistStream = appendOptionalKillSwitch(source, config.optKillSwitch)
       .mapConcat { src =>
-        val startEvent = Future.successful(AudioStreamStart(src))
-        val streamResult = runAudioStream(config, src)
+        val audioStreamKillSwitch = createKillSwitch()
+        val startEvent = Future.successful(AudioStreamStart(src, audioStreamKillSwitch))
+        val streamResult = runAudioStream(config, src, audioStreamKillSwitch)
         List(startEvent, streamResult)
       }
       .mapAsync(1)(identity)
@@ -200,12 +200,36 @@ object AudioStreamPlayerStage:
     val supervisedStream = playlistStream.withAttributes(ActorAttributes.supervisionStrategy(playlistStreamDecider))
     supervisedStream.run()
 
+  private def createPlaylistStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
+                                             optKillSwitch: Option[SharedKillSwitch])
+                                            (using system: classic.ActorSystem):
+  Graph[FlowShape[SRC, SNK], NotUsed] =
+    given typedSystem: ActorSystem[Nothing] = system.toTyped
+
+    Flow[SRC].mapAsync(parallelism = 1) { src =>
+        config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
+      }.map { (streamSource, sink) =>
+        config.audioStreamFactory.playbackDataFor(streamSource.url).map { playbackData =>
+          (streamSource, sink, playbackData)
+        }
+      }.filter(_.isDefined)
+      .map(_.get)
+      .mapAsync(parallelism = 1) { (streamSource, sink, playbackData) =>
+        val source = config.optKillSwitch.fold(streamSource.source) { ks =>
+          streamSource.source.via(ks.flow)
+        }
+        appendOptionalKillSwitch(streamSource.source, optKillSwitch)
+          .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
+          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
+          .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
+          .runWith(sink)
+      }
+
   /**
-    * Appends the [[SharedKillSwitch]] from the configuration to the given
-    * source if it is defined.
+    * Appends the [[SharedKillSwitch]] to the given source if it is defined.
     *
-    * @param source the source
-    * @param config the configuration
+    * @param source        the source
+    * @param optKillSwitch the optional kill switch
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the result type of the sinks for audio streams
     * @tparam OUT the type of the source
@@ -213,9 +237,8 @@ object AudioStreamPlayerStage:
     * @return the source decorated with the kill switch
     */
   private def appendOptionalKillSwitch[SRC, SNK, OUT, MAT](source: Source[OUT, MAT],
-                                                           config: AudioStreamPlayerConfig[SRC, SNK]):
-  Source[OUT, MAT] =
-    config.optKillSwitch.fold(source) { ks =>
+                                                           optKillSwitch: Option[SharedKillSwitch]): Source[OUT, MAT] =
+    optKillSwitch.fold(source) { ks =>
       source.viaMat(ks.flow)(Keep.left)
     }
 
@@ -223,16 +246,31 @@ object AudioStreamPlayerStage:
     * Runs an audio stream for a specific audio source and returns the
     * ''Future'' with the result produced by the sink.
     *
-    * @param config the configuration for the audio stream
-    * @param src    the audio source to be played
-    * @param system the actor system
+    * @param config     the configuration for the audio stream
+    * @param src        the audio source to be played
+    * @param killSwitch the kill switch to cancel the stream
+    * @param system     the actor system
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the result type of the sink for the audio stream
     * @return the ''Future'' with the result of the stream sink
     */
-  private def runAudioStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK], src: SRC)
+  private def runAudioStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
+                                       src: SRC,
+                                       killSwitch: SharedKillSwitch)
                                       (using system: classic.ActorSystem): Future[AudioStreamEnd[SNK]] =
-    Source.single(src).via(apply(config)).runWith(Sink.last).map(AudioStreamEnd.apply)
+    Source.single(src)
+      .via(createPlaylistStream(config, Some(killSwitch)))
+      .runWith(Sink.last)
+      .map(AudioStreamEnd.apply)
+
+  /**
+    * Creates a new kill switch with a unique name that can be integrated into
+    * an audio stream.
+    *
+    * @return the new kill switch
+    */
+  private def createKillSwitch(): SharedKillSwitch =
+    KillSwitches.shared(s"$KillSwitchNamePrefix${killSwitchCounter.incrementAndGet()}")
 
   /**
     * Provides an [[ExecutionContext]] from an actor system in the context.
