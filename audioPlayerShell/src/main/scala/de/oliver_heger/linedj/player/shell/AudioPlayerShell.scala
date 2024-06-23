@@ -49,7 +49,8 @@ object AudioPlayerShell:
         "audio file. If the path contains whitespace, it must be surrounded by quotes."
     ),
     "stop" -> List("Pauses playback."),
-    "start" -> List("Resumes playback if it is currently paused.")
+    "start" -> List("Resumes playback if it is currently paused."),
+    "skip" -> List("Skips the currently played audio source and continues with the next one (if any).")
   )
 
   def main(args: Array[String]): Unit =
@@ -79,6 +80,9 @@ object AudioPlayerShell:
 
         case "stop" =>
           streamHandler.stopPlayback()
+
+        case "skip" =>
+          streamHandler.skipCurrentSource()
 
         case "help" =>
           checkArgumentsAndRun(command, arguments, 0, 1) { args =>
@@ -203,8 +207,20 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
     * Shuts down this object and stops the playlist.
     */
   def shutdown(): Unit =
+    skipCurrentSource()
     playlistKillSwitch.shutdown()
     pauseActor ! PausePlaybackStage.Stop
+
+  /**
+    * Cancels a currently played audio source, so that playback continues with
+    * the next one in the playlist. If no audio source is currently played,
+    * this command has no effect.
+    */
+  def skipCurrentSource(): Unit =
+    Option(refCancelStream.get()).foreach { ks =>
+      printAndPrompt("Skipping playback of current audio source.")
+      ks.shutdown()
+    }
 
   /**
     * Starts the stream for the playlist and returns the queue for adding new
@@ -223,8 +239,11 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
     val source = Source.queue[String](10)
     val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, String]] {
       case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath) =>
+        refCancelStream.set(null)
         printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
-      case _ =>
+      case AudioStreamPlayerStage.AudioStreamStart(audioSourcePath, killSwitch) =>
+        refCancelStream.set(killSwitch)
+        printAndPrompt(s"Starting playback of '$audioSourcePath'.")
     }
     AudioStreamPlayerStage.runPlaylistStream(config, source, sink)._1
 
