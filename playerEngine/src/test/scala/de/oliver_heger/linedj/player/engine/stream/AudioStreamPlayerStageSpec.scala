@@ -206,9 +206,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     val killSwitch = KillSwitches.shared("testKillSwitch")
     val helper = new StreamPlayerStageTestHelper
     helper.addAudioSource(source, 65536)
-      .runPlaylistStream(List(source), optKillSwitch = Some(killSwitch), reportSourceStart = true, withDelay = true)
-    val sourceStartResult = helper.nextResult().value
-    sourceStartResult should be(PlayedChunks(source, 0))
+      .runAudioStream(source, killSwitch)
 
     killSwitch.shutdown()
 
@@ -354,18 +352,15 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * Executes a playlist stream with the given sources. The results are
       * stored in a queue and can be queried using ''nextResult()''.
       *
-      * @param sources           the sources for the playlist
-      * @param memorySize        the size of the in-memory buffer
-      * @param optKillSwitch     an optional kill switch to add to the stream
-      * @param reportSourceStart flag whether a result for a newly started
-      *                          audio source should be published
-      * @param withDelay         flag whether audio sources should be delayed
+      * @param sources       the sources for the playlist
+      * @param memorySize    the size of the in-memory buffer
+      * @param optKillSwitch an optional kill switch to add to the stream
+      * @param withDelay     flag whether audio sources should be delayed
       * @return this test helper
       */
     def runPlaylistStream(sources: List[String],
                           memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                           optKillSwitch: Option[SharedKillSwitch] = None,
-                          reportSourceStart: Boolean = false,
                           withDelay: Boolean = false): StreamPlayerStageTestHelper =
       given ec: ExecutionContext = system.dispatcher
 
@@ -375,7 +370,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         sources,
         memorySize,
         optKillSwitch,
-        reportSourceStart,
         withDelay
       )
       futSink.foreach { _ => resultQueue.offer(PlaylistEnd) }
@@ -386,13 +380,11 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * [[Source]] of the stream can be explicitly specified, and its
       * materialized value is returned.
       *
-      * @param source            the source for the audio sources in the playlist
-      * @param sources           the audio sources to be played
-      * @param memorySize        the size of the in-memory buffer
-      * @param optKillSwitch     an optional kill switch to add to the stream
-      * @param reportSourceStart flag whether a result for a newly started
-      *                          audio source should be published
-      * @param withDelay         flag whether audio sources should be delayed
+      * @param source        the source for the audio sources in the playlist
+      * @param sources       the audio sources to be played
+      * @param memorySize    the size of the in-memory buffer
+      * @param optKillSwitch an optional kill switch to add to the stream
+      * @param withDelay     flag whether audio sources should be delayed
       * @tparam MAT the type of the data materialized by the source
       * @return the materialized data from the source
       */
@@ -400,14 +392,32 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
                                          sources: List[String],
                                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                          optKillSwitch: Option[SharedKillSwitch] = None,
-                                         reportSourceStart: Boolean = false,
                                          withDelay: Boolean = false): (MAT, Future[Done]) =
-      given ec: ExecutionContext = system.dispatcher
-
       val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]](resultQueue.offer)
-      val config = createStageConfig(sources, memorySize, optKillSwitch, reportSourceStart, withDelay)
+      val config = createStageConfig(sources, memorySize, optKillSwitch, withDelay)
 
       AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
+
+    /**
+      * Runs a single audio stream with the given parameters.
+      *
+      * @param source     the name of the source
+      * @param killSwitch the kill switch to terminate the stream
+      * @return this test helper
+      */
+    def runAudioStream(source: String, killSwitch: SharedKillSwitch):
+    StreamPlayerStageTestHelper =
+      val config = createStageConfig(List(source),
+        AudioEncodingStage.DefaultInMemoryBufferSize,
+        Some(killSwitch),
+        withDelay = false)
+      val streamSource = Source.single(source)
+      val streamSink = Sink.foreach[PlayedChunks] { chunks =>
+        resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(chunks))
+      }
+      val audioFlow = AudioStreamPlayerStage.apply(config)
+      streamSource.via(audioFlow).runWith(streamSink)
+      this
 
     /**
       * Returns the next [[PlayedChunks]] result from the playlist stream sink
@@ -476,8 +486,8 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       this
 
     /**
-      * Returns the next result from the playlist stream sink or ''None'' if 
-      * there is none in the given timeout. 
+      * Returns the next result from the playlist stream sink or ''None'' if
+      * there is none in the given timeout.
       *
       * @return an ''Option'' with the next result
       */
@@ -564,13 +574,10 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Returns a function to create the next source data line.
       *
-      * @param sources        the list of expected sources
-      * @param reportCreation flag whether the function should put a chunks
-      *                       object in the result queue to indicate the start
-      *                       of a new source; this is used by some test cases
+      * @param sources the list of expected sources
       * @return the function to obtain the next line
       */
-    private def createLineCreator(sources: List[String], reportCreation: Boolean): LineWriterStage.LineCreatorFunc =
+    private def createLineCreator(sources: List[String]): LineWriterStage.LineCreatorFunc =
       val refSources = new AtomicReference(sources.filter(audioSourceData.contains))
       header =>
         header.format should be(AudioStreamTestHelper.Format)
@@ -578,8 +585,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         val nextSource = currentSources.head
         refSources.set(currentSources.tail)
 
-        if reportCreation then
-          resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(PlayedChunks(nextSource, 0)))
         if nextSource == ErrorSource then
           throw new IllegalStateException("Test exception: Unsupported audio source.")
         audioSourceData(nextSource).line
@@ -587,19 +592,16 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Creates the configuration for the player stage to be tested.
       *
-      * @param sources           the list of expected sources
-      * @param memorySize        the size of the in-memory buffer
-      * @param optKillSwitch     the kill switch for the config
-      * @param reportSourceStart flag whether a result for a newly started
-      *                          audio source should be published
-      * @param withDelay         flag whether the audio source should be
-      *                          delayed
+      * @param sources       the list of expected sources
+      * @param memorySize    the size of the in-memory buffer
+      * @param optKillSwitch the kill switch for the config
+      * @param withDelay     flag whether the audio source should be
+      *                      delayed
       * @return the configuration for the stage
       */
     private def createStageConfig(sources: List[String],
                                   memorySize: Int,
                                   optKillSwitch: Option[SharedKillSwitch],
-                                  reportSourceStart: Boolean,
                                   withDelay: Boolean):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
@@ -607,7 +609,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         audioStreamFactory = createAudioStreamFactory(),
         pauseActor = pauseActor,
         sinkProviderFunc = createSink,
-        lineCreatorFunc = createLineCreator(sources, reportSourceStart),
+        lineCreatorFunc = createLineCreator(sources),
         optKillSwitch = optKillSwitch,
         inMemoryBufferSize = memorySize
       )
