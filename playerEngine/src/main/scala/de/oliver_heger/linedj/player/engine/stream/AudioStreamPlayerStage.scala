@@ -218,10 +218,11 @@ object AudioStreamPlayerStage:
         val source = config.optKillSwitch.fold(streamSource.source) { ks =>
           streamSource.source.via(ks.flow)
         }
-        appendOptionalKillSwitch(streamSource.source, optKillSwitch)
+        val audioStreamSource = streamSource.source
           .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
           .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
+        appendOptionalKillSwitch(audioStreamSource, optKillSwitch)
           .runWith(sink)
       }
 
