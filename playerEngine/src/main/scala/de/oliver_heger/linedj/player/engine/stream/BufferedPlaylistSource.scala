@@ -16,20 +16,19 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
-import de.oliver_heger.linedj.player.engine.stream.AudioStreamPlayerStage.AudioStreamSource
-import org.apache.pekko.{Done, actor as classic}
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet, SinkShape, SourceShape}
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
-import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler, StageLogging}
+import org.apache.pekko.stream.stage.*
+import org.apache.pekko.stream.*
 import org.apache.pekko.util.{ByteString, Timeout}
 
 import java.nio.file.{Files, Path}
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.*
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -90,10 +89,33 @@ object BufferedPlaylistSource:
                            source: Source[SRC, MAT])
                           (using system: classic.ActorSystem): Source[SRC, MAT] = ???
 
-  private[stream] sealed trait FillBufferResult
-
+  /**
+    * A data class describing an audio source that has been written into a
+    * buffer file. If a buffer file contains data from a source, an instance of
+    * this class is added to the corresponding [[BufferFileWritten]] message.
+    * The size of the source is only available after it has been fully written.
+    * If only parts of the source ended up in the buffer file, it is -1.
+    *
+    * @param source the source
+    * @param size   the size of the source if known or -1 otherwise
+    * @tparam SRC the type to represent sources
+    */
   private[stream] case class BufferedSource[SRC](source: SRC,
-                                                 size: Long) extends FillBufferResult
+                                                 size: Long)
+
+  /**
+    * A data class used as output by [[FillBufferFlowStage]] that describes the
+    * content of a buffer file. An instance of this class is issued downstream
+    * whenever a file has been fully written. It contains information about the
+    * audio sources contained in the file and their sizes. From the last
+    * source, typically only partial data is contained in the file; therefore,
+    * the size property will be undefined in most cases.
+    *
+    * @param sources a list with information about audio sources contained in
+    *                the file
+    * @tparam SRC the type to represent sources
+    */
+  private[stream] case class BufferFileWritten[SRC](sources: List[BufferedSource[SRC]])
 
   /**
     * A flow stage implementation that is responsible for routing data from a
@@ -113,28 +135,28 @@ object BufferedPlaylistSource:
     */
   private[stream] class FillBufferFlowStage[SRC, SNK](config: BufferedPlaylistSourceConfig[SRC, SNK])
                                                      (using system: classic.ActorSystem)
-    extends GraphStage[FlowShape[SRC, FillBufferResult]]:
+    extends GraphStage[FlowShape[SRC, BufferFileWritten[SRC]]]:
     private val in: Inlet[SRC] = Inlet("FillBufferFlowStage.in")
-    private val out: Outlet[FillBufferResult] = Outlet("FillBufferFlowStage.out")
+    private val out: Outlet[BufferFileWritten[SRC]] = Outlet("FillBufferFlowStage.out")
 
-    override def shape: FlowShape[SRC, FillBufferResult] = new FlowShape(in, out)
+    override def shape: FlowShape[SRC, BufferFileWritten[SRC]] = new FlowShape(in, out)
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with StageLogging:
-        /** A callback to handle the asynchronous creation of a source. */
-        private val onNextSourceCallback = getAsyncCallback[Try[AudioStreamSource]](handleNextSource)
-
         /**
           * A callback that is invoked whenever an audio source from upstream
           * has been fully copied into the buffer.
           */
-        private val onSourceCompleted = getAsyncCallback[Try[Done]](handleSourceCompleted)
+        private val onSourceCompleted = getAsyncCallback[Try[BufferedSource[SRC]]](handleSourceCompleted)
 
         /** The actor for source/sink multiplexing. */
         private var bridgeActor: ActorRef[SourceSinkBridgeCommand] = _
 
         /** A buffer for elements to be pushed downstream. */
-        private var dataBuffer: List[FillBufferResult] = Nil
+        private var dataBuffer: List[BufferFileWritten[SRC]] = Nil
+
+        /** Stores the sources added to the current buffer file. */
+        private var sourcesInCurrentBufferFile = List.empty[BufferedSource[SRC]]
 
         /** The typed actor system in implicit scope. */
         private given typedSystem: ActorSystem[_] = system.toTyped
@@ -144,9 +166,7 @@ object BufferedPlaylistSource:
 
         setHandler(in, new InHandler:
           override def onPush(): Unit =
-            val nextSource = grab(in)
-            config.streamPlayerConfig.sourceResolverFunc(nextSource).onComplete(onNextSourceCallback.invoke)
-            pushData(BufferedSource(nextSource, 0))
+            fillSourceIntoBuffer(grab(in))
 
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
@@ -185,24 +205,24 @@ object BufferedPlaylistSource:
           *
           * @param data the data to be pushed
           */
-        private def pushData(data: FillBufferResult): Unit =
+        private def pushData(data: BufferFileWritten[SRC]): Unit =
           if isAvailable(out) then
             push(out, data)
           else
             dataBuffer = dataBuffer.appended(data)
 
         /**
-          * A callback method that is invoked when a new source with data has
-          * been resolved that needs to be written to the buffer.
+          * Handles the processing of the given source. This function resolves
+          * the source and starts the stream that writes its data into the 
+          * buffer.
           *
-          * @param triedSource the ''Try'' with the resolved source
+          * @param source the source to be processed
           */
-        private def handleNextSource(triedSource: Try[AudioStreamSource]): Unit =
-          log.info("Next source has been resolved: {}.", triedSource)
-          triedSource.foreach { source =>
-            val bridgeSink = Sink.fromGraph(new BridgeSink(bridgeActor))
-            source.source.runWith(bridgeSink).onComplete(onSourceCompleted.invoke)
-          }
+        private def fillSourceIntoBuffer(source: SRC): Unit =
+          (for
+            resolvedSource <- config.streamPlayerConfig.sourceResolverFunc(source)
+            fillResult <- resolvedSource.source.runWith(Sink.fromGraph(new BridgeSink(bridgeActor, source)))
+          yield fillResult).onComplete(onSourceCompleted.invoke)
 
         /**
           * A callback method that is invoked when one of the data sources from
@@ -211,12 +231,14 @@ object BufferedPlaylistSource:
           *
           * @param triedResult the result from reading the source
           */
-        private def handleSourceCompleted(triedResult: Try[Done]): Unit =
+        private def handleSourceCompleted(triedResult: Try[BufferedSource[SRC]]): Unit =
           log.info("Current source is complete: {}.", triedResult)
-          triedResult.foreach { _ =>
+          triedResult.foreach { result =>
+            sourcesInCurrentBufferFile = result :: sourcesInCurrentBufferFile
             if isClosed(in) then
               log.info("End of playlist.")
               bridgeActor ! EndOfStreamMessage
+              pushData(BufferFileWritten(sourcesInCurrentBufferFile.reverse))
             else
               pull(in)
           }
@@ -238,22 +260,29 @@ object BufferedPlaylistSource:
     * sources.
     *
     * @param bridgeActor the bridge actor instance
+    * @param source      the source that is currently processed
     * @param system      the implicit actor system
+    * @tparam SRC the type to represent sources
     */
-  private class BridgeSink(bridgeActor: ActorRef[SourceSinkBridgeCommand])
-                          (using system: ActorSystem[_])
-    extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Done]]:
+  private class BridgeSink[SRC](bridgeActor: ActorRef[SourceSinkBridgeCommand],
+                                source: SRC)
+                               (using system: ActorSystem[_])
+    extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[BufferedSource[SRC]]]:
     private val in: Inlet[ByteString] = Inlet("BridgeSink")
 
     override def shape: SinkShape[ByteString] = SinkShape(in)
 
-    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Done]) =
-      val promiseMat = Promise[Done]()
+    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
+    (GraphStageLogic, Future[BufferedSource[SRC]]) =
+      val promiseMat = Promise[BufferedSource[SRC]]()
       val logic = new GraphStageLogic(shape):
         /**
           * A callback to handle processed notifications from the bridge actor.
           */
         private val onProcessedCallback = getAsyncCallback[Try[DataChunkProcessed]](chunkProcessed)
+
+        /** A counter for the bytes passed through this sink. */
+        private var bytesProcessed = 0L
 
         setHandler(in, new InHandler:
           override def onPush(): Unit =
@@ -261,12 +290,16 @@ object BufferedPlaylistSource:
 
             given ec: ExecutionContext = system.executionContext
 
-            bridgeActor.ask[DataChunkProcessed](ref => AddDataChunk(Some(ref), grab(in)))
+            val data = grab(in)
+            bytesProcessed += data.size
+            bridgeActor.ask[DataChunkProcessed](ref => {
+                AddDataChunk(Some(ref), data)
+              })
               .onComplete(onProcessedCallback.invoke)
 
           override def onUpstreamFinish(): Unit =
             super.onUpstreamFinish()
-            promiseMat.success(Done)
+            promiseMat.success(BufferedSource(source, bytesProcessed))
         )
 
         override def preStart(): Unit =

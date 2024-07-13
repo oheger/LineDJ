@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
-import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.FillBufferResult
+import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -81,7 +81,7 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
       bufferFolder = bufferDir,
       bufferFileSize = 65536)
-    val sink = Sink.fold[List[FillBufferResult], FillBufferResult](List.empty) { (lst, res) => res :: lst }
+    val sink = Sink.fold[List[BufferFileWritten[Int]], BufferFileWritten[Int]](List.empty) { (lst, res) => res :: lst }
     val source = Source(sourceIndices)
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
@@ -89,6 +89,9 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
       val expectedData = sourceData.reduce(_ ++ _)
       val bufferFile = bufferDir.resolve("buffer01.dat")
       ByteString(Files.readAllBytes(bufferFile)) should be(expectedData)
-      fillResults should have size sourceIndices.size
+
+      val expectedBufferedSources = sourceData.zipWithIndex.map { (data, index) =>
+        BufferedSource(index + 1, data.size)
+      }
+      fillResults should contain only BufferFileWritten(expectedBufferedSources.toList)
     }
-    
