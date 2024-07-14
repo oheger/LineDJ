@@ -158,6 +158,9 @@ object BufferedPlaylistSource:
         /** Stores the sources added to the current buffer file. */
         private var sourcesInCurrentBufferFile = List.empty[BufferedSource[SRC]]
 
+        /** The source that is currently processed. */
+        private var currentSource: Option[SRC] = _
+
         /** The typed actor system in implicit scope. */
         private given typedSystem: ActorSystem[_] = system.toTyped
 
@@ -165,8 +168,11 @@ object BufferedPlaylistSource:
         private given ec: ExecutionContext = system.dispatcher
 
         setHandler(in, new InHandler:
-          override def onPush(): Unit =
-            fillSourceIntoBuffer(grab(in))
+          override def onPush(): Unit = {
+            val src = grab(in)
+            currentSource = Some(src)
+            fillSourceIntoBuffer(src)
+          }
 
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
@@ -197,6 +203,10 @@ object BufferedPlaylistSource:
           val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor))
           val bufferFileSink = FileIO.toPath(config.bufferFolder.resolve(bufferFileName(1)))
           bufferFileSource.runWith(bufferFileSink).onComplete(bufferFileCompleteCallback.invoke)
+
+        override def postStop(): Unit =
+          bridgeActor ! StopBridgeActor
+          super.postStop()
 
         /**
           * Push the given data downstream. This is done directly if possible,
@@ -232,9 +242,12 @@ object BufferedPlaylistSource:
           * @param triedResult the result from reading the source
           */
         private def handleSourceCompleted(triedResult: Try[BufferedSource[SRC]]): Unit =
-          log.info("Current source is complete: {}.", triedResult)
-          triedResult.foreach { result =>
-            sourcesInCurrentBufferFile = result :: sourcesInCurrentBufferFile
+          // The current source should always be defined when this function is called.
+          currentSource.foreach { source =>
+            log.info("Current source '{}' is complete: {}.", currentSource, triedResult)
+            val bufferedSource = triedResult.getOrElse(BufferedSource(source, 0))
+            sourcesInCurrentBufferFile = bufferedSource :: sourcesInCurrentBufferFile
+
             if isClosed(in) then
               log.info("End of playlist.")
               bridgeActor ! EndOfStreamMessage
@@ -242,6 +255,7 @@ object BufferedPlaylistSource:
             else
               pull(in)
           }
+          currentSource = None
 
         /**
           * A callback method that is invoked when a buffer file has been fully
@@ -275,7 +289,7 @@ object BufferedPlaylistSource:
     override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
     (GraphStageLogic, Future[BufferedSource[SRC]]) =
       val promiseMat = Promise[BufferedSource[SRC]]()
-      val logic = new GraphStageLogic(shape):
+      val logic = new GraphStageLogic(shape) with StageLogging:
         /**
           * A callback to handle processed notifications from the bridge actor.
           */
@@ -299,11 +313,26 @@ object BufferedPlaylistSource:
 
           override def onUpstreamFinish(): Unit =
             super.onUpstreamFinish()
-            promiseMat.success(BufferedSource(source, bytesProcessed))
+            log.info("Source '{}' finished after {} bytes.", source, bytesProcessed)
+            setMaterializedValue()
+
+          override def onUpstreamFailure(ex: Throwable): Unit =
+            super.onUpstreamFailure(ex)
+            log.error(ex, "Source '{}' failed after {} bytes.", source, bytesProcessed)
+            setMaterializedValue()
         )
 
         override def preStart(): Unit =
           pull(in)
+
+        /**
+          * Sets the materialized value for this sink, which is a
+          * [[BufferedSource]] containing the number of written bytes. This has
+          * to be done when upstream finishes, no matter if successful or with 
+          * an error. 
+          */
+        private def setMaterializedValue(): Unit =
+          promiseMat.success(BufferedSource(source, bytesProcessed))
 
         /**
           * A function that is invoked when the bridge actor sends a
@@ -410,6 +439,11 @@ object BufferedPlaylistSource:
   private case class GetNextDataChunk(replyTo: ActorRef[DataChunk]) extends SourceSinkBridgeCommand
 
   /**
+    * A command to notify the bridge actor to stop itself.
+    */
+  private case object StopBridgeActor extends SourceSinkBridgeCommand
+
+  /**
     * Returns the behavior of an actor that bridges between multiple sources
     * and sinks. For the use case at hand, multiple sources may need to be
     * combined to be filled into a buffer file. Also, the content of sources
@@ -465,6 +499,8 @@ object BufferedPlaylistSource:
             handleBridgeCommand(t, nextProducer, None)
           case _ =>
             handleBridgeCommand(Nil, producer, Some(replyTo))
+
+      case StopBridgeActor => Behaviors.stopped
     }
 
   /**

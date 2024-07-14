@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.engine.stream
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
+import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -28,9 +29,34 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
-import java.nio.file.{Files, Path}
+import java.io.IOException
+import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 import scala.util.Random
+
+object BufferedPlaylistSourceSpec:
+  /**
+    * Creates a [[Sink]] that collects all received elements in a list (in
+    * reversed order).
+    *
+    * @tparam A the element type of the stream
+    * @return the sink that collects stream elements
+    */
+  private def createFoldSink[A](): Sink[A, Future[List[A]]] =
+    Sink.fold[List[A], A](List.empty)((list, data) => data :: list)
+
+  /**
+    * Returns a [[Source]] that emits the given data in chunks of the specified
+    * size.
+    *
+    * @param data      the data of the source
+    * @param chunkSize the chunk size
+    * @return the corresponding source
+    */
+  private def chunkedSource(data: ByteString, chunkSize: Int): Source[ByteString, NotUsed] =
+    Source(data.grouped(chunkSize).toList)
+end BufferedPlaylistSourceSpec
 
 /**
   * Test class for [[BufferedPlaylistSource]].
@@ -50,6 +76,8 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     testKit.shutdownTestKit()
     TestKit.shutdownActorSystem(system)
     super.afterAll()
+
+  import BufferedPlaylistSourceSpec.*
 
   /**
     * Creates an [[AudioStreamPlayerStage.AudioStreamPlayerConfig]] for the 
@@ -75,13 +103,13 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
       Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$idx.wav",
-        Source(sourceData(idx - 1).grouped(256).toList)))
+        chunkedSource(sourceData(idx - 1), 256)))
 
     val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
       bufferFolder = bufferDir,
       bufferFileSize = 65536)
-    val sink = Sink.fold[List[BufferFileWritten[Int]], BufferFileWritten[Int]](List.empty) { (lst, res) => res :: lst }
+    val sink = createFoldSink[BufferFileWritten[Int]]()
     val source = Source(sourceIndices)
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
@@ -94,4 +122,76 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
         BufferedSource(index + 1, data.size)
       }
       fillResults should contain only BufferFileWritten(expectedBufferedSources.toList)
+    }
+
+  it should "handle errors when processing a source" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = {
+      case 1 => Future.failed(new IOException("Test exception: Could not read audio source."))
+      case _ => Future.successful(AudioStreamPlayerStage.AudioStreamSource("foo.src",
+        chunkedSource(ByteString(FileTestHelper.testBytes()), 32)))
+    }
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 65536)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(List(1, 2))
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { fillResults =>
+      val bufferFile = bufferDir.resolve("buffer01.dat")
+      ByteString(Files.readAllBytes(bufferFile)) should be(FileTestHelper.testBytes())
+
+      val expectedBufferedSources = List(
+        BufferedSource(1, 0),
+        BufferedSource(2, FileTestHelper.testBytes().length)
+      )
+      fillResults should contain only BufferFileWritten(expectedBufferedSources)
+    }
+
+  it should "handle an error from a source after data has been processed" in :
+    val random = new Random(20240714191043L)
+    val sourceData1 = ByteString(random.nextBytes(1024))
+    val sourceData2 = ByteString(random.nextBytes(1024))
+    val chunkCount = new AtomicInteger
+    val SuccessfulChunks = 2
+    val ChunkSize = 32
+    val errorSource = chunkedSource(sourceData1, ChunkSize)
+      .map { data =>
+        // Throw an exception after processing some chunks.
+        if chunkCount.incrementAndGet() > SuccessfulChunks then
+          throw new IllegalStateException("Test exception: Source produced a failure.")
+        data
+      }
+    val successSource = chunkedSource(sourceData2, ChunkSize)
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = { index =>
+      val sourceForIndex = index match
+        case 1 => errorSource
+        case 2 => successSource
+        case i => fail("Unexpected source index: " + i)
+      Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$index.mp3", sourceForIndex))
+    }
+
+    val bufferDir = createPathInDirectory("buffer")
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 65536)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(List(1, 2))
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { fillResults =>
+      val source1Size = SuccessfulChunks * ChunkSize
+      val expectedData = sourceData1.take(source1Size) ++ sourceData2
+      val bufferFile = bufferDir.resolve("buffer01.dat")
+      ByteString(Files.readAllBytes(bufferFile)) should be(expectedData)
+
+      val expectedBufferedSources = List(
+        BufferedSource(1, source1Size),
+        BufferedSource(2, sourceData2.size)
+      )
+      fillResults should contain only BufferFileWritten(expectedBufferedSources)
     }
