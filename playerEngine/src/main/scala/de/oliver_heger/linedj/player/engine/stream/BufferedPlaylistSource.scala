@@ -21,7 +21,7 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
-import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import org.apache.pekko.stream.stage.*
 import org.apache.pekko.stream.*
 import org.apache.pekko.util.{ByteString, Timeout}
@@ -94,10 +94,13 @@ object BufferedPlaylistSource:
     * buffer file. If a buffer file contains data from a source, an instance of
     * this class is added to the corresponding [[BufferFileWritten]] message.
     * The size of the source is only available after it has been fully written.
-    * If only parts of the source ended up in the buffer file, it is -1.
+    * If only parts of the source ended up in the buffer file, it is -1. Note
+    * that this is not the total size of the source, but only the part that is
+    * contained in this buffer file.
     *
     * @param source the source
-    * @param size   the size of the source if known or -1 otherwise
+    * @param size   the size of the source in the current buffer file if known
+    *               or -1 otherwise
     * @tparam SRC the type to represent sources
     */
   private[stream] case class BufferedSource[SRC](source: SRC,
@@ -149,6 +152,14 @@ object BufferedPlaylistSource:
           */
         private val onSourceCompleted = getAsyncCallback[Try[BufferedSource[SRC]]](handleSourceCompleted)
 
+        /**
+          * A callback that is invoked when a buffer file has been fully
+          * written. If more data is available upstream, the next file can be
+          * created if there is still capacity in the buffer.
+          */
+        private val bufferFileCompleteCallback =
+          getAsyncCallback[Try[BridgeSourceCompletionReason]](handleBufferFileCompleted)
+
         /** The actor for source/sink multiplexing. */
         private var bridgeActor: ActorRef[SourceSinkBridgeCommand] = _
 
@@ -160,6 +171,31 @@ object BufferedPlaylistSource:
 
         /** The source that is currently processed. */
         private var currentSource: Option[SRC] = _
+
+        /** A counter for the buffer files that have been created. */
+        private var bufferFileCount = 0
+
+        /**
+          * A counter to track the bytes written into the current buffer file.
+          * This is mainly used to correctly calculate the size of sources that
+          * span over multiple files.
+          */
+        private var bytesInCurrentBufferFile = 0L
+
+        /**
+          * Stores the remaining capacity in the current buffer file when a new
+          * source is started. This value is updated every time a new data
+          * source is started. It is also used to calculate the size in a
+          * [[BufferedSource]] object.
+          */
+        private var remainingBufferFileCapacityForSource = 0L
+
+        /**
+          * The number of the buffer file that was active when a new source was
+          * started. This is used to discover sources spanning multiple buffer
+          * files.
+          */
+        private var sourceStartBufferFile = 0
 
         /** The typed actor system in implicit scope. */
         private given typedSystem: ActorSystem[_] = system.toTyped
@@ -198,11 +234,7 @@ object BufferedPlaylistSource:
             Files.createDirectories(config.bufferFolder)
 
           bridgeActor = system.spawn(sourceSinkBridgeActor(), "bridgeActor")
-
-          val bufferFileCompleteCallback = getAsyncCallback[Try[Any]](handleBufferFileCompleted)
-          val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor))
-          val bufferFileSink = FileIO.toPath(config.bufferFolder.resolve(bufferFileName(1)))
-          bufferFileSource.runWith(bufferFileSink).onComplete(bufferFileCompleteCallback.invoke)
+          createAndFillBufferFile()
 
         override def postStop(): Unit =
           bridgeActor ! StopBridgeActor
@@ -229,6 +261,9 @@ object BufferedPlaylistSource:
           * @param source the source to be processed
           */
         private def fillSourceIntoBuffer(source: SRC): Unit =
+          remainingBufferFileCapacityForSource = config.bufferFileSize - bytesInCurrentBufferFile
+          sourceStartBufferFile = bufferFileCount
+
           (for
             resolvedSource <- config.streamPlayerConfig.sourceResolverFunc(source)
             fillResult <- resolvedSource.source.runWith(Sink.fromGraph(new BridgeSink(bridgeActor, source)))
@@ -245,27 +280,72 @@ object BufferedPlaylistSource:
           // The current source should always be defined when this function is called.
           currentSource.foreach { source =>
             log.info("Current source '{}' is complete: {}.", currentSource, triedResult)
-            val bufferedSource = triedResult.getOrElse(BufferedSource(source, 0))
+            val bufferedSource = adjustToCurrentFile(triedResult.getOrElse(BufferedSource(source, 0)))
+            bytesInCurrentBufferFile += bufferedSource.size
             sourcesInCurrentBufferFile = bufferedSource :: sourcesInCurrentBufferFile
 
             if isClosed(in) then
               log.info("End of playlist.")
               bridgeActor ! EndOfStreamMessage
-              pushData(BufferFileWritten(sourcesInCurrentBufferFile.reverse))
             else
               pull(in)
           }
           currentSource = None
 
         /**
-          * A callback method that is invoked when a buffer file has been fully
-          * written.
+          * Calculates the size of the buffered source relative to the current
+          * buffer file, so that it covers only the part which is actually
+          * written in this file. This is expected downstream when sources are
+          * again extracted from the buffer. An adjustment is only required if
+          * the source is stored over multiple buffer files.
           *
-          * @param triedResult the result from writing the file
+          * @param bufSrc the [[BufferedSource]] from the writing stream
+          * @return the adjusted [[BufferedSource]]
           */
-        private def handleBufferFileCompleted(triedResult: Try[Any]): Unit =
+        private def adjustToCurrentFile(bufSrc: BufferedSource[SRC]): BufferedSource[SRC] =
+          if sourceStartBufferFile != bufferFileCount then
+            val relativeSize = (bufSrc.size - remainingBufferFileCapacityForSource) % config.bufferFileSize
+            bufSrc.copy(size = relativeSize)
+          else
+            bufSrc
+
+        /**
+          * Creates a new file in the buffer and starts a stream that populates
+          * it from the sources obtained from upstream. This stream completes
+          * when the maximum size of the buffer file was reached or the
+          * playlist stream ends.
+          */
+        private def createAndFillBufferFile(): Unit =
+          bufferFileCount += 1
+          sourcesInCurrentBufferFile = Nil
+          bytesInCurrentBufferFile = 0
+          val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
+          log.info("Creating buffer file {}.", bufferFile)
+
+          val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor, config.bufferFileSize))
+          val bufferFileSink = FileIO.toPath(bufferFile)
+          bufferFileSource.toMat(bufferFileSink)(Keep.left).run().onComplete(bufferFileCompleteCallback.invoke)
+
+        /**
+          * A callback method that is invoked when a buffer file has been fully
+          * written. Depending on the provided completion reason, the next
+          * actions need to be taken.
+          *
+          * @param triedResult the result from the source for the file
+          */
+        private def handleBufferFileCompleted(triedResult: Try[BridgeSourceCompletionReason]): Unit =
           log.info("Current buffer file has been fully written: {}.", triedResult)
-          completeStage()
+          triedResult.foreach { completionReason =>
+            val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>
+              // This source is stored over multiple buffer files.
+              BufferedSource(source, -1) :: sourcesInCurrentBufferFile
+            }
+            pushData(BufferFileWritten(allSourcesInFile.reverse))
+
+            completionReason match
+              case BridgeSourceCompletionReason.LimitReached => createAndFillBufferFile()
+              case BridgeSourceCompletionReason.PlaylistStreamEnd => completeStage()
+          }
   end FillBufferFlowStage
 
   /**
@@ -349,26 +429,46 @@ object BufferedPlaylistSource:
   end BridgeSink
 
   /**
+    * An enumeration defining the reasons for the completion of a 
+    * [[BridgeSource]].
+    */
+  private enum BridgeSourceCompletionReason:
+    case PlaylistStreamEnd
+    case LimitReached
+
+  /**
     * An internal [[Source]] implementation that reads its data from a bridge
-    * actor instance.
+    * actor instance. It is possible to limit the number of bytes issued by
+    * this source. This is necessary for instance to make sure that files in
+    * the buffer do not exceed their configured capacity. To distinguish 
+    * between the cases that the end of the playlist was reached or the limit
+    * of the source, the source materializes a flag with the reason for its
+    * end.
     *
     * @param bridgeActor the bridge actor instance
+    * @param limit       the maximum number of bytes to be issued
     * @param system      the actor system
     */
-  private class BridgeSource(bridgeActor: ActorRef[SourceSinkBridgeCommand])
+  private class BridgeSource(bridgeActor: ActorRef[SourceSinkBridgeCommand],
+                             limit: Long)
                             (using system: ActorSystem[_])
-    extends GraphStage[SourceShape[ByteString]]:
+    extends GraphStageWithMaterializedValue[SourceShape[ByteString], Future[BridgeSourceCompletionReason]]:
     private val out: Outlet[ByteString] = Outlet("BridgeSource")
 
     override def shape: SourceShape[ByteString] = SourceShape(out)
 
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-      new GraphStageLogic(shape):
+    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
+    (GraphStageLogic, Future[BridgeSourceCompletionReason]) =
+      val promiseMat = Promise[BridgeSourceCompletionReason]()
+      val logic = new GraphStageLogic(shape):
         /**
           * A callback to handle data chunks that have been retrieved
           * asynchronously from the bridge actor.
           */
         private val onDataCallback = getAsyncCallback[Try[DataChunk]](dataAvailable)
+
+        /** The number of bytes that has been emitted so far. */
+        private var bytesProcessed = 0L
 
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
@@ -389,9 +489,18 @@ object BufferedPlaylistSource:
           */
         private def dataAvailable(triedChunk: Try[DataChunk]): Unit =
           triedChunk match
-            case Success(EndOfStreamChunk) => completeStage()
-            case Success(chunk) => push(out, chunk.data)
+            case Success(EndOfStreamChunk) =>
+              completeStage()
+              promiseMat.success(BridgeSourceCompletionReason.PlaylistStreamEnd)
+            case Success(chunk) =>
+              push(out, chunk.data)
+              bytesProcessed += chunk.data.size
+              if bytesProcessed >= limit then
+                completeStage()
+                promiseMat.success(BridgeSourceCompletionReason.LimitReached)
             case Failure(exception) => cancelStage(exception)
+
+      (logic, promiseMat.future)
   end BridgeSource
 
   /**

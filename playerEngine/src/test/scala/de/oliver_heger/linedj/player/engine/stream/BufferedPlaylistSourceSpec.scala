@@ -30,7 +30,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
 import java.io.IOException
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 import scala.util.Random
@@ -95,6 +95,17 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
       pauseActor = testKit.createTestProbe().ref
     )
 
+  /**
+    * Checks whether a file in the buffer contains the expected data.
+    *
+    * @param bufferDir       the buffer directory
+    * @param fileIndex       the index of the desired buffer file
+    * @param expectedContent the expected content in this file
+    */
+  private def checkBufferFile(bufferDir: Path, fileIndex: Int, expectedContent: ByteString): Unit =
+    val bufferFile = bufferDir.resolve(s"buffer0$fileIndex.dat")
+    ByteString(Files.readAllBytes(bufferFile)) should be(expectedContent)
+
   "FillBufferFlowStage" should "load all sources into the buffer" in :
     val bufferDir = createPathInDirectory("buffer")
     val random = new Random(20240706212512L)
@@ -115,8 +126,7 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     source.via(stage).runWith(sink) map { fillResults =>
       val expectedData = sourceData.reduce(_ ++ _)
-      val bufferFile = bufferDir.resolve("buffer01.dat")
-      ByteString(Files.readAllBytes(bufferFile)) should be(expectedData)
+      checkBufferFile(bufferDir, 1, expectedData)
 
       val expectedBufferedSources = sourceData.zipWithIndex.map { (data, index) =>
         BufferedSource(index + 1, data.size)
@@ -141,8 +151,7 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
     source.via(stage).runWith(sink) map { fillResults =>
-      val bufferFile = bufferDir.resolve("buffer01.dat")
-      ByteString(Files.readAllBytes(bufferFile)) should be(FileTestHelper.testBytes())
+      checkBufferFile(bufferDir, 1, ByteString(FileTestHelper.testBytes()))
 
       val expectedBufferedSources = List(
         BufferedSource(1, 0),
@@ -186,12 +195,75 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     source.via(stage).runWith(sink) map { fillResults =>
       val source1Size = SuccessfulChunks * ChunkSize
       val expectedData = sourceData1.take(source1Size) ++ sourceData2
-      val bufferFile = bufferDir.resolve("buffer01.dat")
-      ByteString(Files.readAllBytes(bufferFile)) should be(expectedData)
+      checkBufferFile(bufferDir, 1, expectedData)
 
       val expectedBufferedSources = List(
         BufferedSource(1, source1Size),
         BufferedSource(2, sourceData2.size)
       )
       fillResults should contain only BufferFileWritten(expectedBufferedSources)
+    }
+
+  it should "split sources over multiple buffer files when the limit is exceeded" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240714220511L)
+    val sourceIndices = 1 to 5
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
+      Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$idx.wav",
+        chunkedSource(sourceData(idx - 1), 256)))
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(sourceIndices)
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { fillResults =>
+      val expectedData1 = sourceData.take(4).reduce(_ ++ _)
+      checkBufferFile(bufferDir, 1, expectedData1)
+      checkBufferFile(bufferDir, 2, sourceData(4))
+
+      // This is an interesting corner case which does not yield deterministic results.
+      // Two events are occurring in parallel: Source 4 completes, and the buffer file is full.
+      // The produced results depend on the order in which these events are processed. Both variants
+      // are semantically equivalent, but they nevertheless differ.
+      val expectedWrittenMessages1 = List(
+        BufferFileWritten(
+          List(
+            BufferedSource(1, 4096),
+            BufferedSource(2, 4096),
+            BufferedSource(3, 4096),
+            BufferedSource(4, -1)
+          )
+        ),
+        BufferFileWritten(
+          List(
+            BufferedSource(4, 0),
+            BufferedSource(5, 4096)
+          )
+        )
+      )
+      val expectedWrittenMessages2 = List(
+        BufferFileWritten(
+          List(
+            BufferedSource(1, 4096),
+            BufferedSource(2, 4096),
+            BufferedSource(3, 4096),
+            BufferedSource(4, 4096),
+            BufferedSource(5, -1)
+          )
+        ),
+        BufferFileWritten(
+          List(BufferedSource(5, 4096))
+        )
+      )
+      val orderedFillResults = fillResults.reverse
+      if orderedFillResults != expectedWrittenMessages1 && orderedFillResults != expectedWrittenMessages2 then
+        fail(s"Unexpected result: $orderedFillResults\nExpected $expectedWrittenMessages1\n " +
+          s"or $expectedWrittenMessages2")
+      succeed
     }
