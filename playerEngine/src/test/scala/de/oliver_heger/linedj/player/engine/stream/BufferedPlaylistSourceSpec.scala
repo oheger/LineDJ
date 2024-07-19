@@ -320,3 +320,32 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
       )
       fillResults.reverse should contain theSameElementsInOrderAs expectedWrittenMessages
     }
+
+  it should "cancel the stream on failures to write to the buffer" in :
+    val exception = new IllegalStateException("Test exception: Could not write to buffer file.")
+    val chunkCount = new AtomicInteger
+    val errorSink = Sink.ignore.contramap[ByteString] { chunk =>
+      if chunkCount.incrementAndGet() > 4 then {
+        throw exception
+      }
+    }
+
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240719212014L)
+    val sourceData = IndexedSeq(ByteString(random.nextBytes(4096)))
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8192,
+      bufferSinkFunc = _ => errorSink)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source.single(1)
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    recoverToExceptionIf[IllegalStateException] {
+      source.via(stage).runWith(sink)
+    } map { actualException =>
+      actualException should be(exception)
+    }

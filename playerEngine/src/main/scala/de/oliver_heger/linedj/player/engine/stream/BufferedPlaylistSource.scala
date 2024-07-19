@@ -70,6 +70,13 @@ object BufferedPlaylistSource:
   private val BufferFilePattern = "buffer%02d.dat"
 
   /**
+    * A function for providing a [[Sink]] for writing to a file in the buffer.
+    * Such a function can be passed to a buffered source in its configuration.
+    * It is then invoked whenever a new file in the buffer needs to be created.
+    */
+  type BufferSinkFunc = Path => Sink[ByteString, Any]
+
+  /**
     * A class defining the configuration of a [[BufferedPlaylistSource]].
     *
     * @param streamPlayerConfig the configuration for playing audio streams;
@@ -77,17 +84,30 @@ object BufferedPlaylistSource:
     *                           sources for stream elements
     * @param bufferFolder       the folder in which to create buffer files
     * @param bufferFileSize     the maximum size of each buffer file
+    * @param bufferSinkFunc     a function to obtain a [[Sink]] to files in the
+    *                           buffer
     * @tparam SRC the type of the elements in the playlist
     * @tparam SNK the type expected by the sink of the stream
     */
   case class BufferedPlaylistSourceConfig[SRC, SNK](streamPlayerConfig:
                                                     AudioStreamPlayerStage.AudioStreamPlayerConfig[SRC, SNK],
                                                     bufferFolder: Path,
-                                                    bufferFileSize: Int)
+                                                    bufferFileSize: Int,
+                                                    bufferSinkFunc: BufferSinkFunc = defaultBufferSink)
 
   def apply[SRC, SNK, MAT](config: BufferedPlaylistSourceConfig[SRC, SNK],
                            source: Source[SRC, MAT])
                           (using system: classic.ActorSystem): Source[SRC, MAT] = ???
+
+  /**
+    * A default function for opening a file in the buffer. This is used by
+    * [[BufferedPlaylistSourceConfig]] if no custom function is provided for
+    * this purpose.
+    *
+    * @param path the path to the buffer file
+    * @return a [[Sink]] for writing to this file
+    */
+  def defaultBufferSink(path: Path): Sink[ByteString, Any] = FileIO.toPath(path)
 
   /**
     * A data class describing an audio source that has been written into a
@@ -323,7 +343,7 @@ object BufferedPlaylistSource:
           log.info("Creating buffer file {}.", bufferFile)
 
           val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor, config.bufferFileSize))
-          val bufferFileSink = FileIO.toPath(bufferFile)
+          val bufferFileSink = config.bufferSinkFunc(bufferFile)
           bufferFileSource.toMat(bufferFileSink)(Keep.left).run().onComplete(bufferFileCompleteCallback.invoke)
 
         /**
@@ -335,17 +355,19 @@ object BufferedPlaylistSource:
           */
         private def handleBufferFileCompleted(triedResult: Try[BridgeSourceCompletionReason]): Unit =
           log.info("Current buffer file has been fully written: {}.", triedResult)
-          triedResult.foreach { completionReason =>
-            val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>
-              // This source is stored over multiple buffer files.
-              BufferedSource(source, -1) :: sourcesInCurrentBufferFile
-            }
-            pushData(BufferFileWritten(allSourcesInFile.reverse))
+          triedResult match
+            case Success(completionReason) =>
+              val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>
+                // This source is stored over multiple buffer files.
+                BufferedSource(source, -1) :: sourcesInCurrentBufferFile
+              }
+              pushData(BufferFileWritten(allSourcesInFile.reverse))
 
-            completionReason match
-              case BridgeSourceCompletionReason.LimitReached => createAndFillBufferFile()
-              case BridgeSourceCompletionReason.PlaylistStreamEnd => completeStage()
-          }
+              completionReason match
+                case BridgeSourceCompletionReason.LimitReached => createAndFillBufferFile()
+                case BridgeSourceCompletionReason.PlaylistStreamEnd => completeStage()
+            case Failure(exception) =>
+              failStage(exception)
   end FillBufferFlowStage
 
   /**
@@ -478,6 +500,10 @@ object BufferedPlaylistSource:
 
             val maxSize = (limit - bytesProcessed).toInt
             bridgeActor.ask[DataChunk](ref => GetNextDataChunk(ref, maxSize)).onComplete(onDataCallback.invoke)
+
+          override def onDownstreamFinish(cause: Throwable): Unit =
+            promiseMat.failure(cause)
+            super.onDownstreamFinish(cause)
         )
 
         /**
