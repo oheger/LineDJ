@@ -476,7 +476,8 @@ object BufferedPlaylistSource:
 
             given ec: ExecutionContext = system.executionContext
 
-            bridgeActor.ask[DataChunk](ref => GetNextDataChunk(ref)).onComplete(onDataCallback.invoke)
+            val maxSize = (limit - bytesProcessed).toInt
+            bridgeActor.ask[DataChunk](ref => GetNextDataChunk(ref, maxSize)).onComplete(onDataCallback.invoke)
         )
 
         /**
@@ -544,8 +545,10 @@ object BufferedPlaylistSource:
     * the specified receiver.
     *
     * @param replyTo the actor to send the chunk to
+    * @param maxSize the maximum size of the chunk
     */
-  private case class GetNextDataChunk(replyTo: ActorRef[DataChunk]) extends SourceSinkBridgeCommand
+  private case class GetNextDataChunk(replyTo: ActorRef[DataChunk],
+                                      maxSize: Int) extends SourceSinkBridgeCommand
 
   /**
     * A command to notify the bridge actor to stop itself.
@@ -585,31 +588,31 @@ object BufferedPlaylistSource:
     */
   private def handleBridgeCommand(chunks: List[DataChunk],
                                   producer: Option[ActorRef[DataChunkProcessed]],
-                                  consumer: Option[ActorRef[DataChunk]]): Behavior[SourceSinkBridgeCommand] =
-    Behaviors.receiveMessage {
-      case AddDataChunk(replyTo, data) =>
-        val newChunk = DataChunk(data)
-        consumer match
-          case Some(actor) =>
-            actor ! newChunk
-            replyTo.foreach(_ ! DataChunkProcessed())
-            handleBridgeCommand(Nil, None, None)
-          case None =>
-            handleBridgeCommand(chunks.appended(newChunk), replyTo, None)
+                                  consumer: Option[GetNextDataChunk]): Behavior[SourceSinkBridgeCommand] =
+    Behaviors.receive {
+      case (ctx, AddDataChunk(replyTo, data)) =>
+        consumer.foreach(ctx.self ! _)
+        handleBridgeCommand(chunks :+ DataChunk(data), replyTo, consumer)
 
-      case GetNextDataChunk(replyTo) =>
+      case (_, msg@GetNextDataChunk(replyTo, maxSize)) =>
         chunks match
-          case h :: t =>
+          case h :: t if h.data.size <= maxSize =>
             replyTo ! h
             val nextProducer = if t.isEmpty then
               producer.foreach(_ ! DataChunkProcessed())
               None
             else producer
             handleBridgeCommand(t, nextProducer, None)
+          case h :: t => // The current chunk needs to be split.
+            val (consumed, remaining) = h.data.splitAt(maxSize)
+            replyTo ! DataChunk(consumed)
+            handleBridgeCommand(DataChunk(remaining) :: t, producer, None)
           case _ =>
-            handleBridgeCommand(Nil, producer, Some(replyTo))
+            handleBridgeCommand(Nil, producer, Some(msg))
 
-      case StopBridgeActor => Behaviors.stopped
+      case (ctx, StopBridgeActor) =>
+        ctx.log.info("Bridge actor stopped.")
+        Behaviors.stopped
     }
 
   /**

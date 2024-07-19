@@ -32,6 +32,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import java.io.IOException
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
+import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
 import scala.util.Random
 
@@ -56,6 +57,19 @@ object BufferedPlaylistSourceSpec:
     */
   private def chunkedSource(data: ByteString, chunkSize: Int): Source[ByteString, NotUsed] =
     Source(data.grouped(chunkSize).toList)
+
+  /**
+    * Returns a function to resolve audio sources that is based on a sequence
+    * with the data of the sources. The source type is ''Int'', so the data of
+    * a source can easily be determined as index in the data sequence.
+    *
+    * @param sourceData the sequence with the data of the sources
+    * @return the function to resolve sources
+    */
+  private def seqBasedResolverFunc(sourceData: IndexedSeq[ByteString]):
+  AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
+    Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$idx.wav",
+      chunkedSource(sourceData(idx - 1), 256)))
 end BufferedPlaylistSourceSpec
 
 /**
@@ -104,6 +118,7 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     */
   private def checkBufferFile(bufferDir: Path, fileIndex: Int, expectedContent: ByteString): Unit =
     val bufferFile = bufferDir.resolve(s"buffer0$fileIndex.dat")
+    Files.size(bufferFile) should be(expectedContent.size)
     ByteString(Files.readAllBytes(bufferFile)) should be(expectedContent)
 
   "FillBufferFlowStage" should "load all sources into the buffer" in :
@@ -209,10 +224,7 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
     val random = new Random(20240714220511L)
     val sourceIndices = 1 to 5
     val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
-
-    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
-      Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$idx.wav",
-        chunkedSource(sourceData(idx - 1), 256)))
+    val resolverFunc = seqBasedResolverFunc(sourceData)
 
     val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
@@ -266,4 +278,45 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
         fail(s"Unexpected result: $orderedFillResults\nExpected $expectedWrittenMessages1\n " +
           s"or $expectedWrittenMessages2")
       succeed
+    }
+
+  it should "handle arbitrary buffer sizes correctly when splitting sources over multiple buffer files" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240719113329L)
+    val sourceIndices = 1 to 5
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16000)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(sourceIndices)
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { fillResults =>
+      val (split1, split2) = sourceData(3).splitAt(16000 - 3 * 4096)
+      val expectedData1 = sourceData.take(3).reduce(_ ++ _) ++ split1
+      val expectedData2 = split2 ++ sourceData(4)
+      checkBufferFile(bufferDir, 1, expectedData1)
+      checkBufferFile(bufferDir, 2, expectedData2)
+
+      val expectedWrittenMessages = List(
+        BufferFileWritten(
+          List(
+            BufferedSource(1, 4096),
+            BufferedSource(2, 4096),
+            BufferedSource(3, 4096),
+            BufferedSource(4, -1)
+          )
+        ),
+        BufferFileWritten(
+          List(
+            BufferedSource(4, split2.size),
+            BufferedSource(5, 4096)
+          )
+        )
+      )
+      fillResults.reverse should contain theSameElementsInOrderAs expectedWrittenMessages
     }
