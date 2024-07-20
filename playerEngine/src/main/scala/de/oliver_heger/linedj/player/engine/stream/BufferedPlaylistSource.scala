@@ -217,6 +217,13 @@ object BufferedPlaylistSource:
           */
         private var sourceStartBufferFile = 0
 
+        /**
+          * A flag that allows keeping track whether a buffer file is currently
+          * written. Write operations are paused if the buffer directory
+          * already contains 2 buffer files.
+          */
+        private var bufferFileWriteInProgress = false
+
         /** The typed actor system in implicit scope. */
         private given typedSystem: ActorSystem[_] = system.toTyped
 
@@ -241,6 +248,7 @@ object BufferedPlaylistSource:
               case ::(head, next) =>
                 push(out, head)
                 dataBuffer = next
+                createAndFillBufferFile()
               case Nil =>
           }
         )
@@ -271,7 +279,7 @@ object BufferedPlaylistSource:
           if isAvailable(out) then
             push(out, data)
           else
-            dataBuffer = dataBuffer.appended(data)
+            dataBuffer = dataBuffer :+ data
 
         /**
           * Handles the processing of the given source. This function resolves
@@ -330,21 +338,24 @@ object BufferedPlaylistSource:
             bufSrc
 
         /**
-          * Creates a new file in the buffer and starts a stream that populates
-          * it from the sources obtained from upstream. This stream completes
-          * when the maximum size of the buffer file was reached or the
-          * playlist stream ends.
+          * Creates a new file in the buffer if possible and starts a stream
+          * that populates it from the sources obtained from upstream. This
+          * stream completes when the maximum size of the buffer file was
+          * reached or the playlist stream ends. If the buffer is full (i.e. it
+          * contains already two files), no immediate action is triggered.
           */
         private def createAndFillBufferFile(): Unit =
-          bufferFileCount += 1
-          sourcesInCurrentBufferFile = Nil
-          bytesInCurrentBufferFile = 0
-          val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
-          log.info("Creating buffer file {}.", bufferFile)
+          if !bufferFileWriteInProgress && dataBuffer.size < 1 then
+            bufferFileWriteInProgress = true
+            bufferFileCount += 1
+            sourcesInCurrentBufferFile = Nil
+            bytesInCurrentBufferFile = 0
+            val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
+            log.info("Creating buffer file {}.", bufferFile)
 
-          val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor, config.bufferFileSize))
-          val bufferFileSink = config.bufferSinkFunc(bufferFile)
-          bufferFileSource.toMat(bufferFileSink)(Keep.left).run().onComplete(bufferFileCompleteCallback.invoke)
+            val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor, config.bufferFileSize))
+            val bufferFileSink = config.bufferSinkFunc(bufferFile)
+            bufferFileSource.toMat(bufferFileSink)(Keep.left).run().onComplete(bufferFileCompleteCallback.invoke)
 
         /**
           * A callback method that is invoked when a buffer file has been fully
@@ -354,7 +365,9 @@ object BufferedPlaylistSource:
           * @param triedResult the result from the source for the file
           */
         private def handleBufferFileCompleted(triedResult: Try[BridgeSourceCompletionReason]): Unit =
+          bufferFileWriteInProgress = false
           log.info("Current buffer file has been fully written: {}.", triedResult)
+
           triedResult match
             case Success(completionReason) =>
               val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>

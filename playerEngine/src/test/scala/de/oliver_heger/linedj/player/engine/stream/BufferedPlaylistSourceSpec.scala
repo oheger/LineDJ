@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.player.engine.stream
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
-import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
@@ -32,6 +32,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import java.io.IOException
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
 import scala.util.Random
@@ -75,9 +76,9 @@ end BufferedPlaylistSourceSpec
 /**
   * Test class for [[BufferedPlaylistSource]].
   */
-class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper:
-  def this() = this(ActorSystem("BufferedPlaylistSourceSpec"))
+  def this() = this(classic.ActorSystem("BufferedPlaylistSourceSpec"))
 
   /** The test kit for dealing with typed actors. */
   private val testKit = ActorTestKit()
@@ -348,4 +349,60 @@ class BufferedPlaylistSourceSpec(testSystem: ActorSystem) extends TestKit(testSy
       source.via(stage).runWith(sink)
     } map { actualException =>
       actualException should be(exception)
+    }
+
+  it should "not create more than two active files in the buffer" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240719215004L)
+    val sourceIndices = 1 to 6
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8000)
+    val resultQueue = new LinkedBlockingQueue[BufferFileWritten[Int]]
+    val sink = Sink.foreach[BufferFileWritten[Int]](resultQueue.offer)
+    val source = Source(sourceIndices)
+    val pauseActor =
+      testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
+
+    given typedSystem: ActorSystem[_] = testKit.system
+
+    val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferFileWritten[Int]](pauseActor)
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    val futStream = source.via(stage).via(pauseStage).runWith(sink)
+    resultQueue.poll(500, TimeUnit.MILLISECONDS) should be(null)
+
+    Files.isRegularFile(bufferDir.resolve("buffer01.dat")) shouldBe true
+    Files.isRegularFile(bufferDir.resolve("buffer02.dat")) shouldBe true
+    Files.exists(bufferDir.resolve("buffer03.dat")) shouldBe false
+
+    pauseActor ! PausePlaybackStage.StartPlayback
+    (1 to 4).foreach { _ =>
+      resultQueue.poll(1000, TimeUnit.MILLISECONDS) should not be null
+    }
+    Files.size(bufferDir.resolve("buffer04.dat")) should be(6 * 4096 - 3 * 8000)
+    resultQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
+
+  it should "correctly fill the buffer with a fast consumer" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240719215004L)
+    val sourceIndices = 1 to 6
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8000)
+    val sink = Sink.ignore
+    val source = Source(sourceIndices)
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { _ =>
+      val bufferFile3 = bufferDir.resolve("buffer04.dat")
+      Files.size(bufferFile3) should be(6 * 4096 - 3 * 8000)
     }
