@@ -406,3 +406,28 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       val bufferFile3 = bufferDir.resolve("buffer04.dat")
       Files.size(bufferFile3) should be(6 * 4096 - 3 * 8000)
     }
+
+  it should "take the source name into account" in :
+    val bufferDir1 = createPathInDirectory("buffer")
+    val bufferDir2 = createPathInDirectory("buffer2")
+    val random = new Random(20240720220751L)
+    val sourceIndices = 1 to 4
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig1 = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir1,
+      bufferFileSize = 8000)
+    val bufferConfig2 = bufferConfig1.copy(sourceName = "bufferSource2", bufferFolder = bufferDir2)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(sourceIndices)
+    val stage1 = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig1)
+    val stage2 = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig2)
+
+    val futStream1 = source.via(stage1).runWith(sink)
+    val futStream2 = source.via(stage2).runWith(sink)
+    for
+      l1 <- futStream1
+      l2 <- futStream2
+    yield l1 should be(l2)  

@@ -48,6 +48,13 @@ import scala.util.{Failure, Success, Try}
   */
 object BufferedPlaylistSource:
   /**
+    * A default name for this source. This is used for the configuration if no
+    * other name was specified. The name is used to derive the names of some
+    * resources (especially actors) created dynamically.
+    */
+  final val DefaultSourceName = "bufferedSource"
+
+  /**
     * A timeout value to be used when actually no timeout is required from the
     * business logic point of view, but syntactically one is needed.
     */
@@ -86,6 +93,11 @@ object BufferedPlaylistSource:
     * @param bufferFileSize     the maximum size of each buffer file
     * @param bufferSinkFunc     a function to obtain a [[Sink]] to files in the
     *                           buffer
+    * @param sourceName         a name of this source; based on this name, the
+    *                           names of some resources (typically actors)
+    *                           created dynamically are derived; so if multiple
+    *                           sources are active at the same time, the names
+    *                           need to be changed to be unique
     * @tparam SRC the type of the elements in the playlist
     * @tparam SNK the type expected by the sink of the stream
     */
@@ -93,7 +105,8 @@ object BufferedPlaylistSource:
                                                     AudioStreamPlayerStage.AudioStreamPlayerConfig[SRC, SNK],
                                                     bufferFolder: Path,
                                                     bufferFileSize: Int,
-                                                    bufferSinkFunc: BufferSinkFunc = defaultBufferSink)
+                                                    bufferSinkFunc: BufferSinkFunc = defaultBufferSink,
+                                                    sourceName: String = DefaultSourceName)
 
   def apply[SRC, SNK, MAT](config: BufferedPlaylistSourceConfig[SRC, SNK],
                            source: Source[SRC, MAT])
@@ -261,7 +274,7 @@ object BufferedPlaylistSource:
             log.info("Buffer folder '{}' does not exist. Creating it now.", config.bufferFolder)
             Files.createDirectories(config.bufferFolder)
 
-          bridgeActor = system.spawn(sourceSinkBridgeActor(), "bridgeActor")
+          bridgeActor = system.spawn(sourceSinkBridgeActor(), s"${config.sourceName}_fillBridgeActor")
           createAndFillBufferFile()
 
         override def postStop(): Unit =
