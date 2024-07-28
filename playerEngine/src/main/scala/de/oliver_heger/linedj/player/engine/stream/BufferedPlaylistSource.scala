@@ -132,11 +132,13 @@ object BufferedPlaylistSource:
     * contained in this buffer file.
     *
     * @param source the source
+    * @param url    the URL for this source
     * @param size   the size of the source in the current buffer file if known
     *               or -1 otherwise
     * @tparam SRC the type to represent sources
     */
   private[stream] case class BufferedSource[SRC](source: SRC,
+                                                 url: String,
                                                  size: Long)
 
   /**
@@ -180,6 +182,13 @@ object BufferedPlaylistSource:
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with StageLogging:
         /**
+          * A callback that is invoked when a source from upstream has been
+          * resolved by the resolver function in the configuration.
+          */
+        private val onSourceResolved =
+          getAsyncCallback[(SRC, Try[AudioStreamPlayerStage.AudioStreamSource])](handleSourceResolved)
+
+        /**
           * A callback that is invoked whenever an audio source from upstream
           * has been fully copied into the buffer.
           */
@@ -202,8 +211,8 @@ object BufferedPlaylistSource:
         /** Stores the sources added to the current buffer file. */
         private var sourcesInCurrentBufferFile = List.empty[BufferedSource[SRC]]
 
-        /** The source that is currently processed. */
-        private var currentSource: Option[SRC] = _
+        /** Stores information about the source that is currently processed. */
+        private var currentSource: Option[(SRC, AudioStreamPlayerStage.AudioStreamSource)] = _
 
         /** A counter for the buffer files that have been created. */
         private var bufferFileCount = 0
@@ -246,7 +255,6 @@ object BufferedPlaylistSource:
         setHandler(in, new InHandler:
           override def onPush(): Unit = {
             val src = grab(in)
-            currentSource = Some(src)
             fillSourceIntoBuffer(src)
           }
 
@@ -295,20 +303,39 @@ object BufferedPlaylistSource:
             dataBuffer = dataBuffer :+ data
 
         /**
-          * Handles the processing of the given source. This function resolves
-          * the source and starts the stream that writes its data into the 
-          * buffer.
+          * Initiates filling of the given data source into a buffer file. In
+          * the first step, the source needs to be resolved.
           *
-          * @param source the source to be processed
+          * @param source the data source from upstream
           */
         private def fillSourceIntoBuffer(source: SRC): Unit =
           remainingBufferFileCapacityForSource = config.bufferFileSize - bytesInCurrentBufferFile
           sourceStartBufferFile = bufferFileCount
 
-          (for
-            resolvedSource <- config.streamPlayerConfig.sourceResolverFunc(source)
-            fillResult <- resolvedSource.source.runWith(Sink.fromGraph(new BridgeSink(bridgeActor, source)))
-          yield fillResult).onComplete(onSourceCompleted.invoke)
+          config.streamPlayerConfig.sourceResolverFunc(source).onComplete { triedResolvedSource =>
+            onSourceResolved.invoke(source -> triedResolvedSource)
+          }
+
+        /**
+          * A callback method that is invoked when the current data source from
+          * upstream has been resolved. If this was successful, a stream can
+          * now be opened for the source to fill its content into the buffer.
+          * Otherwise, the source is just skipped.
+          *
+          * @param srcData a tuple with original source and the result of the
+          *                resolve operation
+          */
+        private def handleSourceResolved(srcData: (SRC, Try[AudioStreamPlayerStage.AudioStreamSource])): Unit =
+          srcData._2 match
+            case Failure(exception) =>
+              log.error(exception, "Could not resolve source '{}'. Skipping it.", srcData._1)
+              requestNextSource()
+            case Success(resolvedSource) =>
+              log.info("Source '{}' has been resolved successfully with URI '{}'.", srcData._1, resolvedSource.url)
+              currentSource = Some((srcData._1, resolvedSource))
+              resolvedSource.source.runWith(
+                Sink.fromGraph(new BridgeSink(bridgeActor, srcData._1, resolvedSource.url))
+              ).onComplete(onSourceCompleted.invoke)
 
         /**
           * A callback method that is invoked when one of the data sources from
@@ -321,16 +348,24 @@ object BufferedPlaylistSource:
           // The current source should always be defined when this function is called.
           currentSource.foreach { source =>
             log.info("Current source '{}' is complete: {}.", currentSource, triedResult)
-            val bufferedSource = adjustToCurrentFile(triedResult.getOrElse(BufferedSource(source, 0)))
+            val bufferedSource =
+              adjustToCurrentFile(triedResult.getOrElse(BufferedSource(source._1, source._2.url, 0)))
             bytesInCurrentBufferFile += bufferedSource.size
             sourcesInCurrentBufferFile = bufferedSource :: sourcesInCurrentBufferFile
 
-            if isClosed(in) then
-              log.info("End of playlist.")
-              bridgeActor ! EndOfStreamMessage
-            else
-              pull(in)
+            requestNextSource()
           }
+
+        /**
+          * Request the next source from upstream to continue filling the
+          * buffer. Handle the end of the playlist stream correctly.
+          */
+        private def requestNextSource(): Unit =
+          if isClosed(in) then
+            log.info("End of playlist.")
+            bridgeActor ! EndOfStreamMessage
+          else
+            pull(in)
           currentSource = None
 
         /**
@@ -385,7 +420,7 @@ object BufferedPlaylistSource:
             case Success(completionReason) =>
               val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>
                 // This source is stored over multiple buffer files.
-                BufferedSource(source, -1) :: sourcesInCurrentBufferFile
+                BufferedSource(source._1, source._2.url, -1) :: sourcesInCurrentBufferFile
               }
               pushData(BufferFileWritten(allSourcesInFile.reverse))
 
@@ -403,11 +438,13 @@ object BufferedPlaylistSource:
     *
     * @param bridgeActor the bridge actor instance
     * @param source      the source that is currently processed
+    * @param url         the URL for the current source
     * @param system      the implicit actor system
     * @tparam SRC the type to represent sources
     */
   private class BridgeSink[SRC](bridgeActor: ActorRef[SourceSinkBridgeCommand],
-                                source: SRC)
+                                source: SRC,
+                                url: String)
                                (using system: ActorSystem[_])
     extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[BufferedSource[SRC]]]:
     private val in: Inlet[ByteString] = Inlet("BridgeSink")
@@ -460,7 +497,7 @@ object BufferedPlaylistSource:
           * an error. 
           */
         private def setMaterializedValue(): Unit =
-          promiseMat.success(BufferedSource(source, bytesProcessed))
+          promiseMat.success(BufferedSource(source, url, bytesProcessed))
 
         /**
           * A function that is invoked when the bridge actor sends a

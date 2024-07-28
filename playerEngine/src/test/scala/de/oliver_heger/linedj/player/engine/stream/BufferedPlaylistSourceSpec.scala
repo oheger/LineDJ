@@ -60,6 +60,14 @@ object BufferedPlaylistSourceSpec:
     Source(data.grouped(chunkSize).toList)
 
   /**
+    * Generates the URL for a test source based on its index.
+    *
+    * @param index the index of this test source
+    * @return the URL for this test source
+    */
+  private def sourceUrl(index: Int): String = s"source$index.wav"
+
+  /**
     * Returns a function to resolve audio sources that is based on a sequence
     * with the data of the sources. The source type is ''Int'', so the data of
     * a source can easily be determined as index in the data sequence.
@@ -145,16 +153,16 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, expectedData)
 
       val expectedBufferedSources = sourceData.zipWithIndex.map { (data, index) =>
-        BufferedSource(index + 1, data.size)
+        BufferedSource(index + 1, sourceUrl(index + 1), data.size)
       }
       fillResults should contain only BufferFileWritten(expectedBufferedSources.toList)
     }
 
-  it should "handle errors when processing a source" in :
+  it should "skip a source if it cannot be resolved" in :
     val bufferDir = createPathInDirectory("buffer")
     val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = {
       case 1 => Future.failed(new IOException("Test exception: Could not read audio source."))
-      case _ => Future.successful(AudioStreamPlayerStage.AudioStreamSource("foo.src",
+      case idx => Future.successful(AudioStreamPlayerStage.AudioStreamSource(sourceUrl(idx),
         chunkedSource(ByteString(FileTestHelper.testBytes()), 32)))
     }
 
@@ -170,8 +178,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, ByteString(FileTestHelper.testBytes()))
 
       val expectedBufferedSources = List(
-        BufferedSource(1, 0),
-        BufferedSource(2, FileTestHelper.testBytes().length)
+        BufferedSource(2, sourceUrl(2), FileTestHelper.testBytes().length)
       )
       fillResults should contain only BufferFileWritten(expectedBufferedSources)
     }
@@ -196,7 +203,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
         case 1 => errorSource
         case 2 => successSource
         case i => fail("Unexpected source index: " + i)
-      Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$index.mp3", sourceForIndex))
+      Future.successful(AudioStreamPlayerStage.AudioStreamSource(sourceUrl(index), sourceForIndex))
     }
 
     val bufferDir = createPathInDirectory("buffer")
@@ -214,8 +221,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, expectedData)
 
       val expectedBufferedSources = List(
-        BufferedSource(1, source1Size),
-        BufferedSource(2, sourceData2.size)
+        BufferedSource(1, sourceUrl(1), source1Size),
+        BufferedSource(2, sourceUrl(2), sourceData2.size)
       )
       fillResults should contain only BufferFileWritten(expectedBufferedSources)
     }
@@ -247,31 +254,31 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       val expectedWrittenMessages1 = List(
         BufferFileWritten(
           List(
-            BufferedSource(1, 4096),
-            BufferedSource(2, 4096),
-            BufferedSource(3, 4096),
-            BufferedSource(4, -1)
+            BufferedSource(1, sourceUrl(1), 4096),
+            BufferedSource(2, sourceUrl(2), 4096),
+            BufferedSource(3, sourceUrl(3), 4096),
+            BufferedSource(4, sourceUrl(4), -1)
           )
         ),
         BufferFileWritten(
           List(
-            BufferedSource(4, 0),
-            BufferedSource(5, 4096)
+            BufferedSource(4, sourceUrl(4), 0),
+            BufferedSource(5, sourceUrl(5), 4096)
           )
         )
       )
       val expectedWrittenMessages2 = List(
         BufferFileWritten(
           List(
-            BufferedSource(1, 4096),
-            BufferedSource(2, 4096),
-            BufferedSource(3, 4096),
-            BufferedSource(4, 4096),
-            BufferedSource(5, -1)
+            BufferedSource(1, sourceUrl(1), 4096),
+            BufferedSource(2, sourceUrl(2), 4096),
+            BufferedSource(3, sourceUrl(3), 4096),
+            BufferedSource(4, sourceUrl(4), 4096),
+            BufferedSource(5, sourceUrl(5), -1)
           )
         ),
         BufferFileWritten(
-          List(BufferedSource(5, 4096))
+          List(BufferedSource(5, sourceUrl(5), 4096))
         )
       )
       val orderedFillResults = fillResults.reverse
@@ -306,16 +313,16 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       val expectedWrittenMessages = List(
         BufferFileWritten(
           List(
-            BufferedSource(1, 4096),
-            BufferedSource(2, 4096),
-            BufferedSource(3, 4096),
-            BufferedSource(4, -1)
+            BufferedSource(1, sourceUrl(1), 4096),
+            BufferedSource(2, sourceUrl(2), 4096),
+            BufferedSource(3, sourceUrl(3), 4096),
+            BufferedSource(4, sourceUrl(4), -1)
           )
         ),
         BufferFileWritten(
           List(
-            BufferedSource(4, split2.size),
-            BufferedSource(5, 4096)
+            BufferedSource(4, sourceUrl(4), split2.size),
+            BufferedSource(5, sourceUrl(5), 4096)
           )
         )
       )
