@@ -126,20 +126,23 @@ object BufferedPlaylistSource:
     * A data class describing an audio source that has been written into a
     * buffer file. If a buffer file contains data from a source, an instance of
     * this class is added to the corresponding [[BufferFileWritten]] message.
-    * The size of the source is only available after it has been fully written.
-    * If only parts of the source ended up in the buffer file, it is -1. Note
-    * that this is not the total size of the source, but only the part that is
-    * contained in this buffer file.
+    * The end index of the source is only available after it has been fully
+    * written. If only parts of the source ended up in the buffer file, it is
+    * -1.
     *
-    * @param source the source
-    * @param url    the URL for this source
-    * @param size   the size of the source in the current buffer file if known
-    *               or -1 otherwise
+    * @param source      the source
+    * @param url         the URL for this source
+    * @param startOffset the offset (in the overall playlist stream) where
+    *                    this source has started
+    * @param endOffset   the offset (in the overall playlist stream) where
+    *                    this source has ended; can be -1 if the source is
+    *                    still processed
     * @tparam SRC the type to represent sources
     */
   private[stream] case class BufferedSource[SRC](source: SRC,
                                                  url: String,
-                                                 size: Long)
+                                                 startOffset: Long,
+                                                 endOffset: Long)
 
   /**
     * A data class used as output by [[FillBufferFlowStage]] that describes the
@@ -218,26 +221,11 @@ object BufferedPlaylistSource:
         private var bufferFileCount = 0
 
         /**
-          * A counter to track the bytes written into the current buffer file.
-          * This is mainly used to correctly calculate the size of sources that
-          * span over multiple files.
+          * A counter to track the bytes that have been written into the buffer
+          * (in total). This is used to determine the start and end offsets of
+          * the single data sources.
           */
-        private var bytesInCurrentBufferFile = 0L
-
-        /**
-          * Stores the remaining capacity in the current buffer file when a new
-          * source is started. This value is updated every time a new data
-          * source is started. It is also used to calculate the size in a
-          * [[BufferedSource]] object.
-          */
-        private var remainingBufferFileCapacityForSource = 0L
-
-        /**
-          * The number of the buffer file that was active when a new source was
-          * started. This is used to discover sources spanning multiple buffer
-          * files.
-          */
-        private var sourceStartBufferFile = 0
+        private var bytesProcessed = 0L
 
         /**
           * A flag that allows keeping track whether a buffer file is currently
@@ -309,9 +297,6 @@ object BufferedPlaylistSource:
           * @param source the data source from upstream
           */
         private def fillSourceIntoBuffer(source: SRC): Unit =
-          remainingBufferFileCapacityForSource = config.bufferFileSize - bytesInCurrentBufferFile
-          sourceStartBufferFile = bufferFileCount
-
           config.streamPlayerConfig.sourceResolverFunc(source).onComplete { triedResolvedSource =>
             onSourceResolved.invoke(source -> triedResolvedSource)
           }
@@ -334,7 +319,7 @@ object BufferedPlaylistSource:
               log.info("Source '{}' has been resolved successfully with URI '{}'.", srcData._1, resolvedSource.url)
               currentSource = Some((srcData._1, resolvedSource))
               resolvedSource.source.runWith(
-                Sink.fromGraph(new BridgeSink(bridgeActor, srcData._1, resolvedSource.url))
+                Sink.fromGraph(new BridgeSink(bridgeActor, srcData._1, resolvedSource.url, bytesProcessed))
               ).onComplete(onSourceCompleted.invoke)
 
         /**
@@ -346,11 +331,13 @@ object BufferedPlaylistSource:
           */
         private def handleSourceCompleted(triedResult: Try[BufferedSource[SRC]]): Unit =
           // The current source should always be defined when this function is called.
-          currentSource.foreach { source =>
-            log.info("Current source '{}' is complete: {}.", currentSource, triedResult)
-            val bufferedSource =
-              adjustToCurrentFile(triedResult.getOrElse(BufferedSource(source._1, source._2.url, 0)))
-            bytesInCurrentBufferFile += bufferedSource.size
+          currentSource.foreach { (source, streamSource) =>
+            log.info("Current source '{}' is complete: {}.", source, triedResult)
+            val bufferedSource = triedResult.getOrElse(
+              // Note: This case should actually not occur, since BufferedSink handles errors gracefully.
+              BufferedSource(source, streamSource.url, bytesProcessed, bytesProcessed)
+            )
+            bytesProcessed = bufferedSource.endOffset
             sourcesInCurrentBufferFile = bufferedSource :: sourcesInCurrentBufferFile
 
             requestNextSource()
@@ -369,23 +356,6 @@ object BufferedPlaylistSource:
           currentSource = None
 
         /**
-          * Calculates the size of the buffered source relative to the current
-          * buffer file, so that it covers only the part which is actually
-          * written in this file. This is expected downstream when sources are
-          * again extracted from the buffer. An adjustment is only required if
-          * the source is stored over multiple buffer files.
-          *
-          * @param bufSrc the [[BufferedSource]] from the writing stream
-          * @return the adjusted [[BufferedSource]]
-          */
-        private def adjustToCurrentFile(bufSrc: BufferedSource[SRC]): BufferedSource[SRC] =
-          if sourceStartBufferFile != bufferFileCount then
-            val relativeSize = (bufSrc.size - remainingBufferFileCapacityForSource) % config.bufferFileSize
-            bufSrc.copy(size = relativeSize)
-          else
-            bufSrc
-
-        /**
           * Creates a new file in the buffer if possible and starts a stream
           * that populates it from the sources obtained from upstream. This
           * stream completes when the maximum size of the buffer file was
@@ -396,8 +366,6 @@ object BufferedPlaylistSource:
           if !bufferFileWriteInProgress && dataBuffer.size < 1 then
             bufferFileWriteInProgress = true
             bufferFileCount += 1
-            sourcesInCurrentBufferFile = Nil
-            bytesInCurrentBufferFile = 0
             val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
             log.info("Creating buffer file {}.", bufferFile)
 
@@ -418,11 +386,14 @@ object BufferedPlaylistSource:
 
           triedResult match
             case Success(completionReason) =>
-              val allSourcesInFile = currentSource.fold(sourcesInCurrentBufferFile) { source =>
-                // This source is stored over multiple buffer files.
-                BufferedSource(source._1, source._2.url, -1) :: sourcesInCurrentBufferFile
-              }
-              pushData(BufferFileWritten(allSourcesInFile.reverse))
+              val (allSourcesInFile, nextFile) = correctSourcesInCurrentBufferFile(
+                sourcesInCurrentBufferFile.reverse,
+                currentSource.map(src => BufferedSource(src._1, src._2.url, bytesProcessed, -1)),
+                bufferFileCount,
+                config.bufferFileSize
+              )
+              pushData(BufferFileWritten(allSourcesInFile))
+              sourcesInCurrentBufferFile = nextFile
 
               completionReason match
                 case BridgeSourceCompletionReason.LimitReached => createAndFillBufferFile()
@@ -439,12 +410,14 @@ object BufferedPlaylistSource:
     * @param bridgeActor the bridge actor instance
     * @param source      the source that is currently processed
     * @param url         the URL for the current source
+    * @param startOffset the start offset for the current source
     * @param system      the implicit actor system
     * @tparam SRC the type to represent sources
     */
   private class BridgeSink[SRC](bridgeActor: ActorRef[SourceSinkBridgeCommand],
                                 source: SRC,
-                                url: String)
+                                url: String,
+                                startOffset: Long)
                                (using system: ActorSystem[_])
     extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[BufferedSource[SRC]]]:
     private val in: Inlet[ByteString] = Inlet("BridgeSink")
@@ -479,25 +452,17 @@ object BufferedPlaylistSource:
           override def onUpstreamFinish(): Unit =
             super.onUpstreamFinish()
             log.info("Source '{}' finished after {} bytes.", source, bytesProcessed)
-            setMaterializedValue()
 
           override def onUpstreamFailure(ex: Throwable): Unit =
             super.onUpstreamFailure(ex)
             log.error(ex, "Source '{}' failed after {} bytes.", source, bytesProcessed)
-            setMaterializedValue()
         )
 
         override def preStart(): Unit =
           pull(in)
 
-        /**
-          * Sets the materialized value for this sink, which is a
-          * [[BufferedSource]] containing the number of written bytes. This has
-          * to be done when upstream finishes, no matter if successful or with 
-          * an error. 
-          */
-        private def setMaterializedValue(): Unit =
-          promiseMat.success(BufferedSource(source, url, bytesProcessed))
+        override def postStop(): Unit =
+          promiseMat.success(BufferedSource(source, url, startOffset, startOffset + bytesProcessed))
 
         /**
           * A function that is invoked when the bridge actor sends a
@@ -681,7 +646,7 @@ object BufferedPlaylistSource:
     Behaviors.receive {
       case (ctx, AddDataChunk(replyTo, data)) =>
         consumer.foreach(ctx.self ! _)
-        handleBridgeCommand(chunks :+ DataChunk(data), replyTo, consumer)
+        handleBridgeCommand(chunks :+ DataChunk(data), replyTo, None)
 
       case (_, msg@GetNextDataChunk(replyTo, maxSize)) =>
         chunks match
@@ -711,4 +676,39 @@ object BufferedPlaylistSource:
     * @return the name of the buffer file with this index
     */
   private def bufferFileName(index: Int): String = String.format(BufferFilePattern, index)
+
+
+  /**
+    * Determines the sources that are actually stored in the current
+    * buffer file. Due to race conditions (an end of a data source is
+    * reported before the buffer file completed notification is
+    * processed), it can happen that the data in the tracked list of
+    * sources is incorrect - it then contains more data than was written
+    * to the file. This function cleans this up and returns a corrected
+    * list of sources plus a list with sources floating over to the next
+    * buffer file.
+    *
+    * @param sourcesInFile    the data of sources written to the current file
+    * @param optCurrentSource the optional current source
+    * @param bufferFileNo     the index of the current buffer file (1-based)
+    * @param bufferFileSize   the size of buffer file
+    * @tparam SRC the type of the source
+    * @return a tuple with the final list of sources in the current file and
+    *         the sources for the next file
+    */
+  private def correctSourcesInCurrentBufferFile[SRC](sourcesInFile: List[BufferedSource[SRC]],
+                                                     optCurrentSource: => Option[BufferedSource[SRC]],
+                                                     bufferFileNo: Int,
+                                                     bufferFileSize: Long):
+  (List[BufferedSource[SRC]], List[BufferedSource[SRC]]) =
+    val bufferFileEndOffset = bufferFileNo * bufferFileSize
+    val (contained, overflow) = sourcesInFile.span(_.endOffset < bufferFileEndOffset)
+    if overflow.isEmpty then
+      val actSources = optCurrentSource.fold(contained) { src =>
+        contained :+ src
+      }
+      (actSources, Nil)
+    else
+      val actSources = contained :+ overflow.head.copy(endOffset = -1)
+      (actSources, overflow)
 end BufferedPlaylistSource

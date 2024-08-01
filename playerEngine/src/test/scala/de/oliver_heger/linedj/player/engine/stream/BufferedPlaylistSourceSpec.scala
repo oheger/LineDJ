@@ -152,10 +152,13 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       val expectedData = sourceData.reduce(_ ++ _)
       checkBufferFile(bufferDir, 1, expectedData)
 
-      val expectedBufferedSources = sourceData.zipWithIndex.map { (data, index) =>
-        BufferedSource(index + 1, sourceUrl(index + 1), data.size)
-      }
-      fillResults should contain only BufferFileWritten(expectedBufferedSources.toList)
+      val (_, expectedBufferedSources) = sourceData.zipWithIndex
+        .foldLeft((0L, List.empty[BufferedSource[Int]])) { (agg, e) =>
+          val nextOffset = agg._1 + e._1.size
+          val bufSrc = BufferedSource(e._2 + 1, sourceUrl(e._2 + 1), agg._1, nextOffset)
+          (nextOffset, bufSrc :: agg._2)
+        }
+      fillResults should contain only BufferFileWritten(expectedBufferedSources.reverse)
     }
 
   it should "skip a source if it cannot be resolved" in :
@@ -178,7 +181,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, ByteString(FileTestHelper.testBytes()))
 
       val expectedBufferedSources = List(
-        BufferedSource(2, sourceUrl(2), FileTestHelper.testBytes().length)
+        BufferedSource(2, sourceUrl(2), 0, FileTestHelper.testBytes().length)
       )
       fillResults should contain only BufferFileWritten(expectedBufferedSources)
     }
@@ -221,8 +224,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, expectedData)
 
       val expectedBufferedSources = List(
-        BufferedSource(1, sourceUrl(1), source1Size),
-        BufferedSource(2, sourceUrl(2), sourceData2.size)
+        BufferedSource(1, sourceUrl(1), 0, source1Size),
+        BufferedSource(2, sourceUrl(2), source1Size, source1Size + sourceData2.size)
       )
       fillResults should contain only BufferFileWritten(expectedBufferedSources)
     }
@@ -247,45 +250,24 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       checkBufferFile(bufferDir, 1, expectedData1)
       checkBufferFile(bufferDir, 2, sourceData(4))
 
-      // This is an interesting corner case which does not yield deterministic results.
-      // Two events are occurring in parallel: Source 4 completes, and the buffer file is full.
-      // The produced results depend on the order in which these events are processed. Both variants
-      // are semantically equivalent, but they nevertheless differ.
-      val expectedWrittenMessages1 = List(
+      val expectedWrittenMessages = List(
         BufferFileWritten(
           List(
-            BufferedSource(1, sourceUrl(1), 4096),
-            BufferedSource(2, sourceUrl(2), 4096),
-            BufferedSource(3, sourceUrl(3), 4096),
-            BufferedSource(4, sourceUrl(4), -1)
+            BufferedSource(1, sourceUrl(1), 0, 4096),
+            BufferedSource(2, sourceUrl(2), 4096, 8192),
+            BufferedSource(3, sourceUrl(3), 8192, 12288),
+            BufferedSource(4, sourceUrl(4), 12288, -1)
           )
         ),
         BufferFileWritten(
           List(
-            BufferedSource(4, sourceUrl(4), 0),
-            BufferedSource(5, sourceUrl(5), 4096)
+            BufferedSource(4, sourceUrl(4), 12288, 16384),
+            BufferedSource(5, sourceUrl(5), 16384, 20480)
           )
-        )
-      )
-      val expectedWrittenMessages2 = List(
-        BufferFileWritten(
-          List(
-            BufferedSource(1, sourceUrl(1), 4096),
-            BufferedSource(2, sourceUrl(2), 4096),
-            BufferedSource(3, sourceUrl(3), 4096),
-            BufferedSource(4, sourceUrl(4), 4096),
-            BufferedSource(5, sourceUrl(5), -1)
-          )
-        ),
-        BufferFileWritten(
-          List(BufferedSource(5, sourceUrl(5), 4096))
         )
       )
       val orderedFillResults = fillResults.reverse
-      if orderedFillResults != expectedWrittenMessages1 && orderedFillResults != expectedWrittenMessages2 then
-        fail(s"Unexpected result: $orderedFillResults\nExpected $expectedWrittenMessages1\n " +
-          s"or $expectedWrittenMessages2")
-      succeed
+      orderedFillResults should contain theSameElementsInOrderAs expectedWrittenMessages
     }
 
   it should "handle arbitrary buffer sizes correctly when splitting sources over multiple buffer files" in :
@@ -313,20 +295,66 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       val expectedWrittenMessages = List(
         BufferFileWritten(
           List(
-            BufferedSource(1, sourceUrl(1), 4096),
-            BufferedSource(2, sourceUrl(2), 4096),
-            BufferedSource(3, sourceUrl(3), 4096),
-            BufferedSource(4, sourceUrl(4), -1)
+            BufferedSource(1, sourceUrl(1), 0, 4096),
+            BufferedSource(2, sourceUrl(2), 4096, 8192),
+            BufferedSource(3, sourceUrl(3), 8192, 12288),
+            BufferedSource(4, sourceUrl(4), 12288, -1)
           )
         ),
         BufferFileWritten(
           List(
-            BufferedSource(4, sourceUrl(4), split2.size),
-            BufferedSource(5, sourceUrl(5), 4096)
+            BufferedSource(4, sourceUrl(4), 12288, 16384),
+            BufferedSource(5, sourceUrl(5), 16384, 20480)
           )
         )
       )
       fillResults.reverse should contain theSameElementsInOrderAs expectedWrittenMessages
+    }
+
+  it should "handle sources correctly that spawn multiple buffer files" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240731213147L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(1024)),
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(1000))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 2048)
+    val sink = createFoldSink[BufferFileWritten[Int]]()
+    val source = Source(List(1, 2, 3))
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+
+    source.via(stage).runWith(sink) map { fillResults =>
+      checkBufferFile(bufferDir, 1, sourceData.head ++ sourceData(1).take(1024))
+      checkBufferFile(bufferDir, 2, sourceData(1).drop(1024).take(2048))
+      checkBufferFile(bufferDir, 3, sourceData(1).drop(3072).take(2048))
+      checkBufferFile(bufferDir, 4, sourceData(1).drop(5120).take(2048))
+      checkBufferFile(bufferDir, 5, sourceData(1).drop(7168) ++ sourceData(2))
+
+      val expectedWrittenMessages = List(
+        BufferFileWritten(
+          List(
+            BufferedSource(1, sourceUrl(1), 0, 1024),
+            BufferedSource(2, sourceUrl(2), 1024, -1)
+          )
+        ),
+        BufferFileWritten(List(BufferedSource(2, sourceUrl(2), 1024, -1))),
+        BufferFileWritten(List(BufferedSource(2, sourceUrl(2), 1024, -1))),
+        BufferFileWritten(List(BufferedSource(2, sourceUrl(2), 1024, -1))),
+        BufferFileWritten(
+          List(
+            BufferedSource(2, sourceUrl(2), 1024, 9216),
+            BufferedSource(3, sourceUrl(3), 9216, 10216)
+          )
+        ),
+      )
+      val orderedFillResults = fillResults.reverse
+      orderedFillResults should contain theSameElementsInOrderAs expectedWrittenMessages
     }
 
   it should "cancel the stream on failures to write to the buffer" in :
