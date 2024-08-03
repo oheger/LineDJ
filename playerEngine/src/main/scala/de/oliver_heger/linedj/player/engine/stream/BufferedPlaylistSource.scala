@@ -84,6 +84,24 @@ object BufferedPlaylistSource:
   type BufferSinkFunc = Path => Sink[ByteString, Any]
 
   /**
+    * Definition of a trait that is used for the sources exposed downstream by
+    * the buffered source. It allows resolving the source from the buffer. For
+    * this resolve operation, a lot of internal details about the way buffering
+    * is implemented are required. The main purpose of this trait is to hide
+    * this complexity and to prevent that internal data types need to be
+    * exposed.
+    */
+  trait SourceInBuffer:
+    /**
+      * Resolves this source by performing the necessary steps to open a stream
+      * that loads data from buffer files.
+      *
+      * @return a ''Future'' with the resolved source
+      */
+    def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource]
+  end SourceInBuffer
+
+  /**
     * A class defining the configuration of a [[BufferedPlaylistSource]].
     *
     * @param streamPlayerConfig the configuration for playing audio streams;
@@ -108,9 +126,45 @@ object BufferedPlaylistSource:
                                                     bufferSinkFunc: BufferSinkFunc = defaultBufferSink,
                                                     sourceName: String = DefaultSourceName)
 
+  /**
+    * Creates a new [[BufferedPlaylistSource]] that wraps a given source. This
+    * means that all the audio sources provided by this source are passed
+    * through the configured buffer. In downstream, they can be obtained via a
+    * special [[AudioStreamPlayerStage.SourceResolverFunc]]. A configuration
+    * created by the [[mapConfig mapConfig]] function contains such a resolver
+    * function.
+    *
+    * @param config the configuration for the buffered source
+    * @param source the source to wrap
+    * @param system the actor system
+    * @tparam SRC the type of elements in the playlist
+    * @tparam SNK the type expected by the sink of audio streams
+    * @tparam MAT the materialized type of the source
+    * @return the new buffered source
+    */
   def apply[SRC, SNK, MAT](config: BufferedPlaylistSourceConfig[SRC, SNK],
                            source: Source[SRC, MAT])
-                          (using system: classic.ActorSystem): Source[SRC, MAT] = ???
+                          (using system: classic.ActorSystem): Source[SourceInBuffer, MAT] =
+    val fillStage = new FillBufferFlowStage(config)
+    val readStage = new ReadBufferFlowStage(config)
+    source.viaMat(fillStage)(Keep.left)
+      .viaMat(readStage)(Keep.left)
+
+  /**
+    * Returns a configuration for an [[AudioStreamPlayerStage]] that is derived
+    * from the passed in configuration, but contains a
+    * [[AudioStreamPlayerStage.SourceResolverFunc]] that can resolve sources
+    * written into the buffer used by a [[BufferedPlaylistSource]].
+    *
+    * @param config the original configuration
+    * @tparam SRC the original materialized type of the source
+    * @tparam SNK the type expected by the sink of the stream
+    * @return the mapped configuration
+    */
+  def mapConfig[SRC, SNK](config: AudioStreamPlayerStage.AudioStreamPlayerConfig[SRC, SNK]):
+  AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer, SNK] =
+    config.copy(sourceResolverFunc = resolveSourceInBuffer)
+      .asInstanceOf[AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer, SNK]]
 
   /**
     * A default function for opening a file in the buffer. This is used by
@@ -236,9 +290,6 @@ object BufferedPlaylistSource:
 
         /** The typed actor system in implicit scope. */
         private given typedSystem: ActorSystem[_] = system.toTyped
-
-        /** The execution context in implicit scope. */
-        private given ec: ExecutionContext = system.dispatcher
 
         setHandler(in, new InHandler:
           override def onPush(): Unit = {
@@ -401,6 +452,46 @@ object BufferedPlaylistSource:
             case Failure(exception) =>
               failStage(exception)
   end FillBufferFlowStage
+
+  /**
+    * A flow stage implementation that is responsible for reading audio sources
+    * from the file-based buffer.
+    *
+    * This stage follows [[FillBufferFlowStage]] in the buffered playlist
+    * stream. It uses similar techniques to expose the original audio sources
+    * from the temporary buffer files that have been written previously.
+    *
+    * @param config the configuration for the buffered source
+    * @param system the actor system
+    * @tparam SRC the type of the original source
+    * @tparam SNK the type expected by the sink of the strea,
+    */
+  private[stream] class ReadBufferFlowStage[SRC, SNK](config: BufferedPlaylistSourceConfig[SRC, SNK])
+                                                     (using system: classic.ActorSystem)
+    extends GraphStage[FlowShape[BufferFileWritten[SRC], SourceInBuffer]]:
+    private val in: Inlet[BufferFileWritten[SRC]] = Inlet("ReadBufferFlowStage.in")
+    private val out: Outlet[SourceInBuffer] = Outlet("ReadBufferFlowStage.out")
+
+    override def shape: FlowShape[BufferFileWritten[SRC], SourceInBuffer] = new FlowShape(in, out)
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) with StageLogging:
+        setHandler(in, new InHandler:
+          override def onPush(): Unit =
+            val fileWritten = grab(in)
+            log.info("Received buffer file: {}.", fileWritten)
+            push(out, new SourceInBuffer:
+              override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
+                val source = FileIO.fromPath(config.bufferFolder.resolve(bufferFileName(1)))
+                AudioStreamPlayerStage.AudioStreamSource(fileWritten.sources.head.url, source)
+              }
+            )
+        )
+
+        setHandler(out, new OutHandler:
+          override def onPull(): Unit = pull(in)
+        )
+  end ReadBufferFlowStage
 
   /**
     * An internal [[Sink]] implementation that passes data from upstream to a
@@ -677,7 +768,6 @@ object BufferedPlaylistSource:
     */
   private def bufferFileName(index: Int): String = String.format(BufferFilePattern, index)
 
-
   /**
     * Determines the sources that are actually stored in the current
     * buffer file. Due to race conditions (an end of a data source is
@@ -711,4 +801,22 @@ object BufferedPlaylistSource:
     else
       val actSources = contained :+ overflow.head.copy(endOffset = -1)
       (actSources, overflow)
+
+  /**
+    * A resolver function for sources stored in the buffer.
+    *
+    * @param src the source to be resolved
+    * @return the resolved source
+    */
+  private def resolveSourceInBuffer(src: SourceInBuffer): Future[AudioStreamPlayerStage.AudioStreamSource] =
+    src.resolveSource()
+
+  /**
+    * Provides an [[ExecutionContext]] in implicit scope from the given actor
+    * system.
+    *
+    * @param system the actor system
+    * @return the execution context
+    */
+  private given executionContext(using system: classic.ActorSystem): ExecutionContext = system.dispatcher
 end BufferedPlaylistSource

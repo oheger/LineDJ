@@ -25,6 +25,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
+import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
@@ -77,7 +78,7 @@ object BufferedPlaylistSourceSpec:
     */
   private def seqBasedResolverFunc(sourceData: IndexedSeq[ByteString]):
   AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
-    Future.successful(AudioStreamPlayerStage.AudioStreamSource(s"source$idx.wav",
+    Future.successful(AudioStreamPlayerStage.AudioStreamSource(sourceUrl(idx),
       chunkedSource(sourceData(idx - 1), 256)))
 end BufferedPlaylistSourceSpec
 
@@ -85,11 +86,14 @@ end BufferedPlaylistSourceSpec
   * Test class for [[BufferedPlaylistSource]].
   */
 class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper:
+  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with Eventually with FileTestHelper:
   def this() = this(classic.ActorSystem("BufferedPlaylistSourceSpec"))
 
   /** The test kit for dealing with typed actors. */
   private val testKit = ActorTestKit()
+
+  /** Provides a typed actor system in implicit scope. */
+  given typedSystem: ActorSystem[_] = testKit.system
 
   override protected def afterEach(): Unit =
     tearDownTestFile()
@@ -402,9 +406,6 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     val source = Source(sourceIndices)
     val pauseActor =
       testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
-
-    given typedSystem: ActorSystem[_] = testKit.system
-
     val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferFileWritten[Int]](pauseActor)
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
@@ -465,4 +466,50 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     for
       l1 <- futStream1
       l2 <- futStream2
-    yield l1 should be(l2)  
+    yield l1 should be(l2)
+
+  "BufferedPlaylistSource" should "process a single source from upstream" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240802221019L)
+    val sourceData = ByteString(random.nextBytes(4096))
+    val resolverFunc = seqBasedResolverFunc(IndexedSeq(sourceData))
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8192)
+    val bufferedSource = BufferedPlaylistSource(bufferConfig, Source.single(1))
+    val mappedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
+    val sink = createFoldSink[ByteString]()
+    bufferedSource.mapAsync(1) { elem =>
+      mappedConfig.sourceResolverFunc(elem)
+    }.mapAsync(1) { source =>
+      source.url should be(sourceUrl(1))
+      val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+      source.source.runWith(byteStrSink)
+    }.runWith(sink).map { results =>
+      results should contain only sourceData
+    }
+
+  it should "route the data through buffer files" in :
+    val bufferDir = createPathInDirectory("buffer")
+    val random = new Random(20240803155802L)
+    val sourceData = ByteString(random.nextBytes(4096))
+    val resolverFunc = seqBasedResolverFunc(IndexedSeq(sourceData))
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8192)
+    val bufferedSource = BufferedPlaylistSource(bufferConfig, Source.single(1))
+    val mappedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
+    val pauseActor =
+      testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
+    val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferedPlaylistSource.SourceInBuffer](pauseActor)
+    val sink = Sink.ignore
+
+    bufferedSource.via(pauseStage).runWith(sink)
+
+    eventually:
+      val bufferFile = bufferDir.resolve("buffer01.dat")
+      Files.size(bufferFile) should be(sourceData.size)
