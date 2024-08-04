@@ -586,12 +586,21 @@ object BufferedPlaylistSource:
     * of the source, the source materializes a flag with the reason for its
     * end.
     *
+    * Since the materialized value of the source is only available if there is
+    * full control over the whole stream (which is for instance not the case
+    * when reading data from a buffer file), there is an alternative way to
+    * obtain the result produced by the source: The [[Promise]] that is also
+    * used to provide the materialized result can be passed when constructing
+    * an instance. Then a client can react when it gets completed.
+    *
     * @param bridgeActor the bridge actor instance
     * @param limit       the maximum number of bytes to be issued
+    * @param promiseMat  the promise to use for generating the result
     * @param system      the actor system
     */
   private class BridgeSource(bridgeActor: ActorRef[SourceSinkBridgeCommand],
-                             limit: Long)
+                             limit: Long,
+                             promiseMat: Promise[BridgeSourceCompletionReason] = Promise())
                             (using system: ActorSystem[_])
     extends GraphStageWithMaterializedValue[SourceShape[ByteString], Future[BridgeSourceCompletionReason]]:
     private val out: Outlet[ByteString] = Outlet("BridgeSource")
@@ -600,7 +609,6 @@ object BufferedPlaylistSource:
 
     override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
     (GraphStageLogic, Future[BridgeSourceCompletionReason]) =
-      val promiseMat = Promise[BridgeSourceCompletionReason]()
       val logic = new GraphStageLogic(shape):
         /**
           * A callback to handle data chunks that have been retrieved
