@@ -288,9 +288,6 @@ object BufferedPlaylistSource:
           */
         private var bufferFileWriteInProgress = false
 
-        /** The typed actor system in implicit scope. */
-        private given typedSystem: ActorSystem[_] = system.toTyped
-
         setHandler(in, new InHandler:
           override def onPush(): Unit = {
             val src = grab(in)
@@ -476,21 +473,110 @@ object BufferedPlaylistSource:
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with StageLogging:
+        /**
+          * A callback function that gets invoked when an audio source has been
+          * read from the buffer.
+          */
+        private val onSourceComplete = getAsyncCallback[Try[BridgeSourceCompletionReason]](handleSourceCompleted)
+
+        /** The actor for source/sink multiplexing. */
+        private var bridgeActor: ActorRef[SourceSinkBridgeCommand] = _
+
+        /** Stores the sources contained in the current buffer file. */
+        private var bufferedSources = List.empty[BufferedSource[SRC]]
+
+        /** A counter for the buffer files that have been processed. */
+        private var bufferFileCount = 0
+
+        /**
+          * A counter for the number of sources that are currently in progress.
+          * This is needed, since there can be overlap with a source that has
+          * just been started and one that is about to complete. In order to
+          * correctly determine when the stage can be completed, it has to be
+          * checked that no source is active anymore.
+          */
+        private var inProgressCount = 0
+
         setHandler(in, new InHandler:
           override def onPush(): Unit =
             val fileWritten = grab(in)
             log.info("Received buffer file: {}.", fileWritten)
-            push(out, new SourceInBuffer:
-              override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
-                val source = FileIO.fromPath(config.bufferFolder.resolve(bufferFileName(1)))
-                AudioStreamPlayerStage.AudioStreamSource(fileWritten.sources.head.url, source)
-              }
-            )
+            bufferedSources = fileWritten.sources
+            readNextBufferFile()
+            pushNextSource()
+
+          // Note: This must be overridden, since the base implementation immediately completes the stage.
+          override def onUpstreamFinish(): Unit =
+            log.info("onUpstreamFinished - all buffer files have been written.")
         )
 
         setHandler(out, new OutHandler:
-          override def onPull(): Unit = pull(in)
+          override def onPull(): Unit =
+            if bufferedSources.nonEmpty then
+              pushNextSource()
+            else if !isClosed(in) then
+              pull(in)
         )
+
+        override def preStart(): Unit =
+          super.preStart()
+          bridgeActor = system.spawn(sourceSinkBridgeActor(), "readBufferFlowStage_bridgeActor")
+
+        override def postStop(): Unit =
+          bridgeActor ! StopBridgeActor
+          super.postStop()
+
+        /**
+          * Starts reading of the next buffer file. For this file, a source is
+          * created together with a sink that passes the content to the bridge
+          * actor. From there, the data can be divided again to the single data
+          * sources.
+          */
+        private def readNextBufferFile(): Unit =
+          bufferFileCount += 1
+          val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
+          log.info("Start reading of buffer file '{}'.", bufferFile)
+
+          val bufferFileSource = FileIO.fromPath(bufferFile)
+          val bufferFileSink = Sink.fromGraph(new BridgeSink(bridgeActor, bufferFile, bufferFile.toString, 0))
+          bufferFileSource.runWith(bufferFileSink)
+
+        /**
+          * Pushes an element downstream that allows reading the next audio
+          * source in the current buffer file.
+          */
+        private def pushNextSource(): Unit =
+          val currentSource = bufferedSources.head
+          bufferedSources = bufferedSources.tail
+          inProgressCount += 1
+          log.info("Start processing audio source '{}'.", currentSource.source)
+
+          push(out, new SourceInBuffer:
+            override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
+              val promiseResult = Promise[BridgeSourceCompletionReason]()
+              promiseResult.future.onComplete(onSourceComplete.invoke)
+
+              val source = Source.fromGraph(new BridgeSource(bridgeActor,
+                currentSource.endOffset - currentSource.startOffset,
+                promiseResult))
+              AudioStreamPlayerStage.AudioStreamSource(currentSource.url, source)
+            }
+          )
+
+        /**
+          * A callback function that is invoked when an audio source completes.
+          * Here it needs to be handled whether bytes have to be skipped or the
+          * playlist is complete.
+          *
+          * @param result the result from the source
+          */
+        private def handleSourceCompleted(result: Try[BridgeSourceCompletionReason]): Unit =
+          log.info("Current source completed with result {}.", result)
+          inProgressCount -= 1
+
+          if isClosed(in) && bufferedSources.isEmpty && inProgressCount == 0 then
+            log.info("All sources have been processed. Completing stage.")
+            completeStage()
   end ReadBufferFlowStage
 
   /**
@@ -827,4 +913,12 @@ object BufferedPlaylistSource:
     * @return the execution context
     */
   private given executionContext(using system: classic.ActorSystem): ExecutionContext = system.dispatcher
+
+  /**
+    * Provides a typed actor system from an untyped one in implicit scope.
+    *
+    * @param system the classic actor system
+    * @return the typed actor system
+    */
+  private given typedActorSystem(using system: classic.ActorSystem): ActorSystem[_] = system.toTyped
 end BufferedPlaylistSource

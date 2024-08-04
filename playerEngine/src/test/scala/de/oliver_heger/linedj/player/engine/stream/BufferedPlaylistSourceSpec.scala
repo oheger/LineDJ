@@ -28,7 +28,7 @@ import org.apache.pekko.util.ByteString
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.{Assertion, BeforeAndAfterAll, BeforeAndAfterEach, Succeeded}
 
 import java.io.IOException
 import java.nio.file.{Files, Path}
@@ -468,28 +468,58 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       l2 <- futStream2
     yield l1 should be(l2)
 
+  /**
+    * Runs a stream with a buffered playlist source over a given number of test
+    * sources as defined by the resolver function in the given configuration.
+    * The result from the stream - the collected data of the original sources -
+    * is returned.
+    *
+    * @param config      the configuration for the buffered source
+    * @param sourceCount the number of test sources
+    * @return a ''Future'' with the data of the sources that were read from the
+    *         buffered source
+    */
+  private def runBufferedStream(config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
+                                sourceCount: Int): Future[List[ByteString]] =
+    val playlistSource = Source((1 to sourceCount).toList)
+    val bufferedSource = BufferedPlaylistSource(config, playlistSource)
+    val mappedConfig = BufferedPlaylistSource.mapConfig(config.streamPlayerConfig)
+    val sink = createFoldSink[ByteString]()
+    val sourceIndex = new AtomicInteger
+    bufferedSource.mapAsync(1) { elem =>
+        mappedConfig.sourceResolverFunc(elem)
+      }.mapAsync(1) { source =>
+        source.url should be(sourceUrl(sourceIndex.incrementAndGet()))
+        val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+        source.source.runWith(byteStrSink)
+      }.runWith(sink)
+      .map(_.reverse)
+
+  /**
+    * Runs a stream with a buffered playlist source over the given sources and
+    * checks whether the expected data is received.
+    *
+    * @param config     the configuration for the buffered source
+    * @param sourceData the data of the audio sources in the playlist
+    * @return a ''Future'' with the result of the test
+    */
+  private def runBufferedStreamAndCheckResult(config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
+                                              sourceData: IndexedSeq[ByteString]): Future[Assertion] =
+    runBufferedStream(config, sourceData.size) map { results =>
+      results should contain theSameElementsInOrderAs sourceData
+    }
+
   "BufferedPlaylistSource" should "process a single source from upstream" in :
     val bufferDir = createPathInDirectory("buffer")
     val random = new Random(20240802221019L)
-    val sourceData = ByteString(random.nextBytes(4096))
-    val resolverFunc = seqBasedResolverFunc(IndexedSeq(sourceData))
-
+    val sourceData = IndexedSeq(ByteString(random.nextBytes(4096)))
+    val resolverFunc = seqBasedResolverFunc(sourceData)
     val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
       bufferFolder = bufferDir,
       bufferFileSize = 8192)
-    val bufferedSource = BufferedPlaylistSource(bufferConfig, Source.single(1))
-    val mappedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
-    val sink = createFoldSink[ByteString]()
-    bufferedSource.mapAsync(1) { elem =>
-      mappedConfig.sourceResolverFunc(elem)
-    }.mapAsync(1) { source =>
-      source.url should be(sourceUrl(1))
-      val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-      source.source.runWith(byteStrSink)
-    }.runWith(sink).map { results =>
-      results should contain only sourceData
-    }
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)
 
   it should "route the data through buffer files" in :
     val bufferDir = createPathInDirectory("buffer")
@@ -507,9 +537,34 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
     val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferedPlaylistSource.SourceInBuffer](pauseActor)
     val sink = Sink.ignore
-
-    bufferedSource.via(pauseStage).runWith(sink)
+    val futStream = bufferedSource
+      .via(pauseStage)
+      .mapAsync(1) { source =>
+        source.resolveSource()
+      }.mapAsync(1) { source =>
+        source.source.runWith(Sink.ignore)
+      }.runWith(sink)
 
     eventually:
       val bufferFile = bufferDir.resolve("buffer01.dat")
       Files.size(bufferFile) should be(sourceData.size)
+
+    // Need to wait for the stream to fully complete.
+    pauseActor ! PausePlaybackStage.StartPlayback
+    futStream.map(_ => Succeeded)
+
+  it should "process multiple sources that fit in a single buffer file" in :
+    val bufferDir = createPathInDirectory("singleBuffer")
+    val random = new Random(2024080311347L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(1024)),
+      ByteString(random.nextBytes(4096)),
+      ByteString(random.nextBytes(2048))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 100000)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)
