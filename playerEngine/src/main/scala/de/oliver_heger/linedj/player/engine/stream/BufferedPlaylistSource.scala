@@ -523,13 +523,15 @@ object BufferedPlaylistSource:
             val newSources = if optPromiseUpdateSourceSize.isDefined then fileWritten.sources.tail
             else fileWritten.sources
             bufferedSources = bufferedSources :++ newSources
-            optPromiseUpdateSourceSize.foreach { promise =>
-              val size = fileWritten.sources.head.endOffset - fileWritten.sources.head.startOffset
-              log.info("Updating size of current source to {}.", size)
-              promise.success(size)
-            }
 
-            optPromiseUpdateSourceSize = None
+            if fileWritten.sources.head.endOffset >= 0 then
+              optPromiseUpdateSourceSize.foreach { promise =>
+                val size = fileWritten.sources.head.endOffset - fileWritten.sources.head.startOffset
+                log.info("Updating size of current source to {}.", size)
+                promise.success(size)
+              }
+              optPromiseUpdateSourceSize = None
+
             readNextBufferFile()
             pushNextSource()
 

@@ -584,3 +584,19 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       bufferFileSize = 16384)
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
+
+  it should "process large sources spanning multiple buffer files" in :
+    val bufferDir = createPathInDirectory("multiBufferLargeSource")
+    val random = new Random(20240808211934L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(9000)),
+      ByteString(random.nextBytes(40000)),
+      ByteString(random.nextBytes(500))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 10000)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)
