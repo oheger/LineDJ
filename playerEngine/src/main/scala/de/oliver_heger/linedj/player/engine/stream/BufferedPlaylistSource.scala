@@ -61,6 +61,11 @@ object BufferedPlaylistSource:
   private val InfiniteTimeout = 30.days
 
   /**
+    * Constant for the default chunk size when reading from a buffer file.
+    */
+  private val ReadChunkSize = 16384
+
+  /**
     * Constant for a special data chunks that indicates the end of the current
     * stream. This is used by the bridge sources and sinks to manage the
     * lifecycle of streams.
@@ -479,6 +484,12 @@ object BufferedPlaylistSource:
           */
         private val onSourceComplete = getAsyncCallback[Try[BridgeSourceCompletionReason]](handleSourceCompleted)
 
+        /**
+          * A callback function that gets invoked when a buffer file has been
+          * read completely.
+          */
+        private val onBufferFileComplete = getAsyncCallback[Try[Any]](handleBufferFileCompleted)
+
         /** The actor for source/sink multiplexing. */
         private var bridgeActor: ActorRef[SourceSinkBridgeCommand] = _
 
@@ -497,11 +508,28 @@ object BufferedPlaylistSource:
           */
         private var inProgressCount = 0
 
+        /**
+          * An optional promise that allows setting the size of a source that
+          * spans multiple buffer size when it becomes available. The end
+          * index of the source is defined only in the last buffer file it is
+          * contained in.
+          */
+        private var optPromiseUpdateSourceSize: Option[Promise[Long]] = None
+
         setHandler(in, new InHandler:
           override def onPush(): Unit =
             val fileWritten = grab(in)
             log.info("Received buffer file: {}.", fileWritten)
-            bufferedSources = fileWritten.sources
+            val newSources = if optPromiseUpdateSourceSize.isDefined then fileWritten.sources.tail
+            else fileWritten.sources
+            bufferedSources = bufferedSources :++ newSources
+            optPromiseUpdateSourceSize.foreach { promise =>
+              val size = fileWritten.sources.head.endOffset - fileWritten.sources.head.startOffset
+              log.info("Updating size of current source to {}.", size)
+              promise.success(size)
+            }
+
+            optPromiseUpdateSourceSize = None
             readNextBufferFile()
             pushNextSource()
 
@@ -512,15 +540,13 @@ object BufferedPlaylistSource:
 
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
-            if bufferedSources.nonEmpty then
-              pushNextSource()
-            else if !isClosed(in) then
-              pull(in)
+            pushNextSource()
         )
 
         override def preStart(): Unit =
           super.preStart()
           bridgeActor = system.spawn(sourceSinkBridgeActor(), "readBufferFlowStage_bridgeActor")
+          pull(in)
 
         override def postStop(): Unit =
           bridgeActor ! StopBridgeActor
@@ -539,29 +565,45 @@ object BufferedPlaylistSource:
 
           val bufferFileSource = FileIO.fromPath(bufferFile)
           val bufferFileSink = Sink.fromGraph(new BridgeSink(bridgeActor, bufferFile, bufferFile.toString, 0))
-          bufferFileSource.runWith(bufferFileSink)
+          bufferFileSource.runWith(bufferFileSink).onComplete(onBufferFileComplete.invoke)
 
         /**
           * Pushes an element downstream that allows reading the next audio
-          * source in the current buffer file.
+          * source in the current buffer file if this is currently possible.
           */
         private def pushNextSource(): Unit =
-          val currentSource = bufferedSources.head
-          bufferedSources = bufferedSources.tail
-          inProgressCount += 1
-          log.info("Start processing audio source '{}'.", currentSource.source)
+          if isAvailable(out) && bufferedSources.nonEmpty then
+            val currentSource = bufferedSources.head
+            bufferedSources = bufferedSources.tail
+            inProgressCount += 1
+            val (size, updateSize) = sourceSize(currentSource)
+            optPromiseUpdateSourceSize = updateSize
+            log.info("Start processing audio source '{}'.", currentSource.source)
 
-          push(out, new SourceInBuffer:
-            override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
-              val promiseResult = Promise[BridgeSourceCompletionReason]()
-              promiseResult.future.onComplete(onSourceComplete.invoke)
+            push(out, new SourceInBuffer:
+              override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
+                val promiseResult = Promise[BridgeSourceCompletionReason]()
+                promiseResult.future.onComplete(onSourceComplete.invoke)
 
-              val source = Source.fromGraph(new BridgeSource(bridgeActor,
-                currentSource.endOffset - currentSource.startOffset,
-                promiseResult))
-              AudioStreamPlayerStage.AudioStreamSource(currentSource.url, source)
-            }
-          )
+                val source = Source.fromGraph(new BridgeSource(bridgeActor,
+                  size,
+                  promiseResult,
+                  updateSize.map(_.future)))
+                AudioStreamPlayerStage.AudioStreamSource(currentSource.url, source)
+              }
+            )
+
+        /**
+          * A callback function that is invoked when the stream for reading a
+          * buffer file completes. If possible, the next buffer file is
+          * requested from upstream.
+          *
+          * @param result the result received from the stream
+          */
+        private def handleBufferFileCompleted(result: Try[Any]): Unit =
+          log.info("Buffer file {} was read completely with result {}.", bufferFileCount, result)
+          if !isClosed(in) then
+            pull(in)
 
         /**
           * A callback function that is invoked when an audio source completes.
@@ -577,6 +619,8 @@ object BufferedPlaylistSource:
           if isClosed(in) && bufferedSources.isEmpty && inProgressCount == 0 then
             log.info("All sources have been processed. Completing stage.")
             completeStage()
+          else
+            pushNextSource()
   end ReadBufferFlowStage
 
   /**
@@ -667,10 +711,13 @@ object BufferedPlaylistSource:
     * An internal [[Source]] implementation that reads its data from a bridge
     * actor instance. It is possible to limit the number of bytes issued by
     * this source. This is necessary for instance to make sure that files in
-    * the buffer do not exceed their configured capacity. To distinguish 
-    * between the cases that the end of the playlist was reached or the limit
-    * of the source, the source materializes a flag with the reason for its
-    * end.
+    * the buffer do not exceed their configured capacity. It is even possible
+    * to update the limit dynamically. This is needed when reading sources from
+    * the buffer that span multiple buffer files. Here the size of the source
+    * is only known when the last file that contains parts of this source is
+    * read. To distinguish between the cases that the end of the playlist was
+    * reached or the limit of the source, the source materializes a flag with
+    * the reason for its end.
     *
     * Since the materialized value of the source is only available if there is
     * full control over the whole stream (which is for instance not the case
@@ -679,14 +726,19 @@ object BufferedPlaylistSource:
     * used to provide the materialized result can be passed when constructing
     * an instance. Then a client can react when it gets completed.
     *
-    * @param bridgeActor the bridge actor instance
-    * @param limit       the maximum number of bytes to be issued
-    * @param promiseMat  the promise to use for generating the result
-    * @param system      the actor system
+    * @param bridgeActor       the bridge actor instance
+    * @param initialLimit      the initial number of bytes to be issued
+    *                          (this may be changed later); can be less than 0
+    *                          to indicate that no limit is enforced
+    * @param promiseMat        the promise to use for generating the result
+    * @param optFutUpdateLimit an optional future that completes once the limit
+    *                          for the source is known
+    * @param system            the actor system
     */
   private class BridgeSource(bridgeActor: ActorRef[SourceSinkBridgeCommand],
-                             limit: Long,
-                             promiseMat: Promise[BridgeSourceCompletionReason] = Promise())
+                             initialLimit: Long,
+                             promiseMat: Promise[BridgeSourceCompletionReason] = Promise(),
+                             optFutUpdateLimit: Option[Future[Long]] = None)
                             (using system: ActorSystem[_])
     extends GraphStageWithMaterializedValue[SourceShape[ByteString], Future[BridgeSourceCompletionReason]]:
     private val out: Outlet[ByteString] = Outlet("BridgeSource")
@@ -705,19 +757,37 @@ object BufferedPlaylistSource:
         /** The number of bytes that has been emitted so far. */
         private var bytesProcessed = 0L
 
+        /** The maximum number of bytes to issue. */
+        private var limit = initialLimit
+
+        optFutUpdateLimit.foreach { futLimit =>
+          val onUpdateLimit = getAsyncCallback[Long](updateLimit)
+          futLimit.foreach(onUpdateLimit.invoke)(system.executionContext)
+        }
+
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
             given timeout: Timeout = InfiniteTimeout
 
             given ec: ExecutionContext = system.executionContext
 
-            val maxSize = (limit - bytesProcessed).toInt
+            val maxSize = if limit < 0 then ReadChunkSize
+            else math.min(limit - bytesProcessed, ReadChunkSize).toInt
             bridgeActor.ask[DataChunk](ref => GetNextDataChunk(ref, maxSize)).onComplete(onDataCallback.invoke)
 
           override def onDownstreamFinish(cause: Throwable): Unit =
             promiseMat.failure(cause)
             super.onDownstreamFinish(cause)
         )
+
+        /**
+          * Updates the limit. This function gets called when the size of the
+          * current source becomes available.
+          *
+          * @param nextLimit the limit to set
+          */
+        private def updateLimit(nextLimit: Long): Unit =
+          limit = nextLimit
 
         /**
           * Handles responses from the bridge actor for requests to the next
@@ -735,7 +805,7 @@ object BufferedPlaylistSource:
             case Success(chunk) =>
               push(out, chunk.data)
               bytesProcessed += chunk.data.size
-              if bytesProcessed >= limit then
+              if limit >= 0 && bytesProcessed >= limit then
                 completeStage()
                 promiseMat.success(BridgeSourceCompletionReason.LimitReached)
             case Failure(exception) => cancelStage(exception)
@@ -904,6 +974,23 @@ object BufferedPlaylistSource:
     */
   private def resolveSourceInBuffer(src: SourceInBuffer): Future[AudioStreamPlayerStage.AudioStreamSource] =
     src.resolveSource()
+
+  /**
+    * Computes the size of a source for reading from a buffer file. If the
+    * source spans multiple buffer files, its size is unknown initially. It
+    * then has to be set later via a [[Promise]]. This function handles these
+    * cases.
+    *
+    * @param bufferedSource the object describing the source
+    * @tparam SRC the type of the source
+    * @return a tuple with the initial size and the optional promise to update
+    *         it later
+    */
+  private def sourceSize[SRC](bufferedSource: BufferedSource[SRC]): (Long, Option[Promise[Long]]) =
+    if bufferedSource.endOffset < 0 then
+      (-1, Some(Promise[Long]()))
+    else
+      (bufferedSource.endOffset - bufferedSource.startOffset, None)
 
   /**
     * Provides an [[ExecutionContext]] in implicit scope from the given actor

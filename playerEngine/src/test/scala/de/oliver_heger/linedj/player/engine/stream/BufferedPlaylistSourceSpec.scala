@@ -568,3 +568,19 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       bufferFileSize = 100000)
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
+
+  it should "process sources that start in one buffer file and end in the next one" in :
+    val bufferDir = createPathInDirectory("multiBuffer")
+    val random = new Random(20240804215159L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(20000)),
+      ByteString(random.nextBytes(2048))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)
