@@ -600,3 +600,19 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       bufferFileSize = 10000)
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
+
+  it should "handle sources that end at the beginning of a new buffer file" in :
+    val bufferDir = createPathInDirectory("multiBufferEndEarly")
+    val random = new Random(20240808215942L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(10000)),
+      ByteString(random.nextBytes(2048))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)

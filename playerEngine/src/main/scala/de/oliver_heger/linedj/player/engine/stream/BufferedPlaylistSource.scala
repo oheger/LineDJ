@@ -70,13 +70,13 @@ object BufferedPlaylistSource:
     * stream. This is used by the bridge sources and sinks to manage the
     * lifecycle of streams.
     */
-  private val EndOfStreamChunk = DataChunk(ByteString.empty)
+  private val EndOfStreamChunk = DataChunkResponse.DataChunk(ByteString.empty)
 
   /**
     * Constant for a message that is sent to the bridge actor to indicate the
     * end of the current stream.
     */
-  private val EndOfStreamMessage = AddDataChunk(None, EndOfStreamChunk.data)
+  private val EndOfStreamMessage = AddDataChunk(None, ByteString.empty)
 
   /** Pattern for generating names for buffer files. */
   private val BufferFilePattern = "buffer%02d.dat"
@@ -528,6 +528,7 @@ object BufferedPlaylistSource:
               optPromiseUpdateSourceSize.foreach { promise =>
                 val size = fileWritten.sources.head.endOffset - fileWritten.sources.head.startOffset
                 log.info("Updating size of current source to {}.", size)
+                bridgeActor ! UpdateSourceLimit(size)
                 promise.success(size)
               }
               optPromiseUpdateSourceSize = None
@@ -754,7 +755,7 @@ object BufferedPlaylistSource:
           * A callback to handle data chunks that have been retrieved
           * asynchronously from the bridge actor.
           */
-        private val onDataCallback = getAsyncCallback[Try[DataChunk]](dataAvailable)
+        private val onDataCallback = getAsyncCallback[Try[DataChunkResponse]](dataAvailable)
 
         /** The number of bytes that has been emitted so far. */
         private var bytesProcessed = 0L
@@ -769,18 +770,24 @@ object BufferedPlaylistSource:
 
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
-            given timeout: Timeout = InfiniteTimeout
-
-            given ec: ExecutionContext = system.executionContext
-
-            val maxSize = if limit < 0 then ReadChunkSize
-            else math.min(limit - bytesProcessed, ReadChunkSize).toInt
-            bridgeActor.ask[DataChunk](ref => GetNextDataChunk(ref, maxSize)).onComplete(onDataCallback.invoke)
+            requestNextChunk()
 
           override def onDownstreamFinish(cause: Throwable): Unit =
             promiseMat.failure(cause)
             super.onDownstreamFinish(cause)
         )
+
+        /**
+          * Queries the bridge actor for the next chunk for data.
+          */
+        private def requestNextChunk(): Unit =
+          given timeout: Timeout = InfiniteTimeout
+
+          given ec: ExecutionContext = system.executionContext
+
+          val maxSize = if limit < 0 then ReadChunkSize
+          else math.min(limit - bytesProcessed, ReadChunkSize).toInt
+          bridgeActor.ask[DataChunkResponse](ref => GetNextDataChunk(ref, maxSize)).onComplete(onDataCallback.invoke)
 
         /**
           * Updates the limit. This function gets called when the size of the
@@ -794,34 +801,78 @@ object BufferedPlaylistSource:
         /**
           * Handles responses from the bridge actor for requests to the next
           * chunk of data. The chunk is passed downstream if it is not empty.
-          * An empty chunk indicates the end of the stream. Failures are
-          * handled by failing this stage.
+          * An empty chunk indicates the end of the stream. An update of the
+          * source limit is handled by resending the request with the new
+          * limit. Failures are handled by failing this stage.
           *
           * @param triedChunk a ''Try'' with the next chunk of data
           */
-        private def dataAvailable(triedChunk: Try[DataChunk]): Unit =
+        private def dataAvailable(triedChunk: Try[DataChunkResponse]): Unit =
           triedChunk match
             case Success(EndOfStreamChunk) =>
-              completeStage()
-              promiseMat.success(BridgeSourceCompletionReason.PlaylistStreamEnd)
-            case Success(chunk) =>
-              push(out, chunk.data)
-              bytesProcessed += chunk.data.size
-              if limit >= 0 && bytesProcessed >= limit then
-                completeStage()
-                promiseMat.success(BridgeSourceCompletionReason.LimitReached)
+              completeStageWithResult(BridgeSourceCompletionReason.PlaylistStreamEnd)
+            case Success(DataChunkResponse.DataChunk(chunk)) =>
+              push(out, chunk)
+              bytesProcessed += chunk.size
+              completeIfLimitReached()
+            case Success(DataChunkResponse.LimitChanged(updatedLimit)) =>
+              updateLimit(updatedLimit)
+              if !completeIfLimitReached() then requestNextChunk()
             case Failure(exception) => cancelStage(exception)
+
+        /**
+          * Checks whether the current source limit has been reached. If so,
+          * this stage is completed accordingly.
+          *
+          * @return a flag whether the limit has been reached
+          */
+        private def completeIfLimitReached(): Boolean =
+          if limit >= 0 && bytesProcessed >= limit then
+            completeStageWithResult(BridgeSourceCompletionReason.LimitReached)
+            true
+          else
+            false
+
+        /**
+          * Sets this stage to completed and sets the materialized value to the
+          * given result.
+          *
+          * @param result the result for this stage
+          */
+        private def completeStageWithResult(result: BridgeSourceCompletionReason): Unit =
+          completeStage()
+          promiseMat.success(result)
 
       (logic, promiseMat.future)
   end BridgeSource
 
   /**
-    * A message sent by the bridge actor as a response to a
-    * [[GetNextDataChunk]] command. It contains the requested data.
+    * A data type describing a response sent by the bridge actor on a
+    * [[GetNextDataChunk]] request.
     *
-    * @param data the data of this chunk
+    * Typically, the actor sends the next data chunk back. It can, however,
+    * happen that the size of a source becomes known while a request for the
+    * next chunk is pending. In this case, it could be that the size of the
+    * source invalidates the request, as the provided limit may be too big. To
+    * handle such a situation, the actor sends a special response that contains
+    * the new limit and ignores the original request. The client has to resend
+    * the request with a potentially updated limit.
     */
-  private case class DataChunk(data: ByteString)
+  private enum DataChunkResponse:
+    /**
+      * A response containing the requested data chunk.
+      *
+      * @param data the data
+      */
+    case DataChunk(data: ByteString)
+
+    /**
+      * A response that notifies the client about a change in the limit for the
+      * current data source.
+      *
+      * @param updatedLimit the new limit for this source
+      */
+    case LimitChanged(updatedLimit: Long)
 
   /**
     * A message class sent by the bridge actor as a reply to an
@@ -858,8 +909,17 @@ object BufferedPlaylistSource:
     * @param replyTo the actor to send the chunk to
     * @param maxSize the maximum size of the chunk
     */
-  private case class GetNextDataChunk(replyTo: ActorRef[DataChunk],
+  private case class GetNextDataChunk(replyTo: ActorRef[DataChunkResponse],
                                       maxSize: Int) extends SourceSinkBridgeCommand
+
+  /**
+    * A command class processed by the bridge actor that notifies it about a
+    * change in the limit for the currently processed data source. This change
+    * needs to be forwarded to a waiting consumer of data.
+    *
+    * @param limit the new limit for this source
+    */
+  private case class UpdateSourceLimit(limit: Long) extends SourceSinkBridgeCommand
 
   /**
     * A command to notify the bridge actor to stop itself.
@@ -897,13 +957,13 @@ object BufferedPlaylistSource:
     * @param consumer the reference to the consumer of chunks
     * @return the updated behavior function
     */
-  private def handleBridgeCommand(chunks: List[DataChunk],
+  private def handleBridgeCommand(chunks: List[DataChunkResponse.DataChunk],
                                   producer: Option[ActorRef[DataChunkProcessed]],
                                   consumer: Option[GetNextDataChunk]): Behavior[SourceSinkBridgeCommand] =
     Behaviors.receive {
       case (ctx, AddDataChunk(replyTo, data)) =>
         consumer.foreach(ctx.self ! _)
-        handleBridgeCommand(chunks :+ DataChunk(data), replyTo, None)
+        handleBridgeCommand(chunks :+ DataChunkResponse.DataChunk(data), replyTo, None)
 
       case (_, msg@GetNextDataChunk(replyTo, maxSize)) =>
         chunks match
@@ -916,10 +976,17 @@ object BufferedPlaylistSource:
             handleBridgeCommand(t, nextProducer, None)
           case h :: t => // The current chunk needs to be split.
             val (consumed, remaining) = h.data.splitAt(maxSize)
-            replyTo ! DataChunk(consumed)
-            handleBridgeCommand(DataChunk(remaining) :: t, producer, None)
+            replyTo ! DataChunkResponse.DataChunk(consumed)
+            handleBridgeCommand(DataChunkResponse.DataChunk(remaining) :: t, producer, None)
           case _ =>
             handleBridgeCommand(Nil, producer, Some(msg))
+
+      case (ctx, UpdateSourceLimit(limit)) =>
+        consumer.foreach { client =>
+          ctx.log.info("Notifying client about a change in the limit of the current source to {}.", limit)
+          client.replyTo ! DataChunkResponse.LimitChanged(limit)
+        }
+        handleBridgeCommand(chunks, producer, None)
 
       case (ctx, StopBridgeActor) =>
         ctx.log.info("Bridge actor stopped.")
