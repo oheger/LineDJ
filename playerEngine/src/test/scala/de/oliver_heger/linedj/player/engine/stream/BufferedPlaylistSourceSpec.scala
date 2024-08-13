@@ -616,3 +616,16 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       bufferFileSize = 16384)
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
+
+  it should "handle a source that fits exactly into a buffer file" in :
+    val bufferDir = createPathInDirectory("bufferFit")
+    val random = new Random(20240809214820L)
+    val sourceIndices = 1 to 5
+    val sourceData = sourceIndices map { _ => ByteString(random.nextBytes(4096)) }
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData)
