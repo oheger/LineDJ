@@ -545,6 +545,7 @@ object BufferedPlaylistSource:
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
             log.info("onUpstreamFinished - all buffer files have been written.")
+            completeStageIfDone()
         )
 
         setHandler(out, new OutHandler:
@@ -623,11 +624,21 @@ object BufferedPlaylistSource:
           log.info("Current source completed with result {}.", result)
           inProgressCount -= 1
 
+          if !completeStageIfDone() then pushNextSource()
+
+        /**
+          * Checks whether all sources from upstream have been processed. If
+          * so, this stage is now completed. The return value indicates whether
+          * processing is done.
+          */
+        private def completeStageIfDone(): Boolean =
           if isClosed(in) && bufferedSources.isEmpty && inProgressCount == 0 then
             log.info("All sources have been processed. Completing stage.")
             completeStage()
+            true
           else
-            pushNextSource()
+            false
+
   end ReadBufferFlowStage
 
   /**
