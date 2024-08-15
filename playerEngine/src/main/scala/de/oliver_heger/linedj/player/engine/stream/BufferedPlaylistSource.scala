@@ -945,6 +945,38 @@ object BufferedPlaylistSource:
   private case object StopBridgeActor extends SourceSinkBridgeCommand
 
   /**
+    * A data class holding the current state of a bridge actor. It simplifies
+    * passing around the different pieces of information that need to be
+    * managed.
+    *
+    * @param chunks       the current buffer of chunks
+    * @param producer     the reference to the producer of the chunk
+    * @param consumer     the reference to the consumer of chunks
+    * @param limitUpdate  a pending update of the limit for the currently
+    *                     processed source
+    * @param limitUnknown a flag that indicates whether for the current source
+    *                     the limit is not known; then this source is sent a
+    *                     notification when there is an update
+    */
+  private case class BridgeActorState(chunks: List[DataChunkResponse.DataChunk],
+                                      producer: Option[ActorRef[DataChunkProcessed]],
+                                      consumer: Option[GetNextDataChunk],
+                                      limitUpdate: Option[Long],
+                                      limitUnknown: Boolean)
+
+  /**
+    * Constant for a [[BridgeActorState]] instant to be used for a newly
+    * created bridge actor.
+    */
+  private val InitialBridgeActorState = BridgeActorState(
+    chunks = Nil,
+    producer = None,
+    consumer = None,
+    limitUpdate = None,
+    limitUnknown = false
+  )
+
+  /**
     * Returns the behavior of an actor that bridges between multiple sources
     * and sinks. For the use case at hand, multiple sources may need to be
     * combined to be filled into a buffer file. Also, the content of sources
@@ -965,72 +997,83 @@ object BufferedPlaylistSource:
     * @return the behavior of the bridge actor
     */
   private def sourceSinkBridgeActor(): Behavior[SourceSinkBridgeCommand] =
-    handleBridgeCommand(Nil, None, None, None, false)
+    handleBridgeCommand(InitialBridgeActorState)
 
   /**
     * The actual command handler function of the bridge actor.
     *
-    * @param chunks       the current buffer of chunks
-    * @param producer     the reference to the producer of the chunk
-    * @param consumer     the reference to the consumer of chunks
-    * @param limitUpdate  a pending update of the limit for the currently
-    *                     processed source
-    * @param limitUnknown a flag that indicates whether for the current source
-    *                     the limit is not known; then this source is sent a 
-    *                     notification when there is an update
+    * @param state the current state of the actor
     * @return the updated behavior function
     */
-  private def handleBridgeCommand(chunks: List[DataChunkResponse.DataChunk],
-                                  producer: Option[ActorRef[DataChunkProcessed]],
-                                  consumer: Option[GetNextDataChunk],
-                                  limitUpdate: Option[Long],
-                                  limitUnknown: Boolean): Behavior[SourceSinkBridgeCommand] =
+  private def handleBridgeCommand(state: BridgeActorState): Behavior[SourceSinkBridgeCommand] =
     Behaviors.receive {
       case (ctx, AddDataChunk(replyTo, data)) =>
-        consumer.foreach(ctx.self ! _)
-        handleBridgeCommand(chunks :+ DataChunkResponse.DataChunk(data), replyTo, None, limitUpdate, limitUnknown)
+        state.consumer.foreach(ctx.self ! _)
+        handleBridgeCommand(
+          state.copy(
+            chunks = state.chunks :+ DataChunkResponse.DataChunk(data),
+            producer = replyTo,
+            consumer = None
+          )
+        )
 
       case (ctx, msg@GetNextDataChunk(replyTo, maxSize)) =>
-        limitUpdate match
-          case Some(limit) if limitUnknown =>
+        state.limitUpdate match
+          case Some(limit) if state.limitUnknown =>
             ctx.log.info("Notifying client about a change in the limit of the current source to {}.", limit)
             replyTo ! DataChunkResponse.LimitChanged(limit)
-            handleBridgeCommand(chunks, producer, None, None, false)
+            handleBridgeCommand(
+              state.copy(
+                consumer = None,
+                limitUpdate = None,
+                limitUnknown = false
+              )
+            )
           case _ =>
-            chunks match
+            state.chunks match
               case h :: t if h.data.size <= maxSize =>
                 replyTo ! h
                 val nextProducer = if t.isEmpty then
-                  producer.foreach(_ ! DataChunkProcessed())
+                  state.producer.foreach(_ ! DataChunkProcessed())
                   None
-                else producer
-                handleBridgeCommand(t, nextProducer, None, limitUpdate, limitUnknown)
+                else state.producer
+                handleBridgeCommand(
+                  state.copy(
+                    chunks = t,
+                    producer = nextProducer,
+                    consumer = None
+                  )
+                )
               case h :: t => // The current chunk needs to be split.
                 val (consumed, remaining) = h.data.splitAt(maxSize)
                 replyTo ! DataChunkResponse.DataChunk(consumed)
                 handleBridgeCommand(
-                  DataChunkResponse.DataChunk(remaining) :: t,
-                  producer,
-                  None,
-                  limitUpdate,
-                  limitUnknown
+                  state.copy(chunks = DataChunkResponse.DataChunk(remaining) :: t, consumer = None)
                 )
               case _ =>
-                handleBridgeCommand(Nil, producer, Some(msg), limitUpdate, limitUnknown)
+                handleBridgeCommand(state.copy(chunks = Nil, consumer = Some(msg)))
 
       case (ctx, UpdateSourceLimit(limit)) =>
         ctx.log.info("UpdateSourceLimit({})", limit)
-        consumer match
-          case Some(client) if limitUnknown =>
+        state.consumer match
+          case Some(client) if state.limitUnknown =>
             ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
             client.replyTo ! DataChunkResponse.LimitChanged(limit)
-            handleBridgeCommand(chunks, producer, None, None, false)
+            handleBridgeCommand(
+              state.copy(
+                consumer = None,
+                limitUpdate = None,
+                limitUnknown = false
+              )
+            )
           case _ =>
-            handleBridgeCommand(chunks, producer, None, Some(limit), limitUnknown)
+            handleBridgeCommand(
+              state.copy(consumer = None, limitUpdate = Some(limit))
+            )
 
       case (ctx, GetSourceLimit) =>
-        ctx.log.info("Limit for current source is unavailable. Stored value is {}.", limitUpdate)
-        handleBridgeCommand(chunks, producer, consumer, limitUpdate, limitUnknown = true)
+        ctx.log.info("Limit for current source is unavailable. Stored value is {}.", state.limitUpdate)
+        handleBridgeCommand(state.copy(limitUnknown = true))
 
       case (ctx, StopBridgeActor) =>
         ctx.log.info("Bridge actor stopped.")
