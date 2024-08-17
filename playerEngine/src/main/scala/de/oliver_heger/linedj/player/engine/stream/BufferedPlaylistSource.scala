@@ -27,6 +27,7 @@ import org.apache.pekko.stream.stage.*
 import org.apache.pekko.util.{ByteString, Timeout}
 
 import java.nio.file.{Files, Path}
+import scala.annotation.tailrec
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -869,7 +870,7 @@ object BufferedPlaylistSource:
     * the new limit and ignores the original request. The client has to resend
     * the request with a potentially updated limit.
     */
-  private enum DataChunkResponse:
+  private[stream] enum DataChunkResponse:
     /**
       * A response containing the requested data chunk.
       *
@@ -975,6 +976,36 @@ object BufferedPlaylistSource:
     limitUpdate = None,
     limitUnknown = false
   )
+
+  /**
+    * Applies the given skip position to the list of data chunks. So, data
+    * affected by the skip until position is removed from the list.
+    *
+    * @param chunks    the list of chunks to process
+    * @param offset    the current offset; this is where the last chunk in the
+    *                  list ends
+    * @param skipUntil the position until which to skip
+    * @return the list of chunks with the skip position applied
+    */
+  private[stream] def applySkipUntil(chunks: List[DataChunkResponse.DataChunk],
+                                     offset: Long,
+                                     skipUntil: Long): List[DataChunkResponse.DataChunk] =
+    if skipUntil < 0 || chunks.isEmpty then chunks
+    else if skipUntil >= offset then Nil
+    else
+      val startOffset = chunks.foldRight(offset) { (chunk, pos) => pos - chunk.data.size }
+
+      @tailrec def skipChunks(currentChunks: List[DataChunkResponse.DataChunk], pos: Long):
+      List[DataChunkResponse.DataChunk] =
+        val headChunk = currentChunks.head
+        val endPos = pos + headChunk.data.size
+        if endPos <= skipUntil then skipChunks(currentChunks.tail, endPos)
+        else if pos == skipUntil then currentChunks
+        else
+          val splitData = headChunk.data.splitAt((skipUntil - pos).toInt)._2
+          DataChunkResponse.DataChunk(splitData) :: currentChunks.tail
+
+      skipChunks(chunks, startOffset)
 
   /**
     * Returns the behavior of an actor that bridges between multiple sources

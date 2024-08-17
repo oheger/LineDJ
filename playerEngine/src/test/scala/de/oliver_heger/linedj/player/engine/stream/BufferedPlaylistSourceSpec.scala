@@ -19,12 +19,13 @@ package de.oliver_heger.linedj.player.engine.stream
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
-import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
+import org.apache.pekko.{NotUsed, actor as classic}
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -467,6 +468,72 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       l1 <- futStream1
       l2 <- futStream2
     yield l1 should be(l2)
+
+  "applySkipUntil" should "handle an undefined skip position" in :
+    val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+    )
+
+    val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 11, -1)
+
+    modifiedChunks should be(chunks)
+
+  it should "handle a skip position after the offset" in :
+    val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+    )
+
+    val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 100, 100)
+
+    modifiedChunks shouldBe empty
+
+  it should "handle a skip position before the beginning of the buffer" in :
+    val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+    )
+
+    val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 100, 10)
+
+    modifiedChunks shouldBe chunks
+
+  it should "correctly skip the chunks in the buffer" in :
+    val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31.")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26.")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+    )
+    val expectedResult: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("h a length of 26.")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+    )
+
+    val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 1000, 943)
+
+    modifiedChunks should contain theSameElementsInOrderAs expectedResult
+
+  it should "handle a skip position at the beginning of one chunk" in :
+    val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31.")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26.")),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+    )
+
+    val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 1000, 934)
+
+    modifiedChunks should contain theSameElementsInOrderAs chunks.tail
+
+  it should "handle an empty buffer" in :
+    val modifiedChunks1 = BufferedPlaylistSource.applySkipUntil(Nil, 1000, 1000)
+    val modifiedChunks2 = BufferedPlaylistSource.applySkipUntil(Nil, 1001, 1000)
+    val modifiedChunks3 = BufferedPlaylistSource.applySkipUntil(Nil, 1000, 1001)
+
+    forEvery(List(modifiedChunks1, modifiedChunks2, modifiedChunks3)) {
+      _ shouldBe empty
+    }
+    Succeeded
 
   /**
     * Runs a stream with a buffered playlist source over a given number of test
