@@ -59,7 +59,7 @@ object BufferedPlaylistSource:
     * A timeout value to be used when actually no timeout is required from the
     * business logic point of view, but syntactically one is needed.
     */
-  private val InfiniteTimeout = 30.days
+  private given InfiniteTimeout: Timeout = 30.days
 
   /**
     * Constant for the default chunk size when reading from a buffer file.
@@ -490,6 +490,13 @@ object BufferedPlaylistSource:
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with StageLogging:
         /**
+          * A callback function that gets invoked when the response from the
+          * bridge actor arrives for starting a new buffer file.
+          */
+        private val onNextBufferFileConfig =
+          getAsyncCallback[Try[NextBufferFileConfig[SRC]]](handleNextBufferFileConfig)
+
+        /**
           * A callback function that gets invoked when an audio source has been
           * read from the buffer.
           */
@@ -519,30 +526,13 @@ object BufferedPlaylistSource:
           */
         private var inProgressCount = 0
 
-        /**
-          * A flag that stores whether the size of the last source in the 
-          * current buffer file is unknown. This means that it has to be
-          * updated once it becomes available.
-          */
-        private var lastSourceSizeUnknown = false
-
         setHandler(in, new InHandler:
           override def onPush(): Unit =
             val fileWritten = grab(in)
             log.info("Received buffer file: {}.", fileWritten)
-            val headSource = fileWritten.sources.head
-            val newSources = if lastSourceSizeUnknown then fileWritten.sources.tail
-            else fileWritten.sources
-            bufferedSources = bufferedSources :++ newSources
-
-            if headSource.endOffset >= 0 && lastSourceSizeUnknown then
-              val size = headSource.endOffset - headSource.startOffset
-              log.info("Updating size of source '{}' to {}.", headSource.source, size)
-              bridgeActor ! UpdateSourceLimit(size)
-
-            lastSourceSizeUnknown = fileWritten.sources.last.endOffset < 0
-            readNextBufferFile()
-            pushNextSource()
+            bridgeActor.ask[NextBufferFileConfig[SRC]] { ref =>
+              PrepareReadBufferFile(ref, fileWritten)
+            }.onComplete(onNextBufferFileConfig.invoke)
 
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
@@ -563,6 +553,21 @@ object BufferedPlaylistSource:
         override def postStop(): Unit =
           bridgeActor ! StopBridgeActor
           super.postStop()
+
+        /**
+          * Handles the response from the bridge actor when starting a new
+          * buffer file. The response determines how to exactly handle this
+          * file.
+          *
+          * @param triedConfig the response from the actor (should be
+          *                    successful)
+          */
+        private def handleNextBufferFileConfig(triedConfig: Try[NextBufferFileConfig[SRC]]): Unit =
+          triedConfig.foreach { config =>
+            bufferedSources = bufferedSources :++ config.sources
+            readNextBufferFile()
+            pushNextSource()
+          }
 
         /**
           * Starts reading of the next buffer file. For this file, a source is
@@ -689,8 +694,6 @@ object BufferedPlaylistSource:
 
         setHandler(in, new InHandler:
           override def onPush(): Unit =
-            given timeout: Timeout = InfiniteTimeout
-
             given ec: ExecutionContext = system.executionContext
 
             val data = grab(in)
@@ -844,8 +847,6 @@ object BufferedPlaylistSource:
           * Queries the bridge actor for the next chunk for data.
           */
         private def requestNextChunk(): Unit =
-          given timeout: Timeout = InfiniteTimeout
-
           given ec: ExecutionContext = system.executionContext
 
           val maxSize = if limit < 0 then ReadChunkSize
@@ -956,6 +957,15 @@ object BufferedPlaylistSource:
   private case class DataChunkProcessed()
 
   /**
+    * A message class sent by the bridge actor as a reply to a
+    * [[PrepareReadBufferFile]] command. It contains instructions how to deal
+    * with the new buffer file to be read.
+    *
+    * @param sources the list of sources to process in the new file
+    */
+  private case class NextBufferFileConfig[SRC](sources: List[BufferedSource[SRC]])
+
+  /**
     * The base trait of a hierarchy of commands processed by the actor that
     * bridges between multiple sources and sinks.
     */
@@ -987,13 +997,17 @@ object BufferedPlaylistSource:
                                       maxSize: Int) extends SourceSinkBridgeCommand
 
   /**
-    * A command class processed by the bridge actor that notifies it about a
-    * change in the limit for the currently processed data source. This change
-    * needs to be forwarded to a waiting consumer of data.
+    * A command class processed by the bridge actor that notifies it that a new
+    * buffer file is now started. Information about the content of this file is
+    * passed. Based on this information, the actor can update its internal
+    * state. It sends a response with instructions how to handle this file.
     *
-    * @param limit the new limit for this source
+    * @param replyTo the actor to send the response to
+    * @param file    the content of the new buffer file
+    * @tparam SRC the type used for sources
     */
-  private case class UpdateSourceLimit(limit: Long) extends SourceSinkBridgeCommand
+  private case class PrepareReadBufferFile[SRC](replyTo: ActorRef[NextBufferFileConfig[SRC]],
+                                                file: BufferFileWritten[SRC]) extends SourceSinkBridgeCommand
 
   /**
     * A command to indicate to the bridge actor that the limit for the current
@@ -1030,6 +1044,8 @@ object BufferedPlaylistSource:
     * @param limitUnknown   a flag that indicates whether for the current source
     *                       the limit is not known; then this source is sent a
     *                       notification when there is an update
+    * @param fileOverlap    a flag that determines whether the last source in
+    *                       the current buffer file overlaps into the next file
     * @param bytesProcessed the number of bytes that have been passed through
     *                       this actor instance
     * @param skipUntil      allows defining a position until which no data is
@@ -1042,6 +1058,7 @@ object BufferedPlaylistSource:
                                       consumer: Option[GetNextDataChunk],
                                       limitUpdate: Option[Long],
                                       limitUnknown: Boolean,
+                                      fileOverlap: Boolean,
                                       bytesProcessed: Long,
                                       skipUntil: Long)
 
@@ -1055,6 +1072,7 @@ object BufferedPlaylistSource:
     consumer = None,
     limitUpdate = None,
     limitUnknown = false,
+    fileOverlap = false,
     bytesProcessed = 0,
     skipUntil = -1
   )
@@ -1174,23 +1192,30 @@ object BufferedPlaylistSource:
               case _ =>
                 handleBridgeCommand(state.copy(chunks = Nil, consumer = Some(msg)))
 
-      case (ctx, UpdateSourceLimit(limit)) =>
-        ctx.log.info("UpdateSourceLimit({})", limit)
-        state.consumer match
-          case Some(client) if state.limitUnknown =>
-            ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
-            client.replyTo ! DataChunkResponse.LimitChanged(limit)
-            handleBridgeCommand(
+      case (ctx, PrepareReadBufferFile(replyTo, file)) =>
+        val sources = if state.fileOverlap then file.sources.tail
+        else file.sources
+        val nextOverlap = file.sources.last.endOffset < 0
+        val headSource = file.sources.head
+        val nextState = if state.fileOverlap && headSource.endOffset >= 0 then
+          val limit = headSource.endOffset - headSource.startOffset
+          ctx.log.info("Updating limit of current source to {}.", limit)
+          state.consumer match
+            case Some(client) if state.limitUnknown =>
+              ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
+              client.replyTo ! DataChunkResponse.LimitChanged(limit)
               state.copy(
                 consumer = None,
                 limitUpdate = None,
-                limitUnknown = false
+                limitUnknown = false,
+                fileOverlap = nextOverlap
               )
-            )
-          case _ =>
-            handleBridgeCommand(
-              state.copy(consumer = None, limitUpdate = Some(limit))
-            )
+            case _ =>
+              state.copy(consumer = None, limitUpdate = Some(limit), fileOverlap = nextOverlap)
+        else
+          state.copy(fileOverlap = nextOverlap)
+        replyTo ! NextBufferFileConfig(sources)
+        handleBridgeCommand(nextState)
 
       case (ctx, GetSourceLimit) =>
         ctx.log.info("Limit for current source is unavailable. Stored value is {}.", state.limitUpdate)
