@@ -40,6 +40,17 @@ import scala.concurrent.Future
 import scala.util.Random
 
 object BufferedPlaylistSourceSpec:
+  /** The default chunk size for chunked sources. */
+  private val DefaultChunkSize = 256
+
+  /**
+    * Type alias for a function that allows manipulating a stream source
+    * obtained from a [[BufferedPlaylistSource]] when running a test case. This
+    * is used to simulate behavior like skipping parts of sources or errors.
+    */
+  private type StreamSourceMapper =
+    PartialFunction[AudioStreamPlayerStage.AudioStreamSource, AudioStreamPlayerStage.AudioStreamSource]
+
   /**
     * Creates a [[Sink]] that collects all received elements in a list (in
     * reversed order).
@@ -80,7 +91,7 @@ object BufferedPlaylistSourceSpec:
   private def seqBasedResolverFunc(sourceData: IndexedSeq[ByteString]):
   AudioStreamPlayerStage.SourceResolverFunc[Int] = idx =>
     Future.successful(AudioStreamPlayerStage.AudioStreamSource(sourceUrl(idx),
-      chunkedSource(sourceData(idx - 1), 256)))
+      chunkedSource(sourceData(idx - 1), DefaultChunkSize)))
 end BufferedPlaylistSourceSpec
 
 /**
@@ -385,10 +396,10 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     val source = Source.single(1)
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
-    recoverToExceptionIf[IllegalStateException] {
+    recoverToExceptionIf[BufferedPlaylistSource.BridgeSourceFailure] {
       source.via(stage).runWith(sink)
     } map { actualException =>
-      actualException should be(exception)
+      actualException.getCause should be(exception)
     }
 
   it should "not create more than two active files in the buffer" in :
@@ -547,18 +558,21 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     *         buffered source
     */
   private def runBufferedStream(config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
-                                sourceCount: Int): Future[List[ByteString]] =
+                                sourceCount: Int)
+                               (streamSourceMapper: StreamSourceMapper = PartialFunction.empty):
+  Future[List[ByteString]] =
     val playlistSource = Source((1 to sourceCount).toList)
     val bufferedSource = BufferedPlaylistSource(config, playlistSource)
     val mappedConfig = BufferedPlaylistSource.mapConfig(config.streamPlayerConfig)
     val sink = createFoldSink[ByteString]()
     val sourceIndex = new AtomicInteger
+    val optStreamSourceMapper = streamSourceMapper.lift
     bufferedSource.mapAsync(1) { elem =>
         mappedConfig.sourceResolverFunc(elem)
       }.mapAsync(1) { source =>
         source.url should be(sourceUrl(sourceIndex.incrementAndGet()))
         val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-        source.source.runWith(byteStrSink)
+        optStreamSourceMapper(source).getOrElse(source).source.runWith(byteStrSink)
       }.runWith(sink)
       .map(_.reverse)
 
@@ -572,7 +586,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     */
   private def runBufferedStreamAndCheckResult(config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
                                               sourceData: IndexedSeq[ByteString]): Future[Assertion] =
-    runBufferedStream(config, sourceData.size) map { results =>
+    runBufferedStream(config, sourceData.size)() map { results =>
       results should contain theSameElementsInOrderAs sourceData
     }
 
@@ -696,3 +710,37 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       bufferFileSize = 16384)
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
+
+  it should "handle a partly skipped source in a single buffer file" in :
+    val bufferDir = createPathInDirectory("skipInFile")
+    val random = new Random(20240814244111L)
+    val BufferSize = 32768
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(10000)),
+      ByteString(random.nextBytes(16384)),
+      ByteString(random.nextBytes(4000))
+    )
+    val streamPlayerConfig = createStreamPlayerConfig(seqBasedResolverFunc(sourceData))
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = BufferSize)
+
+    val chunkSizeFromSource = new AtomicInteger
+    val sourceSkipFn: Source[ByteString, Any] => Source[ByteString, Any] = source =>
+      source.map { chunk =>
+        chunkSizeFromSource.set(chunk.size)
+        chunk
+      }.take(1)
+
+    runBufferedStream(bufferConfig, sourceData.size) {
+      case AudioStreamPlayerStage.AudioStreamSource(url, source) if url == sourceUrl(2) =>
+        AudioStreamPlayerStage.AudioStreamSource(url, sourceSkipFn(source))
+    } map { results =>
+      chunkSizeFromSource.get() should be > 0
+      val expectedResults = IndexedSeq(
+        sourceData.head,
+        sourceData(1).take(chunkSizeFromSource.get()),
+        sourceData(2)
+      )
+      results should contain theSameElementsInOrderAs expectedResults
+    }
