@@ -635,11 +635,16 @@ object BufferedPlaylistSource:
           triedResult.recover {
             case e: BridgeSourceFailure => e.result
           }.foreach { result =>
-            val skipConfig = if result.bytesRead >= result.size then
-              ConfigureSkipUntil(-1)
+            val skipPosition = if result.size < 0 then
+              // A source that continues on the next file was canceled.
+              bufferFileCount * config.bufferFileSize + 1L
+            else if result.bytesRead >= result.size then
+              // The source was completed in the regular way.
+              -1L
             else
-              ConfigureSkipUntil(result.startOffset + result.size)
-            bridgeActor ! skipConfig
+              // The source was canceled before it was fully read.
+              result.startOffset + result.size
+            bridgeActor ! ConfigureSkipUntil(skipPosition)
           }
 
           if !completeStageIfDone() then pushNextSource()
@@ -1199,7 +1204,10 @@ object BufferedPlaylistSource:
         val headSource = file.sources.head
         val nextState = if state.fileOverlap && headSource.endOffset >= 0 then
           val limit = headSource.endOffset - headSource.startOffset
-          ctx.log.info("Updating limit of current source to {}.", limit)
+          val isSkipping = state.skipUntil >= state.bytesProcessed
+          val nextSkip = if isSkipping then headSource.endOffset
+          else state.skipUntil
+          ctx.log.info("Updating limit of current source to {}, skipUntil to {}.", limit, nextSkip)
           state.consumer match
             case Some(client) if state.limitUnknown =>
               ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
@@ -1208,10 +1216,16 @@ object BufferedPlaylistSource:
                 consumer = None,
                 limitUpdate = None,
                 limitUnknown = false,
-                fileOverlap = nextOverlap
+                fileOverlap = nextOverlap,
+                skipUntil = nextSkip
               )
             case _ =>
-              state.copy(consumer = None, limitUpdate = Some(limit), fileOverlap = nextOverlap)
+              state.copy(
+                limitUpdate = Some(limit),
+                fileOverlap = nextOverlap,
+                skipUntil = nextSkip,
+                limitUnknown = state.limitUnknown && !isSkipping
+              )
         else
           state.copy(fileOverlap = nextOverlap)
         replyTo ! NextBufferFileConfig(sources)

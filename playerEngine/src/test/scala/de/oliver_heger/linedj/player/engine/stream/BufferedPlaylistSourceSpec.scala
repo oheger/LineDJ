@@ -711,19 +711,18 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
 
-  it should "handle a partly skipped source in a single buffer file" in :
+  private def testPartiallySkippedSource(bufferSize: Int, sourceSize: Int): Future[Assertion] =
     val bufferDir = createPathInDirectory("skipInFile")
     val random = new Random(20240814244111L)
-    val BufferSize = 32768
     val sourceData = IndexedSeq(
       ByteString(random.nextBytes(10000)),
-      ByteString(random.nextBytes(16384)),
+      ByteString(random.nextBytes(sourceSize)),
       ByteString(random.nextBytes(4000))
     )
     val streamPlayerConfig = createStreamPlayerConfig(seqBasedResolverFunc(sourceData))
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
       bufferFolder = bufferDir,
-      bufferFileSize = BufferSize)
+      bufferFileSize = bufferSize)
 
     val chunkSizeFromSource = new AtomicInteger
     val sourceSkipFn: Source[ByteString, Any] => Source[ByteString, Any] = source =>
@@ -744,3 +743,9 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       )
       results should contain theSameElementsInOrderAs expectedResults
     }
+
+  it should "handle a partly skipped source in a single buffer file" in :
+    testPartiallySkippedSource(bufferSize = 32768, sourceSize = 16384)
+
+  it should "handle a partly skipped source that ends in the next buffer file" in :
+    testPartiallySkippedSource(bufferSize = 16384, sourceSize = 16384)
