@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.stream
 
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
 import org.apache.pekko.stream.*
@@ -333,7 +333,8 @@ object BufferedPlaylistSource:
             log.info("Buffer folder '{}' does not exist. Creating it now.", config.bufferFolder)
             Files.createDirectories(config.bufferFolder)
 
-          bridgeActor = system.spawn(sourceSinkBridgeActor(), s"${config.sourceName}_fillBridgeActor")
+          bridgeActor = system.spawn(sourceSinkBridgeActor(config.bufferFileSize),
+            s"${config.sourceName}_fillBridgeActor")
           createAndFillBufferFile()
 
         override def postStop(): Unit =
@@ -494,7 +495,7 @@ object BufferedPlaylistSource:
           * bridge actor arrives for starting a new buffer file.
           */
         private val onNextBufferFileConfig =
-          getAsyncCallback[Try[NextBufferFileConfig[SRC]]](handleNextBufferFileConfig)
+          getAsyncCallback[Try[(BufferFileWritten[SRC], NextBufferFileConfig)]](handleNextBufferFileConfig)
 
         /**
           * A callback function that gets invoked when an audio source has been
@@ -530,9 +531,10 @@ object BufferedPlaylistSource:
           override def onPush(): Unit =
             val fileWritten = grab(in)
             log.info("Received buffer file: {}.", fileWritten)
-            bridgeActor.ask[NextBufferFileConfig[SRC]] { ref =>
-              PrepareReadBufferFile(ref, fileWritten)
-            }.onComplete(onNextBufferFileConfig.invoke)
+            bridgeActor.ask[NextBufferFileConfig] { ref =>
+                createPrepareReadBufferFile(ref, fileWritten)
+              }.map(config => (fileWritten, config))
+              .onComplete(onNextBufferFileConfig.invoke)
 
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
@@ -547,7 +549,7 @@ object BufferedPlaylistSource:
 
         override def preStart(): Unit =
           super.preStart()
-          bridgeActor = system.spawn(sourceSinkBridgeActor(), "readBufferFlowStage_bridgeActor")
+          bridgeActor = system.spawn(sourceSinkBridgeActor(config.bufferFileSize), "readBufferFlowStage_bridgeActor")
           pull(in)
 
         override def postStop(): Unit =
@@ -559,14 +561,20 @@ object BufferedPlaylistSource:
           * buffer file. The response determines how to exactly handle this
           * file.
           *
-          * @param triedConfig the response from the actor (should be
-          *                    successful)
+          * @param triedConfig the response from the actor plus the content of
+          *                    the current file (should be successful)
           */
-        private def handleNextBufferFileConfig(triedConfig: Try[NextBufferFileConfig[SRC]]): Unit =
-          triedConfig.foreach { config =>
-            bufferedSources = bufferedSources :++ config.sources
-            readNextBufferFile()
-            pushNextSource()
+        private def handleNextBufferFileConfig(triedConfig: Try[(BufferFileWritten[SRC], NextBufferFileConfig)]): Unit =
+          triedConfig.foreach { (fileWritten, config) =>
+            bufferFileCount += 1
+            bufferedSources = bufferedSources :++ fileWritten.sources.drop(config.skipSources)
+
+            if config.skipFile then
+              log.info("Skipping file {} since it contains only data from a skipped source.", bufferFileCount)
+              requestNextFile()
+            else
+              readNextBufferFile()
+              pushNextSource()
           }
 
         /**
@@ -576,7 +584,6 @@ object BufferedPlaylistSource:
           * sources.
           */
         private def readNextBufferFile(): Unit =
-          bufferFileCount += 1
           val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
           log.info("Start reading of buffer file '{}'.", bufferFile)
 
@@ -618,6 +625,13 @@ object BufferedPlaylistSource:
           */
         private def handleBufferFileCompleted(result: Try[Any]): Unit =
           log.info("Buffer file {} was read completely with result {}.", bufferFileCount, result)
+          requestNextFile()
+
+        /**
+          * Requests data about the next buffer file from upstream if this is
+          * possible.
+          */
+        private def requestNextFile(): Unit =
           if !isClosed(in) then
             pull(in)
 
@@ -635,16 +649,7 @@ object BufferedPlaylistSource:
           triedResult.recover {
             case e: BridgeSourceFailure => e.result
           }.foreach { result =>
-            val skipPosition = if result.size < 0 then
-              // A source that continues on the next file was canceled.
-              bufferFileCount * config.bufferFileSize + 1L
-            else if result.bytesRead >= result.size then
-              // The source was completed in the regular way.
-              -1L
-            else
-              // The source was canceled before it was fully read.
-              result.startOffset + result.size
-            bridgeActor ! ConfigureSkipUntil(skipPosition)
+            bridgeActor ! SourceCompleted(result)
           }
 
           if !completeStageIfDone() then pushNextSource()
@@ -966,9 +971,14 @@ object BufferedPlaylistSource:
     * [[PrepareReadBufferFile]] command. It contains instructions how to deal
     * with the new buffer file to be read.
     *
-    * @param sources the list of sources to process in the new file
+    * @param skipSources the number of sources to skip from the beginning of
+    *                    the list
+    * @param skipFile    a flag whether the whole file should be skipped; this 
+    *                    is the case if it contains only a single source which 
+    *                    has already been canceled
     */
-  private case class NextBufferFileConfig[SRC](sources: List[BufferedSource[SRC]])
+  private case class NextBufferFileConfig(skipSources: Int,
+                                          skipFile: Boolean)
 
   /**
     * The base trait of a hierarchy of commands processed by the actor that
@@ -1007,12 +1017,15 @@ object BufferedPlaylistSource:
     * passed. Based on this information, the actor can update its internal
     * state. It sends a response with instructions how to handle this file.
     *
-    * @param replyTo the actor to send the response to
-    * @param file    the content of the new buffer file
-    * @tparam SRC the type used for sources
+    * @param replyTo          the actor to send the response to
+    * @param firstStartOffset the start offset of the first source in the file
+    * @param firstEndOffset   the end offset of the first source in the file
+    * @param lastEndOffset    the end offset of the last source in the file
     */
-  private case class PrepareReadBufferFile[SRC](replyTo: ActorRef[NextBufferFileConfig[SRC]],
-                                                file: BufferFileWritten[SRC]) extends SourceSinkBridgeCommand
+  private case class PrepareReadBufferFile(replyTo: ActorRef[NextBufferFileConfig],
+                                           firstStartOffset: Long,
+                                           firstEndOffset: Long,
+                                           lastEndOffset: Long) extends SourceSinkBridgeCommand
 
   /**
     * A command to indicate to the bridge actor that the limit for the current
@@ -1022,14 +1035,14 @@ object BufferedPlaylistSource:
   private case object GetSourceLimit extends SourceSinkBridgeCommand
 
   /**
-    * A command that configures skipping of parts of the current stream. This
-    * is used when reading from buffer files, and a source has only been read
-    * partially. The actor then suppresses chunks from the consumer until the
-    * configured position is reached.
+    * A command that notifies the bridge actor that a source has been 
+    * completed - either regularly or before it was fully read. Information
+    * about the result of this source is provided. The actor then configures
+    * skipping of data if necessary.
     *
-    * @param skipPos the position until which data is to be skipped
+    * @param result the result produced by the source 
     */
-  private case class ConfigureSkipUntil(skipPos: Long) extends SourceSinkBridgeCommand
+  private case class SourceCompleted(result: BridgeSourceResult) extends SourceSinkBridgeCommand
 
   /**
     * A command to notify the bridge actor to stop itself.
@@ -1041,6 +1054,7 @@ object BufferedPlaylistSource:
     * passing around the different pieces of information that need to be
     * managed.
     *
+    * @param bufferFileSize the size of a buffer file
     * @param chunks         the current buffer of chunks
     * @param producer       the reference to the producer of the chunk
     * @param consumer       the reference to the consumer of chunks
@@ -1057,21 +1071,38 @@ object BufferedPlaylistSource:
     *                       passed to a consumer; this is used to skip parts
     *                       from the current input, e.g. if a data source was
     *                       stopped before it was fully read
+    * @param fileRequest    an optional pending request to prepare the next
+    *                       buffer file
+    * @param fileCount      the number of buffer files processed
     */
-  private case class BridgeActorState(chunks: List[DataChunkResponse.DataChunk],
+  private case class BridgeActorState(bufferFileSize: Int,
+                                      chunks: List[DataChunkResponse.DataChunk],
                                       producer: Option[ActorRef[DataChunkProcessed]],
                                       consumer: Option[GetNextDataChunk],
                                       limitUpdate: Option[Long],
                                       limitUnknown: Boolean,
                                       fileOverlap: Boolean,
                                       bytesProcessed: Long,
-                                      skipUntil: Long)
+                                      skipUntil: Long,
+                                      fileRequest: Option[PrepareReadBufferFile],
+                                      fileCount: Int):
+    /**
+      * Returns a flag whether the end of the current buffer file has been
+      * reached.
+      *
+      * @return a flag if the current buffer file is at its end
+      */
+    def isFileEnd: Boolean = bytesProcessed % bufferFileSize == 0 && chunks.isEmpty
+  end BridgeActorState
 
   /**
-    * Constant for a [[BridgeActorState]] instant to be used for a newly
+    * Returns a new [[BridgeActorState]] instant to be used for a newly
     * created bridge actor.
+    *
+    * @param fileSize the size of the buffer files
     */
-  private val InitialBridgeActorState = BridgeActorState(
+  private def initialBridgeActorState(fileSize: Int) = BridgeActorState(
+    bufferFileSize = fileSize,
     chunks = Nil,
     producer = None,
     consumer = None,
@@ -1079,8 +1110,28 @@ object BufferedPlaylistSource:
     limitUnknown = false,
     fileOverlap = false,
     bytesProcessed = 0,
-    skipUntil = -1
+    skipUntil = -1,
+    fileRequest = None,
+    fileCount = 0
   )
+
+  /**
+    * Creates a [[PrepareReadBufferFile]] object from the given parameters.
+    *
+    * @param replyTo the actor to send the response to
+    * @param file    the object describing the next buffer file
+    * @tparam SRC the type of the sources from upstream
+    * @return the [[PrepareReadBufferFile]] object
+    */
+  private def createPrepareReadBufferFile[SRC](replyTo: ActorRef[NextBufferFileConfig],
+                                               file: BufferFileWritten[SRC]): PrepareReadBufferFile =
+    val headSource = file.sources.head
+    PrepareReadBufferFile(
+      replyTo = replyTo,
+      firstStartOffset = headSource.startOffset,
+      firstEndOffset = headSource.endOffset,
+      lastEndOffset = file.sources.last.endOffset
+    )
 
   /**
     * Applies the given skip position to the list of data chunks. So, data
@@ -1117,12 +1168,12 @@ object BufferedPlaylistSource:
     * and sinks. For the use case at hand, multiple sources may need to be
     * combined to be filled into a buffer file. Also, the content of sources
     * may need to be split to fit into multiple buffer files. This actor helps
-    * achieving this. It can be used to implement virtual sources and sinks
+    * to achieve this. It can be used to implement virtual sources and sinks
     * that receive their data from multiple sources and transfer their data
     * into multiple sinks. The idea is that a specialized sink implementation
     * pushes its data to an actor instance, while a specialized source
     * implementation retrieves it from there. Then sinks and sources can be
-    * replaced independently from each other.
+    * replaced independently of each other.
     *
     * Per default, an actor instance buffers a single chunk of data that is set
     * by a producer sink and queried by a consumer source. In special cases,
@@ -1130,10 +1181,20 @@ object BufferedPlaylistSource:
     * the end of the stream or when a chunk needs to be split that does not fit
     * into a buffer file.
     *
+    * Since the buffering of stream data in files is a complex problem that is
+    * subject to many subtle race conditions, the actor also plays an important
+    * role for the coordination of buffer files. This is especially true when
+    * reading from files. Here a number of non-trivial issues have to be
+    * solved, e.g. sources whose size is initially unknown, sources that can
+    * be skipped before they are fully read, messages of completed files and
+    * sources arriving in non-deterministic order, etc. To address those
+    * issues, the protocol of the actor has been extended.
+    *
+    * @param bufferFileSize the size of a buffer file
     * @return the behavior of the bridge actor
     */
-  private def sourceSinkBridgeActor(): Behavior[SourceSinkBridgeCommand] =
-    handleBridgeCommand(InitialBridgeActorState)
+  private def sourceSinkBridgeActor(bufferFileSize: Int): Behavior[SourceSinkBridgeCommand] =
+    handleBridgeCommand(initialBridgeActorState(bufferFileSize))
 
   /**
     * The actual command handler function of the bridge actor.
@@ -1153,11 +1214,14 @@ object BufferedPlaylistSource:
           state.consumer.foreach(ctx.self ! _)
           (replyTo, None)
         handleBridgeCommand(
-          state.copy(
-            chunks = nextChunks,
-            producer = nextProducer,
-            consumer = nextConsumer,
-            bytesProcessed = nextPos
+          replyPrepareReadBufferFile(
+            ctx,
+            state.copy(
+              chunks = nextChunks,
+              producer = nextProducer,
+              consumer = nextConsumer,
+              bytesProcessed = nextPos
+            )
           )
         )
 
@@ -1174,80 +1238,154 @@ object BufferedPlaylistSource:
               )
             )
           case _ =>
-            state.chunks match
+            val nextState = state.chunks match
               case h :: t if h.data.size <= maxSize =>
                 replyTo ! h
                 val nextProducer = if t.isEmpty then
                   state.producer.foreach(_ ! DataChunkProcessed())
                   None
                 else state.producer
-                handleBridgeCommand(
-                  state.copy(
-                    chunks = t,
-                    producer = nextProducer,
-                    consumer = None
-                  )
+                state.copy(
+                  chunks = t,
+                  producer = nextProducer,
+                  consumer = None
                 )
               case h :: t => // The current chunk needs to be split.
                 val (consumed, remaining) = h.data.splitAt(maxSize)
                 replyTo ! DataChunkResponse.DataChunk(consumed)
-                handleBridgeCommand(
-                  state.copy(chunks = DataChunkResponse.DataChunk(remaining) :: t, consumer = None)
-                )
+                state.copy(chunks = DataChunkResponse.DataChunk(remaining) :: t, consumer = None)
               case _ =>
-                handleBridgeCommand(state.copy(chunks = Nil, consumer = Some(msg)))
+                state.copy(chunks = Nil, consumer = Some(msg))
+            handleBridgeCommand(replyPrepareReadBufferFile(ctx, nextState))
 
-      case (ctx, PrepareReadBufferFile(replyTo, file)) =>
-        val sources = if state.fileOverlap then file.sources.tail
-        else file.sources
-        val nextOverlap = file.sources.last.endOffset < 0
-        val headSource = file.sources.head
-        val nextState = if state.fileOverlap && headSource.endOffset >= 0 then
-          val limit = headSource.endOffset - headSource.startOffset
-          val isSkipping = state.skipUntil >= state.bytesProcessed
-          val nextSkip = if isSkipping then headSource.endOffset
-          else state.skipUntil
-          ctx.log.info("Updating limit of current source to {}, skipUntil to {}.", limit, nextSkip)
-          state.consumer match
-            case Some(client) if state.limitUnknown =>
-              ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
-              client.replyTo ! DataChunkResponse.LimitChanged(limit)
-              state.copy(
-                consumer = None,
-                limitUpdate = None,
-                limitUnknown = false,
-                fileOverlap = nextOverlap,
-                skipUntil = nextSkip
-              )
-            case _ =>
-              state.copy(
-                limitUpdate = Some(limit),
-                fileOverlap = nextOverlap,
-                skipUntil = nextSkip,
-                limitUnknown = state.limitUnknown && !isSkipping
-              )
-        else
-          state.copy(fileOverlap = nextOverlap)
-        replyTo ! NextBufferFileConfig(sources)
+      case (ctx, msg: PrepareReadBufferFile) if state.isFileEnd =>
+        ctx.log.info("PrepareReadBufferFile {} at end of file.", msg)
+        val nextState = handlePrepareReadBufferFile(ctx, msg, state)
         handleBridgeCommand(nextState)
+
+      case (ctx, msg: PrepareReadBufferFile) =>
+        ctx.log.info("PrepareReadBufferFile {}.", msg)
+        handleBridgeCommand(state.copy(fileRequest = Some(msg)))
 
       case (ctx, GetSourceLimit) =>
         ctx.log.info("Limit for current source is unavailable. Stored value is {}.", state.limitUpdate)
         handleBridgeCommand(state.copy(limitUnknown = true))
 
-      case (ctx, ConfigureSkipUntil(skipPos)) =>
+      case (ctx, SourceCompleted(result)) if result.size < 0 || result.bytesRead < result.size =>
+        ctx.log.info("Handling a canceled source with result {} at position {}.", result, state.bytesProcessed)
+        val resultSize = if result.size >= 0 then result.size
+        else state.limitUpdate getOrElse result.size
+        val skipPos = if resultSize < 0 then
+          (state.fileCount + 1L) * state.bufferFileSize + 1
+        else
+          result.startOffset + resultSize
         ctx.log.info("Setting skip position to {}.", skipPos)
         val skippedChunks = applySkipUntil(state.chunks, state.bytesProcessed, skipPos)
         val nextProducer = if state.producer.isDefined && skippedChunks.isEmpty then
           state.producer.get ! DataChunkProcessed()
           None
         else state.producer
-        handleBridgeCommand(state.copy(chunks = skippedChunks, skipUntil = skipPos, producer = nextProducer))
+        handleBridgeCommand(
+          replyPrepareReadBufferFile(
+            ctx,
+            state.copy(
+              chunks = skippedChunks,
+              skipUntil = skipPos,
+              producer = nextProducer,
+              limitUpdate = None,
+              limitUnknown = false
+            )
+          )
+        )
+
+      case (ctx, SourceCompleted(_)) =>
+        ctx.log.info("Handling a completed source.")
+        handleBridgeCommand(state.copy(skipUntil = -1))
 
       case (ctx, StopBridgeActor) =>
         ctx.log.info("Bridge actor stopped.")
         Behaviors.stopped
     }
+
+  /**
+    * Handles a [[PrepareReadBufferFile]] message and computes the next actor
+    * state.
+    *
+    * @param ctx   the actor context
+    * @param msg   the message to handle
+    * @param state the current actor state
+    * @return the next actor state
+    */
+  private def handlePrepareReadBufferFile(ctx: ActorContext[SourceSinkBridgeCommand],
+                                          msg: PrepareReadBufferFile,
+                                          state: BridgeActorState): BridgeActorState =
+    import msg.*
+    val skipSources = if state.fileOverlap then 1 else 0
+    val nextOverlap = lastEndOffset < 0
+    val isSkipping = state.skipUntil >= state.bytesProcessed
+    val skipFile = isSkipping && nextOverlap
+    val nextBytesProcessed = if skipFile then state.bytesProcessed + state.bufferFileSize
+    else state.bytesProcessed
+    val nextFileCount = state.fileCount + 1
+
+    val nextState = if state.fileOverlap && firstEndOffset >= 0 then
+      val limit = firstEndOffset - firstStartOffset
+      val nextSkip = if isSkipping then firstEndOffset
+      else state.skipUntil
+      ctx.log.info("Updating limit of current source to {}, skipUntil to {}.", limit, nextSkip)
+      state.consumer match
+        case Some(client) if state.limitUnknown =>
+          ctx.log.info("Notifying pending client about a change in the limit of the current source to {}.", limit)
+          client.replyTo ! DataChunkResponse.LimitChanged(limit)
+          state.copy(
+            consumer = None,
+            limitUpdate = None,
+            limitUnknown = false,
+            fileOverlap = nextOverlap,
+            skipUntil = nextSkip,
+            bytesProcessed = nextBytesProcessed,
+            fileRequest = None,
+            fileCount = nextFileCount
+          )
+        case _ =>
+          state.copy(
+            limitUpdate = Some(limit),
+            fileOverlap = nextOverlap,
+            skipUntil = nextSkip,
+            bytesProcessed = nextBytesProcessed,
+            limitUnknown = state.limitUnknown && !isSkipping,
+            fileRequest = None,
+            fileCount = nextFileCount
+          )
+    else
+      val nextSkip = if skipFile then state.skipUntil + state.bufferFileSize
+      else state.skipUntil
+      state.copy(
+        fileOverlap = nextOverlap,
+        bytesProcessed = nextBytesProcessed,
+        skipUntil = nextSkip,
+        fileRequest = None,
+        fileCount = nextFileCount
+      )
+
+    val bufferFileConfig = NextBufferFileConfig(skipSources, skipFile)
+    ctx.log.info("Sending config for next buffer file: {}.", bufferFileConfig)
+    replyTo ! bufferFileConfig
+    nextState
+
+  /**
+    * Checks whether there is a pending request to prepare a buffer file. If
+    * this is the case and all condition are met, the request is now answered.
+    *
+    * @param ctx   the actor context
+    * @param state the current actor state
+    * @return the updated actor state
+    */
+  private def replyPrepareReadBufferFile(ctx: ActorContext[SourceSinkBridgeCommand],
+                                         state: BridgeActorState): BridgeActorState =
+    state.fileRequest.filter(_ => state.isFileEnd)
+      .map(request => handlePrepareReadBufferFile(ctx, request, state))
+      .getOrElse(state)
 
   /**
     * Generates the name of the buffer file with the given index.

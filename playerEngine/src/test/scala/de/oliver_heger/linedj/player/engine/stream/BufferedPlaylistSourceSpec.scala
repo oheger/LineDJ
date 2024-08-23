@@ -711,6 +711,15 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
 
+  /**
+    * Executes a test with 3 sources, where the source in the middle is
+    * canceled before it was fully read. Some parameters for the test can be
+    * specified.
+    *
+    * @param bufferSize the size of the buffer files
+    * @param sourceSize the size of the source that is canceled
+    * @return the future with the test assertion
+    */
   private def testPartiallySkippedSource(bufferSize: Int, sourceSize: Int): Future[Assertion] =
     val bufferDir = createPathInDirectory("skipInFile")
     val random = new Random(20240814244111L)
@@ -749,3 +758,6 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a partly skipped source that ends in the next buffer file" in :
     testPartiallySkippedSource(bufferSize = 16384, sourceSize = 16384)
+
+  it should "handle a partly skipped source that spans multiple buffer files" in :
+    testPartiallySkippedSource(bufferSize = 16384, sourceSize = 65536)
