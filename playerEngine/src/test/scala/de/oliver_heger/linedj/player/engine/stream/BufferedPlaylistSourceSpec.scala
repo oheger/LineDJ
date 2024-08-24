@@ -806,3 +806,29 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a partly skipped source at the end of the playlist over multiple buffer files" in :
     testPartiallySkippedLastSource(bufferSize = 16384, sourceSize = 65536)
+
+  it should "take the source name into account" in :
+    val bufferDir1 = createPathInDirectory("buffer1")
+    val bufferDir2 = createPathInDirectory("buffer2")
+    val random = new Random(20240824185038L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(32768)),
+      ByteString(random.nextBytes(16384))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig1 = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir1,
+      bufferFileSize = 16384)
+    val bufferConfig2 = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir2,
+      bufferFileSize = 32768,
+      sourceName = "anotherTestSource")
+
+    val fut1 = runBufferedStreamAndCheckResult(bufferConfig1, sourceData)
+    val fut2 = runBufferedStreamAndCheckResult(bufferConfig2, sourceData)
+    for
+      _ <- fut1
+      res <- fut2
+    yield res

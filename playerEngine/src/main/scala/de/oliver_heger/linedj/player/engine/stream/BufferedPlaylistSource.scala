@@ -333,8 +333,7 @@ object BufferedPlaylistSource:
             log.info("Buffer folder '{}' does not exist. Creating it now.", config.bufferFolder)
             Files.createDirectories(config.bufferFolder)
 
-          bridgeActor = system.spawn(sourceSinkBridgeActor(config.bufferFileSize),
-            s"${config.sourceName}_fillBridgeActor")
+          bridgeActor = spawnBridgeActor(system, config, "fillBridgeActor")
           createAndFillBufferFile()
 
         override def postStop(): Unit =
@@ -549,7 +548,7 @@ object BufferedPlaylistSource:
 
         override def preStart(): Unit =
           super.preStart()
-          bridgeActor = system.spawn(sourceSinkBridgeActor(config.bufferFileSize), "readBufferFlowStage_bridgeActor")
+          bridgeActor = spawnBridgeActor(system, config, "readBridgeActor")
           pull(in)
 
         override def postStop(): Unit =
@@ -1453,6 +1452,22 @@ object BufferedPlaylistSource:
       -1
     else
       bufferedSource.endOffset - bufferedSource.startOffset
+
+  /**
+    * Creates a new bridge actor instance with a unique name based on the given
+    * configuration.
+    *
+    * @param system     the actor system
+    * @param config     the configuration
+    * @param nameSuffix the suffix for the actor name
+    * @tparam SRC the type of the stream source
+    * @tparam SNK the type of the stream sink
+    * @return a reference to the newly spawned actor instance
+    */
+  private def spawnBridgeActor[SRC, SNK](system: classic.ActorSystem,
+                                         config: BufferedPlaylistSourceConfig[SRC, SNK],
+                                         nameSuffix: String): ActorRef[SourceSinkBridgeCommand] =
+    system.spawn(sourceSinkBridgeActor(config.bufferFileSize), s"${config.sourceName}_$nameSuffix")
 
   /**
     * Provides an [[ExecutionContext]] in implicit scope from the given actor
