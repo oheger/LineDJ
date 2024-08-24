@@ -761,3 +761,48 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a partly skipped source that spans multiple buffer files" in :
     testPartiallySkippedSource(bufferSize = 16384, sourceSize = 65536)
+
+  /**
+    * Executes a test with a source that is partially skipped at the end of
+    * the playlist.
+    *
+    * @param bufferSize the size of the buffer files
+    * @param sourceSize the size of the source that is canceled
+    * @return the future with the test assertion
+    */
+  private def testPartiallySkippedLastSource(bufferSize: Int, sourceSize: Int): Future[Assertion] =
+    val bufferDir = createPathInDirectory("skipAtEnd")
+    val random = new Random(20240824183642L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(10000)),
+      ByteString(random.nextBytes(sourceSize))
+    )
+    val streamPlayerConfig = createStreamPlayerConfig(seqBasedResolverFunc(sourceData))
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = bufferSize)
+
+    val chunkSizeFromSource = new AtomicInteger
+    val sourceSkipFn: Source[ByteString, Any] => Source[ByteString, Any] = source =>
+      source.map { chunk =>
+        chunkSizeFromSource.set(chunk.size)
+        chunk
+      }.take(1)
+
+    runBufferedStream(bufferConfig, sourceData.size) {
+      case AudioStreamPlayerStage.AudioStreamSource(url, source) if url == sourceUrl(2) =>
+        AudioStreamPlayerStage.AudioStreamSource(url, sourceSkipFn(source))
+    } map { results =>
+      chunkSizeFromSource.get() should be > 0
+      val expectedResults = IndexedSeq(
+        sourceData.head,
+        sourceData(1).take(chunkSizeFromSource.get())
+      )
+      results should contain theSameElementsInOrderAs expectedResults
+    }
+
+  it should "handle a partly skipped source at the end of the playlist in one buffer file" in :
+    testPartiallySkippedLastSource(bufferSize = 65536, sourceSize = 32768)
+
+  it should "handle a partly skipped source at the end of the playlist over multiple buffer files" in :
+    testPartiallySkippedLastSource(bufferSize = 16384, sourceSize = 65536)
