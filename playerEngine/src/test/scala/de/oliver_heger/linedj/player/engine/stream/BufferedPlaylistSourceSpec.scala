@@ -832,3 +832,30 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       _ <- fut1
       res <- fut2
     yield res
+
+  it should "cancel the stream when reading from a buffer file fails" in :
+    val exception = new IllegalStateException("Test exception: Could not read from buffer file.")
+    val chunkCount = new AtomicInteger
+    val errorSourceFunc: BufferedPlaylistSource.BufferSourceFunc = path =>
+      BufferedPlaylistSource.defaultBufferSource(path).map { chunk =>
+        if chunkCount.incrementAndGet() > 4 then throw exception
+        chunk
+      }
+
+    val bufferDir = createPathInDirectory("errorBuffer")
+    val random = new Random(20240824214508L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(30000)),
+      ByteString(random.nextBytes(25000))
+    )
+    val streamPlayerConfig = createStreamPlayerConfig(seqBasedResolverFunc(sourceData))
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 60000,
+      bufferSourceFunc = errorSourceFunc)
+
+    recoverToExceptionIf[IllegalStateException] {
+      runBufferedStream(bufferConfig, sourceData.size)()
+    } map { actualException =>
+      actualException should be(exception)
+    }

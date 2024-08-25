@@ -90,6 +90,14 @@ object BufferedPlaylistSource:
   type BufferSinkFunc = Path => Sink[ByteString, Any]
 
   /**
+    * A function for providing a [[Source]] for reading from a file in the
+    * buffer. Analogously to [[BufferSinkFunc]], such a function can be passed
+    * to the configuration of a buffered source to customize the reading from
+    * the buffer.
+    */
+  type BufferSourceFunc = Path => Source[ByteString, Any]
+
+  /**
     * Definition of a trait that is used for the sources exposed downstream by
     * the buffered source. It allows resolving the source from the buffer. For
     * this resolve operation, a lot of internal details about the way buffering
@@ -130,6 +138,7 @@ object BufferedPlaylistSource:
                                                     bufferFolder: Path,
                                                     bufferFileSize: Int,
                                                     bufferSinkFunc: BufferSinkFunc = defaultBufferSink,
+                                                    bufferSourceFunc: BufferSourceFunc = defaultBufferSource,
                                                     sourceName: String = DefaultSourceName)
 
   /**
@@ -173,14 +182,24 @@ object BufferedPlaylistSource:
       .asInstanceOf[AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer, SNK]]
 
   /**
-    * A default function for opening a file in the buffer. This is used by
-    * [[BufferedPlaylistSourceConfig]] if no custom function is provided for
-    * this purpose.
+    * A default function for opening a file for writing in the buffer. This is
+    * used by [[BufferedPlaylistSourceConfig]] if no custom function is
+    * provided for this purpose.
     *
     * @param path the path to the buffer file
     * @return a [[Sink]] for writing to this file
     */
   def defaultBufferSink(path: Path): Sink[ByteString, Any] = FileIO.toPath(path)
+
+  /**
+    * A default function for opening a file for reading in the buffer. This is
+    * used by [[BufferedPlaylistSourceConfig]] if no custom function is
+    * provided for this purpose.
+    *
+    * @param path the path to the buffer file
+    * @return a [[Source]] for reading from this file
+    */
+  def defaultBufferSource(path: Path): Source[ByteString, Any] = FileIO.fromPath(path)
 
   /**
     * A data class describing an audio source that has been written into a
@@ -382,7 +401,15 @@ object BufferedPlaylistSource:
               log.info("Source '{}' has been resolved successfully with URI '{}'.", srcData._1, resolvedSource.url)
               currentSource = Some((srcData._1, resolvedSource))
               resolvedSource.source.runWith(
-                Sink.fromGraph(new BridgeSink(bridgeActor, srcData._1, resolvedSource.url, bytesProcessed))
+                Sink.fromGraph(
+                  new BridgeSink(
+                    bridgeActor,
+                    srcData._1,
+                    resolvedSource.url,
+                    bytesProcessed,
+                    ignoreErrors = true
+                  )
+                )
               ).onComplete(onSourceCompleted.invoke)
 
         /**
@@ -586,8 +613,10 @@ object BufferedPlaylistSource:
           val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
           log.info("Start reading of buffer file '{}'.", bufferFile)
 
-          val bufferFileSource = FileIO.fromPath(bufferFile)
-          val bufferFileSink = Sink.fromGraph(new BridgeSink(bridgeActor, bufferFile, bufferFile.toString, 0))
+          val bufferFileSource = config.bufferSourceFunc(bufferFile)
+          val bufferFileSink = Sink.fromGraph(
+            new BridgeSink(bridgeActor, bufferFile, bufferFile.toString, 0, ignoreErrors = false)
+          )
           bufferFileSource.runWith(bufferFileSink).onComplete(onBufferFileComplete.invoke)
 
         /**
@@ -624,7 +653,9 @@ object BufferedPlaylistSource:
           */
         private def handleBufferFileCompleted(result: Try[Any]): Unit =
           log.info("Buffer file {} was read completely with result {}.", bufferFileCount, result)
-          requestNextFile()
+          result match
+            case Success(_) => requestNextFile()
+            case Failure(exception) => failStage(exception)
 
         /**
           * Requests data about the next buffer file from upstream if this is
@@ -672,17 +703,21 @@ object BufferedPlaylistSource:
     * bridge actor instance. This is used to combine the data of multiple
     * sources.
     *
-    * @param bridgeActor the bridge actor instance
-    * @param source      the source that is currently processed
-    * @param url         the URL for the current source
-    * @param startOffset the start offset for the current source
-    * @param system      the implicit actor system
+    * @param bridgeActor  the bridge actor instance
+    * @param source       the source that is currently processed
+    * @param url          the URL for the current source
+    * @param startOffset  the start offset for the current source
+    * @param system       the implicit actor system
+    * @param ignoreErrors a flag whether to ignore an error from upstream; this
+    *                     is typically '''true''' when writing into a buffer
+    *                     file and '''false''' otherwise
     * @tparam SRC the type to represent sources
     */
   private class BridgeSink[SRC](bridgeActor: ActorRef[SourceSinkBridgeCommand],
                                 source: SRC,
                                 url: String,
-                                startOffset: Long)
+                                startOffset: Long,
+                                ignoreErrors: Boolean)
                                (using system: ActorSystem[_])
     extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[BufferedSource[SRC]]]:
     private val in: Inlet[ByteString] = Inlet("BridgeSink")
@@ -719,13 +754,14 @@ object BufferedPlaylistSource:
           override def onUpstreamFailure(ex: Throwable): Unit =
             super.onUpstreamFailure(ex)
             log.error(ex, "Source '{}' failed after {} bytes.", source, bytesProcessed)
+            if !ignoreErrors then promiseMat.failure(ex)
         )
 
         override def preStart(): Unit =
           pull(in)
 
         override def postStop(): Unit =
-          promiseMat.success(BufferedSource(source, url, startOffset, startOffset + bytesProcessed))
+          promiseMat.trySuccess(BufferedSource(source, url, startOffset, startOffset + bytesProcessed))
 
         /**
           * A function that is invoked when the bridge actor sends a
