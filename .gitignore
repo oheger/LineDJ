@@ -4,3 +4,4 @@ target
 .idea
 .history
 /.bsp/sbt.json
+logs

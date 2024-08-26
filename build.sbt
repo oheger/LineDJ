@@ -995,8 +995,7 @@ lazy val playerServer = (project in file("playerServer"))
       beanUtilsDependency
     ),
     assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
-  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, log4jConfFragment,
-      mp3PlaybackContextFactory)
+  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
