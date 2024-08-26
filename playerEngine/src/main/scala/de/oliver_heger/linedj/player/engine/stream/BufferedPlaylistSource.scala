@@ -21,6 +21,7 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior}
+import org.apache.pekko.event.LoggingAdapter
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import org.apache.pekko.stream.stage.*
@@ -357,6 +358,7 @@ object BufferedPlaylistSource:
 
         override def postStop(): Unit =
           bridgeActor ! StopBridgeActor
+
           super.postStop()
 
         /**
@@ -457,7 +459,7 @@ object BufferedPlaylistSource:
             bufferFileWriteInProgress = true
             val startOffset = bufferFileCount * config.bufferFileSize
             bufferFileCount += 1
-            val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
+            val bufferFile = resolveBufferFile(config, bufferFileCount)
             log.info("Creating buffer file {}.", bufferFile)
 
             val bufferFileSource = Source.fromGraph(new BridgeSource(bridgeActor, startOffset, config.bufferFileSize))
@@ -580,7 +582,18 @@ object BufferedPlaylistSource:
 
         override def postStop(): Unit =
           bridgeActor ! StopBridgeActor
+          cleanUpBufferFolder()
+
           super.postStop()
+
+        /**
+          * Cleans up remaining buffer files from the buffer folder.
+          */
+        private def cleanUpBufferFolder(): Unit =
+          (1 to bufferFileCount + 2).filter { index =>
+            val file = resolveBufferFile(config, index)
+            Files.exists(file)
+          }.foreach(deleteBufferFile(log, config, _))
 
         /**
           * Handles the response from the bridge actor when starting a new
@@ -610,7 +623,7 @@ object BufferedPlaylistSource:
           * sources.
           */
         private def readNextBufferFile(): Unit =
-          val bufferFile = config.bufferFolder.resolve(bufferFileName(bufferFileCount))
+          val bufferFile = resolveBufferFile(config, bufferFileCount)
           log.info("Start reading of buffer file '{}'.", bufferFile)
 
           val bufferFileSource = config.bufferSourceFunc(bufferFile)
@@ -653,6 +666,8 @@ object BufferedPlaylistSource:
           */
         private def handleBufferFileCompleted(result: Try[Any]): Unit =
           log.info("Buffer file {} was read completely with result {}.", bufferFileCount, result)
+          deleteBufferFile(log, config, bufferFileCount)
+
           result match
             case Success(_) => requestNextFile()
             case Failure(exception) => failStage(exception)
@@ -1429,6 +1444,39 @@ object BufferedPlaylistSource:
     * @return the name of the buffer file with this index
     */
   private def bufferFileName(index: Int): String = String.format(BufferFilePattern, index)
+
+  /**
+    * Returns a [[Path]] to a buffer file with a specific index.
+    *
+    * @param config the configuration of the buffered source
+    * @param index  the index of the buffer file
+    * @tparam SRC the type of stream sources
+    * @tparam SNK the type of stream sinks
+    * @return the [[Path]] to the requested buffer file
+    */
+  private def resolveBufferFile[SRC, SNK](config: BufferedPlaylistSourceConfig[SRC, SNK],
+                                          index: Int): Path =
+    config.bufferFolder.resolve(bufferFileName(index))
+
+  /**
+    * Deletes a file from the buffer.
+    *
+    * @param log    the logging adapter
+    * @param config the configuration of the buffered source
+    * @param index  the index of the buffer file to delete
+    * @tparam SRC the type of stream sources
+    * @tparam SNK the type of stream sinks
+    */
+  private def deleteBufferFile[SRC, SNK](log: LoggingAdapter,
+                                         config: BufferedPlaylistSourceConfig[SRC, SNK],
+                                         index: Int): Unit =
+    val bufferFile = resolveBufferFile(config, index)
+    log.info("Deleting buffer file {}.", bufferFile)
+    try
+      Files.delete(bufferFile)
+    catch
+      case e: Exception =>
+        log.error(e, "Could not delete buffer file {}.", bufferFile)
 
   /**
     * Determines the sources that are actually stored in the current

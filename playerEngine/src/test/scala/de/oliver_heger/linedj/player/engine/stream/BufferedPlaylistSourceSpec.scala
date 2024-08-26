@@ -552,13 +552,18 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     * The result from the stream - the collected data of the original sources -
     * is returned.
     *
-    * @param config      the configuration for the buffered source
-    * @param sourceCount the number of test sources
+    * @param config             the configuration for the buffered source
+    * @param sourceCount        the number of test sources
+    * @param skipAfter          the number of sources after which to skip the
+    *                           stream
+    * @param streamSourceMapper a function allowing to modify single sources;
+    *                           this is useful for instance to force errors
     * @return a ''Future'' with the data of the sources that were read from the
     *         buffered source
     */
   private def runBufferedStream(config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
-                                sourceCount: Int)
+                                sourceCount: Int,
+                                skipAfter: Int = 100)
                                (streamSourceMapper: StreamSourceMapper = PartialFunction.empty):
   Future[List[ByteString]] =
     val playlistSource = Source((1 to sourceCount).toList)
@@ -573,7 +578,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
         source.url should be(sourceUrl(sourceIndex.incrementAndGet()))
         val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
         optStreamSourceMapper(source).getOrElse(source).source.runWith(byteStrSink)
-      }.runWith(sink)
+      }.take(skipAfter)
+      .runWith(sink)
       .map(_.reverse)
 
   /**
@@ -603,36 +609,27 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     runBufferedStreamAndCheckResult(bufferConfig, sourceData)
 
   it should "route the data through buffer files" in :
-    val bufferDir = createPathInDirectory("buffer")
+    val bufferDir = createPathInDirectory("fileTestBuffer")
     val random = new Random(20240803155802L)
     val sourceData = ByteString(random.nextBytes(4096))
     val resolverFunc = seqBasedResolverFunc(IndexedSeq(sourceData))
+    val filesQueue = new LinkedBlockingQueue[(Path, Long)]
+    val sourceCheckFunc: BufferedPlaylistSource.BufferSourceFunc = { path =>
+      filesQueue.offer((path, Files.size(path)))
+      BufferedPlaylistSource.defaultBufferSource(path)
+    }
 
     val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
     val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
       bufferFolder = bufferDir,
-      bufferFileSize = 8192)
-    val bufferedSource = BufferedPlaylistSource(bufferConfig, Source.single(1))
-    val mappedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
-    val pauseActor =
-      testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
-    val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferedPlaylistSource.SourceInBuffer](pauseActor)
-    val sink = Sink.ignore
-    val futStream = bufferedSource
-      .via(pauseStage)
-      .mapAsync(1) { source =>
-        source.resolveSource()
-      }.mapAsync(1) { source =>
-        source.source.runWith(Sink.ignore)
-      }.runWith(sink)
+      bufferFileSize = 8192,
+      bufferSourceFunc = sourceCheckFunc)
 
-    eventually:
-      val bufferFile = bufferDir.resolve("buffer01.dat")
-      Files.size(bufferFile) should be(sourceData.size)
-
-    // Need to wait for the stream to fully complete.
-    pauseActor ! PausePlaybackStage.StartPlayback
-    futStream.map(_ => Succeeded)
+    runBufferedStream(bufferConfig, 1)() map { _ =>
+      val (path, size) = filesQueue.poll(3, TimeUnit.SECONDS)
+      size should be(sourceData.size)
+      path.toString should endWith("buffer01.dat")
+    }
 
   it should "process multiple sources that fit in a single buffer file" in :
     val bufferDir = createPathInDirectory("singleBuffer")
@@ -858,4 +855,45 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       runBufferedStream(bufferConfig, sourceData.size)()
     } map { actualException =>
       actualException should be(exception)
+    }
+
+  it should "delete buffer files after they have been processed" in :
+    val bufferDir = createPathInDirectory("bufferCleanup")
+    val random = new Random(20240825185816L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(32768)),
+      ByteString(random.nextBytes(25321)),
+      ByteString(random.nextBytes(65000)),
+      ByteString(random.nextBytes(40000)),
+      ByteString(random.nextBytes(54545))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+
+    runBufferedStreamAndCheckResult(bufferConfig, sourceData) map { _ =>
+      bufferDir.toFile.list() shouldBe empty
+    }
+
+  it should "delete buffer files also if the playlist stream is canceled" in :
+    val bufferDir = createPathInDirectory("bufferCleanupCanceled")
+    val random = new Random(20240825221143L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(32768)),
+      ByteString(random.nextBytes(25321)),
+      ByteString(random.nextBytes(65000)),
+      ByteString(random.nextBytes(40000)),
+      ByteString(random.nextBytes(54545))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 16384)
+
+    runBufferedStream(bufferConfig, sourceData.size, skipAfter = 4)() map { _ =>
+      eventually:
+        bufferDir.toFile.list() shouldBe empty
     }
