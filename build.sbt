@@ -977,7 +977,7 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
       beanUtilsDependency
     ),
     assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
-  ) dependsOn(playerEngine, mp3PlaybackContextFactory)
+  ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment)
 
 /**
   * Project for the player server. This project exposes player functionality
