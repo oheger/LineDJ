@@ -105,8 +105,17 @@ object BufferedPlaylistSource:
     * is implemented are required. The main purpose of this trait is to hide
     * this complexity and to prevent that internal data types need to be
     * exposed.
+    *
+    * @tparam SRC the type of the sources of audio streams
     */
-  trait SourceInBuffer:
+  trait SourceInBuffer[SRC]:
+    /**
+      * Returns the original source of the current audio stream.
+      *
+      * @return the original source
+      */
+    def originalSource: SRC
+
     /**
       * Resolves this source by performing the necessary steps to open a stream
       * that loads data from buffer files.
@@ -160,7 +169,7 @@ object BufferedPlaylistSource:
     */
   def apply[SRC, SNK, MAT](config: BufferedPlaylistSourceConfig[SRC, SNK],
                            source: Source[SRC, MAT])
-                          (using system: classic.ActorSystem): Source[SourceInBuffer, MAT] =
+                          (using system: classic.ActorSystem): Source[SourceInBuffer[SRC], MAT] =
     val fillStage = new FillBufferFlowStage(config)
     val readStage = new ReadBufferFlowStage(config)
     source.viaMat(fillStage)(Keep.left)
@@ -178,9 +187,10 @@ object BufferedPlaylistSource:
     * @return the mapped configuration
     */
   def mapConfig[SRC, SNK](config: AudioStreamPlayerStage.AudioStreamPlayerConfig[SRC, SNK]):
-  AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer, SNK] =
-    config.copy(sourceResolverFunc = resolveSourceInBuffer)
-      .asInstanceOf[AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer, SNK]]
+  AudioStreamPlayerStage.AudioStreamPlayerConfig[SourceInBuffer[SRC], SNK] =
+    val mappedSinkFunc: AudioStreamPlayerStage.SinkProviderFunc[SourceInBuffer[SRC], SNK] = src =>
+      config.sinkProviderFunc(src.originalSource)
+    config.copy(sourceResolverFunc = resolveSourceInBuffer, sinkProviderFunc = mappedSinkFunc)
 
   /**
     * A default function for opening a file for writing in the buffer. This is
@@ -510,11 +520,11 @@ object BufferedPlaylistSource:
     */
   private[stream] class ReadBufferFlowStage[SRC, SNK](config: BufferedPlaylistSourceConfig[SRC, SNK])
                                                      (using system: classic.ActorSystem)
-    extends GraphStage[FlowShape[BufferFileWritten[SRC], SourceInBuffer]]:
+    extends GraphStage[FlowShape[BufferFileWritten[SRC], SourceInBuffer[SRC]]]:
     private val in: Inlet[BufferFileWritten[SRC]] = Inlet("ReadBufferFlowStage.in")
-    private val out: Outlet[SourceInBuffer] = Outlet("ReadBufferFlowStage.out")
+    private val out: Outlet[SourceInBuffer[SRC]] = Outlet("ReadBufferFlowStage.out")
 
-    override def shape: FlowShape[BufferFileWritten[SRC], SourceInBuffer] = new FlowShape(in, out)
+    override def shape: FlowShape[BufferFileWritten[SRC], SourceInBuffer[SRC]] = new FlowShape(in, out)
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with StageLogging:
@@ -644,7 +654,9 @@ object BufferedPlaylistSource:
             val size = sourceSize(currentSource)
             log.info("Start processing audio source '{}' with size {}..", currentSource.source, size)
 
-            push(out, new SourceInBuffer:
+            push(out, new SourceInBuffer[SRC]:
+              override def originalSource: SRC = currentSource.source
+
               override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
                 val promiseResult = Promise[BridgeSourceResult]()
                 promiseResult.future.onComplete(onSourceComplete.invoke)
@@ -1518,7 +1530,7 @@ object BufferedPlaylistSource:
     * @param src the source to be resolved
     * @return the resolved source
     */
-  private def resolveSourceInBuffer(src: SourceInBuffer): Future[AudioStreamPlayerStage.AudioStreamSource] =
+  private def resolveSourceInBuffer[SRC](src: SourceInBuffer[SRC]): Future[AudioStreamPlayerStage.AudioStreamSource] =
     src.resolveSource()
 
   /**

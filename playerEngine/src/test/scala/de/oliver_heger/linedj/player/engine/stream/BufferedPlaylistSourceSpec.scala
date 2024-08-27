@@ -24,7 +24,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
-import org.apache.pekko.{NotUsed, actor as classic}
+import org.apache.pekko.{Done, NotUsed, actor as classic}
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -545,6 +545,46 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
       _ shouldBe empty
     }
     Succeeded
+
+  "mapConfig" should "correctly map the source resolver function" in :
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = src =>
+      throw new UnsupportedOperationException("Unexpected call")
+    val config = createStreamPlayerConfig(resolverFunc)
+
+    val mappedConfig = BufferedPlaylistSource.mapConfig(config)
+
+    val resolvedSource = AudioStreamPlayerStage.AudioStreamSource("someURL",
+      Source.single(ByteString.fromArray(FileTestHelper.testBytes())))
+    val sourceInBuffer = new BufferedPlaylistSource.SourceInBuffer[Int]:
+      override def originalSource: Int = throw new UnsupportedOperationException("Unexpected call")
+
+      override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] =
+        Future.successful(resolvedSource)
+
+    mappedConfig.sourceResolverFunc(sourceInBuffer).map { result =>
+      result should be(resolvedSource)
+    }
+
+  it should "correctly map the sink provider function" in :
+    val TestSource = 42
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = src =>
+      throw new UnsupportedOperationException("Unexpected call to resolver func.")
+    val orgSink = Sink.ignore
+    val orgSinkFunc: AudioStreamPlayerStage.SinkProviderFunc[Int, Done] = src =>
+      src should be(TestSource)
+      orgSink
+    val config = createStreamPlayerConfig(resolverFunc).copy(sinkProviderFunc = orgSinkFunc)
+
+    val mappedConfig = BufferedPlaylistSource.mapConfig(config)
+
+    val sourceInBuffer = new BufferedPlaylistSource.SourceInBuffer[Int]:
+      override val originalSource: Int = TestSource
+
+      override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] =
+        throw new UnsupportedOperationException("Unexpected call to resolveSource()")
+
+    val providedSink = mappedConfig.sinkProviderFunc(sourceInBuffer)
+    providedSink should be(orgSink)
 
   /**
     * Runs a stream with a buffered playlist source over a given number of test
