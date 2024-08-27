@@ -18,8 +18,9 @@ package de.oliver_heger.linedj.player.shell
 
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.PausePlaybackStage.PlaybackState
-import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, BufferedPlaylistSource, LineWriterStage, PausePlaybackStage}
 import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, CompositeAudioStreamFactory, DefaultAudioStreamFactory}
+import de.oliver_heger.linedj.player.shell.AudioPlayerShell.BufferFunc
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
@@ -53,18 +54,37 @@ object AudioPlayerShell:
     "skip" -> List("Skips the currently played audio source and continues with the next one (if any).")
   )
 
+  /** The command line argument to define a buffer. */
+  private val BufferDirArgument = "--buffer-dir"
+
+  /** The command line argument to define the size of buffer files. */
+  private val BufferSizeArgument = "--buffer-size"
+
+  /** The default size of a buffer file. */
+  private val DefaultBufferFileSize = 8388608 // 8 MB
+
+  /**
+    * Type definition for a function that can create a configuration for a
+    * buffered source.
+    */
+  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, String] =>
+    Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, String]]
+
   def main(args: Array[String]): Unit =
     println("Audio Player Shell")
     println("Type `help` for a list of available commands.")
 
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
     val audioStreamFactory = new CompositeAudioStreamFactory(List(Mp3AudioStreamFactory, DefaultAudioStreamFactory))
-    val streamHandler = new PlaylistStreamHandler(audioStreamFactory)
+    val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
     var done = false
 
     while !done do
       prompt()
-      val (command, arguments) = readLine().split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
+      val (command, rawArguments) = readLine().split("""\s(?=([^"]*"[^"]*")*[^"]*$)""").splitAt(1)
+      val arguments = rawArguments.map { v =>
+        v.stripPrefix("\"").stripSuffix("\"")
+      }
 
       command.head.toLowerCase(Locale.ROOT) match
         case "exit" =>
@@ -110,6 +130,35 @@ object AudioPlayerShell:
     println("Shutting down shell...")
     streamHandler.shutdown()
     actorSystem.terminate()
+
+  /**
+    * Returns a configuration for a buffered source if such a source is
+    * configured by command line arguments.
+    *
+    * @param args               the array with command line arguments
+    * @param streamPlayerConfig the config for the stream player
+    * @tparam SRC the type of sources
+    * @tparam SNK the type of sinks
+    * @return an optional config for a buffered source
+    */
+  private def createBufferConfigFunc[SRC, SNK](args: Array[String])
+                                              (streamPlayerConfig:
+                                               AudioStreamPlayerStage.AudioStreamPlayerConfig[SRC, SNK]):
+  Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[SRC, SNK]] =
+    val argsMap = args.map { arg =>
+      val kv = arg.split('=')
+      if kv.length != 2 then
+        throw new IllegalArgumentException(s"Invalid command line argument: '$arg'.")
+      (kv(0), kv(1))
+    }.toMap
+
+    argsMap.get(BufferDirArgument).map { bufferDir =>
+      BufferedPlaylistSource.BufferedPlaylistSourceConfig(
+        streamPlayerConfig = streamPlayerConfig,
+        bufferFolder = Paths.get(bufferDir),
+        bufferFileSize = argsMap.get(BufferSizeArgument).map(_.toInt).getOrElse(DefaultBufferFileSize)
+      )
+    }
 
   /**
     * Checks whether a correct number of arguments was passed for a command. If
@@ -159,9 +208,11 @@ private def printAndPrompt(msg: String): Unit =
   * to the playlist, and pause or resume playback.
   *
   * @param audioStreamFactory the [[AudioStreamFactory]]
+  * @param bufferFunc         the function to configure a buffered source
   * @param system             the implicit actor system
   */
-private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
+private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
+                                    bufferFunc: BufferFunc)
                                    (implicit val system: classic.ActorSystem):
   /** The execution context for operations with futures. */
   private given executionContext: ExecutionContext = system.dispatcher
@@ -237,7 +288,7 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
       optKillSwitch = Some(playlistKillSwitch)
     )
     val source = Source.queue[String](10)
-    val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, String]] {
+    val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, String]] {
       case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath) =>
         refCancelStream.set(null)
         printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
@@ -245,7 +296,15 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory)
         refCancelStream.set(killSwitch)
         printAndPrompt(s"Starting playback of '$audioSourcePath'.")
     }
-    AudioStreamPlayerStage.runPlaylistStream(config, source, sink)._1
+
+    bufferFunc(config).map { bufferConfig =>
+      println("Creating a buffered source with configuration: " + bufferConfig)
+      val bufferedSource = BufferedPlaylistSource(bufferConfig, source)
+      val bufferedConfig = BufferedPlaylistSource.mapConfig(bufferConfig.streamPlayerConfig)
+      AudioStreamPlayerStage.runPlaylistStream(bufferedConfig, bufferedSource, sink)._1
+    }.getOrElse {
+      AudioStreamPlayerStage.runPlaylistStream(config, source, sink)._1
+    }
 
   /**
     * A function to resolve audio sources in the playlist. The string is 
