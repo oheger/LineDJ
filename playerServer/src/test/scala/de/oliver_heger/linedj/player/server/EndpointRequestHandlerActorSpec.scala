@@ -26,6 +26,7 @@ import org.scalatest.{BeforeAndAfterAll, TryValues}
 
 import java.net.{DatagramPacket, DatagramSocket, InetAddress, ServerSocket}
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
+import scala.annotation.tailrec
 import scala.util.Using
 
 object EndpointRequestHandlerActorSpec:
@@ -160,8 +161,8 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     */
   private def checkActorResponse(testClient: TestClient): Unit =
     Using(testClient) { client =>
-      if client.sendRequest() then
-        val receivedResponse = client.expectResponse()
+      if client.canSendRequest then
+        val receivedResponse = client.sendAndExpectResponse()
         receivedResponse should fullyMatch regex "http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:8080/ui/index.html"
     }.success
 
@@ -175,15 +176,15 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
 
   it should "ignore a request with a wrong code" in {
     Using(new TestClient) { client =>
-      if client.sendRequest(RequestCode + "-foo") then
-        client.expectNoResponse()
+      if client.canSendRequest then
+        client.sendAndExpectNoResponse(RequestCode + "-foo")
     }.success
   }
 
   it should "ignore a request with an invalid target port" in {
     Using(new TestClient) { client =>
-      if client.sendRequest(RequestCode + ":invalidPort") then
-        client.expectNoResponse()
+      if client.canSendRequest then
+        client.sendAndExpectNoResponse(RequestCode + ":invalidPort")
     }.success
   }
 
@@ -204,44 +205,65 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     /** The port number to be used by the actor under test. */
     private val port = findFreePort()
 
-    /** The thread that does the UDP communication. */
-    private var optClientThread: Option[UdpClientThread] = None
+    /**
+      * A list storing the threads that have been created to communicate with
+      * a test actor instance. They have to be cleaned up after the test.
+      */
+    private var clientThreads = List.empty[UdpClientThread]
 
     /** The actor to be tested. */
     val handlerActor: ActorRef = createHandlerActor()
 
     /**
-      * Sends the request to the test actor after making sure that it is ready
-      * to handle requests.
+      * Checks whether requests can be sent to the test actor. This is only
+      * possible if network interfaces are available to which the actor can
+      * bind.
       *
-      * @param code the request code to sent to the test actor
       * @return a flag whether a test is possible; '''false''' means that no
       *         network is available
       */
-    def sendRequest(code: String = RequestCode): Boolean =
-      val readyMessage = readyListener.expectMessageType[EndpointRequestHandlerActor.HandlerReady]
-      if readyMessage.interfaces.nonEmpty then
-        val thread = createClientThread(queue, code, port)
-        thread.start()
-        optClientThread = Some(thread)
-        true
-      else false
+    def canSendRequest: Boolean =
+      NetworkManager.DefaultNetworkInterfaceLookupFunc().nonEmpty
 
     /**
-      * Expects that a response from the actor has been received. Returns this
-      * response.
+      * Sends a request to the test actor with the given code and expects that
+      * a response is received. Since the actor starts asynchronously, it may
+      * not be ready yet. Therefore, the function tries multiple times.
       *
+      * @param code the code to send in the test request
       * @return the response from the actor under test
       */
-    def expectResponse(): String =
-      val response = queue.poll(3, TimeUnit.SECONDS)
+    def sendAndExpectResponse(code: String = RequestCode): String =
+      @tailrec def trySendAndReceive(attempts: Int): String =
+        if attempts <= 0 then null
+        else
+          val thread = createClientThread(queue, code, port)
+          thread.start()
+          clientThreads = thread :: clientThreads
+          val response = queue.poll(200, TimeUnit.MILLISECONDS)
+          if response != null then response
+          else trySendAndReceive(attempts - 1)
+
+      val response = trySendAndReceive(16)
       response should not be null
+      // Drain the queue.
+      while !queue.isEmpty do
+        queue.take()
       response
 
     /**
-      * Expects that no response from the actor has been received.
+      * Sends a request to the test actor with the given code and expects that
+      * no response comes back. The function sends a normal request first to
+      * ensure that the actor is initialized.
+      *
+      * @param code the code to send in the test request
       */
-    def expectNoResponse(): Unit =
+    def sendAndExpectNoResponse(code: String): Unit =
+      sendAndExpectResponse()
+
+      val thread = createClientThread(queue, code, port)
+      thread.start()
+      clientThreads = thread :: clientThreads
       val response = queue.poll(250, TimeUnit.MILLISECONDS)
       response should be(null)
 
@@ -250,7 +272,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
       * test actor instance is shut down.
       */
     override def close(): Unit =
-      optClientThread foreach { clientThread =>
+      clientThreads foreach { clientThread =>
         clientThread.stopTest()
         clientThread.join()
       }
