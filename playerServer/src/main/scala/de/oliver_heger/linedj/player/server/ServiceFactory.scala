@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.HandlerReady
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.Done
-import org.apache.pekko.actor.{ActorRef, ActorSystem, typed}
+import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.Http.ServerBinding
 
@@ -65,18 +64,15 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     * URL of the player server.
     *
     * @param config        the current configuration
-    * @param readyListener a listener to notify when the actor is active
     * @return the endpoint request handler actor
     */
-  def createEndpointRequestHandler(config: PlayerServerConfig,
-                                   readyListener: Option[typed.ActorRef[HandlerReady]] = None): ActorRef =
+  def createEndpointRequestHandler(config: PlayerServerConfig): ActorRef =
     val responseTemplate =
       s"http://${EndpointRequestHandlerActor.PlaceHolderAddress}:${config.serverPort}${config.uiPath}"
     val props = EndpointRequestHandlerActor.props(config.lookupMulticastAddress,
       config.lookupPort,
       config.lookupCommand,
-      responseTemplate,
-      readyListener = readyListener)
+      responseTemplate)
     config.radioPlayerConfig.playerConfig.actorCreator.createClassicActor(props, EndpointRequestHandlerName)
 
   /**

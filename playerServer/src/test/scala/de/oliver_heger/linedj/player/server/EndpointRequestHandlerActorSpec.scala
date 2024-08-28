@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.player.server
 
-import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.io.Udp
 import org.apache.pekko.testkit.{TestKit, TestProbe}
@@ -144,9 +143,6 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
   with BeforeAndAfterAll with Matchers with TryValues:
   def this() = this(ActorSystem("EndpointRequestHandlerActorSpec"))
 
-  /** The test kit for typed actors. */
-  private val testKit = ActorTestKit()
-
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
     super.afterAll()
@@ -195,9 +191,6 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
   private class TestClient extends AutoCloseable:
     /** A queue for receiving the response from the actor. */
     private val queue = new LinkedBlockingQueue[String]
-
-    /** Test probe for receiving a ready notification from the handler. */
-    private val readyListener = testKit.createTestProbe[EndpointRequestHandlerActor.HandlerReady]()
 
     /** The object for creating actors. */
     private val actorCreator = ServerConfigTestHelper.actorCreator(system)
@@ -301,7 +294,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
           lookupPort = port,
           lookupCommand = RequestCode)
       val factory = new ServiceFactory
-      factory.createEndpointRequestHandler(serverConfig, Some(readyListener.ref))
+      factory.createEndpointRequestHandler(serverConfig)
 
     /**
       * Stops the actor under test and waits for it to terminate. Since always

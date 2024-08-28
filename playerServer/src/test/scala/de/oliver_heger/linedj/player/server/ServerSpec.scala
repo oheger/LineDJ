@@ -75,7 +75,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     when(binding.localAddress).thenReturn(InetSocketAddress.createUnresolved("127.0.0.1", 8080))
     val bindingFuture = Future.successful(ServiceFactory.ServerStartupData(binding, expectedConfig))
     val promiseTerminated = Promise[Option[String]]()
-    when(serviceFactory.createEndpointRequestHandler(any(), any())).thenReturn(TestProbe().ref)
+    when(serviceFactory.createEndpointRequestHandler(any())).thenReturn(TestProbe().ref)
     when(serviceFactory.createRadioPlayer(any())(any())).thenReturn(Future.successful(mockPlayer))
     when(serviceFactory.createHttpServer(any(), any(), any())(any())).thenReturn(bindingFuture)
     when(serviceFactory.enableGracefulShutdown(any(), any(), any())(any())).thenReturn(promiseTerminated.future)
@@ -84,8 +84,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     runThread.start()
 
     val captEndpointRequestHandlerConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
-    verify(serviceFactory, timeout(3000)).createEndpointRequestHandler(captEndpointRequestHandlerConfig.capture(),
-      any())
+    verify(serviceFactory, timeout(3000)).createEndpointRequestHandler(captEndpointRequestHandlerConfig.capture())
     val captPlayerConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
     verify(serviceFactory, timeout(3000)).createRadioPlayer(captPlayerConfig.capture())(eqArgs(system))
     val captHttpConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
