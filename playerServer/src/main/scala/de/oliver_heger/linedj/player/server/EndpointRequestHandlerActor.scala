@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{HandlerReady, MulticastConfig, PlaceHolderAddress}
+import de.oliver_heger.linedj.player.server.NetworkManager.*
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.io.Inet.SocketOptionV2
 import org.apache.pekko.io.{IO, Udp}
@@ -40,16 +41,18 @@ private object EndpointRequestHandlerActor:
     * @param port             the port the actor should listen on
     * @param requestCode      the expected request code
     * @param responseTemplate the template for the response to send
-    * @param readyListener    an optional listener that is notified when the actor
-    *                         is ready to serve requests
+    * @param lookupFunc       the function for looking up network interfaces
+    * @param readyListener    an optional listener that is notified when the 
+    *                         actor is ready to serve requests
     * @return a ''Props'' object for creating a new instance
     */
   def props(groupAddress: String,
             port: Int,
             requestCode: String,
             responseTemplate: String,
+            lookupFunc: NetworkManager.NetworkInterfaceLookupFunc = NetworkManager.DefaultNetworkInterfaceLookupFunc,
             readyListener: Option[typed.ActorRef[HandlerReady]] = None): Props =
-    val interfaces = fetchActiveNetworkInterfaces()
+    val interfaces = lookupFunc()
     val multicastConfig = MulticastConfig(groupAddress, interfaces)
     Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, responseTemplate, readyListener))
 
