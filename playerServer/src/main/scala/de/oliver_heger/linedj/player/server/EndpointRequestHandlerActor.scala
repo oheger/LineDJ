@@ -16,16 +16,17 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{MulticastConfig, PlaceHolderAddress}
+import de.oliver_heger.linedj.player.server.EndpointRequestHandlerActor.{InitBinding, MaxBindRetryDelay, MulticastConfig, PlaceHolderAddress}
 import de.oliver_heger.linedj.player.server.NetworkManager.*
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 import org.apache.pekko.io.Inet.SocketOptionV2
 import org.apache.pekko.io.{IO, Udp}
 import org.apache.pekko.util.ByteString
 
 import java.net.{DatagramSocket, InetAddress, InetSocketAddress, NetworkInterface}
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters.*
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 
 private object EndpointRequestHandlerActor:
   /**
@@ -33,6 +34,9 @@ private object EndpointRequestHandlerActor:
     * for valid requests that is to be replaced by the current IP address.
     */
   final val PlaceHolderAddress = "$address"
+
+  /** The maximum delay for retrying a bind operation. */
+  final val MaxBindRetryDelay = 5.minutes
 
   /**
     * Returns a ''Props'' object for creating a new instance of this actor.
@@ -50,9 +54,7 @@ private object EndpointRequestHandlerActor:
             responseTemplate: String,
             lookupFunc: NetworkManager.NetworkInterfaceLookupFunc = NetworkManager.DefaultNetworkInterfaceLookupFunc):
   Props =
-    val interfaces = lookupFunc()
-    val multicastConfig = MulticastConfig(groupAddress, interfaces)
-    Props(new EndpointRequestHandlerActor(multicastConfig, port, requestCode, responseTemplate))
+    Props(new EndpointRequestHandlerActor(groupAddress, port, requestCode, responseTemplate, lookupFunc))
 
   /**
     * An internal helper class that configures the [[DatagramSocket]] used by
@@ -68,6 +70,18 @@ private object EndpointRequestHandlerActor:
       interfaces foreach { interface =>
         s.getChannel.join(group, interface)
       }
+
+  /**
+    * An internal message the actor sends to itself to trigger the binding
+    * against a network interface. Before this is possible, network interfaces
+    * must be available. If this is not the case, another attempt is made after
+    * a delay.
+    *
+    * @param nextAttempt the delay for the next attempt if no network
+    *                    interfaces are available yet
+    */
+  private[server] case class InitBinding(nextAttempt: FiniteDuration)
+end EndpointRequestHandlerActor
 
 /**
   * An actor implementation that handles incoming UDP requests that ask for the
@@ -90,15 +104,21 @@ private object EndpointRequestHandlerActor:
   * the interfaces the actor was bound to. Since the HTTP server typically uses
   * the same local address, the URL to its endpoint can be generated this way.
   *
-  * @param groups           the object with the multicast configuration
+  * For this actor to work, at least one network interface must be available.
+  * During its initialization, the actor checks whether this is the case. If 
+  * not, it remains inactive and checks against at a later point in time.
+  *
+  * @param multicastAddress the multicast address to listen for
   * @param port             the port the actor should listen on
   * @param requestCode      the expected request code
   * @param responseTemplate the template to generate the response to send
+  * @param lookupFunc       the function for looking up network interfaces
   */
-private class EndpointRequestHandlerActor(groups: MulticastConfig,
+private class EndpointRequestHandlerActor(multicastAddress: String,
                                           port: Int,
                                           requestCode: String,
-                                          responseTemplate: String) extends Actor
+                                          responseTemplate: String,
+                                          lookupFunc: NetworkInterfaceLookupFunc) extends Actor
   with ActorLogging:
 
   import context.system
@@ -109,16 +129,35 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
     */
   private val regExRequestWithPort = (Pattern.quote(requestCode) + ":(\\d{4,5})").r
 
+  /** The configuration for network binding. */
+  private var multicastConfig: MulticastConfig = _
+
   override def preStart(): Unit =
-    IO(Udp) ! Udp.Bind(self, new InetSocketAddress(port), List(groups))
+    bindAttempt(InitBinding(1.second))
 
   override def receive: Receive =
+    case ib: InitBinding =>
+      bindAttempt(ib)
+
     case Udp.Bound(_) =>
       log.info("EndpointRequestHandlerActor active for interfaces {} on port {}.",
-        groups.interfaces, port)
+        multicastConfig.interfaces, port)
+      context.become(active(sender(), generateResponse(multicastConfig.interfaces)))
 
-      context.become(active(sender(), generateResponse(groups.interfaces)))
+    case Udp.Unbind =>
+      log.info("Received Unbind request before actor was bound.")
+      context.stop(self)
 
+  /**
+    * A special message handler function that becomes active when all
+    * prerequisites have been met to actually handle client requests. This is
+    * the case when the UDP bind operation to at least one network interface
+    * was successful.
+    *
+    * @param socket   the actor to represent the UDP socket
+    * @param response the response to send to requesting clients
+    * @return the message handler function
+    */
   private def active(socket: ActorRef, response: String): Receive =
     case Udp.Received(data, remote) =>
       val request = data.utf8String
@@ -129,7 +168,7 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
 
     case Udp.Unbind =>
       socket ! Udp.Unbind
-      log.info("EndpointRequestHandlerActor: Received Unbind request.")
+      log.info("Received Unbind request.")
 
     case Udp.Unbound =>
       log.info("Stopping EndpointRequestHandlerActor.")
@@ -153,6 +192,38 @@ private class EndpointRequestHandlerActor(groups: MulticastConfig,
         .getOrElse(responseTemplate)
     else
       responseTemplate
+
+  /**
+    * Schedules a message to itself to trigger another bind operation. The
+    * function is called with increasing delays until network interfaces are
+    * available to which the actor can bind.
+    *
+    * @param message the message to send
+    * @param delay   the delay after which to send the message
+    */
+  private[server] def scheduleBind(message: InitBinding, delay: FiniteDuration): Unit =
+    log.info("Scheduling another bind operation after {}.", delay)
+
+    given ec: ExecutionContext = context.dispatcher
+
+    context.system.scheduler.scheduleOnce(delay, self, message)
+
+  /**
+    * Tries to bind this actor to a UDP port and open a UDP socket for incoming
+    * requests. If no network interface is available yet, another attempt is
+    * scheduled after a delay.
+    *
+    * @param initBinding the message that triggered this operation
+    */
+  private def bindAttempt(initBinding: InitBinding): Unit =
+    lookupFunc() match
+      case Nil =>
+        val nextIncrement = initBinding.nextAttempt * 2
+        val nextDelay = if nextIncrement < MaxBindRetryDelay then nextIncrement else MaxBindRetryDelay
+        scheduleBind(InitBinding(nextDelay), initBinding.nextAttempt)
+      case list =>
+        multicastConfig = MulticastConfig(multicastAddress, list)
+        IO(Udp) ! Udp.Bind(self, new InetSocketAddress(port), List(multicastConfig))
 
   /**
     * Checks the given request, and for valid requests, returns the address

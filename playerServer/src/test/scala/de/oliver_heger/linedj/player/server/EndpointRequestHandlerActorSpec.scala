@@ -16,16 +16,19 @@
 
 package de.oliver_heger.linedj.player.server
 
-import org.apache.pekko.actor.{ActorRef, ActorSystem}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.io.Udp
 import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, TryValues}
 
 import java.net.{DatagramPacket, DatagramSocket, InetAddress, ServerSocket}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
+import scala.concurrent.duration.*
 import scala.util.Using
 
 object EndpointRequestHandlerActorSpec:
@@ -132,6 +135,16 @@ object EndpointRequestHandlerActorSpec:
 
     override protected def receiveResponse(socket: DatagramSocket): Unit = super.receiveResponse(receiveSocket)
   end UdpClientThreadWithReceiverSocket
+
+  /**
+    * A data class to record a schedule operation of the test actor to trigger
+    * a bind operation.
+    *
+    * @param initBinding the message to be scheduled
+    * @param delay       the delay for the schedule
+    */
+  private case class ScheduleBindData(initBinding: EndpointRequestHandlerActor.InitBinding,
+                                      delay: FiniteDuration)
 end EndpointRequestHandlerActorSpec
 
 /**
@@ -184,6 +197,90 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     }.success
   }
 
+  it should "wait until network interfaces are available" in {
+    val interfaces = NetworkManager.DefaultNetworkInterfaceLookupFunc()
+    if interfaces.nonEmpty then
+      val counter = new AtomicInteger
+      val lookupFunc: NetworkManager.NetworkInterfaceLookupFunc = () =>
+        if counter.getAndIncrement() > 0 then interfaces
+        else List.empty
+
+      Using(
+        createClientForBindTest(
+          lookupFunc,
+          new LinkedBlockingQueue[ScheduleBindData],
+          regularSchedule = true
+        )
+      ) { client =>
+        checkActorResponse(client)
+      }.success
+  }
+
+  it should "retry bind operations after correct increasing delays" in {
+    val lookupFunc: NetworkManager.NetworkInterfaceLookupFunc = () => Nil
+    val scheduleQueue = new LinkedBlockingQueue[ScheduleBindData]
+
+    def nextScheduleBindData(): ScheduleBindData =
+      val data = scheduleQueue.poll(3, TimeUnit.SECONDS)
+      data should not be null
+      data
+
+    @tailrec def checkScheduleIncrement(last: ScheduleBindData): Unit =
+      val data = nextScheduleBindData()
+      if data.initBinding.nextAttempt < EndpointRequestHandlerActor.MaxBindRetryDelay then
+        data.initBinding.nextAttempt should be(data.delay * 2)
+        data.delay should be(last.initBinding.nextAttempt)
+        checkScheduleIncrement(data)
+
+    Using(createClientForBindTest(lookupFunc, scheduleQueue, regularSchedule = false)) { client =>
+      val firstSchedule = nextScheduleBindData()
+      firstSchedule should be(ScheduleBindData(EndpointRequestHandlerActor.InitBinding(2.seconds), 1.second))
+      checkScheduleIncrement(firstSchedule)
+
+      val maxScheduleData = ScheduleBindData(
+        EndpointRequestHandlerActor.InitBinding(EndpointRequestHandlerActor.MaxBindRetryDelay),
+        EndpointRequestHandlerActor.MaxBindRetryDelay
+      )
+      forAll((1 to 10).map(_ => nextScheduleBindData())) { data =>
+        data should be(maxScheduleData)
+      }
+    }.success
+  }
+
+  /**
+    * Creates a specialized test client that can be used for testing bind
+    * operations. This client creates a test actor with a special network
+    * lookup function that uses a queue to record its schedule operations to
+    * trigger network bindings.
+    *
+    * @param lookupFunc      the lookup function for network interfaces
+    * @param scheduleQueue   the queue for schedule operations
+    * @param regularSchedule flag whether the normal scheduling logic should be
+    *                        used; if '''true''', delegation to the base class
+    *                        happens; otherwise, the message is sent directly
+    *                        to the actor with a minimum delay
+    * @return the test client
+    */
+  private def createClientForBindTest(lookupFunc: NetworkManager.NetworkInterfaceLookupFunc,
+                                      scheduleQueue: LinkedBlockingQueue[ScheduleBindData],
+                                      regularSchedule: Boolean): TestClient =
+    new TestClient:
+      override protected def createHandlerActor(): ActorRef =
+        val props = Props(
+          new EndpointRequestHandlerActor(
+            GroupAddress,
+            port,
+            RequestCode,
+            s"http://${EndpointRequestHandlerActor.PlaceHolderAddress}:8080/ui/index.html",
+            lookupFunc
+          ):
+            override def scheduleBind(message: EndpointRequestHandlerActor.InitBinding, delay: FiniteDuration): Unit =
+              scheduleQueue.offer(ScheduleBindData(message, delay))
+              val scheduleDelay = if regularSchedule then delay else 2.millis
+              super.scheduleBind(message, scheduleDelay)
+        )
+        system.actorOf(props)
+
   /**
     * A helper class that mimics a client of the UDP actor. It sends a
     * multicast request and listens for a response.
@@ -196,7 +293,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val actorCreator = ServerConfigTestHelper.actorCreator(system)
 
     /** The port number to be used by the actor under test. */
-    private val port = findFreePort()
+    protected val port: Int = findFreePort()
 
     /**
       * A list storing the threads that have been created to communicate with
@@ -205,7 +302,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     private var clientThreads = List.empty[UdpClientThread]
 
     /** The actor to be tested. */
-    val handlerActor: ActorRef = createHandlerActor()
+    private val handlerActor: ActorRef = createHandlerActor()
 
     /**
       * Checks whether requests can be sent to the test actor. This is only
@@ -288,7 +385,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
       *
       * @return the test actor instance
       */
-    private def createHandlerActor(): ActorRef =
+    protected def createHandlerActor(): ActorRef =
       val serverConfig = ServerConfigTestHelper.defaultServerConfig(actorCreator)
         .copy(lookupMulticastAddress = GroupAddress,
           lookupPort = port,
@@ -318,3 +415,4 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
                                               code: String,
                                               port: Int): UdpClientThread =
       new UdpClientThreadWithReceiverSocket(queue, code, port)
+  end TestClientWithReceiverSocket
