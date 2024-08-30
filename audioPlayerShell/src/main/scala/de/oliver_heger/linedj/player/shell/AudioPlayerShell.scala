@@ -26,7 +26,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.IndexedSeq
@@ -46,8 +46,9 @@ object AudioPlayerShell:
     "exit" -> List("Stops this application."),
     "play" -> List(
       "play <path>",
-      "Enqueues an audio file as denoted by <path> to the playlist. The argument is interpreted as path to the " +
-        "audio file. If the path contains whitespace, it must be surrounded by quotes."
+      "Enqueues one or multiple audio file(s) as denoted by <path> to the playlist. If <path> points to a single " +
+        "file, this file is added. For directories, the content is scanned recursively and added. " +
+        "If the path contains whitespace, it must be surrounded by quotes."
     ),
     "stop" -> List("Pauses playback."),
     "start" -> List("Resumes playback if it is currently paused."),
@@ -92,7 +93,7 @@ object AudioPlayerShell:
 
         case "play" =>
           checkArgumentsAndRun(command, arguments, 1, 1) { args =>
-            streamHandler.addToPlaylist(args.head)
+            filesToAdd(args.head).foreach(streamHandler.addToPlaylist)
           }
 
         case "start" =>
@@ -186,6 +187,32 @@ object AudioPlayerShell:
       println(s"Command '${command.head}' expects $expectMsg, but got ${arguments.length}.")
     else
       run(arguments.toIndexedSeq)
+
+  /**
+    * Determines the audio files to be added to the playlist from the given
+    * path. The function handles both single files and directories correctly.
+    *
+    * @param path the path
+    * @return a list with the audio files to be added
+    */
+  private def filesToAdd(path: String): List[String] =
+    val fsPath = Paths.get(path)
+    if Files.isDirectory(fsPath) then scanDirectoryForFilesToAdd(fsPath)
+    else List(path)
+
+  /**
+    * Scans the given directory for files to be added to the playlist.
+    *
+    * @param dir the directory
+    * @return a set with the files contained in this directory
+    */
+  private def scanDirectoryForFilesToAdd(dir: Path): List[String] =
+    import scala.jdk.StreamConverters.*
+    Files.walk(dir)
+      .toScala(List)
+      .filter(path => !Files.isDirectory(path))
+      .map(_.toString)
+      .sorted
 end AudioPlayerShell
 
 /**
@@ -287,7 +314,7 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
       pauseActor = pauseActor,
       optKillSwitch = Some(playlistKillSwitch)
     )
-    val source = Source.queue[String](10)
+    val source = Source.queue[String](100)
     val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, String]] {
       case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath) =>
         refCancelStream.set(null)
