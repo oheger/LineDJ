@@ -43,6 +43,10 @@ object AudioPlayerShell:
     * them. The help texts consist of multiple lines.
     */
   private val Commands = Map(
+    "close" -> List(
+      "Closes the playlist.",
+      "Afterward, no more songs can be added. The existing playlist is fully played."
+    ),
     "exit" -> List("Stops this application."),
     "play" -> List(
       "play <path>",
@@ -104,6 +108,9 @@ object AudioPlayerShell:
 
         case "skip" =>
           streamHandler.skipCurrentSource()
+
+        case "close" =>
+          streamHandler.closePlaylist()
 
         case "help" =>
           checkArgumentsAndRun(command, arguments, 0, 1) { args =>
@@ -280,6 +287,13 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
   def startPlayback(): Unit =
     pauseActor ! PausePlaybackStage.StartPlayback
     printAndPrompt("Audio playback started.")
+
+  /**
+    * Closes the current playlist.
+    */
+  def closePlaylist(): Unit =
+    playlistQueue.complete()
+    printAndPrompt("Playlist has been closed.")
 
   /**
     * Shuts down this object and stops the playlist.
