@@ -1083,11 +1083,13 @@ object BufferedPlaylistSource:
     * @param firstStartOffset the start offset of the first source in the file
     * @param firstEndOffset   the end offset of the first source in the file
     * @param lastEndOffset    the end offset of the last source in the file
+    * @param sourceCount      the number of sources in the file
     */
   private case class PrepareReadBufferFile(replyTo: ActorRef[NextBufferFileConfig],
                                            firstStartOffset: Long,
                                            firstEndOffset: Long,
-                                           lastEndOffset: Long) extends SourceSinkBridgeCommand
+                                           lastEndOffset: Long,
+                                           sourceCount: Int) extends SourceSinkBridgeCommand
 
   /**
     * A command to indicate to the bridge actor that the limit for the current
@@ -1192,7 +1194,8 @@ object BufferedPlaylistSource:
       replyTo = replyTo,
       firstStartOffset = headSource.startOffset,
       firstEndOffset = headSource.endOffset,
-      lastEndOffset = file.sources.last.endOffset
+      lastEndOffset = file.sources.last.endOffset,
+      sourceCount = file.sources.size
     )
 
   /**
@@ -1385,7 +1388,7 @@ object BufferedPlaylistSource:
     val skipSources = if state.fileOverlap then 1 else 0
     val nextOverlap = lastEndOffset < 0
     val isSkipping = state.skipUntil >= state.bytesProcessed
-    val skipFile = isSkipping && nextOverlap
+    val skipFile = isSkipping && nextOverlap && msg.sourceCount == 1
     val nextBytesProcessed = if skipFile then state.bytesProcessed + state.bufferFileSize
     else state.bytesProcessed
     val nextFileCount = state.fileCount + 1
@@ -1410,8 +1413,9 @@ object BufferedPlaylistSource:
             fileCount = nextFileCount
           )
         case _ =>
+          val limitUpdate = if isSkipping then None else Some(limit)
           state.copy(
-            limitUpdate = Some(limit),
+            limitUpdate = limitUpdate,
             fileOverlap = nextOverlap,
             skipUntil = nextSkip,
             bytesProcessed = nextBytesProcessed,

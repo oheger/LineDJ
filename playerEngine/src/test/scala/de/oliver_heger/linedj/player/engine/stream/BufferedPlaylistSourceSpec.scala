@@ -844,6 +844,39 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
   it should "handle a partly skipped source at the end of the playlist over multiple buffer files" in :
     testPartiallySkippedLastSource(bufferSize = 16384, sourceSize = 65536)
 
+  it should "handle a partly skipped source before a source spanning multiple buffer files" in :
+    val bufferDir = createPathInDirectory("partiallySkippedBeforeLargeSource")
+    val random = new Random(20240902220229L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(70000)),
+      ByteString(random.nextBytes(15000))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 10000)
+    val chunkSizeFromSource = new AtomicInteger
+    val sourceSkipFn: Source[ByteString, Any] => Source[ByteString, Any] = source =>
+      source.map { chunk =>
+        chunkSizeFromSource.set(chunk.size)
+        chunk
+      }.take(1)
+
+    runBufferedStream(bufferConfig, sourceData.size) {
+      case AudioStreamPlayerStage.AudioStreamSource(url, source) if url == sourceUrl(2) =>
+        AudioStreamPlayerStage.AudioStreamSource(url, sourceSkipFn(source))
+    } map { results =>
+      chunkSizeFromSource.get() should be > 0
+      val expectedResults = IndexedSeq(
+        sourceData.head,
+        sourceData(1).take(chunkSizeFromSource.get()),
+        sourceData(2)
+      )
+      results should contain theSameElementsInOrderAs expectedResults
+    }
+
   it should "take the source name into account" in :
     val bufferDir1 = createPathInDirectory("buffer1")
     val bufferDir2 = createPathInDirectory("buffer2")
