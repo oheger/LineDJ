@@ -25,7 +25,7 @@ import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
-import org.scalatest.Inspectors.forEvery
+import org.scalatest.Inspectors.{forAll, forEvery}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -969,4 +969,35 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     runBufferedStream(bufferConfig, sourceData.size, skipAfter = 4)() map { _ =>
       eventually:
         bufferDir.toFile.list() shouldBe empty
+    }
+
+  it should "delete skipped buffer files immediately" in :
+    val bufferDir = createPathInDirectory("bufferDeleteSkippedFiles")
+    val random = new Random(20240902204705L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(70000)),
+      ByteString(random.nextBytes(15000))
+    )
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val deletedFiles = new LinkedBlockingQueue[String]
+    val deleteFunc: BufferedPlaylistSource.BufferDeleteFunc = path =>
+      deletedFiles.offer(path.toString)
+      BufferedPlaylistSource.defaultBufferDelete(path)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 10000,
+      bufferDeleteFunc = deleteFunc)
+    val sourceSkipFn: Source[ByteString, Any] => Source[ByteString, Any] = source =>
+      source.take(1)
+
+    runBufferedStream(bufferConfig, sourceData.size) {
+      case AudioStreamPlayerStage.AudioStreamSource(url, source) if url == sourceUrl(2) =>
+        AudioStreamPlayerStage.AudioStreamSource(url, sourceSkipFn(source))
+    } map { _ =>
+      forAll((1 to 9).toList) { idx =>
+        val expectedDeleteFile = s"buffer0$idx.dat"
+        deletedFiles.poll(3, TimeUnit.SECONDS) should endWith(expectedDeleteFile)
+      }
     }

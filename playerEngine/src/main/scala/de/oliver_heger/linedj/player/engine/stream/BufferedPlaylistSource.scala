@@ -99,6 +99,12 @@ object BufferedPlaylistSource:
   type BufferSourceFunc = Path => Source[ByteString, Any]
 
   /**
+    * A function to delete buffer files. It is invoked every time a file in the
+    * buffer has been fully processed and can be deleted.
+    */
+  type BufferDeleteFunc = Path => Unit
+
+  /**
     * Definition of a trait that is used for the sources exposed downstream by
     * the buffered source. It allows resolving the source from the buffer. For
     * this resolve operation, a lot of internal details about the way buffering
@@ -135,6 +141,9 @@ object BufferedPlaylistSource:
     * @param bufferFileSize     the maximum size of each buffer file
     * @param bufferSinkFunc     a function to obtain a [[Sink]] to files in the
     *                           buffer
+    * @param bufferSourceFunc   a function to obtain a [[Source]] to read a
+    *                           file in the buffer
+    * @param bufferDeleteFunc   a function to delete a file in the buffer
     * @param sourceName         a name of this source; based on this name, the
     *                           names of some resources (typically actors)
     *                           created dynamically are derived; so if multiple
@@ -149,6 +158,7 @@ object BufferedPlaylistSource:
                                                     bufferFileSize: Int,
                                                     bufferSinkFunc: BufferSinkFunc = defaultBufferSink,
                                                     bufferSourceFunc: BufferSourceFunc = defaultBufferSource,
+                                                    bufferDeleteFunc: BufferDeleteFunc = defaultBufferDelete,
                                                     sourceName: String = DefaultSourceName)
 
   /**
@@ -211,6 +221,17 @@ object BufferedPlaylistSource:
     * @return a [[Source]] for reading from this file
     */
   def defaultBufferSource(path: Path): Source[ByteString, Any] = FileIO.fromPath(path)
+
+  /**
+    * A default function for deleting files in the buffer. This is used by
+    * [[BufferedPlaylistSourceConfig]] if no custom function is provided for
+    * this purpose. This function uses basic Java functionality to delete the
+    * file from disk.
+    *
+    * @param path the path to the buffer file
+    */
+  def defaultBufferDelete(path: Path): Unit =
+    Files.delete(path)
 
   /**
     * A data class describing an audio source that has been written into a
@@ -614,12 +635,13 @@ object BufferedPlaylistSource:
           *                    the current file (should be successful)
           */
         private def handleNextBufferFileConfig(triedConfig: Try[(BufferFileWritten[SRC], NextBufferFileConfig)]): Unit =
-          triedConfig.foreach { (fileWritten, config) =>
+          triedConfig.foreach { (fileWritten, fileConfig) =>
             bufferFileCount += 1
-            bufferedSources = bufferedSources :++ fileWritten.sources.drop(config.skipSources)
+            bufferedSources = bufferedSources :++ fileWritten.sources.drop(fileConfig.skipSources)
 
-            if config.skipFile then
+            if fileConfig.skipFile then
               log.info("Skipping file {} since it contains only data from a skipped source.", bufferFileCount)
+              deleteBufferFile(log, config, bufferFileCount)
               requestNextFile()
             else
               readNextBufferFile()
@@ -1489,7 +1511,7 @@ object BufferedPlaylistSource:
     val bufferFile = resolveBufferFile(config, index)
     log.info("Deleting buffer file {}.", bufferFile)
     try
-      Files.delete(bufferFile)
+      config.bufferDeleteFunc(bufferFile)
     catch
       case e: Exception =>
         log.error(e, "Could not delete buffer file {}.", bufferFile)
