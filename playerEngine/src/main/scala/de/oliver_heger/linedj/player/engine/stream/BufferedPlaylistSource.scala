@@ -339,6 +339,12 @@ object BufferedPlaylistSource:
         private var bytesProcessed = 0L
 
         /**
+          * A counter for the number of processed sources. This is used to
+          * detect and handle an empty playlist.
+          */
+        private var sourcesProcessed = 0
+
+        /**
           * A flag that allows keeping track whether a buffer file is currently
           * written. Write operations are paused if the buffer directory
           * already contains 2 buffer files.
@@ -353,15 +359,31 @@ object BufferedPlaylistSource:
           */
         private var playlistFinished = false
 
+        /**
+          * A flag that reports whether a pull request for upstream is
+          * currently pending. This is used to figure out whether the
+          * ''onUpstreamFinish'' callback has to take additional action to push
+          * the last buffer file downstream.
+          */
+        private var sourceRequested = false
+
         setHandler(in, new InHandler:
-          override def onPush(): Unit = {
+          override def onPush(): Unit =
+            sourceRequested = false
+            sourcesProcessed += 1
             val src = grab(in)
             fillSourceIntoBuffer(src)
-          }
 
           // Note: This must be overridden, since the base implementation immediately completes the stage.
           override def onUpstreamFinish(): Unit =
-            log.info("Playlist source finished.")
+            log.info("Playlist source finished after processing {} source(s).", sourcesProcessed)
+            if sourceRequested then
+              // Upstream has been closed after the last item has been processed.
+              requestNextSource()
+
+            if sourcesProcessed == 0 then
+              // Special handling for an empty playlist.
+              completeStage()
         )
 
         setHandler(out, new OutHandler:
@@ -475,6 +497,7 @@ object BufferedPlaylistSource:
             log.info("End of playlist.")
             bridgeActor ! EndOfStreamMessage
           else
+            sourceRequested = true
             pull(in)
           currentSource = None
 

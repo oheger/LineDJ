@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{Done, NotUsed, actor as classic}
@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.collection.immutable.IndexedSeq
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 import scala.util.Random
 
 object BufferedPlaylistSourceSpec:
@@ -587,6 +588,43 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     providedSink should be(orgSink)
 
   /**
+    * Runs a stream with a buffered source over a source of playlist elements.
+    * The materialized value of the source and the result from the stream - the
+    * collected data of the playlist items - is returned.
+    *
+    * @param config             the configuration for the buffered source
+    * @param playlistSource     the source with playlist items
+    * @param skipAfter          the number of sources after which to skip the
+    *                           stream
+    * @param streamSourceMapper a function allowing to modify single sources;
+    *                           this is useful for instance to force errors
+    * @return a tuple with the materialized value of the source and a
+    *         ''Future'' with the data of the sources that were read from the
+    *         buffered source
+    * @tparam MAT the type of the materialized value of the source
+    */
+  private def runBufferedStreamWithSource[MAT](config: BufferedPlaylistSource.BufferedPlaylistSourceConfig[Int, Any],
+                                               playlistSource: Source[Int, MAT],
+                                               skipAfter: Int = 100)
+                                              (streamSourceMapper: StreamSourceMapper = PartialFunction.empty):
+  (MAT, Future[List[ByteString]]) =
+    val bufferedSource = BufferedPlaylistSource(config, playlistSource)
+    val mappedConfig = BufferedPlaylistSource.mapConfig(config.streamPlayerConfig)
+    val sink = createFoldSink[ByteString]()
+    val sourceIndex = new AtomicInteger
+    val optStreamSourceMapper = streamSourceMapper.lift
+    val graph = bufferedSource.mapAsync(1) { elem =>
+        mappedConfig.sourceResolverFunc(elem)
+      }.mapAsync(1) { source =>
+        source.url should be(sourceUrl(sourceIndex.incrementAndGet()))
+        val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+        optStreamSourceMapper(source).getOrElse(source).source.runWith(byteStrSink)
+      }.take(skipAfter)
+      .toMat(sink)(Keep.both)
+    val (mat, res) = graph.run()
+    (mat, res.map(_.reverse))
+
+  /**
     * Runs a stream with a buffered playlist source over a given number of test
     * sources as defined by the resolver function in the given configuration.
     * The result from the stream - the collected data of the original sources -
@@ -607,20 +645,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
                                (streamSourceMapper: StreamSourceMapper = PartialFunction.empty):
   Future[List[ByteString]] =
     val playlistSource = Source((1 to sourceCount).toList)
-    val bufferedSource = BufferedPlaylistSource(config, playlistSource)
-    val mappedConfig = BufferedPlaylistSource.mapConfig(config.streamPlayerConfig)
-    val sink = createFoldSink[ByteString]()
-    val sourceIndex = new AtomicInteger
-    val optStreamSourceMapper = streamSourceMapper.lift
-    bufferedSource.mapAsync(1) { elem =>
-        mappedConfig.sourceResolverFunc(elem)
-      }.mapAsync(1) { source =>
-        source.url should be(sourceUrl(sourceIndex.incrementAndGet()))
-        val byteStrSink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-        optStreamSourceMapper(source).getOrElse(source).source.runWith(byteStrSink)
-      }.take(skipAfter)
-      .runWith(sink)
-      .map(_.reverse)
+    runBufferedStreamWithSource(config, playlistSource, skipAfter)(streamSourceMapper)._2
 
   /**
     * Runs a stream with a buffered playlist source over the given sources and
@@ -1000,4 +1025,50 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
         val expectedDeleteFile = s"buffer0$idx.dat"
         deletedFiles.poll(3, TimeUnit.SECONDS) should endWith(expectedDeleteFile)
       }
+    }
+
+  it should "support closing the playlist source at any time" in :
+    val bufferDir = createPathInDirectory("sourceClosedLater")
+    val random = new Random(20240903113527L)
+    val sourceData = IndexedSeq(
+      ByteString(random.nextBytes(8192)),
+      ByteString(random.nextBytes(4096))
+    )
+    val source = Source.queue[Int](5)
+    val resolverFunc = seqBasedResolverFunc(sourceData)
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 20000)
+
+    val (queue, futResult) = runBufferedStreamWithSource(bufferConfig, source)()
+    queue.offer(1)
+    queue.offer(2)
+    val bufferFile = bufferDir.resolve("buffer01.dat")
+    val expectedFileSize = sourceData.map(_.size).sum
+
+    given pc: PatienceConfig = PatienceConfig(timeout = scaled(1.second))
+
+    eventually:
+      Files.size(bufferFile) should be(expectedFileSize)
+
+    queue.complete()
+    futResult.map { results =>
+      results should contain theSameElementsInOrderAs sourceData
+    }
+
+  it should "handle an empty playlist" in :
+    val bufferDir = createPathInDirectory("empty")
+    val source = Source.queue[Int](1)
+    val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Int] = _ =>
+      throw new UnsupportedOperationException("Unexpected invocation.")
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 8192)
+
+    val (queue, futResult) = runBufferedStreamWithSource(bufferConfig, source)()
+    queue.complete()
+    futResult.map { results =>
+      results shouldBe empty
     }
