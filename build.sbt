@@ -43,10 +43,10 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
-lazy val VersionByteBuddy = "1.14.16"
+lazy val VersionByteBuddy = "1.14.17"
 lazy val VersionDisruptor = "4.0.0"
-lazy val VersionScalaTest = "3.2.18"
-lazy val VersionScalaTestMockito = "3.2.18.0"
+lazy val VersionScalaTest = "3.2.19"
+lazy val VersionScalaTestMockito = "3.2.19.0"
 
 ThisBuild / scalacOptions ++= scala3Options
 ThisBuild / version := "1.0-SNAPSHOT"
@@ -114,7 +114,7 @@ lazy val remotingDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % VersionScalaTest % Test,
-  "org.scalatestplus" %% "mockito-5-10" % VersionScalaTestMockito % Test,
+  "org.scalatestplus" %% "mockito-5-12" % VersionScalaTestMockito % Test,
   "net.bytebuddy" % "byte-buddy" % VersionByteBuddy % Test,
   "net.bytebuddy" % "byte-buddy-agent" % VersionByteBuddy % Test,
 )
