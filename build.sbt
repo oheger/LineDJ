@@ -20,18 +20,18 @@ import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
-lazy val VersionAeron = "1.44.1"
+lazy val VersionAeron = "1.46.1"
 lazy val VersionAriesSpiflyStatic = "1.1"
 lazy val VersionAriesUtil = "1.1.3"
 lazy val VersionCloudFiles = "0.7.1"
 lazy val VersionCommonsBeanutils = "1.9.4"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
-lazy val VersionJackson = "2.17.1"
+lazy val VersionJackson = "2.17.2"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
-lazy val VersionLog4j = "2.19.0"
+lazy val VersionLog4j = "2.24.0"
 lazy val VersionMp3Spi = "1.9.5.4"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionPekko = "1.0.2"
@@ -44,7 +44,7 @@ lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
 lazy val VersionByteBuddy = "1.14.16"
-lazy val VersionDisruptor = "3.4.4"
+lazy val VersionDisruptor = "4.0.0"
 lazy val VersionScalaTest = "3.2.18"
 lazy val VersionScalaTestMockito = "3.2.18.0"
 
