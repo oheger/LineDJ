@@ -148,7 +148,10 @@ class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackDat
               else
                 // A read result of 0 bytes typically means that the input buffer contains invalid data.
                 // Clean it, in the hope that further data from upstream can be encoded.
-                dataStream.clear()
+                if dataStream.completed then
+                  completeStage()
+                else
+                  dataStream.clear()
 
       /**
         * Checks all conditions for pulling a new element from upstream. Here
