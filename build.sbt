@@ -33,9 +33,10 @@ lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
 lazy val VersionLog4j = "2.24.0"
 lazy val VersionMp3Spi = "1.9.5.4"
+lazy val VersionNetty = "4.1.113.Final"
 lazy val VersionOsgi = "5.0.0"
-lazy val VersionPekko = "1.0.2"
-lazy val VersionPekkoHttp = "1.0.1"
+lazy val VersionPekko = "1.1.1-RC1+4-09486097+20240911-2133-SNAPSHOT"
+lazy val VersionPekkoHttp = "1.1.0-M1"
 lazy val VersionScala = "2.13.14"
 lazy val VersionScala3 = "3.3.3"
 lazy val VersionScalaz = "7.3.8"
@@ -109,7 +110,9 @@ lazy val remotingDependencies = Seq(
   ("com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson).cross(CrossVersion.for3Use2_13),
   "com.fasterxml.jackson.module" % "jackson-module-paranamer" % VersionJackson,
   "io.aeron" % "aeron-client" % VersionAeron,
-  "io.aeron" % "aeron-driver" % VersionAeron
+  "io.aeron" % "aeron-driver" % VersionAeron,
+  "io.netty" % "netty-transport" % VersionNetty,
+  "io.netty" % "netty-handler" % VersionNetty,
 )
 
 lazy val testDependencies = Seq(
@@ -146,7 +149,12 @@ lazy val logDependencies = Seq(
   "org.apache.logging.log4j" % "log4j-api" % VersionLog4j,
   "org.apache.logging.log4j" % "log4j-core" % VersionLog4j,
   "org.apache.logging.log4j" % "log4j-jcl" % VersionLog4j,
-  "org.apache.logging.log4j" % "log4j-slf4j-impl" % VersionLog4j
+  "org.apache.logging.log4j" % "log4j-slf4j2-impl" % VersionLog4j,
+  "com.lmax" % "disruptor" % VersionDisruptor
+)
+
+lazy val osgiLogDependencies = logDependencies ++ Seq(
+  "org.apache.aries.spifly" % "org.apache.aries.spifly.dynamic.bundle" % "1.3.7"
 )
 
 lazy val beanUtilsDependency = "commons-beanutils" % "commons-beanutils" % VersionCommonsBeanutils
@@ -972,7 +980,6 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies ++= Seq(
-      "com.lmax" % "disruptor" % VersionDisruptor,
       collectionsDependency,
       beanUtilsDependency
     ),
@@ -990,7 +997,6 @@ lazy val playerServer = (project in file("playerServer"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies ++= Seq(
-      "com.lmax" % "disruptor" % VersionDisruptor,
       collectionsDependency,
       beanUtilsDependency
     ),
@@ -1054,6 +1060,7 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
     sourceImagePaths := Seq("base", "archive"),
     excludedModules := DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
+    libraryDependencies ++= osgiLogDependencies
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
   mediaIfcEmbedded, log4jApiFragment, log4jConfFragment)
 
@@ -1070,7 +1077,8 @@ lazy val browserOsgiImage = (project in file("images/browser"))
     name := "linedj-browser-osgiImage",
     sourceImagePaths := Seq("base", "browser"),
     excludedModules := DefaultExcludedModules,
-    libraryDependencies ++= remotingDependencies
+    libraryDependencies ++= remotingDependencies,
+    libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
@@ -1089,7 +1097,8 @@ lazy val playerOsgiImage = (project in file("images/player"))
     name := "linedj-player-osgiImage",
     sourceImagePaths := Seq("base", "player"),
     excludedModules := DefaultExcludedModules,
-    libraryDependencies ++= remotingDependencies
+    libraryDependencies ++= remotingDependencies,
+    libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, mediaIfcRemote, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, mp3PlaybackContextFactory, log4jApiFragment, log4jConfFragment)
@@ -1107,7 +1116,8 @@ lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
     name := "linedj-player-advanced-osgiImage",
     sourceImagePaths := Seq("base", "player_advanced"),
     excludedModules := DefaultExcludedModules,
-    libraryDependencies ++= remotingDependencies
+    libraryDependencies ++= remotingDependencies,
+    libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
   reorderRandomAlbums, reorderRandomArtists, reorderRandomSongs, appWindowHiding,
   trayWindowList, persistentPlaylistHandler, archiveUnion, archiveStartup, archiveHttp,
@@ -1125,6 +1135,7 @@ lazy val radioOsgiImage = (project in file("images/radio"))
     name := "linedj-radio-osgiImage",
     sourceImagePaths := Seq("base", "radio"),
     excludedModules := DefaultExcludedModules,
-    libraryDependencies ++= remotingDependencies
+    libraryDependencies ++= remotingDependencies,
+    libraryDependencies ++= osgiLogDependencies
   ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,
   log4jConfFragment)
