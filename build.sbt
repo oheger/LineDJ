@@ -15,14 +15,11 @@
  */
 
 import OsgiImagePlugin.autoImport.*
-import com.github.oheger.sbt.spifly.SbtSpiFly
-import com.github.oheger.sbt.spifly.SbtSpiFly.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
 lazy val VersionAeron = "1.46.1"
-lazy val VersionAriesSpiflyStatic = "1.1"
-lazy val VersionAriesUtil = "1.1.3"
+lazy val VersionAries = "1.3.7"
 lazy val VersionCloudFiles = "0.7.1"
 lazy val VersionCommonsBeanutils = "1.9.4"
 lazy val VersionCommonsCollections = "3.2.2"
@@ -154,7 +151,7 @@ lazy val logDependencies = Seq(
 )
 
 lazy val osgiLogDependencies = logDependencies ++ Seq(
-  "org.apache.aries.spifly" % "org.apache.aries.spifly.dynamic.bundle" % "1.3.7"
+  "org.apache.aries.spifly" % "org.apache.aries.spifly.dynamic.bundle" % VersionAries
 )
 
 lazy val beanUtilsDependency = "commons-beanutils" % "commons-beanutils" % VersionCommonsBeanutils
@@ -187,7 +184,7 @@ lazy val LineDJ = (project in file("."))
   * and server.
   */
 lazy val shared = (project in file("shared"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -195,8 +192,7 @@ lazy val shared = (project in file("shared"))
     libraryDependencies += ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
     libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
-    OsgiKeys.privatePackage := Seq.empty,
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq.empty
   )
 
 /**
@@ -205,14 +201,13 @@ lazy val shared = (project in file("shared"))
   * specific kinds of meta data, such as ID3 tags.
   */
 lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.metadata.*"),
-    OsgiKeys.privatePackage := Seq.empty,
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq.empty
   ) dependsOn shared
 
 /**
@@ -221,14 +216,13 @@ lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   * files; hence, it is made available as a separate project.
   */
 lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive-id3extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
-    OsgiKeys.privatePackage := Seq.empty,
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq.empty
   ) dependsOn(shared % "compile->compile;test->test", metaDataExtract)
 
 /**
@@ -237,7 +231,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
   * and data model definitions.
   */
 lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -246,8 +240,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
     libraryDependencies += configDependency,
     libraryDependencies += collectionsDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
-    OsgiKeys.privatePackage := Seq.empty,
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
 
 /**
@@ -256,15 +249,14 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   * and songs.
   */
 lazy val archive = (project in file("mediaArchive/archive"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
-    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*"),
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metaDataExtract, id3Extract)
 
 /**
@@ -272,7 +264,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
   * artists, albums, and songs.
   */
 lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -280,8 +272,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
-    OsgiKeys.privatePackage := Seq.empty,
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
 
 /**
@@ -289,7 +280,7 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   * are stored on a remote host that can be accessed via HTTP requests.
   */
 lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -303,8 +294,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
-    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*"),
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
 
 /**
@@ -312,7 +302,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   * servers as HTTP archives.
   */
 lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -322,8 +312,7 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml")
   ) dependsOn(shared, archiveHttpStartup)
 
 /**
@@ -331,7 +320,7 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   * servers as HTTP archives.
   */
 lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -341,8 +330,7 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
   ) dependsOn(shared, archiveHttpStartup)
 
 /**
@@ -350,7 +338,7 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
   * all visual applications.
   */
 lazy val platform = (project in file("platform"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -362,8 +350,7 @@ lazy val platform = (project in file("platform"))
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/managementapp_component.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/managementapp_component.xml")
   ) dependsOn(shared, actorSystem)
 
 /**
@@ -372,7 +359,7 @@ lazy val platform = (project in file("platform"))
   * OSGi service. It can then be used by all client applications.
   */
 lazy val actorSystem = (project in file("actorSystem"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -387,8 +374,7 @@ lazy val actorSystem = (project in file("actorSystem"))
       "org.apache.pekko.serialization.jackson",
       "*"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
-    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator"),
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
   ) dependsOn shared
 
 /**
@@ -398,7 +384,7 @@ lazy val actorSystem = (project in file("actorSystem"))
   * archive in OSGi.)
   */
 lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -406,8 +392,7 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform, archiveUnion)
 
 /**
@@ -417,7 +402,7 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   * union archive.
   */
 lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartup"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -425,8 +410,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
     libraryDependencies ++= osgiDependencies,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", archive, archiveAdmin)
 
 /**
@@ -436,7 +420,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
   * contributes this data to the configured union archive.
   */
 lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -449,15 +433,14 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", archiveHttp)
 
 /**
   * A project which implements an admin UI for the media archive.
   */
 lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -469,8 +452,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
       "de.oliver_heger.linedj.platform.mediaifc.service",
       "*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", archive)
 
 /**
@@ -478,7 +460,7 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
   * browsing through the media stored in the music library.
   */
 lazy val mediaBrowser = (project in file("browser"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -494,8 +476,7 @@ lazy val mediaBrowser = (project in file("browser"))
       "de.oliver_heger.linedj.platform.mediaifc.ext",
       "*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/browserapp_component.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
@@ -503,7 +484,7 @@ lazy val mediaBrowser = (project in file("browser"))
   * allows creating a playlist from the media stored in the library.
   */
 lazy val playlistEditor = (project in file("pleditor"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -521,8 +502,7 @@ lazy val playlistEditor = (project in file("pleditor"))
       "de.oliver_heger.linedj.platform.audio.playlist.service",
       "*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
@@ -531,7 +511,7 @@ lazy val playlistEditor = (project in file("pleditor"))
   * based on their URI.
   */
 lazy val reorderMedium = (project in file("reorder/reorderMedium"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -540,8 +520,7 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
       "de.oliver_heger.linedj.reorder.medium.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
@@ -550,7 +529,7 @@ lazy val reorderMedium = (project in file("reorder/reorderMedium"))
   * based on an album ordering.
   */
 lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -559,8 +538,7 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
       "de.oliver_heger.linedj.reorder.album.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
@@ -569,7 +547,7 @@ lazy val reorderAlbum = (project in file("reorder/reorderAlbum"))
   * based on an artist ordering.
   */
 lazy val reorderArtist = (project in file("reorder/reorderArtist"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -578,8 +556,7 @@ lazy val reorderArtist = (project in file("reorder/reorderArtist"))
       "de.oliver_heger.linedj.reorder.artist.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
@@ -589,7 +566,7 @@ lazy val reorderArtist = (project in file("reorder/reorderArtist"))
   * simply reordered arbitrarily.)
   */
 lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -598,8 +575,7 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
       "de.oliver_heger.linedj.reorder.random.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
@@ -609,7 +585,7 @@ lazy val reorderRandomSongs = (project in file("reorder/reorderRandomSongs"))
   * sorted in album order.
   */
 lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -618,8 +594,7 @@ lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists")
       "de.oliver_heger.linedj.reorder.randomartist.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
@@ -630,7 +605,7 @@ lazy val reorderRandomArtists = (project in file("reorder/reorderRandomArtists")
   * account.
   */
 lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -639,15 +614,14 @@ lazy val reorderRandomAlbums = (project in file("reorder/reorderRandomAlbums"))
       "de.oliver_heger.linedj.reorder.randomalbum.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn playlistEditor
 
 /**
   * Project for the player engine.
   */
 lazy val playerEngine = (project in file("playerEngine"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -655,8 +629,7 @@ lazy val playerEngine = (project in file("playerEngine"))
     libraryDependencies ++= logDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.*"),
-    OsgiKeys.privatePackage := Seq(),
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq()
   ) dependsOn (shared % "compile->compile;test->test")
 
 /**
@@ -664,7 +637,7 @@ lazy val playerEngine = (project in file("playerEngine"))
   * files of the ''playerEngine'' that can be used by different player clients.
   */
 lazy val playerEngineConfig = (project in file("playerEngineConfig"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-player-config",
@@ -672,15 +645,14 @@ lazy val playerEngineConfig = (project in file("playerEngineConfig"))
     libraryDependencies ++= pekkoDependencies,
     libraryDependencies ++= testDependencies,
     OsgiKeys.exportPackage := Seq(
-      "de.oliver_heger.linedj.player.engine.client.config.*"),
-    SpiFlyKeys.skipSpiFly := true
+      "de.oliver_heger.linedj.player.engine.client.config.*")
   ) dependsOn (playerEngine, shared % "compile->compile;test->test")
 
 /**
   * Project for the radio player engine.
   */
 lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -689,8 +661,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
     libraryDependencies ++= pekkoHttpDependencies,
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.*"),
-    OsgiKeys.privatePackage := Seq(),
-    SpiFlyKeys.skipSpiFly := true
+    OsgiKeys.privatePackage := Seq()
   ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
 
 /**
@@ -698,7 +669,7 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
   * files of the ''radioPlayerEngine'' that can be used by different player clients.
   */
 lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-radio-player-config",
@@ -706,8 +677,7 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
     libraryDependencies ++= testDependencies,
     libraryDependencies += collectionsDependency % Test,
     OsgiKeys.exportPackage := Seq(
-      "de.oliver_heger.linedj.player.engine.radio.client.config.*"),
-    SpiFlyKeys.skipSpiFly := true
+      "de.oliver_heger.linedj.player.engine.radio.client.config.*")
   ) dependsOn (radioPlayerEngine, playerEngineConfig)
 
 /**
@@ -715,18 +685,15 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
   * bundle adding support for mp3 files to the player engine.
   */
 lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
-  .settings(spiFlySettings)
   .settings(
     name := "linedj-mp3-playback-context-factory",
     fork := true,
     libraryDependencies ++= Seq(
       "com.googlecode.soundlibs" % "jlayer" % VersionJLayer,
       "com.googlecode.soundlibs" % "tritonus-share" % VersionTritonus,
-      "com.googlecode.soundlibs" % "mp3spi" % VersionMp3Spi,
-      "org.apache.aries" % "org.apache.aries.util" % VersionAriesUtil,
-      "org.apache.aries.spifly" % "org.apache.aries.spifly.static.bundle" % VersionAriesSpiflyStatic
+      "com.googlecode.soundlibs" % "mp3spi" % VersionMp3Spi
     ),
     libraryDependencies ++= logDependencies,
     OsgiKeys.privatePackage := Seq(
@@ -742,7 +709,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   * internet radio player.
   */
 lazy val radioPlayer = (project in file("radioPlayer"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -754,8 +721,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     ),
     OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.platform.bus", "*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
 
 /**
@@ -763,7 +729,7 @@ lazy val radioPlayer = (project in file("radioPlayer"))
   * connection to a media archive running on a remote host.
   */
 lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -774,8 +740,7 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
     ),
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.actors.impl.*"
-    ),
-    SpiFlyKeys.skipSpiFly := true
+    )
   ) dependsOn platform
 
 /**
@@ -783,7 +748,7 @@ lazy val mediaIfcActors = (project in file("mediaIfc/mediaIfcActors"))
   * connection to a media archive running on a remote host.
   */
 lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -793,8 +758,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
       "de.oliver_heger.linedj.platform.mediaifc.remote.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn mediaIfcActors
 
 /**
@@ -802,7 +766,7 @@ lazy val mediaIfcRemote = (project in file("mediaIfc/mediaIfcRemote"))
   * media archive running on the same virtual machine.
   */
 lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -812,8 +776,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
       "de.oliver_heger.linedj.platform.mediaifc.embedded.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn mediaIfcActors
 
 /**
@@ -822,7 +785,7 @@ lazy val mediaIfcEmbedded = (project in file("mediaIfc/mediaIfcEmbedded"))
   * used for applications that do not require a media archive.
   */
 lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -833,8 +796,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
       "de.oliver_heger.linedj.platform.mediaifc.disabled.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn platform
 
 /**
@@ -843,7 +805,7 @@ lazy val mediaIfcDisabled = (project in file("mediaIfc/mediaIfcDisabled"))
   * applications available is shutdown.
   */
 lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -853,8 +815,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
       "de.oliver_heger.linedj.platform.app.oneforall.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn platform
 
 /**
@@ -865,7 +826,7 @@ lazy val appShutdownOneForAll = (project in file("appShutdownOneForAll"))
   * shutdown using an explicit command.
   */
 lazy val appWindowHiding = (project in file("appWindowHiding"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -880,12 +841,11 @@ lazy val appWindowHiding = (project in file("appWindowHiding"))
       "de.oliver_heger.linedj.platform.app.hide.impl.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn (platform % "compile->compile;test->test")
 
 lazy val trayWindowList = (project in file("trayWindowList"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -895,8 +855,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
       "de.oliver_heger.linedj.platform.app.tray.wndlist.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", appWindowHiding)
 
 /**
@@ -904,7 +863,7 @@ lazy val trayWindowList = (project in file("trayWindowList"))
   * playing audio files.
   */
 lazy val audioPlatform = (project in file("audioPlatform"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -918,8 +877,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
       "de.oliver_heger.linedj.platform.audio.impl.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", playerEngine,
       playerEngineConfig)
 
@@ -929,7 +887,7 @@ lazy val audioPlatform = (project in file("audioPlatform"))
   * loaded and set again when the application is restarted.
   */
 lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -939,8 +897,7 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
       "de.oliver_heger.linedj.playlist.persistence.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
 
 /**
@@ -948,7 +905,7 @@ lazy val persistentPlaylistHandler = (project in file("persistentPLHandler"))
   * audio player.
   */
 lazy val audioPlayerUI = (project in file("audioPlayerUI"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
   .settings(
@@ -964,8 +921,7 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
       "de.oliver_heger.linedj.platform.audio.playlist.service",
       "*"),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/*.xml"),
-    SpiFlyKeys.skipSpiFly := true
+      Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
 
 /**
@@ -1008,7 +964,7 @@ lazy val playerServer = (project in file("playerServer"))
   * to log4j-api.
   */
 lazy val log4jApiFragment = (project in file("logging/log4jApiFragment"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-log4j-api-fragment",
@@ -1016,23 +972,21 @@ lazy val log4jApiFragment = (project in file("logging/log4jApiFragment"))
     OsgiKeys.additionalHeaders := Map(
       "Fragment-Host" -> "org.apache.logging.log4j.api",
       "DynamicImport-Package" -> "*;resolution:=optional"
-    ),
-    SpiFlyKeys.skipSpiFly := true
+    )
   )
 
 /**
   * Project for a fragment bundle to configure log4j in an OSGi environment.
   */
 lazy val log4jConfFragment = (project in file("logging/log4jConfFragment"))
-  .enablePlugins(SbtSpiFly)
+  .enablePlugins(SbtOsgi)
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-log4j-conf-fragment",
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders := Map(
       "Fragment-Host" -> "org.apache.logging.log4j.core"
-    ),
-    SpiFlyKeys.skipSpiFly := true
+    )
   )
 
 /* Projects for OSGi applications/images. */

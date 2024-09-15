@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.9.6")
-
-addSbtPlugin("com.github.oheger.sbt" % "sbt-spifly" % "0.4.0")
+addSbtPlugin("com.github.sbt" % "sbt-osgi" % "0.9.11")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.1.5")
