@@ -37,6 +37,7 @@ lazy val VersionPekkoHttp = "1.1.0-M1"
 lazy val VersionScala = "2.13.14"
 lazy val VersionScala3 = "3.3.3"
 lazy val VersionScalaz = "7.3.8"
+lazy val VersionSprayJson = "1.3.6"
 lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
@@ -191,6 +192,7 @@ lazy val shared = (project in file("shared"))
     name := "linedj-shared",
     libraryDependencies += ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
     libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("io.spray" %%  "spray-json" % VersionSprayJson).cross(CrossVersion.for3Use2_13),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
     OsgiKeys.privatePackage := Seq.empty
   )
