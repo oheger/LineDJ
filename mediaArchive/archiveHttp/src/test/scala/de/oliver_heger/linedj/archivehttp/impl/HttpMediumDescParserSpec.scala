@@ -16,9 +16,17 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl}
-import org.scalatest.flatspec.AnyFlatSpec
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.util.ByteString
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import spray.json.*
+import spray.json.DefaultJsonProtocol.*
+
+import scala.concurrent.Future
 
 object HttpMediumDescParserSpec:
   /**
@@ -31,34 +39,62 @@ object HttpMediumDescParserSpec:
     Map("mediumDescriptionPath" -> desc.mediumDescriptionPath,
       "metaDataPath" -> desc.metaDataPath)
 
-  /**
-    * Creates a new parser instance.
-    *
-    * @return the new parser
-    */
-  private def createParser(): HttpMediumDescParser =
-    new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-
 /**
   * Test class for ''HttpMediumDescParser''.
   */
-class HttpMediumDescParserSpec extends AnyFlatSpec with Matchers:
+class HttpMediumDescParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+  with BeforeAndAfterAll with Matchers:
+  def this() = this(ActorSystem("HttpMediumDescParserSpec"))
 
-  import HttpMediumDescParserSpec._
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
 
-  "A HttpMediumDescParser" should "produce correct result objects" in:
-    val descs = Vector(HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
+  import HttpMediumDescParser.*
+
+  /**
+    * Run a stream using the given input data through the parser and return its
+    * result.
+    *
+    * @param inputData the data to generate the input JSON
+    * @return a [[Future]] with the result of the stream
+    */
+  private def runParserStream(inputData: Iterable[LenientHttpMediumDesc]): Future[List[HttpMediumDesc]] =
+    val jsonInput = inputData.toJson.prettyPrint
+    val source = Source(ByteString(jsonInput).grouped(32).toList)
+    val sink = Sink.fold[List[HttpMediumDesc], HttpMediumDesc](List.empty) { (lst, obj) =>
+      obj :: lst
+    }
+    HttpMediumDescParser.parseMediumDescriptions(source).runWith(sink) map (_.reverse)
+
+  "A HttpMediumDescParser" should "produce correct result objects" in :
+    val inputData = Vector(
+      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("metadata/med1.mdt")),
+      LenientHttpMediumDesc(Some("medium2/playlist.settings"), Some("metadata/med2.mdt")),
+      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("metadata/45848481.mdt"))
+    )
+    val expectedResult = Vector(
+      HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
       HttpMediumDesc("medium2/playlist.settings", "metadata/med2.mdt"),
-      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt"))
+      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt")
+    )
 
-    val result = createParser().convertJsonObjects(null, descs map toMap)
-    result should be(descs)
+    runParserStream(inputData) map { result =>
+      result should contain theSameElementsInOrderAs expectedResult
+    }
 
-  it should "filter out incomplete medium descriptions" in:
-    val valid = Vector(HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
-      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt"))
-    val descs = Map("mediumDescriptionPath" -> "somePath") +: valid.map(toMap)
-    val moreDescs = descs :+ Map("metaDataPath" -> "anotherPath")
+  it should "filter out incomplete medium descriptions" in :
+    val inputData = Vector(
+      LenientHttpMediumDesc(Some("someDescription"), None),
+      LenientHttpMediumDesc(Some("medium1/desc.settings"), Some("metadata/med1.mdt")),
+      LenientHttpMediumDesc(None, Some("somePath")),
+      LenientHttpMediumDesc(Some("medium3/desc.settings"), Some("metadata/45848481.mdt"))
+    )
+    val expectedResult = Vector(
+      HttpMediumDesc("medium1/desc.settings", "metadata/med1.mdt"),
+      HttpMediumDesc("medium3/desc.settings", "metadata/45848481.mdt")
+    )
 
-    val result = createParser().convertJsonObjects(null, moreDescs)
-    result should be(valid)
+    runParserStream(inputData) map { result =>
+      result should contain theSameElementsInOrderAs expectedResult
+    }
