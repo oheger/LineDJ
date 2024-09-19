@@ -18,14 +18,12 @@ package de.oliver_heger.linedj.archivehttp
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.archivehttp.impl._
+import de.oliver_heger.linedj.archivehttp.impl.*
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
-import de.oliver_heger.linedj.io.parser.{JSONParser, ParserImpl, ParserStage}
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
@@ -34,7 +32,6 @@ import org.apache.pekko.routing.SmallestMailboxPool
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.ByteString
 
-import java.nio.charset.StandardCharsets
 import scala.concurrent.Future
 import scala.util.Success
 
@@ -70,27 +67,11 @@ object HttpArchiveManagementActor:
     Props(classOf[HttpArchiveManagementActorImpl], ContentProcessingUpdateServiceImpl, config,
       pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
 
-  /** The object for parsing medium descriptions in JSON. */
-  private val parser = new HttpMediumDescParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
-
   /** The number of parallel processor actors for meta data. */
   private val MetaDataParallelism = 4
 
   /** The number of parallel processor actors for medium info files. */
   private val InfoParallelism = 2
-
-  /**
-    * A function for parsing JSON to a sequence of ''HttpMediumDesc'' objects.
-    *
-    * @param chunk       the chunk of data to be processed
-    * @param lastFailure the last failure
-    * @param lastChunk   flag whether this is the last chunk
-    * @return a tuple with extracted results and the next failure
-    */
-  private def parseHttpMediumDesc(chunk: ByteString, lastFailure: Option[Failure],
-                                  lastChunk: Boolean):
-  (Iterable[HttpMediumDesc], Option[Failure]) =
-    parser.processChunk(chunk.decodeString(StandardCharsets.UTF_8), null, lastChunk, lastFailure)
 
   /**
     * Maps the specified exception to a state object for the current archive.
@@ -136,7 +117,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   with ActorLogging:
   this: ChildActorFactory =>
 
-  import HttpArchiveManagementActor._
+  import HttpArchiveManagementActor.*
 
   /** The archive content processor actor. */
   private var archiveContentProcessor: ActorRef = _
@@ -252,13 +233,18 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private def createProcessArchiveRequest(data: Source[ByteString, Any], curSeqNo: Int):
   ProcessHttpArchiveRequest =
-    val parseStage = new ParserStage[HttpMediumDesc](parseHttpMediumDesc)
     val sink = Sink.actorRefWithBackpressure(self, HttpArchiveProcessingInit,
       HttpArchiveMediumAck, HttpArchiveProcessingComplete(HttpArchiveStateConnected), Status.Failure.apply)
-    ProcessHttpArchiveRequest(archiveConfig = config, settingsProcessorActor = mediumInfoProcessor,
-      metaDataProcessorActor = metaDataProcessor, sink = sink, mediaSource = data.via(parseStage),
-      seqNo = curSeqNo, metaDataParallelism = MetaDataParallelism,
-      infoParallelism = InfoParallelism)
+    ProcessHttpArchiveRequest(
+      archiveConfig = config,
+      settingsProcessorActor = mediumInfoProcessor,
+      metaDataProcessorActor = metaDataProcessor,
+      sink = sink,
+      mediaSource = HttpMediumDescParser.parseMediumDescriptions(data),
+      seqNo = curSeqNo,
+      metaDataParallelism = MetaDataParallelism,
+      infoParallelism = InfoParallelism
+    )
 
   /**
     * Loads the content document from the managed archive and returns a

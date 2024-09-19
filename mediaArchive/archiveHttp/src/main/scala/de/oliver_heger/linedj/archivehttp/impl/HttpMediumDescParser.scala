@@ -16,14 +16,11 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, JsonStreamParser, ParserTypes}
-import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
+import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import spray.json.*
 import spray.json.DefaultJsonProtocol.*
-
-import scala.collection.immutable.IndexedSeq
 
 /**
   * A module for parsing the content document of an HTTP archive.
@@ -34,22 +31,6 @@ import scala.collection.immutable.IndexedSeq
   * objects.
   */
 object HttpMediumDescParser:
-  /** Property for the path to a medium description file. */
-  private val PropDescriptionPath = "mediumDescriptionPath"
-
-  /** Property for the path to a meta data file. */
-  private val PropMetaDataPath = "metaDataPath"
-
-  /**
-    * Converts a map representing a JSON object to an ''HttpMediumDesc''
-    * object.
-    *
-    * @param m the map
-    * @return the resulting ''HttpMediumDesc''
-    */
-  private def convertDescription(m: Map[String, String]): HttpMediumDesc =
-    HttpMediumDesc(m(PropDescriptionPath), m(PropMetaDataPath))
-
   /**
     * An internal model class representing a medium description that can be
     * partially defined only. This is used for the parsing process. In a later
@@ -88,29 +69,3 @@ object HttpMediumDescParser:
       .map(_.convertToHttpMediumDesc())
       .filter(_.isDefined)
       .map(_.get)
-
-/**
-  * A class for parsing the content document of an HTTP archive.
-  *
-  * An HTTP archive contains a JSON-based document with descriptions of the
-  * media it stores. This parser can process this document and convert the data
-  * to a sequence of [[HttpMediumDesc]] objects.
-  *
-  * @param chunkParser the underlying ''ChunkParser''
-  * @param jsonParser  the underlying JSON parser
-  */
-class HttpMediumDescParser(chunkParser: ChunkParser[ParserTypes.Parser, ParserTypes.Result,
-  Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[HttpMediumDesc, AnyRef](chunkParser, jsonParser):
-
-  import HttpMediumDescParser._
-
-  /**
-    * @inheritdoc This implementation converts the passed in maps to objects of
-    *             type [[HttpMediumDesc]]. Only objects with all properties are
-    *             taken into account. The data parameter is not needed here.
-    */
-  override def convertJsonObjects(data: AnyRef, objects: IndexedSeq[Map[String, String]]): IndexedSeq[HttpMediumDesc] =
-    objects filter { m =>
-      m.contains(PropDescriptionPath) && m.contains(PropMetaDataPath)
-    } map convertDescription

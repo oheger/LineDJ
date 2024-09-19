@@ -18,7 +18,6 @@ package de.oliver_heger.linedj.archivehttp
 
 import com.github.cloudfiles.core.http.HttpRequestSender.FailedResponseException
 import de.oliver_heger.linedj.ForwardTestActor.ForwardedMessage
-import de.oliver_heger.linedj.{AsyncTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.*
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementActor
@@ -30,6 +29,7 @@ import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.pattern.{AskTimeoutException, ask}
@@ -154,8 +154,7 @@ object HttpArchiveManagementActorSpec:
   * Test class for ''HttpArchiveManagementActor''.
   */
 class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar
-  with AsyncTestHelper:
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
   import HttpArchiveManagementActorSpec.*
 
