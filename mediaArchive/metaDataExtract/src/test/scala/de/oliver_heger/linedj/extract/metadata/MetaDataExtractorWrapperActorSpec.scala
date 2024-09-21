@@ -97,7 +97,7 @@ object MetaDataExtractorWrapperActorSpec:
     */
   private def createProcessingResult(name: String, ext: String): MetaDataProcessingSuccess =
     val path = testPath(name, ext)
-    val data = MediaMetaData(size = fileSize(path), title = Some(name),
+    val data = MediaMetaData(size = Some(fileSize(path)), title = Some(name),
       artist = Some("Artist for " + name), album = Some(name + " album"))
     MetaDataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metaData = data)
 
@@ -126,7 +126,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   it should "return a dummy result for an unsupported extension" in:
     val helper = new ExtractorActorTestHelper
     val TestName = "UnsupportedMediaFile"
-    val expData = MediaMetaData(size = fileSize(testPath(TestName, UnsupportedFileExtension)))
+    val expData = MediaMetaData(size = Some(fileSize(testPath(TestName, UnsupportedFileExtension))))
     val expResult = createProcessingResult(TestName, UnsupportedFileExtension)
       .copy(metaData = expData)
 

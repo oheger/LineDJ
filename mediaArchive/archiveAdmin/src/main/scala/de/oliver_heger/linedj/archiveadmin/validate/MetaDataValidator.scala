@@ -248,7 +248,7 @@ object MetaDataValidator:
     * @return the validation result
     */
   private def validateFileSize(file: MediaFile): MetaDataFileValidation =
-    if file.metaData.size > 0 then file.successNel[ValidationErrorCode]
+    if file.metaData.fileSize > 0 then file.successNel[ValidationErrorCode]
     else NoSize.failureNel[MediaFile]
 
   /**
@@ -330,4 +330,4 @@ object MetaDataValidator:
     */
   private def isMetaDataMissing(data: MediaMetaData): Boolean =
     data.album.empty || data.title.empty || data.artist.empty || data.duration.empty ||
-      data.inceptionYear.empty || data.trackNumber.empty || data.size <= 0
+      data.inceptionYear.empty || data.trackNumber.empty || data.fileSize <= 0

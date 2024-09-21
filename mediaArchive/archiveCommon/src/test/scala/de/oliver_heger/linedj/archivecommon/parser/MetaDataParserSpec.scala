@@ -141,7 +141,7 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     result.metaData.duration.get should be(180)
     result.metaData.formatDescription.get should be("format")
     result.metaData.inceptionYear.get should be(2012)
-    result.metaData.size should be(20160303212850L)
+    result.metaData.fileSize should be(20160303212850L)
     result.metaData.title.get should be("Title")
     result.metaData.trackNumber.get should be(15)
 
@@ -164,14 +164,14 @@ class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar:
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.size should be(-1)
+    result.metaData.fileSize should be(-1)
 
   it should "handle a missing size correctly" in:
     val props = Map(MetaDataParser.PropTitle -> "Title",
       MetaDataParser.PropUri -> "song://uri.mp3")
 
     val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.size should be(-1)
+    result.metaData.fileSize should be(-1)
 
   it should "return multiple results if available" in:
     val props1 = Map(MetaDataParser.PropTitle -> "Title1",

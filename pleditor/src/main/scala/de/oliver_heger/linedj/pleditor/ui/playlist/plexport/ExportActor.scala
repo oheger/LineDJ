@@ -196,7 +196,7 @@ object ExportActor:
    * @return the total size of this export
    */
   private def calculateTotalSize(songs: Seq[SongData]): Long =
-    songs.foldLeft(0L) { (sz, song) => sz + song.metaData.size }
+    songs.foldLeft(0L) { (sz, song) => sz + song.metaData.fileSize }
 
   /**
    * Returns a list with the songs that need to be copied. If overriding of
@@ -212,7 +212,7 @@ object ExportActor:
     if data.clearTarget || data.overrideFiles then songsWithPath
     else
       val existingPaths = Map(data.targetContent.files.map(f => (f.path, f.size)): _*)
-      songsWithPath.filterNot(s => existingPaths.contains(s._2) && existingPaths(s._2) == s._1.metaData.size)
+      songsWithPath.filterNot(s => existingPaths.contains(s._2) && existingPaths(s._2) == s._1.metaData.fileSize)
 
   /**
    * Creates a list buffer with operations which clear the target medium.
@@ -543,7 +543,7 @@ ExportOperation:
   /**
    * @inheritdoc This implementation returns the size of the affected file.
    */
-  override def processedSize: Long = affectedSong.metaData.size
+  override def processedSize: Long = affectedSong.metaData.fileSize
 
 /**
  * A specialized export operation for removing a file on the target medium.

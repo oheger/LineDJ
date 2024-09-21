@@ -71,7 +71,7 @@ class MetaDataJsonConverter:
       "trackNumber", data.trackNumber, quote = false),
       "duration", data.duration, quote = false),
       "formatDescription", data.formatDescription, quote = true),
-      "size", data.size.toString, quote = false),
+      "size", data.fileSize.toString, quote = false),
       "uri", uri, quote = true),
       "title", data.title, quote = true),
       "artist", data.artist, quote = true),

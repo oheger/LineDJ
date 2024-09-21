@@ -129,7 +129,7 @@ object ExportActorSpec:
    */
   private def createSongData(index: Int, size: Option[Long] = None): SongData =
     SongData(MediaFileID(medium(index), songUri(index)),
-      MediaMetaData(title = Some(songTitle(index)), size = size getOrElse songSize(index)),
+      MediaMetaData(title = Some(songTitle(index)), size = size orElse Some(songSize(index))),
       songTitle(index), null, null)
 
   /**

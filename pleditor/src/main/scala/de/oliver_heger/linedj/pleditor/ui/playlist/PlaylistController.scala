@@ -73,7 +73,7 @@ object PlaylistController:
   private def generateStatusLineText(songs: Seq[Any], template: String): String =
     val songData = songs map (_.asInstanceOf[SongData])
     val (size, duration) = songData.foldLeft((0L, 0)) { (d, s) =>
-      (d._1 + s.metaData.size, d._2 + s.getDuration)
+      (d._1 + s.metaData.fileSize, d._2 + s.getDuration)
     }
     val durationDefined = songData forall (_.getDuration > 0)
     val totalDuration = DurationTransformer.formatDuration(duration)

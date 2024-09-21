@@ -108,12 +108,12 @@ object MetaDataParser:
     * @param obj the map with object properties
     * @return the extracted size
     */
-  private def sizeProperty(obj: Map[String, String]): Long =
-    try obj.get(PropSize).map(_.toLong) getOrElse UnknownFileSize
+  private def sizeProperty(obj: Map[String, String]): Option[Long] =
+    try obj.get(PropSize).map(_.toLong) orElse Some(UnknownFileSize)
     catch
       case _: NumberFormatException =>
         log.warn(s"Invalid value for property size: '${obj(PropSize)}'.")
-        UnknownFileSize
+        Some(UnknownFileSize)
 
 
 /**

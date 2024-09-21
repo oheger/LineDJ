@@ -134,7 +134,7 @@ object MetaDataUnionActorSpec:
     val index = extractUriIndex(uri)
     MediaMetaData(title = Some(UriHelper.extractName(uri.uri)),
       duration = Some(index * 10),
-      size = index * 100)
+      size = Some(index * 100))
 
   /**
     * Generates a meta data processing result for the specified parameters.

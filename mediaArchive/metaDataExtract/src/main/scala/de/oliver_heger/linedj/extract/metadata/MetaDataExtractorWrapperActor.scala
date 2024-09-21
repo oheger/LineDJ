@@ -33,7 +33,7 @@ object MetaDataExtractorWrapperActor:
     * @return the minimum result
     */
   private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingSuccess =
-    val data = MediaMetaData(size = p.fileData.size)
+    val data = MediaMetaData(size = Some(p.fileData.size))
     val result = p.resultTemplate.copy(metaData = data)
     result
 

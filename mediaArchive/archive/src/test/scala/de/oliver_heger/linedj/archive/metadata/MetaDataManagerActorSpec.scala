@@ -106,7 +106,7 @@ object MetaDataManagerActorSpec:
     val index = extractPathIndex(path)
     MediaMetaData(title = Some(path.getFileName.toString),
       duration = Some(index * 10),
-      size = index * 100)
+      size = Some(index * 100))
 
   /**
     * Generates a ''MetaDataProcessingResult'' for the specified parameters.

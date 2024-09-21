@@ -117,8 +117,7 @@ object MetaDataExtractionActorSpec:
     */
   def createProcessingResult(fileData: FileData, template: MetaDataProcessingSuccess):
   MetaDataProcessingSuccess =
-    template.withMetaData(MediaMetaData(title = Some("Song_" + fileData.path), size = fileData
-      .size))
+    template.withMetaData(MediaMetaData(title = Some("Song_" + fileData.path), size = Some(fileData.size)))
 
   /**
     * Generates a processing result for the test file with the given index.

@@ -141,7 +141,7 @@ private class MetaDataPartsCollector(val file: FileData,
           .artist, album = combinedID3TagProvider.album, inceptionYear = combinedID3TagProvider
           .inceptionYear, trackNumber = combinedID3TagProvider.trackNo, duration = Some(data
           .duration), formatDescription = Some(generateFormatDescription(data)),
-          size = file.size))
+          size = Some(file.size)))
 
       case _ => None
 

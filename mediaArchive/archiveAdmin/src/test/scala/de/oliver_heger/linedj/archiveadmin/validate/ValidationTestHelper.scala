@@ -111,7 +111,7 @@ object ValidationTestHelper:
   def metaData(songIdx: Int, albumIdx: Int = 1): MediaMetaData =
     MediaMetaData(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
       inceptionYear = Some(2018 + albumIdx), trackNumber = Some(songIdx), duration = Some(60 + songIdx),
-      size = 1000 + songIdx)
+      size = Some(1000 + songIdx))
 
   /**
     * Generates a test media file based on the given indices.

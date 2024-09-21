@@ -86,7 +86,7 @@ object PlaylistControllerSpec:
     */
   private def metaData(idx: Int): MediaMetaData =
     MediaMetaData(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
-      duration = Some((idx + 1).minutes.toMillis.toInt), size = (idx + 1) * 1024 * 512)
+      duration = Some((idx + 1).minutes.toMillis.toInt), size = Some((idx + 1) * 1024 * 512))
 
   /**
     * Creates a ''SongData'' object with the specified parameters.
