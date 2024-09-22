@@ -35,17 +35,19 @@ import scala.concurrent.Future
   */
 class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor:
   /**
-    * @inheritdoc This implementation processes the content of a meta data
+    * @inheritdoc This implementation processes the content of a metadata
     *             file and parses it into a sequence of
     *             [[MetaDataProcessingSuccess]] objects. Based on this, a
     *             result object is produced.
     */
-  protected override def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                       desc: HttpMediumDesc, config: HttpArchiveConfig,
+  protected override def processSource(source: Source[ByteString, Any],
+                                       mid: MediumID,
+                                       desc: HttpMediumDesc,
+                                       config: HttpArchiveConfig,
                                        seqNo: Int): (Future[Any], KillSwitch) =
     val sink = Sink.fold[List[MetaDataProcessingSuccess],
       MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
-    val (killSwitch, futStream) = source.via(new MetaDataParserStage(mid))
+    val (killSwitch, futStream) = MetaDataParser.parseMetadata(source, mid)
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)
       .run()

@@ -98,7 +98,7 @@ object MetaDataResponseProcessingActorSpec:
   private def jsonMetaData(data: MetaDataProcessingSuccess): String =
     s"""{
        |"title":"${data.metaData.title.get}",
-       |"size":"${data.metaData.fileSize}",
+       |"size":${data.metaData.fileSize},
        |"uri":"${data.uri.uri}"
        |}
    """.stripMargin
