@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
-import de.oliver_heger.linedj.archivecommon.parser.MetaDataParserStage
+import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
 
 import java.nio.file.Path
@@ -77,9 +77,8 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
     case ReadMetaDataFile(p, mid) =>
       log.info("Reading persistent meta data file {} for medium {}.", p, mid)
       import context.{dispatcher, system}
-      val source = FileIO.fromPath(p, chunkSize)
+      val source = MetaDataParser.parseMetadata(FileIO.fromPath(p, chunkSize), mid)
       val sink = Sink.foreach[MetaDataProcessingSuccess](parent ! _)
-      val stage = new MetaDataParserStage(mid)
-      val flow = source.via(stage).toMat(sink)(Keep.right)
+      val flow = source.toMat(sink)(Keep.right)
       val future = flow.run()
       future.onComplete(_ => context.stop(self))
