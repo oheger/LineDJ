@@ -16,234 +16,123 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.io.parser._
-import de.oliver_heger.linedj.io.parser.JSONParser.JSONData
-import de.oliver_heger.linedj.io.parser.ParserTypes.{Failure, Result}
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
-import org.mockito.Mockito._
-import org.mockito.stubbing.OngoingStubbing
-import org.scalatest.flatspec.AnyFlatSpec
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
+import org.apache.pekko.testkit.TestKit
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.Inspectors.forEvery
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.mockito.MockitoSugar
+
+import java.nio.file.Paths
+import scala.concurrent.Future
 
 object MetaDataParserSpec:
   /** A test medium ID. */
   private val TestMedium = MediumID("someTestMedium", Some("test"))
 
-  /**
-    * Generates text for a test chunk of data. This data does not really have a
-    * meaning.
-    *
-    * @param index an index to make the text unique
-    * @return the generated text
-    */
-  private def generateChunk(index: Int): String =
-    s"Content for chunk $index!"
-
-  /**
-    * Prepares the mock objects associated with the test parser to return a
-    * success result with the given content.
-    *
-    * @param parser     the test parser
-    * @param chunkIndex the index of the chunk to be passed to the parser
-    * @param results    the results to be returned
-    * @return the test parser
-    */
-  private def expectSuccessResult(parser: MetaDataParser, chunkIndex: Int, results: JSONParser
-  .JSONData): MetaDataParser =
-    expectParserRun(parser, chunkIndex).thenReturn(ParserTypes.Success(results, 1))
-    parser
-
-  /**
-    * Expects an invocation of the chunk parser with the given parameters.
-    *
-    * @param parser     the test parser
-    * @param chunkIndex the chunk index
-    * @param lastChunk  the flag for the last chunk
-    * @param optFailure an optional failure
-    * @return an object to define mock behavior
-    */
-  private def expectParserRun(parser: MetaDataParser, chunkIndex: Int, lastChunk: Boolean = false,
-                              optFailure: Option[Failure] = None):
-  OngoingStubbing[Result[JSONData]] =
-    when(parser.chunkParser.runChunk(parser.jsonParser)(generateChunk(chunkIndex),
-      lastChunk, optFailure))
-
-  /**
-    * Creates a number of result objects that can be returned by the mock
-    * parser. Only a single result object is valid and contains all
-    * required properties.
-    *
-    * @return the sequence with result objects
-    */
-  private def createResultObjects(): Vector[Map[String, String]] =
-    val props1 = Map(MetaDataParser.PropTitle -> "Title1")
-    val props2 = Map(MetaDataParser.PropArtist -> "Artist")
-    val props3 = Map(MetaDataParser.PropTitle -> "Title",
-      MetaDataParser.PropUri -> "song://uri3.mp3")
-    Vector(props1, props2, props3)
+  /** Name of the metadata file with test data. */
+  private val TestMetadataFile = "test_metadata.mdt"
+end MetaDataParserSpec
 
 /**
   * Test class for ''MetaDataParser''.
   */
-class MetaDataParserSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+class MetaDataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+  with BeforeAndAfterAll with Matchers:
+  def this() = this(ActorSystem("MetaDataParserSpec"))
 
-  import MetaDataParserSpec._
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
 
-  /**
-    * Creates a mock for chunk parser.
-    *
-    * @return the chunk parser mock
-    */
-  private def createChunkParserMock(): ChunkParser[ParserTypes.Parser, ParserTypes.Result,
-    Failure] =
-    mock[JsonChunkParser]
-
-  /**
-    * Creates a test parser that uses a mock chunk parser.
-    *
-    * @return the test parser
-    */
-  private def createParser(): MetaDataParser =
-    new MetaDataParser(createChunkParserMock(), mock[ParserTypes.Parser[JSONParser.JSONData]])
+  import MetaDataParser.*
+  import MetaDataParserSpec.*
+  import spray.json.*
 
   /**
-    * Invokes the test parser and assumes that a single result is returned.
-    * This is the result of this function.
+    * Reads a metadata file from the classpath with the given resource name.
     *
-    * @param p the test parser
-    * @return the result returned by the parser
+    * @param name the resource name of the file to be read (without trailing 
+    *             slash)
+    * @return a [[Future]] with the extracted data
     */
-  private def fetchSingleParseResult(p: MetaDataParser): MetaDataProcessingSuccess =
-    val (data, failure) = p.processChunk(generateChunk(1), TestMedium, lastChunk = false,
-      optFailure = None)
-    failure shouldBe empty
-    data should have size 1
-    data.head
+  private def readMetadataFile(name: String): Future[List[MetaDataProcessingSuccess]] =
+    val filePath = Paths.get(getClass.getResource("/" + name).toURI)
+    val source = FileIO.fromPath(filePath)
+    val sink = Sink.fold[List[MetaDataProcessingSuccess], MetaDataProcessingSuccess](List.empty) { (lst, data) =>
+      data :: lst
+    }
+    MetaDataParser.parseMetadata(source, TestMedium).runWith(sink).map(_.reverse)
 
-  "A MetaDataParser" should "convert a JSON map to a MediaMetaData object" in:
-    val props = Map(MetaDataParser.PropAlbum -> "Album",
-      MetaDataParser.PropArtist -> "Artist",
-      MetaDataParser.PropDuration -> "180",
-      MetaDataParser.PropFormatDescription -> "format",
-      MetaDataParser.PropInceptionYear -> "2012",
-      MetaDataParser.PropSize -> "20160303212850",
-      MetaDataParser.PropTitle -> "Title",
-      MetaDataParser.PropTrackNumber -> "15",
-      MetaDataParser.PropUri -> "song://uri.mp3")
+  "MetaDataParser" should "set the correct medium ID" in :
+    readMetadataFile(TestMetadataFile) map { results =>
+      forEvery(results) { result => result.mediumID should be(TestMedium) }
+    }
 
-    val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.mediumID should be(TestMedium)
-    result.uri.uri should be(props(MetaDataParser.PropUri))
-    result.metaData.album.get should be("Album")
-    result.metaData.artist.get should be("Artist")
-    result.metaData.duration.get should be(180)
-    result.metaData.formatDescription.get should be("format")
-    result.metaData.inceptionYear.get should be(2012)
-    result.metaData.fileSize should be(20160303212850L)
-    result.metaData.title.get should be("Title")
-    result.metaData.trackNumber.get should be(15)
+  it should "set the correct file URI" in :
+    val expectedUris = List(MediaFileUri("testUri"), MediaFileUri("undefinedUri"))
 
-  it should "handle invalid Int properties correctly" in:
-    val props = Map(MetaDataParser.PropDuration -> "> 180",
-      MetaDataParser.PropInceptionYear -> "MCMLXXXIV",
-      MetaDataParser.PropSize -> "20160303213928",
-      MetaDataParser.PropTitle -> "Title",
-      MetaDataParser.PropTrackNumber -> "unknown",
-      MetaDataParser.PropUri -> "song://uri.mp3")
+    readMetadataFile(TestMetadataFile) map { results =>
+      results.map(_.uri) should contain theSameElementsInOrderAs expectedUris
+    }
 
-    val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.duration shouldBe empty
-    result.metaData.inceptionYear shouldBe empty
-    result.metaData.trackNumber shouldBe empty
+  it should "handle undefined metadata" in :
+    readMetadataFile(TestMetadataFile) map { results =>
+      results(1).metaData should be(MediaMetaData())
+    }
 
-  it should "handle an invalid size property" in:
-    val props = Map(MetaDataParser.PropSize -> "large",
-      MetaDataParser.PropTitle -> "Title",
-      MetaDataParser.PropUri -> "song://uri.mp3")
+  it should "correctly parse metadata" in :
+    val expectedMetadata = MediaMetaData(
+      album = Some("testAlbum"),
+      artist = Some("testArtist"),
+      title = Some("testTitle"),
+      formatDescription = Some("testFormat"),
+      size = Some(4581376L),
+      inceptionYear = Some(2024),
+      trackNumber = Some(1),
+      duration = Some(100000)
+    )
 
-    val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.fileSize should be(-1)
+    readMetadataFile(TestMetadataFile) map { results =>
+      results.head.metaData should be(expectedMetadata)
+    }
 
-  it should "handle a missing size correctly" in:
-    val props = Map(MetaDataParser.PropTitle -> "Title",
-      MetaDataParser.PropUri -> "song://uri.mp3")
+  it should "throw an exception for input without a URI" in :
+    recoverToSucceededIf[DeserializationException] {
+      readMetadataFile("metadata_without_uri.mdt")
+    }
 
-    val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1, Vector(props)))
-    result.metaData.fileSize should be(-1)
+  it should "throw an exception for input with invalid property values" in :
+    recoverToSucceededIf[DeserializationException] {
+      readMetadataFile("metadata_invalid.mdt")
+    }
 
-  it should "return multiple results if available" in:
-    val props1 = Map(MetaDataParser.PropTitle -> "Title1",
-      MetaDataParser.PropUri -> "song://uri1.mp3")
-    val props2 = Map(MetaDataParser.PropArtist -> "Artist",
-      MetaDataParser.PropUri -> "song://uri2.mp3")
+  it should "process a real-life metadata file" in :
+    readMetadataFile("metadata.mdt") map { results =>
+      results should have size 67
+    }
 
-    val p = expectSuccessResult(createParser(), 2, Vector(props1, props2))
-    val (data, failure) = p.processChunk(generateChunk(2), TestMedium, lastChunk = false,
-      optFailure = None)
-    failure shouldBe empty
-    data should have size 2
-    data.head.metaData.title.get should be("Title1")
-    data(1).metaData.title shouldBe empty
-    data(1).uri.uri should be("song://uri2.mp3")
+  it should "produce correct JSON output for metadata with an URI" in :
+    val data = MetaDataParser.MetadataWithUri(
+      uri = "https://metadata.example.com/test",
+      metadata = MediaMetaData(
+        title = Some("a test song"),
+        artist = Some("a test artist"),
+        album = Some("a test album"),
+        duration = Some(250123),
+        trackNumber = Some(5),
+        inceptionYear = Some(1980),
+        formatDescription = Some("high quality"),
+        size = Some(10000)
+      )
+    )
 
-  it should "filter out results that have no URI" in:
-    val objects = createResultObjects()
+    val jsonAst = data.toJson
+    val jsonStr = jsonAst.prettyPrint
 
-    val result = fetchSingleParseResult(expectSuccessResult(createParser(), 1,
-      objects))
-    result.metaData.title.get should be("Title")
-
-  it should "handle a Failure without partial results" in:
-    val failureIn = Some(Failure(ParseError(Nil), isCommitted = false, Nil))
-    val failureOut = Some(Failure(ParseError(), isCommitted = true, Nil))
-    val parser = createParser()
-    expectParserRun(parser, 2, lastChunk = true, optFailure = failureIn).thenReturn(failureOut.get)
-
-    val (data, optFailure) = parser.processChunk(generateChunk(2), TestMedium, lastChunk = true,
-      failureIn)
-    data should have size 0
-    optFailure should be(failureOut)
-
-  it should "extract results from the partial data of a Failure result" in:
-    val partialData = List("foo", "bar",
-      ParserImpl.ManyPartialData[Map[String, String]](createResultObjects().toList), "other")
-    val failureOut = Failure(ParseError(), isCommitted = true, partialData)
-    val parser = createParser()
-    expectParserRun(parser, 1).thenReturn(failureOut)
-
-    val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
-      None)
-    data should have size 1
-    data.head.metaData.title.get should be("Title")
-    optFailure.get should be(failureOut.copy(partialData = List("foo", "bar", ParserImpl
-      .ManyPartialData(Nil), "other")))
-
-  it should "handle a ManyPartialData object without content" in:
-    val partialData = List(ParserImpl.ManyPartialData[Map[String, String]](Nil))
-    val failureOut = Failure(ParseError(), isCommitted = true, partialData)
-    val parser = createParser()
-    expectParserRun(parser, 1).thenReturn(failureOut)
-
-    val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
-      None)
-    data should have size 0
-    optFailure.get should be(failureOut)
-
-  it should "handle a ManyPartialData object with a non-result data type" in:
-    val partialData = List(ParserImpl.ManyPartialData[String](List("test")))
-    val failureOut = Failure(ParseError(), isCommitted = true, partialData)
-    val parser = createParser()
-    expectParserRun(parser, 1).thenReturn(failureOut)
-
-    val (data, optFailure) = parser.processChunk(generateChunk(1), TestMedium, lastChunk = false,
-      None)
-    data should have size 0
-    optFailure.get should be(failureOut)
-
-/**
-  * A specialized chunk parser type which makes handling the complex type
-  * parameters easier.
-  */
-trait JsonChunkParser extends ChunkParser[ParserTypes.Parser, ParserTypes.Result, Failure]
+    val dataDeserialized = jsonStr.parseJson.convertTo[MetaDataParser.MetadataWithUri]
+    dataDeserialized should be(data)

@@ -16,12 +16,16 @@
 
 package de.oliver_heger.linedj.archivecommon.parser
 
-import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, ParserTypes}
+import de.oliver_heger.linedj.io.parser.{AbstractModelParser, ChunkParser, JSONParser, JsonStreamParser, ParserTypes}
 import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
+import spray.json.*
+import spray.json.DefaultJsonProtocol.*
 
 import scala.collection.immutable.IndexedSeq
 
@@ -63,6 +67,54 @@ object MetaDataParser:
   private val log = LogManager.getLogger(classOf[MetaDataParser])
 
   /**
+    * A model class to combine metadata of a song with the URI of the
+    * corresponding song file.
+    *
+    * @param uri      the URI of the song file
+    * @param metadata the metadata
+    */
+  case class MetadataWithUri(uri: String,
+                             metadata: MediaMetaData)
+
+  /**
+    * A JSON format object for processing metadata objects. This is used to
+    * parse the metadata in the custom format for [[MetadataWithUri]].
+    */
+  private val mediaMetadataFormat = jsonFormat8(MediaMetaData.apply)
+
+  /**
+    * A JSON format object for handling [[MetadataWithUri]] objects. Here, the
+    * serialization format deviates from the standard, because the URI is
+    * included in the JSON object with the metadata.
+    */
+  given RootJsonFormat[MetadataWithUri] = new RootJsonFormat[MetadataWithUri]:
+    override def read(json: JsValue): MetadataWithUri =
+      val metadata = mediaMetadataFormat.read(json)
+      val uri = json.asJsObject.getFields(PropUri) match
+        case Seq(JsString(value)) => value
+        case _ => deserializationError(s"Missing '$PropUri' property in metadata.")
+      MetadataWithUri(uri, metadata)
+
+    override def write(obj: MetadataWithUri): JsValue =
+      val metadataObj = mediaMetadataFormat.write(obj.metadata).asJsObject
+      val fields = metadataObj.fields + (PropUri -> JsString(obj.uri))
+      metadataObj.copy(fields = fields)
+
+  /**
+    * Returns a [[Source]] that can be used to extract
+    * [[MetaDataProcessingSuccess]] objects from the given data source that
+    * returns JSON.
+    *
+    * @param source   the [[Source]] for the JSON input
+    * @param mediumID the [[MediumID]] for the medium the data belongs to
+    * @return a [[Source]] for extracting metadata objects
+    */
+  def parseMetadata(source: Source[ByteString, Any], mediumID: MediumID): Source[MetaDataProcessingSuccess, Any] =
+    JsonStreamParser.parseStream[MetadataWithUri, Any](source).map { mwu =>
+      MetaDataProcessingSuccess(mediumID, MediaFileUri(mwu.uri), mwu.metadata)
+    }
+
+  /**
     * Converts a map representing a JSON object to the corresponding
     * ''MediaMetaData'' object.
     *
@@ -74,7 +126,7 @@ object MetaDataParser:
       title = obj get PropTitle, inceptionYear = intProperty(obj, PropInceptionYear),
       trackNumber = intProperty(obj, PropTrackNumber),
       duration = intProperty(obj, PropDuration),
-      formatDescription = obj get PropFormatDescription, size = sizeProperty(obj))
+      formatDescription = obj get PropFormatDescription, size = Some(sizeProperty(obj)))
 
   /**
     * Converts a JSON object to a processing result.
@@ -108,13 +160,13 @@ object MetaDataParser:
     * @param obj the map with object properties
     * @return the extracted size
     */
-  private def sizeProperty(obj: Map[String, String]): Option[Long] =
-    try obj.get(PropSize).map(_.toLong) orElse Some(UnknownFileSize)
+  private def sizeProperty(obj: Map[String, String]): Long =
+    try obj.get(PropSize).map(_.toLong) getOrElse UnknownFileSize
     catch
       case _: NumberFormatException =>
         log.warn(s"Invalid value for property size: '${obj(PropSize)}'.")
-        Some(UnknownFileSize)
-
+        UnknownFileSize
+end MetaDataParser
 
 /**
   * A class for parsing files with metadata about songs.

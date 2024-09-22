@@ -1,0 +1,16 @@
+[
+{
+"uri": "testUri",
+"album": "testAlbum",
+"artist": "testArtist",
+"title": "testTitle",
+"size": 4581376,
+"formatDescription": "testFormat",
+"duration": 100000,
+"trackNumber": 1,
+"inceptionYear": 2024
+},
+{
+"uri": "undefinedUri"
+}
+]
