@@ -1,0 +1,24 @@
+[
+  {
+    "index": 0,
+    "mediumURI": "Medium1",
+    "mediumDescriptionPath": "Medium1/playlist.settings",
+    "mediumChecksum": "7F35F692EE26E62652FDC63B61A9A3E550367F18",
+    "archiveComponentID": "test-archive",
+    "uri": "Medium1/1%20-%20TestArtist/01%20TestTitle1.mp3"
+  },
+  {
+    "index": 1,
+    "mediumURI": "Medium2",
+    "mediumDescriptionPath": "Medium2/playlist.settings",
+    "mediumChecksum": "6F35F692EE26E62652FDC63B61A9A3E550367F19",
+    "archiveComponentID": "test-archive",
+    "uri": "Medium2/2%20-%20TestArtist2/07%20TestTitle2.mp3"
+  },
+  {
+    "index": 2,
+    "mediumURI": "Medium3",
+    "archiveComponentID": "test-archive",
+    "uri": "Medium3/3%20-%20TestArtist3/05%20TestTitle3.mp3"
+  }
+]

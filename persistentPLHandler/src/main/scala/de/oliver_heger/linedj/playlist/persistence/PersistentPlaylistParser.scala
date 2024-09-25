@@ -16,15 +16,17 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.io.parser.*
+import de.oliver_heger.linedj.io.parser.ParserTypes.Failure
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItem
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.apache.logging.log4j.LogManager
+import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
+import spray.json.DefaultJsonProtocol.*
+import spray.json.RootJsonFormat
 
 import java.nio.charset.StandardCharsets
 import scala.annotation.tailrec
@@ -57,6 +59,34 @@ object PersistentPlaylistParser:
     */
   type PlaylistItem = Try[(Int, MediaFileID)]
 
+  /**
+    * A data class defining the content of an item in the playlist.
+    *
+    * @param index  the index of this item
+    * @param fileID the ID identifying the song file in the archive
+    */
+  private[persistence] case class PlaylistItemData(index: Int,
+                                                   fileID: MediaFileID)
+
+  /**
+    * A data class defining the persistent form of a playlist item. When
+    * persisting or loading a playlist, conversion to the in-memory data model
+    * takes place.
+    *
+    * @param index                 the index of this item in the playlist
+    * @param mediumURI             the URI of the whole medium
+    * @param mediumDescriptionPath the path to the medium description file
+    * @param mediumChecksum        the checksum of the medium
+    * @param archiveComponentID    the ID of the owning archive component
+    * @param uri                   the URI of the song file
+    */
+  private case class PersistentPlaylistItemData(index: Int,
+                                                mediumURI: String,
+                                                mediumDescriptionPath: Option[String],
+                                                mediumChecksum: Option[String],
+                                                archiveComponentID: String,
+                                                uri: String)
+
   /** The instance of the item parser. */
   private val ItemParser =
     new PersistentPlaylistParser(ParserImpl, JSONParser.jsonParser(ParserImpl))
@@ -72,6 +102,40 @@ object PersistentPlaylistParser:
     */
   def playlistParserStage: ParserStage[PlaylistItem] =
     new ParserStage(parseFunc)
+
+  /** A format for parsing persistent playlist items. */
+  private given RootJsonFormat[PersistentPlaylistItemData] = jsonFormat6(PersistentPlaylistItemData.apply)
+
+  /**
+    * Returns a [[Source]] that extracts [[PlaylistItem]] objects from the 
+    * given data source.
+    *
+    * @param source the source to be parsed
+    * @return a [[Source]] for extracting [[PlaylistItem]] objects
+    */
+  def parsePlaylist(source: Source[ByteString, Any]): Source[PlaylistItemData, Any] =
+    JsonStreamParser.parseStream[PersistentPlaylistItemData, Any](source)
+      .map(convertToDataModel)
+
+  /**
+    * Converts the given persistent item to its in-memory form.
+    *
+    * @param data the playlist data item to convert
+    * @return the in-memory model representation of this item
+    */
+  private def convertToDataModel(data: PersistentPlaylistItemData): PlaylistItemData =
+    PlaylistItemData(
+      index = data.index,
+      fileID = MediaFileID(
+        mediumID = MediumID(
+          mediumURI = data.mediumURI,
+          mediumDescriptionPath = data.mediumDescriptionPath,
+          archiveComponentID = data.archiveComponentID
+        ),
+        uri = data.uri,
+        checksum = data.mediumChecksum
+      )
+    )
 
   /**
     * Generates a ''Playlist'' from the given list of intermediate playlist
@@ -120,8 +184,8 @@ object PersistentPlaylistParser:
     * position information if applicable. Position and time offsets are set
     * only if the song with the current index matches.
     *
-    * @param pl the ''Playlist''
-    * @param curIdx the index of the current song in the playlist
+    * @param pl       the ''Playlist''
+    * @param curIdx   the index of the current song in the playlist
     * @param position the ''CurrentPlaylistPosition''
     * @return the command for setting the playlist
     */
@@ -175,9 +239,9 @@ object PersistentPlaylistParser:
   */
 class PersistentPlaylistParser private(chunkParser: ChunkParser[ParserTypes.Parser,
   ParserTypes.Result, Failure], jsonParser: ParserTypes.Parser[JSONParser.JSONData])
-  extends AbstractModelParser[PlaylistItem, Unit](chunkParser, jsonParser):
+  extends AbstractModelParser[PersistentPlaylistParser.PlaylistItem, Unit](chunkParser, jsonParser):
 
-  import PersistentPlaylistParser._
+  import PersistentPlaylistParser.*
 
   override def convertJsonObjects(d: Unit, objects: IndexedSeq[Map[String, String]]): IndexedSeq[PlaylistItem] =
     objects map convertItem
