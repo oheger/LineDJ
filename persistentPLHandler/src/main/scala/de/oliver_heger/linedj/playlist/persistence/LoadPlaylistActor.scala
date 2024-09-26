@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.playlist.persistence
 
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItemData
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.PlaylistItemData
 import org.apache.pekko.actor.{Actor, ActorLogging}
 import org.apache.pekko.stream.{ActorAttributes, Supervision}
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
@@ -46,7 +46,7 @@ object LoadPlaylistActor:
     */
   case class LoadPlaylistData(playlistPath: Path, positionPath: Path, maxFileSize: Int,
                               messageBus: MessageBus)
-
+end LoadPlaylistActor
 
 /**
   * An actor class that loads the persistent information about the current

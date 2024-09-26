@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.io.parser.*
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.*
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
@@ -55,37 +56,6 @@ object PersistentPlaylistParser:
   val PropURI = "uri"
 
   /**
-    * A data class defining the content of an item in the playlist.
-    *
-    * @param index  the index of this item
-    * @param fileID the ID identifying the song file in the archive
-    */
-  private[persistence] case class PlaylistItemData(index: Int,
-                                                   fileID: MediaFileID)
-
-  /**
-    * A data class defining the persistent form of a playlist item. When
-    * persisting or loading a playlist, conversion to the in-memory data model
-    * takes place.
-    *
-    * @param index                 the index of this item in the playlist
-    * @param mediumURI             the URI of the whole medium
-    * @param mediumDescriptionPath the path to the medium description file
-    * @param mediumChecksum        the checksum of the medium
-    * @param archiveComponentID    the ID of the owning archive component
-    * @param uri                   the URI of the song file
-    */
-  private case class PersistentPlaylistItemData(index: Int,
-                                                mediumURI: String,
-                                                mediumDescriptionPath: Option[String],
-                                                mediumChecksum: Option[String],
-                                                archiveComponentID: String,
-                                                uri: String)
-
-  /** A format for parsing persistent playlist items. */
-  private given RootJsonFormat[PersistentPlaylistItemData] = jsonFormat6(PersistentPlaylistItemData.apply)
-
-  /**
     * Returns a [[Source]] that extracts [[PlaylistItem]] objects from the 
     * given data source.
     *
@@ -95,26 +65,6 @@ object PersistentPlaylistParser:
   def parsePlaylist(source: Source[ByteString, Any]): Source[PlaylistItemData, Any] =
     JsonStreamParser.parseStream[PersistentPlaylistItemData, Any](source)
       .map(convertToDataModel)
-
-  /**
-    * Converts the given persistent item to its in-memory form.
-    *
-    * @param data the playlist data item to convert
-    * @return the in-memory model representation of this item
-    */
-  private def convertToDataModel(data: PersistentPlaylistItemData): PlaylistItemData =
-    PlaylistItemData(
-      index = data.index,
-      fileID = MediaFileID(
-        mediumID = MediumID(
-          mediumURI = data.mediumURI,
-          mediumDescriptionPath = data.mediumDescriptionPath,
-          archiveComponentID = data.archiveComponentID
-        ),
-        uri = data.uri,
-        checksum = data.mediumChecksum
-      )
-    )
 
   /**
     * Generates a ''Playlist'' from the given list of intermediate playlist

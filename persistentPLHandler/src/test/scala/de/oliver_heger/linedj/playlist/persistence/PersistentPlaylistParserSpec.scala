@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
-import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItemData
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.PlaylistItemData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
