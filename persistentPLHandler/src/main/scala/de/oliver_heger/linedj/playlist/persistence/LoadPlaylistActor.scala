@@ -18,10 +18,12 @@ package de.oliver_heger.linedj.playlist.persistence
 
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItem
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistParser.PlaylistItemData
 import org.apache.pekko.actor.{Actor, ActorLogging}
-import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
+import org.apache.pekko.stream.{ActorAttributes, Supervision}
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
 import org.apache.pekko.util.ByteString
+import spray.json.DeserializationException
 
 import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,7 +73,7 @@ class LoadPlaylistActor extends Actor with ActorLogging:
         .recover:
           case e =>
             log.error(e, s"Error when reading playlist file $plPath!")
-            List.empty[PlaylistItem]
+            List.empty[PlaylistItemData]
       val futPlaylistPos = loadPositionFile(posPath, maxFileSize)
         .recover:
           case e =>
@@ -79,7 +81,7 @@ class LoadPlaylistActor extends Actor with ActorLogging:
             DummyPosition
 
       val playlist = for items <- futPlaylistItems
-                          pos <- futPlaylistPos
+                         pos <- futPlaylistPos
       yield PersistentPlaylistParser.generateFinalPlaylist(items, pos)
       playlist foreach { pl =>
         bus publish LoadedPlaylist(pl)
@@ -93,15 +95,22 @@ class LoadPlaylistActor extends Actor with ActorLogging:
     * @param maxSize the maximum file size
     * @return a ''Future'' for the result of the load operation
     */
-  private def loadPlaylistFile(path: Path, maxSize: Int): Future[List[PlaylistItem]] =
+  private def loadPlaylistFile(path: Path, maxSize: Int): Future[List[PlaylistItemData]] =
     log.info("Loading persistent playlist from {}.", path)
-    val source = FileIO.fromPath(path)
-    val sink = Sink.fold[List[PlaylistItem], PlaylistItem](List.empty) { (lst, item) =>
+    val source = FileIO.fromPath(path).via(new StreamSizeRestrictionStage(maxSize))
+    val playlistSource = PersistentPlaylistParser.parsePlaylist(source)
+    val sink = Sink.fold[List[PlaylistItemData], PlaylistItemData](List.empty) { (lst, item) =>
       item :: lst
     }
-    source.via(new StreamSizeRestrictionStage(maxSize))
-      .via(PersistentPlaylistParser.playlistParserStage)
-      .runWith(sink)
+
+    val decider: Supervision.Decider = {
+      case e: DeserializationException =>
+        log.error(e, "Could not parse playlist item. Ignoring it.")
+        Supervision.Resume
+    }
+    val graph = playlistSource.toMat(sink)(Keep.right)
+    val supervisedGraph = graph.withAttributes(ActorAttributes.supervisionStrategy(decider))
+    supervisedGraph.run()
 
   /**
     * Loads a file with position information about a playlist.
