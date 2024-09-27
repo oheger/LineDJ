@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.{CurrentPlaylistPosition, LoadedPlaylist}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -68,8 +69,8 @@ object LoadPlaylistActorSpec extends PlaylistTestHelper:
   private def generatePersistentPosition(position: CurrentPlaylistPosition): String =
     s"""{
        |"index": ${position.index},
-       |"position": ${position.positionOffset},
-       |"time": ${position.timeOffset}
+       |"position": ${position.position},
+       |"time": ${position.time}
        |}
   """.stripMargin
 
@@ -183,8 +184,8 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new LoadActorTestHelper
 
     helper.triggerLoad(playlistPath, positionPath)
-      .expectPlaylistResult(generateSetPlaylist(SongCount, position.index, position.positionOffset,
-        position.timeOffset))
+      .expectPlaylistResult(generateSetPlaylist(SongCount, position.index, position.position,
+        position.time))
 
   it should "apply the offsets in the position file only to the correct index" in:
     val content =

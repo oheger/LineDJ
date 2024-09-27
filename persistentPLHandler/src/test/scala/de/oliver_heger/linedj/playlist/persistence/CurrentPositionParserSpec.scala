@@ -32,12 +32,12 @@ class CurrentPositionParserSpec extends AnyFlatSpec with Matchers:
 
     val pos = CurrentPositionParser parsePosition data
     pos.index should be(42)
-    pos.positionOffset should be(20171202)
-    pos.timeOffset should be(123456789)
+    pos.position should be(20171202)
+    pos.time should be(123456789)
 
   it should "return defaults for properties that could not be parsed" in:
     val pos = CurrentPositionParser parsePosition ""
 
     pos.index should be(0)
-    pos.positionOffset should be(0)
-    pos.timeOffset should be(0)
+    pos.position should be(0)
+    pos.time should be(0)

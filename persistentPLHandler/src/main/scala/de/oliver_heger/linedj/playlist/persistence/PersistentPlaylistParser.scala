@@ -94,6 +94,6 @@ object PersistentPlaylistParser:
   private def applyOffsets(pl: Playlist, curIdx: Int, position: CurrentPlaylistPosition):
   SetPlaylist =
     if curIdx == position.index then
-      SetPlaylist(playlist = pl, positionOffset = position.positionOffset,
-        timeOffset = position.timeOffset)
+      SetPlaylist(playlist = pl, positionOffset = position.position,
+        timeOffset = position.time)
     else SetPlaylist(playlist = pl)

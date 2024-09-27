@@ -24,6 +24,7 @@ import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.LoadedPlaylist
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor.Receive

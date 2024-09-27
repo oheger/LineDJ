@@ -22,6 +22,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.playlist.persistence.LoadPlaylistActor.LoadPlaylistData
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.{CurrentPlaylistPosition, LoadedPlaylist}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.WriteFile
 import de.oliver_heger.linedj.playlist.persistence.PlaylistStateWriterActorSpec.*
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
@@ -545,8 +546,8 @@ class PlaylistWriteStateUpdateServiceSpec(testSystem: ActorSystem) extends TestK
 
     val next = modifyState(service.closeRequest(TestProbe().ref, WriteConfig), s1)
     val playlist = saveAndLoadPlaylist(next.writesToTrigger.values)
-    playlist.positionOffset should be(StateWithPlaylist.updatedPosition.positionOffset)
-    playlist.timeOffset should be(StateWithPlaylist.updatedPosition.timeOffset)
+    playlist.positionOffset should be(StateWithPlaylist.updatedPosition.position)
+    playlist.timeOffset should be(StateWithPlaylist.updatedPosition.time)
     next.canClose shouldBe false
 
   it should "return the same state if there are no write messages" in:

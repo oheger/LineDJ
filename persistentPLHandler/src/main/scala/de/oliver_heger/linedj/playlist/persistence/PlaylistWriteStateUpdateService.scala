@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.playlist.persistence
 import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.platform.audio.AudioPlayerState
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.*
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.WriteFile
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import org.apache.pekko.actor.ActorRef
@@ -26,6 +27,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import scalaz.State
 import scalaz.State.*
+import spray.json.*
 
 import java.nio.file.Path
 import scala.collection.immutable.Seq
@@ -310,8 +312,8 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
   StateUpdate[Unit] = modify { s =>
     if s.initialPlaylist.isEmpty || s.closeRequest.isDefined then s
     else
-      val updatedPos = s.updatedPosition.copy(positionOffset = posOfs, timeOffset = timeOfs)
-      val writes = if timeOfs - s.currentPosition.timeOffset >=
+      val updatedPos = s.updatedPosition.copy(position = posOfs, time = timeOfs)
+      val writes = if timeOfs - s.currentPosition.time >=
         writeConfig.autoSaveInterval.toSeconds then
         List(WriteFile(createPositionSource(updatedPos), writeConfig.pathPosition))
       else List.empty[WriteFile]
@@ -484,8 +486,6 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
     * @return a string representation of this item
     */
   private def convertItem(item: MediaFileID, idx: Int): String =
-    import PersistentPlaylistModel.*
-    import spray.json.*
     convertToPersistentModel(PlaylistItemData(idx, item)).toJson.prettyPrint
 
   /**
@@ -495,11 +495,5 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
     * @return the JSON representation for this position
     */
   private def convertPosition(position: CurrentPlaylistPosition): ByteString =
-    ByteString(
-      s"""{
-         |"${CurrentPositionParser.PropIndex}": ${position.index},
-         |"${CurrentPositionParser.PropPosition}": ${position.positionOffset},
-         |"${CurrentPositionParser.PropTime}": ${position.timeOffset}
-         |}
-     """.stripMargin)
+    ByteString(position.toJson.prettyPrint)
 }

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import spray.json.DefaultJsonProtocol.*
 import spray.json.*
@@ -54,8 +55,31 @@ object PersistentPlaylistModel:
                                         archiveComponentID: String,
                                         uri: String)
 
+  /**
+    * A class representing the current position in a playlist.
+    *
+    * The position consists of the index of the current song which is played,
+    * and information about the part of the song that has been played already.
+    *
+    * @param index    the index of the current song in the playlist (0-based)
+    * @param position the position (in bytes) within the current song
+    * @param time     the time (in millis) within the current song
+    */
+  case class CurrentPlaylistPosition(index: Int, position: Long, time: Long)
+
+  /**
+    * A class representing a playlist that has been loaded from
+    * [[LoadPlaylistActor]].
+    *
+    * @param setPlaylist the command for setting the playlist
+    */
+  case class LoadedPlaylist(setPlaylist: SetPlaylist)
+
   /** A format for parsing persistent playlist items. */
   given RootJsonFormat[PersistentPlaylistItemData] = jsonFormat6(PersistentPlaylistItemData.apply)
+
+  /** A format for parsing the playlist position. */
+  given RootJsonFormat[CurrentPlaylistPosition] = jsonFormat3(CurrentPlaylistPosition.apply)
 
   /**
     * Converts the given persistent item to its in-memory form.

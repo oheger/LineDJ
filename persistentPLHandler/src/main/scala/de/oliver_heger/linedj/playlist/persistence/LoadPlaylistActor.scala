@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.playlist.persistence
 
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.PlaylistItemData
+import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.{CurrentPlaylistPosition, LoadedPlaylist, PlaylistItemData}
 import org.apache.pekko.actor.{Actor, ActorLogging}
 import org.apache.pekko.stream.{ActorAttributes, Supervision}
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
@@ -29,9 +29,6 @@ import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object LoadPlaylistActor:
-  /** A position that is used if the position file cannot be read. */
-  private val DummyPosition = CurrentPlaylistPosition(0, 0, 0)
-
   /**
     * The central message processed by [[LoadPlaylistActor]].
     *
@@ -78,7 +75,7 @@ class LoadPlaylistActor extends Actor with ActorLogging:
         .recover:
           case e =>
             log.error(e, s"Error when reading position file $posPath!")
-            DummyPosition
+            CurrentPositionParser.DummyPosition
 
       val playlist = for items <- futPlaylistItems
                          pos <- futPlaylistPos
