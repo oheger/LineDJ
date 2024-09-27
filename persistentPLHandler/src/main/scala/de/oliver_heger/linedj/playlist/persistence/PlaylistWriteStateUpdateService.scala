@@ -20,12 +20,12 @@ import de.oliver_heger.linedj.io.stream.ListSeparatorStage
 import de.oliver_heger.linedj.platform.audio.AudioPlayerState
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.WriteFile
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import scalaz.State
-import scalaz.State._
+import scalaz.State.*
 
 import java.nio.file.Path
 import scala.collection.immutable.Seq
@@ -484,48 +484,9 @@ object PlaylistWriteStateUpdateServiceImpl extends PlaylistWriteStateUpdateServi
     * @return a string representation of this item
     */
   private def convertItem(item: MediaFileID, idx: Int): String =
-    val descPath = generateDescriptionPath(item.mediumID)
-    val checksum = generateMediumChecksum(item)
-    s"""{
-       |"${PersistentPlaylistParser.PropIndex}": $idx,
-       |"${PersistentPlaylistParser.PropMediumURI}": "${item.mediumID.mediumURI}",$descPath$checksum
-       |"${PersistentPlaylistParser.PropArchiveCompID}": "${item.mediumID
-        .archiveComponentID}",
-       |"${PersistentPlaylistParser.PropURI}": "${item.uri}"
-       |}
-    """.stripMargin
-
-  /**
-    * Generates a string for the optional medium description path. If no
-    * description path is defined, result is an empty string.
-    *
-    * @param mid the medium ID
-    * @return a string for the description path
-    */
-  private def generateDescriptionPath(mid: MediumID): String =
-    generateOptProperty(PersistentPlaylistParser.PropMediumDescPath, mid.mediumDescriptionPath)
-
-  /**
-    * Generates a string for the optional medium checksum. If no checksum is
-    * defined, result is an empty string.
-    *
-    * @param mediaFileID the media file ID
-    * @return a string for the medium checksum
-    */
-  private def generateMediumChecksum(mediaFileID: MediaFileID): String =
-    generateOptProperty(PersistentPlaylistParser.PropMediumChecksum, mediaFileID.checksum)
-
-  /**
-    * Generates a JSON string for an optional property. If the property is
-    * defined, a correct key value pair is generated. Otherwise, result is an
-    * empty string.
-    *
-    * @param key   the property key
-    * @param value the optional property value
-    * @return the resulting string
-    */
-  private def generateOptProperty(key: String, value: Option[String]): String =
-    value.map("\n\"" + key + "\": \"" + _ + "\",") getOrElse ""
+    import PersistentPlaylistModel.*
+    import spray.json.*
+    convertToPersistentModel(PlaylistItemData(idx, item)).toJson.prettyPrint
 
   /**
     * Generates a string for the specified current playlist position.

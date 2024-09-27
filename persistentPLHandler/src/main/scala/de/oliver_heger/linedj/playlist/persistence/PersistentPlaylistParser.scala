@@ -21,11 +21,9 @@ import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.audio.playlist.Playlist
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.*
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import spray.json.DefaultJsonProtocol.*
-import spray.json.RootJsonFormat
 
 import scala.annotation.tailrec
 
@@ -37,24 +35,6 @@ import scala.annotation.tailrec
   * properties.
   */
 object PersistentPlaylistParser:
-  /** Property for the playlist index. */
-  val PropIndex = "index"
-
-  /** Property for the URI of the medium. */
-  val PropMediumURI = "mediumURI"
-
-  /** Property for the description path of the medium. */
-  val PropMediumDescPath = "mediumDescriptionPath"
-
-  /** Property for the checksum of the medium. */
-  val PropMediumChecksum = "mediumChecksum"
-
-  /** Property for the component ID of the managing archive. */
-  val PropArchiveCompID = "archiveComponentID"
-
-  /** Property for the song URI. */
-  val PropURI = "uri"
-
   /**
     * Returns a [[Source]] that extracts [[PlaylistItem]] objects from the 
     * given data source.

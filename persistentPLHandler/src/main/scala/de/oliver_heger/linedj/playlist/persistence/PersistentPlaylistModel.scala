@@ -76,3 +76,20 @@ object PersistentPlaylistModel:
         checksum = data.mediumChecksum
       )
     )
+
+  /**
+    * Converts the given playlist item model object to its persistent form, so
+    * that it can be stored on disk.
+    *
+    * @param data the model object to convert
+    * @return the representation of this item for persistence
+    */
+  def convertToPersistentModel(data: PlaylistItemData): PersistentPlaylistItemData =
+    PersistentPlaylistItemData(
+      index = data.index,
+      mediumURI = data.fileID.mediumID.mediumURI,
+      mediumDescriptionPath = data.fileID.mediumID.mediumDescriptionPath,
+      mediumChecksum = data.fileID.checksum,
+      archiveComponentID = data.fileID.mediumID.archiveComponentID,
+      uri = data.fileID.uri
+    )
