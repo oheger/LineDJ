@@ -125,10 +125,10 @@ object MetaDataUnionActorSpec:
     loop(uriStr.length - 1)
 
   /**
-    * Creates a test meta data object for the specified URI.
+    * Creates a test metadata object for the specified URI.
     *
     * @param uri the URI
-    * @return the meta data for this path (following conventions)
+    * @return the metadata for this path (following conventions)
     */
   private def metaDataFor(uri: MediaFileUri): MediaMetaData =
     val index = extractUriIndex(uri)
@@ -137,14 +137,14 @@ object MetaDataUnionActorSpec:
       size = Some(index * 100))
 
   /**
-    * Generates a meta data processing result for the specified parameters.
+    * Generates a metadata processing result for the specified parameters.
     *
     * @param mediumID the medium ID
     * @param uri      the URI of the media file
     * @return a successful processing result for this file
     */
-  private def processingResult(mediumID: MediumID, uri: MediaFileUri): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(mediumID, uri, metaDataFor(uri))
+  private def processingResult(mediumID: MediumID, uri: MediaFileUri): MetadataProcessingSuccess =
+    MetadataProcessingSuccess(mediumID, uri, metaDataFor(uri))
 
   /**
     * Creates a test media contribution object.
@@ -221,7 +221,7 @@ object MetaDataUnionActorSpec:
 
   /**
     * Fishes for the scan completed event on the specified test probe. If the
-    * probe is registered as meta data state listener, the end of a scan
+    * probe is registered as metadata state listener, the end of a scan
     * operation can be determined. A custom fishing function can be provided to
     * react on specific events.
     *
@@ -246,7 +246,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     TestKit shutdownActorSystem system
 
   /**
-    * Checks whether a meta data chunk received from the test actor contains the
+    * Checks whether a metadata chunk received from the test actor contains the
     * expected data for the given medium ID and verifies the URIs in the chunk.
     *
     * @param msg          the chunk message to be checked
@@ -427,7 +427,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .processContribution(contribution2)
     expectNoMoreMessage(probe)
 
-  it should "split large chunks of meta data into multiple ones" in:
+  it should "split large chunks of metadata into multiple ones" in:
     val helper = new MetaDataUnionActorTestHelper
     helper.sendContribution()
     val files = generateMediaFiles(path("fileOnOtherMedium"), MaxMessageSize + 4)
@@ -472,7 +472,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.processContribution(Contribution)
     expectNoMoreMessage(probe)
 
-  it should "pass the current meta data state to a newly registered state listener" in:
+  it should "pass the current metadata state to a newly registered state listener" in:
     val helper = new MetaDataUnionActorTestHelper
     val listener = helper.newStateListener(expectStateMsg = false)
 
@@ -488,7 +488,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     listener.expectMsg(MetaDataStateUpdated(MetaDataState(mediaCount = 0, songCount = 0,
       size = 0, duration = 0, scanInProgress = true, updateInProgress = false, archiveCompIDs = Set.empty)))
 
-  it should "correctly update the meta data state during a scan operation" in:
+  it should "correctly update the metadata state during a scan operation" in:
     val helper = new MetaDataUnionActorTestHelper
     val listener1, listener2 = TestProbe()
     helper.sendContribution()
@@ -504,7 +504,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       size = 300, duration = 30, scanInProgress = true, updateInProgress = false,
       archiveCompIDs = Set(ArchiveCompID))))
 
-  it should "correctly update the meta data state for multiple archive components" in:
+  it should "correctly update the metadata state for multiple archive components" in:
     val helper = new MetaDataUnionActorTestHelper
     val listener = TestProbe()
     helper.processContribution(Contribution)
@@ -551,11 +551,11 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     listener.expectMsgType[MetaDataStateUpdated]
     listener.expectMsg(MetaDataScanCompleted)
 
-  it should "support meta data without a duration" in:
+  it should "support metadata without a duration" in:
     val helper = new MetaDataUnionActorTestHelper
     val uri = Contribution.files(TestMediumID).head
     helper.sendContribution()
-    helper.actor receive MetaDataProcessingSuccess(TestMediumID, uri, metaDataFor(uri).copy(duration = None))
+    helper.actor receive MetadataProcessingSuccess(TestMediumID, uri, metaDataFor(uri).copy(duration = None))
 
     val listener = helper.newStateListener(expectStateMsg = false)
     listener.expectMsgType[MetaDataStateUpdated].state.duration should be(0)
@@ -662,7 +662,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       .queryAndExpectMetaData(TestMediumID, registerAsListener = false)
     checkMetaDataChunk(chunk, TestMediumID, Iterable.empty, expComplete = false)
 
-  it should "remove meta data when the responsible actor is removed" in:
+  it should "remove metadata when the responsible actor is removed" in:
     val helper = new MetaDataUnionActorTestHelper
     val otherContrib = createContributionFromOtherComponent()
     helper.sendContribution().sendContribution(otherContrib)
@@ -883,7 +883,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val expUris = successFiles map (_.uri)
     receivedUris should contain theSameElementsAs expUris
 
-  it should "handle a request for file meta data" in:
+  it should "handle a request for file metadata" in:
     val mid = MediaIDs(1)
     val files = Contribution.files(mid)
     val unkMediumFile = MediaFileID(MediumID("unknownMedium", Some("unknown")), "unknown")
@@ -905,7 +905,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       data(id) should be(metaDataFor(f))
     }
 
-  it should "handle a request for file meta data with a medium mapping" in:
+  it should "handle a request for file metadata with a medium mapping" in:
     val mid = MediaIDs(1)
     val midMapped = MediumID("otherMedium", Some("other"), "other")
     val files = Contribution.files(mid)
@@ -967,7 +967,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     system stop processor
     listener.expectMsg(MetaDataUpdateCompleted)
 
-  it should "update the operation in progress flag in the meta data state" in:
+  it should "update the operation in progress flag in the metadata state" in:
     val helper = new MetaDataUnionActorTestHelper
     helper.actor ! UpdateOperationStarts(None)
     val listener1 = helper.newStateListener(expectStateMsg = false)
@@ -1015,7 +1015,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       this
 
     /**
-      * Sends a request for meta data to the test actor.
+      * Sends a request for metadata to the test actor.
       *
       * @param mediumID           the medium ID
       * @param registerAsListener the register as listener flag
@@ -1028,11 +1028,11 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       this
 
     /**
-      * Expects a meta data response message with the specified registration
+      * Expects a metadata response message with the specified registration
       * ID. The chunk data of this message is returned.
       *
       * @param registrationID the registration ID
-      * @return the meta data chunk from the response message
+      * @return the metadata chunk from the response message
       */
     def expectMetaDataResponse(registrationID: Int = TestRegistrationID): MetaDataChunk =
       val response = expectMsgType[MetaDataResponse]
@@ -1040,7 +1040,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       response.chunk
 
     /**
-      * Expects a number of meta data chunks for different media and returns a
+      * Expects a number of metadata chunks for different media and returns a
       * map with the received results.
       *
       * @param registrationID the registration ID
@@ -1078,7 +1078,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       this
 
     /**
-      * Sends a request for meta data for the test actor and expects a response.
+      * Sends a request for metadata for the test actor and expects a response.
       *
       * @param mediumID           the medium ID
       * @param registerAsListener the register as listener flag
@@ -1091,7 +1091,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       expectMetaDataResponse(registrationID)
 
     /**
-      * Sends a request for meta data for a medium and expects an unknown
+      * Sends a request for metadata for a medium and expects an unknown
       * medium response.
       *
       * @param mediumID the medium ID
@@ -1164,7 +1164,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       this
 
     /**
-      * Adds a test probe as meta data state listener to the test actor.
+      * Adds a test probe as metadata state listener to the test actor.
       *
       * @param probe the test probe to be registered
       * @return this test helper
@@ -1189,10 +1189,10 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
       probe
 
     /**
-      * Registers a temporary state listener for obtaining the current meta
-      * data state.
+      * Registers a temporary state listener for obtaining the current
+      * metadata state.
       *
-      * @return the current meta data state
+      * @return the current metadata state
       */
     def readCurrentMetaDataState(): MetaDataState =
       val listener = newStateListener(expectStateMsg = false)
@@ -1258,7 +1258,7 @@ class MetaDataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     config
 
   /**
-    * A data class that represents multiple received meta data chunks and
+    * A data class that represents multiple received metadata chunks and
     * offers some functionality to test them. This is mainly used for tests
     * related to the global undefined medium where chunks from different media
     * are involved.

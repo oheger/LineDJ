@@ -81,7 +81,7 @@ class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(tes
     val props = factory.extractorProps(ext, receiver)
     props.get should be(expProps)
 
-  it should "return Props for MP3 meta data extraction" in:
+  it should "return Props for MP3 metadata extraction" in:
     checkMp3Extension("mp3")
 
   it should "ignore case when evaluating file extensions" in:

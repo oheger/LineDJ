@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.archive.metadata.{ScanForMetaDataFiles, Unresolved
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataFileInfo, RemovePersistentMetaData, RemovePersistentMetaDataResult}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
 
@@ -31,26 +31,26 @@ import java.nio.file.Path
 import scala.annotation.tailrec
 
 object PersistentMetaDataManagerActor:
-  /** File extension for meta data files. */
+  /** File extension for metadata files. */
   val MetaDataFileExtension = ".mdt"
 
   /**
     * Constant for a ''MetaDataFileInfo'' object containing no data. This
-    * object is returned if meta data information is requested before a scan
-    * for meta data files has been triggered.
+    * object is returned if metadata information is requested before a scan
+    * for metadata files has been triggered.
     */
   val EmptyMetaDataFileInfo: MetaDataFileInfo = MetaDataFileInfo(Map.empty, Set.empty, None)
 
   /**
     * A message expected by [[PersistentMetaDataManagerActor]] at the end of
-    * a scan operation. This allows the actor to do some post processing after
+    * a scan operation. This allows the actor to do some post-processing after
     * a scan.
     */
   case object ScanCompleted
 
   /**
     * A message processed by [[PersistentMetaDataManagerActor]] that requests
-    * an object with information about meta data files.
+    * an object with information about metadata files.
     *
     * The actor returns a [[MetaDataFileInfo]] object that references the
     * passed in controller actor.
@@ -61,9 +61,9 @@ object PersistentMetaDataManagerActor:
 
   /**
     * A message sent by [[PersistentMetaDataManagerActor]] to itself when the
-    * map with meta data files is available.
+    * map with metadata files is available.
     *
-    * @param files the map with meta data files
+    * @param files the map with metadata files
     */
   private case class MetaDataFileResult(files: Map[MediumChecksum, Path])
 
@@ -71,7 +71,7 @@ object PersistentMetaDataManagerActor:
     * An internally used data class that stores information about media that
     * are currently processed by this actor.
     *
-    * @param request       the request for reading the meta data file
+    * @param request       the request for reading the metadata file
     * @param scanResult    the associated scan result
     * @param listenerActor the actor to be notified for results
     * @param resolvedFiles a set with the files that could be resolved
@@ -105,15 +105,15 @@ object PersistentMetaDataManagerActor:
       * @param result the processing result
       * @return the updated instance
       */
-    def updateResolvedFiles(result: MetaDataProcessingSuccess): MediumData =
+    def updateResolvedFiles(result: MetadataProcessingSuccess): MediumData =
       copy(resolvedFiles = resolvedFiles + result.uri.uri)
 
     /**
-      * Creates an object with information about meta data files that have not
+      * Creates an object with information about metadata files that have not
       * been resolved. If there are no unresolved files, result is ''None''.
       *
       * @param converter the ''PathUriConverter''
-      * @return the object about unresolved meta data files
+      * @return the object about unresolved metadata files
       */
     def unresolvedFiles(converter: PathUriConverter): Option[UnresolvedMetaDataFiles] =
       val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot { d =>
@@ -142,7 +142,7 @@ object PersistentMetaDataManagerActor:
     * Returns a ''Props'' object for creating an instance of this actor class.
     *
     * @param config             the configuration
-    * @param metaDataUnionActor the meta data union actor
+    * @param metaDataUnionActor the metadata union actor
     * @param converter          the ''PathUriConverter''
     * @return creation properties for a new actor instance
     */
@@ -151,26 +151,26 @@ object PersistentMetaDataManagerActor:
       new PersistentMetaDataFileScanner, converter)
 
 /**
-  * An actor for managing files with media meta data.
+  * An actor for managing files with media metadata.
   *
-  * An instance of this class is responsible for managing persistent meta data
+  * An instance of this class is responsible for managing persistent metadata
   * files. On startup, this actor scans the meta directory for ''*.mdt'' files
   * associated with the media available. When messages about the media files
-  * available are received, it checks whether corresponding meta data files
+  * available are received, it checks whether corresponding metadata files
   * exist. If so, [[PersistentMetaDataReaderActor]] instances are created to
   * read these files. The results of these read operations are then passed
-  * back to the calling actor (which is typically the meta data manager actor).
+  * back to the calling actor (which is typically the metadata manager actor).
   *
-  * Meta data for songs added to the music library is not available initially.
-  * Therefore, this actor checks whether persistent meta data is available for
+  * metadata for songs added to the music library is not available initially.
+  * Therefore, this actor checks whether persistent metadata is available for
   * a given medium and if it is complete. If this is not the case, the data
   * should be updated. This task is delegated to a specialized child actor.
-  * The goal is to generate persistent meta data automatically by storing the
+  * The goal is to generate persistent metadata automatically by storing the
   * information extracted from media files.
   *
   * @param config             the configuration
-  * @param metaDataUnionActor reference to the meta data union actor
-  * @param fileScanner        the scanner for meta data files
+  * @param metaDataUnionActor reference to the metadata union actor
+  * @param fileScanner        the scanner for metadata files
   * @param converter          the ''PathUriConverter''
   */
 class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
@@ -183,19 +183,19 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   import PersistentMetaDataManagerActor._
 
   /**
-    * Stores information about meta data files available. The data is loaded
-    * when the actor is started; so it may no be available immediately.
+    * Stores information about metadata files available. The data is loaded
+    * when the actor is started; so it may not be available immediately.
     */
   private var optMetaDataFiles: Option[Map[MediumChecksum, Path]] = None
 
   /**
     * A list with scan results sent to this actor. These results can only be
-    * processed after information about meta data files is available.
+    * processed after information about metadata files is available.
     */
   private var pendingScanResults = List.empty[EnhancedMediaScanResult]
 
   /**
-    * A list with requests for reading meta data files that are waiting to be
+    * A list with requests for reading metadata files that are waiting to be
     * processed by a reader actor.
     */
   private var pendingReadRequests = List.empty[MediumData]
@@ -210,17 +210,17 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
   /**
     * A mapping for medium IDs to checksum data. This map is filled from the
     * received enhanced scan results. It is used to find out for which media
-    * meta data files exist.
+    * metadata files exist.
     */
   private var checksumMapping = Map.empty[MediumID, MediumChecksum]
 
   /**
-    * The child actor for writing meta data for media with incomplete
+    * The child actor for writing metadata for media with incomplete
     * information.
     */
   private var writerActor: ActorRef = _
 
-  /** The child actor for remove meta data files operation. */
+  /** The child actor for remove metadata files operation. */
   private var removeActor: ActorRef = _
 
   /** The child actor for writing a ToC for the archive. */
@@ -253,7 +253,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       processPendingScanResults(res :: pendingScanResults)
       checksumMapping = checksumMapping ++ res.checksumMapping
 
-    case result: MetaDataProcessingSuccess =>
+    case result: MetadataProcessingSuccess =>
       val optMediaData = mediaInProgress get result.mediumID
       optMediaData foreach { d =>
         d.listenerActor ! result
@@ -307,29 +307,30 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       checkAndSendCloseAck(sender())
 
   /**
-    * Invokes the file scanner to start the scan for meta data files. When
+    * Invokes the file scanner to start the scan for metadata files. When
     * the future with the scan result completes, the result is sent as a
     * message to this actor.
     */
   private def triggerMetaDataFileScan(): Unit =
-    log.info("Scanning {} for meta data files.", config.metaDataPersistencePath)
+    log.info("Scanning {} for metadata files.", config.metaDataPersistencePath)
     import context.dispatcher
     implicit val system: ActorSystem = context.system
     fileScanner.scanForMetaDataFiles(config.metaDataPersistencePath)
       .recover {
         case e: Exception =>
-          log.error(e, "Could not read meta data files!")
+          log.error(e, "Could not read metadata files!")
           Map.empty[MediumChecksum, Path]
       } map (m => MetaDataFileResult(m)) foreach (self ! _)
 
   /**
-    * Generates the response to send in reaction on a request to remove meta
-    * data files. If the information about these files is not yet available,
-    * the caller is sent a result immediately (indicating that no files have
-    * been deleted); otherwise, the request is passed to the remove actor.
+    * Generates the response to send in reaction on a request to remove 
+    * metadata files. If the information about these files is not yet 
+    * available, the caller is sent a result immediately (indicating that no 
+    * files have been deleted); otherwise, the request is passed to the remove 
+    * actor.
     *
     * @param req      the request to remove files
-    * @param fileData the current meta data file information
+    * @param fileData the current metadata file information
     * @param caller   the calling actor
     * @return a tuple with the target actor and the message to send
     */
@@ -345,7 +346,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         (caller, RemovePersistentMetaDataResult(req, Set.empty))
 
   /**
-    * Creates a child actor for reading a meta data file.
+    * Creates a child actor for reading a metadata file.
     *
     * @return the child reader actor
     */
@@ -354,7 +355,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       .metaDataPersistenceChunkSize))
 
   /**
-    * Creates a child actor for reading a meta data file and sends it a read
+    * Creates a child actor for reading a metadata file and sends it a read
     * request.
     *
     * @param request the request for the child actor
@@ -383,10 +384,10 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
 
   /**
     * Processes an ''UnresolvedMetaDataFiles'' message for a medium for which
-    * no meta data file could be found.
+    * no metadata file could be found.
     *
     * @param u                the message to be processed
-    * @param metaManagerActor the meta data manager actor
+    * @param metaManagerActor the metadata manager actor
     * @param resolved         the number of unresolved files
     */
   private def processUnresolvedFiles(u: UnresolvedMetaDataFiles, metaManagerActor: ActorRef, resolved: Int): Unit =
@@ -406,26 +407,26 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       target = generateMetaDataPath(u), metaDataManager = metaDataUnionActor, resolvedSize = resolved)
 
   /**
-    * Generates the path for a meta data file based on the specified
+    * Generates the path for a metadata file based on the specified
     * ''UnresolvedMetaDataFiles'' object.
     *
     * @param u the object describing unresolved files on a medium
-    * @return the path for the corresponding meta data file
+    * @return the path for the corresponding metadata file
     */
   private def generateMetaDataPath(u: UnresolvedMetaDataFiles): Path =
     generateMetaDataPath(u.result.checksumMapping(u.mediumID))
 
   /**
-    * Generates the path for a meta data file based on the specified checksum.
+    * Generates the path for a metadata file based on the specified checksum.
     *
     * @param checksum the checksum
-    * @return the path for the corresponding meta data file
+    * @return the path for the corresponding metadata file
     */
   private def generateMetaDataPath(checksum: MediumChecksum): Path =
     config.metaDataPersistencePath.resolve(checksum.checksum + MetaDataFileExtension)
 
   /**
-    * Starts as many reader actors for meta data files as possible. For each
+    * Starts as many reader actors for metadata files as possible. For each
     * medium request not yet in progress an actor is started until the maximum
     * number of parallel read actors is reached.
     */
@@ -437,12 +438,12 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     activeReaderActors = count
 
   /**
-    * Groups a list with pending scan results. If meta data files are
+    * Groups a list with pending scan results. If metadata files are
     * already available, the media in all scan results are grouped whether a
-    * corresponding meta data file exists for them. The resulting lists can be
+    * corresponding metadata file exists for them. The resulting lists can be
     * used for further processing.
     *
-    * @param optMetaDataFiles an option with meta data files
+    * @param optMetaDataFiles an option with metadata files
     * @param scanResults      a list with pending scan results
     * @return the updated list of pending results and lists for further
     *         processing of affected media
@@ -458,7 +459,7 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
         (scanResults, Nil, Nil)
 
   /**
-    * Groups all media in the specified scan result whether a meta data file
+    * Groups all media in the specified scan result whether a metadata file
     * for them exists or not. The resulting tuple of lists can be used to
     * further process the media.
     *
@@ -521,19 +522,19 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       case _ => (requests, inProgress, readerCount)
 
   /**
-    * Returns an object with information about the meta data files managed by
+    * Returns an object with information about the metadata files managed by
     * this actor.
     *
     * @param controller the controller actor for the file info object
-    * @return information about meta data files
+    * @return information about metadata files
     */
   private def fetchCurrentMetaFileInfo(controller: ActorRef): MetaDataFileInfo =
     optMetaDataFiles map (createMetaDataFileInfo(_, checksumMapping, controller)) getOrElse EmptyMetaDataFileInfo
 
   /**
-    * Creates an object with information about meta data files.
+    * Creates an object with information about metadata files.
     *
-    * @param metaDataFiles the map with meta data files
+    * @param metaDataFiles the map with metadata files
     * @param checkMap      the checksum mapping
     * @param controller    the controller actor for the file info object
     * @return the ''MetaDataFileInfo'' object
@@ -549,13 +550,13 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
     MetaDataFileInfo(assignedFilesStr, unusedFilesStr, Some(controller))
 
   /**
-    * Updates the map with meta data files. This function checks whether the
+    * Updates the map with metadata files. This function checks whether the
     * specified ''ProcessMedium'' object refers to a valid medium. If so, it
     * delegates to the passed in update function to do the actual update. The
-    * update function is passed the original map with meta data files, the
+    * update function is passed the original map with metadata files, the
     * checksum affected by the operation, and the ''ProcessMedium'' object.
     *
-    * @param metaDataFiles the current map with meta data files
+    * @param metaDataFiles the current map with metadata files
     * @param checkMap      the checksum mapping
     * @param process       the current ''ProcessMedium'' object
     * @param f             the update function
@@ -570,25 +571,25 @@ class PersistentMetaDataManagerActor(config: MediaArchiveConfig,
       case None => metaDataFiles
 
   /**
-    * Adds a newly written meta data file to the mapping of meta data files.
+    * Adds a newly written metadata file to the mapping of metadata files.
     *
-    * @param metaDataFiles the meta data file mapping
+    * @param metaDataFiles the metadata file mapping
     * @param checksum      the checksum of the affected file
     * @param process       the ''ProcessMedium'' message from the writer actor
-    * @return the updated meta data file mapping
+    * @return the updated metadata file mapping
     */
   private def addMetaDataFile(metaDataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
                               process: ProcessMedium): Map[MediumChecksum, Path] =
     metaDataFiles + (checksum -> generateMetaDataPath(checksum))
 
   /**
-    * Removes a file from the map with meta data files after a failed write
+    * Removes a file from the map with metadata files after a failed write
     * operation.
     *
-    * @param metaDataFiles the meta data file mapping
+    * @param metaDataFiles the metadata file mapping
     * @param checksum      the checksum of the affected file
     * @param process       the ''ProcessMedium'' message from the writer actor
-    * @return the updated meta data file mapping
+    * @return the updated metadata file mapping
     */
   private def removeMetaDataFile(metaDataFiles: Map[MediumChecksum, Path], checksum: MediumChecksum,
                                  process: ProcessMedium): Map[MediumChecksum, Path] =

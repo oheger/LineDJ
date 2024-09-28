@@ -79,10 +79,10 @@ object PlaylistControllerSpec:
     MediaFileID(Medium, "testSong" + idx)
 
   /**
-    * Generates meta data for a test song based on the given index.
+    * Generates metadata for a test song based on the given index.
     *
     * @param idx the index
-    * @return meta data for this test song
+    * @return metadata for this test song
     */
   private def metaData(idx: Int): MediaMetaData =
     MediaMetaData(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
@@ -92,14 +92,14 @@ object PlaylistControllerSpec:
     * Creates a ''SongData'' object with the specified parameters.
     *
     * @param idx  the index of the test song
-    * @param meta the meta data for this song
+    * @param meta the metadata for this song
     * @return the ''SongData'' instance
     */
   private def songData(idx: Int, meta: MediaMetaData): SongData =
     SongFactory.createSongData(fileID(idx), meta)
 
   /**
-    * Creates a ''SongData'' object whose meta data has not yet been resolved.
+    * Creates a ''SongData'' object whose metadata has not yet been resolved.
     *
     * @param idx the index of the test song
     * @return the ''SongData'' instance
@@ -108,7 +108,7 @@ object PlaylistControllerSpec:
     songData(idx, PlaylistController.UndefinedMetaData)
 
   /**
-    * Creates a ''SongData'' object with resolved meta data.
+    * Creates a ''SongData'' object with resolved metadata.
     *
     * @param idx the index of the test song
     * @return the ''SongData'' instance
@@ -127,12 +127,12 @@ object PlaylistControllerSpec:
     (from to to).map(fileID).toList
 
   /**
-    * Generates a map with meta data for the songs of a playlist in the given
+    * Generates a map with metadata for the songs of a playlist in the given
     * range.
     *
     * @param from the start index
     * @param to   the end index (including)
-    * @return the map with meta data
+    * @return the map with metadata
     */
   private def playlistMetaData(from: Int, to: Int): Map[MediaFileID, MediaMetaData] =
     (from to to).foldLeft(Map.empty[MediaFileID, MediaMetaData]) { (m, i) =>
@@ -171,7 +171,7 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       .expectUnresolvedSongs(5, 7)
       .expectResolvedSongs(2, 4)
 
-  it should "resolve songs when new meta data arrives" in:
+  it should "resolve songs when new metadata arrives" in:
     val helper = new PlaylistControllerTestHelper
 
     helper.addSongs(fileIDs(0, 7))
@@ -181,7 +181,7 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       .expectResolvedSongs(2, 4)
     verify(helper.tableHandler).rowsUpdated(2, 4)
 
-  it should "ignore meta data updates if all songs have been resolved initially" in:
+  it should "ignore metadata updates if all songs have been resolved initially" in:
     val helper = new PlaylistControllerTestHelper
 
     helper.sendPlaylistMetaData(playlistMetaData(0, 3))
@@ -190,7 +190,7 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       .sendPlaylistMetaData(playlistMetaData(0, 4))
       .expectUnresolvedSongs(0, 3)
 
-  it should "ignore meta data updates if all songs have been resolved later" in:
+  it should "ignore metadata updates if all songs have been resolved later" in:
     val helper = new PlaylistControllerTestHelper
 
     helper.addSongs(fileIDs(0, 3))
@@ -199,7 +199,7 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       .sendPlaylistMetaData(playlistMetaData(0, 4))
       .expectUnresolvedSongs(0, 3)
 
-  it should "handle a meta data update if no new songs are resolved" in:
+  it should "handle a metadata update if no new songs are resolved" in:
     val helper = new PlaylistControllerTestHelper
     helper.sendPlaylistMetaData(playlistMetaData(0, 3))
       .addSongs(fileIDs(0, 7))
@@ -220,7 +220,7 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
 
     verify(helper.statusLineHandler).setText(generateStatusLine(2, "> 1:00", 0.5))
 
-  it should "update the status line when new meta data arrives" in:
+  it should "update the status line when new metadata arrives" in:
     val helper = new PlaylistControllerTestHelper
     helper.addSongs(fileIDs(0, 1))
       .sendPlaylistMetaData(playlistMetaData(0, 1))
@@ -318,9 +318,9 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       this
 
     /**
-      * Passes a map with meta data to the test controller.
+      * Passes a map with metadata to the test controller.
       *
-      * @param data the map with meta data
+      * @param data the map with metadata
       * @return this test helper
       */
     def sendPlaylistMetaData(data: Map[MediaFileID, MediaMetaData]):

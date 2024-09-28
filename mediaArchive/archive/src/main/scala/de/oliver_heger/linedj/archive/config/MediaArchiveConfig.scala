@@ -52,10 +52,10 @@ object MediaArchiveConfig:
     */
   val PropIncludedExtensions: String = "includedExtensions"
 
-  /** Constant for the prefix for the meta data extraction configuration. */
+  /** Constant for the prefix for the metadata extraction configuration. */
   val MetaExtractionPrefix: String = "metaDataExtraction."
 
-  /** The configuration property for meta data extraction chunk size. */
+  /** The configuration property for metadata extraction chunk size. */
   val PropMetaDataReadChunkSize: String = MetaExtractionPrefix + "readChunkSize"
 
   /** The configuration property for the size restriction for ID3 tags. */
@@ -66,33 +66,33 @@ object MediaArchiveConfig:
 
   /**
     * The configuration property defining a maximum buffer size for the
-    * processing of media during meta data extraction. When the content of a
+    * processing of media during metadata extraction. When the content of a
     * medium has been determined during a media scan operation it is sent to
-    * the meta data manager actor which then triggers the processing of this
+    * the metadata manager actor which then triggers the processing of this
     * medium. As this may take a while, more media may be sent before their
     * processing is complete. This property defines the maximum size of a
     * buffer for such media. As long as the current number of media in this
-    * buffer is below this threshold, the meta data manager sends ACK
+    * buffer is below this threshold, the metadata manager sends ACK
     * responses; so the scan operation can continue. When the limit is reached,
-    * however, no ACK is send - pausing the scan operation - until media have
+    * however, no ACK is sent - pausing the scan operation - until media have
     * been processed completely. This property has a direct impact on the
-    * memory consumption during meta data extraction.
+    * memory consumption during metadata extraction.
     */
   val PropMetaDataBufferSize: String = MetaExtractionPrefix + "metaDataMediaBufferSize"
 
-  /** Constant for the prefix for the meta data persistence configuration. */
+  /** Constant for the prefix for the metadata persistence configuration. */
   val MetaPersistencePrefix: String = "metaDataPersistence."
 
-  /** The configuration property for the meta data persistence path. */
+  /** The configuration property for the metadata persistence path. */
   val PropMetaDataPersistencePath: String = MetaPersistencePrefix + "path"
 
-  /** The configuration property for the meta data persistence chunk size. */
+  /** The configuration property for the metadata persistence chunk size. */
   val PropMetaDataPersistenceChunkSize: String = MetaPersistencePrefix + "chunkSize"
 
-  /** The configuration property for the meta data persistence parallel count. */
+  /** The configuration property for the metadata persistence parallel count. */
   val PropMetaDataPersistenceParallelCount: String = MetaPersistencePrefix + "parallelCount"
 
-  /** The configuration property for the meta data persistence write block size. */
+  /** The configuration property for the metadata persistence write block size. */
   val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
 
   /**
@@ -104,8 +104,8 @@ object MediaArchiveConfig:
 
   /**
     * The configuration property defining the number of processors to be used
-    * when extracting meta data. If the hard disc is powerful, it can make
-    * sense to set a higher number to speed up meta data extraction. The
+    * when extracting metadata. If the hard disc is powerful, it can make
+    * sense to set a higher number to speed up metadata extraction. The
     * default value is 1.
     */
   val PropProcessorCount: String = "processorCount"
@@ -174,7 +174,7 @@ object MediaArchiveConfig:
   /** The default value for the ''PropScanMediaBufferSize'' property. */
   val DefaultScanMediaBufferSize = 8
 
-  /** The default number of processors for meta data extraction. */
+  /** The default number of processors for metadata extraction. */
   val DefaultProcessorCount = 1
 
   /**
@@ -354,11 +354,11 @@ object MediaArchiveConfig:
   /**
     * A data class storing information about a media root. A media root is a
     * directory structure that contains media files. In addition to the actual
-    * root path, some meta data is provided which is needed while processing
+    * root path, some metadata is provided which is needed while processing
     * this structure.
     *
     * @param rootPath          the root path to the structure
-    * @param processorCount    the number of parallel processors during meta data
+    * @param processorCount    the number of parallel processors during metadata
     *                          extraction
     * @param accessRestriction an optional restriction for parallel reads; for
     *                          instance, a CD-ROM drive should not be read
@@ -375,32 +375,32 @@ object MediaArchiveConfig:
   * Instances are created using a static factory method.
   *
   * @param downloadConfig                    the configuration for download operations
-  * @param metaDataReadChunkSize             the read chunk size when extracting meta data
+  * @param metaDataReadChunkSize             the read chunk size when extracting metadata
   * @param infoSizeLimit                     the maximum size of a medium description file
   * @param tagSizeLimit                      the size limit for ID3 tags
   * @param processingTimeout                 a timeout for the processing of a single media
   *                                          file
-  * @param metaDataMediaBufferSize           the buffer for meta data extraction
-  * @param metaDataPersistencePath           the path used by meta data persistence; here
-  *                                          extracted meta data is stored in files
+  * @param metaDataMediaBufferSize           the buffer for metadata extraction
+  * @param metaDataPersistencePath           the path used by metadata persistence; here
+  *                                          extracted metadata is stored in files
   * @param metaDataPersistenceChunkSize      the chunk size to be used when reading
-  *                                          or writing files with persistent meta
-  *                                          data
+  *                                          or writing files with persistent
+  *                                          metadata
   * @param metaDataPersistenceParallelCount  the number of parallel reader or
   *                                          writer actors to be created for
-  *                                          reading persistent meta data
+  *                                          reading persistent metadata
   * @param metaDataPersistenceWriteBlockSize the number of songs to be processed
-  *                                          on a medium before the meta data
+  *                                          on a medium before the metadata
   *                                          file for this medium is written
   * @param excludedFileExtensions            the set with file extensions (in upper case)
   *                                          to be excluded when scanning media files
   * @param includedFileExtensions            the set with file extensions (in upper case)
   *                                          to be included when scanning media files
   * @param rootPath                          the root path to be scanned for media files
-  * @param processorCount                    the number of parallel processor actors for meta
-  *                                          data extraction
+  * @param processorCount                    the number of parallel processor actors for
+  *                                          metadata extraction
   * @param contentFile                       the optional path where to store
-  *                                          the archives's table of content
+  *                                          the archive's table of content
   * @param archiveName                       a name for this archive
   * @param infoParserTimeout                 timeout for the parsing of a medium description
   *                                          file

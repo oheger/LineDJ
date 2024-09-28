@@ -118,17 +118,17 @@ case class MediumFiles(mediumID: MediumID,
   * a medium file.
   *
   * This message class is used to obtain information about a specific file on a
-  * medium (its content plus additional meta data) from the media manager actor.
+  * medium (its content plus additional metadata) from the media manager actor.
   * The desired file is uniquely identified using the medium ID and the
   * (relative) URI within this medium.
   *
-  * When requesting a media file it can be specified whether media meta data
+  * When requesting a media file it can be specified whether media metadata
   * (namely ID3 tags) should be contained in the download or not. If the flag is
   * set to '''false''', a special reader actor is returned which filters out
   * such information. Otherwise, the media file is read directly.
   *
   * @param fileID       the ID of the file in question
-  * @param withMetaData flag whether media meta data contained in the file
+  * @param withMetaData flag whether media metadata contained in the file
   *                     should be read or skipped
   */
 case class MediumFileRequest(fileID: MediaFileID, withMetaData: Boolean) extends RemoteSerializable

@@ -16,7 +16,7 @@ import scala.language.implicitConversions
   * Defines a parser for JSON using the parser combinator library.
   *
   * Note that this is not a general purpose JSON parser, but is specifically
-  * tailored for parsing JSON files containing meta data for songs. Such files
+  * tailored for parsing JSON files containing metadata for songs. Such files
   * contain an array of song data in the first level. For each song a bunch of
   * properties can be defined, but there is no nesting of objects, and
   * properties cannot be arrays. All property values are stores as strings.

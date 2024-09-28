@@ -106,8 +106,8 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the media union actor. */
     private val probeUnionMediaManager = TestProbe()
 
-    /** Test probe for the meta data union actor. */
-    private val probeUnionMetaDataManager = TestProbe()
+    /** Test probe for the metadata union actor. */
+    private val probeUnionMetadataManager = TestProbe()
 
     /** The startup instance to be tested. */
     val startup = new LocalArchiveStartup
@@ -128,7 +128,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     def activate(): LocalArchiveStartupTestHelper =
       val facadeActors = MediaFacadeActors(probeUnionMediaManager.ref,
-        probeUnionMetaDataManager.ref)
+        probeUnionMetadataManager.ref)
       startup initClientContext clientContext
       startup initMediaFacadeActors facadeActors
       startup activate mock[ComponentContext]
@@ -191,7 +191,7 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
           val name = invocation.getArguments()(1).asInstanceOf[String]
           name match {
             case "archiveGroupActor" =>
-              val refProps = ArchiveGroupActor(probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
+              val refProps = ArchiveGroupActor(probeUnionMediaManager.ref, probeUnionMetadataManager.ref,
                 ArchiveConfigs)
               props should be(refProps)
               actorCreation(probeGroupActor)

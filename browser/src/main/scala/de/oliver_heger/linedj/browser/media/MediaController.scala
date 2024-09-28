@@ -81,7 +81,7 @@ object MediaController:
 
   /**
     * An internally used data class which collects all information required to
-    * update internal model classes with newly arrived chunks of meta data.
+    * update internal model classes with newly arrived chunks of metadata.
     *
     * @param treeModel  the model for the tree view
     * @param tableModel the model for the table view
@@ -107,10 +107,10 @@ object MediaController:
   * medium, a tree view displaying the artists and albums found in the medium,
   * and a table showing the songs of the albums selected in the tree view.
   *
-  * Selecting a medium in the combo box causes a request for the meta data of
-  * this medium. Incoming chunks of meta data are then added to the data models
+  * Selecting a medium in the combo box causes a request for the metadata of
+  * this medium. Incoming chunks of metadata are then added to the data models
   * of the controls. When the server becomes unavailable the combo box is
-  * disabled, so that the user cannot select a new medium for which no meta data
+  * disabled, so that the user cannot select a new medium for which no metadata
   * is available.
   *
   * @param mediaFacade         the facade to the media archive
@@ -271,7 +271,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     }
 
   /**
-    * Actually adds the specified chunk of meta data to the models maintained by
+    * Actually adds the specified chunk of metadata to the models maintained by
     * this controller class.
     *
     * @param chunk the chunk of data to be added
@@ -296,7 +296,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
       inProgressWidget setVisible false
 
   /**
-    * Checks whether a new chunk of meta data has an impact on the data
+    * Checks whether a new chunk of metadata has an impact on the data
     * currently displayed in the table view.
     *
     * @param songData the songs contained in the chunk

@@ -21,26 +21,26 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import org.apache.pekko.actor.ActorRef
 
 /**
-  * A message supported by ''MetaDataManagerActor'' that queries for the meta
-  * data of a specific medium.
+  * A message supported by ''MetaDataManagerActor'' that queries for the
+  * metadata of a specific medium.
   *
-  * The actor returns the meta data currently available in form of a
+  * The actor returns the metadata currently available in form of a
   * ''MetaDataResponse'' message. If the ''registerAsListener'' flag is
-  * '''true''', the sending actor will be notified when more meta data for
+  * '''true''', the sending actor will be notified when more metadata for
   * this medium becomes available until processing is complete.
   *
   * With the ''registrationID'' parameter, clients can define a numeric ID
   * which is also part of response messages. This can be used by clients to
   * deal with multiple registrations and also to detect stale responses.
-  * (There can be race conditions when clients remove a meta data listener
-  * registration, but shortly before new meta data arrives which is sent to
+  * (There can be race conditions when clients remove a metadata listener
+  * registration, but shortly before new metadata arrives which is sent to
   * the client. Using sequence numbers as registration IDs can help to detect
   * such cases.)
   *
   * @param mediumID           ID of the medium in question (as returned from
   *                           the media manager actor)
   * @param registerAsListener flag whether the sending actor should be
-  *                           registered as listener if meta data for this
+  *                           registered as listener if metadata for this
   *                           medium is incomplete yet
   * @param registrationID     a numeric registration ID; it is included in
   *                           response messages sent to this client
@@ -51,15 +51,15 @@ case class GetMetaData(mediumID: MediumID, registerAsListener: Boolean,
 /**
   * A message sent as payload in a response for a ''GetMetaData'' request.
   *
-  * This message contains either complete meta data of an medium (if it is
+  * This message contains either complete metadata of a medium (if it is
   * already available at request time) or a chunk which was recently updated.
-  * The ''complete'' property defines whether the meta data has already been
+  * The ''complete'' property defines whether the metadata has already been
   * fully fetched.
   *
   * @param mediumID the ID of the medium
-  * @param data     actual meta data; the map contains the URIs of media files as
-  *                 keys and the associated meta data as values
-  * @param complete a flag whether now complete meta data is available for
+  * @param data     actual metadata; the map contains the URIs of media files as
+  *                 keys and the associated metadata as values
+  * @param complete a flag whether now complete metadata is available for
   *                 this medium (even if this chunk may not contain the full
   *                 data)
   */
@@ -69,10 +69,10 @@ case class MetaDataChunk(mediumID: MediumID, data: Map[String, MediaMetaData], c
 /**
   * A response message send for a ''GetMetaData'' request.
   *
-  * This message contains the actual meta data in form of a ''MetaDataChunk''
-  * object and some meta data about the listener registration.
+  * This message contains the actual metadata in form of a ''MetaDataChunk''
+  * object and some metadata about the listener registration.
   *
-  * @param chunk          the currently available meta data
+  * @param chunk          the currently available metadata
   * @param registrationID the registration ID used by the client
   */
 case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int) extends RemoteSerializable
@@ -91,13 +91,13 @@ case class MetaDataResponse(chunk: MetaDataChunk, registrationID: Int) extends R
 case class UnknownMedium(mediumID: MediumID) extends RemoteSerializable
 
 /**
-  * Tells the meta data manager actor to remove a listener for the specified
+  * Tells the metadata manager actor to remove a listener for the specified
   * medium.
   *
   * With this message a listener that has been registered via a
   * ''GetMetaData'' message can be explicitly removed. This is normally not
   * necessary because medium listeners are removed automatically when the
-  * meta data for a medium is complete. However, if a client application is
+  * metadata for a medium is complete. However, if a client application is
   * about to terminate, it is good practice to remove listeners for media that
   * are still processed. If the specified listener is not registered for this
   * medium, the processing of this message has no effect.
@@ -108,7 +108,7 @@ case class UnknownMedium(mediumID: MediumID) extends RemoteSerializable
 case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef) extends RemoteSerializable
 
 /**
-  * Tells the meta data manager actor to add a state listener actor.
+  * Tells the metadata manager actor to add a state listener actor.
   *
   * The listener will receive notifications of type [[MetaDataStateEvent]]
   * indicating important updates in the state of the media archive. Note that
@@ -125,7 +125,7 @@ case class RemoveMediumListener(mediumID: MediumID, listener: ActorRef) extends 
 case class AddMetaDataStateListener(listener: ActorRef) extends RemoteSerializable
 
 /**
-  * Tells the meta data manager actor to remove a state listener actor.
+  * Tells the metadata manager actor to remove a state listener actor.
   *
   * With this message state listeners can be removed again. The listener
   * to remove is specified as payload of the message. If this actor is not
@@ -136,48 +136,48 @@ case class AddMetaDataStateListener(listener: ActorRef) extends RemoteSerializab
 case class RemoveMetaDataStateListener(listener: ActorRef) extends RemoteSerializable
 
 /**
-  * A message processed by the meta data manager actor as a request to return
-  * data about all meta data files available.
+  * A message processed by the metadata manager actor as a request to return
+  * data about all metadata files available.
   *
-  * Such files are generated to make the meta data extracted from audio files
-  * persistent. For each medium a meta data file is generated.
+  * Such files are generated to make the metadata extracted from audio files
+  * persistent. For each medium a metadata file is generated.
   */
 case object GetMetaDataFileInfo extends RemoteSerializable
 
 /**
-  * A message sent by the meta data manager actor as response to a
+  * A message sent by the metadata manager actor as response to a
   * [[GetMetaDataFileInfo]] request.
   *
-  * This data class contains the information about persistent meta data files.
-  * During a meta data scan operation, for each medium a file with extracted
-  * meta data is created (which allows fast access to this meta data). The map
-  * with meta data files allows finding out for which media such a file exists.
-  * The keys of the map are the IDs of the media for which a meta data file
+  * This data class contains the information about persistent metadata files.
+  * During a metadata scan operation, for each medium a file with extracted
+  * metadata is created (which allows fast access to this metadata). The map
+  * with metadata files allows finding out for which media such a file exists.
+  * The keys of the map are the IDs of the media for which a metadata file
   * exists; the values are checksum values for media on which the file names of
-  * meta data files are based.
+  * metadata files are based.
   *
-  * If a medium is removed or changed, an already existing meta data file is
+  * If a medium is removed or changed, an already existing metadata file is
   * not removed automatically, but remains on disk. Such orphan files are
   * listed in the set. Here again checksum values are contained that can be
   * mapped to real file names.
   *
-  * If an archive component supports updates of meta data files, the message
+  * If an archive component supports updates of metadata files, the message
   * contains an actor reference that can be used to trigger such updates, e.g.
   * the removal of files.
   *
-  * @param metaDataFiles map with meta data files assigned to a medium
-  * @param unusedFiles   set with orphan meta data files
+  * @param metaDataFiles map with metadata files assigned to a medium
+  * @param unusedFiles   set with orphan metadata files
   */
 case class MetaDataFileInfo(metaDataFiles: Map[MediumID, String],
                             unusedFiles: Set[String],
                             optUpdateActor: Option[ActorRef]) extends RemoteSerializable
 
 /**
-  * A message processed by the meta data manager actor that causes persistent
-  * meta data files to be removed.
+  * A message processed by the metadata manager actor that causes persistent
+  * metadata files to be removed.
   *
   * This message can be used by an admin application to clean up the storage
-  * area for persistent meta data files; for instance, to remove files no
+  * area for persistent metadata files; for instance, to remove files no
   * longer associated with an active medium. The checksum values of the files
   * to be removed have to be specified, which can be obtained from a
   * [[MetaDataFileInfo]] message.
@@ -188,8 +188,8 @@ case class RemovePersistentMetaData(checksumSet: Set[String]) extends RemoteSeri
 
 
 /**
-  * A message sent by the meta data manager actor as a result of an operation
-  * to remove persistent meta data files.
+  * A message sent by the metadata manager actor as a result of an operation
+  * to remove persistent metadata files.
   *
   * From the result it can be determined which files were removed successfully
   * and which files caused errors.
@@ -202,15 +202,15 @@ case class RemovePersistentMetaDataResult(request: RemovePersistentMetaData,
                                           successfulRemoved: Set[String]) extends RemoteSerializable
 
 /**
-  * A message processed by the meta data manager actor that requests meta data
+  * A message processed by the metadata manager actor that requests metadata
   * for a set of media files.
   *
   * This message has a similar purpose as [[GetMetaData]]. However, it does not
-  * query meta data for a specific medium, but an arbitrary set of media files.
+  * query metadata for a specific medium, but an arbitrary set of media files.
   * This is useful for clients that have to deal with audio files from
   * different media.
   *
-  * @param files the files for which meta data is to be retrieved
+  * @param files the files for which metadata is to be retrieved
   * @param seqNo a sequence number to detect outdated responses
   */
 case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0) extends RemoteSerializable
@@ -218,19 +218,19 @@ case class GetFilesMetaData(files: Iterable[MediaFileID], seqNo: Int = 0) extend
 /**
   * A message sent as response for a [[GetFilesMetaData]] request.
   *
-  * This message contains the meta data for the files that have been requested.
+  * This message contains the metadata for the files that have been requested.
   * If files could not be resolved, they are not contained in the list with
-  * meta data. By comparing the files in the request with the keys in the list,
+  * metadata. By comparing the files in the request with the keys in the list,
   * it can be determined which files could not be resolved.
   *
   * @param request a reference to the request which caused this response
-  * @param data    a list with meta data for the requested files
+  * @param data    a list with metadata for the requested files
   */
 case class FilesMetaDataResponse(request: GetFilesMetaData,
                                  data: List[(MediaFileID, MediaMetaData)]) extends RemoteSerializable
 
 /**
-  * A message processed by the meta data manager actor that requests statistics
+  * A message processed by the metadata manager actor that requests statistics
   * for a select archive component.
   *
   * @param archiveComponentID the ID of the archive component

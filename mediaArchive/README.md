@@ -6,7 +6,7 @@ media files.
 ## Description
 
 The media archive is a central component for the LineDJ platform. It stores
-meta data about all audio files currently available and allows downloading
+metadata about all audio files currently available and allows downloading
 media files. Audio files are grouped in _media_. A single medium has a name and
 a description. It is possible to query information about all available media
 and to list the files contained on a specific medium.
@@ -36,19 +36,19 @@ following sub sections.
 
 A _local archive_ manages media files that are stored on the same machine as
 the archive runs on. A local folder structure with media files is scanned, and
-meta data is extracted. However, the meta data is not directly served by the
+metadata is extracted. However, the metadata is not directly served by the
 local archive, but propagated to a _union archive_.
 
 ### Union archive
 
 The _union archive_ actually implements the interface for querying media files
-and meta data. An application running on the LineDJ platform interacts with one
+and metadata. An application running on the LineDJ platform interacts with one
 central union archive. As the name implies, the archive collects the
 distribution of other archives - so-called _archive components_ - and provides
 access to them.
 
 For small deployments, there is typically a local archive responsible for
-reading media files and their meta data collaborating with a union archive. The
+reading media files and their metadata collaborating with a union archive. The
 latter exposes the data loaded by the former. However, this architecture makes
 it possible to collect data from multiple machines and combine it in a central
 union archive. For instance, a work group could setup a central server on which

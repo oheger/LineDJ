@@ -50,11 +50,11 @@ object PlaylistController:
     */
   private val ManagedActions = List(ActionExport, ActionActivate)
 
-  /** Constant for undefined meta data. */
+  /** Constant for undefined metadata. */
   private[playlist] val UndefinedMetaData = MediaMetaData()
 
   /**
-    * Checks whether the meta data of a song is unresolved.
+    * Checks whether the metadata of a song is unresolved.
     *
     * @param song the song to be checked
     * @return a flag whether this song is not yet resolved
@@ -103,13 +103,13 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
   ConsumerRegistrationProvider with Identifiable:
   import PlaylistController._
 
-  /** The map with meta data currently available. */
+  /** The map with metadata currently available. */
   private var metaData = Map.empty[MediaFileID, MediaMetaData]
 
   /**
-    * The number of songs with unresolved meta data. This is used as an
+    * The number of songs with unresolved metadata. This is used as an
     * optimization to avoid unnecessary traversal of the table model when new
-    * meta data arrives. The value is reset when the playlist is manipulated.
+    * metadata arrives. The value is reset when the playlist is manipulated.
     */
   private var unresolvedSongCount = 0
 
@@ -148,9 +148,9 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
       addNewSongs(songs, currentTableSize)
 
   /**
-    * Consumer function for new meta data for songs in the playlist.
+    * Consumer function for new metadata for songs in the playlist.
     *
-    * @param playlistMetaData the new meta data
+    * @param playlistMetaData the new metadata
     */
   private def handlePlaylistMetaData(playlistMetaData: PlaylistMetaData): Unit =
     metaData = playlistMetaData.data
@@ -162,14 +162,14 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
       unresolvedSongCount = unres
 
   /**
-    * Updates the table model with new meta data. Iterates over the table of
-    * songs and applies meta data to items that have been resolved. Result is a
+    * Updates the table model with new metadata. Iterates over the table of
+    * songs and applies metadata to items that have been resolved. Result is a
     * triple with indices determining the minimum and maximum indices that have
     * been updated. This is required to update the table model. A value of -1
     * for the minimum index means that no change was made. The third element in
     * the triple is the new number of unresolved songs.
     *
-    * @param data   the current map with meta data
+    * @param data   the current map with metadata
     * @param model  the table model collection
     * @return data about the outcome of this operation
     */

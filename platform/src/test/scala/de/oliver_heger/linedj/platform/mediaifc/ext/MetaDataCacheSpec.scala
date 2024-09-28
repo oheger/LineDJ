@@ -63,13 +63,13 @@ object MetaDataCacheSpec:
   private def songUri(idx: Int): String = s"test/song$idx.mp3"
 
   /**
-    * Creates an object with meta data for a test song based on the given
+    * Creates an object with metadata for a test song based on the given
     * index.
     *
     * @param idx the index of the song
-    * @return meta data for this test song
+    * @return metadata for this test song
     */
-  private def songMetaData(idx: Int): MediaMetaData = MediaMetaData(title = Some(s"Title$idx"))
+  private def songMetadata(idx: Int): MediaMetaData = MediaMetaData(title = Some(s"Title$idx"))
 
   /**
     * Extracts the index from a test medium ID.
@@ -82,7 +82,7 @@ object MetaDataCacheSpec:
     idxStr.toInt
 
   /**
-    * Creates a response message with meta data. It contains only a single test
+    * Creates a response message with metadata. It contains only a single test
     * song.
     *
     * @param songIdx  the index of the test song
@@ -94,7 +94,7 @@ object MetaDataCacheSpec:
     createResponse(List(songIdx), complete, mediumID)
 
   /**
-    * Creates a response message containing meta data for the given test songs.
+    * Creates a response message containing metadata for the given test songs.
     *
     * @param songIndices       a list with the indices of the test songs
     * @param complete          the complete flag
@@ -104,7 +104,7 @@ object MetaDataCacheSpec:
     */
   private def createResponse(songIndices: Seq[Int], complete: Boolean, mediumID: MediumID,
                              optRegistrationID: Option[Int] = None): MetaDataResponse =
-    val songMappings = songIndices map (i => songUri(i) -> songMetaData(i))
+    val songMappings = songIndices map (i => songUri(i) -> songMetadata(i))
     MetaDataResponse(MetaDataChunk(mediumID, Map(songMappings: _*), complete),
       optRegistrationID getOrElse extractIndex(mediumID))
 
@@ -131,7 +131,7 @@ object MetaDataCacheSpec:
   private def createContent(songIndices: Seq[Int], complete: Boolean, mediumID: MediumID): MediumContent =
     val songMappings = songIndices map { index =>
       val id = MediaFileID(mediumID, songUri(index))
-      id -> songMetaData(index)
+      id -> songMetadata(index)
     }
     MediumContent(songMappings.toMap, complete)
 
@@ -146,7 +146,7 @@ object MetaDataCacheSpec:
   private def contentData(songIndices: Seq[Int], mid: MediumID = Medium): Map[MediaFileID, MediaMetaData] =
     songIndices.map { idx =>
       val id = MediaFileID(mid, songUri(idx))
-      id -> songMetaData(idx)
+      id -> songMetadata(idx)
     }.toMap
 
   /**
@@ -156,21 +156,21 @@ object MetaDataCacheSpec:
     * @param numberOfSongs the number of songs to generate
     * @param complete      flag whether the medium is complete
     * @param mediumIdx     the index of the medium
-    * @return generated meta data for this medium
+    * @return generated metadata for this medium
     */
-  private def createMetaDataForMedium(numberOfSongs: Int, complete: Boolean, mediumIdx: Int): MetaDataResponse =
+  private def createMetadataForMedium(numberOfSongs: Int, complete: Boolean, mediumIdx: Int): MetaDataResponse =
     createResponse((1 to numberOfSongs).map(_ + 1000 * mediumIdx), complete, mediumID(mediumIdx))
 
   /**
-    * Generates meta data which can be send to the cache for a given set of
+    * Generates metadata which can be sent to the cache for a given set of
     * media. For each medium a response containing the given number of songs
     * is produced.
     *
     * @param media indices of media for which data is to be generated
-    * @return a sequence with meta data for each medium
+    * @return a sequence with metadata for each medium
     */
-  private def createMetaData(media: Int*): Seq[MetaDataResponse] =
-    media map (createMetaDataForMedium(SongsPerMedium, complete = true, _))
+  private def createMetadata(media: Int*): Seq[MetaDataResponse] =
+    media map (createMetadataForMedium(SongsPerMedium, complete = true, _))
 
   /**
     * Creates a callback function for being used in tests which adds received
@@ -183,7 +183,7 @@ object MetaDataCacheSpec:
     chunk => buffer += chunk
 
   /**
-    * Creates a test meta data registration which collects received data in a
+    * Creates a test metadata registration which collects received data in a
     * list buffer. The registration is added to the cache. The list buffer is
     * returned.
     *
@@ -199,7 +199,7 @@ object MetaDataCacheSpec:
     buffer
 
   /**
-    * Combines the ''register()'' method with sending of meta data.
+    * Combines the ''register()'' method with sending of metadata.
     *
     * @param cache the cache
     * @param data  the data to be sent to the cache
@@ -231,7 +231,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   /**
     * Creates a mock for the media facade. The mock is prepared to answer
-    * queries for meta data with a registration ID derived from the medium that
+    * queries for metadata with a registration ID derived from the medium that
     * is queried. Optionally, a fix registration ID can be specified.
     *
     * @param optRegistrationID an optional fix registration ID
@@ -241,7 +241,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val facade = mock[MediaFacade]
     val bus = mock[MessageBus]
     when(facade.bus).thenReturn(bus)
-    when(facade.queryMetaDataAndRegisterListener(any(classOf[MediumID])))
+    when(facade.queryMetadataAndRegisterListener(any(classOf[MediumID])))
       .thenAnswer((invocation: InvocationOnMock) => {
         val mid = invocation.getArguments.head.asInstanceOf[MediumID]
         optRegistrationID getOrElse extractIndex(mid)
@@ -249,7 +249,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     facade
 
   /**
-    * Verifies that a request for meta data was sent via the facade.
+    * Verifies that a request for metadata was sent via the facade.
     *
     * @param facade   the mock for the media facade
     * @param mediumID the expected medium ID
@@ -257,7 +257,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     */
   private def verifyMetaDataRequest(facade: MediaFacade, mediumID: MediumID = Medium,
                                     expTimes: Int = 1): Unit =
-    verify(facade, times(expTimes)).queryMetaDataAndRegisterListener(mediumID)
+    verify(facade, times(expTimes)).queryMetadataAndRegisterListener(mediumID)
 
   /**
     * Checks whether a callback received the expected data.
@@ -308,9 +308,9 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
         mediumID(2) -> createInfo(2),
         mediumID(3) -> createInfo(3))
     )
-    val expData = Map(MediaFileID(Medium, songUri(1), Some(checksum(1))) -> songMetaData(1),
-      MediaFileID(mediumID(2), songUri(2), Some(checksum(2))) -> songMetaData(2),
-      MediaFileID(mediumID(13), songUri(3)) -> songMetaData(3))
+    val expData = Map(MediaFileID(Medium, songUri(1), Some(checksum(1))) -> songMetadata(1),
+      MediaFileID(mediumID(2), songUri(2), Some(checksum(2))) -> songMetadata(2),
+      MediaFileID(mediumID(13), songUri(3)) -> songMetadata(3))
     val content = MetaDataCache.EmptyContent
       .addChunk(chunk1)
       .addChunk(chunk2)
@@ -327,7 +327,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
     verifyMetaDataRequest(facade)
 
-  it should "send received meta data to a registered listener" in:
+  it should "send received metadata to a registered listener" in:
     val cache = createCache(createMediaFacade())
     val chunks = register(cache)
     val chunk = createChunk(0, complete = false)
@@ -420,7 +420,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     cache.receive(RemoveMetaDataRegistration(Medium, TestComponentID))
     cache.receive(createChunk(1, complete = false))
     verifyReceivedChunks(buf)
-    verify(facade).removeMetaDataListener(Medium)
+    verify(facade).removeMetadataListener(Medium)
 
   it should "ignore a request to remove an unknown listener" in:
     val facade = createMediaFacade()
@@ -432,7 +432,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     cache.receive(RemoveMetaDataRegistration(Medium, ComponentID()))
     cache.receive(chunk)
     verifyReceivedChunks(buf, content)
-    verify(facade, never()).removeMetaDataListener(Medium)
+    verify(facade, never()).removeMetadataListener(Medium)
 
   it should "ignore a request to remove listeners for an unknown medium" in:
     val facade = createMediaFacade()
@@ -445,7 +445,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     cache.receive(RemoveMetaDataRegistration(Medium2, TestComponentID))
     cache.receive(chunk)
     verifyReceivedChunks(buf, content)
-    verify(facade, never()).removeMetaDataListener(Medium2)
+    verify(facade, never()).removeMetadataListener(Medium2)
 
   it should "not remove the remote medium listener if there are remaining listeners" in:
     val ListenerID2 = ComponentID()
@@ -460,7 +460,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     cache.receive(chunk)
     verifyReceivedChunks(buf1, content)
     verifyReceivedChunks(buf2)
-    verify(facade, never()).removeMetaDataListener(Medium)
+    verify(facade, never()).removeMetadataListener(Medium)
 
   it should "clean the cache when the archive becomes available again" in:
     val cache = createCache(createMediaFacade())
@@ -481,7 +481,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "remove a medium from the cache if the cache size is reached" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(1 to 5: _*)
+    val metaData = createMetadata(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
     verifyMetaDataRequest(facade)
     cache.numberOfEntries should be(cache.cacheSize)
@@ -503,7 +503,7 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "move a medium to the front when it is accessed" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(1 to 5: _*)
+    val metaData = createMetadata(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
 
     register(cache)
@@ -516,21 +516,21 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "correctly maintain the LRU list when moving a medium to front" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 30)
-    val metaData = createMetaData(1 to 3: _*)
+    val metaData = createMetadata(1 to 3: _*)
     metaData foreach (registerAndReceive(cache, _))
 
     register(cache)
-    createMetaData(4 to 6: _*) foreach (registerAndReceive(cache, _))
+    createMetadata(4 to 6: _*) foreach (registerAndReceive(cache, _))
     register(cache)
     verifyMetaDataRequest(facade, expTimes = 2)
 
   it should "remove multiple media from the cache if necessary to enforce the cache size" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 50)
-    val metaData = createMetaData(1 to 5: _*)
+    val metaData = createMetadata(1 to 5: _*)
     metaData foreach (registerAndReceive(cache, _))
 
-    registerAndReceive(cache, createMetaDataForMedium(19, complete = true, mediumIdx = 10))
+    registerAndReceive(cache, createMetadataForMedium(19, complete = true, mediumIdx = 10))
     register(cache)
     register(cache, mediumID = mediumID(2))
     verifyMetaDataRequest(facade, expTimes = 2)
@@ -539,10 +539,10 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "not remove media that are not yet complete" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 20)
-    registerAndReceive(cache, createMetaDataForMedium(10, complete = false, mediumIdx = 1))
-    registerAndReceive(cache, createMetaDataForMedium(10, complete = true, mediumIdx = 2))
+    registerAndReceive(cache, createMetadataForMedium(10, complete = false, mediumIdx = 1))
+    registerAndReceive(cache, createMetadataForMedium(10, complete = true, mediumIdx = 2))
 
-    registerAndReceive(cache, createMetaDataForMedium(1, complete = true, mediumIdx = 3))
+    registerAndReceive(cache, createMetadataForMedium(1, complete = true, mediumIdx = 3))
     register(cache)
     register(cache, mediumID = mediumID(2))
     verifyMetaDataRequest(facade)
@@ -551,14 +551,14 @@ class MetaDataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "not remove the head of the LRU list" in:
     val facade = createMediaFacade()
     val cache = createCache(facade, cacheSize = 20)
-    registerAndReceive(cache, createMetaDataForMedium(10, complete = false, mediumIdx = 3))
-    registerAndReceive(cache, createMetaDataForMedium(10, complete = false, mediumIdx = 2))
+    registerAndReceive(cache, createMetadataForMedium(10, complete = false, mediumIdx = 3))
+    registerAndReceive(cache, createMetadataForMedium(10, complete = false, mediumIdx = 2))
 
-    registerAndReceive(cache, createMetaDataForMedium(10, complete = true, mediumIdx = 1))
+    registerAndReceive(cache, createMetadataForMedium(10, complete = true, mediumIdx = 1))
     register(cache)
     verifyMetaDataRequest(facade)
 
-  it should "ignore meta data with a wrong registration ID" in:
+  it should "ignore metadata with a wrong registration ID" in:
     val cache = createCache(createMediaFacade())
     val chunk1 = createResponse(1 to 10, complete = false, Medium)
     val chunk2 = createChunk(11, complete = true).copy(registrationID = 42)

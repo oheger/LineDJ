@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, PathUtils}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
@@ -32,7 +32,7 @@ object MetaDataExtractorWrapperActor:
     * @param p the process request
     * @return the minimum result
     */
-  private def createUnsupportedResult(p: ProcessMetaDataFile): MetaDataProcessingSuccess =
+  private def createUnsupportedResult(p: ProcessMetadataFile): MetadataProcessingSuccess =
     val data = MediaMetaData(size = Some(p.fileData.size))
     val result = p.resultTemplate.copy(metaData = data)
     result
@@ -43,7 +43,7 @@ object MetaDataExtractorWrapperActor:
     * sent to this actor. There is an additional boolean flag which indicates
     * whether the actor should expect a result message.
     */
-  private type ProcessFunc = ProcessMetaDataFile => (ActorRef, Any, Boolean)
+  private type ProcessFunc = ProcessMetadataFile => (ActorRef, Any, Boolean)
 
   private class MetaDataExtractorWrapperActorImpl(ef: ExtractorActorFactory)
     extends MetaDataExtractorWrapperActor(ef) with ChildActorFactory with CloseSupport
@@ -59,7 +59,7 @@ object MetaDataExtractorWrapperActor:
     Props(classOf[MetaDataExtractorWrapperActorImpl], extractorFactory)
 
 /**
-  * An actor that wraps actors for actually extracting meta data from media
+  * An actor that wraps actors for actually extracting metadata from media
   * files.
   *
   * Instances of this actor are used during processing of media files. For each
@@ -67,7 +67,7 @@ object MetaDataExtractorWrapperActor:
   * determine the correct extractor actor for the media file (there may be
   * different extractors for specific file types). This extractor is then
   * invoked to process the file, and the response is sent to the original
-  * caller. For unsupported file types, dummy meta data is constructed.
+  * caller. For unsupported file types, dummy metadata is constructed.
   *
   * The actor uses an [[ExtractorActorFactory]] to create extractor actors on
   * demand. It also implements cancellation handling. Note that the actor
@@ -96,8 +96,8 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     * Receive function for normal processing mode.
     */
   private def receiveProcessing: Receive =
-    case p: ProcessMetaDataFile =>
-      log.info("Meta data processing request for {}.", p.fileData.path)
+    case p: ProcessMetadataFile =>
+      log.info("Metadata processing request for {}.", p.fileData.path)
       val ext = PathUtils extractExtension p.fileData.path.toString
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
@@ -105,7 +105,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
       if f then
         requests += p.resultTemplate.uri -> sender()
 
-    case result: MetaDataProcessingResult =>
+    case result: MetadataProcessingResult =>
       log.info("Received processing result for {}.", result.uri)
       requests.get(result.uri) foreach (_ ! result)
       requests -= result.uri
@@ -143,12 +143,12 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
 
   /**
     * A process function for unsupported file extensions. This function sends
-    * dummy meta data directly to the sender.
+    * dummy metadata directly to the sender.
     *
     * @param req the process request
     * @return a tuple with process information
     */
-  private def unsupportedProcessFunc(req: ProcessMetaDataFile): (ActorRef, Any, Boolean) =
+  private def unsupportedProcessFunc(req: ProcessMetadataFile): (ActorRef, Any, Boolean) =
     (sender(), createUnsupportedResult(req), false)
 
   /**
@@ -159,7 +159,7 @@ class MetaDataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
     * @param req   the process request
     * @return a tuple with process information
     */
-  private def extractorProcessFunc(actor: ActorRef)(req: ProcessMetaDataFile):
+  private def extractorProcessFunc(actor: ActorRef)(req: ProcessMetadataFile):
   (ActorRef, Any, Boolean) =
     (actor, req, true)
 

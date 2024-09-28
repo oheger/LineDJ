@@ -700,7 +700,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
           Kleisli[Future, MessageBus, Map[MediaFileID, MediaMetaData]] { bus =>
             bus should be(messageBus)
             val files = TestFilesPerMedium(mid)
-            val data = files.map(f => (MediaFileID(mid, f.uri), f.metaData)).toMap
+            val data = files.map(f => (MediaFileID(mid, f.uri), f.metadata)).toMap
             Future.successful(data)
           }
         })

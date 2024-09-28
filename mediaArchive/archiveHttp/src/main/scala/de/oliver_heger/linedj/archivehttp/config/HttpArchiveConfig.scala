@@ -76,15 +76,15 @@ case class OAuthStorageConfig(rootDir: Path,
   * @param archiveName           a name for the HTTP media archive
   * @param contentPath           the (relative) path to the content file
   * @param mediaPath             the (relative) base path for all media files
-  * @param metaDataPath          the (relative) path under which all metadata
+  * @param metadataPath          the (relative) path under which all metadata
   *                              files are located
   * @param processorCount        the number of parallel processor actors to be used
-  *                              when downloading meta data from the archive
+  *                              when downloading metadata from the archive
   * @param processorTimeout      the timeout for calls to processor actors
   * @param propagationBufSize    number of processed media whose content can be
   *                              propagated to the union archive in parallel
   * @param maxContentSize        the maximum size of a content file (either a
-  *                              settings or a meta data file) in kilobytes; if a
+  *                              settings or a metadata file) in kilobytes; if a
   *                              file is larger, it is canceled
   * @param downloadBufferSize    the size of the in-memory buffer for download
   *                              operations
@@ -103,7 +103,7 @@ case class HttpArchiveConfig(archiveBaseUri: Uri,
                              archiveName: String,
                              contentPath: Uri.Path,
                              mediaPath: Uri.Path,
-                             metaDataPath: Uri.Path,
+                             metadataPath: Uri.Path,
                              processorCount: Int,
                              processorTimeout: Timeout,
                              propagationBufSize: Int,

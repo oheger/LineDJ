@@ -25,7 +25,7 @@ import org.apache.pekko.actor.{Actor, ActorRef}
   * Actors of this type handle [[ProcessID3FrameData]] messages with the help
   * of an extractor for ID3v2 frames. The data read for the current frame is
   * fed into the extractor. When the frame has been fully read the results of
-  * the extraction process are sent to the central meta data collector actor.
+  * the extraction process are sent to the central metadata collector actor.
   *
   * A single actor instance can process exactly one ID3v2 frame, either in a
   * single shot or in multiple chunks. Afterwards it should be stopped.

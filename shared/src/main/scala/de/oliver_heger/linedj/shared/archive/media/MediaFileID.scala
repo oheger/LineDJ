@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.shared.RemoteSerializable
   * content of the medium and thus remains the same no matter from which
   * archive component it is served.
   *
-  * With an instance of this class a specific file or its meta data can be
+  * With an instance of this class a specific file or its metadata can be
   * requested from the media archive.
   *
   * @param mediumID the ID of the medium the desired source belongs to

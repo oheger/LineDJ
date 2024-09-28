@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.shared.archive.media
 
 /**
- * A class defining meta data of a medium.
+ * A class defining metadata of a medium.
  *
  * This data class defines some properties with information about a medium. The
  * data which can be queried from an instance can be used e.g. in a UI when

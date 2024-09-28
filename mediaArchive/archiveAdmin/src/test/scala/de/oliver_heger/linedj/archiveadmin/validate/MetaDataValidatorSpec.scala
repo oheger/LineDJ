@@ -48,7 +48,7 @@ class MetaDataValidatorSpec extends AnyFlatSpec with Matchers:
     * @return the error codes with severity error
     */
   private def errorCodes: Set[ValidationErrorCode] =
-    Set(NoTitle, NoArtist, NoDuration, NoSize, MissingFileMetaData, InconsistentAlbum, InconsistentTrackNumber,
+    Set(NoTitle, NoArtist, NoDuration, NoSize, MissingFileMetadata, InconsistentAlbum, InconsistentTrackNumber,
       InconsistentInceptionYear)
 
   /**
@@ -77,10 +77,10 @@ class MetaDataValidatorSpec extends AnyFlatSpec with Matchers:
 
   /**
     * Helper function to check a failed validation of a media file. A file with
-    * the given meta data is constructed and validated. The result should
+    * the given metadata is constructed and validated. The result should
     * contain all the error codes specified.
     *
-    * @param data  the meta data for the file
+    * @param data  the metadata for the file
     * @param codes the expected error codes
     */
   private def checkFailedFileValidation(data: MediaMetaData, codes: ValidationErrorCode*): Unit =
@@ -89,25 +89,25 @@ class MetaDataValidatorSpec extends AnyFlatSpec with Matchers:
       case Failure(e) => toList(e) should contain allElementsOf codes
       case r => fail("Unexpected result: " + r)
 
-  it should "detect a missing title in file meta data" in:
+  it should "detect a missing title in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(title = None), NoTitle)
 
-  it should "detect a missing title and artist in file meta data" in:
+  it should "detect a missing title and artist in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(title = None, artist = None), NoTitle, NoArtist)
 
-  it should "detect a missing album in file meta data" in:
+  it should "detect a missing album in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(album = None), NoAlbum)
 
-  it should "detect a missing duration in file meta data" in:
+  it should "detect a missing duration in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(duration = None), NoDuration)
 
-  it should "detect a missing size in file meta data" in:
+  it should "detect a missing size in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(size = Some(0)), NoSize)
 
-  it should "detect a missing track number in file meta data" in:
+  it should "detect a missing track number in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(trackNumber = None), NoTrackNo)
 
-  it should "detect a missing inception year in file meta data" in:
+  it should "detect a missing inception year in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(inceptionYear = None), NoInceptionYear)
 
   it should "return a successful album validation result" in:
@@ -139,44 +139,44 @@ class MetaDataValidatorSpec extends AnyFlatSpec with Matchers:
     val meta = metaData(8).copy(album = None)
     val a = album(1, 7, meta)
 
-    checkFailedAlbumValidation(a, InconsistentAlbum, MissingFileMetaData)
+    checkFailedAlbumValidation(a, InconsistentAlbum, MissingFileMetadata)
 
   /**
-    * Helper function for checking whether missing meta data for a file is
+    * Helper function for checking whether missing metadata for a file is
     * detected during album validation.
     *
     * @param meta a data object with a missing property
     */
-  private def checkMissingMetaDataInAlbumFile(meta: MediaMetaData): Unit =
+  private def checkMissingMetadataInAlbumFile(meta: MediaMetaData): Unit =
     val a = album(1, 3, meta)
 
-    checkFailedAlbumValidation(a, MissingFileMetaData)
+    checkFailedAlbumValidation(a, MissingFileMetadata)
 
   it should "detect a missing title for a file of an album" in:
-    checkMissingMetaDataInAlbumFile(metaData(8).copy(title = None))
+    checkMissingMetadataInAlbumFile(metaData(8).copy(title = None))
 
   it should "detect a missing artist for a file of an album" in:
-    checkMissingMetaDataInAlbumFile(metaData(4).copy(artist = None))
+    checkMissingMetadataInAlbumFile(metaData(4).copy(artist = None))
 
   it should "detect a missing playback duration for a file of an album" in:
-    checkMissingMetaDataInAlbumFile(metaData(4).copy(duration = None))
+    checkMissingMetadataInAlbumFile(metaData(4).copy(duration = None))
 
   it should "detect a missing inception year for a file of an album" in:
-    checkMissingMetaDataInAlbumFile(metaData(4).copy(inceptionYear = None))
+    checkMissingMetadataInAlbumFile(metaData(4).copy(inceptionYear = None))
 
   it should "detect a missing track number for a file of an album" in:
     val meta = metaData(8).copy(trackNumber = None)
     val a = album(1, 7, meta)
 
-    checkFailedAlbumValidation(a, MissingFileMetaData, InconsistentTrackNumber)
+    checkFailedAlbumValidation(a, MissingFileMetadata, InconsistentTrackNumber)
 
   it should "detect a missing size information for a file of an album" in:
-    checkMissingMetaDataInAlbumFile(metaData(4).copy(size = Some(0)))
+    checkMissingMetadataInAlbumFile(metaData(4).copy(size = Some(0)))
 
   it should "detect a minimum track number that is not 1" in:
     val albumOrg = album(1, 8)
-    val renumberedSongs = albumOrg.metaData map (d => d.copy(trackNumber = d.trackNumber.map(_ + 1)))
-    val a = albumOrg.copy(metaData = renumberedSongs)
+    val renumberedSongs = albumOrg.metadata map (d => d.copy(trackNumber = d.trackNumber.map(_ + 1)))
+    val a = albumOrg.copy(metadata = renumberedSongs)
 
     checkFailedAlbumValidation(a, MinimumTrackNumberNotOne)
 

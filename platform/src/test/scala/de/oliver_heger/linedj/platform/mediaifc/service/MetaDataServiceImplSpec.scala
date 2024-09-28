@@ -58,23 +58,23 @@ object MetaDataServiceImplSpec:
     info.mediumID -> info
 
   /**
-    * Generates test meta data for a song of a medium.
+    * Generates test metadata for a song of a medium.
     *
     * @param mid the medium ID
     * @param idx the index of the song
-    * @return the test meta data for the given parameters
+    * @return the test metadata for the given parameters
     */
   def metaData(mid: MediumID, idx: Int): MediaMetaData =
     MediaMetaData(title = Some(s"Title ${mid.mediumURI} - song$idx"))
 
   /**
-    * Generates a map with meta data for the given test medium ID in the range
+    * Generates a map with metadata for the given test medium ID in the range
     * specified.
     *
     * @param mid  the medium ID
-    * @param from the start index of meta data
-    * @param to   the end index of meta data (including)
-    * @return the map with test meta data
+    * @param from the start index of metadata
+    * @param to   the end index of metadata (including)
+    * @return the map with test metadata
     */
   def metaDataMap(mid: MediumID, from: Int, to: Int): Map[MediaFileID, MediaMetaData] =
     (from to to).map { idx =>
@@ -115,7 +115,7 @@ class MetaDataServiceImplSpec extends AnyFlatSpec with Matchers:
     reg.callback(Media2)
     futMedia.value should be(Some(Success(Media1)))
 
-  it should "fetch meta data for a medium" in:
+  it should "fetch metadata for a medium" in:
     val Mid = mediumID(1)
     val expMetaData = metaDataMap(Mid, 1, 16)
     val bus = new MessageBusTestImpl

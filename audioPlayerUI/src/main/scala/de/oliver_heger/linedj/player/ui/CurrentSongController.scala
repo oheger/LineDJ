@@ -134,7 +134,7 @@ class CurrentSongController(tableHandler: TableHandler, config: AudioPlayerConfi
 
   /**
     * Notifies this controller that there was a change in the data of the
-    * playlist. (Probably new meta data arrived.) If the current song is
+    * playlist. (Probably new metadata arrived.) If the current song is
     * affected, the UI has to be updated.
     *
     * @param current an ''Option'' with the index of the current song in the

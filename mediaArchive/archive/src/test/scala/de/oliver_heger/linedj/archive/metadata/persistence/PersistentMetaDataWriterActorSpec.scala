@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataWri
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaData, MediaMetaData, MetaDataChunk, MetaDataResponse}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.event.LoggingAdapter
@@ -61,10 +61,10 @@ object PersistentMetaDataWriterActorSpec:
   private case class TriggerResponse(msg: Any, sender: ActorRef)
 
   /**
-    * Generates a meta data object based on the given index.
+    * Generates a metadata object based on the given index.
     *
     * @param index the index
-    * @return the meta data object
+    * @return the metadata object
     */
   private def metaData(index: Int): MediaMetaData =
     MediaMetaData(title = Some("TestSöng" + index), size = Some(0))
@@ -78,14 +78,14 @@ object PersistentMetaDataWriterActorSpec:
   private def uri(index: Int): String = "song://TestSong" + index
 
   /**
-    * Generates a chunk of meta data containing test songs in a given index
+    * Generates a chunk of metadata containing test songs in a given index
     * range.
     *
     * @param startIndex the start index (inclusive)
     * @param endIndex   the end index (inclusive)
     * @param complete   the complete flag
     * @param mediumID   the ID of the medium
-    * @return the chunk of meta data
+    * @return the chunk of metadata
     */
   private def chunk(startIndex: Int, endIndex: Int, complete: Boolean, mediumID: MediumID = TestMedium):
   MetaDataResponse =
@@ -107,7 +107,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     TestKit.shutdownActorSystem(system)
     tearDownTestFile()
 
-  "A PersistentMetaDataWriterActor" should "register at the meta data manager" in :
+  "A PersistentMetaDataWriterActor" should "register at the metadata manager" in :
     val msg = PersistentMetaDataWriterActor.ProcessMedium(TestMedium, createPathInDirectory("data.mdt"),
       testActor, 0)
     val actor = system.actorOf(Props(classOf[PersistentMetaDataWriterActor], 50))
@@ -196,11 +196,11 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @param endIndex   the end index (inclusive)
     * @param mid        the medium ID
     */
-  private def checkProcessingResults(futResults: Future[List[MetaDataProcessingSuccess]],
+  private def checkProcessingResults(futResults: Future[List[MetadataProcessingSuccess]],
                                      startIndex: Int,
                                      endIndex: Int,
                                      mid: MediumID = TestMedium): Future[Assertion] =
-    val expResults = (startIndex to endIndex) map (i => MetaDataProcessingSuccess(mid, MediaFileUri(uri(i)),
+    val expResults = (startIndex to endIndex) map (i => MetadataProcessingSuccess(mid, MediaFileUri(uri(i)),
       metaData(i)))
     futResults.map { results =>
       results should contain theSameElementsAs expResults
@@ -248,21 +248,21 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     * @param mid  the medium ID
     * @return a [[Future]] with the extracted results
     */
-  private def parseMetaData(file: Path, mid: MediumID = TestMedium): Future[List[MetaDataProcessingSuccess]] =
+  private def parseMetadata(file: Path, mid: MediumID = TestMedium): Future[List[MetadataProcessingSuccess]] =
     val source = MetaDataParser.parseMetadata(FileIO.fromPath(file), mid)
-    val sink = Sink.fold[List[MetaDataProcessingSuccess], MetaDataProcessingSuccess](List.empty) { (lst, data) =>
+    val sink = Sink.fold[List[MetadataProcessingSuccess], MetadataProcessingSuccess](List.empty) { (lst, data) =>
       data :: lst
     }
     source.runWith(sink).map(_.reverse)
 
-  it should "write a meta data file when sufficient meta data is available" in :
+  it should "write a metadata file when sufficient metadata is available" in :
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("meta.mdt")
     val actor = createActorForMedium(handler, target, resolvedSize = 10)
 
     actor ! chunk(1, 10 + BlockSize, complete = false)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, 10 + BlockSize)
+    checkProcessingResults(parseMetadata(target), 1, 10 + BlockSize)
 
   it should "pass a correct MediumData object to the future result handler" in :
     val procMsg = processMessage(createPathInDirectory("metaData.mdt"), TestMedium, 0)
@@ -277,7 +277,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     handler.await()
     Succeeded
 
-  it should "not write a file before sufficient meta data is available" in :
+  it should "not write a file before sufficient metadata is available" in :
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
     val target = createPathInDirectory("other.mdt")
     val actor = createActorForMedium(handler, createPathInDirectory("meta.mdt"))
@@ -295,7 +295,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
 
     actor ! chunk(1, BlockSize - 1, complete = true)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, BlockSize - 1)
+    checkProcessingResults(parseMetadata(target), 1, BlockSize - 1)
 
   it should "ignore a chunk for an unknown medium" in :
     val actor = createTestActorRef()
@@ -312,7 +312,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(BlockSize, BlockSize + 5, complete = false)
     actor ! chunk(BlockSize + 6, 2 * BlockSize + 7, complete = false)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, 2 * BlockSize + 7)
+    checkProcessingResults(parseMetadata(target), 1, 2 * BlockSize + 7)
 
   it should "take the initial resolved count into account" in :
     val handler = new TestFutureResultHandler(new CountDownLatch(1))
@@ -336,7 +336,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(11, 3 * BlockSize, complete = false)
     actor ! chunk(1, 2, complete = true, mediumID = OtherMedium)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, 10)
+    checkProcessingResults(parseMetadata(target), 1, 10)
 
   it should "only write a single file at a given time" in :
     val counter = new AtomicInteger
@@ -355,8 +355,8 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
     actor ! chunk(1, 64, complete = false)
     actor ! chunk(1, 1, complete = true, mediumID = OtherMedium)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, 64)
-    checkProcessingResults(parseMetaData(target2, OtherMedium), 1, 1, OtherMedium)
+    checkProcessingResults(parseMetadata(target), 1, 64)
+    checkProcessingResults(parseMetadata(target2, OtherMedium), 1, 1, OtherMedium)
 
   it should "override existing files" in :
     val target = writeFileContent(createFileReference(), FileTestHelper.TestData * 10)
@@ -365,7 +365,7 @@ class PersistentMetaDataWriterActorSpec(testSystem: ActorSystem) extends TestKit
 
     actor ! chunk(1, 2, complete = true)
     handler.await()
-    checkProcessingResults(parseMetaData(target), 1, 2)
+    checkProcessingResults(parseMetadata(target), 1, 2)
 
   /**
     * A specialized ''FutureIOResultHandler'' implementation that can execute

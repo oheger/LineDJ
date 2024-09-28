@@ -65,10 +65,10 @@ case class EnhancedMediaScanResult(scanResult: MediaScanResult,
 /**
   * A message that serves as an indicator about a newly started media scan.
   *
-  * This message is sent by the media manager actor to the meta data manager
+  * This message is sent by the media manager actor to the metadata manager
   * actor, so that it can reset its state and prepare itself to receive media
   * scan results.
   *
-  * @param client the cient of the current scan operation
+  * @param client the client of the current scan operation
   */
 case class MediaScanStarts(client: ActorRef)

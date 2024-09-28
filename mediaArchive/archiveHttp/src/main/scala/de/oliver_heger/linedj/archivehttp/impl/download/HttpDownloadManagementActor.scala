@@ -49,7 +49,7 @@ object HttpDownloadManagementActor:
       with ChildActorFactory
 
   /**
-    * The transformation function to remove meta data from a file to be
+    * The transformation function to remove metadata from a file to be
     * downloaded.
     *
     * @return the download transformation function

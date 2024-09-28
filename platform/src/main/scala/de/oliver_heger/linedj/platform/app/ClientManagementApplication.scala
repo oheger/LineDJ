@@ -42,8 +42,8 @@ object ClientManagementApplication:
   /** The name of the bean representing the consumer ID factory. */
   final val BeanConsumerIDFactory: String = BeanPrefix + "consumerIDFactory"
 
-  /** Configuration property for the meta data cache size. */
-  final val PropMetaDataCacheSize = "media.cacheSize"
+  /** Configuration property for the metadata cache size. */
+  final val PropMetadataCacheSize = "media.cacheSize"
 
   /**
     * Configuration property determining the timeout for the shutdown of the
@@ -56,10 +56,10 @@ object ClientManagementApplication:
   final val PropShutdownTimeout = "platform.shutdownTimeout"
 
   /**
-    * The default size for the meta data cache. This is the number of entries
+    * The default size for the metadata cache. This is the number of entries
     * the cache can hold.
     */
-  final val DefaultMetaDataCacheSize = 2500
+  final val DefaultMetadataCacheSize = 2500
 
   /** The default timeout for shutting down the platform. */
   final val DefaultShutdownTimeoutMillis = 5000
@@ -295,7 +295,7 @@ class ClientManagementApplication extends Application with ClientApplicationCont
     List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
       new AvailableMediaExtension(facade),
       new MetaDataCache(facade,
-        appCtx.getConfiguration.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize)))
+        appCtx.getConfiguration.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize)))
 
   /**
     * Extracts the shared window manager from the application context. This

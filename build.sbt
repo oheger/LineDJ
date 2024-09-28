@@ -199,8 +199,8 @@ lazy val shared = (project in file("shared"))
 
 /**
   * A project with traits and classes dealing with the generic extraction of
-  * meta data from media files. There will be other projects that handle
-  * specific kinds of meta data, such as ID3 tags.
+  * metadata from media files. There will be other projects that handle
+  * specific kinds of metadata, such as ID3 tags.
   */
 lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   .enablePlugins(SbtOsgi)
@@ -213,7 +213,7 @@ lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
   ) dependsOn shared
 
 /**
-  * A project with classes that can extract meta data from mp3 audio files.
+  * A project with classes that can extract metadata from mp3 audio files.
   * This functionality is required by multiple projects dealing with media
   * files; hence, it is made available as a separate project.
   */
@@ -247,7 +247,7 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
 
 /**
   * The media archive project. This contains code to scan a local folder
-  * structure with media files and extract meta data about artists, albums,
+  * structure with media files and extract metadata about artists, albums,
   * and songs.
   */
 lazy val archive = (project in file("mediaArchive/archive"))

@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.extract.metadata.{MetaDataExtractionActor, Process
 import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.*
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetaDataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
+import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetadataProcessingSuccess, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -97,10 +97,10 @@ object MetaDataManagerActorSpec:
     MediumID(name, Some(settingsPath.toString), "someArchiveComponent")
 
   /**
-    * Creates a test meta data object for the specified path.
+    * Creates a test metadata object for the specified path.
     *
     * @param path the path
-    * @return the meta data for this path (following conventions)
+    * @return the metadata for this path (following conventions)
     */
   private def metaDataFor(path: Path): MediaMetaData =
     val index = extractPathIndex(path)
@@ -115,8 +115,8 @@ object MetaDataManagerActorSpec:
     * @param file     the object with file data
     * @return the processing result
     */
-  private def processingResultFor(mediumID: MediumID, file: FileData): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(mediumID, fileUri(file), metaDataFor(file.path))
+  private def processingResultFor(mediumID: MediumID, file: FileData): MetadataProcessingSuccess =
+    MetadataProcessingSuccess(mediumID, fileUri(file), metaDataFor(file.path))
 
   /**
     * Generates a number of media files that belong to the specified test
@@ -253,7 +253,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[CloseSupport].isAssignableFrom(props.actorClass()) shouldBe true
 
-  it should "pass a scan result to the meta data persistence manager actor" in:
+  it should "pass a scan result to the metadata persistence manager actor" in:
     val helper = new MetaDataManagerActorTestHelper
 
     helper.startProcessing()
@@ -270,7 +270,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.actor receive EnhancedScanResult
     expectNoMoreMessage(helper.persistenceManager)
-    expectNoMoreMessage(helper.metaDataUnionActor)
+    expectNoMoreMessage(helper.metadataUnionActor)
 
   /**
     * Generates an alternative scan result and tells the test actor to process
@@ -295,7 +295,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     esr
 
   /**
-    * Expects that an ACK message from the meta data manager actor is received.
+    * Expects that an ACK message from the metadata manager actor is received.
     */
   private def expectAckFromManager(): Unit =
     expectMsg(MetaDataManagerActor.ScanResultProcessed)
@@ -328,7 +328,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       message.uriMappingFunc(file.path) should be(Converter.pathToUri(file.path))
     }
 
-  it should "extract meta data from files that could not be resolved" in:
+  it should "extract metadata from files that could not be resolved" in:
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
 
@@ -400,18 +400,18 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
         false
     expectNoMoreMessage(helper.persistenceManager)
 
-  it should "notify the union meta data manager actor when a scan is complete" in:
+  it should "notify the union metadata manager actor when a scan is complete" in:
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.sendAvailableMedia()
       .sendAllProcessingResults(ScanResult)
 
-    helper.metaDataUnionActor.fishForMessage():
+    helper.metadataUnionActor.fishForMessage():
       case UpdateOperationCompleted(Some(proc)) if proc == helper.actor =>
         true
       case _ => // ignore all other messages
         false
-    expectNoMoreMessage(helper.metaDataUnionActor)
+    expectNoMoreMessage(helper.metadataUnionActor)
 
   it should "restart processor actors for a new scan" in:
     val unresolved = UnresolvedMetaDataFiles(MediaIDs.head,
@@ -448,7 +448,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     expectAckFromManager()
     helper.persistenceManager.expectMsg(EnhancedScanResult)
 
-  it should "propagate processing results to the meta data union actor" in:
+  it should "propagate processing results to the metadata union actor" in:
     val helper = new MetaDataManagerActorTestHelper
     helper.startProcessing()
     helper.expectMediaContribution().sendAvailableMedia()
@@ -532,7 +532,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .prepareCloseRequest(closing = true)()
 
     helper.sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID) drop 2)
-    expectNoMoreMessage(helper.metaDataUnionActor)
+    expectNoMoreMessage(helper.metadataUnionActor)
 
   it should "handle a Cancel request if no scan is in progress" in:
     val helper = new MetaDataManagerActorTestHelper
@@ -586,7 +586,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.expectMediaContribution()
       .sendProcessingResults(mid, ScanResult.mediaFiles(TestMediumID))
-    expectNoMoreMessage(helper.metaDataUnionActor)
+    expectNoMoreMessage(helper.metadataUnionActor)
 
   it should "ignore a processing result for an unknown URI" in:
     val helper = new MetaDataManagerActorTestHelper
@@ -594,7 +594,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.expectMediaContribution()
       .sendProcessingResults(TestMediumID, List(FileData(path("unknownPath_42"), 42)))
-    expectNoMoreMessage(helper.metaDataUnionActor)
+    expectNoMoreMessage(helper.metadataUnionActor)
 
   it should "forward a GetMetaDataFileInfo message to the persistence manager" in:
     val helper = new MetaDataManagerActorTestHelper(
@@ -642,7 +642,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
   /**
     * A test helper class that manages a couple of helper objects needed for
-    * more complex tests of a meta data manager actor.
+    * more complex tests of a metadata manager actor.
     *
     * @param checkChildActorProps  flag whether the properties passed to child
     *                              actors should be checked
@@ -657,8 +657,8 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     val persistenceManager: TestProbe = TestProbe()
 
-    /** Test probe for the meta data union actor. */
-    val metaDataUnionActor: TestProbe = TestProbe()
+    /** Test probe for the metadata union actor. */
+    val metadataUnionActor: TestProbe = TestProbe()
 
     /** The configuration. */
     val config: MediaArchiveConfig = createConfig()
@@ -751,7 +751,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       this
 
     /**
-      * Expects that a contribution message was sent to the meta data union
+      * Expects that a contribution message was sent to the metadata union
       * actor.
       *
       * @param esr the result the contribution is based on
@@ -759,13 +759,13 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def expectMediaContribution(esr: EnhancedMediaScanResult = EnhancedScanResult):
     MetaDataManagerActorTestHelper =
-      metaDataUnionActor.expectMsg(UpdateOperationStarts(Some(actor)))
-      metaDataUnionActor.expectMsg(MediaContribution(convertToFileUris(esr.scanResult)))
+      metadataUnionActor.expectMsg(UpdateOperationStarts(Some(actor)))
+      metadataUnionActor.expectMsg(MediaContribution(convertToFileUris(esr.scanResult)))
       this
 
     /**
-      * Expects that meta data processing results for the specified files have
-      * been propagated to the meta data union actor.
+      * Expects that metadata processing results for the specified files have
+      * been propagated to the metadata union actor.
       *
       * @param mediumID the medium ID
       * @param files    the list of files
@@ -774,7 +774,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     def expectPropagatedProcessingResults(mediumID: MediumID, files: List[FileData]):
     MetaDataManagerActorTestHelper =
       files foreach { f =>
-        metaDataUnionActor.expectMsg(processingResultFor(mediumID, f))
+        metadataUnionActor.expectMsg(processingResultFor(mediumID, f))
       }
       this
 
@@ -880,7 +880,7 @@ class MetaDataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       TestActorRef(creationProps())
 
     private def creationProps(): Props =
-      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metaDataUnionActor.ref, Converter)
+      Props(new MetaDataManagerActor(config, persistenceManagerActorRef, metadataUnionActor.ref, Converter)
         with ChildActorFactory with CloseSupport {
         override def createChildActor(p: Props): ActorRef = {
           childActorCounter.incrementAndGet()

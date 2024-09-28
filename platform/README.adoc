@@ -247,7 +247,7 @@ data managed by the archive.
  
 === Available Media extension
  
-_Available media_ is a data structure listing IDs and some meta data about all
+_Available media_ is a data structure listing IDs and some metadata about all
 media currently managed by the media archive. This is probably of interest for
 many applications running on the platform allowing the user to do something
 (browse, search, playback, ...) with media files. When a scan for media files
@@ -256,7 +256,7 @@ published to registered consumers. So this extension could be an alternative
 to the _Media Archive State Listener_ extension for applications only
 interested in media information.
  
-=== Meta Data Cache extension
+=== Metadata Cache extension
  
 It is a frequent use case to display information about media and the songs
 they contain. From the media archive the content of a medium can be queried
@@ -286,7 +286,7 @@ _Platform_ module:
 [cols="1,2",options="header"]
 |====
 | Setting | Description
-| media.cacheSize | The number of entries that can be stored in the _Meta Data
+| media.cacheSize | The number of entries that can be stored in the _Metadata
 Cache_ extension. When this limit is reached older media are removed from the
 cache.
 | platform.shutdownTimeout | Defines a timeout (in milliseconds) for the

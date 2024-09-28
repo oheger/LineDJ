@@ -25,10 +25,10 @@ object MediaArchiveConfig:
   /** Constant for the prefix for the media archive configuration. */
   private val MediaArchivePrefix = ConfigPrefix + "mediaArchive."
 
-  /** The configuration property for the size of meta data update chunks. */
+  /** The configuration property for the size of metadata update chunks. */
   private val PropMetaDataUpdateChunkSize = MediaArchivePrefix + "metaDataUpdateChunkSize"
 
-  /** The configuration property for the maximum meta data message size. */
+  /** The configuration property for the maximum metadata message size. */
   private val PropMetaDataMaxMessageSize = MediaArchivePrefix + "metaDataMaxMessageSize"
 
   /**
@@ -52,13 +52,13 @@ object MediaArchiveConfig:
   *
   * An instance is created when the union archive component is started.
   *
-  * @param metaDataUpdateChunkSize the size of a chunk of meta data sent to a
-  *                                registered meta data listener as an update
+  * @param metaDataUpdateChunkSize the size of a chunk of metadata sent to a
+  *                                registered metadata listener as an update
   *                                notification; this property determines how
-  *                                often a meta data listener receives update
-  *                                notifications when new meta data becomes
+  *                                often a metadata listener receives update
+  *                                notifications when new metadata becomes
   *                                available
-  * @param initMetaDataMaxMsgSize  the maximum number of entries in a meta data
+  * @param initMetaDataMaxMsgSize  the maximum number of entries in a metadata
   *                                chunk message; there is a limit in the size
   *                                of remoting messages; therefore, this
   *                                parameter is important to not exceed this
@@ -67,7 +67,7 @@ object MediaArchiveConfig:
   */
 case class MediaArchiveConfig private(metaDataUpdateChunkSize: Int,
                                       initMetaDataMaxMsgSize: Int):
-  /** The maximum size of meta data chunk messages. */
+  /** The maximum size of metadata chunk messages. */
   val metaDataMaxMessageSize: Int = calcMaxMessageSize()
 
   /**
@@ -75,7 +75,7 @@ case class MediaArchiveConfig private(metaDataUpdateChunkSize: Int,
     * method ensures that the maximum message size is always a multiple of the
     * update chunk size. If necessary, the value is rounded upwards.
     *
-    * @return the maximum meta data chunk message size
+    * @return the maximum metadata chunk message size
     */
   private def calcMaxMessageSize(): Int =
     if initMetaDataMaxMsgSize % metaDataUpdateChunkSize == 0 then initMetaDataMaxMsgSize

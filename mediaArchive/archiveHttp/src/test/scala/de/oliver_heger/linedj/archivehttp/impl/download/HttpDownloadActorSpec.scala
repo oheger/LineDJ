@@ -210,7 +210,7 @@ class HttpDownloadActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     def createConfig(): HttpArchiveConfig =
       HttpArchiveConfig(downloader = downloader, archiveBaseUri = Uri("/archive/base"), archiveName = "anArchive",
         contentPath = Uri.Path("someContent.json"), mediaPath = MediaPath,
-        metaDataPath = Uri.Path("data"), processorTimeout = Timeout(11.seconds), processorCount = 2,
+        metadataPath = Uri.Path("data"), processorTimeout = Timeout(11.seconds), processorCount = 2,
         propagationBufSize = 1024, maxContentSize = 8192, downloadBufferSize = 2222,
         downloadMaxInactivity = 12.seconds, downloadReadChunkSize = 4444, timeoutReadSize = 5555,
         downloadConfig = DownloadConfig(downloadTimeout = 22.seconds, downloadCheckInterval = 33.seconds,

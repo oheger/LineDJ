@@ -59,7 +59,7 @@ object MediaManagerActor:
     * method; it ensures that all dependencies have been resolved.
     *
     * @param config          the configuration object
-    * @param metaDataManager a reference to the meta data manager actor
+    * @param metaDataManager a reference to the metadata manager actor
     * @param mediaUnionActor reference to the media union actor
     * @param groupManager    a reference to the group manager actor
     * @param converter       the ''PathUriConverter''
@@ -70,7 +70,7 @@ object MediaManagerActor:
     Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, groupManager, converter)
 
   /**
-    * The transformation function to remove meta data from a file to be
+    * The transformation function to remove metadata from a file to be
     * downloaded.
     *
     * @return the download transformation function
@@ -96,7 +96,7 @@ object MediaManagerActor:
   * audio sources can be requested.
   *
   * @param config                 the configuration object
-  * @param metaDataManager        a reference to the meta data manager actor
+  * @param metaDataManager        a reference to the metadata manager actor
   * @param mediaUnionActor        a reference to the media union actor
   * @param groupManager           a reference to the group manager actor
   * @param scanStateUpdateService the service to update the scan state
@@ -115,7 +115,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * is for testing purposes.
     *
     * @param config          the configuration object
-    * @param metaDataManager a reference to the meta data manager actor
+    * @param metaDataManager a reference to the metadata manager actor
     * @param mediaUnionActor a reference to the media union actor
     * @param groupManager    a reference to the group manager actor
     * @param converter       the ''PathUriConverter''
@@ -139,7 +139,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
   private var downloadManagerActor: ActorRef = _
 
   /**
-    * The current state of the this actor. This state keeps track about ongoing
+    * The current state of this actor. This state keeps track about ongoing
     * scan operations and about accumulated scan results.
     */
   private var scanState = MediaScanStateUpdateServiceImpl.InitialState

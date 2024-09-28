@@ -60,7 +60,7 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * result message that was sent to the processor actor.
     *
     * @param file the file to be processed
-    * @return the extracted ID3v1 meta data
+    * @return the extracted ID3v1 metadata
     */
   private def processFile(file: String): ID3v1MetaData =
     val probeProcessor = TestProbe()

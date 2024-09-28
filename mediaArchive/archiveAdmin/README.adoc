@@ -13,11 +13,11 @@ There are actions to trigger a new media scan or to cancel a currently running
 scan.
 
 A separate dialog window can be opened allowing the management of persistent
-meta data files. Local media archives create such files to store the meta data
+metadata files. Local media archives create such files to store the metadata
 of media files after it has been extracted. Thy are named by a checksum value
 calculated based on the content of the medium. If the currently selected
 archive component uses such files, they can be displayed and updated via this
-meta data files dialog. A use case for this is that once written meta data
+metadata files dialog. A use case for this is that once written metadata
 files are not deleted automatically, even if the associated medium is changed
 or no longer exists. This can be done manually via this dialog.
 

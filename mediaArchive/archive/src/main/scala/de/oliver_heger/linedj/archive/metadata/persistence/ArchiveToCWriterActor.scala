@@ -46,7 +46,7 @@ object ArchiveToCWriterActor:
   * An actor class that writes the table of content of a media archive.
   *
   * This actor processes messages that define the content and the format of a
-  * JSON document listing all media (with their relative folders and meta data
+  * JSON document listing all media (with their relative folders and metadata
   * files) that belong to the archive. The actor then produces such a file at
   * the specified location.
   *

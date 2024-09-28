@@ -40,7 +40,7 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 object ValidationController:
-  /** The prefix for all properties related to meta data validation. */
+  /** The prefix for all properties related to metadata validation. */
   val PrefixValidationConfig = "media.validation."
 
   /**
@@ -85,16 +85,16 @@ object ValidationController:
     }
 
 /**
-  * A controller class for retrieving and displaying meta data validation
+  * A controller class for retrieving and displaying metadata validation
   * results.
   *
   * The controller manages a dialog window that mainly consists of a table
   * view. When the window is opened information about the currently available
-  * meta data is fetched, and a stream is started that iterates over all media.
+  * metadata is fetched, and a stream is started that iterates over all media.
   * The stream uses the injected ''ValidationFlow'' to obtain the results of
   * the validation. These results are added to the table view.
   *
-  * @param metaDataService the service for obtaining meta data
+  * @param metaDataService the service for obtaining metadata
   * @param app             the associated client application
   * @param sync            the object to sync with the UI thread
   * @param tableHandler    the table handler component

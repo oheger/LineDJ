@@ -105,12 +105,12 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val creationData = helper.expectDownloadActorCreation(request)
     creationData.props.args(3).asInstanceOf[DownloadTransformFunc]
 
-  it should "use an identity transformation if meta data should be downloaded" in:
+  it should "use an identity transformation if metadata should be downloaded" in:
     val transformFunc = sendRequestAndFetchTransformFunc(TestMediaFileRequest)
 
     transformFunc should be(MediaFileDownloadActor.IdentityTransform)
 
-  it should "use a correct transformation function if meta data is to be stripped" in:
+  it should "use a correct transformation function if metadata is to be stripped" in:
     val request = TestMediaFileRequest.copy(withMetaData = false)
     val transformFunc = sendRequestAndFetchTransformFunc(request)
 
@@ -222,7 +222,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
         archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
         maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
         downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = mock[MediaDownloader],
-        contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
+        contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metadataPath = Uri.Path("meta"))
 
     /**
       * Creates a new test actor instance.

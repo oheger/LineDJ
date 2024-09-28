@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import de.oliver_heger.linedj.archivecommon.parser._
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 import org.apache.pekko.util.ByteString
@@ -27,17 +27,17 @@ import org.apache.pekko.util.ByteString
 import scala.concurrent.Future
 
 /**
-  * An actor class responsible for processing a response for a meta data file.
+  * An actor class responsible for processing a response for a metadata file.
   *
-  * This actor parses the meta data file into a sequence of
-  * [[MetaDataProcessingSuccess]] objects. This sequence is then passed in a
+  * This actor parses the metadata file into a sequence of
+  * [[MetadataProcessingSuccess]] objects. This sequence is then passed in a
   * [[MetaDataResponseProcessingResult]] message to the sender actor.
   */
 class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor:
   /**
     * @inheritdoc This implementation processes the content of a metadata
     *             file and parses it into a sequence of
-    *             [[MetaDataProcessingSuccess]] objects. Based on this, a
+    *             [[MetadataProcessingSuccess]] objects. Based on this, a
     *             result object is produced.
     */
   protected override def processSource(source: Source[ByteString, Any],
@@ -45,8 +45,8 @@ class MetaDataResponseProcessingActor extends AbstractResponseProcessingActor:
                                        desc: HttpMediumDesc,
                                        config: HttpArchiveConfig,
                                        seqNo: Int): (Future[Any], KillSwitch) =
-    val sink = Sink.fold[List[MetaDataProcessingSuccess],
-      MetaDataProcessingSuccess](List.empty)((lst, r) => r :: lst)
+    val sink = Sink.fold[List[MetadataProcessingSuccess],
+      MetadataProcessingSuccess](List.empty)((lst, r) => r :: lst)
     val (killSwitch, futStream) = MetaDataParser.parseMetadata(source, mid)
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(sink)(Keep.both)

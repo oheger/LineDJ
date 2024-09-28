@@ -24,13 +24,13 @@ import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
   * A specialized flow stage used during processing of the content document of
   * an HTTP archive.
   *
-  * From the content document partial results for medium descriptions and meta
-  * data are produced. This is done in parallel, then the partial results have
-  * to be combined to generate the final [[MediumProcessingResult]] objects. In
-  * the original approach the partial results were directly combined. However,
-  * as it came out, the flow stage that sends HTTP requests to the archive can
-  * change the order of stream elements. So the results produced by the stream
-  * were partly scrambled.
+  * From the content document partial results for medium descriptions and 
+  * metadata are produced. This is done in parallel, then the partial results 
+  * have to be combined to generate the final [[MediumProcessingResult]] 
+  * objects. In the original approach the partial results were directly 
+  * combined. However, as it came out, the flow stage that sends HTTP requests 
+  * to the archive can change the order of stream elements. So the results 
+  * produced by the stream were partly scrambled.
   *
   * This stage should fix this. It receives tuples with partial result objects.
   * If they refer to the same medium, they are combined to a final result
@@ -60,7 +60,7 @@ class ProcessingResultCombiningStage extends GraphStage[
       // map with description results to be combined
       var info = Map.empty[MediumID, MediumInfoResponseProcessingResult]
 
-      // map with meta data results to be combined
+      // map with metadata results to be combined
       var meta = Map.empty[MediumID, MetaDataResponseProcessingResult]
 
       setHandler(in, new InHandler {
@@ -95,12 +95,12 @@ class ProcessingResultCombiningStage extends GraphStage[
     * Combines partial result objects to a final result.
     *
     * @param resInfo the medium info result
-    * @param resMeta the meta data result
+    * @param resMeta the metadata result
     * @return the final result
     */
   private def combine(resInfo: MediumInfoResponseProcessingResult,
                       resMeta: MetaDataResponseProcessingResult): MediumProcessingResult =
-    MediumProcessingResult(resInfo.mediumInfo, resMeta.metaData, resMeta.seqNo)
+    MediumProcessingResult(resInfo.mediumInfo, resMeta.metadata, resMeta.seqNo)
 
   /**
     * Updates the maps with results to be combined when a new partial result

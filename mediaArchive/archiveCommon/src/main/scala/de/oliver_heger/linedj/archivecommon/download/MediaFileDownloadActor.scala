@@ -41,7 +41,7 @@ object MediaFileDownloadActor:
     * Definition of a transformation function for the streams to be downloaded
     * to clients. It is sometimes necessary to somehow manipulate the content
     * of a media file that is sent to a client. One example is filtering out
-    * of meta data (like ID3 tags).
+    * of metadata (like ID3 tags).
     *
     * This can be achieved by passing a concrete transformation function to
     * the actor. The function is invoked with the file extension of the file to
@@ -72,7 +72,7 @@ object MediaFileDownloadActor:
   *
   * This actor class manages a ''Source'' to a file located on the local hard
   * disk. By specifying a transformation function, the content of the file to
-  * be downloaded can be manipulated; this is mainly used to remove meta data
+  * be downloaded can be manipulated; this is mainly used to remove metadata
   * from a media file.
   *
   * The data of this source is then made available to clients via a

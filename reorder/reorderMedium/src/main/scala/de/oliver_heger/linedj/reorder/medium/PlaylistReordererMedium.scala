@@ -32,7 +32,7 @@ import scala.collection.immutable.Seq
   * under a common root directory with their inception year in their name. So
   * songs are ordered by artist and album.
   *
-  * Note that this implementation does not use any meta data associated with a
+  * Note that this implementation does not use any metadata associated with a
   * song. It purely relies on file names.
   */
 class PlaylistReordererMedium extends LocalizedPlaylistReorderer:

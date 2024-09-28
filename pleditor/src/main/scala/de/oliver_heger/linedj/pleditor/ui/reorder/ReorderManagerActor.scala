@@ -167,7 +167,7 @@ class ReorderManagerActor(bus: MessageBus) extends Actor with ActorLogging:
       handleChildActorTermination(t.actor)
 
   /**
-    * Returns a list with meta data about all currently available reorder
+    * Returns a list with metadata about all currently available reorder
     * services.
     *
     * @return the list with service information

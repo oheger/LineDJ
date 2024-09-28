@@ -40,7 +40,7 @@ import org.apache.pekko.actor.{Actor, ActorRef}
   *
   * @param propagationService the content propagation update service
   * @param mediaManager       the union media manager actor
-  * @param metaDataManager    the union meta data manager actor
+  * @param metaDataManager    the union metadata manager actor
   * @param archiveID          the ID of the HTTP archive (this is used as
   *                           component ID in messages for the union archive)
   */
@@ -52,13 +52,13 @@ class ContentPropagationActor(private[impl] val propagationService: ContentPropa
     * parameters. The default content propagation service is used.
     *
     * @param mediaManager    the union media manager actor
-    * @param metaDataManager the union meta data manager actor
+    * @param metadataManager the union metadata manager actor
     * @param archiveUri      the URI of the HTTP archive
     * @return the newly created instance
     */
-  def this(mediaManager: ActorRef, metaDataManager: ActorRef,
+  def this(mediaManager: ActorRef, metadataManager: ActorRef,
            archiveUri: String) = this(ContentPropagationUpdateServiceImpl, mediaManager,
-    metaDataManager, archiveUri)
+    metadataManager, archiveUri)
 
   /** The propagation state managed by this actor. */
   private var state = ContentPropagationUpdateServiceImpl.InitialState

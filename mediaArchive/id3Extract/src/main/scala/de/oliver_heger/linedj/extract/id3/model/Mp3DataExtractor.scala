@@ -196,7 +196,7 @@ object Mp3DataExtractor:
       next
 
   /**
-    * An internally data class containing meta data about an MPEG frame.
+    * An internally data class containing metadata about an MPEG frame.
     *
     * @param length      the length of the associated frame in bytes
     * @param mpegVersion a code for the MPEG version
@@ -210,7 +210,7 @@ object Mp3DataExtractor:
 
 
 /**
-  * A class for extracting meta data from mp3 audio files.
+  * A class for extracting metadata from mp3 audio files.
   *
   * An instance of this class can be used for processing a single MP3 audio
   * file. With the ''addData()'' method chunks of the file of arbitrary length
@@ -219,10 +219,10 @@ object Mp3DataExtractor:
   *
   * When all chunks of the file have been added (or at any time if intermediate
   * results are of interest) the various get methods can be called for obtaining
-  * the accumulated meta data obtained during processing.
+  * the accumulated metadata obtained during processing.
   *
   * Implementation note: This class is not thread-safe. Adding of data chunks
-  * and querying meta data can be performed in a single thread only.
+  * and querying metadata can be performed in a single thread only.
   */
 class Mp3DataExtractor:
 
@@ -313,7 +313,7 @@ class Mp3DataExtractor:
   def getFrameCount: Int = frameCount
 
   /**
-    * Adds another chunk of data to this object and processes it. The meta data
+    * Adds another chunk of data to this object and processes it. The metadata
     * about the file to be processed is directly updated.
     *
     * @param data the data to be processed

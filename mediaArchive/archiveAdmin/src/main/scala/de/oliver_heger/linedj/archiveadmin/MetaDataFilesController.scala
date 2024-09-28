@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{Ava
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import de.oliver_heger.linedj.shared.archive.metadata._
-import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetaDataFileInfo
+import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetadataFileInfo
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -48,7 +48,7 @@ object MetaDataFilesController:
   val ActionRefresh = "refreshAction"
 
   /**
-    * The name of the action for removing the selected meta data files.
+    * The name of the action for removing the selected metadata files.
     */
   val ActionRemoveFiles = "removeFilesAction"
 
@@ -88,18 +88,18 @@ object MetaDataFilesController:
   /** The state for scan in progress. */
   private val StateScanning = ControllerState(MsgScanning, resetFileData = true)
 
-  /** The state for loading data about meta data files. */
+  /** The state for loading data about metadata files. */
   private val StateLoading = ControllerState(MsgLoading, sendFileRequest = true)
 
   /** The state for an active remove operation. */
   private val StateRemoving = ControllerState(MsgRemoving)
 
-  /** The state for a failed invocation of the meta data manager actor. */
+  /** The state for a failed invocation of the metadata manager actor. */
   private val StateErrorActorAccess = ControllerState(MsgErrorActorAccess,
     showProgress = false)
 
   /**
-    * A data class storing the properties of a meta data file. The table
+    * A data class storing the properties of a metadata file. The table
     * managed by this controller is populated with instances of this class.
     *
     * @param mediumName the name of the medium
@@ -118,7 +118,7 @@ object MetaDataFilesController:
     *                        load file data
     * @param refreshEnabled  a flag whether the refresh action is enabled
     * @param showProgress    a flag whether the progress indicator is visible
-    * @param resetFileData   a flag whether data about meta data files should be
+    * @param resetFileData   a flag whether data about metadata files should be
     *                        cleaned
     */
   private case class ControllerState(statusMessage: Message, sendFileRequest: Boolean = false,
@@ -128,17 +128,17 @@ object MetaDataFilesController:
 
 
 /**
-  * A controller class for dealing with persistent meta data files.
+  * A controller class for dealing with persistent metadata files.
   *
   * This class is the controller of a dialog box that shows a list with the
-  * currently available files for persistent meta data. The checksum values
+  * currently available files for persistent metadata. The checksum values
   * of the files and the media they belong to (if any) are displayed in a
   * table. An action is available for removing selected files.
   *
   * In order to keep the displayed information up-to-date, the class needs to
   * keep track on the archive state. When the archive becomes unavailable, no
   * actions are allowed. When it becomes available again (or initially) the
-  * current meta data files information has to be retrieved. During a meta data
+  * current metadata files information has to be retrieved. During a metadata
   * scan, the remove action has to be disabled.
   *
   * @param application        the associated application
@@ -179,7 +179,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   /** Stores data about the currently available media. */
   private var availableMedia: Option[AvailableMedia] = None
 
-  /** Stores data about meta data files. */
+  /** Stores data about metadata files. */
   private var fileInfo: Option[MetaDataFileInfo] = None
 
   /** The window this controller is associated with. */
@@ -203,7 +203,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   /**
     * @inheritdoc This implementation performs initializations, e.g. the
     *             required registrations are added. It also requests data
-    *             about meta data files from the archive.
+    *             about metadata files from the archive.
     */
   override def windowOpened(event: WindowEvent): Unit =
     window = WindowUtils windowFromEvent event
@@ -245,12 +245,12 @@ class MetaDataFilesController(application: ArchiveAdminApp,
           case Success(result) =>
             handleRemoveResult(result)
           case Failure(exception) =>
-            log.error("Error when removing meta data files!", exception)
+            log.error("Error when removing metadata files!", exception)
             switchToState(StateErrorActorAccess)
     }
 
   /**
-    * Tells this controller to refresh its information about meta data
+    * Tells this controller to refresh its information about metadata
     * files. This method is invoked in reaction on the refresh action.
     */
   def refresh(): Unit =
@@ -264,7 +264,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     window.close(false)
 
   /**
-    * Returns an ''Option'' with the actor for updating meta data files. Not
+    * Returns an ''Option'' with the actor for updating metadata files. Not
     * all archives may support such updates.
     *
     * @return an ''Option'' with the update actor
@@ -272,7 +272,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   private def optUpdateActor: Option[ActorRef] = fileInfo flatMap (_.optUpdateActor)
 
   /**
-    * Handles a result of a remove meta data files operation. The UI is
+    * Handles a result of a remove metadata files operation. The UI is
     * updated accordingly.
     *
     * @param result the result
@@ -309,9 +309,9 @@ class MetaDataFilesController(application: ArchiveAdminApp,
   /**
     * Returns a list with ''MetaDataFileData'' objects for all files that
     * belong to an existing medium. To obtain this list, the available media
-    * are joined with the information about meta data files.
+    * are joined with the information about metadata files.
     *
-    * @param info  the object with information about meta data files
+    * @param info  the object with information about metadata files
     * @param media the object with information about available media
     * @return a list with data about assigned files
     */
@@ -333,7 +333,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
     info.unusedFiles.toList.sortWith(_ < _) map (MetaDataFileData(null, _))
 
   /**
-    * Populates the table with meta data files with the given content.
+    * Populates the table with metadata files with the given content.
     *
     * @param content a sequence with the content objects to be added
     */
@@ -365,7 +365,7 @@ class MetaDataFilesController(application: ArchiveAdminApp,
       case _ =>
 
   /**
-    * The consumer function for meta data state change events.
+    * The consumer function for metadata state change events.
     *
     * @param event the state event
     */
@@ -405,12 +405,12 @@ class MetaDataFilesController(application: ArchiveAdminApp,
       if state.sendFileRequest then
         filesTableHandler.getModel.clear()
         application.invokeActor(application.mediaFacadeActors.mediaManager,
-          GetArchiveMetaDataFileInfo(archiveID)).executeUIThread[MetaDataFileInfo, Unit]:
+          GetArchiveMetadataFileInfo(archiveID)).executeUIThread[MetaDataFileInfo, Unit]:
           case Success(response) =>
             fileInfo = Some(response)
             dataReceived()
           case Failure(ex) =>
-            log.error("Error when requesting meta data file info!", ex)
+            log.error("Error when requesting metadata file info!", ex)
             switchToState(StateErrorActorAccess)
     if state.resetFileData then
       fileInfo = None

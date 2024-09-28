@@ -37,7 +37,7 @@ class MetaDataJsonConverterSpec extends AnyFlatSpec with Matchers:
     * Converts media metadata to a string using the converter and parses this
     * string again.
     *
-    * @param metaData the meta data
+    * @param metaData the metadata
     * @param uri      the URI
     * @return the parsed metadata processing result
     */

@@ -28,7 +28,7 @@ object MetaDataFileRemoveActor:
 
   /**
     * A message processed by [[MetaDataFileRemoveActor]] telling it to remove
-    * the given set of meta data files.
+    * the given set of metadata files.
     *
     * @param fileIDs     the set of checksum values for the files to be removed
     * @param pathMapping the mapping from checksum values to paths
@@ -52,7 +52,7 @@ object MetaDataFileRemoveActor:
 
   /**
     * An internally used data class that stores information about requests to
-    * remove meta data files.
+    * remove metadata files.
     *
     * @param request the actual remove request
     * @param client  the sender of this request
@@ -70,9 +70,9 @@ object MetaDataFileRemoveActor:
   def apply(): Props = Props[MetaDataFileRemoveActorImpl]()
 
 /**
-  * An actor class which supports removing a set of meta data files.
+  * An actor class which supports removing a set of metadata files.
   *
-  * This actor is used internally to remove a set of meta data files, e.g. the
+  * This actor is used internally to remove a set of metadata files, e.g. the
   * obsolete files no longer assigned to an active medium. The actor reacts on
   * messages specifying the files to be removed (as checksum values) and the
   * map with checksum values to concrete ''Path'' objects. Each file is removed

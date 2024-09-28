@@ -39,7 +39,7 @@ object PlaylistTableControllerSpec:
   /** The number of songs in the initial test playlist. */
   private val InitPlaylistSize = 8
 
-  /** The initial meta data state. */
+  /** The initial metadata state. */
   private val InitMetaDataState = metaDataState(0)
 
   /**
@@ -69,7 +69,7 @@ object PlaylistTableControllerSpec:
 
   /**
     * Generates a tuple with a test ''SongData'' and its index in the playlist.
-    * Such objects are needed by meta data resolve delta structures.
+    * Such objects are needed by metadata resolve delta structures.
     *
     * @param idx the index
     * @return the test song and its index
@@ -107,7 +107,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
   /**
     * Generates a test ''AudioPlayerState'' object based on mock objects. The
     * actual content does not matter; it only has to be checked whether the
-    * correct properties are passed to the meta data service.
+    * correct properties are passed to the metadata service.
     *
     * @return the ''AudioPlayerState''
     */
@@ -116,7 +116,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       playlistActivated = true)
 
   /**
-    * Generates a test object with playlist meta data. The actual content does
+    * Generates a test object with playlist metadata. The actual content does
     * not matter, as this object is passed only as input parameter to a mock
     * service object.
     *
@@ -153,7 +153,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       .checkModelForPartialUpdates(Set.empty)
       .verifyNoMoreUpdatesOfTableHandler()
 
-  it should "update the model when new meta data arrives" in:
+  it should "update the model when new metadata arrives" in:
     val metaData = playlistMetaData()
     val delta = MetaDataResolveDelta(List(songDataIdx(1), songDataIdx(2), songDataIdx(3),
       songDataIdx(8)), List((0, 2), (7, 7)), fullUpdate = false)
@@ -176,7 +176,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     updates foreach (t => helper.verifyTableRangeUpdateNotification(t._1, t._2))
     helper.verifyNoMoreUpdatesOfTableHandler()
 
-  it should "track the meta data state when processing updates" in:
+  it should "track the metadata state when processing updates" in:
     val delta1 = MetaDataResolveDelta(songDataList(InitPlaylistSize).zipWithIndex, Nil,
       fullUpdate = true)
     val delta2 = MetaDataResolveDelta(Nil, List((1, 2)), fullUpdate = false)
@@ -223,7 +223,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     /** Mock for the song data factory. */
     private val songDataFactory = mock[SongDataFactory]
 
-    /** Mock for the meta data service. */
+    /** Mock for the metadata service. */
     private val service = createMetaDataService()
 
     /** Mock for the playlist service. */
@@ -242,13 +242,13 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
     import scala.jdk.CollectionConverters._
 
     /**
-      * Prepares the mock for the meta data service to process a playlist
+      * Prepares the mock for the metadata service to process a playlist
       * update. The service returns the specified data.
       *
       * @param playerState  the ''AudioPlayerState''
       * @param delta        the ''MetaDataResolveDelta''
-      * @param nextState    the updated meta data state
-      * @param currentState the current meta data state
+      * @param nextState    the updated metadata state
+      * @param currentState the current metadata state
       * @return this test helper
       */
     def expectPlaylistUpdate(playerState: AudioPlayerState, delta: MetaDataResolveDelta,
@@ -260,13 +260,13 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       this
 
     /**
-      * Prepares the mock for the meta data service to process a meta data
+      * Prepares the mock for the metadata service to process a metadata
       * update. The service returns the specified data.
       *
-      * @param metaData     the updated meta data
+      * @param metaData     the updated metadata
       * @param delta        the ''MetaDataResolveDelta''
-      * @param nextState    the updated meta data state
-      * @param currentState the current meta data state
+      * @param nextState    the updated metadata state
+      * @param currentState the current metadata state
       * @return this test helper
       */
     def expectMetaDataUpdate(metaData: PlaylistMetaData, delta: MetaDataResolveDelta,
@@ -289,11 +289,11 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       this
 
     /**
-      * Invokes the test controller with the specified meta data to check
+      * Invokes the test controller with the specified metadata to check
       * whether this update is handled correctly. Also instructs the table
       * handler to return the given selected index.
       *
-      * @param metaData the meta data
+      * @param metaData the metadata
       * @param selIdx   the selected index in the table
       * @return this test helper
       */
@@ -370,13 +370,13 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       this
 
     /**
-      * Generates a result function for the playlist meta data service. If the
+      * Generates a result function for the playlist metadata service. If the
       * function is passed the correct ''SongDataFactory'', it will return the
       * specified results.
       *
-      * @param delta the meta data delta
-      * @param state the updated meta data state
-      * @return a result function for the meta data service
+      * @param delta the metadata delta
+      * @param state the updated metadata state
+      * @return a result function for the metadata service
       */
     private def serviceResult(delta: MetaDataResolveDelta, state: MetaDataResolveState):
     SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState) = factory => {
@@ -416,10 +416,10 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       this
 
     /**
-      * Creates the mock for the meta data service and configures some default
+      * Creates the mock for the metadata service and configures some default
       * behavior.
       *
-      * @return the mock meta data service
+      * @return the mock metadata service
       */
     private def createMetaDataService(): PlaylistMetaDataService =
       val svc = mock[PlaylistMetaDataService]
@@ -427,7 +427,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
       svc
 
     /**
-      * Creates mock for the meta data service. This service is needed to find
+      * Creates mock for the metadata service. This service is needed to find
       * the index of the current song. The mock is prepared to return no
       * current index.
       *

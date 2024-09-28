@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.shared.archive.metadata
 import de.oliver_heger.linedj.shared.RemoteSerializable
 
 /**
-  * A data class containing all meta data available for a media file.
+  * A data class containing all metadata available for a media file.
   *
-  * This class collects the results of meta data extraction. Because meta data
+  * This class collects the results of metadata extraction. Because metadata
   * is optional, all properties are modelled as options.
   *
   * @param title             optional title of the media file

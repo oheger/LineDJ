@@ -28,7 +28,7 @@ object ArchiveGroupActor:
     * Returns a ''Props'' object for creating an instance of this actor class.
     *
     * @param mediaUnionActor    the media actor of the union archive
-    * @param metaDataUnionActor the meta data actor of the union archive
+    * @param metaDataUnionActor the metadata actor of the union archive
     * @param archiveConfigs     the configurations of the archives in the group
     * @return a ''Props'' object to create a new instance
     */
@@ -57,7 +57,7 @@ object ArchiveGroupActor:
   * all of the archives that belong to the group.
   *
   * @param mediaUnionActor    the media actor of the union archive
-  * @param metaDataUnionActor the meta data actor of the union archive
+  * @param metaDataUnionActor the metadata actor of the union archive
   * @param archiveConfigs     the configurations of the archives in the group
   * @param scanStateService   the service to manage the scan state
   */

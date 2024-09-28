@@ -29,7 +29,7 @@ import scalaz.State._
   * sub streams of the main scan stream.
   *
   * @param result information about media and the files they contain
-  * @param info   a map with meta data about media
+  * @param info   a map with metadata about media
   */
 private case class CombinedMediaScanResult(result: EnhancedMediaScanResult,
                                            info: Map[MediumID, MediumInfo])
@@ -135,7 +135,7 @@ private trait ScanSinkUpdateService:
     * Obtains combined results from the current state. With this function the
     * information obtained in different sub scan streams can be brought
     * together again. It returns ''CombinedMediaScanResult'' objects for the
-    * media for which both the files and meta data is known. The state is
+    * media for which both the files and metadata is known. The state is
     * updated to remove the media affected from the internal buffers; also, it
     * is assumed that this information is sent downstream, so that an ACK is
     * expected. If an ACK is already pending, no combined results can be sent;

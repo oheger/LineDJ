@@ -26,7 +26,7 @@ import org.apache.pekko.actor.Actor.Receive
 object StateListenerExtension:
 
   /**
-    * A message class representing a meta data state consumer registration.
+    * A message class representing a metadata state consumer registration.
     * In order to register a state event consumer, this message has to be sent
     * on the message bus.
     *
@@ -49,7 +49,7 @@ object StateListenerExtension:
 
 /**
   * A specific extension for the media archive interface for the management of
-  * meta data state listeners.
+  * metadata state listeners.
   *
   * This class holds consumers for ''MetaDataStateEvent'' notifications. When
   * at least one consumer is added it triggers a state listener registration at
@@ -91,7 +91,7 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   override def onConsumerRemoved(key: AnyRef, last: Boolean): Unit =
     if last then
-      mediaFacade.unregisterMetaDataStateListener(componentID)
+      mediaFacade.unregisterMetadataStateListener(componentID)
       lastUpdatedEvent = None
 
   /**
@@ -116,4 +116,4 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     */
   private def registerStateListenerIfRequired(hasConsumers: Boolean): Unit =
     if hasConsumers then
-      mediaFacade.registerMetaDataStateListener(componentID)
+      mediaFacade.registerMetadataStateListener(componentID)

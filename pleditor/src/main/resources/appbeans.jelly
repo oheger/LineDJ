@@ -52,7 +52,7 @@
     </di:element>
   </di:list>
 
-  <!-- The resolver for unknown meta data properties -->
+  <!-- The resolver for unknown metadata properties -->
   <di:bean name="unknownPropertyResolver"
            beanClassName="de.oliver_heger.linedj.platform.audio.model.UnknownPropertyResourceResolver">
     <di:constructor>

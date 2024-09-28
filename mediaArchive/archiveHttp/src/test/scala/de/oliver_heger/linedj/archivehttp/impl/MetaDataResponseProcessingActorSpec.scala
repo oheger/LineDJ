@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{ActorSystem, Props, Status}
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.stream.scaladsl.Source
@@ -56,7 +56,7 @@ object MetaDataResponseProcessingActorSpec:
     "Test", processorCount = 3, processorTimeout = Timeout(2.seconds), maxContentSize = 256, propagationBufSize = 4,
     downloadConfig = null, downloadBufferSize = 100, downloadMaxInactivity = 1.minute,
     downloadReadChunkSize = 500, timeoutReadSize = 250, downloader = null, contentPath = Uri.Path(ArchivePath),
-    mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("mdt"))
+    mediaPath = Uri.Path("media"), metadataPath = Uri.Path("mdt"))
 
   /** The sequence number used for requests. */
   private val SeqNo = 42
@@ -71,31 +71,31 @@ object MetaDataResponseProcessingActorSpec:
     MediaFileUri(s"$MediumPath$SongPath/song$idx.mp3")
 
   /**
-    * Creates a meta data processing result object for the specified index.
+    * Creates a metadata processing result object for the specified index.
     *
     * @param idx    the index
     * @return the test processing result
     */
-  private def processingResult(idx: Int): MetaDataProcessingSuccess =
-    MetaDataProcessingSuccess(TestMediumID, createUri(idx),
+  private def processingResult(idx: Int): MetadataProcessingSuccess =
+    MetadataProcessingSuccess(TestMediumID, createUri(idx),
       MediaMetaData(title = Some(s"Song$idx"), size = Some((idx + 1) * 100)))
 
   /**
-    * Creates a sequence with test meta data of the specified size.
+    * Creates a sequence with test metadata of the specified size.
     *
-    * @param count  the number of meta data objects
-    * @return the sequence with the produced meta data
+    * @param count  the number of metadata objects
+    * @return the sequence with the produced metadata
     */
-  private def createProcessingResults(count: Int): IndexedSeq[MetaDataProcessingSuccess] =
+  private def createProcessingResults(count: Int): IndexedSeq[MetadataProcessingSuccess] =
     (1 to count) map ((idx: Int) => processingResult(idx))
 
   /**
-    * Generates a JSON representation for the specified meta data.
+    * Generates a JSON representation for the specified metadata.
     *
-    * @param data the meta data
+    * @param data the metadata
     * @return the JSON representation for this data
     */
-  private def jsonMetaData(data: MetaDataProcessingSuccess): String =
+  private def jsonMetadata(data: MetadataProcessingSuccess): String =
     s"""{
        |"title":"${data.metaData.title.get}",
        |"size":${data.metaData.fileSize},
@@ -104,15 +104,15 @@ object MetaDataResponseProcessingActorSpec:
    """.stripMargin
 
   /**
-    * Generates the JSON representation for a whole sequence of meta data
+    * Generates the JSON representation for a whole sequence of metadata
     * objects. This method produces a JSON array with the single elements
     * as object content.
     *
     * @param data the sequence of data objects
     * @return the JSON representation for this sequence
     */
-  private def generateJson(data: Iterable[MetaDataProcessingSuccess]): String =
-    data.map(jsonMetaData).mkString("[", ",\n", "]")
+  private def generateJson(data: Iterable[MetadataProcessingSuccess]): String =
+    data.map(jsonMetadata).mkString("[", ",\n", "]")
 
   /**
     * Creates a ''Source'' with the data of the given entity string.
@@ -144,7 +144,7 @@ class MetaDataResponseProcessingActorSpec(testSystem: ActorSystem) extends TestK
     actor ! ProcessResponse(TestMediumID, null, source, DefaultArchiveConfig, SeqNo)
     val result = expectMsgType[MetaDataResponseProcessingResult]
     result.mediumID should be(TestMediumID)
-    result.metaData should contain theSameElementsAs metaDataResults
+    result.metadata should contain theSameElementsAs metaDataResults
     result.seqNo should be(SeqNo)
 
   it should "apply a size restriction when processing a response" in:

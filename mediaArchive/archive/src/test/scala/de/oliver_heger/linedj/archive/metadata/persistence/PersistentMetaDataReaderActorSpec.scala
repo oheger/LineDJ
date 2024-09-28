@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -28,10 +28,10 @@ import org.scalatest.matchers.should.Matchers
 import java.nio.file.{Path, Paths}
 
 object PersistentMetaDataReaderActorSpec:
-  /** The name of the test meta data file. */
+  /** The name of the test metadata file. */
   private val MetaDataTestFile = "/metadata.mdt"
 
-  /** The number of songs in the test meta data file. */
+  /** The number of songs in the test metadata file. */
   private val SongCount = 26
 
   /** A test medium ID. */
@@ -54,7 +54,7 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     TestKit shutdownActorSystem system
 
   /**
-    * Tests whether a valid meta data file can be read using a specific chunk
+    * Tests whether a valid metadata file can be read using a specific chunk
     * size.
     *
     * @param chunkSize the chunk size
@@ -73,10 +73,10 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
     val artists = metaData.map(_.metaData.artist.get)
     artists should contain allOf("Lacuna Coil", "Nightwish", "Manowar")
 
-  "A PersistentMetaDataReaderActor" should "read a file with meta data" in:
+  "A PersistentMetaDataReaderActor" should "read a file with metadata" in:
     checkReadFile(ReadChunkSize)
 
-  it should "read a file with meta data with a bigger chunk size" in:
+  it should "read a file with metadata with a bigger chunk size" in:
     checkReadFile(32768)
 
   it should "process an empty data file" in:
@@ -118,7 +118,7 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       TestActorRef[PersistentMetaDataReaderActor](createProps())
 
     /**
-      * Sends the test actor a message to read the specified meta data file.
+      * Sends the test actor a message to read the specified metadata file.
       *
       * @param path the path to the file to be read
       * @return this test helper
@@ -134,9 +134,9 @@ class PersistentMetaDataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       * @param count the number of messages
       * @return a set with the received messages
       */
-    def expectMetaData(count: Int): Set[MetaDataProcessingSuccess] =
-      (1 to count).foldLeft(Set.empty[MetaDataProcessingSuccess]) { (s, _) =>
-        s + parent.expectMsgType[MetaDataProcessingSuccess]
+    def expectMetaData(count: Int): Set[MetadataProcessingSuccess] =
+      (1 to count).foldLeft(Set.empty[MetadataProcessingSuccess]) { (s, _) =>
+        s + parent.expectMsgType[MetadataProcessingSuccess]
       }
 
     /**

@@ -122,11 +122,11 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
       val future = facade.requestActor(MediaActors.MetaDataManager)
       Await.result(future, 3.seconds)
 
-  it should "support removing a meta data listener" in:
+  it should "support removing a metadata listener" in:
     val mediumId = MediumID("someURI", None)
     val facade = createFacade()
 
-    facade removeMetaDataListener mediumId
+    facade removeMetadataListener mediumId
     expectMsg(RelayActor.RemoveListener(mediumId))
 
   it should "initialize the management actor when the initial configuration is passed" in:
@@ -136,18 +136,18 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     facade initConfiguration createConfiguration()
     relay.expectMsg(ManagementActor.ActorPathPrefix(ActorPathPrefix))
 
-  it should "support a meta data state listener registration" in:
+  it should "support a metadata state listener registration" in:
     val compID = ComponentID()
     val facade = createFacade()
 
-    facade.registerMetaDataStateListener(compID)
+    facade.registerMetadataStateListener(compID)
     expectMsg(RelayActor.RegisterStateListener(compID))
 
-  it should "support removing a meta data state listener registration" in:
+  it should "support removing a metadata state listener registration" in:
     val compID = ComponentID()
     val facade = createFacade()
 
-    facade.unregisterMetaDataStateListener(compID)
+    facade.unregisterMetadataStateListener(compID)
     expectMsg(RelayActor.UnregisterStateListener(compID))
 
 /**

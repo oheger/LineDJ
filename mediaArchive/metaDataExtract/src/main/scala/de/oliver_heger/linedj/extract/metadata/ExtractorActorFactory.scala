@@ -19,30 +19,30 @@ package de.oliver_heger.linedj.extract.metadata
 import org.apache.pekko.actor.{ActorRef, Props}
 
 /**
-  * Factory interface for creating actors to extract meta data from specific
+  * Factory interface for creating actors to extract metadata from specific
   * media files.
   *
-  * This trait is used by actors responsible for meta data extraction. Such
+  * This trait is used by actors responsible for metadata extraction. Such
   * actors process a list of media files. Based on the file type, different
-  * methods for meta data extraction might be required. This factory trait
+  * methods for metadata extraction might be required. This factory trait
   * introduces a mechanism to create concrete extractor actors. It assumes that
   * the media file's extension determines the extractor to be used. If a file
   * extension is not supported, an implementation can return ''None''; in
-  * this case only dummy meta data is generated.
+  * this case only dummy metadata is generated.
   */
 trait ExtractorActorFactory:
   /**
     * Returns an option with a ''Props'' object to create an actor that can
-    * extract meta data from a file with the given extension. This method is
+    * extract metadata from a file with the given extension. This method is
     * called during media file processing with the file extensions of
     * encountered media files (without the dot delimiter). If the extension is
     * supported, an implementation must return a ''Props'' object for an actor
     * that is able to process a
-    * [[de.oliver_heger.linedj.shared.archive.union.ProcessMetaDataFile]]
-    * message and send extracted meta data to the provided receiver actor.
+    * [[de.oliver_heger.linedj.shared.archive.union.ProcessMetadataFile]]
+    * message and send extracted metadata to the provided receiver actor.
     *
     * @param extension the file extension
-    * @param receiver  the target actor to receive extracted meta data
+    * @param receiver  the target actor to receive extracted metadata
     * @return optional ''Props'' to create the extractor actor
     */
   def extractorProps(extension: String, receiver: ActorRef): Option[Props]

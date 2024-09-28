@@ -24,7 +24,7 @@ import net.sf.jguiraffe.gui.builder.event.BuilderEvent
 
 /**
   * A class implementing base functionality for action task classes that affect
-  * meta data scan operations.
+  * metadata scan operations.
   *
   * This class is going to be extended by implementations for the commands to
   * start or cancel a media scan. In this case, specific commands have to be
@@ -37,7 +37,7 @@ import net.sf.jguiraffe.gui.builder.event.BuilderEvent
 class MetaDataScanTask(val facade: MediaFacade, val message: Any)
   extends ActionTask:
   /**
-    * @inheritdoc This implementation sends the message to the meta data
+    * @inheritdoc This implementation sends the message to the metadata
     *             actor and then disables the action (to prevent multiple
     *             triggers).
     */
@@ -46,7 +46,7 @@ class MetaDataScanTask(val facade: MediaFacade, val message: Any)
     action setEnabled false
 
 /**
-  * An action task class that starts a new meta data scan.
+  * An action task class that starts a new metadata scan.
   *
   * @param facade the media facade
   */
@@ -54,7 +54,7 @@ class StartMetaDataScanTask(facade: MediaFacade)
   extends MetaDataScanTask(facade, ScanAllMedia)
 
 /**
-  * An action task class that cancels a currently running meta data scan.
+  * An action task class that cancels a currently running metadata scan.
   *
   * @param facade the media facade
   */

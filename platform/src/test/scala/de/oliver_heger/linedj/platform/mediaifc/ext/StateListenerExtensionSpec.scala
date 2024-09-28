@@ -27,7 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 object StateListenerExtensionSpec:
-  /** A test meta data state event. */
+  /** A test metadata state event. */
   private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false,
     updateInProgress = false, archiveCompIDs = Set.empty))
 
@@ -75,7 +75,7 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive createRegistration()
     ext receive createRegistration()
 
-    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade).registerMetadataStateListener(ext.componentID)
 
   it should "remove the listener registration if there are no consumers" in:
     val reg1 = createRegistration()
@@ -86,7 +86,7 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
 
     ext receive StateListenerUnregistration(reg1.id)
     ext receive StateListenerUnregistration(reg2.id)
-    verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade).unregisterMetadataStateListener(ext.componentID)
 
   it should "pass the current state to new consumers" in:
     val reg1 = createRegistration()
@@ -115,7 +115,7 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive State
 
     ext onArchiveAvailable true
-    verify(ext.mediaFacade, never()).registerMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade, never()).registerMetadataStateListener(ext.componentID)
     val reg = createRegistration()
     ext receive reg
     verify(reg.callback, never()).apply(State)

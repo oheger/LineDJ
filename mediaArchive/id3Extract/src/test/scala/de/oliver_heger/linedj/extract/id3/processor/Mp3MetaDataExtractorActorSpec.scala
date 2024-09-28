@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
@@ -47,7 +47,7 @@ object Mp3MetaDataExtractorActorSpec:
   private val TestFileData = FileData(Paths get "someMp3File.mp3", 2354875L)
 
   /** A test result template object. */
-  private val ResultTemplate = MetaDataProcessingSuccess(MediumID("someMedium", Some("someSettings")),
+  private val ResultTemplate = MetadataProcessingSuccess(MediumID("someMedium", Some("someSettings")),
     MediaFileUri("someURI"), null)
 
   /**
@@ -221,8 +221,8 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
     /** A queue for keeping track on newly created child actors. */
     private val childActorQueue = new LinkedBlockingQueue[ExpectedChildActorCreation]
 
-    /** Test probe for the meta data manager actor. */
-    private val probeMetaDataManager = TestProbe()
+    /** Test probe for the metadata manager actor. */
+    private val probeMetadataManager = TestProbe()
 
     /** Stores the IDs of kill switches that have been registered. */
     private val registeredKillSwitches = new AtomicReference(Set.empty[Int])
@@ -266,7 +266,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       processorActors = child :: processorActors
       childActorQueue offer ExpectedChildActorCreation(child, fileData)
 
-      mp3Extractor ! ProcessMetaDataFile(fileData, ResultTemplate)
+      mp3Extractor ! ProcessMetadataFile(fileData, ResultTemplate)
       val foundMsg = msgQueue.poll(3, TimeUnit.SECONDS)
       foundMsg should not be null
       foundMsg
@@ -327,7 +327,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
       * @return the creation ''Props''
       */
     private def createTestProps(): Props =
-      Props(new Mp3MetaDataExtractorActor(probeMetaDataManager.ref,
+      Props(new Mp3MetaDataExtractorActor(probeMetadataManager.ref,
         TagSizeLimit, ReadChunkSize) with ChildActorFactory with CancelableStreamSupport {
         /**
           * @inheritdoc This implementation checks the properties for the child
@@ -337,7 +337,7 @@ class Mp3MetaDataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(tes
         override def createChildActor(p: Props): ActorRef = {
           val creation = childActorQueue.poll(3, TimeUnit.SECONDS)
           creation should not be null
-          val refProps = Mp3FileProcessorActor(probeMetaDataManager.ref, TagSizeLimit,
+          val refProps = Mp3FileProcessorActor(probeMetadataManager.ref, TagSizeLimit,
             TestFileData, ResultTemplate)
           p.actorClass() should be(refProps.actorClass())
           p.args should have length refProps.args.length

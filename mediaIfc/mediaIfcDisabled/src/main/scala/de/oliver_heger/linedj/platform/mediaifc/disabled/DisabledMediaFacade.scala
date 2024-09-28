@@ -77,14 +77,14 @@ class DisabledMediaFacade(override val bus: MessageBus) extends MediaFacade:
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def removeMetaDataListener(mediumID: MediumID): Unit = {}
+  override def removeMetadataListener(mediumID: MediumID): Unit = {}
 
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def registerMetaDataStateListener(componentID: ComponentID): Unit = {}
+  override def registerMetadataStateListener(componentID: ComponentID): Unit = {}
 
   /**
     * @inheritdoc This is just a dummy implementation.
     */
-  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = {}
+  override def unregisterMetadataStateListener(componentID: ComponentID): Unit = {}

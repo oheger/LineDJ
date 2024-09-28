@@ -34,7 +34,7 @@ object MediaArchiveConfigSpec:
   /** Test processor count value. */
   private val ProcessorCount = 3
 
-  /** Test value for the chunk size when extracting meta data. */
+  /** Test value for the chunk size when extracting metadata. */
   private val ReadChunkSize = 16384
 
   /** Test value for the chunk size for download operations. */
@@ -49,19 +49,19 @@ object MediaArchiveConfigSpec:
   /** Test value for the processing timeout. */
   private val ProcessingTimeout = Timeout(128.seconds)
 
-  /** Test value for the buffer size during meta data extraction. */
+  /** Test value for the buffer size during metadata extraction. */
   private val MetaDataMediaBufSize = 16
 
-  /** Test value for the meta data persistence path. */
+  /** Test value for the metadata persistence path. */
   private val MetaDataPersistencePath = Paths get "persistence"
 
-  /** Test value for the meta data persistence chunk size. */
+  /** Test value for the metadata persistence chunk size. */
   private val MetaDataPersistenceChunkSize = 1024
 
-  /** Test value for the meta data persistence parallel count. */
+  /** Test value for the metadata persistence parallel count. */
   private val MetaDataPersistenceParallelCount = 3
 
-  /** Test value for the meta data persistence write block size. */
+  /** Test value for the metadata persistence write block size. */
   private val MetaDataPersistenceWriteBlockSize = 40
 
   /** Test path to the content file of the media archive. */
@@ -191,7 +191,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
   "A MediaArchiveConfig" should "create an instance from the application config" in:
     checkArchiveConfig(createArchiveConfig(), 0)
 
-  it should "use a default value for the media buffer size for meta data extraction" in:
+  it should "use a default value for the media buffer size for metadata extraction" in:
     val c = createDefaultHierarchicalConfig()
     c clearProperty "media.localArchives.localArchive.metaDataExtraction.metaDataMediaBufferSize"
 

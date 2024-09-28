@@ -70,9 +70,9 @@ object MediaFacade:
     * references are directly available.
     *
     * @param mediaManager    the reference to the media manager
-    * @param metaDataManager the reference to the meta data manager
+    * @param metadataManager the reference to the metadata manager
     */
-  case class MediaFacadeActors(mediaManager: ActorRef, metaDataManager: ActorRef)
+  case class MediaFacadeActors(mediaManager: ActorRef, metadataManager: ActorRef)
 
 
 /**
@@ -183,32 +183,32 @@ trait MediaFacade:
     }
 
   /**
-    * A convenience method which calls the meta data manager actor to request
-    * meta data for the specified medium and to register a listener to receive
-    * notifications when new meta data arrives. This method generates a
+    * A convenience method which calls the metadata manager actor to request
+    * metadata for the specified medium and to register a listener to receive
+    * notifications when new metadata arrives. This method generates a
     * listener registration ID; it is returned to the caller. Based on this ID
-    * the caller can detect whether meta data response messages are up-to-date.
+    * the caller can detect whether metadata response messages are up-to-date.
     *
     * @param mediumID the medium ID
     * @return a listener registration ID
     */
-  def queryMetaDataAndRegisterListener(mediumID: MediumID): Int =
+  def queryMetadataAndRegisterListener(mediumID: MediumID): Int =
     val id = nextListenerRegistrationID()
     send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, id))
     id
 
   /**
-    * Removes a listener from the meta data manager actor for the specified
+    * Removes a listener from the metadata manager actor for the specified
     * medium ID. This client will then no longer receive update notifications
     * for this medium.
     *
     * @param mediumID the medium ID
     */
-  def removeMetaDataListener(mediumID: MediumID): Unit
+  def removeMetadataListener(mediumID: MediumID): Unit
 
   /**
-    * Requests the registration of a meta data state listener. Objects calling
-    * this method are interested in receiving meta data state events via the
+    * Requests the registration of a metadata state listener. Objects calling
+    * this method are interested in receiving metadata state events via the
     * message bus. Note that there can be multiple components interested in
     * such events, and all should call this method. It is up to a concrete
     * implementation to deal with multiple requests of different components in
@@ -223,7 +223,7 @@ trait MediaFacade:
     *
     * @param componentID the ID of the registering component
     */
-  def registerMetaDataStateListener(componentID: ComponentID): Unit
+  def registerMetadataStateListener(componentID: ComponentID): Unit
 
   /**
     * Removes the state listener registration for the specified component. This
@@ -237,7 +237,7 @@ trait MediaFacade:
     *
     * @param componentID the ID of the component to be removed as listener
     */
-  def unregisterMetaDataStateListener(componentID: ComponentID): Unit
+  def unregisterMetadataStateListener(componentID: ComponentID): Unit
 
   /**
     * Returns the next ID for a listener registration and updates the internal

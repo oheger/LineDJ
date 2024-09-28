@@ -272,7 +272,7 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     val ext = findExtension[AvailableMediaExtension](app, createAppCtxWithBC(), facade)
     ext.mediaFacade should be(facade)
 
-  it should "create an extension for the meta data cache" in:
+  it should "create an extension for the metadata cache" in:
     val facade = mock[MediaFacade]
     val appCtx = createAppCtxWithBC()
     val CacheSize = 2222
@@ -283,10 +283,10 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     cacheExt.mediaFacade should be(facade)
     cacheExt.cacheSize should be(CacheSize)
 
-  it should "use a default size for the meta data cache" in:
+  it should "use a default size for the metadata cache" in:
     val cacheExt = findExtension[MetaDataCache](new ClientManagementApplication,
       createAppCtxWithBC(), mock[MediaFacade])
-    cacheExt.cacheSize should be(ClientManagementApplication.DefaultMetaDataCacheSize)
+    cacheExt.cacheSize should be(ClientManagementApplication.DefaultMetadataCacheSize)
 
   it should "register media archive extensions on the message bus" in:
     def createListener(): MessageBusListener =

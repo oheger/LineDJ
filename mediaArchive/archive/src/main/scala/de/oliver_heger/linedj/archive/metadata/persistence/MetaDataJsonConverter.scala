@@ -21,10 +21,10 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 import spray.json.*
 
 /**
-  * A converter class for transforming media meta data to JSON strings.
+  * A converter class for transforming media metadata to JSON strings.
   *
-  * This converter is used when writing media meta data to disk. The generated
-  * files use JSON syntax. The meta data for each song is represented by a
+  * This converter is used when writing media metadata to disk. The generated
+  * files use JSON syntax. The metadata for each song is represented by a
   * JSON object. This converter generates the JSON representation for a single
   * song.
   */

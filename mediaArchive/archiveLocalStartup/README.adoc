@@ -7,7 +7,7 @@ environment.
 
 This module is analogous to the startup project for the union archive, but
 it is responsible for the _local media archive_. The local media archive
-scans a folder structure with media files and passes the extracted meta data
+scans a folder structure with media files and passes the extracted metadata
 to a union archive which can either run on the same JVM or is accessed
 remotely.
 
@@ -23,13 +23,13 @@ The local archive is implemented by the following actors:
 |==============================
 | Actor class | Description
 | ArchiveGroupActor | An actor managing a group of local paths that need to be
-parsed for meta data files. For each path, the actor creates the other actors
+parsed for metadata files. For each path, the actor creates the other actors
 for managing the media files. It is also responsible for the coordination of
 scan operations.
 | PersistentMetaDataManagerActor | The actor responsible for persistent meta
-data files. It takes care that meta data extracted from media files is stored
+data files. It takes care that metadata extracted from media files is stored
 on the local file system and is loaded again when the local archive restarts.
-| MetaDataManagerActor | Controls the extraction of meta data from single media
+| MetaDataManagerActor | Controls the extraction of metadata from single media
 files and sends the results to the union archive.
 | MediaManagerActor | Scans a specified folder structure for media files and
 collects information about media available. This information is sent to the
@@ -147,11 +147,11 @@ structure in parallel. If multiple archives are defined, the single archives
 are processed one by one with this number of reader actors; so this property
 defines the total number of parallel file reads.
 | metaDataMediaBufferSize | A property determining the maximum size of the
-buffer for media waiting to be processed for meta data extraction. During a
-meta data scan operation, in a first step the content of media is determined.
-Then the meta data for the files on the media is obtained (either from a
-persistent storage or by meta data extraction). As this may take more time, the
-number of media waiting to be processed for meta data extraction may increase.
+buffer for media waiting to be processed for metadata extraction. During a
+metadata scan operation, in a first step the content of media is determined.
+Then the metadata for the files on the media is obtained (either from a
+persistent storage or by metadata extraction). As this may take more time, the
+number of media waiting to be processed for metadata extraction may increase.
 This property defines a threshold for this number. When it is reached the scan
 operation is blocked until media have been processed completely. This reduces
 the amount of memory consumption during a scan operation. The property is
@@ -163,7 +163,7 @@ optional; a default value is used if it is not specified.
 These settings control the process of scanning a directory structure for media
 files. Here the file system is traversed, media files are assigned to media
 (identified by _medium description files_ with the file extension _.settings_),
-and the description files are parsed to extract meta data about these media.
+and the description files are parsed to extract metadata about these media.
 The settings are placed in a section named _scan_.
 
 .Configuration options that control the scan process
@@ -172,7 +172,7 @@ The settings are placed in a section named _scan_.
 | Setting | Description | Default
 | parseInfoTimeout | A timeout (in seconds) for parsing a medium description
 file. If a parse operation takes longer than this time span, it is aborted and
-dummy meta data is used for this medium. | 60 seconds
+dummy metadata is used for this medium. | 60 seconds
 | mediaBufferSize | The size of the buffer for media to be processed in
 parallel. When scanning a directory structure for media files some temporary
 data is created for assignments of files to media, parsed description files,
@@ -181,14 +181,14 @@ that can exist. If this limit is reached, stream processing pauses until the
 limiting temporary artifacts have been processed. | 8
 |==============================
 
-=== Meta data extraction
+=== Metadata extraction
 
-The archive parses all detected media files in order to extract meta data
+The archive parses all detected media files in order to extract metadata
 (e.g. ID3 tags) from them. With this group of options the behavior of this
-meta data extraction process can be specified. The options are grouped in a
+metadata extraction process can be specified. The options are grouped in a
 sub section named _metaDataExtraction_:
 
-.Configuration options for meta data extraction
+.Configuration options for metadata extraction
 [cols="1,3",options="header"]
 |============================
 | Setting | Description
@@ -196,43 +196,43 @@ sub section named _metaDataExtraction_:
 files. A buffer of this size is created in memory.
 | metaDataExtraction.tagSizeLimit | Defines a maximum size of an ID3 tag to be
 processed. Tags can become large, e.g. when they contain an image. The archive
-only extracts text-based meta data. If a tag length is greater than this value,
+only extracts text-based metadata. If a tag length is greater than this value,
 it is ignored.
 | metaDataExtraction.processingTimeout | Here a timeout (in seconds) for the
-processing of a single media file can be specified. If meta data extraction for
+processing of a single media file can be specified. If metadata extraction for
 this file takes longer, processing is aborted, and the file is ignored.
 |============================
 
-=== Meta data persistence
+=== Metadata persistence
 
-Once extracted, meta data is stored in files in JSON format on the local file
+Once extracted, metadata is stored in files in JSON format on the local file
 system. How this is done is specified with another group of options in the
 _metaDataPersistence_ sub section:
 
-.Configuration options for persisting meta data
+.Configuration options for persisting metadata
 [cols="1,3",options="header"]
 |============================
 | Setting | Description
 | metaDataPersistence.path | Defines a path (on the local file system) where
-files with extracted meta data information can be stored. Here files with the
-extension `.mdt` (for meta data) are created containing the ID3 information
+files with extracted metadata information can be stored. Here files with the
+extension `.mdt` (for metadata) are created containing the ID3 information
 extracted from media files. These files are loaded when the archive starts up,
 so that media files do not have to be scanned again.
 | metaDataPersistence.chunkSize | Specifies the block size to be used when
-reading or writing meta data files.
+reading or writing metadata files.
 | metaDataPersistence.parallelCount | Here a number can be specified how many
-meta data files are read in parallel. Increasing the number can speedup startup
+metadata files are read in parallel. Increasing the number can speedup startup
 time of the archive (provided that the local disc can handle the load).
-| metaDataPersistence.writeBlockSize | If no persistent meta data file for a
+| metaDataPersistence.writeBlockSize | If no persistent metadata file for a
 medium is available, a new one is created automatically when the media files
 from the medium are scanned. After some media files have been processed, an
 `.mdt` file is written out, so that the information is already persisted in
 case the scan is aborted. The _writeBlockSize_ property defines the number of
-media files to be processed after the currently collected meta data is
+media files to be processed after the currently collected metadata is
 persisted.
 | metaDataPersistence.tocFile | A local archive can be configured to generate a
 JSON file with a table of contents, i.e. a list with all media it contains and
-their corresponding meta data files. This file has the same format as used by
+their corresponding metadata files. This file has the same format as used by
 an _HTTP archive_ to define its content. With the _tocFile_ property, the path
 where to store the table of contents file can be specified. If it is missing,
 no such file is generated.

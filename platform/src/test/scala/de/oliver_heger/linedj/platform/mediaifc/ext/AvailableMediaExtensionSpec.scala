@@ -42,7 +42,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     mock[ConsumerFunction[AvailableMedia]])
 
   /**
-    * Verifies that one or more requests for meta data have been sent.
+    * Verifies that one or more requests for metadata have been sent.
     *
     * @param ext   the extension test object
     * @param count the number of expected requests
@@ -75,7 +75,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive createRegistration()
     ext receive createRegistration()
 
-    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade).registerMetadataStateListener(ext.componentID)
 
   it should "request media data for the first consumer" in:
     val reg1 = createRegistration()
@@ -139,14 +139,14 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
 
     ext receive MediaFacade.MediaArchiveAvailable
     expectMediaDataRequest(ext)
-    verify(ext.mediaFacade).registerMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade).registerMetadataStateListener(ext.componentID)
 
   it should "skip actions when the archive becomes available if no consumers" in:
     val ext = createExtension()
 
     ext receive MediaFacade.MediaArchiveAvailable
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    verify(ext.mediaFacade, never()).registerMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade, never()).registerMetadataStateListener(ext.componentID)
 
   it should "reset the request pending flag" in:
     val reg = createRegistration()
@@ -181,7 +181,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
 
     ext receive MetaDataScanCompleted
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
-    verify(ext.mediaFacade, never()).unregisterMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade, never()).unregisterMetadataStateListener(ext.componentID)
 
   it should "reset the request pending flag if a scan starts" in:
     val reg = createRegistration()
@@ -200,7 +200,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive AvailableMediaUnregistration(reg.id)
 
     ext receive MetaDataScanStarted
-    verify(ext.mediaFacade).unregisterMetaDataStateListener(ext.componentID)
+    verify(ext.mediaFacade).unregisterMetadataStateListener(ext.componentID)
 
   it should "create an un-registration object from a registration" in:
     val reg = createRegistration()

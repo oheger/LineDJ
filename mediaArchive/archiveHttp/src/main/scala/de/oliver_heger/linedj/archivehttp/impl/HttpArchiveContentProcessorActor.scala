@@ -43,13 +43,13 @@ object HttpArchiveContentProcessorActor:
     MediumInfoResponseProcessingResult(MediumInfo("", "", mid, "", ""), UndefinedSeqNo)
 
   /**
-    * Creates a special undefined meta data result for the given medium ID.
+    * Creates a special undefined metadata result for the given medium ID.
     *
     * @param mid the medium ID
-    * @return the undefined meta data result for this medium ID
+    * @return the undefined metadata result for this medium ID
     */
   private def createUndefinedMetaResult(mid: MediumID): MetaDataResponseProcessingResult =
-    MetaDataResponseProcessingResult(metaData = Nil, mediumID = mid, seqNo = UndefinedSeqNo)
+    MetaDataResponseProcessingResult(metadata = Nil, mediumID = mid, seqNo = UndefinedSeqNo)
 
   /**
     * Tests whether a medium description is fully defined. All paths must be
@@ -71,13 +71,13 @@ object HttpArchiveContentProcessorActor:
     * @return a flag whether this result is valid
     */
   private def isValidResult(result: MediumProcessingResult): Boolean =
-    result.mediumInfo.name.nonEmpty && result.metaData.nonEmpty
+    result.mediumInfo.name.nonEmpty && result.metadata.nonEmpty
 
 /**
   * An actor class that processes the content of an HTTP archive.
   *
   * This actor class processes the content document of an HTTP archive. For
-  * each referenced medium it downloads the settings and the meta data files.
+  * each referenced medium it downloads the settings and the metadata files.
   * The responses of these download requests are sent to special processor
   * actors which extract the relevant information and pass it back to this
   * actor. All processing results are then sent to the manager actor which is
@@ -111,7 +111,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
 
   /**
     * Creates the stream for processing the specified archive request.
-    * This stream loads all settings and meta data files of the media contained
+    * This stream loads all settings and metadata files of the media contained
     * in this HTTP archive, combines the results and passes the resulting
     * [[MediumProcessingResult]] objects to the specified sinks. Note that a
     * second dummy sink is added to the stream; this is needed to obtain a
@@ -129,7 +129,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     val infoReq = requestMappingFlow(req)(createMediumInfoRequest)
     val metaReq = requestMappingFlow(req)(createMetaDataRequest)
     val processInfo = processFlow(req, req.infoParallelism)(createUndefinedInfoResult)
-    val processMeta = processFlow(req, req.metaDataParallelism)(createUndefinedMetaResult)
+    val processMeta = processFlow(req, req.metadataParallelism)(createUndefinedMetaResult)
     val combine = new ProcessingResultCombiningStage
     val filterUndef = Flow[MediumProcessingResult].filter(isValidResult)
     val sinkDone = Sink.ignore
@@ -206,16 +206,16 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
     (req.archiveConfig.mediaPath, md.mediumDescriptionPath, RequestData(md, req.settingsProcessorActor))
 
   /**
-    * Generates request data for the meta data file of the specified medium
+    * Generates request data for the metadata file of the specified medium
     * description.
     *
     * @param req the request to process the archive
     * @param md  the description of the medium affected
-    * @return request data for the meta data file
+    * @return request data for the metadata file
     */
   private def createMetaDataRequest(req: ProcessHttpArchiveRequest, md: HttpMediumDesc):
   (Uri.Path, String, RequestData) =
-    (req.archiveConfig.metaDataPath, md.metaDataPath, RequestData(md, req.metaDataProcessorActor))
+    (req.archiveConfig.metadataPath, md.metaDataPath, RequestData(md, req.metadataProcessorActor))
 
   /**
     * Processes a response received from the HTTP archive. The response now has

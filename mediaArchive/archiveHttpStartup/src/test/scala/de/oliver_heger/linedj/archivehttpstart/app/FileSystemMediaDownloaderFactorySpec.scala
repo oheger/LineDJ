@@ -68,7 +68,7 @@ object FileSystemMediaDownloaderFactorySpec:
     propagationBufSize = 4, maxContentSize = 8192, downloadBufferSize = 4096, downloadMaxInactivity = 10.seconds,
     downloadReadChunkSize = 4096, timeoutReadSize = 17, archiveBaseUri = ArchiveUri, archiveName = ArchiveName,
     downloadConfig = null, downloader = null, contentPath = Uri.Path("content.json"), mediaPath = Uri.Path("media"),
-    metaDataPath = Uri.Path("meta"))
+    metadataPath = Uri.Path("meta"))
 
   /**
     * A test archive startup configuration with basic properties. Some test

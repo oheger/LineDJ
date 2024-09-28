@@ -21,10 +21,10 @@ import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 
 /**
-  * A message defining the files of a medium for which no persistent meta data
-  * could be retrieved. A message of this type is sent by the persistent meta
-  * data manager after the available meta data for a medium has been read. The
-  * files listed here could not be resolved; their meta data needs to be
+  * A message defining the files of a medium for which no persistent metadata
+  * could be retrieved. A message of this type is sent by the persistent
+  * metadata manager after the available metadata for a medium has been read.
+  * The files listed here could not be resolved; their metadata needs to be
   * extracted manually.
   *
   * @param mediumID the ID of the medium the files belong to
@@ -36,9 +36,9 @@ case class UnresolvedMetaDataFiles(mediumID: MediumID, files: List[FileData],
 
 /**
   * A message processed by the persistence manager actor which
-  * triggers the scan of the configured directory for meta data files. This
+  * triggers the scan of the configured directory for metadata files. This
   * message must be sent to the actor at least once initially. To be sure
-  * that the actor operates on up-to-date meta data files, the message
+  * that the actor operates on up-to-date metadata files, the message
   * should be sent again before every new file scan starts.
   */
 case object ScanForMetaDataFiles

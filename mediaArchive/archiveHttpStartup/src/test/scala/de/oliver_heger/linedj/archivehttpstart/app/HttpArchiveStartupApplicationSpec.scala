@@ -802,7 +802,7 @@ class HttpArchiveStartupApplicationSpec(testSystem: ActorSystem) extends TestKit
     /** Test probe for the union media manager actor. */
     private val probeUnionMediaManager = TestProbe()
 
-    /** Test probe for the union meta data manager actor. */
+    /** Test probe for the union metadata manager actor. */
     private val probeUnionMetaManager = TestProbe()
 
     /** The configuration for the archive. */

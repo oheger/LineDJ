@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 import de.oliver_heger.linedj.archivehttp.HttpArchiveState
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.ByteString
@@ -30,13 +30,13 @@ import org.apache.pekko.util.ByteString
   * The URL identifying an HTTP archive points to a JSON file with a list of
   * the media available in this archive. Each element in this document
   * references a medium, consisting of the path to the medium description file
-  * and the meta data file. Paths are relative URLs to the root URL of the
+  * and the metadata file. Paths are relative URLs to the root URL of the
   * archive.
   *
   * This class represents one element of this description document.
   *
   * @param mediumDescriptionPath the path to the medium description file
-  * @param metaDataPath          the path to the meta data file
+  * @param metaDataPath          the path to the metadata file
   */
 case class HttpMediumDesc(mediumDescriptionPath: String, metaDataPath: String)
 
@@ -59,7 +59,7 @@ case class RequestData(mediumDesc: HttpMediumDesc, processorActor: ActorRef)
   * response from the HTTP archive.
   *
   * The message contains the entity with the data of a file that has been
-  * downloaded from the archive (either a settings file or a meta data file).
+  * downloaded from the archive (either a settings file or a metadata file).
   * The receiving actor now has to process the response and produce a
   * corresponding result object.
   *
@@ -87,17 +87,17 @@ case class HttpArchiveProcessingComplete(nextState: HttpArchiveState)
 
 /**
   * A message that represents a successful result of processing a response for
-  * a meta data file.
+  * a metadata file.
   *
-  * The message contains all the meta data objects for the files on this
+  * The message contains all the metadata objects for the files on this
   * medium. Such files are then available via the HTTP archive.
   *
   * @param mediumID the ID of the medium
-  * @param metaData a list with meta data objects for the songs on this medium
+  * @param metadata a list with metadata objects for the songs on this medium
   * @param seqNo    the sequence number of the current scan operation
   */
 case class MetaDataResponseProcessingResult(mediumID: MediumID,
-                                            metaData: Iterable[MetaDataProcessingSuccess],
+                                            metadata: Iterable[MetadataProcessingSuccess],
                                             seqNo: Int)
 
 /**
@@ -119,11 +119,11 @@ case class MediumInfoResponseProcessingResult(mediumInfo: MediumInfo, seqNo: Int
   * and passed to the sink of the process request.
   *
   * @param mediumInfo the ''MediumInfo'' object of the current medium
-  * @param metaData   a sequence with all meta data for the songs on the medium
+  * @param metadata   a sequence with all metadata for the songs on the medium
   * @param seqNo      the sequence number of the current scan operation
   */
 case class MediumProcessingResult(mediumInfo: MediumInfo,
-                                  metaData: Iterable[MetaDataProcessingSuccess],
+                                  metadata: Iterable[MetadataProcessingSuccess],
                                   seqNo: Int)
 
 /**
@@ -162,8 +162,8 @@ case class MediumPropagated(seqNo: Int)
   * @param mediaSource            the source for the content of the HTTP archive
   * @param archiveConfig          the configuration for the HTTP archive
   * @param settingsProcessorActor the actor to process settings requests
-  * @param metaDataProcessorActor the actor to process meta data requests
-  * @param metaDataParallelism    the parallelism when processing meta data
+  * @param metadataProcessorActor the actor to process metadata requests
+  * @param metadataParallelism    the parallelism when processing metadata
   * @param infoParallelism        the parallelism when processing medium info
   * @param sink                   the sink where to pass processing results
   * @param seqNo                  the sequence number of the current scan operation
@@ -171,8 +171,8 @@ case class MediumPropagated(seqNo: Int)
 case class ProcessHttpArchiveRequest(mediaSource: Source[HttpMediumDesc, Any],
                                      archiveConfig: HttpArchiveConfig,
                                      settingsProcessorActor: ActorRef,
-                                     metaDataProcessorActor: ActorRef,
-                                     metaDataParallelism: Int,
+                                     metadataProcessorActor: ActorRef,
+                                     metadataParallelism: Int,
                                      infoParallelism: Int,
                                      sink: Sink[MediumProcessingResult, Any],
                                      seqNo: Int)

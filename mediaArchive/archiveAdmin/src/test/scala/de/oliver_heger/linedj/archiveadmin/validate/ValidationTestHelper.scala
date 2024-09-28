@@ -101,12 +101,12 @@ object ValidationTestHelper:
   def albumUri(idx: Int, mediumIdx: Int = 1): String = testMedium(mediumIdx).mediumURI + "/" + albumName(idx)
 
   /**
-    * Generates test meta data based on the given indices. The meta data is
+    * Generates test metadata based on the given indices. The metadata is
     * fully defined.
     *
     * @param songIdx  the index of the song
     * @param albumIdx the index of the album
-    * @return test meta data with this index
+    * @return test metadata with this index
     */
   def metaData(songIdx: Int, albumIdx: Int = 1): MediaMetaData =
     MediaMetaData(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
@@ -126,12 +126,12 @@ object ValidationTestHelper:
 
   /**
     * Generates a test album with media files. The album contains the given
-    * number of songs with valid meta data plus songs with the given additional
-    * meta data (which may be inconsistent).
+    * number of songs with valid metadata plus songs with the given additional
+    * metadata (which may be inconsistent).
     *
     * @param idx            the index of the test album
     * @param numberOfSongs  the number of songs on this album
-    * @param additionalData meta data for additional songs
+    * @param additionalData metadata for additional songs
     * @return the test album
     */
   def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetaData*): MediaAlbum =

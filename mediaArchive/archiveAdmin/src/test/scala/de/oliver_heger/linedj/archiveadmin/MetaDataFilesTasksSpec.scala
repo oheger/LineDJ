@@ -22,7 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 /**
-  * Test class for the action tasks related to meta data files.
+  * Test class for the action tasks related to metadata files.
   */
 class MetaDataFilesTasksSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   "A RefreshFilesTask" should "correctly invoke the controller" in:

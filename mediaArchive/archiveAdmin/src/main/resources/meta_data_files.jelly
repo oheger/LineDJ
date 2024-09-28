@@ -16,7 +16,7 @@
     limitations under the License.
 
 -->
-<!-- The Jelly script defining the dialog for persistent meta data files.
+<!-- The Jelly script defining the dialog for persistent metadata files.
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
          xmlns:a="actionBuilder" xmlns:w="windowBuilder">

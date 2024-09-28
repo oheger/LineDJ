@@ -52,15 +52,15 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
   * @param startAnnounced     flag whether an event about a new scan operation
   *                           has been sent
   * @param availableMediaSent flag whether the available media have been
-  *                           sent to the meta data manager
+  *                           sent to the metadata manager
   * @param seqNo              the sequence number for the current scan operation
   * @param fileData           aggregated data for the media file URIs grouped
   *                           by the media they belong to
   * @param mediaData          aggregated data about medium information
   * @param ackPending         reference to an actor that requires an ACK
-  * @param ackMetaManager     flag whether an ACK from the meta data manager
+  * @param ackMetaManager     flag whether an ACK from the metadata manager
   *                           actor has been received
-  * @param currentResults     current results to be sent to the meta data
+  * @param currentResults     current results to be sent to the metadata
   *                           manager
   * @param currentMediaData   current media to be sent to the union archive
   */
@@ -92,7 +92,7 @@ private case class MediaScanState(scanClient: Option[ActorRef],
   * actor.
   *
   * @param unionArchiveMessage optional message to the union archive
-  * @param metaManagerMessage  optional message to the meta data manager
+  * @param metaManagerMessage  optional message to the metadata manager
   * @param ack                 optional actor to receive an ACK message
   */
 private case class ScanStateTransitionMessages(unionArchiveMessage: Option[Any] = None,
@@ -155,7 +155,7 @@ private trait MediaScanStateUpdateService:
   def removedFromUnionArchive(): StateUpdate[Unit]
 
   /**
-    * Updates the state after an ACK message from the meta data actor has been
+    * Updates the state after an ACK message from the metadata actor has been
     * received.
     *
     * @return the updated ''State''
@@ -164,8 +164,8 @@ private trait MediaScanStateUpdateService:
 
   /**
     * Updates the state for newly received results. The results are added to
-    * the current meta data state and also stored in a way that they can be
-    * propagated to the union archive and the meta data manager.
+    * the current metadata state and also stored in a way that they can be
+    * propagated to the union archive and the metadata manager.
     *
     * @param results the object with results
     * @param sender  the sending actor
@@ -186,9 +186,9 @@ private trait MediaScanStateUpdateService:
   def actorToAck(): StateUpdate[Option[ActorRef]]
 
   /**
-    * Updates the state for a message to be sent to the meta data manager
+    * Updates the state for a message to be sent to the metadata manager
     * actor. This function checks whether in the current state a message needs
-    * to be sent to the meta data manager. If so, the state is updated, and the
+    * to be sent to the metadata manager. If so, the state is updated, and the
     * message is returned.
     *
     * @return the updated ''State'' and an option with the message
@@ -210,7 +210,7 @@ private trait MediaScanStateUpdateService:
     * Updates the state after a notification that the scan is now complete has
     * been received. This means that no new results will be processed any more.
     * However, it can be the case that there are still current results that
-    * need to be propagated to the union archive or the meta data manager. The
+    * need to be propagated to the union archive or the metadata manager. The
     * passed in sequence number is checked against the current sequence number
     * to detect outdated messages.
     *
@@ -258,7 +258,7 @@ private trait MediaScanStateUpdateService:
   yield msg
 
   /**
-    * Updates the state when an ACK from the meta data manager actor arrives
+    * Updates the state when an ACK from the metadata manager actor arrives
     * and returns an object with messages to be sent now.
     *
     * @param archiveName the name of the archive component
@@ -534,7 +534,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   /**
     * Checks whether there are conditions in the given state preventing that
-    * a message to the meta data actor can be sent.
+    * a message to the metadata actor can be sent.
     *
     * @param s the state
     * @return '''true''' if no message can be sent; '''false''' otherwise
@@ -543,7 +543,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     !s.ackMetaManager || s.removeState != Removed
 
   /**
-    * Obtains the message to be sent to the meta data actor in the specified
+    * Obtains the message to be sent to the metadata actor in the specified
     * state and updates the state accordingly.
     *
     * @param s the state

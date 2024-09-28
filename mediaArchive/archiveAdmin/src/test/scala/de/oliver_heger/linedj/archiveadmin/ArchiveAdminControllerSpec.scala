@@ -706,7 +706,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return the initialized mock
       */
     private def createApplication(): ArchiveAdminApp =
-      val facadeActors = MediaFacadeActors(metaDataManager = probeMetaDataActor.ref, mediaManager = null)
+      val facadeActors = MediaFacadeActors(metadataManager = probeMetaDataActor.ref, mediaManager = null)
       val app = mock[ArchiveAdminApp]
       when(app.mediaFacadeActors).thenReturn(facadeActors)
       val appCtx = mock[ApplicationContext]

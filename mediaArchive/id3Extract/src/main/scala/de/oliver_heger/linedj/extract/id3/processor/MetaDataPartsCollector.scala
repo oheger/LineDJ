@@ -21,38 +21,38 @@ import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
-  * An internally used helper class for collecting different parts of meta data
+  * An internally used helper class for collecting different parts of metadata
   * for media files.
   *
-  * When a media file is processed to extract meta data for it several steps are
+  * When a media file is processed to extract metadata for it several steps are
   * done in parallel, e.g. processing of ID3v2 tags, processing of Mpeg frames,
   * etc. The results of these steps become available in no defined order, and
-  * the meta data for this file is complete only if all outstanding processing
+  * the metadata for this file is complete only if all outstanding processing
   * results have been received.
   *
-  * This class keeps track of the meta data parts expected for a specific media
+  * This class keeps track of the metadata parts expected for a specific media
   * file. It allows adding parts when they become available and checking whether
-  * all parts are there now. If this is the case, a final meta data object can
+  * all parts are there now. If this is the case, a final metadata object can
   * be extracted from all the parts collected during processing.
   *
-  * A media file can contain redundant meta data. For instance, meta data can be
+  * A media file can contain redundant metadata. For instance, metadata can be
   * provided as ID3v2 tags (in different versions) and as ID3v1 tags. This class
   * organizes such potential redundant information based on the ID3 version:
   * tags with higher versions are checked first; if they contain data, this data
-  * is returned. Otherwise, search continues with meta data from lower versions.
+  * is returned. Otherwise, search continues with metadata from lower versions.
   * This is handled by an [[MetaDataID3Collector]] used by this class.
   *
-  * @param file         the ''FileData'' for which meta data is collected
+  * @param file         the ''FileData'' for which metadata is collected
   * @param id3Collector the helper object for collecting ID3 data
   */
 private class MetaDataPartsCollector(val file: FileData,
                                      private[processor] val id3Collector: MetaDataID3Collector):
-  /** Stores MP3-related meta data when it arrives. */
+  /** Stores MP3-related metadata when it arrives. */
   private var mp3MetaData: Option[Mp3MetaData] = None
 
   /**
     * A set for the versions of ID3 frames which are outstanding. The set is
-    * initialized with version 1 for ID3v1 meta data which is always expected.
+    * initialized with version 1 for ID3v1 metadata which is always expected.
     * ID3 data for higher versions is announced when it is detected.
     */
   private var outstandingID3Data = Set(1)
@@ -60,36 +60,36 @@ private class MetaDataPartsCollector(val file: FileData,
   /**
     * Default constructor. Creates default helper objects.
     *
-    * @param file the ''FileData'' for which meta data is collected
+    * @param file the ''FileData'' for which metadata is collected
     */
   def this(file: FileData) = this(file, new MetaDataID3Collector)
 
   /**
-    * Sets MP3-related meta data extracted from an audio file and returns an
-    * option with the final meta data. The option is defined if now all data is
+    * Sets MP3-related metadata extracted from an audio file and returns an
+    * option with the final metadata. The option is defined if now all data is
     * available.
     *
-    * @param mp3Data MP3-related meta data
-    * @return an option for the resulting meta data
+    * @param mp3Data MP3-related metadata
+    * @return an option for the resulting metadata
     */
   def setMp3MetaData(mp3Data: Mp3MetaData): Option[MediaMetaData] =
     mp3MetaData = Some(mp3Data)
     createFinalMetaDataIfComplete()
 
   /**
-    * Sets meta data for ID3 version 1. This method is called for each media
+    * Sets metadata for ID3 version 1. This method is called for each media
     * file that has been processed. Therefore, exactly one invocation of this
-    * method is expected before the final meta data can be generated.
+    * method is expected before the final metadata can be generated.
     *
     * @param provider the provider for ID3v1 information
-    * @return an option for the resulting meta data
+    * @return an option for the resulting metadata
     */
   def setID3v1MetaData(provider: Option[MetaDataProvider]): Option[MediaMetaData] =
     id3MetaDataAdded(1, provider)
 
   /**
     * Notifies this object that an ID3 frame has been detected which is now
-    * processed. Final meta data cannot be generated before the results of
+    * processed. Final metadata cannot be generated before the results of
     * this processing are available. It may be possible that this method is
     * invoked multiple times for the same version. This happens if an ID3
     * frame is so big that it has to be processed in multiple chunks. In this
@@ -103,22 +103,22 @@ private class MetaDataPartsCollector(val file: FileData,
   /**
     * Notifies this object that processing of an ID3 frame has ended. The
     * results of the processing are passed. If now all data is available, the
-    * final meta data can be generated.
+    * final metadata can be generated.
     *
-    * @param id3Data ID3 meta data
-    * @return an option for the resulting meta data
+    * @param id3Data ID3 metadata
+    * @return an option for the resulting metadata
     */
   def addID3Data(id3Data: ID3FrameMetaData): Option[MediaMetaData] =
     id3MetaDataAdded(id3Data.header.version, id3Data.metaData)
 
   /**
-    * Handles the addition of ID3 meta data. If defined, the data is added to
-    * the ID3 collector. If now all data is available, resulting meta data is
+    * Handles the addition of ID3 metadata. If defined, the data is added to
+    * the ID3 collector. If now all data is available, resulting metadata is
     * generated.
     *
     * @param version the ID3 version
     * @param data    the optional data
-    * @return an option for the resulting meta data
+    * @return an option for the resulting metadata
     */
   private def id3MetaDataAdded(version: Int, data: Option[MetaDataProvider]): Option[MediaMetaData]
   =
@@ -127,11 +127,11 @@ private class MetaDataPartsCollector(val file: FileData,
     createFinalMetaDataIfComplete()
 
   /**
-    * Returns an option with the final meta data. If all required data is
-    * already available, meta data can be created now. Otherwise, result is
+    * Returns an option with the final metadata. If all required data is
+    * already available, metadata can be created now. Otherwise, result is
     * ''None''.
     *
-    * @return an option for the resulting meta data
+    * @return an option for the resulting metadata
     */
   private def createFinalMetaDataIfComplete(): Option[MediaMetaData] =
     mp3MetaData match
@@ -147,9 +147,9 @@ private class MetaDataPartsCollector(val file: FileData,
 
   /**
     * Generates a format description for an MP3 audio file based on the given
-    * meta data. A UI may choose to display this string.
+    * metadata. A UI may choose to display this string.
     *
-    * @param data the meta data for the MP3 file
+    * @param data the metadata for the MP3 file
     * @return the format description
     */
   private def generateFormatDescription(data: Mp3MetaData): String =

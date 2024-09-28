@@ -39,7 +39,7 @@ object MetaDataPartsCollectorSpec:
 
     override val title: Option[String] = Some("The Lemon Song")
 
-  /** A test MP3 meta data object. */
+  /** A test MP3 metadata object. */
   private val Mp3Data = Mp3MetaData(version = 3, layer = 0, sampleRate = 0,
     minimumBitRat = 0, maximumBitRate = 128000, duration = 60000)
 
@@ -49,7 +49,7 @@ object MetaDataPartsCollectorSpec:
   /** A test media file. */
   private val File = FileData(Paths.get("somePath"), 20150912211021L)
 
-  /** The expected final meta data. */
+  /** The expected final metadata. */
   private val MetaData = MediaMetaData(title = ID3MetaData.title, artist = ID3MetaData.artist,
     album = ID3MetaData.album, inceptionYear = ID3MetaData.inceptionYear, trackNumber =
       ID3MetaData.trackNo, duration = Some(Mp3Data.duration), formatDescription = Some("128 kbps"),
@@ -65,30 +65,30 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
   /**
     * Checks whether the correct media data has been generated.
     *
-    * @param metaData the option with meta data returned by the collector
-    * @return the verified meta data
+    * @param metadata the option with metadata returned by the collector
+    * @return the verified metadata
     */
-  private def checkMetaData(metaData: Option[MediaMetaData]): MediaMetaData =
-    metaData should be(Some(MetaData))
+  private def checkMetaData(metadata: Option[MediaMetaData]): MediaMetaData =
+    metadata should be(Some(MetaData))
     MetaData
 
   "A MetaDataPartsCollector" should "create a default ID3 collector" in:
     val collector = new MetaDataPartsCollector(File)
     collector.id3Collector shouldBe a[MetaDataID3Collector]
 
-  it should "allow adding undefined meta data" in:
+  it should "allow adding undefined metadata" in:
     val collector = new MetaDataPartsCollector(File)
 
     collector setMp3MetaData Mp3Data shouldBe empty
 
-  it should "allow adding undefined ID3v1 meta data" in:
+  it should "allow adding undefined ID3v1 metadata" in:
     val id3Collector = mock[MetaDataID3Collector]
     val collector = new MetaDataPartsCollector(File, id3Collector)
 
     collector setID3v1MetaData None shouldBe empty
     verifyNoInteractions(id3Collector)
 
-  it should "pass defined ID3v1 meta data to the ID3 collector" in:
+  it should "pass defined ID3v1 metadata to the ID3 collector" in:
     val id3Collector = mock[MetaDataID3Collector]
     val collector = new MetaDataPartsCollector(File, id3Collector)
 
@@ -96,8 +96,8 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
     verify(id3Collector).addProvider(1, ID3MetaData)
 
   /**
-    * Creates a mock ID3 collector and prepares it to return the test ID3 meta
-    * data.
+    * Creates a mock ID3 collector and prepares it to return the test ID3
+    * metadata.
     *
     * @return the mock collector
     */
@@ -106,14 +106,14 @@ class MetaDataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoS
     when(id3Collector.createCombinedID3TagProvider()).thenReturn(ID3MetaData)
     id3Collector
 
-  it should "generate meta data when MP3 data is available and ID3v1 data is added" in:
+  it should "generate metadata when MP3 data is available and ID3v1 data is added" in:
     val id3Collector = prepareID3Collector()
     val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setMp3MetaData Mp3Data
 
     checkMetaData(collector setID3v1MetaData Some(ID3MetaData))
 
-  it should "generate meta data when ID3v1 data is available and MP3 data is added" in:
+  it should "generate metadata when ID3v1 data is available and MP3 data is added" in:
     val id3Collector = prepareID3Collector()
     val collector = new MetaDataPartsCollector(File, id3Collector)
     collector setID3v1MetaData Some(ID3MetaData)

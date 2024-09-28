@@ -21,7 +21,7 @@ package de.oliver_heger.linedj.browser.media
  *
  * To be unique, the key consists of the album name and the artist name. Both
  * can be displayed to the end user. (This implies that unknown names - due to
- * missing meta data - have already been resolved.)
+ * missing metadata - have already been resolved.)
  *
  * @param artist the name of the artist
  *               @param album the name of the album

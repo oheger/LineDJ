@@ -19,12 +19,12 @@ package de.oliver_heger.linedj.archive.metadata
 import de.oliver_heger.linedj.archive.media.PathUriConverter
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingResult
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 
 import scala.collection.immutable.Seq
 
 /**
-  * An internally used helper class for storing and managing the meta data
+  * An internally used helper class for storing and managing the metadata
   * of a medium.
   *
   * For each medium to be processed the [[MetaDataManagerActor]] creates an
@@ -44,7 +44,7 @@ private class MediumDataHandler(mediumID: MediumID, converter: PathUriConverter)
   /**
     * Notifies this object that the specified list of media files is going to
     * be processed. The file paths are stored so that it can be figured out
-    * when all meta data has been fetched.
+    * when all metadata has been fetched.
     *
     * @param files the files that are going to be processed
     */
@@ -62,16 +62,16 @@ private class MediumDataHandler(mediumID: MediumID, converter: PathUriConverter)
     * @param result the received result
     * @return a flag whether this is a valid result
     */
-  def resultReceived(result: MetaDataProcessingResult): Boolean =
+  def resultReceived(result: MetadataProcessingResult): Boolean =
     if mediumUris contains result.uri then
       mediumUris -= result.uri
       true
     else false
 
   /**
-    * Returns a flag whether all meta data for the represented medium has been
+    * Returns a flag whether all metadata for the represented medium has been
     * obtained.
     *
-    * @return a flag whether all meta data is available
+    * @return a flag whether all metadata is available
     */
   def isComplete: Boolean = mediumUris.isEmpty

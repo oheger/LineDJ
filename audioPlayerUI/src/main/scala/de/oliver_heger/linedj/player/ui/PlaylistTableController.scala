@@ -43,7 +43,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
                               plMetaService: PlaylistMetaDataService,
                               plService: PlaylistService[Playlist, MediaFileID],
                               tableHandler: TableHandler):
-  /** Stores the most recent state of the meta data resolver. */
+  /** Stores the most recent state of the metadata resolver. */
   private var metaDataState = plMetaService.InitialState
 
   /**
@@ -59,10 +59,10 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     updateTableSelection(state)
 
   /**
-    * Notifies this object that new meta data has been fetched. Updates the
+    * Notifies this object that new metadata has been fetched. Updates the
     * table accordingly.
     *
-    * @param metaData the new meta data
+    * @param metaData the new metadata
     */
   def handleMetaDataUpdate(metaData: PlaylistMetaData): Unit =
     val selIdx = tableHandler.getSelectedIndex
@@ -72,12 +72,12 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     tableHandler setSelectedIndex selIdx
 
   /**
-    * Processes a delta object obtained from the playlist meta data service.
+    * Processes a delta object obtained from the playlist metadata service.
     * Applies the specified changes on the table model and sends update
     * notifications to the table handler.
     *
     * @param delta     the delta to be processed
-    * @param nextState the next state of meta data resolving
+    * @param nextState the next state of metadata resolving
     */
   private def processDelta(delta: MetaDataResolveDelta, nextState: MetaDataResolveState): Unit =
     if delta.fullUpdate then processFullPlaylistUpdate(delta)
@@ -85,7 +85,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     metaDataState = nextState
 
   /**
-    * Processes a delta object from the playlist meta data service that
+    * Processes a delta object from the playlist metadata service that
     * indicates a full update of the playlist information.
     *
     * @param delta the delta to be processed
@@ -97,7 +97,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     tableHandler.tableDataChanged()
 
   /**
-    * Processes a delta object from the playlist meta data service that
+    * Processes a delta object from the playlist metadata service that
     * requires only partial updates on the playlist.
     *
     * @param delta the delta to be processed

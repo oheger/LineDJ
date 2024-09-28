@@ -39,7 +39,7 @@ import scala.concurrent.Future
   *
   * Note that in order to obtain the correct checksum for the medium, the
   * [[HttpMediumDesc]] object for the current medium is evaluated. The actor
-  * assumes that the meta data file is named by the checksum of the medium; so
+  * assumes that the metadata file is named by the checksum of the medium; so
   * the checksum is derived from this URI.
   *
   * @param infoParser the parser for medium info files
@@ -77,7 +77,7 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
 
   /**
     * Obtains the checksum of the current medium from the medium description.
-    * This implementation returns the file name of the URI for the meta data
+    * This implementation returns the file name of the URI for the metadata
     * file. Per convention, this file has the checksum as name plus an
     * extension.
     *

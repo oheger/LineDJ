@@ -63,7 +63,7 @@ object HttpArchiveManagementActorSpec:
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = PropBufSize,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = null,
-      contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metaDataPath = Uri.Path("meta"))
+      contentPath = Uri.Path("archiveContent.json"), mediaPath = Uri.Path("media"), metadataPath = Uri.Path("meta"))
 
   /** Constant for an archive name. */
   private val ArchiveName = ArchiveConfig.archiveName
@@ -77,8 +77,8 @@ object HttpArchiveManagementActorSpec:
   /** Class for the medium info processor actor. */
   private val ClsMediumInfoProcessor = classOf[MediumInfoResponseProcessingActor]
 
-  /** Class for the meta data processor actor. */
-  private val ClsMetaDataProcessor = classOf[MetaDataResponseProcessingActor]
+  /** Class for the metadata processor actor. */
+  private val ClsMetadataProcessor = classOf[MetaDataResponseProcessingActor]
 
   /** Class for the content propagation actor. */
   private val ClsContentPropagationActor = classOf[ContentPropagationActor]
@@ -186,7 +186,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       .triggerScan().expectProcessingRequest()
     request.archiveConfig should be(helper.config)
     request.settingsProcessorActor should be(helper.probeMediumInfoProcessor.ref)
-    request.metaDataProcessorActor should be(helper.probeMetaDataProcessor.ref)
+    request.metadataProcessorActor should be(helper.probeMetadataProcessor.ref)
 
     val futureDescriptions = request.mediaSource.runFold(
       List.empty[HttpMediumDesc])((lst, md) => md :: lst)
@@ -212,14 +212,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
 
     helper.stub((), ProgressState)(_.processingDone())
       .triggerScan()
-    helper.probeUnionMetaDataManager.expectMsg(UpdateOperationStarts(None))
+    helper.probeUnionMetadataManager.expectMsg(UpdateOperationStarts(None))
 
   it should "notify the union archive about a completed scan operation" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
     helper.stub((), ProgressState)(_.processingDone())
       .post(HttpArchiveProcessingComplete(HttpArchiveStateConnected))
-    helper.probeUnionMetaDataManager.expectMsg(UpdateOperationCompleted(None))
+    helper.probeUnionMetadataManager.expectMsg(UpdateOperationCompleted(None))
 
   it should "not send a process request for a response error" in:
     val helper = new HttpArchiveManagementActorTestHelper
@@ -244,7 +244,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     helper.stub(false, ProgressState)(_.processingStarts())
       .triggerScan(stubProcStarts = false)
       .expectNoProcessingRequest()
-    expectNoMoreMsg(helper.probeUnionMetaDataManager)
+    expectNoMoreMsg(helper.probeUnionMetadataManager)
 
   it should "answer an archive processing init message" in:
     val helper = new HttpArchiveManagementActorTestHelper
@@ -309,7 +309,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     expectMsg(CloseAck(helper.manager))
     helper.probeContentProcessor.expectMsg(CancelStreams)
     helper.probeMediumInfoProcessor.expectMsg(CancelStreams)
-    helper.probeMetaDataProcessor.expectMsg(CancelStreams)
+    helper.probeMetadataProcessor.expectMsg(CancelStreams)
 
   it should "forward a file download request to the download manager" in:
     val request = MediumFileRequest(MediaFileID(MediumID("aMedium", None), "fileUri"),
@@ -429,14 +429,14 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
     /** Test probe for the union media manager actor. */
     val probeUnionMediaManager: TestProbe = TestProbe()
 
-    /** Test probe for the union meta data manager actor. */
-    val probeUnionMetaDataManager: TestProbe = TestProbe()
+    /** Test probe for the union metadata manager actor. */
+    val probeUnionMetadataManager: TestProbe = TestProbe()
 
     /** Test probe for the content processor actor. */
     val probeContentProcessor: TestProbe = TestProbe()
 
-    /** Test probe for the meta data processor actor. */
-    val probeMetaDataProcessor: TestProbe = TestProbe()
+    /** Test probe for the metadata processor actor. */
+    val probeMetadataProcessor: TestProbe = TestProbe()
 
     /** Test probe for the medium info processor actor. */
     val probeMediumInfoProcessor: TestProbe = TestProbe()
@@ -603,7 +603,7 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
       */
     private def createProps(): Props =
       Props(new HttpArchiveManagementActor(updateService, config, pathGenerator,
-        probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
+        probeUnionMediaManager.ref, probeUnionMetadataManager.ref,
         probeMonitoringActor.ref, probeRemoveActor.ref)
         with ChildActorFactory {
 
@@ -621,16 +621,16 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
               p.args should have size 0
               probeMediumInfoProcessor.ref
 
-            case ClsMetaDataProcessor =>
+            case ClsMetadataProcessor =>
               p.args should have size 0
-              probeMetaDataProcessor.ref
+              probeMetadataProcessor.ref
 
             case ClsDownloadManagementActor =>
               p.args should be(List(config, pathGenerator, probeMonitoringActor.ref, probeRemoveActor.ref))
               downloadManagementActor
 
             case ClsContentPropagationActor =>
-              p.args should be(List(probeUnionMediaManager.ref, probeUnionMetaDataManager.ref,
+              p.args should be(List(probeUnionMediaManager.ref, probeUnionMetadataManager.ref,
                 ArchiveConfig.archiveName))
               probeContentPropagationActor.ref
           }

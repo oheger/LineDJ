@@ -89,7 +89,7 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
 
   /**
     * @inheritdoc This implementation initializes the new consumer if media
-    *             data is already available. Also, a meta data state listener
+    *             data is already available. Also, a metadata state listener
     *             registration must be active if consumers are present.
     */
   override def onConsumerAdded(cons: ConsumerFunction[AvailableMedia], key: AnyRef,
@@ -122,7 +122,7 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     if !resetAndRequestNewData(hasConsumers) then
       // There might be no registration, but this is handled by the media
       // facade.
-      mediaFacade.unregisterMetaDataStateListener(componentID)
+      mediaFacade.unregisterMetadataStateListener(componentID)
 
   /**
     * Clears the internal cache and requests new data if necessary. This method
@@ -147,7 +147,7 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
     requestPending = true
 
   /**
-    * Adds a registration for a meta data state listener.
+    * Adds a registration for a metadata state listener.
     */
   private def registerStateListener(): Unit =
-    mediaFacade.registerMetaDataStateListener(componentID)
+    mediaFacade.registerMetadataStateListener(componentID)

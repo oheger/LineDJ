@@ -27,8 +27,8 @@ import org.apache.pekko.actor.ActorRef
   * A trait that allows creating all the actors of a media archive.
   *
   * Via the single factory method the single actors, a media archive consists
-  * of are created: the media manager, the meta data manager, and the manager
-  * for persistent meta data.
+  * of are created: the media manager, the metadata manager, and the manager
+  * for persistent metadata.
   */
 trait ArchiveActorFactory:
   this: ChildActorFactory =>
@@ -39,16 +39,16 @@ trait ArchiveActorFactory:
     * interactions with this archive.)
     *
     * @param mediaUnionActor    the media actor of the union archive
-    * @param metaDataUnionActor the meta data actor of the union archive
+    * @param metadataUnionActor the metadata actor of the union archive
     * @param groupManager       the group manager actor
     * @param archiveConfig      the config of the new archive
     * @return the new media manager actor
     */
-  def createArchiveActors(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef, groupManager: ActorRef,
+  def createArchiveActors(mediaUnionActor: ActorRef, metadataUnionActor: ActorRef, groupManager: ActorRef,
                           archiveConfig: MediaArchiveConfig): ActorRef =
     val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
-      PersistentMetaDataManagerActor(archiveConfig, metaDataUnionActor, converter))
+      PersistentMetaDataManagerActor(archiveConfig, metadataUnionActor, converter))
     val metaDataManager = createChildActor(MetaDataManagerActor(archiveConfig,
-      persistentMetaDataManager, metaDataUnionActor, converter))
+      persistentMetaDataManager, metadataUnionActor, converter))
     createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))

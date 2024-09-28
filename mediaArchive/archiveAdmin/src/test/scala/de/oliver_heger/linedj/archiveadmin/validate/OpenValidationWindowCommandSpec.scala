@@ -206,7 +206,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
 
   it should "return the title in the display function if available" in:
     val file = ValidationTestHelper.file(1)
-    val ExpResult = ValidationTestHelper.albumName(1) + "/" + file.metaData.title.get
+    val ExpResult = ValidationTestHelper.albumName(1) + "/" + file.metadata.title.get
     val command = new OpenFileValidationWindowCommand(mock[Locator], createClientApp())
     val valItem = checkValidationFlow(command, List(file)).head
 
@@ -261,7 +261,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
     val SongCounts = List(8, 12)
     val validFiles = SongCounts.zipWithIndex.flatMap(t => ValidationTestHelper.albumFiles(t._2, t._1))
     val inconsistentData = ValidationTestHelper.metaData(songIdx = 32).copy(inceptionYear = Some(1960))
-    val inconsistentFile = ValidationTestHelper.file(32).copy(metaData = inconsistentData)
+    val inconsistentFile = ValidationTestHelper.file(32).copy(metadata = inconsistentData)
     val allFiles = inconsistentFile :: validFiles
     val command = new OpenAlbumValidationWindowCommand(mock[Locator], createClientApp())
 

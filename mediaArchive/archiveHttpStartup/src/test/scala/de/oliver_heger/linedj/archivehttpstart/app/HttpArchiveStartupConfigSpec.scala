@@ -161,7 +161,7 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers:
         config.archiveBaseUri should be(Uri(ArchiveUri))
         config.contentPath should be(Uri.Path(ContentPath))
         config.mediaPath should be(Uri.Path(MediaPath))
-        config.metaDataPath should be(Uri.Path(MetaDataPath))
+        config.metadataPath should be(Uri.Path(MetaDataPath))
         config.archiveName should be(ArchiveName)
         config.processorCount should be(ProcessorCount)
         config.processorTimeout should be(Timeout(ProcessorTimeout, TimeUnit.SECONDS))
@@ -247,7 +247,7 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers:
 
     createStartupConfig(c) match
       case Success(config) =>
-        config.archiveConfig.metaDataPath should be(Uri.Path.Empty)
+        config.archiveConfig.metadataPath should be(Uri.Path.Empty)
       case Failure(e) =>
         fail("Unexpected exception: " + e)
 

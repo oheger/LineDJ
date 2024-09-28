@@ -225,7 +225,7 @@
     </di:constructor>
   </di:bean>
 
-  <!-- Command and task for opening the meta data files dialog -->
+  <!-- Command and task for opening the metadata files dialog -->
   <di:bean name="metaFilesDlgCommand"
            beanClassName="de.oliver_heger.linedj.archiveadmin.OpenMetaDataFilesDlgCommand">
     <di:constructor>

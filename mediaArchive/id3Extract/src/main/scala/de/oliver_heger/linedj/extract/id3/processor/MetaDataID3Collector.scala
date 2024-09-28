@@ -26,7 +26,7 @@ object MetaDataID3Collector:
     * combined provider.
     *
     * @param providers a list with providers available
-    * @return a combined meta data provider
+    * @return a combined metadata provider
     */
   private def createCombinedProvider(providers: List[ProviderData]): MetaDataProvider =
     val orderedProviders = providers sortWith (_.id3Version > _.id3Version) map (_.provider)
@@ -74,7 +74,7 @@ object MetaDataID3Collector:
 
 
 /**
-  * An internally used helper class for collecting meta data extracted from ID3
+  * An internally used helper class for collecting metadata extracted from ID3
   * tags.
   *
   * A single MP3 file can contain multiple ID3 frames of different versions.
@@ -85,7 +85,7 @@ object MetaDataID3Collector:
   * [[MetaDataProvider]] objects can be added, together
   * with the ID3 version they stem from. From this information a combined
   * ''ID3TagProvider'' is created providing access to the accumulated data. If
-  * there are multiple values for meta data from different ID3 frames, frames
+  * there are multiple values for metadata from different ID3 frames, frames
   * with a higher version take precedence. (Well, this is an arbitrary
   * decision, but some algorithm has to be used to resolve redundancies.)
   */

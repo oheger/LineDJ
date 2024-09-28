@@ -341,7 +341,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
     next should be(state)
 
-  it should "react on an ACK from the meta data manager" in:
+  it should "react on an ACK from the metadata manager" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(ackMetaManager = false)
     val next = modifyState(MediaScanStateUpdateServiceImpl.ackFromMetaManager(), state)
 
@@ -445,7 +445,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     optAck shouldBe empty
     next should be theSameInstanceAs state
 
-  it should "return an available media message to the meta data manager" in:
+  it should "return an available media message to the metadata manager" in:
     val media = multiMediaMap(1, 2).toList
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       availableMediaSent = false, mediaData = media, ackMetaManager = false)
@@ -455,14 +455,14 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.mediaData should have size 0
     optMsg should be(Some(AvailableMedia(media)))
 
-  it should "return a scan start message to the meta data manager" in:
+  it should "return a scan start message to the metadata manager" in:
     val state = stateInProgress()
 
     val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
     next.startAnnounced shouldBe true
     optMsg should be(Some(MediaScanStarts(state.scanClient.get)))
 
-  it should "return the next scan result as message to the meta data manager" in:
+  it should "return the next scan result as message to the metadata manager" in:
     val res1 = scanResult(1)
     val res2 = scanResult(2)
     val res3 = scanResult(3)
@@ -474,7 +474,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.ackMetaManager shouldBe false
     optMsg should be(Some(res1))
 
-  it should "not return a meta data message if there is no current result" in:
+  it should "not return a metadata message if there is no current result" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List())
 
@@ -482,7 +482,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next should be(state)
     optMsg shouldBe empty
 
-  it should "not return a meta data message if ACK from the manager is pending" in:
+  it should "not return a metadata message if ACK from the manager is pending" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List(scanResult(5)), ackMetaManager = false)
 
@@ -490,7 +490,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next should be(state)
     optMsg shouldBe empty
 
-  it should "not return a meta data message if a remove operation is pending" in:
+  it should "not return a metadata message if a remove operation is pending" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List(scanResult(5)),
       removeState = UnionArchiveRemoveState.Pending)
@@ -506,7 +506,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next should be theSameInstanceAs MediaScanStateUpdateServiceImpl.InitialState
     optMsg shouldBe empty
 
-  it should "return a union archive message if there is current meta data" in:
+  it should "return a union archive message if there is current metadata" in:
     val media = mediaMap(42)
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(currentMediaData = media)
 
@@ -582,7 +582,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     msg.metaManagerMessage should be(Some(res1.result))
     msg.ack shouldBe empty
 
-  it should "handle an ACK from the meta data manager" in:
+  it should "handle an ACK from the metadata manager" in:
     val result = scanResult(1)
     val media = mediaMap(1)
     val ack = actor()

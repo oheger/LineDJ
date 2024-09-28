@@ -120,7 +120,7 @@ object MediaManagerActorSpec:
     * data.
     *
     * @param uri          the URI of the test file
-    * @param withMetaData flag whether meta data should be included
+    * @param withMetaData flag whether metadata should be included
     * @return the request
     */
   private def createMediumFileRequest(uri: String, withMetaData: Boolean): MediumFileRequest =
@@ -266,7 +266,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.send(RemovedArchiveComponentProcessed("some other ID"))
       .expectNoStateUpdate()
 
-  it should "handle an ACK from the meta data manager" in:
+  it should "handle an ACK from the metadata manager" in:
     val probeAck = TestProbe()
     val messages = ScanStateTransitionMessages(unionArchiveMessage = Some("message"),
       ack = Some(probeAck.ref))
@@ -424,7 +424,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     helper.expectDownloadMonitorMessage(DownloadMonitoringActor.DownloadOperationStarted(
       creation.probe.ref, testActor))
 
-  it should "forward a request for meta file info to the meta data manager" in:
+  it should "forward a request for meta file info to the metadata manager" in:
     val metaDataManager = ForwardTestActor()
     val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
       TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
@@ -449,8 +449,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /** Test probe for the download manager actor. */
     private val probeDownloadManager = TestProbe()
 
-    /** Test probe for the meta data manager actor. */
-    private val probeMetaDataManager = TestProbe()
+    /** Test probe for the metadata manager actor. */
+    private val probeMetadataManager = TestProbe()
 
     /** Test probe for the union media manager actor. */
     private val probeUnionMediaActor = TestProbe()
@@ -507,12 +507,12 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       this
 
     /**
-      * Simulates an ACK response from the meta data manager.
+      * Simulates an ACK response from the metadata manager.
       *
       * @return this test helper
       */
     def postAckFromMetaManager(): MediaManagerTestHelper =
-      testManagerActor.tell(MetaDataManagerActor.ScanResultProcessed, probeMetaDataManager.ref)
+      testManagerActor.tell(MetaDataManagerActor.ScanResultProcessed, probeMetadataManager.ref)
       this
 
     /**
@@ -552,22 +552,22 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       expectNoProbeMessage(probeUnionMediaActor)
 
     /**
-      * Expects that the specified message has been sent to the meta data
+      * Expects that the specified message has been sent to the metadata
       * manager actor.
       *
       * @param msg the expected message
       * @return this test helper
       */
     def expectMetaDataMessage(msg: Any): MediaManagerTestHelper =
-      expectProbeMessage(probeMetaDataManager, msg)
+      expectProbeMessage(probeMetadataManager, msg)
 
     /**
-      * Checks that no message was sent to the meta data manager actor.
+      * Checks that no message was sent to the metadata manager actor.
       *
       * @return this test helper
       */
     def expectNoMetaDataMessage(): MediaManagerTestHelper =
-      expectNoProbeMessage(probeMetaDataManager)
+      expectNoProbeMessage(probeMetadataManager)
 
     /**
       * Expects that the specified message has been sent to the download
@@ -723,7 +723,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     private def createTestActor(): TestActorRef[MediaManagerActor] =
       TestActorRef[MediaManagerActor](Props(
-        new MediaManagerActor(actorConfig, probeMetaDataManager.ref,
+        new MediaManagerActor(actorConfig, probeMetadataManager.ref,
           probeUnionMediaActor.ref, probeGroupManager.ref, updateService, converter)
           with ChildActorFactory with CloseSupport {
           override def createChildActor(p: Props): ActorRef = {
@@ -755,7 +755,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
           override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
           ActorRef, factory: ChildActorFactory, conditionState: => Boolean): Boolean = {
             subject should be(testManagerActor)
-            deps should contain only probeMetaDataManager.ref
+            deps should contain only probeMetadataManager.ref
             target should be(testActor)
             conditionState shouldBe true
             factory should be(this)

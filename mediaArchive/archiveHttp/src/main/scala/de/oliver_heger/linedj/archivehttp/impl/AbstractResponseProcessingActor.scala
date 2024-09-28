@@ -27,7 +27,7 @@ import org.apache.pekko.util.ByteString
 import scala.concurrent.Future
 
 /**
-  * An abstract base actor class for processing responses for meta data or
+  * An abstract base actor class for processing responses for metadata or
   * settings files received from an HTTP archive.
   *
   * A lot of functionality related to response handling is independent on the
@@ -36,7 +36,7 @@ import scala.concurrent.Future
   * cancellation has to be implemented, processing results have to be sent to
   * the calling actor, etc. This base* class implements this common
   * functionality. Concrete subclasses mainly have to deal with setting up a
-  * stream to process the content of the meta data file that has been
+  * stream to process the content of the metadata file that has been
   * downloaded and to produce the results to be sent back to the caller.
   */
 abstract class AbstractResponseProcessingActor
@@ -79,7 +79,7 @@ abstract class AbstractResponseProcessingActor
     source.via(new StreamSizeRestrictionStage(config.maxContentSize * 1024))
 
   /**
-    * Handles an HTTP response with the content of a meta data file. The
+    * Handles an HTTP response with the content of a metadata file. The
     * response is assumed to
     * be successful. (This is guaranteed by the processing stream.) Its entity
     * is parsed and converted.

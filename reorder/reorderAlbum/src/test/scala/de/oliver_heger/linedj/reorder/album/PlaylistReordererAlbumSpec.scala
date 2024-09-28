@@ -24,9 +24,9 @@ import org.scalatest.matchers.should.Matchers
 
 object PlaylistReordererAlbumSpec:
   /**
-    * Creates a ''SongData'' object with the specified meta data.
+    * Creates a ''SongData'' object with the specified metadata.
     *
-    * @param data the meta data for the song
+    * @param data the metadata for the song
     * @return the created ''SongData''
     */
   private def createSong(data: MediaMetaData): SongData =

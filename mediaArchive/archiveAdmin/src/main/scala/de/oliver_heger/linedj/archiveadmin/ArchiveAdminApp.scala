@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 object ArchiveAdminApp:
   /**
     * Configuration property for the timeout value to be applied for
-    * invocations of the meta data actor.
+    * invocations of the metadata actor.
     */
   val PropActorTimeout = "actorTimeout"
 

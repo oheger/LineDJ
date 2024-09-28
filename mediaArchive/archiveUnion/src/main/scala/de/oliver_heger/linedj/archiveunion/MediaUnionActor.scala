@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 
@@ -34,7 +34,7 @@ object MediaUnionActor:
   /**
     * Returns a ''Props'' object for creating instances of this actor class.
     *
-    * @param metaDataUnionActor the actor managing the union of meta data
+    * @param metaDataUnionActor the actor managing the union of metadata
     * @return creation ''Props'' for actor instances
     */
   def apply(metaDataUnionActor: ActorRef): Props =
@@ -89,20 +89,20 @@ object MediaUnionActor:
   * component is removed from the union archive.
   *
   * Media typically are assigned a unique checksum (a hash value). When
-  * requesting data from this actor (media files or meta data) such a checksum
+  * requesting data from this actor (media files or metadata) such a checksum
   * can be specified. If this is done, the checksum has precedence over the
   * ''MediumID'' in the request. This is useful when media can be provided by
-  * different archive components; as the checksum is independent from an
+  * different archive components; as the checksum is independent of an
   * archive component, the correct medium can be identified, no matter which
   * concrete archive component owns it. To enable this independence of concrete
-  * archive components for meta data requests as well, this actor supports
+  * archive components for metadata requests as well, this actor supports
   * messages of type [[GetFilesMetaData]]. These messages are forwarded to the
-  * meta data union actor after an attempt was made to map the referenced media
+  * metadata union actor after an attempt was made to map the referenced media
   * based on checksum values. (''GetFilesMetaData'' messages can also be sent
-  * directly to the meta data union actor, but in this case the checksum is
+  * directly to the metadata union actor, but in this case the checksum is
   * ignored and media IDs must match directly.)
   *
-  * @param metaDataUnionActor the actor managing the union of meta data
+  * @param metaDataUnionActor the actor managing the union of metadata
   */
 class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
@@ -154,7 +154,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
       metaDataUnionActor ! ScanAllMedia
       controllerMap.values foreach (_ ! ScanAllMedia)
 
-    case GetArchiveMetaDataFileInfo(archiveCompID) =>
+    case GetArchiveMetadataFileInfo(archiveCompID) =>
       Try(controllerMap(archiveCompID)) match
         case Success(controller) =>
           controller forward GetMetaDataFileInfo

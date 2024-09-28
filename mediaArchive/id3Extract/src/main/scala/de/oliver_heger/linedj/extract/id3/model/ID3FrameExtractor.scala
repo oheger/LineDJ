@@ -246,7 +246,7 @@ object ID3FrameExtractor:
   *
   * This class implements functionality for parsing ID3 data provided as blocks
   * of binary arrays. From this data the values of ID3 tags are extracted and
-  * made available in form of ''ID3Frame'' objects. From such objects, meta data
+  * made available in form of ''ID3Frame'' objects. From such objects, metadata
   * about audio files can be queried quite easily.
   *
   * Because ID3v2 frames may become large (for instance, it is possible to embed

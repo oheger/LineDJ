@@ -17,10 +17,10 @@
 package de.oliver_heger.linedj.extract.metadata
 
 /**
- * Definition of a trait providing direct access to the most important meta
- * data tags for audio files.
+ * Definition of a trait providing direct access to the most important
+ * metadata tags for audio files.
  *
- * Through the interface defined here values for central meta data can be
+ * Through the interface defined here values for central metadata can be
  * queried without having to respect a specific version. Because all tags
  * may be absent the methods return ''Option'' objects.
  */

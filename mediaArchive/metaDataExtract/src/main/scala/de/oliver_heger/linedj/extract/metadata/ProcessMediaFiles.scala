@@ -25,9 +25,9 @@ import java.nio.file.Path
   * A message received by [[MetaDataExtractionActor]] telling it to process the
   * specified media files.
   *
-  * This message actually initiates the extraction of meta data by the receiving
+  * This message actually initiates the extraction of metadata by the receiving
   * actor instance. It contains all files of a medium for which no persistent
-  * meta data could be obtained. In addition, a mapping function is provided to
+  * metadata could be obtained. In addition, a mapping function is provided to
   * generate URIs for the paths of the processed ''FileData'' objects.
   *
   * @param mediumID       the ID of the medium

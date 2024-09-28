@@ -131,7 +131,7 @@ class ContentPropagationActorSpec(testSystem: ActorSystem) extends TestKit(testS
     /** Test probe for the media manager. */
     val probeMediaManager: TestProbe = TestProbe()
 
-    /** Test probe for the meta data manager. */
+    /** Test probe for the metadata manager. */
     val probeMetaManager: TestProbe = TestProbe()
 
     /** The actor to be tested. */

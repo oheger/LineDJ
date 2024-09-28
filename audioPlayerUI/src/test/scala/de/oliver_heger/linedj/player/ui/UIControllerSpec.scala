@@ -104,7 +104,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
     state.playlist.pendingSongs should have size 0
     state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
 
-  it should "pass playlist meta data to the playlist table controller" in:
+  it should "pass playlist metadata to the playlist table controller" in:
     val meta = PlaylistMetaData(Map.empty)
     val state = createState(playing = false)
     val optIndex = Some(42)
@@ -275,7 +275,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
     /** The consumer function for player state change events. */
     private lazy val stateConsumer = findRegistration[AudioPlayerStateChangeRegistration].callback
 
-    /** The consumer function for meta data updates. */
+    /** The consumer function for metadata updates. */
     private lazy val metaDataConsumer = findRegistration[PlaylistMetaDataRegistration].callback
 
     /**
@@ -322,9 +322,9 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
       this
 
     /**
-      * Passes the specified meta data to the corresponding consumer function.
+      * Passes the specified metadata to the corresponding consumer function.
       *
-      * @param meta the meta data
+      * @param meta the metadata
       * @return this test helper
       */
     def metaDataChanged(meta: PlaylistMetaData): ControllerTestHelper =
@@ -332,10 +332,10 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
       this
 
     /**
-      * Verifies that the specified meta data has been passed to the correct
+      * Verifies that the specified metadata has been passed to the correct
       * sub controllers.
       *
-      * @param meta   the expected meta data
+      * @param meta   the expected metadata
       * @param optIdx the optional index in the playlist
       * @return this test helper
       */
@@ -459,7 +459,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
     /**
       * Verifies that the action to start playback has been triggered once.
       *
-      * @return this test heper
+      * @return this test helper
       */
     def verifyPlaybackStarted(): ControllerTestHelper =
       verify(actions(UIController.ActionStartPlayback)).execute(null)

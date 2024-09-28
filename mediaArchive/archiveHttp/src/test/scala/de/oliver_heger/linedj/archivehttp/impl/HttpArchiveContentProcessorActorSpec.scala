@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.stream.DelayOverflowStrategy
@@ -49,8 +49,8 @@ object HttpArchiveContentProcessorActorSpec:
   /** Regular expression to parse the index from a setting path. */
   final val RegExSettings: Regex = raw".*medium(\d+)/.+".r
 
-  /** Regular expression to parse the index from a meta data path. */
-  final val RegExMetaData: Regex = raw".*/data_(\d+).mdt".r
+  /** Regular expression to parse the index from a metadata path. */
+  final val RegExMetadata: Regex = raw".*/data_(\d+).mdt".r
 
   /** A prefix indicating an error response. */
   final val ErrorPrefix = "Error:"
@@ -59,7 +59,7 @@ object HttpArchiveContentProcessorActorSpec:
   private val MediaPath = Uri.Path("media")
 
   /** The relative base path for the metadata files of the test archive. */
-  private val MetaDataPath = Uri.Path("meta")
+  private val MetadataPath = Uri.Path("meta")
 
   /** A default configuration for the test archive. */
   private val DefaultArchiveConfig =
@@ -67,7 +67,7 @@ object HttpArchiveContentProcessorActorSpec:
       archiveName = "test", processorCount = 1, processorTimeout = Timeout(1.minute), propagationBufSize = 100,
       maxContentSize = 1024, downloadBufferSize = 1000, downloadMaxInactivity = 10.seconds,
       downloadReadChunkSize = 8192, timeoutReadSize = 111, downloadConfig = null, downloader = null,
-      contentPath = Uri.Path("archiveContent.json"), mediaPath = MediaPath, metaDataPath = MetaDataPath)
+      contentPath = Uri.Path("archiveContent.json"), mediaPath = MediaPath, metadataPath = MetadataPath)
 
   /** Constant for the URI pointing to the content file of the test archive. */
   val ArchiveUri: String = DefaultArchiveConfig.archiveBaseUri.toString()
@@ -108,12 +108,12 @@ object HttpArchiveContentProcessorActorSpec:
   private def settingsPath(idx: Int): String = "medium" + idx + "/playlist.settings"
 
   /**
-    * Returns a test meta data path for the specified index.
+    * Returns a test metadata path for the specified index.
     *
     * @param idx the index
-    * @return the test meta data path for this index
+    * @return the test metadata path for this index
     */
-  private def metaDataPath(idx: Int): String = s"metadata/data_$idx.mdt"
+  private def metadataPath(idx: Int): String = s"metadata/data_$idx.mdt"
 
   /**
     * Creates a medium ID from the given description object.
@@ -133,7 +133,7 @@ object HttpArchiveContentProcessorActorSpec:
     * @return the test medium description
     */
   def createMediumDesc(idx: Int): HttpMediumDesc =
-    HttpMediumDesc(settingsPath(idx), metaDataPath(idx))
+    HttpMediumDesc(settingsPath(idx), metadataPath(idx))
 
   /**
     * Generates the given number of medium description objects.
@@ -155,7 +155,7 @@ object HttpArchiveContentProcessorActorSpec:
   private def appendResponseMapping(mapping: DownloadMapping, desc: HttpMediumDesc): DownloadMapping =
     val mapSettings =
       DownloadKey(MediaPath, desc.mediumDescriptionPath) -> Success(desc.mediumDescriptionPath)
-    val mapMetaData = DownloadKey(MetaDataPath, desc.metaDataPath) -> Success(desc.metaDataPath)
+    val mapMetaData = DownloadKey(MetadataPath, desc.metaDataPath) -> Success(desc.metaDataPath)
     mapping + mapSettings + mapMetaData
 
   /**
@@ -183,16 +183,16 @@ object HttpArchiveContentProcessorActorSpec:
     MediumInfoResponseProcessingResult(info, SeqNo)
 
   /**
-    * Creates a result object for a processed meta data request.
+    * Creates a result object for a processed metadata request.
     *
     * @param desc   the description for the medium affected
     * @param reqUri the URI of the request
-    * @return the result for this meta data request
+    * @return the result for this metadata request
     */
-  def createMetaDataProcessingResult(desc: HttpMediumDesc, reqUri: String):
+  def createMetadataProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MetaDataResponseProcessingResult =
     val mid = mediumID(desc)
-    val data = List(MetaDataProcessingSuccess(mediumID = mid, uri = MediaFileUri(desc.metaDataPath),
+    val data = List(MetadataProcessingSuccess(mediumID = mid, uri = MediaFileUri(desc.metaDataPath),
       metaData = MediaMetaData(title = Some(reqUri))))
     MetaDataResponseProcessingResult(mid, data, SeqNo)
 
@@ -221,8 +221,8 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
                                media: Iterable[HttpMediumDesc]): List[MediumProcessingResult] =
     val expResults = media map { desc =>
       val infoResult = createSettingsProcessingResult(desc, desc.mediumDescriptionPath)
-      val metaResult = createMetaDataProcessingResult(desc, desc.metaDataPath)
-      MediumProcessingResult(infoResult.mediumInfo, metaResult.metaData, SeqNo)
+      val metaResult = createMetadataProcessingResult(desc, desc.metaDataPath)
+      MediumProcessingResult(infoResult.mediumInfo, metaResult.metadata, SeqNo)
     }
     results should contain theSameElementsAs expResults
     results
@@ -251,11 +251,11 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val failedSettingsDesc = createMediumDesc(42)
     val mapping1 = successMapping +
       (DownloadKey(MediaPath, failedSettingsDesc.mediumDescriptionPath) -> Success("")) +
-      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+      (DownloadKey(MetadataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val failedMetaDesc = createMediumDesc(49)
     val mapping = mapping1 + (DownloadKey(MediaPath, failedMetaDesc.mediumDescriptionPath) ->
       Success(failedMetaDesc.mediumDescriptionPath)) +
-      (DownloadKey(MetaDataPath, failedMetaDesc.metaDataPath) -> Success(""))
+      (DownloadKey(MetadataPath, failedMetaDesc.metaDataPath) -> Success(""))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchive(failedMetaDesc :: failedSettingsDesc ::
@@ -272,11 +272,11 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val failedSettingsDesc = createMediumDesc(42)
     val mapping1 = successMapping + (DownloadKey(MediaPath,
       failedSettingsDesc.mediumDescriptionPath) -> Success(createErrorResponse("wrong_settings"))) +
-      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+      (DownloadKey(MetadataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val failedMetaDesc = createMediumDesc(49)
     val mapping = mapping1 + (DownloadKey(MediaPath, failedMetaDesc.mediumDescriptionPath) ->
       Success(failedMetaDesc.mediumDescriptionPath)) +
-      (DownloadKey(MetaDataPath, failedMetaDesc.metaDataPath) -> Success(createErrorResponse("wrong_meta_data")))
+      (DownloadKey(MetadataPath, failedMetaDesc.metaDataPath) -> Success(createErrorResponse("wrong_meta_data")))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchive(failedMetaDesc :: failedSettingsDesc ::
@@ -291,7 +291,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     val failedSettingsDesc = createMediumDesc(42)
     val mapping = successMapping + (DownloadKey(MediaPath,
       failedSettingsDesc.mediumDescriptionPath) -> Failure(new IOException("Boom"))) +
-      (DownloadKey(MetaDataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
+      (DownloadKey(MetadataPath, failedSettingsDesc.metaDataPath) -> Success(failedSettingsDesc.metaDataPath))
     val helper = new ContentProcessorActorTestHelper
 
     val results = helper.processArchiveWithFailureMapping(failedSettingsDesc :: descriptions,
@@ -302,7 +302,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
 
   it should "ignore incomplete medium descriptions" in:
     val descriptions = List(HttpMediumDesc(settingsPath(1), null),
-      HttpMediumDesc(null, metaDataPath(2)))
+      HttpMediumDesc(null, metadataPath(2)))
     val helper = new ContentProcessorActorTestHelper
 
     helper.processArchive(descriptions, Map.empty, DefaultArchiveConfig)
@@ -328,7 +328,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       requests.zip(responses).toMap
 
     val mapping = createShuffledMapping(MediaPath, _.mediumDescriptionPath) ++
-      createShuffledMapping(MetaDataPath, _.metaDataPath)
+      createShuffledMapping(MetadataPath, _.metaDataPath)
     val helper = new ContentProcessorActorTestHelper(checkProcessingMessages = false)
 
     val results = helper.processArchive(descriptions, mapping, DefaultArchiveConfig)
@@ -346,7 +346,7 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
     private val settingsProcessor =
       system.actorOf(Props(classOf[TestMediumInfoProcessingActor], checkProcessingMessages))
 
-    /** The meta data processor actor. */
+    /** The metadata processor actor. */
     private val metaDataProcessor =
       system.actorOf(Props(classOf[TestMetaDataProcessingActor], checkProcessingMessages))
 
@@ -420,8 +420,8 @@ class HttpArchiveContentProcessorActorSpec(testSystem: ActorSystem) extends Test
       val downloader = createDownloader(downloadMapping)
       ProcessHttpArchiveRequest(mediaSource = source,
         archiveConfig = config.copy(downloader = downloader), settingsProcessorActor = settingsProcessor,
-        metaDataProcessorActor = metaDataProcessor, sink = sink,
-        seqNo = SeqNo, metaDataParallelism = 1, infoParallelism = 1)
+        metadataProcessorActor = metaDataProcessor, sink = sink,
+        seqNo = SeqNo, metadataParallelism = 1, infoParallelism = 1)
 
     /**
       * Expects that the given number of processing results has been sent to
@@ -592,15 +592,15 @@ class TestMediumInfoProcessingActor(checkMsg: Boolean)
         None
 
 /**
-  * A concrete test processing actor that generates meta data results.
+  * A concrete test processing actor that generates metadata results.
   */
 class TestMetaDataProcessingActor(checkMsg: Boolean)
   extends AbstractTestProcessorActor(checkMsg):
   override protected def createResult(desc: HttpMediumDesc, reqUri: String): AnyRef =
-    HttpArchiveContentProcessorActorSpec.createMetaDataProcessingResult(desc, reqUri)
+    HttpArchiveContentProcessorActorSpec.createMetadataProcessingResult(desc, reqUri)
 
   override protected def extractMediumIndex(data: String): Option[Int] =
     data match
-      case HttpArchiveContentProcessorActorSpec.RegExMetaData(idx) =>
+      case HttpArchiveContentProcessorActorSpec.RegExMetadata(idx) =>
         Some(idx.toInt)
       case _ => None

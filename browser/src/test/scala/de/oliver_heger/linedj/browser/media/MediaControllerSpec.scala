@@ -317,7 +317,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     verify(helper.comboHandler, never()).removeItem(anyInt())
     verify(helper.comboHandler, never()).addItem(3, UndefinedMediumName, MediumID.UndefinedMediumID)
 
-  it should "query meta data for a newly selected medium" in:
+  it should "query metadata for a newly selected medium" in:
     val helper = new MediaControllerTestHelper
 
     helper.selectMedium()
@@ -328,7 +328,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
 
     helper.controller.componentID should not be null
 
-  it should "remove a previous meta data registration" in:
+  it should "remove a previous metadata registration" in:
     val oldMedium = mediumID("someMedium")
     val helper = new MediaControllerTestHelper
     helper selectMedium oldMedium
@@ -337,7 +337,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     helper.selectMedium()
     helper expectMessage RemoveMetaDataRegistration(oldMedium, helper.controller.componentID)
 
-  it should "not remove a meta data registration when receiving new media" in:
+  it should "not remove a metadata registration when receiving new media" in:
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
     helper.selectMedium()
@@ -407,7 +407,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
       .selectMedium()
     helper.verifyAction("addMediumAction", enabled = false)
 
-  it should "populate the tree model when meta data arrives" in:
+  it should "populate the tree model when metadata arrives" in:
     val helper = new MediaControllerTestHelper
     val content = createContent(songs = createSongData(Artist1, Album1, Songs1))
 
@@ -460,7 +460,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     callback(createContent(songs = createSongData(Artist1, Album1, Songs1)))
     helper.treeModel shouldBe empty
 
-  it should "ignore meta data chunks if no medium is selected" in:
+  it should "ignore metadata chunks if no medium is selected" in:
     val helper = new MediaControllerTestHelper
     helper prepareMediaListModel 0
     val callback = helper.selectMedium()
@@ -821,11 +821,11 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
       publishedMessages.clear()
 
     /**
-      * Verifies that the controller has registered for meta data of the
+      * Verifies that the controller has registered for metadata of the
       * specified medium.
       *
       * @param mediumID the medium ID
-      * @return the function for receiving meta data content objects
+      * @return the function for receiving metadata content objects
       */
     def verifyMetaDataRequest(mediumID: MediumID = TestMediumID): MediumContent => Unit =
       val regMsg = expectMessageType[MetaDataRegistration]
@@ -857,23 +857,24 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
 
     /**
       * Selects the specified medium in the controller and verifies that the
-      * expected actions are performed. The controller should request the meta
-      * data of this medium. The corresponding listener callback is returned.
+      * expected actions are performed. The controller should request the 
+      * metadata of this medium. The corresponding listener callback is 
+      * returned.
       *
       * @param mediumID the medium ID
-      * @return the function for receiving meta data content objects
+      * @return the function for receiving metadata content objects
       */
     def selectMedium(mediumID: MediumID = TestMediumID): MediumContent => Unit =
       controller selectMedium mediumID
       verifyMetaDataRequest(mediumID)
 
     /**
-      * Convenience method for selecting a medium and sending a meta data
-      * object for it. The meta data callback is returned.
+      * Convenience method for selecting a medium and sending a metadata
+      * object for it. The metadata callback is returned.
       *
       * @param content the content of the medium
       * @param mediumID the ID of the medium to select
-      * @return the function for receiving meta data
+      * @return the function for receiving metadata
       */
     def selectMediumAndSendMeta(content: MediumContent, mediumID: MediumID = TestMediumID): MediumContent => Unit =
       val callback = selectMedium(mediumID)

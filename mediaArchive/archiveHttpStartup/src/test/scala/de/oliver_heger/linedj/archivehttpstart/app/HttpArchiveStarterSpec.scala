@@ -291,7 +291,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
       propsManager.args should have size 7
       propsManager.args(1) should be(expConfig)
       propsManager.args(3) should be(unionArchiveActors.mediaManager)
-      propsManager.args(4) should be(unionArchiveActors.metaDataManager)
+      propsManager.args(4) should be(unionArchiveActors.metadataManager)
       propsManager.args(5) should be(probeMonitoringActor.ref)
       propsManager.args(6) should be(probeRemoveActor.ref)
 

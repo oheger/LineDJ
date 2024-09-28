@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivecommon.parser
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
 import org.apache.pekko.testkit.TestKit
@@ -60,10 +60,10 @@ class MetaDataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     *             slash)
     * @return a [[Future]] with the extracted data
     */
-  private def readMetadataFile(name: String): Future[List[MetaDataProcessingSuccess]] =
+  private def readMetadataFile(name: String): Future[List[MetadataProcessingSuccess]] =
     val filePath = Paths.get(getClass.getResource("/" + name).toURI)
     val source = FileIO.fromPath(filePath)
-    val sink = Sink.fold[List[MetaDataProcessingSuccess], MetaDataProcessingSuccess](List.empty) { (lst, data) =>
+    val sink = Sink.fold[List[MetadataProcessingSuccess], MetadataProcessingSuccess](List.empty) { (lst, data) =>
       data :: lst
     }
     MetaDataParser.parseMetadata(source, TestMedium).runWith(sink).map(_.reverse)

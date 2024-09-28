@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.extract.metadata
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -82,11 +82,11 @@ object MetaDataExtractorWrapperActorSpec:
     * @param ext  the extension
     * @return the process request message
     */
-  private def createProcessRequest(name: String, ext: String): ProcessMetaDataFile =
+  private def createProcessRequest(name: String, ext: String): ProcessMetadataFile =
     val path = testPath(name, ext)
     val fileData = FileData(path, fileSize(path))
-    val template = MetaDataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetaData())
-    ProcessMetaDataFile(fileData, template)
+    val template = MetadataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetaData())
+    ProcessMetadataFile(fileData, template)
 
   /**
     * Creates a processing result object for a test file.
@@ -95,11 +95,11 @@ object MetaDataExtractorWrapperActorSpec:
     * @param ext  the extension
     * @return the processing result
     */
-  private def createProcessingResult(name: String, ext: String): MetaDataProcessingSuccess =
+  private def createProcessingResult(name: String, ext: String): MetadataProcessingSuccess =
     val path = testPath(name, ext)
     val data = MediaMetaData(size = Some(fileSize(path)), title = Some(name),
       artist = Some("Artist for " + name), album = Some(name + " album"))
-    MetaDataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metaData = data)
+    MetadataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metaData = data)
 
 /**
   * Test class for ''MetaDataExtractorWrapperActor''.
@@ -145,8 +145,8 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
     helper.postProcessRequest("file1", UnsupportedFileExtension)
       .postProcessRequest("file2", UnsupportedFileExtension)
-    expectMsgType[MetaDataProcessingSuccess]
-    expectMsgType[MetaDataProcessingSuccess]
+    expectMsgType[MetadataProcessingSuccess]
+    expectMsgType[MetadataProcessingSuccess]
     helper.verifyExtractorFactoryRequest(UnsupportedFileExtension)
 
   it should "support multiple extractor actors" in:
@@ -166,13 +166,13 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "handle files without an extension" in:
     val fileData = FileData(Paths get "PathWithoutExtension", 28)
-    val msg = ProcessMetaDataFile(fileData,
-      MetaDataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetaData()))
+    val msg = ProcessMetadataFile(fileData,
+      MetadataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetaData()))
     val helper = new ExtractorActorTestHelper
 
     helper.addFileExtension("", None)
       .post(msg)
-    expectMsgType[MetaDataProcessingSuccess]
+    expectMsgType[MetadataProcessingSuccess]
 
   it should "propagate a processing result to the caller" in:
     val File = "ProcessedMetaDataFile"
@@ -200,7 +200,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
 
   it should "handle error processing results" in:
     val File = "errorFile"
-    val errResult = MetaDataProcessingError(TestMediumID, testUri(File, SupportedFileExtension),
+    val errResult = MetadataProcessingError(TestMediumID, testUri(File, SupportedFileExtension),
       new Exception("failed"))
     val helper = new ExtractorActorTestHelper
 
@@ -232,7 +232,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     val helper = new ExtractorActorTestHelper
     val File = "media"
     helper.postProcessRequest(File, UnsupportedFileExtension)
-    expectMsgType[MetaDataProcessingSuccess]
+    expectMsgType[MetadataProcessingSuccess]
 
     helper send createProcessingResult(File, UnsupportedFileExtension)
     testActor ! Ping
@@ -289,7 +289,7 @@ class MetaDataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
     /** A mock for the extractor factory. */
     private val extractorFactory = createFactoryMock()
 
-    /** Test probe for the meta data extractor actor. */
+    /** Test probe for the metadata extractor actor. */
     private val probeExtractor = TestProbe()
 
     /** A map for storing information about expected child actor creations. */

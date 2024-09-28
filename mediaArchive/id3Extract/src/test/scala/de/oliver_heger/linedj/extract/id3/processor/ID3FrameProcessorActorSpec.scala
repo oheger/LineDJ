@@ -148,7 +148,7 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       this
 
     /**
-      * Prepares the mock extractor to return the specified meta data provider.
+      * Prepares the mock extractor to return the specified metadata provider.
       *
       * @param provider the provider
       * @return this test helper
@@ -158,10 +158,10 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       this
 
     /**
-      * Expects that a meta data message has been passed to the collector
+      * Expects that a metadata message has been passed to the collector
       * actor.
       *
-      * @param provider the expected meta data provider
+      * @param provider the expected metadata provider
       * @return this test helper
       */
     def expectMetaDataMessage(provider: MetaDataProvider): ID3FrameProcessorTestHelper =
@@ -169,7 +169,7 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       this
 
     /**
-      * Checks that no message with meta data has been sent to the collector
+      * Checks that no message with metadata has been sent to the collector
       * actor.
       *
       * @return this test helper

@@ -25,13 +25,13 @@ import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object PersistentMetaDataFileScanner:
-  /** The file extension for persistent meta data files. */
+  /** The file extension for persistent metadata files. */
   val MetaDataFileExtension = "MDT"
 
   /**
-    * Determines the checksum of a meta data file.
+    * Determines the checksum of a metadata file.
     *
-    * @param p the path of the meta data file
+    * @param p the path of the metadata file
     * @return the checksum for this file
     */
   private def checksumFor(p: Path): MediumChecksum =
@@ -39,12 +39,12 @@ object PersistentMetaDataFileScanner:
     MediumChecksum(name.substring(0, name.lastIndexOf('.')))
 
   /**
-    * The transformation function used by the directory source. Each meta data
+    * The transformation function used by the directory source. Each metadata
     * file is converted to a tuple consisting of the checksum and the path of a
-    * meta data file. Note that the ''dir'' flag is ignored because no sub
+    * metadata file. Note that the ''dir'' flag is ignored because no sub
     * directories are passed.
     *
-    * @param p   the path to a meta data file
+    * @param p   the path to a metadata file
     * @param dir the flag whether the path is a directory
     * @return the transformed stream element
     */
@@ -53,11 +53,11 @@ object PersistentMetaDataFileScanner:
 
 /**
   * An internally used helper class for scanning for files with persistent
-  * meta data.
+  * metadata.
   *
   * Media data is stored in files in a specific directory. This class defines
   * a method for iterating over all files in this directory. As a naming
-  * convention, meta data files are named by the checksum of the medium they
+  * convention, metadata files are named by the checksum of the medium they
   * represent and have the extension ''.mdt''. This class extracts the
   * checksum from the file name and returns a map with checksums as keys and
   * corresponding paths as values.
@@ -67,7 +67,7 @@ private class PersistentMetaDataFileScanner:
   import PersistentMetaDataFileScanner._
 
   /**
-    * Scans the specified directory for meta data files. All detected files are
+    * Scans the specified directory for metadata files. All detected files are
     * returned in a map. The key of the map is the checksum of a file; the full
     * path is provided as value. Scanning is done in background; therefore,
     * result is a future. If an ''IOException'' occurs (which typically

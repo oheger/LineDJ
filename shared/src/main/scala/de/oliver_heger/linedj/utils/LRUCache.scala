@@ -66,8 +66,8 @@ object LRUCache:
   *
   * For some use cases, it is necessary to cache data loaded from a media
   * archive in a client application. For instance, an archive browser may
-  * display meta data for audio files, but it is not desirable that the meta
-  * data of the whole archive gets eventually downloaded to the client.
+  * display metadata for audio files, but it is not desirable that the
+  * metadata of the whole archive gets eventually downloaded to the client.
   *
   * With this class it is possible to limit the amount of data available on the
   * client. Data which is accessed more frequently remains in the cache, while

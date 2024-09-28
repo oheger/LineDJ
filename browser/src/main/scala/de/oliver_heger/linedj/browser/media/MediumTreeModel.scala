@@ -60,7 +60,7 @@ private object MediumTreeModel:
   /**
    * Creates an ''AlbumKeyWithYear'' object from the given data.
    * @param key the album key
-   * @param meta the meta data
+   * @param meta the metadata
    * @return the ''AlbumKeyWithYear''
    */
   private def keyWithYear(key: AlbumKey, meta: MediaMetaData): AlbumKeyWithYear =
@@ -75,8 +75,8 @@ private object MediumTreeModel:
  * navigating through the albums of the different artists.
  *
  * In JGUIraffe, a tree is backed by a hierarchical configuration object. This
- * class can populate such a configuration based on the meta data available for
- * the single media files. Note that meta data may not be available
+ * class can populate such a configuration based on the metadata available for
+ * the single media files. Note that metadata may not be available
  * immediately, but can arrive in chunks while the backend scans the available
  * media files. Hence, the tree model needs to be updated when new data
  * becomes available.
@@ -92,8 +92,8 @@ private object MediumTreeModel:
  *
  * The resulting tree has the following structure: Below the root node are
  * nodes for artists. Each artist node has child nodes for the produced
- * albums. Albums are sorted by year and name. Node that meta data can only be
- * evaluated if it is available. Media files without meta data are grouped
+ * albums. Albums are sorted by year and name. Node that metadata can only be
+ * evaluated if it is available. Media files without metadata are grouped
  * under specific nodes representing unknown artists or albums.
  *
  * @param data the current data of this model
@@ -105,12 +105,12 @@ private class MediumTreeModel private(data: SortedMap[String, SortedSet[AlbumKey
   import MediumTreeModel._
 
   /**
-   * Updates this model for new meta data that becomes available and returns a
+   * Updates this model for new metadata that becomes available and returns a
    * ''ConfigurationUpdater'' to keep a configuration in sync. Internal state
    * is updated accordingly. The returned ''ConfigurationUpdater'' can be
    * applied on a configuration to keep track with these changes.
    * @param key the key for the album affected by this change
-   * @param meta meta data for the new file
+   * @param meta metadata for the new file
    * @param currentUpdater the current updater
    * @return a new instance with updated state and a ''ConfigurationUpdater''
    */

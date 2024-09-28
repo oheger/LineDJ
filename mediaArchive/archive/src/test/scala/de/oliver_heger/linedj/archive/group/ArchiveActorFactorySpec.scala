@@ -64,13 +64,13 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the media union actor. */
     private val probeMediaUnionActor = TestProbe()
 
-    /** Test probe for the meta data union actor. */
+    /** Test probe for the metadata union actor. */
     private val probeMetaDataUnionActor = TestProbe()
 
     /** Test probe for the new media manager actor. */
     private val probeMediaManager = TestProbe()
 
-    /** Test probe for the new meta data manager actor. */
+    /** Test probe for the new metadata manager actor. */
     private val probeMetaDataManager = TestProbe()
 
     /** Test probe for the new persistence manager actor. */

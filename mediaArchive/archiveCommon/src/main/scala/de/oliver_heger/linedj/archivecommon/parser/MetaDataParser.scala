@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivecommon.parser
 import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import spray.json.*
@@ -83,14 +83,14 @@ object MetaDataParser:
 
   /**
     * Returns a [[Source]] that can be used to extract
-    * [[MetaDataProcessingSuccess]] objects from the given data source that
+    * [[MetadataProcessingSuccess]] objects from the given data source that
     * returns JSON.
     *
     * @param source   the [[Source]] for the JSON input
     * @param mediumID the [[MediumID]] for the medium the data belongs to
     * @return a [[Source]] for extracting metadata objects
     */
-  def parseMetadata(source: Source[ByteString, Any], mediumID: MediumID): Source[MetaDataProcessingSuccess, Any] =
+  def parseMetadata(source: Source[ByteString, Any], mediumID: MediumID): Source[MetadataProcessingSuccess, Any] =
     JsonStreamParser.parseStream[MetadataWithUri, Any](source).map { mwu =>
-      MetaDataProcessingSuccess(mediumID, MediaFileUri(mwu.uri), mwu.metadata)
+      MetadataProcessingSuccess(mediumID, MediaFileUri(mwu.uri), mwu.metadata)
     }

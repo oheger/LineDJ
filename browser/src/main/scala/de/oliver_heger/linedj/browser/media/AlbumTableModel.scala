@@ -76,7 +76,7 @@ private object AlbumTableModel:
  * sorted by track number - if available - and name).
  *
  * The model is constructed by adding information about single songs step by
- * step in arbitrary order. This reflects the way in which meta data can come
+ * step in arbitrary order. This reflects the way in which metadata can come
  * in while the server scans its directory structure.
  *
  * @param data the map with the data of this model

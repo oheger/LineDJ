@@ -185,7 +185,7 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
     val monitoringActor = actorFactory.createActor(
       DownloadMonitoringActor(archiveConfig.downloadConfig), monitorName)
     val managerActor = actorFactory.createActor(HttpArchiveManagementActor(archiveConfig,
-      pathGenerator, unionArchiveActors.mediaManager, unionArchiveActors.metaDataManager,
+      pathGenerator, unionArchiveActors.mediaManager, unionArchiveActors.metadataManager,
       monitoringActor, removeActor), managerName)
 
     managerActor ! ScanAllMedia

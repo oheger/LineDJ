@@ -4,7 +4,7 @@
 = LineDJ
 
 LineDJ is a platform that implements components which can be combined to create
-applications for audio playback and processing of audio meta data.
+applications for audio playback and processing of audio metadata.
 
 toc::[]
 

@@ -24,7 +24,7 @@ import Scalaz._
 import scala.collection.immutable.Seq
 
 /**
-  * A service supporting validation of meta data for audio files.
+  * A service supporting validation of metadata for audio files.
   *
   * This service provides functions to validate single media files or whole
   * albums. The functions return ''Validation'' objects that - in case of
@@ -37,21 +37,21 @@ object MetaDataValidator:
     *
     * @param mediumID the ID of the medium
     * @param orgUri   the original URI identifying the file
-    * @param metaData the meta data of the file
+    * @param metadata the metadata of the file
     */
-  case class MediaFile(mediumID: MediumID, orgUri: String, metaData: MediaMetaData):
+  case class MediaFile(mediumID: MediumID, orgUri: String, metadata: MediaMetaData):
     /** The (normalized) URI of this file. */
     lazy val uri: String = UriHelper normalize orgUri
 
   /**
     * A data class representing an album to be validated. This is just a group
-    * of files with meta data that is checked for certain criteria.
+    * of files with metadata that is checked for certain criteria.
     *
     * @param mediumID the ID of the medium
     * @param orgUri   the original URI identifying the album
-    * @param metaData a sequence with the meta data of the files of the album
+    * @param metadata a sequence with the metadata of the files of the album
     */
-  case class MediaAlbum(mediumID: MediumID, orgUri: String, metaData: Seq[MediaMetaData]):
+  case class MediaAlbum(mediumID: MediumID, orgUri: String, metadata: Seq[MediaMetaData]):
     /** The (normalized) URI of this file. */
     lazy val uri: String = UriHelper normalize orgUri
 
@@ -65,29 +65,29 @@ object MetaDataValidator:
   object ValidationErrorCode extends Enumeration:
     type ValidationErrorCode = Value
 
-    /** The file's meta data does not define a title. */
+    /** The file's metadata does not define a title. */
     val NoTitle: Value = Value
 
-    /** The file's meta data does not define an artist. */
+    /** The file's metadata does not define an artist. */
     val NoArtist: Value = Value
 
-    /** The file's meta data does not define an album. */
+    /** The file's metadata does not define an album. */
     val NoAlbum: Value = Value
 
-    /** The file's meta data does not define the playback duration. */
+    /** The file's metadata does not define the playback duration. */
     val NoDuration: Value = Value
 
-    /** The file's meta data does not define its size. */
+    /** The file's metadata does not define its size. */
     val NoSize: Value = Value
 
-    /** The file's meta data does not define a track number. */
+    /** The file's metadata does not define a track number. */
     val NoTrackNo: Value = Value
 
-    /** The file's meta data does not define an inception year. */
+    /** The file's metadata does not define an inception year. */
     val NoInceptionYear: Value = Value
 
-    /** The album contains files with incomplete meta data. */
-    val MissingFileMetaData: Value = Value
+    /** The album contains files with incomplete metadata. */
+    val MissingFileMetadata: Value = Value
 
     /** The album information is inconsistent in the files of an album. */
     val InconsistentAlbum: Value = Value
@@ -129,7 +129,7 @@ object MetaDataValidator:
     * is needed during validation.
     *
     * @param albumNames  a set with album names
-    * @param missingData flag whether there are files with missing meta data
+    * @param missingData flag whether there are files with missing metadata
     * @param minTrackNo  the minimum track number of an album file
     * @param maxTrackNo  the maximum track number of an album file
     */
@@ -139,11 +139,11 @@ object MetaDataValidator:
                                          minTrackNo: Int,
                                          maxTrackNo: Int):
     /**
-      * Updates the information stored in this instance with the given meta
-      * data object. After this method has been called for all files belonging
+      * Updates the information stored in this instance with the given metadata
+      * object. After this method has been called for all files belonging
       * to the album, the complete validation information is available.
       *
-      * @param data the meta data of a file
+      * @param data the metadata of a file
       * @return the updated ''AlbumValidationData''
       */
     def update(data: MediaMetaData): AlbumValidationData =
@@ -170,18 +170,18 @@ object MetaDataValidator:
   private val CodesWithWarningSeverity = Set(NoAlbum, NoTrackNo, NoInceptionYear, MinimumTrackNumberNotOne)
 
   /**
-    * Type for a meta data validation result. The UI only displays validation
+    * Type for a metadata validation result. The UI only displays validation
     * errors; therefore, we are only interested in failed validations. The
     * object contained in a successful validation is skipped; as there are
     * different types, it has to be provided as a generic parameter though.
     */
   type ValidationResult[R] = ValidationNel[ValidationErrorCode, R]
 
-  /** Validation result for a meta data file. */
-  type MetaDataFileValidation = ValidationResult[MediaFile]
+  /** Validation result for a metadata file. */
+  type MetadataFileValidation = ValidationResult[MediaFile]
 
-  /** Validation result for a meta data album. */
-  type MetaDataAlbumValidation = ValidationResult[MediaAlbum]
+  /** Validation result for a metadata album. */
+  type MetadataAlbumValidation = ValidationResult[MediaAlbum]
 
   /**
     * Returns the severity of the given validation code.
@@ -199,13 +199,13 @@ object MetaDataValidator:
     * @param file the file to be validated
     * @return the validation result for the file
     */
-  def validateFile(file: MediaFile): MetaDataFileValidation =
-    (validateFileProperty(file, file.metaData.title, NoTitle) |@|
-      validateFileProperty(file, file.metaData.artist, NoArtist) |@|
-      validateFileProperty(file, file.metaData.album, NoAlbum) |@|
-      validateFileProperty(file, file.metaData.duration, NoDuration) |@|
-      validateFileProperty(file, file.metaData.trackNumber, NoTrackNo) |@|
-      validateFileProperty(file, file.metaData.inceptionYear, NoInceptionYear) |@|
+  def validateFile(file: MediaFile): MetadataFileValidation =
+    (validateFileProperty(file, file.metadata.title, NoTitle) |@|
+      validateFileProperty(file, file.metadata.artist, NoArtist) |@|
+      validateFileProperty(file, file.metadata.album, NoAlbum) |@|
+      validateFileProperty(file, file.metadata.duration, NoDuration) |@|
+      validateFileProperty(file, file.metadata.trackNumber, NoTrackNo) |@|
+      validateFileProperty(file, file.metadata.inceptionYear, NoInceptionYear) |@|
       validateFileSize(file)) { (f, _, _, _, _, _, _) => f }
 
   /**
@@ -216,10 +216,10 @@ object MetaDataValidator:
     * @param album the album
     * @return the validation result for this album
     */
-  def validateAlbum(album: MediaAlbum, maxFiles: Int = Integer.MAX_VALUE): MetaDataAlbumValidation =
-    if album.metaData.isEmpty || album.metaData.size > maxFiles then album.successNel[ValidationErrorCode]
+  def validateAlbum(album: MediaAlbum, maxFiles: Int = Integer.MAX_VALUE): MetadataAlbumValidation =
+    if album.metadata.isEmpty || album.metadata.size > maxFiles then album.successNel[ValidationErrorCode]
     else
-      val validData = album.metaData.foldLeft(EmptyAlbumValidationData)(_.update(_))
+      val validData = album.metadata.foldLeft(EmptyAlbumValidationData)(_.update(_))
       (validateAlbumName(album, validData) |@|
         validateMissingMetaData(album, validData) |@|
         validateConsistentTrackNumbers(album, validData) |@|
@@ -227,7 +227,7 @@ object MetaDataValidator:
         validateConsistentInceptionYears(album, validData)) { (f, _, _, _, _) => f }
 
   /**
-    * Generic validation function for meta data properties of media files. The
+    * Generic validation function for metadata properties of media files. The
     * function checks whether the property specified is defined. If not, a
     * failed validation result with the given code is returned.
     *
@@ -237,7 +237,7 @@ object MetaDataValidator:
     * @return the validation result
     */
   private def validateFileProperty(file: MediaFile, optProp: Option[_], code: ValidationErrorCode):
-  MetaDataFileValidation = optProp match
+  MetadataFileValidation = optProp match
     case Some(_) => file.successNel[ValidationErrorCode]
     case None => code.failureNel[MediaFile]
 
@@ -247,8 +247,8 @@ object MetaDataValidator:
     * @param file the file
     * @return the validation result
     */
-  private def validateFileSize(file: MediaFile): MetaDataFileValidation =
-    if file.metaData.fileSize > 0 then file.successNel[ValidationErrorCode]
+  private def validateFileSize(file: MediaFile): MetadataFileValidation =
+    if file.metadata.fileSize > 0 then file.successNel[ValidationErrorCode]
     else NoSize.failureNel[MediaFile]
 
   /**
@@ -259,19 +259,19 @@ object MetaDataValidator:
     * @param data  the album validation data
     * @return the validation result
     */
-  private def validateAlbumName(album: MediaAlbum, data: AlbumValidationData): MetaDataAlbumValidation =
+  private def validateAlbumName(album: MediaAlbum, data: AlbumValidationData): MetadataAlbumValidation =
     albumResult(album, InconsistentAlbum, data.albumNames.size == 1)
 
   /**
-    * Validation function for missing meta data for a file belonging to an
+    * Validation function for missing metadata for a file belonging to an
     * album.
     *
     * @param album the album
     * @param data  the album validation data
     * @return the validation result
     */
-  private def validateMissingMetaData(album: MediaAlbum, data: AlbumValidationData): MetaDataAlbumValidation =
-    albumResult(album, MissingFileMetaData, !data.missingData)
+  private def validateMissingMetaData(album: MediaAlbum, data: AlbumValidationData): MetadataAlbumValidation =
+    albumResult(album, MissingFileMetadata, !data.missingData)
 
   /**
     * Validation function for the track numbers of the files on an album. It is
@@ -283,8 +283,8 @@ object MetaDataValidator:
     * @param data  the album validation data
     * @return the validation result
     */
-  private def validateConsistentTrackNumbers(album: MediaAlbum, data: AlbumValidationData): MetaDataAlbumValidation =
-    albumResult(album, InconsistentTrackNumber, data.maxTrackNo - data.minTrackNo + 1 == album.metaData.size)
+  private def validateConsistentTrackNumbers(album: MediaAlbum, data: AlbumValidationData): MetadataAlbumValidation =
+    albumResult(album, InconsistentTrackNumber, data.maxTrackNo - data.minTrackNo + 1 == album.metadata.size)
 
   /**
     * Validation function for the minimum track number of an album.
@@ -293,7 +293,7 @@ object MetaDataValidator:
     * @param data  the album validation data
     * @return the validation result
     */
-  private def validateMinTrackNumber(album: MediaAlbum, data: AlbumValidationData): MetaDataAlbumValidation =
+  private def validateMinTrackNumber(album: MediaAlbum, data: AlbumValidationData): MetadataAlbumValidation =
     albumResult(album, MinimumTrackNumberNotOne, data.minTrackNo == 1)
 
   /**
@@ -305,7 +305,7 @@ object MetaDataValidator:
     * @param data  the album validation data
     * @return the validation result
     */
-  private def validateConsistentInceptionYears(album: MediaAlbum, data: AlbumValidationData): MetaDataAlbumValidation =
+  private def validateConsistentInceptionYears(album: MediaAlbum, data: AlbumValidationData): MetadataAlbumValidation =
     albumResult(album, InconsistentInceptionYear, data.inceptionYears.size == 1)
 
   /**
@@ -317,15 +317,15 @@ object MetaDataValidator:
     * @param successful flag whether validation was successful
     * @return the validation result
     */
-  private def albumResult(album: MediaAlbum, code: ValidationErrorCode, successful: Boolean): MetaDataAlbumValidation =
+  private def albumResult(album: MediaAlbum, code: ValidationErrorCode, successful: Boolean): MetadataAlbumValidation =
     if successful then album.successNel[ValidationErrorCode]
     else code.failureNel[MediaAlbum]
 
   /**
-    * Checks whether relevant meta data is missing in the given object. This is
+    * Checks whether relevant metadata is missing in the given object. This is
     * used to detect missing data in the files of an album.
     *
-    * @param data the meta data
+    * @param data the metadata
     * @return '''true''' if data is missing; '''false''' otherwise
     */
   private def isMetaDataMissing(data: MediaMetaData): Boolean =

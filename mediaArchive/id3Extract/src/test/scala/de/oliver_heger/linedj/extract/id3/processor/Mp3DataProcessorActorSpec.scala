@@ -112,18 +112,18 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     /**
       * Prepares the mock extractor to return the data specified by the given
-      * meta data object.
+      * metadata object.
       *
-      * @param metaData the meta data
+      * @param metadata the metadata
       * @return this test helper
       */
-    def prepareMetaDataQuery(metaData: Mp3MetaData): Mp3DataProcessorTestHelper =
-      when(extractor.getVersion).thenReturn(metaData.version)
-      when(extractor.getLayer).thenReturn(metaData.layer)
-      when(extractor.getSampleRate).thenReturn(metaData.sampleRate)
-      when(extractor.getMinBitRate).thenReturn(metaData.minimumBitRat)
-      when(extractor.getMaxBitRate).thenReturn(metaData.maximumBitRate)
-      when(extractor.getDuration).thenReturn(metaData.duration.toFloat)
+    def prepareMetaDataQuery(metadata: Mp3MetaData): Mp3DataProcessorTestHelper =
+      when(extractor.getVersion).thenReturn(metadata.version)
+      when(extractor.getLayer).thenReturn(metadata.layer)
+      when(extractor.getSampleRate).thenReturn(metadata.sampleRate)
+      when(extractor.getMinBitRate).thenReturn(metadata.minimumBitRat)
+      when(extractor.getMaxBitRate).thenReturn(metadata.maximumBitRate)
+      when(extractor.getDuration).thenReturn(metadata.duration.toFloat)
       this
 
     /**

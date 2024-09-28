@@ -83,11 +83,11 @@ object ID3v2ProcessingStageSpec:
     Source(readTestFileChunked(chunkSize).toList)
 
   /**
-    * Decodes the binary frame data to a meta data provider.
+    * Decodes the binary frame data to a metadata provider.
     *
     * @param header the header
     * @param data   the data
-    * @return the meta data provider
+    * @return the metadata provider
     */
   private def createTagProvider(header: ID3Header, data: ByteString): MetaDataProvider =
     val extractor = new ID3FrameExtractor(header)

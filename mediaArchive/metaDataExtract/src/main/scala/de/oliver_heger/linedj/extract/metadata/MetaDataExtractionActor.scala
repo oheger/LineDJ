@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, Cancelab
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{ActorRef, Props}
@@ -45,7 +45,7 @@ object MetaDataExtractionActor:
     * Returns a ''Props'' object for creating a new instance of this actor
     * class.
     *
-    * @param metaDataManager  the actor receiving meta data processing results
+    * @param metaDataManager  the actor receiving metadata processing results
     * @param extractorFactory the factory for extractor actors
     * @param asyncCount       the number of parallel processing actors
     * @param asyncTimeout     the timeout for processing of a single file
@@ -59,17 +59,17 @@ object MetaDataExtractionActor:
 
 
 /**
-  * An actor class that manages the extraction of meta data from a set of media
+  * An actor class that manages the extraction of metadata from a set of media
   * files.
   *
   * Instances of this actor class are created during a scan operation for media
   * files. An instance is responsible for the files below one of the root
   * folders to be scanned. It receives ''ProcessMediaFiles'' messages for the
-  * several media encountered and the files for which no meta data is available
+  * several media encountered and the files for which no metadata is available
   * yet. Each message is processed one-by-one by iterating over the files
   * referenced and sending a process request to a
   * [[MetaDataExtractorWrapperActor]] child actor. All processing results are
-  * then sent to a meta data receiver actor.
+  * then sent to a metadata receiver actor.
   *
   * For each root path with media files it can be configured how many files
   * should be processed in parallel. The degree of parallelism for the root
@@ -86,7 +86,7 @@ object MetaDataExtractionActor:
   * Afterwards, no further requests are accepted. All actor instances created
   * during a scan operation should be stopped when the scan is done.
   *
-  * @param metaDataManager  the actor receiving meta data processing results
+  * @param metaDataManager  the actor receiving metadata processing results
   * @param extractorFactory the factory for extractor actors
   * @param asyncCount       the number of parallel processing actors
   * @param asyncTimeout     the timeout for processing of a single file
@@ -195,5 +195,5 @@ class MetaDataExtractionActor(metaDataManager: ActorRef,
     * @return the request to process this file
     */
   private def processRequest(mediumID: MediumID, fd: FileData,
-                             uriMappingFunc: Path => MediaFileUri): ProcessMetaDataFile =
-    ProcessMetaDataFile(fd, MetaDataProcessingSuccess(mediumID, uriMappingFunc(fd.path), MediaMetaData()))
+                             uriMappingFunc: Path => MediaFileUri): ProcessMetadataFile =
+    ProcessMetadataFile(fd, MetadataProcessingSuccess(mediumID, uriMappingFunc(fd.path), MediaMetaData()))

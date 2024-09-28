@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
@@ -28,7 +28,7 @@ object Mp3FileProcessorActor:
 
   private class Mp3FileProcessorActorImpl(metaDataActor: ActorRef, tagSizeLimit: Int,
                                           collector: MetaDataPartsCollector,
-                                          resultTemplate: MetaDataProcessingSuccess)
+                                          resultTemplate: MetadataProcessingSuccess)
     extends Mp3FileProcessorActor(metaDataActor, tagSizeLimit, collector, resultTemplate)
       with ChildActorFactory
 
@@ -36,38 +36,38 @@ object Mp3FileProcessorActor:
     * Creates a ''Props'' object for creating an instance of this actor
     * class. The object is initialized to process a specific MP3 file.
     *
-    * @param metaDataActor the actor receiving meta data results
+    * @param metadataActor the actor receiving metadata results
     * @param tagSizeLimit  the maximum size of an ID3 tag (in bytes); tags that
     *                      are bigger are ignored
     * @param mp3File       the data object pointing to the MP3 file
     * @param resultData    a data object defining parameters of the file to be
-    *                      processed; here the extracted meta data is added
+    *                      processed; here the extracted metadata is added
     * @return a ''Props'' object for creating a new actor instance
     */
-  def apply(metaDataActor: ActorRef, tagSizeLimit: Int, mp3File: FileData,
-            resultData: MetaDataProcessingSuccess): Props =
-    Props(classOf[Mp3FileProcessorActorImpl], metaDataActor, tagSizeLimit,
+  def apply(metadataActor: ActorRef, tagSizeLimit: Int, mp3File: FileData,
+            resultData: MetadataProcessingSuccess): Props =
+    Props(classOf[Mp3FileProcessorActorImpl], metadataActor, tagSizeLimit,
       new MetaDataPartsCollector(mp3File), resultData)
 
 /**
   * An actor class responsible for processing a whole mp3 file and extracting
-  * all available meta data.
+  * all available metadata.
   *
-  * For each MP3 file subject to meta data extraction an instance of this actor
+  * For each MP3 file subject to metadata extraction an instance of this actor
   * class is created. The file is then read, and messages about ID3 frames or
   * MPEG data are sent to this actor. This actor collects these messages and
   * processes them further if necessary - delegating to child actors. When all
-  * processing results arrived a resulting object with meta data results is
-  * constructed and passed to the meta data actor.
+  * processing results arrived a resulting object with metadata results is
+  * constructed and passed to the metadata actor.
   *
-  * @param metaDataActor  the actor receiving meta data results
+  * @param metadataActor  the actor receiving metadata results
   * @param tagSizeLimit   the maximum size of an ID3 tag (in bytes)
-  * @param collector      the collector for parts of meta data
+  * @param collector      the collector for parts of metadata
   * @param resultTemplate an object defining parameters for the result
   */
-class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
+class Mp3FileProcessorActor(metadataActor: ActorRef, tagSizeLimit: Int,
                             collector: MetaDataPartsCollector,
-                            resultTemplate: MetaDataProcessingSuccess) extends Actor:
+                            resultTemplate: MetadataProcessingSuccess) extends Actor:
   this: ChildActorFactory =>
 
   /** The reference to the MP3 data processor actor. */
@@ -97,7 +97,7 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
   /**
     * A supervisor strategy that stops failing child actors. If a child actor
     * throws an exception, we expect that the file is corrupt and send an
-    * error message to the meta data receiving actor.
+    * error message to the metadata receiving actor.
     */
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy():
     case e: Throwable =>
@@ -158,25 +158,25 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
       handleProcessingError(childActorError)
 
   /**
-    * Checks whether meta data processing is complete. If so, the meta data is
+    * Checks whether metadata processing is complete. If so, the metadata is
     * sent to the receiver actor.
     *
-    * @param optMeta an option with the extracted meta data
+    * @param optMeta an option with the extracted metadata
     */
   private def sendResultIfAvailable(optMeta: Option[MediaMetaData]): Unit =
     optMeta foreach { m =>
-      metaDataActor ! resultTemplate.copy(metaData = m)
+      metadataActor ! resultTemplate.copy(metaData = m)
       stopSelf()
     }
 
   /**
-    * Sends a message indicating a processing failure to the meta data
+    * Sends a message indicating a processing failure to the metadata
     * receiver actor and stops this actor.
     *
     * @param exception the exception to be sent
     */
   private def handleProcessingError(exception: Throwable): Unit =
-    metaDataActor ! createProcessingErrorMsg(exception)
+    metadataActor ! createProcessingErrorMsg(exception)
     stopSelf()
 
   /**
@@ -204,5 +204,5 @@ class Mp3FileProcessorActor(metaDataActor: ActorRef, tagSizeLimit: Int,
     * @param exception the exception which is the cause of the error
     * @return the processing error message
     */
-  private def createProcessingErrorMsg(exception: Throwable): MetaDataProcessingError =
-    MetaDataProcessingError(resultTemplate.mediumID, resultTemplate.uri, exception)
+  private def createProcessingErrorMsg(exception: Throwable): MetadataProcessingError =
+    MetadataProcessingError(resultTemplate.mediumID, resultTemplate.uri, exception)

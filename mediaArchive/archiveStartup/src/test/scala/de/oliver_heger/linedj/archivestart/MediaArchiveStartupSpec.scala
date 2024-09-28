@@ -78,7 +78,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the media manager actor. */
     val probeMediaManager: TestProbe = TestProbe()
 
-    /** Test probe for the meta data manager actor. */
+    /** Test probe for the metadata manager actor. */
     val probeMetaDataManager: TestProbe = TestProbe()
 
     /** A set for the actors that have been created by the test factory. */

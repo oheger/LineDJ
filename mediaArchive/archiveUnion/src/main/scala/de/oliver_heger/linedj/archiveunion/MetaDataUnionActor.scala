@@ -26,13 +26,13 @@ object MetaDataUnionActor:
 
   /**
     * A message processed by ''MetaDataUnionActor'' that allows an enhanced
-    * request for meta data. This message is handled like a normal
+    * request for metadata. This message is handled like a normal
     * [[GetFilesMetaData]] message, but in addition a mapping of medium IDs is
     * contained in the message. This mapping is applied to the requested media.
-    * Background is that meta data requests can contain a medium checksum;
+    * Background is that metadata requests can contain a medium checksum;
     * this may cause some medium IDs to be changed.
     *
-    * @param request   the actual request for meta data
+    * @param request   the actual request for metadata
     * @param idMapping the mapping to be applied to ''MediaFileID'' objects
     */
   case class GetFilesMetaDataWithMapping(request: GetFilesMetaData,
@@ -73,9 +73,9 @@ object MetaDataUnionActor:
       * @param result the result object
       * @return the updated ''ComponentCounters'' instance
       */
-    def update(result: MetaDataProcessingResult): ComponentCounters =
+    def update(result: MetadataProcessingResult): ComponentCounters =
       result match
-        case success: MetaDataProcessingSuccess =>
+        case success: MetadataProcessingSuccess =>
           copy(songCount = songCount + 1, size = size + success.metaData.fileSize,
             duration = duration + success.metaData.duration.getOrElse(0))
         case _ => this
@@ -103,18 +103,18 @@ object MetaDataUnionActor:
     else chunk.copy(complete = complete)
 
 /**
-  * An actor class responsible for managing a union of the meta data for all
+  * An actor class responsible for managing a union of the metadata for all
   * songs currently available in the union media archive.
   *
-  * This actor manages meta data for media files contributed by the single
-  * components of the media archive. In order to contribute meta data, an
+  * This actor manages metadata for media files contributed by the single
+  * components of the media archive. In order to contribute metadata, an
   * archive component has to do the following interactions with this actor:
   *
   *  - At the beginning of the interaction an [[UpdateOperationStarts]] message
-  *    has to be sent to announce that now meta data will be added.
+  *    has to be sent to announce that now metadata will be added.
   *  - A [[MediaContribution]] message has to be sent listing all media and
   *    files a component wants to contribute.
-  *  - For each file part of the contribution a [[MetaDataProcessingSuccess]]
+  *  - For each file part of the contribution a [[MetadataProcessingSuccess]]
   *    message has to be sent.
   *  - These two steps can be repeated, e.g. for multiple media managed by the
   *    archive component.
@@ -127,14 +127,14 @@ object MetaDataUnionActor:
   *    processed, the confirmation should be waited for before actually sending
   *    data.
   *
-  * This protocol allows this actor to determine whether all meta data has been
+  * This protocol allows this actor to determine whether all metadata has been
   * received or whether processing results are still pending. This is required
-  * to keep track of a life-cycle of scan operations for meta data.
+  * to keep track of a life-cycle of scan operations for metadata.
   *
   * This actor combines the processing results received from the archive
   * components and allows querying them. Clients also have the option to
-  * register as listeners for a specific medium. Depending on the way the meta
-  * data for a medium is obtained, it may take a while until all data is
+  * register as listeners for a specific medium. Depending on the way the 
+  * metadata for a medium is obtained, it may take a while until all data is
   * available. Therefore, a client asking for the data of a specific medium
   * is first sent the results already present. If the data is not yet complete
   * and the client passes a specific flag, it is registered as listener for
@@ -143,9 +143,9 @@ object MetaDataUnionActor:
   * registration is removed automatically.
   *
   * In addition to this listener mechanism for monitoring a specific medium,
-  * this actor supports generic meta data state listeners that receive
+  * this actor supports generic metadata state listeners that receive
   * notifications about important state changes of this actor, e.g. when a new
-  * scan for meta data starts or progress notifications during a scan
+  * scan for metadata starts or progress notifications during a scan
   * operation. (Scan operations are actually executed by archive components;
   * but by tracking the messages received from components, this actor can
   * determine when such an operation is in progress and send corresponding
@@ -156,7 +156,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
   import MetaDataUnionActor._
 
   /**
-    * A map for storing the extracted meta data for all media.
+    * A map for storing the extracted metadata for all media.
     */
   private val mediaMap = collection.mutable.Map.empty[MediumID, MediumDataHandler]
 
@@ -213,7 +213,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         log.info("Scan starts.")
       files foreach prepareHandlerForMedium
 
-    case result: MetaDataProcessingResult if scanInProgress =>
+    case result: MetadataProcessingResult if scanInProgress =>
       val completedMediaSize = completedMedia.size
       if handleProcessingResult(result.mediumID, result) then
         updateStatistics(result)
@@ -276,7 +276,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         log.warning("A processor actor terminated. Removed from collection.")
 
   /**
-    * Handles a request for meta data for the undefined medium. For this
+    * Handles a request for metadata for the undefined medium. For this
     * synthetic medium no dedicated handler exists; therefore, such requests
     * need to be treated in a special way.
     *
@@ -306,7 +306,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         registerUndefinedMediumListener(registrationID)
 
   /**
-    * Handles a request for meta data for a specific medium.
+    * Handles a request for metadata for a specific medium.
     *
     * @param mediumID           the medium ID
     * @param registerAsListener flag whether a listener is to be registered
@@ -405,13 +405,13 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     handler expectMediaFiles e._2
 
   /**
-    * Handles a meta data processing result.
+    * Handles a metadata processing result.
     *
     * @param mediumID the ID of the affected medium
     * @param result   the result to be handled
     * @return a flag whether the medium ID could be resolved
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetaDataProcessingResult):
+  private def handleProcessingResult(mediumID: MediumID, result: MetadataProcessingResult):
   Boolean =
     mediaMap.get(mediumID) match
       case Some(handler) =>
@@ -420,7 +420,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       case None => false
 
   /**
-    * Processes a meta data result that has been produced by a child actor. The
+    * Processes a metadata result that has been produced by a child actor. The
     * result is added to the responsible handler. If necessary, listeners are
     * notified.
     *
@@ -428,7 +428,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * @param result   the processing result
     * @param handler  the handler for this medium
     */
-  private def processMetaDataResult(mediumID: MediumID, result: MetaDataProcessingResult,
+  private def processMetaDataResult(mediumID: MediumID, result: MetadataProcessingResult,
                                     handler: MediumDataHandler): Unit =
     if handler.storeResult(result, config.metaDataUpdateChunkSize, config.metaDataMaxMessageSize)
     (handleCompleteChunk(mediumID)) then
@@ -463,7 +463,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *
     * @param result the processing result
     */
-  private def updateStatistics(result: MetaDataProcessingResult): Unit =
+  private def updateStatistics(result: MetadataProcessingResult): Unit =
     totalCounters = totalCounters.update(result)
     updateComponentStats(result.mediumID.archiveComponentID)(_.update(result))
 
@@ -491,7 +491,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     archiveComponentStats += componentID -> f(counters)
 
   /**
-    * Checks whether the scan for meta data is now complete. If this is the
+    * Checks whether the scan for metadata is now complete. If this is the
     * case, the corresponding steps are done.
     */
   private def checkAndHandleScanComplete(): Unit =
@@ -544,7 +544,7 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
   /**
     * Handles the removal of an archive component. This requires updates on
-    * the managed meta data.
+    * the managed metadata.
     *
     * @param archiveCompID the ID of the removed component
     */
@@ -589,10 +589,10 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     *         otherwise
     */
   private def allMediaProcessingResultsReceived: Boolean =
-    (mediaMap.keySet.diff(Set(MediumID.UndefinedMediumID))) subsetOf completedMedia
+    mediaMap.keySet.diff(Set(MediumID.UndefinedMediumID)) subsetOf completedMedia
 
   /**
-    * Sends a meta data response message to the specified actor.
+    * Sends a metadata response message to the specified actor.
     *
     * @param actor the receiving actor
     * @param chunk the chunk of data to be sent
@@ -635,8 +635,8 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     oldListeners != stateListeners
 
   /**
-    * Handles a request for meta data for files. Sends a response with the
-    * resolved meta data to the caller.
+    * Handles a request for metadata for files. Sends a response with the
+    * resolved metadata to the caller.
     *
     * @param req     the request
     * @param mapping a mapping for medium IDs
@@ -646,12 +646,12 @@ class MetaDataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     sender() ! FilesMetaDataResponse(req, resolveFilesMetaData(req, mapping))
 
   /**
-    * Resolves meta data for requested files by querying the data structures
+    * Resolves metadata for requested files by querying the data structures
     * managed by this actor. The mapping for medium IDs is taken into account.
     *
     * @param req     the request
     * @param mapping a mapping for medium IDs
-    * @return a map with all meta data that could be resolved
+    * @return a map with all metadata that could be resolved
     */
   private def resolveFilesMetaData(req: GetFilesMetaData, mapping: Map[MediaFileID, MediumID]):
   List[(MediaFileID, MediaMetaData)] =

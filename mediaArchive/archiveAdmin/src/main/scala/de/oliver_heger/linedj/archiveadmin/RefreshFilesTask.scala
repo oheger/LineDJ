@@ -22,7 +22,7 @@ import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
 
 /**
-  * A task class for the ''refresh meta data files'' action.
+  * A task class for the ''refresh metadata files'' action.
   *
   * This task class just delegates to the [[MetaDataFilesController]].
   *
@@ -33,7 +33,7 @@ class RefreshFilesTask(controller: MetaDataFilesController) extends Runnable:
     controller.refresh()
 
 /**
-  * A task class for the ''remove meta data files'' action.
+  * A task class for the ''remove metadata files'' action.
   *
   * This task class just delegates to the [[MetaDataFilesController]].
   *
@@ -44,7 +44,7 @@ class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable:
     controller.removeFiles()
 
 /**
-  * A task class for the action for closing the meta data files window.
+  * A task class for the action for closing the metadata files window.
   *
   * This task class just delegates to the [[MetaDataFilesController]].
   *
@@ -55,11 +55,11 @@ class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends 
     controller.close()
 
 /**
-  * A specialized command class for opening the dialog with meta data files for
+  * A specialized command class for opening the dialog with metadata files for
   * the currently selected archive component.
   *
   * This class makes sure that the selection of the archive component is
-  * correctly passed to the meta data files controller.
+  * correctly passed to the metadata files controller.
   *
   * @param locator      the locator for the dialog script
   * @param refArchiveID the reference containing the selected archive

@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.extract.metadata
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingResult, MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingResult, MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -115,8 +115,8 @@ object MetaDataExtractionActorSpec:
     * @param template a test result template
     * @return the final processing result
     */
-  def createProcessingResult(fileData: FileData, template: MetaDataProcessingSuccess):
-  MetaDataProcessingSuccess =
+  def createProcessingResult(fileData: FileData, template: MetadataProcessingSuccess):
+  MetadataProcessingSuccess =
     template.withMetaData(MediaMetaData(title = Some("Song_" + fileData.path), size = Some(fileData.size)))
 
   /**
@@ -125,9 +125,9 @@ object MetaDataExtractionActorSpec:
     * @param idx the index of the test file
     * @return the processing result for this test file
     */
-  def createProcessingResult(idx: Int): MetaDataProcessingSuccess =
+  def createProcessingResult(idx: Int): MetadataProcessingSuccess =
     val fileData = testFileData(idx)
-    val template = MetaDataProcessingSuccess(TestMediumID, testUri(idx), MediaMetaData())
+    val template = MetadataProcessingSuccess(TestMediumID, testUri(idx), MediaMetaData())
     createProcessingResult(fileData, template)
 
 /**
@@ -146,7 +146,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
   /**
     * Creates an instance of the test actor.
     *
-    * @param manager       the meta data manager actor
+    * @param manager       the metadata manager actor
     * @param msgQueue      optional queue to be passed to the test wrapper actor
     * @param asyncCount    the async factor when calling extractor actors
     * @param timeout       the timeout when calling extractor actors
@@ -155,7 +155,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     * @return the test actor reference
     */
   private def createExtractionActor(manager: ActorRef = testActor,
-                                    msgQueue: Option[BlockingQueue[ProcessMetaDataFile]] = None,
+                                    msgQueue: Option[BlockingQueue[ProcessMetadataFile]] = None,
                                     asyncCount: Int = 2,
                                     timeout: Timeout = Timeout(1.minute),
                                     srcFunc: SourceAdapter = identity,
@@ -186,30 +186,30 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     TestActorRef[MetaDataExtractionActor](props)
 
   /**
-    * Expects that meta data processing results in the specified range are
+    * Expects that metadata processing results in the specified range are
     * received.
     *
     * @param fromIdx the expected start index
     * @param toIdx   the expected end index
     * @return the list with result messages received (in reverse order)
     */
-  private def expectMetaDataResults(fromIdx: Int, toIdx: Int): List[MetaDataProcessingResult] =
+  private def expectMetaDataResults(fromIdx: Int, toIdx: Int): List[MetadataProcessingResult] =
     val expResults = (fromIdx to toIdx) map createProcessingResult
     val results = fetchProcessingResults(fromIdx, toIdx)
     results should contain theSameElementsAs expResults
     results
 
   /**
-    * Obtains a number of meta data processing results from the test actor.
+    * Obtains a number of metadata processing results from the test actor.
     * All results received are returned in a list (in reverse order)
     *
     * @param fromIdx the expected start index
     * @param toIdx   the expected end index
     * @return the list with result messages received (in reverse order)
     */
-  private def fetchProcessingResults(fromIdx: Int, toIdx: Int): List[MetaDataProcessingResult] =
-    (fromIdx to toIdx).foldLeft(List.empty[MetaDataProcessingResult])((lst, _) =>
-      expectMsgType[MetaDataProcessingResult] :: lst)
+  private def fetchProcessingResults(fromIdx: Int, toIdx: Int): List[MetadataProcessingResult] =
+    (fromIdx to toIdx).foldLeft(List.empty[MetadataProcessingResult])((lst, _) =>
+      expectMsgType[MetadataProcessingResult] :: lst)
 
   "A MetaDataExtractionActor" should "return correct properties" in:
     val factory = mock[ExtractorActorFactory]
@@ -233,7 +233,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     actor ! createProcessRequest(40, 50)
     expectMetaDataResults(40, 41)
-    val errMsg = expectMsgType[MetaDataProcessingError]
+    val errMsg = expectMsgType[MetadataProcessingError]
     expectMetaDataResults(43, 50)
     errMsg.uri should be(testUri(ErrorIndex))
 
@@ -242,7 +242,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
 
     actor ! createProcessRequest(ErrorIndex, 60)
     val results = fetchProcessingResults(ErrorIndex, 60).reverse.zipWithIndex
-    val optError = results.find(_._1.isInstanceOf[MetaDataProcessingError])
+    val optError = results.find(_._1.isInstanceOf[MetadataProcessingError])
     // because of the timeout, other elements should have been processed first
     optError.get._2 should be > 0
 
@@ -257,7 +257,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "support cancellation of stream processing" in:
     val Count = ErrorIndex - 1
     val receiver = TestProbe()
-    val queue = new LinkedBlockingQueue[ProcessMetaDataFile]
+    val queue = new LinkedBlockingQueue[ProcessMetadataFile]
     val actor = createExtractionActor(msgQueue = Some(queue), manager = receiver.ref,
       srcFunc = src => src.delay(200.millis, DelayOverflowStrategy.backpressure))
     actor ! createProcessRequest(1, Count)
@@ -266,7 +266,7 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
     actor ! CloseRequest
     expectMsg(CloseAck(actor))
     queue.size() should be < Count
-    (1 to queue.size()).foreach(_ => receiver.expectMsgType[MetaDataProcessingResult])
+    (1 to queue.size()).foreach(_ => receiver.expectMsgType[MetadataProcessingResult])
     receiver.expectNoMessage(500.millis)
 
   it should "no longer accepts requests after a close request" in:
@@ -295,9 +295,9 @@ class MetaDataExtractionActorSpec(testSystem: ActorSystem) extends TestKit(testS
   *
   * @param messages an optional queue for storing received messages
   */
-class WrapperActorImpl(messages: Option[BlockingQueue[ProcessMetaDataFile]]) extends Actor:
+class WrapperActorImpl(messages: Option[BlockingQueue[ProcessMetadataFile]]) extends Actor:
   override def receive: Receive =
-    case p: ProcessMetaDataFile =>
+    case p: ProcessMetadataFile =>
       if !p.fileData.path.toString.contains(MetaDataExtractionActorSpec.ErrorIndexStr) then
         sender() ! MetaDataExtractionActorSpec.createProcessingResult(p.fileData, p.resultTemplate)
         messages foreach (_.offer(p))

@@ -21,33 +21,33 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 object MediaArchiveConfigSpec:
-  /** Test value for the chunk size of a meta data notification. */
-  private val MetaDataChunkSize = 10
+  /** Test value for the chunk size of a metadata notification. */
+  private val MetadataChunkSize = 10
 
-  /** Test value for the maximum message size of meta data chunk messages. */
-  private val MetaDataMaxMsgSize = 150
+  /** Test value for the maximum message size of metadata chunk messages. */
+  private val MetadataMaxMsgSize = 150
 
   /**
     * Creates a test configuration object which can be used to populate a
     * ''MediaArchiveConfig''.
     *
-    * @param updateChunkSize value for the meta data update chunk size
+    * @param updateChunkSize value for the metadata update chunk size
     * @return the configuration object
     */
-  private def createConfiguration(updateChunkSize: Int = MetaDataChunkSize): Configuration =
+  private def createConfiguration(updateChunkSize: Int = MetadataChunkSize): Configuration =
     val config = new PropertiesConfiguration
     config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", updateChunkSize)
-    config.addProperty("media.mediaArchive.metaDataMaxMessageSize", MetaDataMaxMsgSize)
+    config.addProperty("media.mediaArchive.metaDataMaxMessageSize", MetadataMaxMsgSize)
     config
 
   /**
     * Creates a ''MediaArchiveConfig'' object initialized from a test
     * configuration.
     *
-    * @param updateChunkSize value for the meta data update chunk size
+    * @param updateChunkSize value for the metadata update chunk size
     * @return the ''MediaArchiveConfig''
     */
-  private def createMediaConfig(updateChunkSize: Int = MetaDataChunkSize): MediaArchiveConfig =
+  private def createMediaConfig(updateChunkSize: Int = MetadataChunkSize): MediaArchiveConfig =
     MediaArchiveConfig(createConfiguration(updateChunkSize))
 
 /**
@@ -58,10 +58,10 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
   import MediaArchiveConfigSpec._
 
   "A MediaArchiveConfig" should "return the correct update chunk size" in:
-    createMediaConfig().metaDataUpdateChunkSize should be(MetaDataChunkSize)
+    createMediaConfig().metaDataUpdateChunkSize should be(MetadataChunkSize)
 
   it should "return the correct maximum message size" in:
-    createMediaConfig().metaDataMaxMessageSize should be(MetaDataMaxMsgSize)
+    createMediaConfig().metaDataMaxMessageSize should be(MetadataMaxMsgSize)
 
   it should "adapt the maximum message size if necessary" in:
     val config = createMediaConfig(updateChunkSize = 8)

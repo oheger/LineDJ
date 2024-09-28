@@ -38,11 +38,11 @@ import scala.util.Failure
   * Test class for ''MediaFacade''.
   */
 class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
-  "A MediaFacade" should "register a meta data listener" in:
+  "A MediaFacade" should "register a metadata listener" in:
     val facade = new MediaFacadeImpl
     val MediumId = MediumID("A medium", None)
 
-    val regID = facade queryMetaDataAndRegisterListener MediumId
+    val regID = facade queryMetadataAndRegisterListener MediumId
     facade.sentMessages should be(List((MediaActors.MetaDataManager,
       GetMetaData(MediumId, registerAsListener = true, regID))))
 
@@ -51,7 +51,7 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val facade = new MediaFacadeImpl
 
     val regIDs = (1 to count).map(
-      i => facade queryMetaDataAndRegisterListener MediumID("m" + i, None)).toSet
+      i => facade queryMetadataAndRegisterListener MediumID("m" + i, None)).toSet
     regIDs should have size count
     regIDs should not contain MediaFacade.InvalidListenerRegistrationID
 
@@ -88,13 +88,13 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val actMediaManager = mock[ActorRef]
     val actMetaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
-    facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
+    facade.responseMetadataManager = Future.successful(Some(actMetaManager))
     implicit val timeout: Timeout = facade.expTimeout
 
     val futActors = facade.requestFacadeActors()
     val actors = Await.result(futActors, facade.expTimeout.duration)
     actors.mediaManager should be(actMediaManager)
-    actors.metaDataManager should be(actMetaManager)
+    actors.metadataManager should be(actMetaManager)
 
   it should "allow querying an object with interface actors" in:
     checkSuccessfulFacadeActorsRequest(new MediaFacadeImpl)
@@ -110,7 +110,7 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val facade = new MediaFacadeImpl
     val actMediaManager = mock[ActorRef]
     facade.responseMediaManager = Future.successful(Some(actMediaManager))
-    facade.responseMetaDataManager = Future.failed(new Exception("test exception"))
+    facade.responseMetadataManager = Future.failed(new Exception("test exception"))
     implicit val timeout: Timeout = facade.expTimeout
 
     val futActors = facade.requestFacadeActors()
@@ -119,7 +119,7 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "fail to return interface actors if one actor is undefined" in:
     val facade = new MediaFacadeImpl
     val actMetaManager = mock[ActorRef]
-    facade.responseMetaDataManager = Future.successful(Some(actMetaManager))
+    facade.responseMetadataManager = Future.successful(Some(actMetaManager))
     facade.responseMediaManager = Future.successful(None)
     implicit val timeout: Timeout = facade.expTimeout
 
@@ -140,8 +140,8 @@ class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends Medi
   /** Response to be returned for the media manager by requestActor(). */
   var responseMediaManager: Future[Option[ActorRef]] = _
 
-  /** Response to be returned for the meta data manager by requestActor(). */
-  var responseMetaDataManager: Future[Option[ActorRef]] = _
+  /** Response to be returned for the metadata manager by requestActor(). */
+  var responseMetadataManager: Future[Option[ActorRef]] = _
 
   override def activate(enabled: Boolean): Unit = ???
 
@@ -161,13 +161,13 @@ class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends Medi
       throw new AssertionError("Unexpected timeout: " + timeout)
     target match
       case MediaActors.MediaManager => responseMediaManager
-      case MediaActors.MetaDataManager => responseMetaDataManager
+      case MediaActors.MetaDataManager => responseMetadataManager
 
-  override def removeMetaDataListener(mediumID: MediumID): Unit = ???
+  override def removeMetadataListener(mediumID: MediumID): Unit = ???
 
-  override def registerMetaDataStateListener(componentID: ComponentID): Unit = ???
+  override def registerMetadataStateListener(componentID: ComponentID): Unit = ???
 
-  override def unregisterMetaDataStateListener(componentID: ComponentID): Unit = ???
+  override def unregisterMetadataStateListener(componentID: ComponentID): Unit = ???
 
 /**
   * A test thread class for generating listener registration IDs in parallel.
@@ -180,4 +180,4 @@ private class RegisterMediumListenerThread(facade: MediaFacade, latch: CountDown
   override def run(): Unit =
     if latch.await(10, TimeUnit.SECONDS) then
       ids = (1 to 32).map(
-        i => facade queryMetaDataAndRegisterListener MediumID("test" + i, None)).toSet
+        i => facade queryMetadataAndRegisterListener MediumID("test" + i, None)).toSet

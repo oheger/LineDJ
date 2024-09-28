@@ -72,7 +72,7 @@ private object MediumInfoParser:
       checksum = checksum)
 
 /**
-  * An internally used helper class for parsing XML files with meta data about
+  * An internally used helper class for parsing XML files with metadata about
   * media.
   *
   * An instance of this class can parse an XML document with media information

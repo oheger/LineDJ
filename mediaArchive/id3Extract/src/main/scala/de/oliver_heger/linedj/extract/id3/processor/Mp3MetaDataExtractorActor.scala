@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.io.stream.CancelableStreamSupport
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingSuccess, ProcessMetaDataFile}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingSuccess, ProcessMetadataFile}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{Actor, ActorRef, Props, Terminated}
@@ -36,36 +36,36 @@ object Mp3MetaDataExtractorActor:
   /**
     * Returns a ''Props'' object for creating a new actor instance.
     *
-    * @param metaDataActor the meta data receiver actor
+    * @param metadataActor the metadata receiver actor
     * @param tagSizeLimit  the maximum size of a tag to be processed
     * @param readChunkSize the chunk size for read operations
     * @return ''Props'' to create a new actor instance
     */
-  def apply(metaDataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int): Props =
-    Props(classOf[Mp3MetaDataExtractorActorImpl], metaDataActor, tagSizeLimit, readChunkSize)
+  def apply(metadataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int): Props =
+    Props(classOf[Mp3MetaDataExtractorActorImpl], metadataActor, tagSizeLimit, readChunkSize)
 
 /**
-  * The main actor for extracting meta data from MP3 files.
+  * The main actor for extracting metadata from MP3 files.
   *
-  * This actor is responsible for meta data extraction from MP3 files. When the
+  * This actor is responsible for metadata extraction from MP3 files. When the
   * local media archive is triggered to scan for media files an instance of
   * this class is created and invoked for each MP3 file encountered.
   *
-  * In order to extract all meta data from an MP3 file, the file has to be
+  * In order to extract all metadata from an MP3 file, the file has to be
   * read completely. Therefore, the actor opens a stream for the file with some
   * special processing stages. Also, an [[Mp3FileProcessorActor]] instance is
   * created which collects the results for this MP3 file. Completed results are
-  * then sent to the meta data manager actor from the union archive.
+  * then sent to the metadata manager actor from the union archive.
   *
   * This actor class manages the streams currently open to process MP3 files.
   * It implements cancellation logic, so that a scan operation can be
   * aborted at any time.
   *
-  * @param metaDataActor the meta data receiver actor
+  * @param metadataActor the metadata receiver actor
   * @param tagSizeLimit  the maximum size of a tag to be processed
   * @param readChunkSize the chunk size for read operations
   */
-class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int)
+class Mp3MetaDataExtractorActor(metadataActor: ActorRef, tagSizeLimit: Int, readChunkSize: Int)
   extends Actor:
   this: ChildActorFactory with CancelableStreamSupport =>
 
@@ -80,7 +80,7 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
   private var closeRequest: Option[ActorRef] = None
 
   override def receive: Receive =
-    case ProcessMetaDataFile(file, result) =>
+    case ProcessMetadataFile(file, result) =>
       val (actor, killSwitch) = startProcessingStream(file, result)
       val ksID = registerKillSwitch(killSwitch)
       activeFiles += actor -> ksID
@@ -104,10 +104,10 @@ class Mp3MetaDataExtractorActor(metaDataActor: ActorRef, tagSizeLimit: Int, read
     * @param result a template for the processing result
     * @return the new processing actor and a kill switch
     */
-  private def startProcessingStream(file: FileData, result: MetaDataProcessingSuccess):
+  private def startProcessingStream(file: FileData, result: MetadataProcessingSuccess):
   (ActorRef, KillSwitch) =
     import context.system
-    val actor = createChildActor(Mp3FileProcessorActor(metaDataActor, tagSizeLimit,
+    val actor = createChildActor(Mp3FileProcessorActor(metadataActor, tagSizeLimit,
       file, result))
     val source = createSource(file)
     val id3v2Stage = new ID3v2ProcessingStage(Some(actor))

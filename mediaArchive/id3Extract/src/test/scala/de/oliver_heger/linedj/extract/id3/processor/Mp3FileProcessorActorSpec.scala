@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{MetaDataProcessingError, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -46,17 +46,17 @@ object Mp3FileProcessorActorSpec:
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =
-    MetaDataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = MediaFileUri("mp3://testSong.mp3"),
+    MetadataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = MediaFileUri("mp3://testSong.mp3"),
       metaData = MediaMetaData())
 
-  /** Test meta data to be returned by the collector mock. */
-  private val TestMetaData = MediaMetaData(title = Some("Title"), artist = Some("Artist"))
+  /** Test metadata to be returned by the collector mock. */
+  private val TestMetadata = MediaMetaData(title = Some("Title"), artist = Some("Artist"))
 
   /** The expected processing result. */
-  private val ExpectedProcessingResult = TestProcessingResult.copy(metaData = TestMetaData)
+  private val ExpectedProcessingResult = TestProcessingResult.copy(metaData = TestMetadata)
 
-  /** Test MP3 meta data. */
-  private val TestMp3MetaData = Mp3MetaData(version = 2, layer = 3, sampleRate = 64,
+  /** Test MP3 metadata. */
+  private val TestMp3Metadata = Mp3MetaData(version = 2, layer = 3, sampleRate = 64,
     minimumBitRat = 128, maximumBitRate = 128, duration = 120)
 
   /**
@@ -78,8 +78,8 @@ object Mp3FileProcessorActorSpec:
     * @param cause the exception
     * @return the error message
     */
-  private def createFailureMessage(cause: Throwable): MetaDataProcessingError =
-    MetaDataProcessingError(TestProcessingResult.mediumID, TestProcessingResult.uri, cause)
+  private def createFailureMessage(cause: Throwable): MetadataProcessingError =
+    MetadataProcessingError(TestProcessingResult.mediumID, TestProcessingResult.uri, cause)
 
   /**
     * A data class used to record the creation of child actors.
@@ -104,12 +104,12 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     TestKit shutdownActorSystem system
 
   /**
-    * Creates a test ID3 frame meta data object.
+    * Creates a test ID3 frame metadata object.
     *
     * @param procMsg the process ID3 frame message
-    * @return the test meta data
+    * @return the test metadata
     */
-  private def createID3MetaData(procMsg: ProcessID3FrameData): ID3FrameMetaData =
+  private def createID3Metadata(procMsg: ProcessID3FrameData): ID3FrameMetaData =
     ID3FrameMetaData(procMsg.frameHeader, Some(mock[MetaDataProvider]))
 
   "An Mp3FileProcessorActor" should "create a correct Props object" in:
@@ -155,41 +155,41 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     helper.postMessage(Mp3DataProcessed)
     expectNoMessage(1.second)
 
-  it should "request MP3 meta data when the stream completes" in:
+  it should "request MP3 metadata when the stream completes" in:
     val helper = new Mp3FileProcessorTestHelper
 
     helper sendMessage Mp3StreamCompleted
     helper.mp3DataActor.expectMsg(Mp3MetaDataRequest)
 
-  it should "handle incoming MP3 meta data if there is outstanding processing data" in:
+  it should "handle incoming MP3 metadata if there is outstanding processing data" in:
     val helper = new Mp3FileProcessorTestHelper
 
-    helper.sendMessage(TestMp3MetaData)
-      .expectNoMetaDataResult()
-    verify(helper.collector).setMp3MetaData(TestMp3MetaData)
+    helper.sendMessage(TestMp3Metadata)
+      .expectNoMetadataResult()
+    verify(helper.collector).setMp3MetaData(TestMp3Metadata)
 
-  it should "handle incoming MP3 meta data if this completes processing" in:
+  it should "handle incoming MP3 metadata if this completes processing" in:
     val helper = new Mp3FileProcessorTestHelper
-    when(helper.collector.setMp3MetaData(TestMp3MetaData)).thenReturn(Some(TestMetaData))
+    when(helper.collector.setMp3MetaData(TestMp3Metadata)).thenReturn(Some(TestMetadata))
 
-    helper.sendMessage(TestMp3MetaData)
-      .expectMetaDataResult()
+    helper.sendMessage(TestMp3Metadata)
+      .expectMetadataResult()
 
   it should "handle incoming ID3v1 data if there is outstanding processing data" in:
     val metaData = ID3v1MetaData(Some(mock[MetaDataProvider]))
     val helper = new Mp3FileProcessorTestHelper
 
     helper.sendMessage(metaData)
-      .expectNoMetaDataResult()
+      .expectNoMetadataResult()
     verify(helper.collector).setID3v1MetaData(metaData.metaData)
 
   it should "handle incoming ID3v1 data if this completes processing" in:
     val metaData = ID3v1MetaData(Some(mock[MetaDataProvider]))
     val helper = new Mp3FileProcessorTestHelper
-    when(helper.collector.setID3v1MetaData(metaData.metaData)).thenReturn(Some(TestMetaData))
+    when(helper.collector.setID3v1MetaData(metaData.metaData)).thenReturn(Some(TestMetadata))
 
     helper.sendMessage(metaData)
-      .expectMetaDataResult()
+      .expectMetadataResult()
 
   it should "handle a message to process an ID3 frame" in:
     val msg = createProcessID3FrameDataMsg(1)
@@ -242,26 +242,26 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "handle incoming ID3v2 data if there is outstanding processing data" in:
     val procMsg = createProcessID3FrameDataMsg(1)
-    val data = createID3MetaData(procMsg)
+    val data = createID3Metadata(procMsg)
     val helper = new Mp3FileProcessorTestHelper
     val id3Proc = helper.sendMessage(procMsg).expectID3ProcessorActorCreation(procMsg)
     id3Proc.expectMsg(procMsg)
 
     helper.sendID3FrameData(data, id3Proc)
       .expectActorStopped(id3Proc.ref)
-      .expectNoMetaDataResult()
+      .expectNoMetadataResult()
     verify(helper.collector).addID3Data(data)
 
   it should "handle incoming ID3v2 data if this completes processing" in:
     val procMsg = createProcessID3FrameDataMsg(1)
-    val data = createID3MetaData(procMsg)
+    val data = createID3Metadata(procMsg)
     val helper = new Mp3FileProcessorTestHelper
-    when(helper.collector.addID3Data(data)).thenReturn(Some(TestMetaData))
+    when(helper.collector.addID3Data(data)).thenReturn(Some(TestMetadata))
     val id3Proc = helper.sendMessage(procMsg).expectID3ProcessorActorCreation(procMsg)
     id3Proc.expectMsg(procMsg)
 
     helper.sendID3FrameData(data, id3Proc)
-      .expectMetaDataResult()
+      .expectMetadataResult()
       .expectActorStopped(id3Proc.ref)
 
   it should "use a supervisor strategy that stops failing child actors" in:
@@ -281,9 +281,9 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "stop itself when processing results have been sent" in:
     val helper = new Mp3FileProcessorTestHelper
-    when(helper.collector.setMp3MetaData(TestMp3MetaData)).thenReturn(Some(TestMetaData))
+    when(helper.collector.setMp3MetaData(TestMp3Metadata)).thenReturn(Some(TestMetadata))
 
-    helper.sendMessage(TestMp3MetaData)
+    helper.sendMessage(TestMp3Metadata)
       .expectTestActorStopped()
 
   it should "fail if the mp3 processor actor dies" in:
@@ -317,11 +317,11 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     * A test helper class managing a test instance and dependencies.
     */
   private class Mp3FileProcessorTestHelper:
-    /** A mock collector for meta data. */
+    /** A mock collector for metadata. */
     val collector: MetaDataPartsCollector = createCollector()
 
-    /** The probe for the meta data receiver actor. */
-    private val probeMetaDataActor = TestProbe()
+    /** The probe for the metadata receiver actor. */
+    private val probeMetadataActor = TestProbe()
 
     /** A queue for tracking child actor creations. */
     private val actorCreationQueue = new LinkedBlockingQueue[ActorCreationData]
@@ -381,24 +381,24 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       this
 
     /**
-      * Checks that no meta data message has been sent to the receiver actor.
+      * Checks that no metadata message has been sent to the receiver actor.
       *
       * @return this test helper
       */
-    def expectNoMetaDataResult(): Mp3FileProcessorTestHelper =
+    def expectNoMetadataResult(): Mp3FileProcessorTestHelper =
       val msg = new Object
-      probeMetaDataActor.ref ! msg
-      probeMetaDataActor.expectMsg(msg)
+      probeMetadataActor.ref ! msg
+      probeMetadataActor.expectMsg(msg)
       this
 
     /**
-      * Expects that a processing result was sent to the meta data receiver
+      * Expects that a processing result was sent to the metadata receiver
       * actor.
       *
       * @return this test helper
       */
-    def expectMetaDataResult(): Mp3FileProcessorTestHelper =
-      probeMetaDataActor.expectMsg(ExpectedProcessingResult)
+    def expectMetadataResult(): Mp3FileProcessorTestHelper =
+      probeMetadataActor.expectMsg(ExpectedProcessingResult)
       this
 
     /**
@@ -408,7 +408,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @return this test helper
       */
     def expectProcessingError(exception: Throwable): Mp3FileProcessorTestHelper =
-      probeMetaDataActor.expectMsg(createFailureMessage(exception))
+      probeMetadataActor.expectMsg(createFailureMessage(exception))
       this
 
     /**
@@ -432,7 +432,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * Sends the specified ID3 frame message to the test actor from the
       * specified test probe.
       *
-      * @param data the meta data
+      * @param data the metadata
       * @param from the sending actor
       * @return this test helper
       */
@@ -481,7 +481,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       this
 
     /**
-      * Creates a mock collector for meta data.
+      * Creates a mock collector for metadata.
       *
       * @return the mock collector
       */
@@ -516,7 +516,7 @@ class Mp3FileProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @return creation properties
       */
     private def createTestActorProps(): Props =
-      Props(new Mp3FileProcessorActor(probeMetaDataActor.ref, TagSizeLimit, collector,
+      Props(new Mp3FileProcessorActor(probeMetadataActor.ref, TagSizeLimit, collector,
         TestProcessingResult) with ChildActorFactory {
         /**
           * @inheritdoc This implementation creates a new test probe representing

@@ -33,7 +33,7 @@ object OpenValidationWindowCommand:
     */
   val PropFlow = "validationFlow"
 
-  /** The prefix for all properties related to meta data validation. */
+  /** The prefix for all properties related to metadata validation. */
   val PrefixValidationConfig = "media.validation."
 
   /**
@@ -124,13 +124,13 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
 
   /**
     * Generates the display function for the given media file. If the title is
-    * available in the meta data, it is returned. Otherwise, the name to be
+    * available in the metadata, it is returned. Otherwise, the name to be
     * displayed is derived from the URI.
     *
     * @param file the file in question
     * @return the display function for this file
     */
-  private def createDisplayFunc(file: MediaFile): DisplayFunc = file.metaData.title match
+  private def createDisplayFunc(file: MediaFile): DisplayFunc = file.metadata.title match
     case Some(t) => uri => OpenValidationWindowCommand.appendParent(uri, t)
     case None => uri => displayNameFromUri(uri)
 
@@ -176,7 +176,7 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
   private def groupToAlbums(files: List[MediaFile]): List[MediaAlbum] =
     lazy val mid = files.head.mediumID // only executed if there are files
     val albumFiles = files.groupBy(f => parentUri(f.uri))
-    albumFiles.map(e => MediaAlbum(mid, e._1, e._2 map (_.metaData))).toList
+    albumFiles.map(e => MediaAlbum(mid, e._1, e._2 map (_.metadata))).toList
 
   /**
     * Determines the parent URI of the given URI. The last component is split.

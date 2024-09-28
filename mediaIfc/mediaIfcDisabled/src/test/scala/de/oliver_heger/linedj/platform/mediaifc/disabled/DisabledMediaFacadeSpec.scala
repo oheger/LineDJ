@@ -68,7 +68,7 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
     val bus = mock[MessageBus]
     val facade = new DisabledMediaFacade(bus)
 
-    facade removeMetaDataListener MediumID("mid", None)
+    facade removeMetadataListener MediumID("mid", None)
     verifyNoInteractions(bus)
 
   it should "implement requestActor()" in:
@@ -82,9 +82,9 @@ class DisabledMediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSuga
   it should "implement registerMetaDataStateListener()" in:
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
-    facade.registerMetaDataStateListener(ComponentID())
+    facade.registerMetadataStateListener(ComponentID())
 
   it should "implement unregisterMetaDataStateListener()" in:
     val facade = new DisabledMediaFacade(mock[MessageBus])
 
-    facade.unregisterMetaDataStateListener(ComponentID())
+    facade.unregisterMetadataStateListener(ComponentID())

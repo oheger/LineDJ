@@ -40,7 +40,7 @@ case class MessageData(target: ActorRef, messages: Iterable[Any])
   * generate the messages to be sent.
   *
   * @param mediaManager the union media manager actor
-  * @param metaManager  the union meta data manager actor
+  * @param metaManager  the union metadata manager actor
   * @param client       the client actor to ACK when results are processed
   */
 case class PropagationActors(mediaManager: ActorRef, metaManager: ActorRef, client: ActorRef)
@@ -187,7 +187,7 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
   private def createMessagesForMedium(result: MediumProcessingResult, actors: PropagationActors,
                                       archiveID: String, seqNo: Int): List[MessageData] =
     List(createAddMediaMessage(result, actors, archiveID),
-      createMetaDataMessages(result, actors), createPropagatedMessage(seqNo, actors))
+      createMetadataMessages(result, actors), createPropagatedMessage(seqNo, actors))
 
   /**
     * Creates the message to the media manager actor that adds a medium
@@ -205,18 +205,18 @@ object ContentPropagationUpdateServiceImpl extends ContentPropagationUpdateServi
         Some(actors.client))))
 
   /**
-    * Creates a ''MessageData'' with the messages to be sent to the meta data
+    * Creates a ''MessageData'' with the messages to be sent to the metadata
     * manager to add the content of a medium to the union archive.
     *
     * @param result the result object for the medium
     * @param actors actors involved in propagation
     * @return the ''MessageData'' object
     */
-  private def createMetaDataMessages(result: MediumProcessingResult, actors: PropagationActors):
+  private def createMetadataMessages(result: MediumProcessingResult, actors: PropagationActors):
   MessageData =
-    val files = result.metaData map (m => m.uri)
+    val files = result.metadata map (m => m.uri)
     val contribution = MediaContribution(Map(result.mediumInfo.mediumID -> files))
-    val messages = contribution :: result.metaData.toList
+    val messages = contribution :: result.metadata.toList
     MessageData(actors.metaManager, messages)
 
   /**

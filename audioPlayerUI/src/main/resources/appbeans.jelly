@@ -44,7 +44,7 @@
     </di:element>
   </di:list>
 
-  <!-- The resolver for unknown meta data properties -->
+  <!-- The resolver for unknown metadata properties -->
   <di:bean name="unknownPropertyResolver"
     beanClassName="de.oliver_heger.linedj.platform.audio.model.UnknownPropertyResourceResolver">
     <di:constructor>
@@ -69,7 +69,7 @@
             field="MODULE$"/>
   <di:contextBean var="playlistServiceVar" name="playlistService"/>
 
-  <!-- The playlist meta data service -->
+  <!-- The playlist metadata service -->
   <di:const var="playlistMetaDataServiceVar"
             targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistMetaDataService$"
             field="MODULE$"/>

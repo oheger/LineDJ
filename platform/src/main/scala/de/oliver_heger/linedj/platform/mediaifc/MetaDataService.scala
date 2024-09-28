@@ -23,21 +23,21 @@ import scalaz.Kleisli
 import scala.concurrent.Future
 
 /**
-  * Service interface for accessing media and their meta data.
+  * Service interface for accessing media and their metadata.
   *
-  * This service provides operations for querying meta data for media that
+  * This service provides operations for querying metadata for media that
   * make use of a future-like API. The underlying interaction via the message
   * bus is hidden for clients.
   *
   * @tparam Media    data type for the available media
-  * @tparam MetaData type for a chunk of meta data
+  * @tparam Metadata type for a chunk of metadata
   */
-trait MetaDataService[Media, MetaData]:
+trait MetaDataService[Media, Metadata]:
   /**
     * Type definition for service results. The service returns functions that
     * expect a ''MessageBus'' to be passed in and return futures.
     */
-  type MetaDataResult[T] = Kleisli[Future, MessageBus, T]
+  type MetadataResult[T] = Kleisli[Future, MessageBus, T]
 
   /**
     * Returns a function that yields information about the available media when
@@ -45,13 +45,13 @@ trait MetaDataService[Media, MetaData]:
     *
     * @return a function to retrieve the available media
     */
-  def fetchMedia(): MetaDataResult[Media]
+  def fetchMedia(): MetadataResult[Media]
 
   /**
-    * Returns a function that yields all the meta data of a specific medium
+    * Returns a function that yields all the metadata of a specific medium
     * when passed a message bus instance.
     *
     * @param mediumID the ID of the medium desired
-    * @return a function to retrieve the meta data of a medium
+    * @return a function to retrieve the metadata of a medium
     */
-  def fetchMetaDataOfMedium(mediumID: MediumID): MetaDataResult[MetaData]
+  def fetchMetaDataOfMedium(mediumID: MediumID): MetadataResult[Metadata]

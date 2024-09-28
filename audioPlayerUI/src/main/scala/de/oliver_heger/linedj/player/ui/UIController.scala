@@ -101,7 +101,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
 
   /**
     * @inheritdoc This class is a consumer for playlist change events and
-    *             updates of playlist meta data.
+    *             updates of playlist metadata.
     */
   override val registrations: Iterable[ConsumerSupport.ConsumerRegistration[_]] =
     List(AudioPlayerStateChangeRegistration(componentID, consumePlayerStateChangeEvent),
@@ -159,9 +159,9 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     currentState = event.state
 
   /**
-    * Consumer function for updates of playlist meta data.
+    * Consumer function for updates of playlist metadata.
     *
-    * @param meta the updated meta data
+    * @param meta the updated metadata
     */
   private def consumePlaylistMetaDataChanged(meta: PlaylistMetaData): Unit =
     playlistTableController handleMetaDataUpdate meta

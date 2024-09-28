@@ -73,9 +73,9 @@ object MediumTreeModelSpec:
     listener
 
   /**
-    * Creates a ''SongData'' object for the specified meta data.
+    * Creates a ''SongData'' object for the specified metadata.
     *
-    * @param meta the meta data
+    * @param meta the metadata
     * @return the corresponding ''SongData''
     */
   private def song(meta: MediaMetaData): SongData =
@@ -90,12 +90,12 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
   import MediumTreeModelSpec._
 
   /**
-    * Processes a list of meta data items on the given configuration. A new
+    * Processes a list of metadata items on the given configuration. A new
     * empty is created, and then the items are added one by one. The resulting
     * updater is finally applied on the configuration.
     *
     * @param config the configuration
-    * @param items  the list of meta data items
+    * @param items  the list of metadata items
     * @return a tuple with the resulting model and updater
     */
   private def processMetaData(config: HierarchicalConfiguration,
@@ -130,7 +130,7 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
     * extracted first.
     *
     * @param config   the configuration
-    * @param expected a list with the expected album keys and meta data
+    * @param expected a list with the expected album keys and metadata
     * @return a flag whether the check was successful
     */
   private def checkAlbumKeysWithItems(config: HierarchicalConfiguration, expected: List[

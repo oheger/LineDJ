@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataReaderActor.ReadMetaDataFile
 import de.oliver_heger.linedj.archivecommon.parser.MetaDataParser
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.union.MetaDataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.*
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
 
@@ -29,7 +29,7 @@ object PersistentMetaDataReaderActor:
 
   /**
     * A message processed by [[PersistentMetaDataReaderActor]] that tells the
-    * actor to process the specified file with persistent meta data. The actor
+    * actor to process the specified file with persistent metadata. The actor
     * expects exactly one message of this type after its creation. It processes
     * this file and terminates itself when done.
     *
@@ -50,10 +50,10 @@ object PersistentMetaDataReaderActor:
     Props(classOf[PersistentMetaDataReaderActor], parent, chunkSize)
 
 /**
-  * An actor that reads a file with persistent meta data for the media files of
+  * An actor that reads a file with persistent metadata for the media files of
   * a medium.
   *
-  * Meta data for media files is persisted in JSON format. For each medium a
+  * metadata for media files is persisted in JSON format. For each medium a
   * file exists consisting of a single array with all the data for the single
   * medium files as elements. This actor is responsible for reading one such
   * file.
@@ -75,10 +75,10 @@ class PersistentMetaDataReaderActor(parent: ActorRef, chunkSize: Int)
   extends Actor with ActorLogging:
   override def receive: Receive =
     case ReadMetaDataFile(p, mid) =>
-      log.info("Reading persistent meta data file {} for medium {}.", p, mid)
+      log.info("Reading persistent metadata file {} for medium {}.", p, mid)
       import context.{dispatcher, system}
       val source = MetaDataParser.parseMetadata(FileIO.fromPath(p, chunkSize), mid)
-      val sink = Sink.foreach[MetaDataProcessingSuccess](parent ! _)
+      val sink = Sink.foreach[MetadataProcessingSuccess](parent ! _)
       val flow = source.toMat(sink)(Keep.right)
       val future = flow.run()
       future.onComplete(_ => context.stop(self))

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetaDataProcessingSuccess}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetadataProcessingSuccess}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -91,27 +91,27 @@ object ContentPropagationUpdateServiceSpec:
     Map(mediumID(idx) -> files)
 
   /**
-    * Generates a meta data processing result object for the specified test
+    * Generates a metadata processing result object for the specified test
     * file.
     *
     * @param medIdx  the medium index
     * @param fileIdx the file index
-    * @return the test meta data processing result
+    * @return the test metadata processing result
     */
-  private def metaDataProcessingResult(medIdx: Int, fileIdx: Int): MetaDataProcessingSuccess =
+  private def metadataProcessingResult(medIdx: Int, fileIdx: Int): MetadataProcessingSuccess =
     val filePath = mediumFilePath(medIdx, fileIdx)
-    MetaDataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
+    MetadataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
       metaData = MediaMetaData(title = Some(filePath), size = Some(fileSize(medIdx, fileIdx))))
 
   /**
-    * Generates the sequence of meta data processing result objects for the
+    * Generates the sequence of metadata processing result objects for the
     * specified test medium.
     *
     * @param idx the medium index
-    * @return the meta data results for this medium
+    * @return the metadata results for this medium
     */
-  private def metaDataProcessingResults(idx: Int): Iterable[MetaDataProcessingSuccess] =
-    (1 to idx) map (metaDataProcessingResult(idx, _))
+  private def metadataProcessingResults(idx: Int): Iterable[MetadataProcessingSuccess] =
+    (1 to idx) map (metadataProcessingResult(idx, _))
 
   /**
     * Generates a processing result for a test medium.
@@ -120,7 +120,7 @@ object ContentPropagationUpdateServiceSpec:
     * @return the processing result for this medium
     */
   private def mediumResult(idx: Int): MediumProcessingResult =
-    val metaData = metaDataProcessingResults(idx)
+    val metaData = metadataProcessingResults(idx)
     MediumProcessingResult(mediumInfo(idx), metaData, SeqNo)
 
   /**
@@ -156,14 +156,14 @@ object ContentPropagationUpdateServiceSpec:
 
   /**
     * Generates a ''MessageData'' object with the messages to be sent for the
-    * meta data manager actor for the given test medium.
+    * metadata manager actor for the given test medium.
     *
     * @param idx    the index of the test medium
     * @param actors actors involved in propagation
     * @return the ''MessageData'' object
     */
   private def metaManagerMessages(idx: Int, actors: PropagationActors): MessageData =
-    val results = metaDataProcessingResults(idx).toList
+    val results = metadataProcessingResults(idx).toList
     val messages = mediaContribution(idx) :: results
     MessageData(actors.metaManager, messages)
 

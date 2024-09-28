@@ -332,7 +332,7 @@ class ArchiveAdminController(application: ArchiveAdminApp,
       log.info(s"Retrieving statistics for archive '$archiveID'.")
       updateStatisticsWithIndicator(LoadingIndicator)
 
-      application.invokeActor(application.mediaFacadeActors.metaDataManager,
+      application.invokeActor(application.mediaFacadeActors.metadataManager,
         GetArchiveComponentStatistics(archiveID)).executeUIThread[ArchiveComponentStatistics, Unit]:
         case Success(stats) =>
           archiveStatistics += (stats.archiveComponentID -> stats)

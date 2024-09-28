@@ -156,7 +156,7 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       .triggerPlaylistChanged()
       .verifyDuration("0:00 / ?")
 
-  it should "init the year field if there is no year in meta data" in:
+  it should "init the year field if there is no year in metadata" in:
     val helper = new ControllerTestHelper
 
     helper.updateCurrentMetaData(_.copy(inceptionYear = None))
@@ -350,9 +350,9 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       this
 
     /**
-      * Allows changing the meta data of the current song in the playlist.
+      * Allows changing the metadata of the current song in the playlist.
       *
-      * @param fMeta a function to update the current meta data
+      * @param fMeta a function to update the current metadata
       * @return this test helper
       */
     def updateCurrentMetaData(fMeta: MediaMetaData => MediaMetaData): ControllerTestHelper =

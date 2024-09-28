@@ -67,16 +67,16 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
   override def activate(compContext: ComponentContext): Unit =
     super.activate(compContext)
     log.info("Activating LocalArchiveStartup.")
-    startLocalArchive(facadeActors.mediaManager, facadeActors.metaDataManager)
+    startLocalArchive(facadeActors.mediaManager, facadeActors.metadataManager)
 
   /**
     * Creates and initializes the actors for the local media archive. A new
     * scan is started immediately.
     *
     * @param mediaUnionActor    the union media actor
-    * @param metaDataUnionActor the union meta data actor
+    * @param metadataUnionActor the union metadata actor
     */
-  private def startLocalArchive(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef): Unit =
+  private def startLocalArchive(mediaUnionActor: ActorRef, metadataUnionActor: ActorRef): Unit =
     val archiveConfigs = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
-    createAndRegisterActor(ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs), NameGroupActor)
+    createAndRegisterActor(ArchiveGroupActor(mediaUnionActor, metadataUnionActor, archiveConfigs), NameGroupActor)
     log.info("Local archive started.")

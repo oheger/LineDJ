@@ -21,7 +21,7 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder">
 
-  <!-- The meta data service -->
+  <!-- The metadata service -->
   <di:const var="metaDataServiceVar"
             targetClassName="de.oliver_heger.linedj.platform.mediaifc.service.MetaDataServiceImpl$"
             field="MODULE$"/>

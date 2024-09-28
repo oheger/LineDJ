@@ -42,7 +42,7 @@ class PersistentMetaDataFileScannerSpec(testSystem: ActorSystem) extends TestKit
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
 
-  "A PersistentMetaDataFileScanner" should "find all meta data files in a directory" in:
+  "A PersistentMetaDataFileScanner" should "find all metadata files in a directory" in:
     val FileCount = 8
     val checkSumList = (1 to FileCount) map (i => MediumChecksum(s"checksum_$i"))
     val pathList = checkSumList map (s => writeFileContent(createPathInDirectory(s.checksum + ".mdt"),

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
-import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
@@ -331,13 +331,13 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
     helper.triggerAndExpectCompletedClose()
 
-  it should "notify the meta data actor about a scan request" in:
+  it should "notify the metadata actor about a scan request" in:
     val helper = new MediaUnionActorTestHelper
     helper.manager ! ScanAllMedia
 
     helper.metaDataActor.expectMsg(ScanAllMedia)
 
-  it should "notify the meta data actor about a removed archive component" in:
+  it should "notify the metadata actor about a removed archive component" in:
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(Map(mediaMapping(1, 1)), 1)
     val ctrl2 = helper.addMedia(Map(mediaMapping(1, 2)), 2)
@@ -345,7 +345,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     system stop ctrl2.ref
     helper.metaDataActor.expectMsg(ArchiveComponentRemoved(componentID(2)))
 
-  it should "notify the meta data actor about a request to remove a component" in:
+  it should "notify the metadata actor about a request to remove a component" in:
     val helper = new MediaUnionActorTestHelper
     helper.metaDataActor.setAutoPilot((sender: ActorRef, msg: Any) => {
       sender ! ForwardTestActor.ForwardedMessage(msg)
@@ -384,14 +384,14 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(mediaMap, 1, controller)
 
-    helper.manager ! GetArchiveMetaDataFileInfo(componentID(1))
+    helper.manager ! GetArchiveMetadataFileInfo(componentID(1))
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
 
   it should "handle a GetArchiveMEtaDataFileInfo request for an unknown archive" in:
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(Map(mediaMapping(1, 1)), 1)
 
-    helper.manager ! GetArchiveMetaDataFileInfo(componentID(42))
+    helper.manager ! GetArchiveMetadataFileInfo(componentID(42))
     val response = expectMsgType[Status.Failure]
     response.cause shouldBe a[NoSuchElementException]
     response.cause.getMessage should include(componentID(42))
@@ -400,7 +400,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * A test helper class managing all dependencies of the test actor.
     */
   private class MediaUnionActorTestHelper:
-    /** Test probe for the meta data manager actor. */
+    /** Test probe for the metadata manager actor. */
     val metaDataActor: TestProbe = TestProbe()
 
     /** The actor to be tested. */

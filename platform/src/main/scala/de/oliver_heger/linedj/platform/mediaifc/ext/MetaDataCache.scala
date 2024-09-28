@@ -32,7 +32,7 @@ object MetaDataCache:
     * cache.
     *
     * An instance stores information about the files contained on a medium and
-    * their meta data. It is closely related to the [[MetaDataChunk]] class;
+    * their metadata. It is closely related to the [[MetaDataChunk]] class;
     * but while the latter is optimized for transporting data from the archive
     * to client components, this class allows easier access to single files by
     * storing their [[MediaFileID]]. (This is necessary for files stemming from
@@ -77,10 +77,10 @@ object MetaDataCache:
 
   /**
     * A message class processed by [[MetaDataCache]] to add a registration for the
-    * meta data of a medium.
+    * metadata of a medium.
     *
-    * With this message a component indicates its interest on the meta data of the
-    * specified medium. Whenever meta data becomes available it is passed to the
+    * With this message a component indicates its interest on the metadata of the
+    * specified medium. Whenever metadata becomes available it is passed to the
     * callback function provided in the message.
     *
     * @param mediumID the ID of the medium
@@ -95,7 +95,7 @@ object MetaDataCache:
 
   /**
     * A message class processed by [[MetaDataCache]] to remove the registration
-    * for the meta data of a medium.
+    * for the metadata of a medium.
     *
     * When receiving a message of this type the cache will remove the represented
     * listener registration. This means that this listener will receive no further
@@ -108,13 +108,13 @@ object MetaDataCache:
 
   /**
     * Constant for an empty ''MediumContent'' instance. Starting from this
-    * instance, content objects can be constructed by adding chunks of meta
-    * data.
+    * instance, content objects can be constructed by adding chunks of 
+    * metadata.
     */
   final val EmptyContent: MediumContent = MediumContent(Map.empty, complete = false)
 
   /**
-    * The function that determines the size of items in the meta data LRU
+    * The function that determines the size of items in the metadata LRU
     * cache.
     *
     * @param content the content in question
@@ -124,25 +124,25 @@ object MetaDataCache:
 
 /**
   * A specialized media interface extension implementing a client-side cache for
-  * meta data.
+  * metadata.
   *
-  * Clients may request meta data for one and the same medium multiple times; it
+  * Clients may request metadata for one and the same medium multiple times; it
   * therefore makes sense to cache it locally. This is done by this class. It
-  * stores chunks of meta data received from the archive and is also able to
+  * stores chunks of metadata received from the archive and is also able to
   * combine them; this is done in form of [[MediumContent]] objects.
   *
   * This class is not directly accessed by other classes. Rather, interaction
-  * takes place via the message bus: A component needing access to the meta data
+  * takes place via the message bus: A component needing access to the metadata
   * of a medium sends a
   * [[de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.MetaDataRegistration]]
   * message on the message bus. The
   * message contains a callback through which the sender can be notified about
-  * incoming meta data. If data for this medium is contained in the cache, the
+  * incoming metadata. If data for this medium is contained in the cache, the
   * callback is directly triggered. Whether the caller is registered depends on
-  * the availability of meta data: if the whole medium is contained in the
+  * the availability of metadata: if the whole medium is contained in the
   * cache, no registration is needed as all information has already been passed
   * via the callback. Otherwise, the caller is registered and receives
-  * notifications about incoming meta data chunks. When all chunks for this
+  * notifications about incoming metadata chunks. When all chunks for this
   * medium have been received the registration is automatically removed.
   *
   * Some other interactions via the message bus are supported as well. For
@@ -154,7 +154,7 @@ object MetaDataCache:
   * is cleared, and all registered listeners are removed.
   *
   * To prevent that the memory used by the cache grows without limits,  a
-  * maximum number of meta data items to be stored can be specified. Note,
+  * maximum number of metadata items to be stored can be specified. Note,
   * however, that this is not a hard limit, but works with the following
   * restrictions:
   *
@@ -164,7 +164,7 @@ object MetaDataCache:
   *    been completely loaded. So if clients request many media in parallel, the
   *    cache's size can (temporarily) grow over the specified limit.
   *
-  * The size restriction works on medium level: When new meta data is added to
+  * The size restriction works on medium level: When new metadata is added to
   * the cache and the cache size grows over the limit, the medium with the
   * oldest access time is searched and removed. (The cache operates in a LRU
   * mode.) This is repeated until the size limit can be met or no suitable
@@ -184,7 +184,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
   private val log = LogManager.getLogger(getClass)
 
   /** The cache with the already received content objects per medium. */
-  private var contentCache = createMetaDataCache()
+  private var contentCache = createMetadataCache()
 
   /** A map storing the requested media for registration IDs. */
   private var registrationIDs = Map.empty[Int, MediumID]
@@ -208,7 +208,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
       handleRegistration(registration)
 
     case MetaDataResponse(chunk, regID) =>
-      metaDataReceived(chunk, regID)
+      metadataReceived(chunk, regID)
 
     case RemoveMetaDataRegistration(mediumID, listenerID) =>
       handleUnRegistration(mediumID, listenerID)
@@ -217,9 +217,9 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
       clearConsumers()
 
   /**
-    * Handles the registration of a meta data listener. If necessary, the
+    * Handles the registration of a metadata listener. If necessary, the
     * medium is requested from the archive. Access to this medium moves it to
-    * the front of the meta data cache; so it will not be directly removed if
+    * the front of the metadata cache; so it will not be directly removed if
     * the cache becomes too large.
     *
     * @param registration the registration to be handled
@@ -229,13 +229,13 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     if !currentContent.complete then
       addConsumer(registration, registration.mediumID)
       if currentContent eq EmptyContent then
-        val regID = mediaFacade.queryMetaDataAndRegisterListener(registration.mediumID)
+        val regID = mediaFacade.queryMetadataAndRegisterListener(registration.mediumID)
         registrationIDs += regID -> registration.mediumID
     if currentContent.data.nonEmpty then
       registration.callback(currentContent)
 
   /**
-    * Handles a request to remove a meta data listener for a medium. If there
+    * Handles a request to remove a metadata listener for a medium. If there
     * are no more remaining listeners for this medium, the facade can be notified
     * to stop tracking it for this client. If the medium ID or the listener ID
     * cannot be resolved, this operation has no effect.
@@ -247,12 +247,12 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     val oldConsumers = consumerList(mediumID)
     removeConsumer(listenerID, mediumID)
     if consumerList(mediumID).isEmpty && oldConsumers.nonEmpty then
-      mediaFacade.removeMetaDataListener(mediumID)
+      mediaFacade.removeMetadataListener(mediumID)
       registrationIDs = registrationIDs.filterNot(_._2 == mediumID)
       contentCache removeItem mediumID
 
   /**
-    * Processes meta data that was received from the archive. The new chunk of
+    * Processes metadata that was received from the archive. The new chunk of
     * data is combined with data already stored in the cache. Listeners
     * interested in the affected medium are notified. If the cache becomes too
     * large, media which have not been accessed recently are removed.
@@ -260,7 +260,7 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     * @param chunk the new chunk of data
     * @param regID the registration ID
     */
-  private def metaDataReceived(chunk: MetaDataChunk, regID: Int): Unit =
+  private def metadataReceived(chunk: MetaDataChunk, regID: Int): Unit =
     registrationIDs.get(regID) foreach { mediumID =>
       lazy val contentUpdate = EmptyContent.addChunk(chunk)
       if contentCache contains mediumID then
@@ -280,10 +280,10 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     *             stale data.
     */
   override def onArchiveAvailable(hasConsumers: Boolean): Unit =
-    contentCache = createMetaDataCache()
+    contentCache = createMetadataCache()
 
   /**
-    * A function that determines whether an item from the meta data cache can
+    * A function that determines whether an item from the metadata cache can
     * be removed. Only items can be removed, which have been completely
     * downloaded.
     *
@@ -292,13 +292,13 @@ class MetaDataCache(val mediaFacade: MediaFacade, val cacheSize: Int)
     */
   private def cacheRemovableFunc(content: MediumContent): Boolean =
     if content.complete then
-      log.info("Removing medium {} from meta data cache.", content.data.iterator.next()._1.mediumID)
+      log.info("Removing medium {} from metadata cache.", content.data.iterator.next()._1.mediumID)
     content.complete
 
   /**
-    * Creates the meta data cache.
+    * Creates the metadata cache.
     *
     * @return the new cache
     */
-  private def createMetaDataCache(): LRUCache[MediumID, MediumContent] =
+  private def createMetadataCache(): LRUCache[MediumID, MediumContent] =
     new LRUCache[MediumID, MediumContent](cacheSize)(sizeFunc = cacheSizeFunc, removableFunc = cacheRemovableFunc)

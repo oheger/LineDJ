@@ -22,8 +22,8 @@ import org.apache.pekko.util.ByteString
   * A helper class that can be used to obtain a configurable chunk of data at
   * the end of a stream.
   *
-  * Some meta data about audio files is stored at the end of a file. Therefore,
-  * it is necessary to obtain this data in a convenient way. During meta data
+  * Some metadata about audio files is stored at the end of a file. Therefore,
+  * it is necessary to obtain this data in a convenient way. During metadata
   * extraction the audio file has to be read from start to end anyway. The
   * task of this class is to provide the last block of the given size after the
   * file has been processed.

@@ -56,19 +56,19 @@ object HttpArchiveManagementActor:
     * @param config               the configuration for the HTTP archive
     * @param pathGenerator        the generator for paths for temp files
     * @param unionMediaManager    the union media manager actor
-    * @param unionMetaDataManager the union meta data manager actor
+    * @param unionMetadataManager the union metadata manager actor
     * @param monitoringActor      the download monitoring actor
     * @param removeActor          the actor for removing temp files
     * @return ''Props'' for creating a new actor instance
     */
   def apply(config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
-            unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
+            unionMediaManager: ActorRef, unionMetadataManager: ActorRef,
             monitoringActor: ActorRef, removeActor: ActorRef): Props =
     Props(classOf[HttpArchiveManagementActorImpl], ContentProcessingUpdateServiceImpl, config,
-      pathGenerator, unionMediaManager, unionMetaDataManager, monitoringActor, removeActor)
+      pathGenerator, unionMediaManager, unionMetadataManager, monitoringActor, removeActor)
 
-  /** The number of parallel processor actors for meta data. */
-  private val MetaDataParallelism = 4
+  /** The number of parallel processor actors for metadata. */
+  private val MetadataParallelism = 4
 
   /** The number of parallel processor actors for medium info files. */
   private val InfoParallelism = 2
@@ -106,13 +106,13 @@ object HttpArchiveManagementActor:
   * @param config               the configuration for the HTTP archive
   * @param pathGenerator        the generator for paths for temp files
   * @param unionMediaManager    the union media manager actor
-  * @param unionMetaDataManager the union meta data manager actor
+  * @param unionMetadataManager the union metadata manager actor
   * @param monitoringActor      the download monitoring actor
   * @param removeActor          the actor for removing temp files
   */
 class HttpArchiveManagementActor(processingService: ContentProcessingUpdateService,
                                  config: HttpArchiveConfig, pathGenerator: TempPathGenerator,
-                                 unionMediaManager: ActorRef, unionMetaDataManager: ActorRef,
+                                 unionMediaManager: ActorRef, unionMetadataManager: ActorRef,
                                  monitoringActor: ActorRef, removeActor: ActorRef) extends Actor
   with ActorLogging:
   this: ChildActorFactory =>
@@ -125,8 +125,8 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
   /** The medium info processor actor. */
   private var mediumInfoProcessor: ActorRef = _
 
-  /** The meta data processor actor. */
-  private var metaDataProcessor: ActorRef = _
+  /** The metadata processor actor. */
+  private var metadataProcessor: ActorRef = _
 
   /** The download management actor. */
   private var downloadManagementActor: ActorRef = _
@@ -154,13 +154,13 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     archiveContentProcessor = createChildActor(Props[HttpArchiveContentProcessorActor]())
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]()))
-    metaDataProcessor = createChildActor(SmallestMailboxPool(MetaDataParallelism)
+    metadataProcessor = createChildActor(SmallestMailboxPool(MetadataParallelism)
       .props(Props[MetaDataResponseProcessingActor]()))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))
     propagationActor = createChildActor(Props(classOf[ContentPropagationActor], unionMediaManager,
-      unionMetaDataManager, config.archiveName))
+      unionMetadataManager, config.archiveName))
     updateArchiveState(HttpArchiveStateDisconnected)
 
   override def receive: Receive =
@@ -181,7 +181,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     case HttpArchiveProcessingComplete(nextState) =>
       updateState(processingService.processingDone())
       updateArchiveState(nextState)
-      unionMetaDataManager ! UpdateOperationCompleted(None)
+      unionMetadataManager ! UpdateOperationCompleted(None)
 
     case req: MediumFileRequest =>
       downloadManagementActor forward req
@@ -203,7 +203,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams
       mediumInfoProcessor ! CancelStreams
-      metaDataProcessor ! CancelStreams
+      metadataProcessor ! CancelStreams
       sender() ! CloseAck(self)
 
   /**
@@ -211,7 +211,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     */
   private def startArchiveProcessing(): Unit =
     if updateState(processingService.processingStarts()) then
-      unionMetaDataManager ! UpdateOperationStarts(None)
+      unionMetadataManager ! UpdateOperationStarts(None)
       archiveStateResponse = None
       val currentSeqNo = processingState.seqNo
       loadArchiveContent() map { data => createProcessArchiveRequest(data, currentSeqNo)
@@ -238,11 +238,11 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     ProcessHttpArchiveRequest(
       archiveConfig = config,
       settingsProcessorActor = mediumInfoProcessor,
-      metaDataProcessorActor = metaDataProcessor,
+      metadataProcessorActor = metadataProcessor,
       sink = sink,
       mediaSource = HttpMediumDescParser.parseMediumDescriptions(data),
       seqNo = curSeqNo,
-      metaDataParallelism = MetaDataParallelism,
+      metadataParallelism = MetadataParallelism,
       infoParallelism = InfoParallelism
     )
 

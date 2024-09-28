@@ -33,13 +33,13 @@ object PersistentMetaDataWriterActor:
 
   /**
     * A message processed by [[PersistentMetaDataWriterActor]] that tells it to
-    * write meta data files for a specific medium. This message causes the
+    * write metadata files for a specific medium. This message causes the
     * actor to register for this medium and to handle notifications about
-    * chunks of meta data.
+    * chunks of metadata.
     *
     * @param mediumID         the ID of the affected medium
-    * @param target           the path to the meta data file to be written
-    * @param metaDataManager  the meta data manager actor
+    * @param target           the path to the metadata file to be written
+    * @param metaDataManager  the metadata manager actor
     * @param resolvedSize     the number of resolved files on this medium
     */
   case class ProcessMedium(mediumID: MediumID, target: Path, metaDataManager: ActorRef, resolvedSize: Int)
@@ -69,9 +69,9 @@ object PersistentMetaDataWriterActor:
 
   /**
     * A message sent by [[PersistentMetaDataWriterActor]] to the triggering
-    * actor after each write operation for meta data. This is received by the
-    * meta data reader actor, so that it can update its record of existing meta
-    * data files.
+    * actor after each write operation for metadata. This is received by the
+    * metadata reader actor, so that it can update its record of existing 
+    * metadata files.
     *
     * @param process the ''ProcessMedium'' message related to the write
     *                operation
@@ -81,29 +81,29 @@ object PersistentMetaDataWriterActor:
 
 
 /**
-  * An actor that produces meta data files for media while they are processed
-  * by the meta data manager.
+  * An actor that produces metadata files for media while they are processed
+  * by the metadata manager.
   *
   * This actor comes into play when media are detected for which no or
-  * incomplete meta data files exist. In this case, the files on the medium are
-  * scanned to extract meta data. When this is done (or if a sufficient number
-  * of files has been processed) the obtained meta data should be written out.
+  * incomplete metadata files exist. In this case, the files on the medium are
+  * scanned to extract metadata. When this is done (or if a sufficient number
+  * of files has been processed) the obtained metadata should be written out.
   *
   * This actor is notified about media that fall under this category. It
   * registers itself as listener for these media and handles update
-  * notifications about incoming meta data. When a configurable number of files
-  * on a medium has been processed the meta data file for this medium is
+  * notifications about incoming metadata. When a configurable number of files
+  * on a medium has been processed the metadata file for this medium is
   * written to disk.
   *
-  * @param blockSize the number of meta data files processed on a medium
-  *                  before the meta data file is written
+  * @param blockSize the number of metadata files processed on a medium
+  *                  before the metadata file is written
   */
 class PersistentMetaDataWriterActor(blockSize: Int,
                                     private[persistence] val resultHandler:
                                     FutureIOResultHandler) extends Actor with ActorLogging:
   def this(blockSize: Int) = this(blockSize, new FutureIOResultHandler)
 
-  /** The JSON converter for meta data. */
+  /** The JSON converter for metadata. */
   private val metaDataConverter = new MetaDataJsonConverter
 
   /**
@@ -161,15 +161,15 @@ class PersistentMetaDataWriterActor(blockSize: Int,
       mediaToBeWritten -= mid
 
   /**
-    * Triggers writing of a file with meta data. The specified map with meta
-    * data is written into the target file for the given medium.
+    * Triggers writing of a file with metadata. The specified map with 
+    * metadata is written into the target file for the given medium.
     *
     * @param mediumData the object with data about the medium in question
     * @return a future for the result of the write operation
     */
   private def triggerWriteMetaDataFile(mediumData: MediumData): Future[IOResult] =
     import context.system
-    log.info("Writing meta data file {}.", mediumData.process.target)
+    log.info("Writing metadata file {}.", mediumData.process.target)
     val source = Source(mediumData.elements)
     val listStage =
       new ListSeparatorStage[(String, MediaMetaData)]("[\n", ",\n", "\n]\n")((e, _) =>
@@ -181,11 +181,11 @@ class PersistentMetaDataWriterActor(blockSize: Int,
 
   /**
     * Processes a single media file in the stream for writing media files.
-    * The element is an entry of the map from a meta data chunk. It is
+    * The element is an entry of the map from a metadata chunk. It is
     * converted to a JSON representation in binary form.
     *
     * @param uri  the URI of the song
-    * @param data the meta data for song
+    * @param data the metadata for song
     * @return a JSON representation for this song
     */
   private def processElement(uri: String, data: MediaMetaData): String =
@@ -235,13 +235,13 @@ private class FutureIOResultHandler:
         log.error(ex, "Stream operation caused an exception!")
         notifyTriggerActor(data, actor, success = false)
       case Success(_) =>
-        log.info("Meta data file written successfully.")
+        log.info("Metadata file written successfully.")
         notifyTriggerActor(data, actor, success = true)
 
   /**
     * Sends a notification message to the trigger actor about the result of the
     * current write operation. That way the trigger actor can keep track on
-    * newly written meta data files.
+    * newly written metadata files.
     *
     * @param data    the data object for the write operation
     * @param actor   the owning actor

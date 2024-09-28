@@ -104,7 +104,7 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /** The media manager of the union archive. */
     private val mediaUnionActor = TestProbe().ref
 
-    /** The meta data manager of the union archive. */
+    /** The metadata manager of the union archive. */
     private val metaDataUnionActor = TestProbe().ref
 
     /** A list with the configs for the archives in the group. */
@@ -147,10 +147,10 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private def createTestActor(): ActorRef =
       system.actorOf(Props(new ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs,
         updateService) with ArchiveActorFactory with ChildActorFactory {
-        override def createArchiveActors(refMediaUnionActor: ActorRef, refMetaDataUnionActor: ActorRef,
+        override def createArchiveActors(refMediaUnionActor: ActorRef, metadataUnionActor: ActorRef,
                                          groupManager: ActorRef, archiveConfig: MediaArchiveConfig): ActorRef = {
           refMediaUnionActor should be(mediaUnionActor)
-          refMetaDataUnionActor should be(metaDataUnionActor)
+          metadataUnionActor should be(metaDataUnionActor)
           groupManager should be(self)
           if archiveConfig == archiveConfigs.head then mediaManagers.head.ref
           else if archiveConfig == archiveConfigs(1) then mediaManagers(1).ref

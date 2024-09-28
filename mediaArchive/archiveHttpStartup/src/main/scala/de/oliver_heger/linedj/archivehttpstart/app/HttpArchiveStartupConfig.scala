@@ -118,7 +118,7 @@ object HttpArchiveStartupConfig:
   final val PropTimeoutReadSize: String = "timeoutReadSize"
 
   /**
-    * The prefix for all configuration properties related to the meta data
+    * The prefix for all configuration properties related to the metadata
     * URI mapping configuration.
     */
   final val PrefixMetaUriMapping = "uriMapping."
@@ -131,7 +131,7 @@ object HttpArchiveStartupConfig:
 
   /**
     * The configuration property for a prefix to be removed from a URI defined
-    * in a meta data file. When doing the mapping it is expected that all URIs
+    * in a metadata file. When doing the mapping it is expected that all URIs
     * start with this prefix - other URIs are ignored. The prefix is then
     * removed, so that the remaining part can be further processed, e.g.
     * concatenated to the root path of the current medium. If this property is
@@ -169,7 +169,7 @@ object HttpArchiveStartupConfig:
 
   /**
     * The configuration property that controls the URL encoding of URIs. If
-    * set to '''true''', the single components of URIs obtained from meta data
+    * set to '''true''', the single components of URIs obtained from metadata
     * files are encoded. (As they might contain path separators, those
     * separators are not encoded.) The default value is '''false'''.
     */
@@ -187,7 +187,7 @@ object HttpArchiveStartupConfig:
   /**
     * The configuration property defining the size of the request queue. This
     * is the maximum number of requests to the archive (download requests and
-    * requests for meta data) waiting to be processed. If there are more
+    * requests for metadata) waiting to be processed. If there are more
     * requests, new ones will be rejected.
     */
   final val PropRequestQueueSize = "requestQueueSize"
@@ -313,7 +313,7 @@ object HttpArchiveStartupConfig:
       archiveBaseUri = Uri(uri),
       contentPath = extractContentPath(c, Path + PropContentPath),
       mediaPath = extractSubPath(c, Path + PropMediaPath),
-      metaDataPath = extractSubPath(c, Path + PropMetaDataPath),
+      metadataPath = extractSubPath(c, Path + PropMetaDataPath),
       archiveName = extractArchiveName(c, Path),
       downloader = null)
     HttpArchiveStartupConfig(archiveConfig = archiveConfig,
