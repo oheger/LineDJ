@@ -36,12 +36,12 @@ object PlaylistMetaDataServiceSpec:
   /**
     * Special implementation of a factory for songs. This implementation
     * checks whether meta is defined. It then returns song objects according to
-    * the functions for defined or undefined meta data.
+    * the functions for defined or undefined metadata.
     */
   private val Factory: SongDataFactory = new SongDataFactory:
-    override def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData =
-      if metaData.title.isDefined then
-        SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
+    override def createSongData(id: MediaFileID, metadata: MediaMetaData): SongData =
+      if metadata.title.isDefined then
+        SongData(id, metadata, metadata.title.get, metadata.artist.get, metadata.album.get)
       else
         val idx = extractIndex(id)
         undefinedSongData(idx)
@@ -67,28 +67,28 @@ object PlaylistMetaDataServiceSpec:
       case _ => throw new AssertionError("Unexpected file name " + id)
 
   /**
-    * Generates test meta data for the file with the given index.
+    * Generates test metadata for the file with the given index.
     *
     * @param idx the index
-    * @return meta data for this file
+    * @return metadata for this file
     */
-  private def createMetaData(idx: Int): MediaMetaData =
+  private def createMetadata(idx: Int): MediaMetaData =
     MediaMetaData(title = Some("Title" + idx), artist = Some("Artist" + idx),
       album = Some("Album" + idx))
 
   /**
-    * Generates a ''SongData'' instance with defined meta data.
+    * Generates a ''SongData'' instance with defined metadata.
     *
     * @param idx the index
     * @return the defined ''SongData''
     */
   private def definedSongData(idx: Int): SongData =
-    val metaData = createMetaData(idx)
+    val metaData = createMetadata(idx)
     SongData(fileID(idx), metaData, metaData.title.get, metaData.artist.get,
       metaData.album.get)
 
   /**
-    * Generates a ''SongData'' instance if meta data is not available.
+    * Generates a ''SongData'' instance if metadata is not available.
     *
     * @param idx the index
     * @return the undefined ''SongData''
@@ -109,23 +109,23 @@ object PlaylistMetaDataServiceSpec:
     Playlist(pendingSongs = files, playedSongs = Nil)
 
   /**
-    * Generates a map with meta data for the test files with the specified
+    * Generates a map with metadata for the test files with the specified
     * indices.
     *
-    * @param indices the indices of files with meta data
-    * @return the map with meta data
+    * @param indices the indices of files with metadata
+    * @return the map with metadata
     */
   private def createMetaDataMap(indices: Int*): Map[MediaFileID, MediaMetaData] =
     indices.foldLeft(Map.empty[MediaFileID, MediaMetaData]) { (m, i) =>
-      m + (fileID(i) -> createMetaData(i))
+      m + (fileID(i) -> createMetadata(i))
     }
 
   /**
-    * Generates meta data for all files contained in the specified ranges. This
-    * is convenient to generate whole chunks of meta data.
+    * Generates metadata for all files contained in the specified ranges. This
+    * is convenient to generate whole chunks of metadata.
     *
     * @param ranges a sequence with ranges
-    * @return the map with meta data
+    * @return the map with metadata
     */
   private def metaDataForRanges(ranges: (Int, Int)*): Map[MediaFileID, MediaMetaData] =
     createMetaDataMap(ranges.flatMap(r => r._1 to r._2): _*)
@@ -181,20 +181,20 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers:
       PlaylistMetaDataService.InitialState)(Factory)
     delta.resolvedSongs should contain theSameElementsAs songs
 
-  it should "process meta data if no songs can be resolved" in:
+  it should "process metadata if no songs can be resolved" in:
     val playlist = createPlaylist(1, 4)
     val metaData = metaDataForRanges((5, 8))
     val (_, state) = PlaylistMetaDataService.processPlaylistUpdate(playlist, 1,
       PlaylistMetaDataService.InitialState)(Factory)
 
-    val (delta, nextState) = PlaylistMetaDataService.processMetaDataUpdate(
+    val (delta, nextState) = PlaylistMetaDataService.processMetadataUpdate(
       PlaylistMetaData(metaData), state)(Factory)
     delta.resolvedSongs shouldBe empty
     delta.updatedRanges shouldBe empty
     delta.fullUpdate shouldBe false
-    nextState.metaData should be(metaData)
+    nextState.metadata should be(metaData)
 
-  it should "resolve songs when new meta data arrives" in:
+  it should "resolve songs when new metadata arrives" in:
     val playlist = createPlaylist(1, 8)
     val resolvedRange = (2, 5)
     val metaData = metaDataForRanges(resolvedRange)
@@ -202,12 +202,12 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers:
     val (_, state) = PlaylistMetaDataService.processPlaylistUpdate(playlist, 1,
       PlaylistMetaDataService.InitialState)(Factory)
 
-    val (delta, nextState) = PlaylistMetaDataService.processMetaDataUpdate(
+    val (delta, nextState) = PlaylistMetaDataService.processMetadataUpdate(
       PlaylistMetaData(metaData), state)(Factory)
     delta.resolvedSongs should contain theSameElementsAs resolvedSongs
     delta.updatedRanges should contain only ((resolvedRange._1 - 1, resolvedRange._2 - 1))
     delta.fullUpdate shouldBe false
-    nextState.metaData should be(metaData)
+    nextState.metadata should be(metaData)
 
   it should "resolve all songs in multiple steps" in:
     val playlist = createPlaylist(1, 8)
@@ -216,7 +216,7 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers:
 
     def checkMetaDataUpdate(range: (Int, Int), state: MetaDataResolveState):
     MetaDataResolveState =
-      val (delta, nextState) = PlaylistMetaDataService.processMetaDataUpdate(
+      val (delta, nextState) = PlaylistMetaDataService.processMetadataUpdate(
         PlaylistMetaData(metaDataForRanges((1, range._2))), state)(Factory)
       delta.resolvedSongs should contain theSameElementsAs createResolvedSongs(range._1, range._2)
       delta.updatedRanges should contain only ((range._1 - 1, range._2 - 1))
@@ -234,12 +234,12 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers:
     val rangesZeroBase = ranges map (r => (r._1 - 1, r._2 - 1))
     val metaData = metaDataForRanges(ranges: _*)
 
-    val (delta, _) = PlaylistMetaDataService.processMetaDataUpdate(PlaylistMetaData(metaData),
+    val (delta, _) = PlaylistMetaDataService.processMetadataUpdate(PlaylistMetaData(metaData),
       state1)(Factory)
     delta.resolvedSongs should have size 9
     delta.updatedRanges should contain theSameElementsAs rangesZeroBase
 
-  it should "resolve songs in a new playlist if meta data is available" in:
+  it should "resolve songs in a new playlist if metadata is available" in:
     val Count = 8
     val resolvedFrom = 3
     val resolvedTo = 5
@@ -254,7 +254,7 @@ class PlaylistMetaDataServiceSpec extends AnyFlatSpec with Matchers:
 
     val (delta, nextState) = PlaylistMetaDataService.processPlaylistUpdate(playlist, 1,
       state)(Factory)
-    nextState.metaData should be(state.metaData)
+    nextState.metadata should be(state.metadata)
     nextState.seqNo should be(1)
     delta.fullUpdate shouldBe true
     delta.updatedRanges should contain only ((0, Count - 1))

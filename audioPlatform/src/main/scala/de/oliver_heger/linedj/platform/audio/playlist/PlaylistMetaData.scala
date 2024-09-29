@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
-  * A class storing meta data for the files in a playlist.
+  * A class storing metadata for the files in a playlist.
   *
   * A playlist as processed by the audio player component consists only of
   * references to the songs to be played. In order to display such a list in
@@ -31,24 +31,24 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * and title.
   *
   * This class provides this additional information in form of a map. Instances
-  * are created when the playlist is changed. Then meta data for the songs in
+  * are created when the playlist is changed. Then metadata for the songs in
   * the playlist is fetched automatically in background, and updated instances
   * are made available.
   *
-  * Note that an instance may not contain meta data for all songs in the
-  * playlist. The process of fetching meta data from the archive may still be
+  * Note that an instance may not contain metadata for all songs in the
+  * playlist. The process of fetching metadata from the archive may still be
   * in progress, so some songs may not have been resolved yet.
   *
-  * @param data a map from a file ID to corresponding meta data
+  * @param data a map from a file ID to corresponding metadata
   */
 case class PlaylistMetaData(data: Map[MediaFileID, MediaMetaData])
 
 /**
-  * A message class representing a consumer registration for the meta data of
+  * A message class representing a consumer registration for the metadata of
   * the current playlist.
   *
   * By publishing a message of this type on the system message bus, a component
-  * can register itself for updates when meta data about songs in the playlist
+  * can register itself for updates when metadata about songs in the playlist
   * becomes available. Multiple update notifications may be received until all
   * songs in the playlist have been resolved.
   *
@@ -63,17 +63,17 @@ case class PlaylistMetaDataRegistration(override val id: ComponentID,
 
 /**
   * A message class representing the removal of a registration for playlist
-  * meta data.
+  * metadata.
   *
   * @param id the ID of the consumer component
   */
 case class PlaylistMetaDataUnregistration(id: ComponentID)
 
 /**
-  * A class representing the current state of a resolve operation for the meta
-  * data of a playlist.
+  * A class representing the current state of a resolve operation for the 
+  * metadata of a playlist.
   *
-  * This class is used by the playlist meta data service to keep track on an
+  * This class is used by the playlist metadata service to keep track on an
   * ongoing resolve operation. Clients of the service have to provide an
   * instance. However, they should not make any assumptions about the content
   * of an instance, as its interpretation is an implementation detail of the
@@ -81,17 +81,17 @@ case class PlaylistMetaDataUnregistration(id: ComponentID)
   *
   * @param seqNo           the sequence number of the current playlist
   * @param unresolvedSongs a list with information about songs for which no
-  *                        meta data is available yet
-  * @param metaData        a map with meta data which is currently known
+  *                        metadata is available yet
+  * @param metadata        a map with metadata which is currently known
   */
 case class MetaDataResolveState(seqNo: Int, unresolvedSongs: List[(MediaFileID, Int)],
-                                metaData: Map[MediaFileID, MediaMetaData])
+                                metadata: Map[MediaFileID, MediaMetaData])
 
 /**
-  * A class describing the changes caused by a step in a meta data resolve
+  * A class describing the changes caused by a step in a metadata resolve
   * operation.
   *
-  * Whenever new meta data is obtained from the media archive, songs in the
+  * Whenever new metadata is obtained from the media archive, songs in the
   * playlist may change to the resolved state. This typically triggers some
   * actions of a client, e.g. the UI has to be updated accordingly. The
   * information stored in an instance is sufficient to define such actions. It
@@ -109,7 +109,7 @@ case class MetaDataResolveState(seqNo: Int, unresolvedSongs: List[(MediaFileID, 
   * playlist has changed completely, and a new resolving process starts. This
   * is indicated by another flag.
   *
-  * @param resolvedSongs list of songs with updated meta data and their indices
+  * @param resolvedSongs list of songs with updated metadata and their indices
   * @param updatedRanges list of ranges affected by this change
   * @param fullUpdate    flag whether this delta represents a full change
   */

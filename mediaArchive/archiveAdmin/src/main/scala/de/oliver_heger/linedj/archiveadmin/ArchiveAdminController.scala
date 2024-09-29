@@ -61,7 +61,7 @@ object ArchiveAdminController:
   /** The action for canceling a media scan. */
   private val ActionCancelScan = "cancelScanAction"
 
-  /** The action for opening the window with meta data files. */
+  /** The action for opening the window with metadata files. */
   private val ActionMetaDataFiles = "metaDataFilesAction"
 
   /** A set containing all managed actions. */
@@ -191,9 +191,9 @@ class ArchiveAdminController(application: ArchiveAdminApp,
 
   /**
     * Notification method that reports a change in the selection of the
-    * archives combo box. In reaction of this change the meta data for the
+    * archives combo box. In reaction of this change the metadata for the
     * newly selected archive has to be displayed. If it has not yet been
-    * retrieved, it has to be fetched from the meta data union actor.
+    * retrieved, it has to be fetched from the metadata union actor.
     */
   def archiveSelectionChanged(): Unit =
     val archiveID = comboArchives.getData.asInstanceOf[String]
@@ -208,7 +208,7 @@ class ArchiveAdminController(application: ArchiveAdminApp,
     enableAction(ActionMetaDataFiles, archiveID != unionArchiveName)
 
   /**
-    * The consumer function for processing meta data state events.
+    * The consumer function for processing metadata state events.
     *
     * @param event the state event
     */

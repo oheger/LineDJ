@@ -23,14 +23,14 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * A default implementation of the [[SongDataFactory]] trait.
   *
   * This implementation creates [[SongData]] objects from the passed in IDs and
-  * meta data. Missing key properties in meta data are obtained from the
+  * metadata. Missing key properties in metadata are obtained from the
   * provided [[UnknownPropertyResolver]].
   *
-  * @param resolver the resolver for missing meta data properties
+  * @param resolver the resolver for missing metadata properties
   */
 class DefaultSongDataFactory(val resolver: UnknownPropertyResolver) extends SongDataFactory:
-  override def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData =
-    SongData(id, metaData,
-      title = metaData.title getOrElse resolver.resolveTitle(id),
-      artist = metaData.artist getOrElse resolver.resolveArtistName(id),
-      album = metaData.album getOrElse resolver.resolveAlbumName(id))
+  override def createSongData(id: MediaFileID, metadata: MediaMetaData): SongData =
+    SongData(id, metadata,
+      title = metadata.title getOrElse resolver.resolveTitle(id),
+      artist = metadata.artist getOrElse resolver.resolveArtistName(id),
+      album = metadata.album getOrElse resolver.resolveAlbumName(id))

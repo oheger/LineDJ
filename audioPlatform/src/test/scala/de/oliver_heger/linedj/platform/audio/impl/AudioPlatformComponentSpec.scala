@@ -48,14 +48,14 @@ import scala.concurrent.duration.*
 import scala.util.Success
 
 object AudioPlatformComponentSpec:
-  /** Query chunk size for the meta data resolver. */
+  /** Query chunk size for the metadata resolver. */
   private val QueryChunkSize = 42
 
-  /** Size of the meta data cache. */
-  private val MetaDataCacheSize = 1200
+  /** Size of the metadata cache. */
+  private val MetadataCacheSize = 1200
 
-  /** Timeout for meta data requests. */
-  private val MetaDataRequestTimeout = 1.minute
+  /** Timeout for metadata requests. */
+  private val MetadataRequestTimeout = 1.minute
 
   /**
     * A timeout for the shutdown of the audio player. This is a short duration,
@@ -217,10 +217,10 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "create a meta resolver with a specific configuration" in:
     val helper = new ComponentTestHelper
-    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataQueryChunkSize, QueryChunkSize)
-    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataCacheSize, MetaDataCacheSize)
-    helper.configuration.addProperty(AudioPlatformComponent.PropMetaDataRequestTimeout,
-      MetaDataRequestTimeout.toMillis)
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetadataQueryChunkSize, QueryChunkSize)
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetadataCacheSize, MetadataCacheSize)
+    helper.configuration.addProperty(AudioPlatformComponent.PropMetadataRequestTimeout,
+      MetadataRequestTimeout.toMillis)
 
     helper.activate()
       .verifyMetaDataResolverCreation()
@@ -229,9 +229,9 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ComponentTestHelper
 
     helper.activate()
-      .verifyMetaDataResolverCreation(chunkSize = AudioPlatformComponent.DefaultMetaDataQueryChunkSize,
-        cacheSize = AudioPlatformComponent.DefaultMetaDataCacheSize,
-        requestTimeout = AudioPlatformComponent.DefaultMetaDataRequestTimeout)
+      .verifyMetaDataResolverCreation(chunkSize = AudioPlatformComponent.DefaultMetadataQueryChunkSize,
+        cacheSize = AudioPlatformComponent.DefaultMetadataCacheSize,
+        requestTimeout = AudioPlatformComponent.DefaultMetadataRequestTimeout)
 
   /**
     * A test helper class managing a test instance and its dependencies.
@@ -240,8 +240,8 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     /** The media manager actor. */
     private val mediaManager = TestProbe().ref
 
-    /** The meta data manager actor. */
-    private val metaDataManager = TestProbe().ref
+    /** The metadata manager actor. */
+    private val metadataManager = TestProbe().ref
 
     /** Mock for the audio player. */
     private val audioPlayer = mock[AudioPlayer]
@@ -259,7 +259,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     /** The component to be tested. */
     private val component = createComponent()
 
-    /** The meta data resolver instance created by the test component. */
+    /** The metadata resolver instance created by the test component. */
     private var metaDataResolver: PlaylistMetaDataResolver = _
 
     /** The behavior of the management actor. */
@@ -306,11 +306,11 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return this test helper
       */
     def verifyMetaDataResolverCreation(chunkSize: Int = QueryChunkSize,
-                                       cacheSize: Int = MetaDataCacheSize,
-                                       requestTimeout: Timeout = MetaDataRequestTimeout):
+                                       cacheSize: Int = MetadataCacheSize,
+                                       requestTimeout: Timeout = MetadataRequestTimeout):
     ComponentTestHelper =
       metaDataResolver should not be null
-      metaDataResolver.metaDataActor should be(mediaManager)
+      metaDataResolver.metadataActor should be(mediaManager)
       metaDataResolver.bus should be(messageBus)
       metaDataResolver.ec should be(system.dispatcher)
       metaDataResolver.queryChunkSize should be(chunkSize)
@@ -361,7 +361,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     def verifyOsgiServiceRegistrations(): ComponentTestHelper =
       val serviceDependency = messageBus.expectMessageType[RegisterService].service
-      serviceDependency should be(AudioPlatformComponent.PlaylistMetaDataResolverDependency)
+      serviceDependency should be(AudioPlatformComponent.PlaylistMetadataResolverDependency)
       this
 
     /**
@@ -374,7 +374,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       val consumerDeReg = messageBus.findMessageType[AudioPlayerStateChangeUnregistration]
       consumerDeReg.id should be(metaDataResolver.componentID)
       val dependency = messageBus.expectMessageType[UnregisterService].service
-      dependency should be(AudioPlatformComponent.PlaylistMetaDataResolverDependency)
+      dependency should be(AudioPlatformComponent.PlaylistMetadataResolverDependency)
       this
 
     /**
@@ -460,7 +460,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       when(playerFactory.createAudioPlayer(appConfig, AudioPlatformComponent.PlayerConfigPrefix,
         mediaManager, component)).thenReturn(Future.successful(audioPlayer))
       component initClientContext createClientContext()
-      component initFacadeActors MediaFacadeActors(mediaManager, metaDataManager)
+      component initFacadeActors MediaFacadeActors(mediaManager, metadataManager)
       component
 
     /**

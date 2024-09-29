@@ -19,15 +19,15 @@ package de.oliver_heger.linedj.platform.audio.model
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 
 /**
-  * A trait for resolving unknown meta data properties when creating
+  * A trait for resolving unknown metadata properties when creating
   * [[SongData]] instances.
   *
-  * If meta data is incomplete, some default values have to be set for key
+  * If metadata is incomplete, some default values have to be set for key
   * properties. Such values are typically application-specific. Therefore, this
   * trait is introduced, to allow an application to plug in an implementation
   * which fits its needs.
   *
-  * The methods to resolve unknown meta data properties are passed the ID of
+  * The methods to resolve unknown metadata properties are passed the ID of
   * the song affected, which also contains the URL to the song file. This may
   * be used by an implementation to come to a result, e.g. by assuming a
   * certain structure in folder and file names.

@@ -36,12 +36,12 @@ import scala.concurrent.{Await, ExecutionContextExecutor, Future, TimeoutExcepti
 
 object AudioPlatformComponent:
   /**
-    * Constant for the service name of the playlist meta data resolver service.
+    * Constant for the service name of the playlist metadata resolver service.
     * A service registration with this name is created when the platform is up
     * and running. This allows components that depend on this service to track
     * its availability.
     */
-  final val PlaylistMetaDataResolverServiceName = "lineDJ.playlistMetaDataResolver"
+  final val PlaylistMetadataResolverServiceName = "lineDJ.playlistMetaDataResolver"
 
   /**
     * The name of the actor that manages the lifecycle of the audio player.
@@ -54,8 +54,8 @@ object AudioPlatformComponent:
     * resolver to make sure that it is available before they publish consumer
     * registrations on the message bus.
     */
-  final val PlaylistMetaDataResolverDependency =
-    ServiceDependency(PlaylistMetaDataResolverServiceName)
+  final val PlaylistMetadataResolverDependency =
+    ServiceDependency(PlaylistMetadataResolverServiceName)
 
   /** Prefix for the configuration keys for the audio platform. */
   final val PlatformConfigPrefix = "audio."
@@ -72,44 +72,44 @@ object AudioPlatformComponent:
     */
   final val PropShutdownTimeout = PlayerConfigPrefix + "shutdownTimeout"
 
-  /** Prefix for configuration properties related to meta data. */
-  final val MetaDataConfigPrefix = PlatformConfigPrefix + "metaData."
+  /** Prefix for configuration properties related to metadata. */
+  final val MetadataConfigPrefix = PlatformConfigPrefix + "metaData."
 
   /**
-    * Configuration key for the chunk size for meta data queries. When
-    * retrieving meta data for the songs in the current playlist, queries for
+    * Configuration key for the chunk size for metadata queries. When
+    * retrieving metadata for the songs in the current playlist, queries for
     * this number of songs are sent.
     */
-  final val PropMetaDataQueryChunkSize = MetaDataConfigPrefix + "queryChunkSize"
+  final val PropMetadataQueryChunkSize = MetadataConfigPrefix + "queryChunkSize"
 
   /**
-    * Configuration key for the size of the meta data cache. Resolved meta data
+    * Configuration key for the size of the metadata cache. Resolved metadata
     * for songs in the playlist is stored in a cache, so that it does not have
     * to be retrieved on each access. With this option the maximum size of the
     * cache can be specified. If the cache reaches its limit, older entries are
     * removed.
     */
-  final val PropMetaDataCacheSize = MetaDataConfigPrefix + "cacheSize"
+  final val PropMetadataCacheSize = MetadataConfigPrefix + "cacheSize"
 
   /**
-    * Configuration key for the timeout for meta data requests. If a request
-    * for meta data takes longer than this value (in milliseconds), the
-    * request is considered a failure, and dummy meta data is used for the
+    * Configuration key for the timeout for metadata requests. If a request
+    * for metadata takes longer than this value (in milliseconds), the
+    * request is considered a failure, and dummy metadata is used for the
     * songs affected.
     */
-  final val PropMetaDataRequestTimeout = MetaDataConfigPrefix + "requestTimeout"
+  final val PropMetadataRequestTimeout = MetadataConfigPrefix + "requestTimeout"
 
   /** The default value for the shutdown timeout. */
   final val DefaultShutdownTimeout = 3.seconds
 
-  /** Default meta data query chunk size. */
-  final val DefaultMetaDataQueryChunkSize = 20
+  /** Default metadata query chunk size. */
+  final val DefaultMetadataQueryChunkSize = 20
 
-  /** Default cache size for resolved meta data. */
-  final val DefaultMetaDataCacheSize = 1000
+  /** Default cache size for resolved metadata. */
+  final val DefaultMetadataCacheSize = 1000
 
-  /** Default timeout for meta data requests. */
-  final val DefaultMetaDataRequestTimeout = 30.seconds
+  /** Default timeout for metadata requests. */
+  final val DefaultMetadataRequestTimeout = 30.seconds
 
 /**
   * A declarative services component representing the audio platform.
@@ -146,11 +146,11 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     */
   private var playbackContextFactories = List.empty[PlaybackContextFactory]
 
-  /** The meta data resolver object. */
-  private var playlistMetaDataResolver: Option[PlaylistMetaDataResolver] = None
+  /** The metadata resolver object. */
+  private var playlistMetadataResolver: Option[PlaylistMetaDataResolver] = None
 
-  /** The message bus listener registration ID for the meta data resolver. */
-  private var metaDataResolverRegistrationID = 0
+  /** The message bus listener registration ID for the metadata resolver. */
+  private var metadataResolverRegistrationID = 0
 
   /**
     * Creates a new instance of ''AudioPlatformComponent'' that sets default
@@ -219,19 +219,19 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     optManagementActor = Some(managementActor)
 
     val metaDataResolver = createPlaylistMetaDataResolver()
-    metaDataResolverRegistrationID =
-      registerService(metaDataResolver, PlaylistMetaDataResolverDependency)
+    metadataResolverRegistrationID =
+      registerService(metaDataResolver, PlaylistMetadataResolverDependency)
     managementActor ! PlayerManagerActor.PublishAfterCreation(metaDataResolver.playerStateChangeRegistration)
-    playlistMetaDataResolver = Some(metaDataResolver)
+    playlistMetadataResolver = Some(metaDataResolver)
 
   /**
     * @inheritdoc This implementation cleans up all registrations done before.
     */
   override def deactivate(componentContext: ComponentContext): Unit =
-    playlistMetaDataResolver foreach { r =>
+    playlistMetadataResolver foreach { r =>
       clientApplicationContext.messageBus publish r.playerStateChangeRegistration.unRegistration
     }
-    unregisterService(PlaylistMetaDataResolverDependency, metaDataResolverRegistrationID)
+    unregisterService(PlaylistMetadataResolverDependency, metadataResolverRegistrationID)
     closeAudioPlayerManagerActor()
     log.info("Audio platform deactivated.")
 
@@ -249,19 +249,19 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     }
 
   /**
-    * Creates the service to resolve meta data for songs in the playlist.
+    * Creates the service to resolve metadata for songs in the playlist.
     *
     * @return the ''PlaylistMetaDataResolver''
     */
   private[impl] def createPlaylistMetaDataResolver(): PlaylistMetaDataResolver =
     val conf = clientApplicationContext.managementConfiguration
     implicit val ec: ExecutionContextExecutor = clientApplicationContext.actorSystem.dispatcher
-    new PlaylistMetaDataResolver(metaDataActor = mediaFacadeActors.mediaManager,
+    new PlaylistMetaDataResolver(metadataActor = mediaFacadeActors.mediaManager,
       bus = clientApplicationContext.messageBus,
-      queryChunkSize = conf.getInt(PropMetaDataQueryChunkSize, DefaultMetaDataQueryChunkSize),
-      cacheSize = conf.getInt(PropMetaDataCacheSize, DefaultMetaDataCacheSize),
-      requestTimeout = conf.getLong(PropMetaDataRequestTimeout,
-        DefaultMetaDataRequestTimeout.toMillis).millis)
+      queryChunkSize = conf.getInt(PropMetadataQueryChunkSize, DefaultMetadataQueryChunkSize),
+      cacheSize = conf.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize),
+      requestTimeout = conf.getLong(PropMetadataRequestTimeout,
+        DefaultMetadataRequestTimeout.toMillis).millis)
 
   /**
     * Registers a service as message bus listener and creates the corresponding

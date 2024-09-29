@@ -31,7 +31,7 @@ object SongDataSpec:
   /** Test duration. */
   private val Duration = 4444
 
-  /** A meta data object containing all relevant information. */
+  /** A metadata object containing all relevant information. */
   private val CompleteMetaData = MediaMetaData(trackNumber = Some(TrackNumber),
     duration = Some(Duration))
 
@@ -42,25 +42,25 @@ class SongDataSpec extends AnyFlatSpec with Matchers:
 
   import SongDataSpec._
 
-  "A SongData" should "return the duration from meta data" in:
+  "A SongData" should "return the duration from metadata" in:
     val song = SongData(SongID, CompleteMetaData, "title", "artist", "album")
 
     song.getDuration should be(Duration)
     song.hasDuration shouldBe true
 
-  it should "return a special duration if undefined in meta data" in:
+  it should "return a special duration if undefined in metadata" in:
     val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
 
     song.getDuration should be(SongData.UnknownDuration)
     song.hasDuration shouldBe false
 
-  it should "return the track number from meta data" in:
+  it should "return the track number from metadata" in:
     val song = SongData(SongID, CompleteMetaData, "title", "artist", "album")
 
     song.getTrackNumber should be(TrackNumber)
     song.hasTrackNumber shouldBe true
 
-  it should "return a special track number if undefined in meta data" in:
+  it should "return a special track number if undefined in metadata" in:
     val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
 
     song.getTrackNumber should be(SongData.UnknownTrackNumber)

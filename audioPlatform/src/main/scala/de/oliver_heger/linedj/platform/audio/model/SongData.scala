@@ -31,8 +31,8 @@ object SongData:
 /**
   * A data class that holds information about a song.
   *
-  * The song is mainly described by its unique ID and the meta data available
-  * for it. As meta data is optional, some important properties like title or
+  * The song is mainly described by its unique ID and the metadata available
+  * for it. As metadata is optional, some important properties like title or
   * artist are provided explicitly. They can be resolved when an instance is
   * created and are then available for direct access.
   *
@@ -41,7 +41,7 @@ object SongData:
   * standard.
   *
   * @param id       the ID of this song in the media archive
-  * @param metaData meta data about this song
+  * @param metaData metadata about this song
   */
 case class SongData(id: MediaFileID, metaData: MediaMetaData,
                     @BeanProperty title: String,
@@ -57,7 +57,7 @@ case class SongData(id: MediaFileID, metaData: MediaMetaData,
   lazy val getDuration: Int = metaData.duration getOrElse UnknownDuration
 
   /**
-    * Returns a flag whether a duration is defined for this song in meta data.
+    * Returns a flag whether a duration is defined for this song in metadata.
     * If this function returns '''true''', ''getDuration'' will return a
     * correct duration value. Otherwise, a special negative value is returned.
     *
@@ -72,9 +72,10 @@ case class SongData(id: MediaFileID, metaData: MediaMetaData,
   lazy val getTrackNumber: Int = metaData.trackNumber getOrElse UnknownTrackNumber
 
   /**
-    * Returns a flag whether a track number is defined for this song in meta
-    * data. If this function returns '''true''', ''getTrackNumber'' will return
-    * a correct track number. Otherwise, a special negative value is returned.
+    * Returns a flag whether a track number is defined for this song in 
+    * metadata. If this function returns '''true''', ''getTrackNumber'' will 
+    * return a correct track number. Otherwise, a special negative value is 
+    * returned.
     *
     * @return a flag whether the track number is defined for this song
     */

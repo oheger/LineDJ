@@ -312,7 +312,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .validateStreamCanceled()
       .validateStatusHandler(_.validationResults(anyInt(), anyInt(), anyBoolean()), never())
 
-  it should "handle a closed window before meta data has been fetched" in:
+  it should "handle a closed window before metadata has been fetched" in:
     val helper = new ControllerTestHelper
 
     helper.withMockKillSwitch()
@@ -322,7 +322,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .expectNoSourceCreation()
       .validateNoStreamCancellation()
 
-  it should "handle a closed window before meta data has been fetched with a failure" in:
+  it should "handle a closed window before metadata has been fetched with a failure" in:
     val helper = new ControllerTestHelper
 
     helper.initAvailableMedia(Future.failed(new Exception("No media")))
@@ -366,8 +366,8 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
     /** The configuration for the test application. */
     private val configuration = new PropertiesConfiguration
 
-    /** Mock for the meta data service. */
-    private val metaDataService = createMetaDataService()
+    /** Mock for the metadata service. */
+    private val metaDataService = createMetadataService()
 
     /** Mock for the validation item converter. */
     private val converter = createConverter()
@@ -559,8 +559,9 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       this
 
     /**
-      * Overrides the result for the available media to be returned by the meta
-      * data service. This can be used for instance to set a failure result.
+      * Overrides the result for the available media to be returned by the 
+      * metadata service. This can be used for instance to set a failure 
+      * result.
       *
       * @param mediaResult the result to be set for the service
       * @return this test helper
@@ -685,12 +686,12 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
         })
 
     /**
-      * Creates a mock for the meta data service. The service returns the
-      * prepared test files and their meta data.
+      * Creates a mock for the metadata service. The service returns the
+      * prepared test files and their metadata.
       *
-      * @return the mock meta data service
+      * @return the mock metadata service
       */
-    private def createMetaDataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] =
+    private def createMetadataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] =
       val service = mock[MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]]]
       prepareMediaRequest(service, Future.successful(TestMedia))
 
@@ -707,10 +708,10 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       service
 
     /**
-      * Prepares the mock meta data service to expect a query for the currently
+      * Prepares the mock metadata service to expect a query for the currently
       * available media. The service is going to return the given future.
       *
-      * @param service the mock meta data service
+      * @param service the mock metadata service
       * @param result  the available media future result to be returned
       */
     private def prepareMediaRequest(service: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],

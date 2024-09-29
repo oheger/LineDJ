@@ -158,7 +158,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     checkTransformedText(helper.sendMetaDataStateEvent(CurrentState)
       .verifyFormUpdate().mediaCount, CurrentState.state.mediaCount)
 
-  it should "ignore irrelevant meta data state events" in:
+  it should "ignore irrelevant metadata state events" in:
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.sendMetaDataStateEvent(MetaDataScanCanceled)
@@ -413,7 +413,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       .verifyFormUpdate()
     checkTransformedText(data.mediaCount, CurrentState.state.mediaCount)
 
-  it should "reset the meta data cache when the archive combo box model is updated" in:
+  it should "reset the metadata cache when the archive combo box model is updated" in:
     val stats1 = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 4, songCount = 123,
       size = 20200107192500L, duration = CurrentState.state.duration + 8000L)
     val stats2 = ArchiveComponentStatistics(ArchiveNames.head, mediaCount = 5, songCount = 234,
@@ -453,7 +453,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       .prepareArchiveStatsRequestAndSelect(ArchiveNames.head)
       .verifyAction("metaDataFilesAction", enabled = true)
 
-  it should "enable the meta data files action if the single archive is selected" in:
+  it should "enable the metadata files action if the single archive is selected" in:
     val ArchiveName = "The one and only archive"
     val state = ArchiveState.copy(archiveCompIDs = Set(ArchiveName))
     val helper = new ArchiveAdminControllerTestHelper
@@ -469,8 +469,8 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     /** A mock for the form. */
     val form: Form = mock[Form]
 
-    /** A test probe for the union meta data manager actor. */
-    private val probeMetaDataActor = TestProbe()
+    /** A test probe for the union metadata manager actor. */
+    private val probeMetadataActor = TestProbe()
 
     /** A mock for the main application. */
     val application: ArchiveAdminApp = createApplication()
@@ -509,7 +509,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       this
 
     /**
-      * Sends the specified meta data state event to the test controller.
+      * Sends the specified metadata state event to the test controller.
       *
       * @param event the event to be sent
       * @return this test helper
@@ -625,7 +625,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       */
     def prepareArchiveStatsRequest(archiveID: String): ArchiveAdminControllerTestHelper =
       actorRequest = mock[ActorRequest]
-      when(application.invokeActor(probeMetaDataActor.ref, GetArchiveComponentStatistics(archiveID)))
+      when(application.invokeActor(probeMetadataActor.ref, GetArchiveComponentStatistics(archiveID)))
         .thenReturn(actorRequest)
       this
 
@@ -706,7 +706,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return the initialized mock
       */
     private def createApplication(): ArchiveAdminApp =
-      val facadeActors = MediaFacadeActors(metadataManager = probeMetaDataActor.ref, mediaManager = null)
+      val facadeActors = MediaFacadeActors(metadataManager = probeMetadataActor.ref, mediaManager = null)
       val app = mock[ArchiveAdminApp]
       when(app.mediaFacadeActors).thenReturn(facadeActors)
       val appCtx = mock[ApplicationContext]

@@ -604,7 +604,7 @@ class LocalBufferActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     /**
       * Prepares the mock for the buffer file manager to return paths to
-      * temporary files with the contents and meta data specified. That way,
+      * temporary files with the contents and metadata specified. That way,
       * read operations from the buffer can be tested.
       *
       * @param first describes the first read operation

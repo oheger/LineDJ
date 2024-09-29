@@ -214,7 +214,7 @@ class OpenValidationWindowCommandSpec(testSystem: ActorSystem) extends TestKit(t
 
   /**
     * Checks the display function for file validation if there is no title in
-    * the meta data.
+    * the metadata.
     *
     * @param uri       the URI of the file
     * @param expResult the expected result

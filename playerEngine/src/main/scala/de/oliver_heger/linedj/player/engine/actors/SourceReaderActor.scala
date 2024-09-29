@@ -126,7 +126,7 @@ object SourceReaderActor:
   * messages. This happens when the local audio buffer is filled: when the data
   * of an audio source is written into the buffer, the corresponding
   * [[AudioSource]] object is sent to this actor. Thus, it can match audio
-  * sources - and their associated meta data - with reader actors obtained from
+  * sources - and their associated metadata - with reader actors obtained from
   * the buffer.
   *
   * @param bufferActor the local buffer actor

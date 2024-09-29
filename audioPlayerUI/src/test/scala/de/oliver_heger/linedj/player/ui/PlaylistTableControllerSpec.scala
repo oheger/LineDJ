@@ -274,7 +274,7 @@ class PlaylistTableControllerSpec extends AnyFlatSpec with Matchers with Mockito
                              currentState: MetaDataResolveState = InitMetaDataState):
     ControllerTestHelper =
       val resultFunc = serviceResult(delta, nextState)
-      when(service.processMetaDataUpdate(metaData, currentState)).thenReturn(resultFunc)
+      when(service.processMetadataUpdate(metaData, currentState)).thenReturn(resultFunc)
       this
 
     /**

@@ -23,12 +23,12 @@ import de.oliver_heger.linedj.shared.archive.media.MediaFileID
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 
 /**
-  * Implementation of the playlist meta data service.
+  * Implementation of the playlist metadata service.
   */
 object PlaylistMetaDataService
   extends de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataService:
-  /** Constant for undefined meta data. */
-  private val EmptyMetaData = MediaMetaData()
+  /** Constant for undefined metadata. */
+  private val EmptyMetadata = MediaMetaData()
 
   /** Constant for a delta that does not contain any updates. */
   private val EmptyDelta = MetaDataResolveDelta(List.empty, List.empty, fullUpdate = false)
@@ -42,22 +42,22 @@ object PlaylistMetaDataService
     else processNewPlaylist(playlist, seqNo, state, factory)
   }
 
-  override def processMetaDataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
+  override def processMetadataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
   SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState) =
     factory => {
       val (resolved, unresolved) = state.unresolvedSongs.partition(data.data contains _._1)
-      if resolved.isEmpty then (EmptyDelta, state.copy(metaData = data.data))
+      if resolved.isEmpty then (EmptyDelta, state.copy(metadata = data.data))
       else
         val rangeList = calcUpdatedIndices(resolved)
         val resolvedSongs = resolved.map(e => (factory.createSongData(e._1, data.data(e._1)), e._2))
         (MetaDataResolveDelta(resolvedSongs, rangeList, fullUpdate = false),
-          state.copy(metaData = data.data, unresolvedSongs = unresolved))
+          state.copy(metadata = data.data, unresolvedSongs = unresolved))
     }
 
   /**
     * Handles a changed playlist. In this case, ''SongData'' objects with
-    * undefined meta data are created, and the client is told to do a full
-    * update. If meta data is available, it may be possible to already resolve
+    * undefined metadata are created, and the client is told to do a full
+    * update. If metadata is available, it may be possible to already resolve
     * some of the songs in the new playlist.
     *
     * @param playlist the updated playlist
@@ -70,7 +70,7 @@ object PlaylistMetaDataService
                                  factory: SongDataFactory):
   (MetaDataResolveDelta, MetaDataResolveState) =
     val songs = PlaylistService.toSongList(playlist)
-      .map(s => factory.createSongData(s, state.metaData.getOrElse(s, EmptyMetaData)))
+      .map(s => factory.createSongData(s, state.metadata.getOrElse(s, EmptyMetadata)))
       .zipWithIndex
     val unresolved = songs.map(e => (e._1.id, e._2))
     (MetaDataResolveDelta(resolvedSongs = songs, updatedRanges = List((0, songs.size - 1)),

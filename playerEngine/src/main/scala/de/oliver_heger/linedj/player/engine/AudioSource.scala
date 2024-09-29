@@ -50,7 +50,7 @@ object AudioSource:
 
 /**
  * A data class describing an audio source to be played by the audio player
- * engine. This class contains some meta data about the source and its position
+ * engine. This class contains some metadata about the source and its position
  * in the current playlist. It is mainly used internally by the engine.
  *
  * @param uri the URI of the source

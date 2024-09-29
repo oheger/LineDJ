@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
 /**
   * A trait defining the creation of [[SongData]] instances.
   *
-  * This trait abstracts the logic how default values for missing meta data
+  * This trait abstracts the logic how default values for missing metadata
   * properties are obtained. Concrete implementations have to implement a
   * corresponding strategy.
   */
@@ -31,7 +31,7 @@ trait SongDataFactory:
     * Creates a new ''SongData'' instance based on the parameters provided.
     *
     * @param id       the unique ID of the song in the media archive
-    * @param metaData the meta data available for this song
+    * @param metadata the metadata available for this song
     * @return the newly created ''SongData'' instance
     */
-  def createSongData(id: MediaFileID, metaData: MediaMetaData): SongData
+  def createSongData(id: MediaFileID, metadata: MediaMetaData): SongData

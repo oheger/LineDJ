@@ -15,11 +15,11 @@ domain of audio playback. It offers the following functionality:
 * Support for playlists. There are classes modelling playlists and services to
   create and manipulate them. A current playlist for the audio player managed
   by the platform is maintained.
-* Support for meta data resolving for songs in the current playlist. A playlist
+* Support for metadata resolving for songs in the current playlist. A playlist
   only contains references to the songs to be played. An application that wants
-  to display the current playlist also needs the meta data available for the
+  to display the current playlist also needs the metadata available for the
   songs, such as artists, titles, containing albums, etc. There is a service
-  that obtains the meta data automatically from the archive and sends
+  that obtains the metadata automatically from the archive and sends
   notifications when new information is available.
 * Special events for state changes of the managed audio player. They can be
   evaluated for instance by applications implementing a UI for an audio player.
@@ -34,7 +34,7 @@ playlists. They can be found in the packages
 [playlist](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist)
 respective. A song is defined as an object consisting of an ID (that has all
 the information required to fetch the associated media file from a media
-archive) and meta data. The meta data corresponds to the data managed by the
+archive) and metadata. The metadata corresponds to the data managed by the
 media archive for each song. Some frequently used properties like _title_,
 _artist_, and _album_ are available as bean properties. This is especially
 useful for UI applications that want to display songs in table views; here the
@@ -47,32 +47,32 @@ already been played. That way some kind of history information is kept.
 The `PlaylistService` trait offers functions to create playlist objects, query
 their properties, and manipulate them.
 
-### Playlist meta data resolution
+### Playlist metadata resolution
 
 In order to display a playlist to the end user, the plain song IDs have to be
-replaced by meaningful meta data. As this is a typical use case for audio
-applications, the _Audio Platform_ handles meta data resolution automatically
-in background: Whenever new songs are added to the current playlist, their meta
-data is requested automatically from the media archive. Clients interested in 
-this meta data can register themselves as consumers for `PlaylistMetaData`
+replaced by meaningful metadata. As this is a typical use case for audio
+applications, the _Audio Platform_ handles metadata resolution automatically
+in background: Whenever new songs are added to the current playlist, their 
+metadata is requested automatically from the media archive. Clients interested in 
+this metadata can register themselves as consumers for `PlaylistMetaData`
 objects. The corresponding classes are defined in the
 [PlaylistMetaData](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetaData.scala)
 file.
 
 A consumer has to publish a `PlaylistMetaDataRegistration` message on the
 system message bus that contains a reference to a consumer function. Whenever
-new meta data becomes available, the consumer function is invoked (in the UI
-thread) with the complete meta data fetched so far.
+new metadata becomes available, the consumer function is invoked (in the UI
+thread) with the complete metadata fetched so far.
 
-Meta data is fetched chunk-wise; so UI applications have to determine which 
-meta data is available currently and update their display accordingly. This use
+Metadata is fetched chunk-wise; so UI applications have to determine which 
+metadata is available currently and update their display accordingly. This use
 case is supported by the
 [PlaylistMetaDataService](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetaDataService.scala).
-The service offers methods to translate incoming updates of meta data to
+The service offers methods to translate incoming updates of metadata to
 operations for typical UI applications to update their visual representation.
 The service assumes that the application holds songs in an indexed
 collection serving as table model. It returns information about the indices in
-this collection that have to be updated to reflect the meta data newly 
+this collection that have to be updated to reflect the metadata newly 
 available. The [Audio Player UI](../audioPlayerUI) application is an example of
 using this service.
 
@@ -133,7 +133,7 @@ client application already tries to send messages before the _Audio Platform_
 has started and registered the listeners on the bus.
 
 To avoid this, the platform registers some dummy dependencies as OSGi
-services that represent the audio player controller and the meta data resolver
+services that represent the audio player controller and the metadata resolver
 services. Client applications can depend on these synthetic services. The
 following fragment shows how this is done in a declarative services component
 definition file:
@@ -154,7 +154,7 @@ corresponding listeners are registered at the message bus.
 
 The configuration of this component is located in a section named _audio_. It
 contains sub sections for general configuration of the audio player and the 
-meta data resolver service (for the current playlist.) All configuration 
+metadata resolver service (for the current playlist.) All configuration 
 settings are optional; for missing properties default values are set. The
 following fragment shows an XML configuration with the supported properties:
 
@@ -176,6 +176,6 @@ The table below describes the properties and their default values.
 | Setting | Description | Default |
 | ------- | ----------- | --------
 | shutdownTimeout | A time (in milliseconds) to wait for the shutdown of the audio platform. When the component for the _Audio Platform_ is deactivated it closes the player engine and waits until it is down (blocking the OSGi thread). During shutdown of the player engine, some steps are performed, e.g. closing a bunch of actors and removing temporary files; so this might take some time. With this property the maximum time to wait for a clean shutdown is specified. If the time has passed and the player engine has not yet gracefully shutdown, the component goes in inactive state, causing a hard shutdown of the player engine. | 3000 ms |
-| queryChunkSize | When the current playlist is changed meta data resolution for newly added songs starts automatically. This requires requests for meta data to be sent to the media archive. This property determines the maximum number of songs that are queried at once in one of such requests. With larger numbers fewer round-trips to the archive are required, but it might take longer until the user sees first results coming in. So a balance has to be found. | 20 |
-| cacheSize | The resolver for meta data maintains a cache with songs for which meta data has already been obtained. With this property the size of this cache (i.e. the number of songs that are stored) can be defined. | 1000 |
-| requestTimeout | Here a timeout (in milliseconds) for meta data requests to the media archive can be specified. If no response is received within this time, the request is considered a failure, and the songs affected are assigned dummy meta data. | 30000 |
+| queryChunkSize | When the current playlist is changed metadata resolution for newly added songs starts automatically. This requires requests for metadata to be sent to the media archive. This property determines the maximum number of songs that are queried at once in one of such requests. With larger numbers fewer round-trips to the archive are required, but it might take longer until the user sees first results coming in. So a balance has to be found. | 20 |
+| cacheSize | The resolver for metadata maintains a cache with songs for which metadata has already been obtained. With this property the size of this cache (i.e. the number of songs that are stored) can be defined. | 1000 |
+| requestTimeout | Here a timeout (in milliseconds) for metadata requests to the media archive can be specified. If no response is received within this time, the request is considered a failure, and the songs affected are assigned dummy metadata. | 30000 |

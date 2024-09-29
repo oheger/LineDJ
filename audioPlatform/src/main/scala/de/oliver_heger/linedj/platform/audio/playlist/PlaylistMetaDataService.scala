@@ -19,16 +19,16 @@ package de.oliver_heger.linedj.platform.audio.playlist
 import de.oliver_heger.linedj.platform.audio.model.SongDataFactory
 
 /**
-  * Interface for a service that allows keeping track on meta data resolve
+  * Interface for a service that allows keeping track on metadata resolve
   * operations on playlist instances.
   *
-  * When a new playlist is set for the audio player meta data information
+  * When a new playlist is set for the audio player metadata information
   * about the songs in the list has to be obtained first from the media archive
   * (unless it is already available in a local cache). This may take some time
   * and may be handled in multiple chunks for larger lists.
   *
   * UI clients have the problem to display the current state of the playlist
-  * and to update their display when new meta data becomes available.
+  * and to update their display when new metadata becomes available.
   * Depending on the way the playlist is presented to users, this is not
   * trivial. Often all songs to be played are displayed in a table-like UI
   * control. The handling of such controls is typically complex; it requires
@@ -38,7 +38,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongDataFactory
   *
   * The basic idea is that clients receive notifications about changes in the
   * state of the audio player (which includes an updated playlist) and about
-  * new meta data. They can then invoke specific service methods to gain
+  * new metadata. They can then invoke specific service methods to gain
   * information how they should react on an update, such as which parts of the
   * table model need to be modified. So it is not necessary for clients to map
   * the structure of a [[PlaylistMetaData]] object directly to their internal
@@ -72,13 +72,13 @@ trait PlaylistMetaDataService:
   SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState)
 
   /**
-    * Processes a notification about new meta data that is now available. Like
+    * Processes a notification about new metadata that is now available. Like
     * ''processPlaylistUpdate()'', a corresponding delta object and an updated
     * state are returned.
     *
-    * @param data  the updated meta data for the current playlist
+    * @param data  the updated metadata for the current playlist
     * @param state the current resolve state
     * @return function for a tuple with a delta object and an updated state
     */
-  def processMetaDataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
+  def processMetadataUpdate(data: PlaylistMetaData, state: MetaDataResolveState):
   SongDataFactory => (MetaDataResolveDelta, MetaDataResolveState)

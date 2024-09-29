@@ -43,8 +43,8 @@ object DefaultSongDataFactorySpec:
   /** Suffix returned by the test resolver when extracting an album. */
   private val ResolvedAlbum = "_album"
 
-  /** A meta data object with all relevant key properties defined. */
-  private val SongMetaData = MediaMetaData(title = Some(Title), artist = Some(Artist),
+  /** A metadata object with all relevant key properties defined. */
+  private val SongMetadata = MediaMetaData(title = Some(Title), artist = Some(Artist),
     album = Some(Album))
 
   /**
@@ -74,13 +74,13 @@ object DefaultSongDataFactorySpec:
 
   /**
     * Creates a song using a test factory instance. Depending on the passed in
-    * flag either complete meta data is provided or none.
+    * flag either complete metadata is provided or none.
     *
-    * @param withMetaData flag whether meta data should be defined
+    * @param withMetaData flag whether metadata should be defined
     * @return the song created by the test factory
     */
   private def createSong(withMetaData: Boolean): SongData =
-    val metaData = if withMetaData then SongMetaData else MediaMetaData()
+    val metaData = if withMetaData then SongMetadata else MediaMetaData()
     val factory = new DefaultSongDataFactory(Resolver)
     factory.createSongData(SongID, metaData)
 
@@ -95,19 +95,19 @@ class DefaultSongDataFactorySpec extends AnyFlatSpec with Matchers:
     val song = createSong(withMetaData = true)
 
     song.id should be theSameInstanceAs SongID
-    song.metaData should be theSameInstanceAs SongMetaData
+    song.metaData should be theSameInstanceAs SongMetadata
 
-  it should "use the title from meta data if defined" in:
+  it should "use the title from metadata if defined" in:
     val song = createSong(withMetaData = true)
 
     song.title should be(Title)
 
-  it should "use the artist from meta data if defined" in:
+  it should "use the artist from metadata if defined" in:
     val song = createSong(withMetaData = true)
 
     song.artist should be(Artist)
 
-  it should "use the album from meta data if defined" in:
+  it should "use the album from metadata if defined" in:
     val song = createSong(withMetaData = true)
 
     song.album should be(Album)

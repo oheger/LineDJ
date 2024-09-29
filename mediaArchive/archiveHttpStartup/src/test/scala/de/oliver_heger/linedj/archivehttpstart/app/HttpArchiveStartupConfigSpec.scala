@@ -242,7 +242,7 @@ class HttpArchiveStartupConfigSpec extends AnyFlatSpec with Matchers:
       case Failure(e) =>
         fail("Unexpected exception: " + e)
 
-  it should "set a default meta data path" in:
+  it should "set a default metadata path" in:
     val c = clearProperty(createConfiguration(), HttpArchiveStartupConfig.PropMetaDataPath)
 
     createStartupConfig(c) match

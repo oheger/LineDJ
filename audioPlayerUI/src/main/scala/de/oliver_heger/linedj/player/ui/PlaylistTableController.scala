@@ -66,7 +66,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     */
   def handleMetaDataUpdate(metaData: PlaylistMetaData): Unit =
     val selIdx = tableHandler.getSelectedIndex
-    val (delta, nextState) = plMetaService.processMetaDataUpdate(metaData,
+    val (delta, nextState) = plMetaService.processMetadataUpdate(metaData,
       metaDataState)(songDataFactory)
     processDelta(delta, nextState)
     tableHandler setSelectedIndex selIdx

@@ -33,12 +33,12 @@ import org.apache.pekko.util.Timeout
 import scala.concurrent.{ExecutionContext, Future}
 
 object PlaylistMetaDataResolver:
-  /** Constant for meta data for a file which could not be resolved. */
-  private val UndefinedMetaData = MediaMetaData()
+  /** Constant for metadata for a file which could not be resolved. */
+  private val UndefinedMetadata = MediaMetaData()
 
   /**
     * An internally used message that triggers the processing of a response
-    * message received from the meta data manager actor.
+    * message received from the metadata manager actor.
     *
     * Responses have to be handled in the UI thread. Therefore, a special
     * message is sent to the UI bus which is then handled by this object
@@ -50,27 +50,27 @@ object PlaylistMetaDataResolver:
 
   /**
     * An internally used message that triggers a propagation of the current
-    * meta data to all registered consumers.
+    * metadata to all registered consumers.
     *
     * This message mainly allows a correct ordering of consumer invocations:
     * It must be ensured that update notifications for the audio player state
-    * are passed to consumers before updates of playlist meta data. Therefore,
+    * are passed to consumers before updates of playlist metadata. Therefore,
     * such updates can only be sent out in a later cycle of the UI thread.
     */
   private case object PropagateMetaData
 
   /**
-    * Returns a map with meta data for all files that have been requested. This
-    * function appends undefined meta data to files which could not be
+    * Returns a map with metadata for all files that have been requested. This
+    * function appends undefined metadata to files which could not be
     * resolved. So the resulting map contains all files in the original
-    * request. Data that is already contained in the map with current meta
-    * data is filtered out.
+    * request. Data that is already contained in the map with current 
+    * metadata is filtered out.
     *
-    * @param response    the response from the meta data actor
-    * @param currentData the map with current meta data
-    * @return a map with complete meta data
+    * @param response    the response from the metadata actor
+    * @param currentData the map with current metadata
+    * @return a map with complete metadata
     */
-  private def completeMetaDataResponse(response: FilesMetaDataResponse,
+  private def completeMetadataResponse(response: FilesMetaDataResponse,
                                        currentData: Map[MediaFileID, MediaMetaData]):
   Map[MediaFileID, MediaMetaData] =
     val data = response.data.toMap
@@ -78,31 +78,31 @@ object PlaylistMetaDataResolver:
       data.contains(f) || currentData.contains(f)
     }
     if unresolved.nonEmpty then
-      data ++ unresolved.map(f => f -> UndefinedMetaData)
+      data ++ unresolved.map(f => f -> UndefinedMetadata)
     else data
 
 /**
-  * A class responsible for retrieving meta data for songs in the current audio
+  * A class responsible for retrieving metadata for songs in the current audio
   * playlist.
   *
   * This class is a consumer for [[AudioPlayerStateChangedEvent]] events. When
-  * it detects a change in the current playlist it queries meta data for
-  * unknown songs from the provided meta data actor. From the responses
+  * it detects a change in the current playlist it queries metadata for
+  * unknown songs from the provided metadata actor. From the responses
   * received objects of type [[PlaylistMetaData]] are constructed and
   * propagated to consumers registered.
   *
-  * The class keeps a cache of the meta data that has already been received. So
+  * The class keeps a cache of the metadata that has already been received. So
   * when the playlist changes it may not be necessary to query all songs again
   * from the archive.
   *
-  * @param metaDataActor  reference to the meta data manager actor
+  * @param metadataActor  reference to the metadata manager actor
   * @param bus            the UI message bus
-  * @param queryChunkSize chunk size when querying meta data for songs
-  * @param cacheSize      the size of the cache (in meta data entries
-  * @param requestTimeout the timeout for meta data requests
+  * @param queryChunkSize chunk size when querying metadata for songs
+  * @param cacheSize      the size of the cache (in metadata entries
+  * @param requestTimeout the timeout for metadata requests
   * @param ec             the execution context
   */
-private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: MessageBus,
+private class PlaylistMetaDataResolver(val metadataActor: ActorRef, val bus: MessageBus,
                                        val queryChunkSize: Int, val cacheSize: Int,
                                        val requestTimeout: Timeout)
                                       (implicit val ec: ExecutionContext)
@@ -117,13 +117,13 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
-  /** Implicit timeout declaration for requests to the meta data actor. */
-  private implicit val metaDataTimeout: Timeout = requestTimeout
+  /** Implicit timeout declaration for requests to the metadata actor. */
+  private implicit val metadataTimeout: Timeout = requestTimeout
 
-  /** A cache for meta data that has already been resolved. */
+  /** A cache for metadata that has already been resolved. */
   private var cache = new LRUCache[MediaFileID, MediaMetaData](cacheSize)()
 
-  /** Stores the current meta data. */
+  /** Stores the current metadata. */
   private var currentMetaData = PlaylistMetaData(Map.empty)
 
   /** A list with files that need to be resolved. */
@@ -155,7 +155,7 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
       removeConsumer(cid)
 
     case ProcessMetaDataResponse(response) =>
-      log.debug("Got response from meta data manager actor.")
+      log.debug("Got response from metadata manager actor.")
       if response.request.seqNo == seqNo then
         handleResponse(response)
       else
@@ -200,24 +200,24 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     if resolved.nonEmpty then
       bus publish PropagateMetaData
     filesToBeResolved = unresolved
-    queryMetaData()
+    queryMetadata()
 
   /**
-    * Handles a valid response from the meta data actor. The data in the
-    * response is added to the map with current meta data.
+    * Handles a valid response from the metadata actor. The data in the
+    * response is added to the map with current metadata.
     *
     * @param response the response
     */
   private def handleResponse(response: FilesMetaDataResponse): Unit =
-    val updatedMetaData = findNewMetaData(response)
+    val updatedMetaData = findNewMetadata(response)
     if updatedMetaData.nonEmpty then
       currentMetaData = currentMetaData.copy(data = currentMetaData.data ++ updatedMetaData)
       updatedMetaData foreach (e => cache.addItem(e._1, e._2))
       invokeConsumers(currentMetaData)
-    queryMetaData()
+    queryMetadata()
 
   /**
-    * Handles a response from the meta data actor that refers to a previous
+    * Handles a response from the metadata actor that refers to a previous
     * playlist. If it contains data that is also needed for the current
     * playlist, it is used.
     *
@@ -250,27 +250,27 @@ private class PlaylistMetaDataResolver(val metaDataActor: ActorRef, val bus: Mes
     newPlaylist partition cache.contains
 
   /**
-    * Extracts meta data from a response which is not already contained in the
-    * current map of data. In addition, missing meta data (for unresolved
+    * Extracts metadata from a response which is not already contained in the
+    * current map of data. In addition, missing metadata (for unresolved
     * files) is added.
     *
-    * @param response a response from the meta data actor
-    * @return a map containing only new meta data
+    * @param response a response from the metadata actor
+    * @return a map containing only new metadata
     */
-  private def findNewMetaData(response: FilesMetaDataResponse): Map[MediaFileID, MediaMetaData] =
-    val completeMetaData = completeMetaDataResponse(response, currentMetaData.data)
+  private def findNewMetadata(response: FilesMetaDataResponse): Map[MediaFileID, MediaMetaData] =
+    val completeMetaData = completeMetadataResponse(response, currentMetaData.data)
     completeMetaData filterNot (e => currentMetaData.data.contains(e._1))
 
   /**
-    * Queries a chunk of meta data if there are still files which need to be
+    * Queries a chunk of metadata if there are still files which need to be
     * resolved.
     */
-  private def queryMetaData(): Unit =
+  private def queryMetadata(): Unit =
     if filesToBeResolved.nonEmpty then
       val (files, remaining) = filesToBeResolved splitAt queryChunkSize
       val request = GetFilesMetaData(files, seqNo)
-      log.debug("Sending meta data request {}.", request)
-      val futResponse = metaDataActor ? request
+      log.debug("Sending metadata request {}.", request)
+      val futResponse = metadataActor ? request
       futResponse.mapTo[FilesMetaDataResponse] fallbackTo Future(FilesMetaDataResponse(request,
         Nil)) foreach (r => bus publish ProcessMetaDataResponse(r))
       filesToBeResolved = remaining
