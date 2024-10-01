@@ -70,12 +70,12 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     helper.verifyExtractorFilled(data)
 
   it should "pass results to the collector when the file has been fully read" in:
-    val metaData = Mp3MetaData(version = 1, layer = 3, sampleRate = 111,
+    val metaData = Mp3Metadata(version = 1, layer = 3, sampleRate = 111,
       minimumBitRat = 96000, maximumBitRate = 128000, duration = 60000)
     val helper = new Mp3DataProcessorTestHelper
 
     helper.prepareMetaDataQuery(metaData)
-      .postMessage(Mp3MetaDataRequest)
+      .postMessage(Mp3MetadataRequest)
     expectMsg(metaData)
 
   /**
@@ -117,7 +117,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       * @param metadata the metadata
       * @return this test helper
       */
-    def prepareMetaDataQuery(metadata: Mp3MetaData): Mp3DataProcessorTestHelper =
+    def prepareMetaDataQuery(metadata: Mp3Metadata): Mp3DataProcessorTestHelper =
       when(extractor.getVersion).thenReturn(metadata.version)
       when(extractor.getLayer).thenReturn(metadata.layer)
       when(extractor.getSampleRate).thenReturn(metadata.sampleRate)

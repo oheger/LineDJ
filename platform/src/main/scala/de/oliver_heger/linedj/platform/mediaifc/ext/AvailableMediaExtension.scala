@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
-import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanStarted
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataScanStarted$
 import org.apache.pekko.actor.Actor.Receive
 
 object AvailableMediaExtension:
@@ -84,7 +84,7 @@ class AvailableMediaExtension(val mediaFacade: MediaFacade)
       invokeConsumers(media)
       currentMediaData = Some(media)
 
-    case MetaDataScanStarted =>
+    case MetadataScanStarted$ =>
       onMediaScanStarted(consumerMap.nonEmpty)
 
   /**

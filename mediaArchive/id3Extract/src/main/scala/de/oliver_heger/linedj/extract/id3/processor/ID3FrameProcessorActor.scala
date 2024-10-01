@@ -38,10 +38,10 @@ class ID3FrameProcessorActor(collector: ActorRef, extractor: ID3FrameExtractor) 
     case ProcessID3FrameData(header, data, lastChunk) if checkHeader(header) =>
       extractor.addData(data, lastChunk)
       if lastChunk then
-        collector ! ID3FrameMetaData(header, extractor.createTagProvider())
+        collector ! ID3FrameMetadata(header, extractor.createTagProvider())
 
     case IncompleteID3Frame(header) if checkHeader(header) =>
-      collector ! ID3FrameMetaData(header, extractor.createTagProvider())
+      collector ! ID3FrameMetadata(header, extractor.createTagProvider())
 
   /**
     * Checks whether the passed in header is the expected one.

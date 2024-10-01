@@ -171,15 +171,15 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     config.downloadConfig.downloadCheckInterval should be(ReaderCheckInterval + index.seconds)
     config.downloadConfig.downloadTimeout should be((60 + index).seconds)
     config.downloadConfig.downloadChunkSize should be(DownloadChunkSize + index)
-    config.metaDataReadChunkSize should be(ReadChunkSize + index)
+    config.metadataReadChunkSize should be(ReadChunkSize + index)
     config.infoSizeLimit should be(InfoSizeLimit + index)
     config.tagSizeLimit should be(TagSizeLimit + index)
     config.processingTimeout.duration should be(ProcessingTimeout.duration + index.seconds)
-    config.metaDataMediaBufferSize should be(MetaDataMediaBufSize + index)
-    config.metaDataPersistencePath.toString should be(MetaDataPersistencePath.toString + index)
-    config.metaDataPersistenceChunkSize should be(MetaDataPersistenceChunkSize + index)
-    config.metaDataPersistenceParallelCount should be(MetaDataPersistenceParallelCount + index)
-    config.metaDataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize + index)
+    config.metadataMediaBufferSize should be(MetaDataMediaBufSize + index)
+    config.metadataPersistencePath.toString should be(MetaDataPersistencePath.toString + index)
+    config.metadataPersistenceChunkSize should be(MetaDataPersistenceChunkSize + index)
+    config.metadataPersistenceParallelCount should be(MetaDataPersistenceParallelCount + index)
+    config.metadataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize + index)
     config.excludedFileExtensions should contain only("JPG", "TE" + index, "PDF")
     config.includedFileExtensions should contain only("MP3", "WAV" + index)
     config.rootPath.toString should be(RootPath.toString + index)
@@ -195,7 +195,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     val c = createDefaultHierarchicalConfig()
     c clearProperty "media.localArchives.localArchive.metaDataExtraction.metaDataMediaBufferSize"
 
-    createArchiveConfig(c).metaDataMediaBufferSize should be(MediaArchiveConfig
+    createArchiveConfig(c).metadataMediaBufferSize should be(MediaArchiveConfig
       .DefaultMetaDataMediaBufferSize)
 
   it should "use a default processor count if undefined" in:

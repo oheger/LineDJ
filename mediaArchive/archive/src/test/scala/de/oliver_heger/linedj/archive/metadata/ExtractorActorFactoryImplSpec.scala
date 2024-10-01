@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
+import de.oliver_heger.linedj.extract.id3.processor.Mp3MetadataExtractorActor
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.Mockito._
@@ -54,7 +54,7 @@ class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(tes
   private def createConfig(): MediaArchiveConfig =
     val config = mock[MediaArchiveConfig]
     when(config.tagSizeLimit).thenReturn(TagSizeLimit)
-    when(config.metaDataReadChunkSize).thenReturn(ReadChunkSize)
+    when(config.metadataReadChunkSize).thenReturn(ReadChunkSize)
     config
 
   /**
@@ -75,7 +75,7 @@ class ExtractorActorFactoryImplSpec(testSystem: ActorSystem) extends TestKit(tes
     */
   private def checkMp3Extension(ext: String): Unit =
     val receiver = TestProbe().ref
-    val expProps = Mp3MetaDataExtractorActor(receiver, TagSizeLimit, ReadChunkSize)
+    val expProps = Mp3MetadataExtractorActor(receiver, TagSizeLimit, ReadChunkSize)
     val factory = createFactory()
 
     val props = factory.extractorProps(ext, receiver)

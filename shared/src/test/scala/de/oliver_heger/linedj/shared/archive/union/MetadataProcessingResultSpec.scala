@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.shared.archive.union
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -44,15 +44,15 @@ class MetadataProcessingResultSpec extends AnyFlatSpec with Matchers:
 
   import MetadataProcessingResultSpec._
 
-  "A MetaDataProcessingResult" should "allow setting metadata" in:
-    val metaData = MediaMetaData(title = Some("Fear of the Dark"),
+  "A MetadataProcessingResult" should "allow setting metadata" in:
+    val metaData = MediaMetadata(title = Some("Fear of the Dark"),
       artist = Some("Iron Maidon"))
 
     val orgResult = createResult()
-    val result = orgResult.withMetaData(metaData)
+    val result = orgResult.withMetadata(metaData)
     result.uri should be(orgResult.uri)
     result.mediumID should be(orgResult.mediumID)
-    result.metaData should be(metaData)
+    result.metadata should be(metaData)
 
   it should "allow creating a derived error result" in:
     val exception = new Exception("test processing error")

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.commons.configuration.event.{ConfigurationEvent, ConfigurationListener}
 import org.apache.commons.configuration.tree.DefaultExpressionEngine
 import org.apache.commons.configuration.{AbstractConfiguration, HierarchicalConfiguration}
@@ -78,7 +78,7 @@ object MediumTreeModelSpec:
     * @param meta the metadata
     * @return the corresponding ''SongData''
     */
-  private def song(meta: MediaMetaData): SongData =
+  private def song(meta: MediaMetadata): SongData =
     SongData(MediaFileID(MediumID("someURI", None), "testURIDontCare"), meta,
       meta.title getOrElse "", meta.artist getOrElse "", meta.album getOrElse "")
 
@@ -153,7 +153,7 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
   "A MediumTreeModel" should "add information for a new artist" in :
     val config = createConfiguration()
     val listener = installListener(config)
-    val items = List((Key, song(MediaMetaData())))
+    val items = List((Key, song(MediaMetadata())))
 
     processMetaData(config, items)
     listener.events should have size 1
@@ -163,11 +163,11 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
   it should "ignore an already existing album" in :
     val config = createConfiguration()
     val model = MediumTreeModel.empty
-    val (model1, updater1) = model.add(Key, song(MediaMetaData(title = Some("Time"))), NoopUpdater)
+    val (model1, updater1) = model.add(Key, song(MediaMetadata(title = Some("Time"))), NoopUpdater)
 
     val listener = installListener(config)
     val (model2, updater2) = updateConfiguration(config, model1.add(Key,
-      song(MediaMetaData(title = Some("Brain Damage"))), updater1))
+      song(MediaMetadata(title = Some("Brain Damage"))), updater1))
     model2 should be(model1)
     updater2 should be(updater1)
     listener.events should have size 1
@@ -175,8 +175,8 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
 
   it should "append another album for an artist" in :
     val Key2 = AlbumKey(Artist, "The Wall")
-    val items = List((Key, song(MediaMetaData(inceptionYear = Some(1973)))),
-      (Key2, song(MediaMetaData(inceptionYear = Some(1979)))))
+    val items = List((Key, song(MediaMetadata(inceptionYear = Some(1973)))),
+      (Key2, song(MediaMetadata(inceptionYear = Some(1979)))))
     val config = createConfiguration()
 
     processMetaData(config, items)
@@ -185,9 +185,9 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
   it should "order albums by year" in :
     val Key2 = AlbumKey(Artist, "Atom Heart Mother")
     val Key3 = AlbumKey(Artist, "A Momentary Lapse of Reason")
-    val items = List((Key, song(MediaMetaData(inceptionYear = Some(1973)))),
-      (Key2, song(MediaMetaData(inceptionYear = Some(1970)))),
-      (Key3, song(MediaMetaData(inceptionYear = Some(1987)))))
+    val items = List((Key, song(MediaMetadata(inceptionYear = Some(1973)))),
+      (Key2, song(MediaMetadata(inceptionYear = Some(1970)))),
+      (Key3, song(MediaMetadata(inceptionYear = Some(1987)))))
     val config = createConfiguration()
 
     processMetaData(config, items)
@@ -196,7 +196,7 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
   it should "order albums by name if no year is available" in :
     val Key2 = AlbumKey(Artist, "Atom Heart Mother")
     val Key3 = AlbumKey(Artist, "A Momentary Lapse of Reason")
-    val meta = song(MediaMetaData())
+    val meta = song(MediaMetadata())
     val items = List((Key, meta), (Key2, meta), (Key3, meta))
     val config = createConfiguration()
 
@@ -205,14 +205,14 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
 
   it should "add the year to the album if available" in :
     val config = createConfiguration()
-    val items = List((Key, song(MediaMetaData(inceptionYear = Some(1973)))))
+    val items = List((Key, song(MediaMetadata(inceptionYear = Some(1973)))))
     processMetaData(config, items)
 
     config containsKey Artist + "|(1973) " + Album shouldBe true
 
   it should "add no year to the album key if no year is available" in :
     val config = createConfiguration()
-    val items = List((Key, song(MediaMetaData())))
+    val items = List((Key, song(MediaMetadata())))
     processMetaData(config, items)
 
     config containsKey Artist + "|" + Album shouldBe true
@@ -223,10 +223,10 @@ class MediumTreeModelSpec extends AnyFlatSpec with Matchers:
     val Artist2 = "Dire Straits"
     val Key4 = AlbumKey(Artist2, "Love over Gold")
     val Key5 = AlbumKey(Artist2, "Brothers in Arms")
-    val meta = song(MediaMetaData())
-    val items = List((Key, meta), (Key5, song(MediaMetaData(inceptionYear = Some(1985)))),
-      (Key3, meta), (Key2, song(MediaMetaData(inceptionYear = Some(1970)))),
-      (Key4, song(MediaMetaData(inceptionYear = Some(1982)))))
+    val meta = song(MediaMetadata())
+    val items = List((Key, meta), (Key5, song(MediaMetadata(inceptionYear = Some(1985)))),
+      (Key3, meta), (Key2, song(MediaMetadata(inceptionYear = Some(1970)))),
+      (Key4, song(MediaMetadata(inceptionYear = Some(1982)))))
 
     val model = MediumTreeModel(items)
     val updater = model.fullUpdater()

@@ -119,7 +119,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     implicit val timeout: Timeout = Timeout(100.millis)
 
     intercept[AskTimeoutException]:
-      val future = facade.requestActor(MediaActors.MetaDataManager)
+      val future = facade.requestActor(MediaActors.MetadataManager)
       Await.result(future, 3.seconds)
 
   it should "support removing a metadata listener" in:

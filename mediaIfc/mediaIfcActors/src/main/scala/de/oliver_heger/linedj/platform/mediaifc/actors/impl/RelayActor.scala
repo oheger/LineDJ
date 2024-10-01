@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
+import de.oliver_heger.linedj.shared.archive.metadata.{AddMetadataStateListener, RemoveMediumListener, RemoveMetadataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
@@ -277,7 +277,7 @@ Actor:
     case LookupActor.RemoteActorAvailable(path, ref) =>
       if updateTrackingState(trackingState.remoteActorFound(pathMapping get path, ref)) &&
         stateListenerComponents.nonEmpty then
-        sendToTarget(MediaActors.MetaDataManager, AddMetaDataStateListener(self))
+        sendToTarget(MediaActors.MetadataManager, AddMetadataStateListener(self))
 
     case LookupActor.RemoteActorUnavailable(path) =>
       updateTrackingState(trackingState.remoteActorLost(pathMapping get path))
@@ -289,7 +289,7 @@ Actor:
       sender() ! MediaActorResponse(actorType, trackingState remoteActorOption actorType)
 
     case RemoveListener(mediumId) =>
-      sendToTarget(MediaActors.MetaDataManager, RemoveMediumListener(mediumId, self))
+      sendToTarget(MediaActors.MetadataManager, RemoveMediumListener(mediumId, self))
 
     case RegisterStateListener(cid) =>
       updateStateListenerRegistration(stateListenerComponents + cid)
@@ -326,7 +326,7 @@ Actor:
     */
   private def updateStateListenerRegistration(newListeners: Set[ComponentID]): Unit =
     val msg = listenerRegistrationMsg(stateListenerComponents, newListeners)
-    msg foreach (sendToTarget(MediaActors.MetaDataManager, _))
+    msg foreach (sendToTarget(MediaActors.MetadataManager, _))
     stateListenerComponents = newListeners
 
   /**
@@ -341,9 +341,9 @@ Actor:
   private def listenerRegistrationMsg(oldListeners: Set[ComponentID],
                                       newListeners: Set[ComponentID]): Option[Any] =
   if oldListeners.size < newListeners.size && newListeners.size == 1 then
-    Some(AddMetaDataStateListener(self))
+    Some(AddMetadataStateListener(self))
   else if oldListeners.size > newListeners.size && newListeners.isEmpty then
-    Some(RemoveMetaDataStateListener(self))
+    Some(RemoveMetadataStateListener(self))
   else None
 
   /**

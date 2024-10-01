@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.reorder.random
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -40,7 +40,7 @@ object PlaylistReordererRandomSongsSpec:
     */
   private def createSong(name: String): SongData =
     SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + name),
-      MediaMetaData(title = Some(name)), name, null, null)
+      MediaMetadata(title = Some(name)), name, null, null)
 
   /**
     * Creates a sequence with test songs.

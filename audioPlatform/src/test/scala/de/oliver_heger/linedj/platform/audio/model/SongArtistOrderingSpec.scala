@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -35,7 +35,7 @@ object SongArtistOrderingSpec:
     */
   private def createSong(artist: String, album: String, title: String): SongData =
     SongData(MediaFileID(Medium, "song://" + title),
-      MediaMetaData(title = Some(title), album = Some(album), artist = Some(artist)),
+      MediaMetadata(title = Some(title), album = Some(album), artist = Some(artist)),
       title, artist, album)
 
 /**

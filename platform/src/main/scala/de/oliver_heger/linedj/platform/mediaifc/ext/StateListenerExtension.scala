@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, Co
 import de.oliver_heger.linedj.platform.bus.{ComponentID, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
-import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataStateEvent, MetaDataStateUpdated}
+import de.oliver_heger.linedj.shared.archive.metadata.{MetadataStateEvent, MetadataStateUpdated}
 import org.apache.pekko.actor.Actor.Receive
 
 object StateListenerExtension:
@@ -34,8 +34,8 @@ object StateListenerExtension:
     * @param callback the consumer callback
     */
   case class StateListenerRegistration(override val id: ComponentID,
-                                       override val callback: ConsumerFunction[MetaDataStateEvent])
-    extends ConsumerRegistration[MetaDataStateEvent]:
+                                       override val callback: ConsumerFunction[MetadataStateEvent])
+    extends ConsumerRegistration[MetadataStateEvent]:
     override def unRegistration: AnyRef = StateListenerUnregistration(id)
 
   /**
@@ -65,9 +65,9 @@ object StateListenerExtension:
   * @param mediaFacade the facade to the media archive
   */
 class StateListenerExtension(val mediaFacade: MediaFacade)
-  extends NoGroupingMediaIfcExtension[MetaDataStateEvent] with Identifiable:
+  extends NoGroupingMediaIfcExtension[MetadataStateEvent] with Identifiable:
   /** The last update state event received from the archive. */
-  private var lastUpdatedEvent: Option[MetaDataStateEvent] = None
+  private var lastUpdatedEvent: Option[MetadataStateEvent] = None
 
   /**
     * @inheritdoc This implementation adds a new listener registration if
@@ -80,7 +80,7 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     * @inheritdoc This implementation creates a state listener registration for
     *             the first consumer.
     */
-  override def onConsumerAdded(cons: ConsumerFunction[MetaDataStateEvent], key: AnyRef,
+  override def onConsumerAdded(cons: ConsumerFunction[MetadataStateEvent], key: AnyRef,
                                first: Boolean): Unit =
     registerStateListenerIfRequired(first)
     lastUpdatedEvent foreach cons
@@ -99,11 +99,11 @@ class StateListenerExtension(val mediaFacade: MediaFacade)
     *             consumers.
     */
   override protected def receiveSpecific: Receive =
-    case up: MetaDataStateUpdated =>
+    case up: MetadataStateUpdated =>
       lastUpdatedEvent = Some(up)
       invokeConsumers(up)
 
-    case ev: MetaDataStateEvent => invokeConsumers(ev)
+    case ev: MetadataStateEvent => invokeConsumers(ev)
 
     case reg: StateListenerRegistration => addConsumer(reg)
 

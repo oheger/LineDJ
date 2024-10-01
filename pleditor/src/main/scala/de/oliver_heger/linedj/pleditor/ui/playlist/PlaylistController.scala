@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.pleditor.ui.playlist
 
 import de.oliver_heger.linedj.platform.audio.model.{SongData, SongDataFactory}
-import de.oliver_heger.linedj.platform.audio.playlist.{PlaylistMetaData, PlaylistMetaDataRegistration}
+import de.oliver_heger.linedj.platform.audio.playlist.{PlaylistMetadata, PlaylistMetadataRegistration}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
 import de.oliver_heger.linedj.platform.ui.DurationTransformer
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 
@@ -51,7 +51,7 @@ object PlaylistController:
   private val ManagedActions = List(ActionExport, ActionActivate)
 
   /** Constant for undefined metadata. */
-  private[playlist] val UndefinedMetaData = MediaMetaData()
+  private[playlist] val UndefinedMetaData = MediaMetadata()
 
   /**
     * Checks whether the metadata of a song is unresolved.
@@ -104,7 +104,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
   import PlaylistController._
 
   /** The map with metadata currently available. */
-  private var metaData = Map.empty[MediaFileID, MediaMetaData]
+  private var metaData = Map.empty[MediaFileID, MediaMetadata]
 
   /**
     * The number of songs with unresolved metadata. This is used as an
@@ -120,7 +120,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     */
   override val registrations: Iterable[ConsumerSupport.ConsumerRegistration[_]] =
     List(AudioPlayerStateChangeRegistration(componentID, handleAudioPlayerStateChangeEvent),
-      PlaylistMetaDataRegistration(componentID, handlePlaylistMetaData))
+      PlaylistMetadataRegistration(componentID, handlePlaylistMetaData))
 
   /**
     * Updates the current playlist by invoking the specified
@@ -152,7 +152,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     *
     * @param playlistMetaData the new metadata
     */
-  private def handlePlaylistMetaData(playlistMetaData: PlaylistMetaData): Unit =
+  private def handlePlaylistMetaData(playlistMetaData: PlaylistMetadata): Unit =
     metaData = playlistMetaData.data
     if unresolvedSongCount > 0 then
       val (min, max, unres) = applyNewMetaDataToTableModel(metaData, tableHandler.getModel)
@@ -173,8 +173,8 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     * @param model  the table model collection
     * @return data about the outcome of this operation
     */
-  private def applyNewMetaDataToTableModel(data: Map[MediaFileID, MediaMetaData],
-                                                    model: java.util.List[AnyRef]):
+  private def applyNewMetaDataToTableModel(data: Map[MediaFileID, MediaMetadata],
+                                           model: java.util.List[AnyRef]):
   (Int, Int, Int) =
     @tailrec def doApply(idx: Int, minIdx: Int, maxIdx: Int, unresolvedCount: Int):
     (Int, Int, Int) =

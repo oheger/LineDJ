@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import java.nio.file.Path
 
 /**
-  * A message received by [[MetaDataExtractionActor]] telling it to process the
+  * A message received by [[MetadataExtractionActor]] telling it to process the
   * specified media files.
   *
   * This message actually initiates the extraction of metadata by the receiving

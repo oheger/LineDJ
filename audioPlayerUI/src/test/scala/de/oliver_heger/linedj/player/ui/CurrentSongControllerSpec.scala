@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.ui
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler, TableHandler}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.mockito.Mockito._
@@ -64,12 +64,12 @@ object CurrentSongControllerSpec:
 
   /** A test SongData object with all relevant properties of the test song. */
   private val TestSongData = SongData(id = MediaFileID(MediumID("foo", None), "uri"),
-    metaData = MediaMetaData(inceptionYear = Some(Year), duration = Some(Duration),
+    metaData = MediaMetadata(inceptionYear = Some(Year), duration = Some(Duration),
       trackNumber = Some(Track)), title = Title, artist = Artist, album = Album)
 
   /** A SongData object representing an undefined song. */
   private val UndefinedSong = SongData(id = MediaFileID(MediumID("bar", None), "undefined"),
-    metaData = MediaMetaData(), title = "", artist = "", album = "")
+    metaData = MediaMetadata(), title = "", artist = "", album = "")
 
   /** A test audio source to be used in playback progress events. */
   private val TestSource = AudioSource("testSong", 1000, 0, 0)
@@ -355,7 +355,7 @@ class CurrentSongControllerSpec extends AnyFlatSpec with Matchers with MockitoSu
       * @param fMeta a function to update the current metadata
       * @return this test helper
       */
-    def updateCurrentMetaData(fMeta: MediaMetaData => MediaMetaData): ControllerTestHelper =
+    def updateCurrentMetaData(fMeta: MediaMetadata => MediaMetadata): ControllerTestHelper =
       val oldSong = tableModel.get(Index).asInstanceOf[SongData]
       tableModel.set(Index, oldSong.copy(metaData = fMeta(oldSong.metaData)))
       this

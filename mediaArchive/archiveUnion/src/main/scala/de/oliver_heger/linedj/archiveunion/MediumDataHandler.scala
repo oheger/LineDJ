@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetaData, MetaDataChunk}
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetadata, MetadataChunk}
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess}
 
 import scala.collection.immutable.Seq
@@ -41,10 +41,10 @@ private class MediumDataHandler(mediumID: MediumID):
   private val mediumUris = collection.mutable.Set.empty[MediaFileUri]
 
   /** The current data available for the represented medium. */
-  protected var currentData: List[MetaDataChunk] = initialData()
+  protected var currentData: List[MetadataChunk] = initialData()
 
   /** Stores data for the next chunk. */
-  protected var nextChunkData = Map.empty[String, MediaMetaData]
+  protected var nextChunkData = Map.empty[String, MediaMetadata]
 
   /**
     * Notifies this object that the specified list of media files is going to
@@ -71,7 +71,7 @@ private class MediumDataHandler(mediumID: MediumID):
     *         evaluate the lazy metadata chunk expression)
     */
   def storeResult(result: MetadataProcessingResult, chunkSize: Int, maxChunkSize: Int)
-                 (f: (=> MetaDataChunk) => Unit): Boolean =
+                 (f: (=> MetadataChunk) => Unit): Boolean =
     mediumUris -= result.uri
     val complete = isComplete
     nextChunkData = updateNextChunkData(result)
@@ -91,7 +91,7 @@ private class MediumDataHandler(mediumID: MediumID):
     *
     * @return the data managed by this object
     */
-  def metaData: Seq[MetaDataChunk] = currentData
+  def metadata: Seq[MetadataChunk] = currentData
 
   /**
     * Resets the data of this handler. This method can be called at the start
@@ -107,7 +107,7 @@ private class MediumDataHandler(mediumID: MediumID):
     * @param uri the URI of the file in question
     * @return an ''Option'' with the metadata for this file
     */
-  def metaDataFor(uri: String): Option[MediaMetaData] =
+  def metadataFor(uri: String): Option[MediaMetadata] =
     nextChunkData.get(uri) orElse:
       currentData.find(_.data.contains(uri)) map (_.data(uri))
 
@@ -129,8 +129,8 @@ private class MediumDataHandler(mediumID: MediumID):
     * @param maxSize the maximum number of entries in a chunk
     * @return the new data object to be stored
     */
-  protected def updateCurrentResult(data: Map[String, MediaMetaData], complete: Boolean,
-                                    maxSize: Int): List[MetaDataChunk] =
+  protected def updateCurrentResult(data: Map[String, MediaMetadata], complete: Boolean,
+                                    maxSize: Int): List[MetadataChunk] =
     val currentChunk = currentData.head.copy(data = currentData.head.data ++ data,
       complete = complete)
     val nextData = currentChunk :: currentData.tail
@@ -151,9 +151,9 @@ private class MediumDataHandler(mediumID: MediumID):
     * @return the complete flag
     */
   protected def processNextChunkData(chunkSize: Int, maxChunkSize: Int, complete: Boolean,
-                                     f: (=> MetaDataChunk) => Unit): Boolean =
+                                     f: (=> MetadataChunk) => Unit): Boolean =
     if nextChunkData.size >= chunkSize || complete then
-      f(MetaDataChunk(mediumID, nextChunkData, complete))
+      f(MetadataChunk(mediumID, nextChunkData, complete))
       currentData = updateCurrentResult(nextChunkData, complete, maxChunkSize)
       nextChunkData = Map.empty
       complete
@@ -165,10 +165,10 @@ private class MediumDataHandler(mediumID: MediumID):
     * @param result the result
     * @return the updated next chunk data
     */
-  private def updateNextChunkData(result: MetadataProcessingResult): Map[String, MediaMetaData] =
+  private def updateNextChunkData(result: MetadataProcessingResult): Map[String, MediaMetadata] =
     result match
-      case result@MetadataProcessingSuccess(_, _, metaData) =>
-        nextChunkData + (extractUri(result) -> metaData)
+      case result@MetadataProcessingSuccess(_, _, metadata) =>
+        nextChunkData + (extractUri(result) -> metadata)
       case _ => nextChunkData
 
   /**
@@ -176,13 +176,13 @@ private class MediumDataHandler(mediumID: MediumID):
     *
     * @return the initial chunk
     */
-  private def createInitialChunk(): MetaDataChunk =
-    MetaDataChunk(mediumID, Map.empty, complete = false)
+  private def createInitialChunk(): MetadataChunk =
+    MetadataChunk(mediumID, Map.empty, complete = false)
 
   /**
     * Creates empty initial data for this handler.
     *
     * @return a list with a single empty chunk of data
     */
-  private def initialData(): List[MetaDataChunk] =
+  private def initialData(): List[MetadataChunk] =
     List(createInitialChunk())

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetadataProcessingSuccess}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}
@@ -101,7 +101,7 @@ object ContentPropagationUpdateServiceSpec:
   private def metadataProcessingResult(medIdx: Int, fileIdx: Int): MetadataProcessingSuccess =
     val filePath = mediumFilePath(medIdx, fileIdx)
     MetadataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
-      metaData = MediaMetaData(title = Some(filePath), size = Some(fileSize(medIdx, fileIdx))))
+      metadata = MediaMetadata(title = Some(filePath), size = Some(fileSize(medIdx, fileIdx))))
 
   /**
     * Generates the sequence of metadata processing result objects for the

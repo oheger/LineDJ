@@ -44,16 +44,16 @@ import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
   * until their counterpart arrives.
   */
 class ProcessingResultCombiningStage extends GraphStage[
-  FlowShape[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult),
+  FlowShape[(MediumInfoResponseProcessingResult, MetadataResponseProcessingResult),
     MediumProcessingResult]]:
-  val in: Inlet[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult)] =
-    Inlet[(MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult)](
+  val in: Inlet[(MediumInfoResponseProcessingResult, MetadataResponseProcessingResult)] =
+    Inlet[(MediumInfoResponseProcessingResult, MetadataResponseProcessingResult)](
       "ProcessingResultCombiningStage.in")
   val out: Outlet[MediumProcessingResult] =
     Outlet[MediumProcessingResult]("ProcessingResultCombiningStage.out")
 
   override val shape: FlowShape[(MediumInfoResponseProcessingResult,
-    MetaDataResponseProcessingResult), MediumProcessingResult] = FlowShape.of(in, out)
+    MetadataResponseProcessingResult), MediumProcessingResult] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape):
@@ -61,7 +61,7 @@ class ProcessingResultCombiningStage extends GraphStage[
       var info = Map.empty[MediumID, MediumInfoResponseProcessingResult]
 
       // map with metadata results to be combined
-      var meta = Map.empty[MediumID, MetaDataResponseProcessingResult]
+      var meta = Map.empty[MediumID, MetadataResponseProcessingResult]
 
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
@@ -99,7 +99,7 @@ class ProcessingResultCombiningStage extends GraphStage[
     * @return the final result
     */
   private def combine(resInfo: MediumInfoResponseProcessingResult,
-                      resMeta: MetaDataResponseProcessingResult): MediumProcessingResult =
+                      resMeta: MetadataResponseProcessingResult): MediumProcessingResult =
     MediumProcessingResult(resInfo.mediumInfo, resMeta.metadata, resMeta.seqNo)
 
   /**

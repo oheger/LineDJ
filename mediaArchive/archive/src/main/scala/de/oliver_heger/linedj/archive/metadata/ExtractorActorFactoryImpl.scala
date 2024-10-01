@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.extract.id3.processor.Mp3MetaDataExtractorActor
+import de.oliver_heger.linedj.extract.id3.processor.Mp3MetadataExtractorActor
 import de.oliver_heger.linedj.extract.metadata.ExtractorActorFactory
 import org.apache.pekko.actor.{ActorRef, Props}
 
@@ -43,7 +43,7 @@ class ExtractorActorFactoryImpl(val config: MediaArchiveConfig) extends Extracto
   override def extractorProps(extension: String, receiver: ActorRef): Option[Props] =
     extension.toLowerCase(Locale.ENGLISH) match
       case "mp3" =>
-        Some(Mp3MetaDataExtractorActor(receiver, config.tagSizeLimit,
-          config.metaDataReadChunkSize))
+        Some(Mp3MetadataExtractorActor(receiver, config.tagSizeLimit,
+          config.metadataReadChunkSize))
 
       case _ => None

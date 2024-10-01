@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.ValidationErrorCode.ValidationErrorCode
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationTestHelper._
 import de.oliver_heger.linedj.shared.archive.media.MediumID
@@ -96,7 +96,7 @@ class ValidationItemConverterSpec extends AnyFlatSpec with Matchers with Mockito
     val result: ValidationResult[MediaFile] = Failure(failures)
     val expItems = codes.zip(icons).map { c =>
       ValidationErrorItem(testMediumInfo(1).name, Uri + DisplaySuffix,
-        ResourcePrefix + c._1.toString + ResolvedSuffix, c._2, MetaDataValidator.severity(c._1))
+        ResourcePrefix + c._1.toString + ResolvedSuffix, c._2, MetadataValidator.severity(c._1))
     }
     val helper = new ConverterTestHelper
 

@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetadata
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.util.Timeout
@@ -177,7 +177,7 @@ trait MediaFacade:
       requestActor(t) map (_.get)
 
     val futMedia = requestArchiveActor(MediaActors.MediaManager)
-    val futMeta = requestArchiveActor(MediaActors.MetaDataManager)
+    val futMeta = requestArchiveActor(MediaActors.MetadataManager)
     Future.sequence(List(futMedia, futMeta)) map { lst =>
       MediaFacadeActors(lst.head, lst(1))
     }
@@ -194,7 +194,7 @@ trait MediaFacade:
     */
   def queryMetadataAndRegisterListener(mediumID: MediumID): Int =
     val id = nextListenerRegistrationID()
-    send(MediaActors.MetaDataManager, GetMetaData(mediumID, registerAsListener = true, id))
+    send(MediaActors.MetadataManager, GetMetadata(mediumID, registerAsListener = true, id))
     id
 
   /**

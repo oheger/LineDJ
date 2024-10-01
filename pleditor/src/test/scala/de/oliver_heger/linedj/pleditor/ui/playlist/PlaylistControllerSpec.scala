@@ -21,10 +21,10 @@ import de.oliver_heger.linedj.platform.app.ConsumerRegistrationProviderTestHelpe
 
 import java.util
 import de.oliver_heger.linedj.platform.audio.model.{DefaultSongDataFactory, SongData, UnknownPropertyResolver}
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetadata, PlaylistMetadataRegistration}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{StaticTextHandler, TableHandler}
 import org.mockito.ArgumentMatchers.anyInt
@@ -84,8 +84,8 @@ object PlaylistControllerSpec:
     * @param idx the index
     * @return metadata for this test song
     */
-  private def metaData(idx: Int): MediaMetaData =
-    MediaMetaData(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
+  private def metaData(idx: Int): MediaMetadata =
+    MediaMetadata(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
       duration = Some((idx + 1).minutes.toMillis.toInt), size = Some((idx + 1) * 1024 * 512))
 
   /**
@@ -95,7 +95,7 @@ object PlaylistControllerSpec:
     * @param meta the metadata for this song
     * @return the ''SongData'' instance
     */
-  private def songData(idx: Int, meta: MediaMetaData): SongData =
+  private def songData(idx: Int, meta: MediaMetadata): SongData =
     SongFactory.createSongData(fileID(idx), meta)
 
   /**
@@ -134,8 +134,8 @@ object PlaylistControllerSpec:
     * @param to   the end index (including)
     * @return the map with metadata
     */
-  private def playlistMetaData(from: Int, to: Int): Map[MediaFileID, MediaMetaData] =
-    (from to to).foldLeft(Map.empty[MediaFileID, MediaMetaData]) { (m, i) =>
+  private def playlistMetaData(from: Int, to: Int): Map[MediaFileID, MediaMetadata] =
+    (from to to).foldLeft(Map.empty[MediaFileID, MediaMetadata]) { (m, i) =>
       m + (fileID(i) -> metaData(i))
     }
 
@@ -323,11 +323,11 @@ class PlaylistControllerSpec extends AnyFlatSpec with Matchers:
       * @param data the map with metadata
       * @return this test helper
       */
-    def sendPlaylistMetaData(data: Map[MediaFileID, MediaMetaData]):
+    def sendPlaylistMetaData(data: Map[MediaFileID, MediaMetadata]):
     PlaylistControllerTestHelper =
       ConsumerRegistrationProviderTestHelper
-        .findRegistration[PlaylistMetaDataRegistration](controller)
-        .callback(PlaylistMetaData(data))
+        .findRegistration[PlaylistMetadataRegistration](controller)
+        .callback(PlaylistMetadata(data))
       this
 
     /**

@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
@@ -78,7 +78,7 @@ object HttpArchiveManagementActorSpec:
   private val ClsMediumInfoProcessor = classOf[MediumInfoResponseProcessingActor]
 
   /** Class for the metadata processor actor. */
-  private val ClsMetadataProcessor = classOf[MetaDataResponseProcessingActor]
+  private val ClsMetadataProcessor = classOf[MetadataResponseProcessingActor]
 
   /** Class for the content propagation actor. */
   private val ClsContentPropagationActor = classOf[ContentPropagationActor]
@@ -413,8 +413,8 @@ class HttpArchiveManagementActorSpec(testSystem: ActorSystem) extends TestKit(te
   it should "answer a GetMetaDataFileInfo message with a dummy response" in:
     val helper = new HttpArchiveManagementActorTestHelper
 
-    helper.post(GetMetaDataFileInfo)
-    expectMsg(MetaDataFileInfo(Map.empty, Set.empty, None))
+    helper.post(GetMetadataFileInfo)
+    expectMsg(MetadataFileInfo(Map.empty, Set.empty, None))
 
   /**
     * A test helper class managing all dependencies of a test actor instance.

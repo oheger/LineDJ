@@ -24,33 +24,33 @@ import net.sf.jguiraffe.locators.Locator
 /**
   * A task class for the ''refresh metadata files'' action.
   *
-  * This task class just delegates to the [[MetaDataFilesController]].
+  * This task class just delegates to the [[MetadataFilesController]].
   *
   * @param controller the ''MetaDataFilesController''
   */
-class RefreshFilesTask(controller: MetaDataFilesController) extends Runnable:
+class RefreshFilesTask(controller: MetadataFilesController) extends Runnable:
   override def run(): Unit =
     controller.refresh()
 
 /**
   * A task class for the ''remove metadata files'' action.
   *
-  * This task class just delegates to the [[MetaDataFilesController]].
+  * This task class just delegates to the [[MetadataFilesController]].
   *
   * @param controller the ''MetaDataFilesController''
   */
-class RemoveFilesTask(controller: MetaDataFilesController) extends Runnable:
+class RemoveFilesTask(controller: MetadataFilesController) extends Runnable:
   override def run(): Unit =
     controller.removeFiles()
 
 /**
   * A task class for the action for closing the metadata files window.
   *
-  * This task class just delegates to the [[MetaDataFilesController]].
+  * This task class just delegates to the [[MetadataFilesController]].
   *
   * @param controller the ''MetaDataFilesController''
   */
-class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends Runnable:
+class CloseMetadataFilesDialogTask(controller: MetadataFilesController) extends Runnable:
   override def run(): Unit =
     controller.close()
 
@@ -64,8 +64,8 @@ class CloseMetaDataFilesDialogTask(controller: MetaDataFilesController) extends 
   * @param locator      the locator for the dialog script
   * @param refArchiveID the reference containing the selected archive
   */
-class OpenMetaDataFilesDlgCommand(locator: Locator, refArchiveID: AtomicReference[String])
+class OpenMetadataFilesDlgCommand(locator: Locator, refArchiveID: AtomicReference[String])
   extends OpenWindowCommand(locator):
   override def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
-    builderData.addProperty(MetaDataFilesController.PropSelectedArchiveID, refArchiveID.get())
+    builderData.addProperty(MetadataFilesController.PropSelectedArchiveID, refArchiveID.get())

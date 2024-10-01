@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 object StateListenerExtensionSpec:
   /** A test metadata state event. */
-  private val State = MetaDataStateUpdated(MetaDataState(1, 2, 3, 4, scanInProgress = false,
+  private val State = MetadataStateUpdated(MetadataState(1, 2, 3, 4, scanInProgress = false,
     updateInProgress = false, archiveCompIDs = Set.empty))
 
 /**
@@ -44,8 +44,8 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     *
     * @return the registration
     */
-  private def createRegistration(): ConsumerRegistration[MetaDataStateEvent] =
-    val func = mock[ConsumerFunction[MetaDataStateEvent]]
+  private def createRegistration(): ConsumerRegistration[MetadataStateEvent] =
+    val func = mock[ConsumerFunction[MetadataStateEvent]]
     StateListenerExtension.StateListenerRegistration(ComponentID(), func)
 
   /**
@@ -63,12 +63,12 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive reg1
     ext receive reg2
 
-    ext receive MetaDataScanStarted
-    ext receive MetaDataScanCompleted
-    verify(reg1.callback).apply(MetaDataScanStarted)
-    verify(reg2.callback).apply(MetaDataScanStarted)
-    verify(reg1.callback).apply(MetaDataScanCompleted)
-    verify(reg2.callback).apply(MetaDataScanCompleted)
+    ext receive MetadataScanStarted$
+    ext receive MetadataScanCompleted$
+    verify(reg1.callback).apply(MetadataScanStarted$)
+    verify(reg2.callback).apply(MetadataScanStarted$)
+    verify(reg1.callback).apply(MetadataScanCompleted$)
+    verify(reg2.callback).apply(MetadataScanCompleted$)
 
   it should "create a listener registration for the first consumer" in:
     val ext = createExtension()

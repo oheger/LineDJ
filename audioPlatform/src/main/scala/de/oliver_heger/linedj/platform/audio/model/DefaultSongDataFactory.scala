@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 /**
   * A default implementation of the [[SongDataFactory]] trait.
@@ -29,7 +29,7 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
   * @param resolver the resolver for missing metadata properties
   */
 class DefaultSongDataFactory(val resolver: UnknownPropertyResolver) extends SongDataFactory:
-  override def createSongData(id: MediaFileID, metadata: MediaMetaData): SongData =
+  override def createSongData(id: MediaFileID, metadata: MediaMetadata): SongData =
     SongData(id, metadata,
       title = metadata.title getOrElse resolver.resolveTitle(id),
       artist = metadata.artist getOrElse resolver.resolveArtistName(id),

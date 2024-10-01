@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.{ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
-import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetaDataRegistration
+import de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetadataRegistration
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangeUnregistration}
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, ServiceDependency, UnregisterService}
@@ -260,7 +260,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private val component = createComponent()
 
     /** The metadata resolver instance created by the test component. */
-    private var metaDataResolver: PlaylistMetaDataResolver = _
+    private var metaDataResolver: PlaylistMetadataResolver = _
 
     /** The behavior of the management actor. */
     private var managementActorBehavior: Behavior[PlayerManagementCommand] = _
@@ -328,7 +328,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       // One listener for ActorClientSupport, one listener for the metadata service.
       messageBus.currentListeners should have size 2
 
-      val regMsg = PlaylistMetaDataRegistration(ComponentID(), null)
+      val regMsg = PlaylistMetadataRegistration(ComponentID(), null)
       findReceiverFor(regMsg) should not be None
       this
 
@@ -453,7 +453,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createComponent(): AudioPlatformComponent =
       val playerFactory = mock[AudioPlayerFactory]
       val component = new AudioPlatformComponent(playerFactory):
-        override private[impl] def createPlaylistMetaDataResolver(): PlaylistMetaDataResolver =
+        override private[impl] def createPlaylistMetaDataResolver(): PlaylistMetadataResolver =
           val resolver = super.createPlaylistMetaDataResolver()
           metaDataResolver = resolver
           resolver

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -44,7 +44,7 @@ object DefaultSongDataFactorySpec:
   private val ResolvedAlbum = "_album"
 
   /** A metadata object with all relevant key properties defined. */
-  private val SongMetadata = MediaMetaData(title = Some(Title), artist = Some(Artist),
+  private val SongMetadata = MediaMetadata(title = Some(Title), artist = Some(Artist),
     album = Some(Album))
 
   /**
@@ -80,7 +80,7 @@ object DefaultSongDataFactorySpec:
     * @return the song created by the test factory
     */
   private def createSong(withMetaData: Boolean): SongData =
-    val metaData = if withMetaData then SongMetadata else MediaMetaData()
+    val metaData = if withMetaData then SongMetadata else MediaMetadata()
     val factory = new DefaultSongDataFactory(Resolver)
     factory.createSongData(SongID, metaData)
 

@@ -147,7 +147,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
   private var playbackContextFactories = List.empty[PlaybackContextFactory]
 
   /** The metadata resolver object. */
-  private var playlistMetadataResolver: Option[PlaylistMetaDataResolver] = None
+  private var playlistMetadataResolver: Option[PlaylistMetadataResolver] = None
 
   /** The message bus listener registration ID for the metadata resolver. */
   private var metadataResolverRegistrationID = 0
@@ -253,10 +253,10 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
     *
     * @return the ''PlaylistMetaDataResolver''
     */
-  private[impl] def createPlaylistMetaDataResolver(): PlaylistMetaDataResolver =
+  private[impl] def createPlaylistMetaDataResolver(): PlaylistMetadataResolver =
     val conf = clientApplicationContext.managementConfiguration
     implicit val ec: ExecutionContextExecutor = clientApplicationContext.actorSystem.dispatcher
-    new PlaylistMetaDataResolver(metadataActor = mediaFacadeActors.mediaManager,
+    new PlaylistMetadataResolver(metadataActor = mediaFacadeActors.mediaManager,
       bus = clientApplicationContext.messageBus,
       queryChunkSize = conf.getInt(PropMetadataQueryChunkSize, DefaultMetadataQueryChunkSize),
       cacheSize = conf.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize),

@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity, ValidationErrorCode}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.ValidationErrorCode.ValidationErrorCode
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaFile, Severity, ValidationErrorCode}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
+import de.oliver_heger.linedj.platform.mediaifc.MetadataService
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener}
@@ -123,7 +123,7 @@ object ValidationControllerSpec:
   private def generateErrorItems(files: Map[MediaFile, ValidationErrorCode]): Map[String, ValidationErrorItem] =
     files.map { e =>
       val errorItem = ValidationErrorItem(e._1.mediumID.mediumURI, e._1.uri, e._2.toString, null,
-        MetaDataValidator.severity(e._2))
+        MetadataValidator.severity(e._2))
       (e._1.uri, errorItem)
     }
 
@@ -691,14 +691,14 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       *
       * @return the mock metadata service
       */
-    private def createMetadataService(): MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]] =
-      val service = mock[MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]]]
+    private def createMetadataService(): MetadataService[AvailableMedia, Map[MediaFileID, MediaMetadata]] =
+      val service = mock[MetadataService[AvailableMedia, Map[MediaFileID, MediaMetadata]]]
       prepareMediaRequest(service, Future.successful(TestMedia))
 
-      Mockito.when(service.fetchMetaDataOfMedium(any(classOf[MediumID])))
+      Mockito.when(service.fetchMetadataOfMedium(any(classOf[MediumID])))
         .thenAnswer((invocation: InvocationOnMock) => {
           val mid = invocation.getArguments.head.asInstanceOf[MediumID]
-          Kleisli[Future, MessageBus, Map[MediaFileID, MediaMetaData]] { bus =>
+          Kleisli[Future, MessageBus, Map[MediaFileID, MediaMetadata]] { bus =>
             bus should be(messageBus)
             val files = TestFilesPerMedium(mid)
             val data = files.map(f => (MediaFileID(mid, f.uri), f.metadata)).toMap
@@ -714,7 +714,7 @@ class ValidationControllerSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @param service the mock metadata service
       * @param result  the available media future result to be returned
       */
-    private def prepareMediaRequest(service: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
+    private def prepareMediaRequest(service: MetadataService[AvailableMedia, Map[MediaFileID, MediaMetadata]],
                                     result: Future[AvailableMedia]): Unit =
       val resMedia = Kleisli[Future, MessageBus, AvailableMedia] { bus =>
         bus should be(messageBus)

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.extract.id3.model.ID3Header
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
 
 /**
@@ -57,9 +57,9 @@ case class IncompleteID3Frame(frameHeader: ID3Header)
   * was invalid or processing stopped unexpectedly.
   *
   * @param header   the header of the frame
-  * @param metaData an option with ID3v2 metadata
+  * @param metadata an option with ID3v2 metadata
   */
-case class ID3FrameMetaData(header: ID3Header, metaData: Option[MetaDataProvider])
+case class ID3FrameMetadata(header: ID3Header, metadata: Option[MetadataProvider])
 
 /**
   * A message with the metadata result extracted from an ID3v1 frame.
@@ -67,12 +67,12 @@ case class ID3FrameMetaData(header: ID3Header, metaData: Option[MetaDataProvider
   * A message of this type is generated when an MP3 file has been fully
   * processed. If the file contained an ID3v1 frame at the end, it can be
   * extracted and passed to the central collector actor. The metadata is
-  * represented by an [[MetaDataProvider]] object. If the audio file did not
+  * represented by an [[MetadataProvider]] object. If the audio file did not
   * contain valid ID3v1 information, this may be undefined.
   *
-  * @param metaData the ID3v1 metadata
+  * @param metadata the ID3v1 metadata
   */
-case class ID3v1MetaData(metaData: Option[MetaDataProvider])
+case class ID3v1Metadata(metadata: Option[MetadataProvider])
 
 /**
   * A message containing a chunk of data from an MP3 audio file.
@@ -100,7 +100,7 @@ case class ProcessMp3Data(data: ByteString)
   * @param maximumBitRate the maximum bit rate (in bps)
   * @param duration       the duration (rounded, in milliseconds)
   */
-case class Mp3MetaData(version: Int, layer: Int, sampleRate: Int, minimumBitRat: Int,
+case class Mp3Metadata(version: Int, layer: Int, sampleRate: Int, minimumBitRat: Int,
                        maximumBitRate: Int, duration: Int)
 
 /**
@@ -111,7 +111,7 @@ case class Mp3MetaData(version: Int, layer: Int, sampleRate: Int, minimumBitRat:
   * response, the actor sends the currently aggregated metadata back to the
   * sender.
   */
-case object Mp3MetaDataRequest
+case object Mp3MetadataRequest
 
 /**
   * A message indicating that a chunk of data from an MP3 file has been

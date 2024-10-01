@@ -44,10 +44,10 @@ object MediaActors:
   /**
    * Constant for the ''MetaDataManager'' remote actor.
    */
-  case object MetaDataManager extends MediaActor("metaDataManager")
+  case object MetadataManager extends MediaActor("metadataManager")
 
   /**
    * A set with all constants defined by the ''RemoteActors''
    * enumeration.
    */
-  val values: Set[MediaActor with Serializable] = Set(MediaManager, MetaDataManager)
+  val values: Set[MediaActor with Serializable] = Set(MediaManager, MetadataManager)

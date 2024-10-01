@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 import scala.beans.BeanProperty
 
@@ -43,7 +43,7 @@ object SongData:
   * @param id       the ID of this song in the media archive
   * @param metaData metadata about this song
   */
-case class SongData(id: MediaFileID, metaData: MediaMetaData,
+case class SongData(id: MediaFileID, metaData: MediaMetadata,
                     @BeanProperty title: String,
                     @BeanProperty artist: String,
                     @BeanProperty album: String):

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.reorder.medium
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -29,7 +29,7 @@ object PlaylistReordererMediumSpec:
     * @return the created ''SongData''
     */
   private def createSong(uri: String): SongData =
-    SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetaData(), null, null, null)
+    SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetadata(), null, null, null)
 end PlaylistReordererMediumSpec
 
 /**

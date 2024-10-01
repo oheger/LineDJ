@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.Severity
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.ValidationErrorCode.ValidationErrorCode
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.Severity
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.ValidationErrorCode.ValidationErrorCode
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidatedItem, ValidationErrorItem}
 import de.oliver_heger.linedj.shared.archive.media.AvailableMedia
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -78,7 +78,7 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
       error = applicationContext.getResourceText(resourcePrefix + code),
       name = valItem.displayFunc(valItem.uri),
       severityIcon = severityIcon(code),
-      severity = MetaDataValidator.severity(code))
+      severity = MetadataValidator.severity(code))
 
   /**
     * Obtains the name of the medium for the given validated item.
@@ -97,5 +97,5 @@ class ValidationItemConverter(applicationContext: ApplicationContext, resourcePr
     * @return the icon
     */
   private def severityIcon(code: ValidationErrorCode): AnyRef =
-    if MetaDataValidator.severity(code) == Severity.Error then iconSeverityError
+    if MetadataValidator.severity(code) == Severity.Error then iconSeverityError
     else iconSeverityWarning

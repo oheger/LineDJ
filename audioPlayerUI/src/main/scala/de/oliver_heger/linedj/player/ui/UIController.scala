@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.ui
 
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetadata, PlaylistMetadataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.{ConsumerSupport, Identifiable}
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
@@ -105,7 +105,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     */
   override val registrations: Iterable[ConsumerSupport.ConsumerRegistration[_]] =
     List(AudioPlayerStateChangeRegistration(componentID, consumePlayerStateChangeEvent),
-      PlaylistMetaDataRegistration(componentID, consumePlaylistMetaDataChanged))
+      PlaylistMetadataRegistration(componentID, consumePlaylistMetaDataChanged))
 
   /** Stores the last known player state. */
   private var currentState = AudioPlayerState.Initial
@@ -163,7 +163,7 @@ class UIController(val messageBus: MessageBus, actionStore: ActionStore,
     *
     * @param meta the updated metadata
     */
-  private def consumePlaylistMetaDataChanged(meta: PlaylistMetaData): Unit =
+  private def consumePlaylistMetaDataChanged(meta: PlaylistMetadata): Unit =
     playlistTableController handleMetaDataUpdate meta
     currentSongController.playlistDataChanged(plService currentIndex currentState.playlist)
 

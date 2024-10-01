@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archiveunion
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetadata, GetMetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
@@ -78,8 +78,8 @@ object MediaUnionActor:
   * when starting a new scan), the controller has to send an
   * [[ArchiveComponentRemoved]] message to make sure that existing data for
   * this component is removed.
-  *  - [[GetMetaDataFileInfo]] messages must be handled and answered with a
-  * corresponding ''MetaDataFileInfo'' message.
+  *  - [[GetMetadataFileInfo]] messages must be handled and answered with a
+  *    corresponding ''MetaDataFileInfo'' message.
   *  - Close requests are forwarded to all currently available controller
   * actors. On receiving such a request, a controller has to cancel an ongoing
   * scan operation (if any) and then ack the request. Only after all
@@ -96,7 +96,7 @@ object MediaUnionActor:
   * archive component, the correct medium can be identified, no matter which
   * concrete archive component owns it. To enable this independence of concrete
   * archive components for metadata requests as well, this actor supports
-  * messages of type [[GetFilesMetaData]]. These messages are forwarded to the
+  * messages of type [[GetFilesMetadata]]. These messages are forwarded to the
   * metadata union actor after an attempt was made to map the referenced media
   * based on checksum values. (''GetFilesMetaData'' messages can also be sent
   * directly to the metadata union actor, but in this case the checksum is
@@ -140,8 +140,8 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
         case None =>
           sender() ! undefinedMediumFileResponse(fileReq)
 
-    case req@GetFilesMetaData(files, _) =>
-      val adaptedReq = MetaDataUnionActor.GetFilesMetaDataWithMapping(request = req,
+    case req@GetFilesMetadata(files, _) =>
+      val adaptedReq = MetadataUnionActor.GetFilesMetadataWithMapping(request = req,
         idMapping = mapMediaIDsInMetaDataRequest(files))
       metaDataUnionActor forward adaptedReq
 
@@ -157,7 +157,7 @@ class MediaUnionActor(metaDataUnionActor: ActorRef) extends Actor with ActorLogg
     case GetArchiveMetadataFileInfo(archiveCompID) =>
       Try(controllerMap(archiveCompID)) match
         case Success(controller) =>
-          controller forward GetMetaDataFileInfo
+          controller forward GetMetadataFileInfo
         case Failure(exception) =>
           sender() ! Status.Failure(exception)
 

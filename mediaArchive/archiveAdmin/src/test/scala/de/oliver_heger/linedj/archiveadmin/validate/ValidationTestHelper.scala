@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 /**
   * An object implementing common functionality required by tests of the
@@ -108,8 +108,8 @@ object ValidationTestHelper:
     * @param albumIdx the index of the album
     * @return test metadata with this index
     */
-  def metaData(songIdx: Int, albumIdx: Int = 1): MediaMetaData =
-    MediaMetaData(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
+  def metaData(songIdx: Int, albumIdx: Int = 1): MediaMetadata =
+    MediaMetadata(title = Some("Song" + songIdx), artist = Some("artist"), album = Some("album" + albumIdx),
       inceptionYear = Some(2018 + albumIdx), trackNumber = Some(songIdx), duration = Some(60 + songIdx),
       size = Some(1000 + songIdx))
 
@@ -134,7 +134,7 @@ object ValidationTestHelper:
     * @param additionalData metadata for additional songs
     * @return the test album
     */
-  def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetaData*): MediaAlbum =
+  def album(idx: Int, numberOfSongs: Int, additionalData: MediaMetadata*): MediaAlbum =
     val songData = (1 to numberOfSongs) map (metaData(_, idx))
     MediaAlbum(Medium, "album" + idx, additionalData.toList ::: songData.toList)
 

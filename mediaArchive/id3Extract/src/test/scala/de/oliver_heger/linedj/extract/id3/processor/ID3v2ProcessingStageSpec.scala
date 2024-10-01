@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header}
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStageSpec.FetchFrameData
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
@@ -89,7 +89,7 @@ object ID3v2ProcessingStageSpec:
     * @param data   the data
     * @return the metadata provider
     */
-  private def createTagProvider(header: ID3Header, data: ByteString): MetaDataProvider =
+  private def createTagProvider(header: ID3Header, data: ByteString): MetadataProvider =
     val extractor = new ID3FrameExtractor(header)
     extractor.addData(data)
     extractor.createTagProvider().get

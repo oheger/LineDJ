@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 
 import scala.collection.immutable.IndexedSeq
 
@@ -35,7 +35,7 @@ import scala.collection.immutable.IndexedSeq
   * @param tagNames the tag names corresponding to the specific access methods
   */
 private class ID3v2TagProvider(val frame: ID3Frame, tagNames: IndexedSeq[String])
-  extends MetaDataProvider:
+  extends MetadataProvider:
   def title: Option[String] = get(0)
 
   def artist: Option[String] = get(1)

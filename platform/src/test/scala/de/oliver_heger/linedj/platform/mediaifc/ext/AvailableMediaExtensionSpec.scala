@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport.{ConsumerFunction, Co
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, GetAvailableMedia}
-import de.oliver_heger.linedj.shared.archive.metadata.{MetaDataScanCompleted, MetaDataScanStarted}
+import de.oliver_heger.linedj.shared.archive.metadata.{MetadataScanCompleted$, MetadataScanStarted$}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -163,7 +163,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     val ext = createExtension()
     ext receive mock[AvailableMedia]
 
-    ext receive MetaDataScanStarted
+    ext receive MetadataScanStarted$
     ext receive reg
     expectMediaDataRequest(ext)
     verify(reg.callback, never()).apply(any(classOf[AvailableMedia]))
@@ -173,13 +173,13 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive mock[AvailableMedia]
     ext receive createRegistration()
 
-    ext receive MetaDataScanStarted
+    ext receive MetadataScanStarted$
     expectMediaDataRequest(ext)
 
   it should "skip actions when a scan starts if no consumers" in:
     val ext = createExtension()
 
-    ext receive MetaDataScanCompleted
+    ext receive MetadataScanCompleted$
     verify(ext.mediaFacade, never()).send(MediaActors.MediaManager, GetAvailableMedia)
     verify(ext.mediaFacade, never()).unregisterMetadataStateListener(ext.componentID)
 
@@ -189,7 +189,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg
     ext receive AvailableMediaUnregistration(reg.id)
 
-    ext receive MetaDataScanStarted
+    ext receive MetadataScanStarted$
     ext receive reg
     expectMediaDataRequest(ext, 2)
 
@@ -199,7 +199,7 @@ class AvailableMediaExtensionSpec extends AnyFlatSpec with Matchers with Mockito
     ext receive reg
     ext receive AvailableMediaUnregistration(reg.id)
 
-    ext receive MetaDataScanStarted
+    ext receive MetadataScanStarted$
     verify(ext.mediaFacade).unregisterMetadataStateListener(ext.componentID)
 
   it should "create an un-registration object from a registration" in:

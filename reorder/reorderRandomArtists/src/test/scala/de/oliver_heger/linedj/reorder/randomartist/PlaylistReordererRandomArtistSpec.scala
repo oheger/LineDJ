@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.reorder.randomartist
 
 import de.oliver_heger.linedj.platform.audio.model.{SongArtistOrdering, SongData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -39,7 +39,7 @@ class PlaylistReordererRandomArtistSpec extends AnyFlatSpec with Matchers:
   it should "return the artist from the grouping function" in:
     val Artist = "Eric Clapton"
     val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetaData(title = Some("title"), artist = Some(Artist)),
+      MediaMetadata(title = Some("title"), artist = Some(Artist)),
     "title", Artist, "album")
     val reorder = new PlaylistReordererRandomArtist
 

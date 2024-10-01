@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.mediaifc.ext
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataScanCompleted$
 import org.apache.pekko.actor.Actor.Receive
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -207,14 +207,14 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "invoke a notification method when a scan is completed" in:
     val ext = new MediaIfcExtensionTestImpl
 
-    ext receive MetaDataScanCompleted
+    ext receive MetadataScanCompleted$
     ext.scanCompletedNotifications.get() should be(List(false))
 
   it should "set the correct parameter in the onScanCompleted() callback" in:
     val ext = new MediaIfcExtensionTestImpl
     ext addConsumer createRegistration(1)
 
-    ext receive MetaDataScanCompleted
+    ext receive MetadataScanCompleted$
     ext.scanCompletedNotifications.get() should be(List(true))
 
   it should "pass other messages to the specific receive function" in:
@@ -231,11 +231,11 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val data = "Completed!"
     val ext = new MediaIfcExtensionTestImpl:
       override protected def receiveSpecific: Receive =
-        case MetaDataScanCompleted => invokeConsumers(data)
+        case MetadataScanCompleted$ => invokeConsumers(data)
     val buf = new StringBuilder(32)
     ext addConsumer createRegistration(1, buf)
 
-    ext receive MetaDataScanCompleted
+    ext receive MetadataScanCompleted$
     ext.scanCompletedNotifications.get() shouldBe empty
     buf.toString().trim should be(consumerOutput(1, data))
 
@@ -247,7 +247,7 @@ class MediaIfcExtensionSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   it should "provide a default receiveSpecific() implementation" in:
     val ext = new NoGroupingMediaIfcExtension[String] {}
 
-    ext.receive.isDefinedAt(MetaDataScanCompleted) shouldBe true
+    ext.receive.isDefinedAt(MetadataScanCompleted$) shouldBe true
     ext.receive.isDefinedAt(this) shouldBe false
 
   it should "evaluate the message passed to invokeConsumers lazily" in:

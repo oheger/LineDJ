@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
+import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.pekko.actor._
@@ -176,7 +176,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       updateStateAndSendMessages(scanStateUpdateService
         .handleRemovedFromUnionArchive(config.archiveName))
 
-    case MetaDataManagerActor.ScanResultProcessed if sender() == metaDataManager =>
+    case MetadataManagerActor.ScanResultProcessed if sender() == metaDataManager =>
       updateStateAndSendMessages(scanStateUpdateService
         .handleAckFromMetaManager(config.archiveName))
 
@@ -188,8 +188,8 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       updateStateAndSendMessages(scanStateUpdateService.handleScanComplete(request.seqNo,
         config.archiveName))
 
-    case GetMetaDataFileInfo =>
-      metaDataManager forward GetMetaDataFileInfo
+    case GetMetadataFileInfo =>
+      metaDataManager forward GetMetadataFileInfo
 
     case CloseRequest =>
       onCloseRequest(self, List(metaDataManager), sender(), me)

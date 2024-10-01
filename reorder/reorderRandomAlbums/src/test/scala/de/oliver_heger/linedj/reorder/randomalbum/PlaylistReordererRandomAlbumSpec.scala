@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.reorder.randomalbum
 
 import de.oliver_heger.linedj.platform.audio.model.{SongAlbumOrdering, SongData}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -39,7 +39,7 @@ class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers:
   it should "return the album from the grouping function" in:
     val Album = "Brothers in Arms"
     val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetaData(title = Some("So Far Away"), album = Some(Album)),
+      MediaMetadata(title = Some("So Far Away"), album = Some(Album)),
       "title", "artist", Album)
     val reorder = new PlaylistReordererRandomAlbum
 

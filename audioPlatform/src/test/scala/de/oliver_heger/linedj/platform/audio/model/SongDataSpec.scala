@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -32,7 +32,7 @@ object SongDataSpec:
   private val Duration = 4444
 
   /** A metadata object containing all relevant information. */
-  private val CompleteMetaData = MediaMetaData(trackNumber = Some(TrackNumber),
+  private val CompleteMetaData = MediaMetadata(trackNumber = Some(TrackNumber),
     duration = Some(Duration))
 
 /**
@@ -49,7 +49,7 @@ class SongDataSpec extends AnyFlatSpec with Matchers:
     song.hasDuration shouldBe true
 
   it should "return a special duration if undefined in metadata" in:
-    val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
+    val song = SongData(SongID, MediaMetadata(), "title", "artist", "album")
 
     song.getDuration should be(SongData.UnknownDuration)
     song.hasDuration shouldBe false
@@ -61,7 +61,7 @@ class SongDataSpec extends AnyFlatSpec with Matchers:
     song.hasTrackNumber shouldBe true
 
   it should "return a special track number if undefined in metadata" in:
-    val song = SongData(SongID, MediaMetaData(), "title", "artist", "album")
+    val song = SongData(SongID, MediaMetadata(), "title", "artist", "album")
 
     song.getTrackNumber should be(SongData.UnknownTrackNumber)
     song.hasTrackNumber shouldBe false

@@ -24,9 +24,9 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
-import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MediumContent, MetaDataRegistration, RemoveMetaDataRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetadataCache.{MediumContent, MetadataRegistration, RemoveMetadataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
 import net.sf.jguiraffe.gui.builder.components.model.*
@@ -211,7 +211,7 @@ object MediaControllerSpec:
                              mediumID: MediumID = TestMediumID): Seq[SongData] =
     songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1,
       mediumName(mediumID) map mediumChecksum),
-      MediaMetaData(title = Some(e._1), artist = Some(artist), album = Some(album),
+      MediaMetadata(title = Some(e._1), artist = Some(artist), album = Some(album),
         trackNumber = Some(e._2)), e._1, artist, album))
 
   /**
@@ -321,7 +321,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     val helper = new MediaControllerTestHelper
 
     helper.selectMedium()
-    helper.findMessageType[RemoveMetaDataRegistration] shouldBe empty
+    helper.findMessageType[RemoveMetadataRegistration] shouldBe empty
 
   it should "define a correct component ID" in:
     val helper = new MediaControllerTestHelper
@@ -335,7 +335,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     helper.clearReceivedMessages()
 
     helper.selectMedium()
-    helper expectMessage RemoveMetaDataRegistration(oldMedium, helper.controller.componentID)
+    helper expectMessage RemoveMetadataRegistration(oldMedium, helper.controller.componentID)
 
   it should "not remove a metadata registration when receiving new media" in:
     val helper = new MediaControllerTestHelper
@@ -345,7 +345,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
 
     helper sendAvailableMedia AvailableMediaMsg
     helper selectMedium mediumID(MediaNames(1))
-    helper.findMessageType[RemoveMetaDataRegistration] shouldBe empty
+    helper.findMessageType[RemoveMetadataRegistration] shouldBe empty
 
   it should "clear the tree model when another medium is selected" in:
     val helper = new MediaControllerTestHelper
@@ -739,7 +739,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     val songName = Songs1.head
     val orgFileID = MediaFileID(mediumID(Medium), songName)
     val processedID = orgFileID.copy(checksum = Some(AvailableMediaMsg.media(orgFileID.mediumID).checksum))
-    val song = SongData(orgFileID, MediaMetaData(title = Some(songName), artist = Some(Artist1),
+    val song = SongData(orgFileID, MediaMetadata(title = Some(songName), artist = Some(Artist1),
       album = Some(Album1)), songName, Artist1, Album1)
     val helper = new MediaControllerTestHelper
     helper.sendDefaultAvailableMedia()
@@ -758,7 +758,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
 
     import ConsumerRegistrationProviderTestHelper.*
 
-    val songFactory: SongDataFactory = (id: MediaFileID, metaData: MediaMetaData) =>
+    val songFactory: SongDataFactory = (id: MediaFileID, metaData: MediaMetadata) =>
       SongData(id, metaData, metaData.title.get, metaData.artist.get, metaData.album.get)
 
     /** A mock for the message bus. */
@@ -828,7 +828,7 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
       * @return the function for receiving metadata content objects
       */
     def verifyMetaDataRequest(mediumID: MediumID = TestMediumID): MediumContent => Unit =
-      val regMsg = expectMessageType[MetaDataRegistration]
+      val regMsg = expectMessageType[MetadataRegistration]
       regMsg.id should be(controller.componentID)
       regMsg.mediumID should be(mediumID)
       regMsg.callback

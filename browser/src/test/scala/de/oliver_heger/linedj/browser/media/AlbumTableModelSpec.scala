@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -40,7 +40,7 @@ object AlbumTableModelSpec:
    */
   private def song(name: String, track: Int): SongData =
     SongData(MediaFileID(Medium, "song://" + name),
-      MediaMetaData(title = Some(name), trackNumber = Some(track)),
+      MediaMetadata(title = Some(name), trackNumber = Some(track)),
       name, "someArtist", "someAlbum")
 
   /**

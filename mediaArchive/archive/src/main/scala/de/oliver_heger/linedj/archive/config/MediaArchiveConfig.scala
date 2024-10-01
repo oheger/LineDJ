@@ -217,16 +217,16 @@ object MediaArchiveConfig:
   private def extractMediaArchiveConfig(config: Configuration, defDownloadConfig: DownloadConfig,
                                         keyPrefix: String, nameResolver: => String): MediaArchiveConfig =
     val subConfig = config.subset(keyPrefix)
-    new MediaArchiveConfig(metaDataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
+    new MediaArchiveConfig(metadataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
       infoSizeLimit = intProperty(config, subConfig, PropInfoSizeLimit),
       tagSizeLimit = intProperty(config, subConfig, PropTagSizeLimit),
       processingTimeout = durationProperty(config, subConfig, PropProcessingTimeout),
-      metaDataMediaBufferSize = intProperty(config, subConfig, PropMetaDataBufferSize,
+      metadataMediaBufferSize = intProperty(config, subConfig, PropMetaDataBufferSize,
         Some(DefaultMetaDataMediaBufferSize)),
-      metaDataPersistencePath = Paths.get(stringProperty(config, subConfig, PropMetaDataPersistencePath)),
-      metaDataPersistenceChunkSize = intProperty(config, subConfig, PropMetaDataPersistenceChunkSize),
-      metaDataPersistenceParallelCount = intProperty(config, subConfig, PropMetaDataPersistenceParallelCount),
-      metaDataPersistenceWriteBlockSize = intProperty(config, subConfig, PropMetaDataPersistenceWriteBlockSize),
+      metadataPersistencePath = Paths.get(stringProperty(config, subConfig, PropMetaDataPersistencePath)),
+      metadataPersistenceChunkSize = intProperty(config, subConfig, PropMetaDataPersistenceChunkSize),
+      metadataPersistenceParallelCount = intProperty(config, subConfig, PropMetaDataPersistenceParallelCount),
+      metadataPersistenceWriteBlockSize = intProperty(config, subConfig, PropMetaDataPersistenceWriteBlockSize),
       excludedFileExtensions = obtainExcludedExtensions(config, subConfig),
       includedFileExtensions = obtainIncludedExtensions(config, subConfig),
       rootPath = Paths get stringProperty(config, subConfig, PropRootPath),
@@ -375,21 +375,21 @@ object MediaArchiveConfig:
   * Instances are created using a static factory method.
   *
   * @param downloadConfig                    the configuration for download operations
-  * @param metaDataReadChunkSize             the read chunk size when extracting metadata
+  * @param metadataReadChunkSize             the read chunk size when extracting metadata
   * @param infoSizeLimit                     the maximum size of a medium description file
   * @param tagSizeLimit                      the size limit for ID3 tags
   * @param processingTimeout                 a timeout for the processing of a single media
   *                                          file
-  * @param metaDataMediaBufferSize           the buffer for metadata extraction
-  * @param metaDataPersistencePath           the path used by metadata persistence; here
+  * @param metadataMediaBufferSize           the buffer for metadata extraction
+  * @param metadataPersistencePath           the path used by metadata persistence; here
   *                                          extracted metadata is stored in files
-  * @param metaDataPersistenceChunkSize      the chunk size to be used when reading
+  * @param metadataPersistenceChunkSize      the chunk size to be used when reading
   *                                          or writing files with persistent
   *                                          metadata
-  * @param metaDataPersistenceParallelCount  the number of parallel reader or
+  * @param metadataPersistenceParallelCount  the number of parallel reader or
   *                                          writer actors to be created for
   *                                          reading persistent metadata
-  * @param metaDataPersistenceWriteBlockSize the number of songs to be processed
+  * @param metadataPersistenceWriteBlockSize the number of songs to be processed
   *                                          on a medium before the metadata
   *                                          file for this medium is written
   * @param excludedFileExtensions            the set with file extensions (in upper case)
@@ -408,15 +408,15 @@ object MediaArchiveConfig:
   *                                          archive directory
   */
 case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
-                                              metaDataReadChunkSize: Int,
+                                              metadataReadChunkSize: Int,
                                               infoSizeLimit: Int,
                                               tagSizeLimit: Int,
                                               processingTimeout: Timeout,
-                                              metaDataMediaBufferSize: Int,
-                                              metaDataPersistencePath: Path,
-                                              metaDataPersistenceChunkSize: Int,
-                                              metaDataPersistenceParallelCount: Int,
-                                              metaDataPersistenceWriteBlockSize: Int,
+                                              metadataMediaBufferSize: Int,
+                                              metadataPersistencePath: Path,
+                                              metadataPersistenceChunkSize: Int,
+                                              metadataPersistenceParallelCount: Int,
+                                              metadataPersistenceWriteBlockSize: Int,
                                               excludedFileExtensions: Set[String],
                                               includedFileExtensions: Set[String],
                                               rootPath: Path,

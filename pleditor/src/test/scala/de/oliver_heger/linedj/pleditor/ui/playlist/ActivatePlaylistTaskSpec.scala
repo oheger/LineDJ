@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistService}
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.mockito.ArgumentMatchers.{any, anyInt}
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -50,7 +50,7 @@ object ActivatePlaylistTaskSpec:
     * @return the data object representing this test song
     */
   private def testSong(idx: Int): SongData =
-    SongData(fileID(idx), MediaMetaData(), "title" + idx, "artist" + idx, "album" + idx)
+    SongData(fileID(idx), MediaMetadata(), "title" + idx, "artist" + idx, "album" + idx)
 
 /**
   * Test class for ''ActivatePlaylistTask''.

@@ -48,8 +48,8 @@ object HttpArchiveContentProcessorActor:
     * @param mid the medium ID
     * @return the undefined metadata result for this medium ID
     */
-  private def createUndefinedMetaResult(mid: MediumID): MetaDataResponseProcessingResult =
-    MetaDataResponseProcessingResult(metadata = Nil, mediumID = mid, seqNo = UndefinedSeqNo)
+  private def createUndefinedMetaResult(mid: MediumID): MetadataResponseProcessingResult =
+    MetadataResponseProcessingResult(metadata = Nil, mediumID = mid, seqNo = UndefinedSeqNo)
 
   /**
     * Tests whether a medium description is fully defined. All paths must be
@@ -138,7 +138,7 @@ class HttpArchiveContentProcessorActor extends AbstractStreamProcessingActor wit
         import GraphDSL.Implicits._
         val broadcast = builder.add(Broadcast[HttpMediumDesc](2))
         val merge = builder.add(
-          Zip[MediumInfoResponseProcessingResult, MetaDataResponseProcessingResult]())
+          Zip[MediumInfoResponseProcessingResult, MetadataResponseProcessingResult]())
         val broadcastSink = builder.add(Broadcast[MediumProcessingResult](2))
 
         req.mediaSource ~> ks ~> filterDesc ~> broadcast

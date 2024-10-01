@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.shared.archive.union
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor.ActorRef
 
 /**
@@ -115,20 +115,20 @@ sealed trait MetadataProcessingResult:
   *
   * @param mediumID the ID of the medium this file belongs to
   * @param uri      the URI of the file
-  * @param metaData an object with the metadata that could be extracted
+  * @param metadata an object with the metadata that could be extracted
   */
 case class MetadataProcessingSuccess(override val mediumID: MediumID,
-                                     override val uri: MediaFileUri, metaData: MediaMetaData)
+                                     override val uri: MediaFileUri, metadata: MediaMetadata)
   extends MetadataProcessingResult:
   /**
     * Returns a new instance of ''MetaDataProcessingResult'' with the same
     * properties as this instance, but with updated metadata.
     *
-    * @param metaData the new metadata
+    * @param metadata the new metadata
     * @return the updated instance
     */
-  def withMetaData(metaData: MediaMetaData): MetadataProcessingSuccess =
-    copy(metaData = metaData)
+  def withMetadata(metadata: MediaMetadata): MetadataProcessingSuccess =
+    copy(metadata = metadata)
 
   /**
     * Converts this result into an error result using the specified exception

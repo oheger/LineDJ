@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.audio.model
 
 import de.oliver_heger.linedj.shared.archive.media.MediaFileID
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 /**
   * A trait defining the creation of [[SongData]] instances.
@@ -34,4 +34,4 @@ trait SongDataFactory:
     * @param metadata the metadata available for this song
     * @return the newly created ''SongData'' instance
     */
-  def createSongData(id: MediaFileID, metadata: MediaMetaData): SongData
+  def createSongData(id: MediaFileID, metadata: MediaMetadata): SongData

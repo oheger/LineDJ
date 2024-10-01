@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model._
@@ -190,11 +190,11 @@ object HttpArchiveContentProcessorActorSpec:
     * @return the result for this metadata request
     */
   def createMetadataProcessingResult(desc: HttpMediumDesc, reqUri: String):
-  MetaDataResponseProcessingResult =
+  MetadataResponseProcessingResult =
     val mid = mediumID(desc)
     val data = List(MetadataProcessingSuccess(mediumID = mid, uri = MediaFileUri(desc.metaDataPath),
-      metaData = MediaMetaData(title = Some(reqUri))))
-    MetaDataResponseProcessingResult(mid, data, SeqNo)
+      metadata = MediaMetadata(title = Some(reqUri))))
+    MetadataResponseProcessingResult(mid, data, SeqNo)
 
 /**
   * Test class for ''HttpArchiveContentProcessorActor''.

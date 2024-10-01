@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archive.group
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
@@ -104,10 +104,10 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return the map to control the child actor creation
       */
     private def createChildActorsMap(): Map[Class[_], (Props => Boolean, ActorRef)] =
-      val propsPersistentManager = PersistentMetaDataManagerActor(archiveConfig, probeMetaDataUnionActor.ref, null)
+      val propsPersistentManager = PersistentMetadataManagerActor(archiveConfig, probeMetaDataUnionActor.ref, null)
       val propsMediaManager = MediaManagerActor(archiveConfig, probeMetaDataManager.ref,
         probeMediaUnionActor.ref, probeGroupManager.ref, null)
-      val propsMetaDataManager = MetaDataManagerActor(archiveConfig, probePersistenceManager.ref,
+      val propsMetaDataManager = MetadataManagerActor(archiveConfig, probePersistenceManager.ref,
         probeMetaDataUnionActor.ref, null)
       Map(propsMediaManager.actorClass() -> (checkMediaManagerProps(propsMediaManager), probeMediaManager.ref),
         propsMetaDataManager.actorClass() -> (checkMetaDataManagerProps(propsMetaDataManager),

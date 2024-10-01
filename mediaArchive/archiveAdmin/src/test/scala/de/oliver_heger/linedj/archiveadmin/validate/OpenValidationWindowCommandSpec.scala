@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaFile, ValidationErrorCode, ValidationResult}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.ValidatedItem
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.shared.archive.media.MediumID

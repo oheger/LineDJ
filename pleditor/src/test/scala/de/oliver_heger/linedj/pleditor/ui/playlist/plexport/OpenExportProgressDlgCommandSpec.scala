@@ -23,7 +23,7 @@ import java.util
 import de.oliver_heger.linedj.io.{DirectoryScanner, FileData, ScanResult}
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.app.ApplicationBuilderData
 import net.sf.jguiraffe.locators.URLLocator
 import org.mockito.Mockito._
@@ -59,7 +59,7 @@ object OpenExportProgressDlgCommandSpec:
   private def createSongData(index: Int): SongData =
     val title = "Song " + index
     SongData(MediaFileID(MediumID("Medium" + index, None), "song://TestSong" + index),
-      MediaMetaData(title = Some(title)), title, null, null)
+      MediaMetadata(title = Some(title)), title, null, null)
 
   /**
    * Creates a settings object with the specified clear mode.

@@ -58,12 +58,12 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
   import MediaArchiveConfigSpec._
 
   "A MediaArchiveConfig" should "return the correct update chunk size" in:
-    createMediaConfig().metaDataUpdateChunkSize should be(MetadataChunkSize)
+    createMediaConfig().metadataUpdateChunkSize should be(MetadataChunkSize)
 
   it should "return the correct maximum message size" in:
-    createMediaConfig().metaDataMaxMessageSize should be(MetadataMaxMsgSize)
+    createMediaConfig().metadataMaxMessageSize should be(MetadataMaxMsgSize)
 
   it should "adapt the maximum message size if necessary" in:
     val config = createMediaConfig(updateChunkSize = 8)
 
-    config.metaDataMaxMessageSize should be(152)
+    config.metadataMaxMessageSize should be(152)

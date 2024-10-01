@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{AddMetaDataStateListener, RemoveMediumListener, RemoveMetaDataStateListener}
+import de.oliver_heger.linedj.shared.archive.metadata.{AddMetadataStateListener, RemoveMediumListener, RemoveMetadataStateListener}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -124,7 +124,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
 
   it should "allow sending a message to the metadata manager actor" in :
     val helper = new RemoteRelayActorTestHelper
-    helper.provideRemoteActors() ! RelayActor.MediaMessage(MediaActors.MetaDataManager,
+    helper.provideRemoteActors() ! RelayActor.MediaMessage(MediaActors.MetadataManager,
       Message)
 
     helper.probeMetadataManager.expectMsg(Message)
@@ -134,10 +134,10 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper activateAndExpectState MediaFacade.MediaArchiveUnavailable
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetaDataManager, "ignore")
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetadataManager, "ignore")
     helper registerRemoteActor helper.probeMetadataManager
     expectMsg(MediaFacade.MediaArchiveAvailable)
-    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetaDataManager, Message)
+    helper.relayActor ! RelayActor.MediaMessage(MediaActors.MetadataManager, Message)
     helper.probeMetadataManager.expectMsg(Message)
 
   it should "ignore messages to media actors if not connected to the archive" in :
@@ -183,8 +183,8 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     val helper = new RemoteRelayActorTestHelper
     helper registerRemoteActor helper.probeMediaManager
 
-    helper.relayActor ! RelayActor.MediaActorRequest(MediaActors.MetaDataManager)
-    expectMsg(RelayActor.MediaActorResponse(MediaActors.MetaDataManager, None))
+    helper.relayActor ! RelayActor.MediaActorRequest(MediaActors.MetadataManager)
+    expectMsg(RelayActor.MediaActorResponse(MediaActors.MetadataManager, None))
 
   it should "handle a message to remove a metadata listener" in :
     val mid = MediumID("a medium", None)
@@ -207,7 +207,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.relayActor ! RelayActor.RegisterStateListener(ComponentID())
     helper.expectStateListenerRegistration()
-    helper.expectNoMsg(MediaActors.MetaDataManager)
+    helper.expectNoMsg(MediaActors.MetadataManager)
 
   it should "support removing a state listener registration" in :
     val compID = ComponentID()
@@ -230,7 +230,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     helper.relayActor ! RelayActor.RegisterStateListener(id2)
 
     helper.relayActor ! RelayActor.UnregisterStateListener(id1)
-    helper.expectNoMsg(MediaActors.MetaDataManager)
+    helper.expectNoMsg(MediaActors.MetadataManager)
     helper.relayActor ! RelayActor.UnregisterStateListener(id2)
     helper.expectStateListenerUnRegistration()
 
@@ -296,7 +296,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     /** A map that stores references for the paths to remote actors. */
     private val pathActorMapping = Map(
       LookupPrefix + "mediaManager" -> (probeMediaManagerLookup.ref, probeMediaManager.ref),
-      LookupPrefix + "metaDataManager" -> (probeMetadataManagerLookup.ref, probeMetadataManager.ref))
+      LookupPrefix + "metadataManager" -> (probeMetadataManagerLookup.ref, probeMetadataManager.ref))
 
     /** A map for retrieving the lookup path for a remote actor reference. */
     private val lookupMap = pathActorMapping map { e => e._2._2 -> e._1 }
@@ -381,7 +381,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return this test helper
       */
     def expectStateListenerRegistration(): RemoteRelayActorTestHelper =
-      probeMetadataManager.expectMsg(AddMetaDataStateListener(relayActor))
+      probeMetadataManager.expectMsg(AddMetadataStateListener(relayActor))
       this
 
     /**
@@ -390,7 +390,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
       * @return this test helper
       */
     def expectStateListenerUnRegistration(): RemoteRelayActorTestHelper =
-      probeMetadataManager.expectMsg(RemoveMetaDataStateListener(relayActor))
+      probeMetadataManager.expectMsg(RemoveMetadataStateListener(relayActor))
       this
 
     /**
@@ -402,7 +402,7 @@ class RelayActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with I
     private def probeForTarget(target: MediaActors.MediaActor): TestProbe =
       target match
         case MediaActors.MediaManager => probeMediaManager
-        case MediaActors.MetaDataManager => probeMetadataManager
+        case MediaActors.MetadataManager => probeMetadataManager
 
     /**
       * Creates a properties object for the test relay actor.

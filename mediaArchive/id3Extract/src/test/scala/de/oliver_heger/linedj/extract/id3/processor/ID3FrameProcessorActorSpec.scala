@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.extract.id3.model._
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.ByteString
@@ -71,7 +71,7 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   it should "handle the last processing message" in:
     val data = generateChunk()
-    val metaData = mock[MetaDataProvider]
+    val metaData = mock[MetadataProvider]
     val msg = ProcessID3FrameData(Header, data, lastChunk = true)
     val helper = new ID3FrameProcessorTestHelper
 
@@ -81,7 +81,7 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       .expectMetaDataMessage(metaData)
 
   it should "handle an incomplete ID3 frame message" in:
-    val metaData = mock[MetaDataProvider]
+    val metaData = mock[MetadataProvider]
     val helper = new ID3FrameProcessorTestHelper
 
     helper.prepareProviderCreation(metaData)
@@ -153,7 +153,7 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param provider the provider
       * @return this test helper
       */
-    def prepareProviderCreation(provider: MetaDataProvider): ID3FrameProcessorTestHelper =
+    def prepareProviderCreation(provider: MetadataProvider): ID3FrameProcessorTestHelper =
       when(extractor.createTagProvider()).thenReturn(Some(provider))
       this
 
@@ -164,8 +164,8 @@ class ID3FrameProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param provider the expected metadata provider
       * @return this test helper
       */
-    def expectMetaDataMessage(provider: MetaDataProvider): ID3FrameProcessorTestHelper =
-      collector.expectMsg(ID3FrameMetaData(Header, Some(provider)))
+    def expectMetaDataMessage(provider: MetadataProvider): ID3FrameProcessorTestHelper =
+      collector.expectMsg(ID3FrameMetadata(Header, Some(provider)))
       this
 
     /**

@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archive.group
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
-import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetaDataManagerActor
+import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
+import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.ActorRef
 
@@ -48,7 +48,7 @@ trait ArchiveActorFactory:
                           archiveConfig: MediaArchiveConfig): ActorRef =
     val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
-      PersistentMetaDataManagerActor(archiveConfig, metadataUnionActor, converter))
-    val metaDataManager = createChildActor(MetaDataManagerActor(archiveConfig,
+      PersistentMetadataManagerActor(archiveConfig, metadataUnionActor, converter))
+    val metaDataManager = createChildActor(MetadataManagerActor(archiveConfig,
       persistentMetaDataManager, metadataUnionActor, converter))
     createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))

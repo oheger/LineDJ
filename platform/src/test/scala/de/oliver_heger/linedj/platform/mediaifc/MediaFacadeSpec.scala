@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors.MediaActor
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.GetMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetadata
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.util.Timeout
@@ -43,8 +43,8 @@ class MediaFacadeSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val MediumId = MediumID("A medium", None)
 
     val regID = facade queryMetadataAndRegisterListener MediumId
-    facade.sentMessages should be(List((MediaActors.MetaDataManager,
-      GetMetaData(MediumId, registerAsListener = true, regID))))
+    facade.sentMessages should be(List((MediaActors.MetadataManager,
+      GetMetadata(MediumId, registerAsListener = true, regID))))
 
   it should "generate a sequence of registration IDs" in:
     val count = 16
@@ -161,7 +161,7 @@ class MediaFacadeImpl(val expTimeout: Timeout = Timeout(5.seconds)) extends Medi
       throw new AssertionError("Unexpected timeout: " + timeout)
     target match
       case MediaActors.MediaManager => responseMediaManager
-      case MediaActors.MetaDataManager => responseMetadataManager
+      case MediaActors.MetadataManager => responseMetadataManager
 
   override def removeMetadataListener(mediumID: MediumID): Unit = ???
 

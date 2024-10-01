@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.extract.id3.model
 
 import de.oliver_heger.linedj.FileTestHelper
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -98,7 +98,7 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     * @param txt the text
     * @return the tag provider
     */
-  private def providerFromStringExtractionTest(txt: String): MetaDataProvider =
+  private def providerFromStringExtractionTest(txt: String): MetadataProvider =
     val data = new Array[Byte](128)
     fillArray(data, "TAG")
     fillArray(data, txt, 3)

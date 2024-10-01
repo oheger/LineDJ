@@ -211,7 +211,7 @@
              beanClassName="de.oliver_heger.linedj.player.ui.PlaylistTableController">
       <di:constructor>
         <di:param refName="songDataFactory"/>
-        <di:param refName="playlistMetaDataService"/>
+        <di:param refName="playlistMetadataService"/>
         <di:param refName="playlistService"/>
         <di:param refName="comp:playlistTable"/>
       </di:constructor>

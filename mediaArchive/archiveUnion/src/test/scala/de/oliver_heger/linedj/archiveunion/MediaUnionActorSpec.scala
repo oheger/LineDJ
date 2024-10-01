@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archiveunion
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetaData, GetMetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetadata, GetMetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
@@ -368,13 +368,13 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     val mappedFile = fileID(mediumID(2, 2), 2)
     val expMapping = Map(fileID2 -> fileID2.mediumID, fileID3 -> fileID3.mediumID,
       fileID1 -> mappedFile.mediumID)
-    val request = GetFilesMetaData(Seq(fileID1, fileID2, fileID3), 21)
+    val request = GetFilesMetadata(Seq(fileID1, fileID2, fileID3), 21)
     val helper = new MediaUnionActorTestHelper
     helper.addMedia(mediaMap1, 1)
     helper.addMedia(mediaMap2, 2)
 
     helper.manager ! request
-    val fwdMsg = helper.metaDataActor.expectMsgType[MetaDataUnionActor.GetFilesMetaDataWithMapping]
+    val fwdMsg = helper.metaDataActor.expectMsgType[MetadataUnionActor.GetFilesMetadataWithMapping]
     fwdMsg.request should be(request)
     fwdMsg.idMapping should be(expMapping)
 
@@ -385,7 +385,7 @@ class MediaUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     helper.addMedia(mediaMap, 1, controller)
 
     helper.manager ! GetArchiveMetadataFileInfo(componentID(1))
-    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
+    expectMsg(ForwardTestActor.ForwardedMessage(GetMetadataFileInfo))
 
   it should "handle a GetArchiveMEtaDataFileInfo request for an unknown archive" in:
     val helper = new MediaUnionActorTestHelper

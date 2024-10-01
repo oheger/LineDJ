@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
 
 /**
@@ -74,7 +74,7 @@ object ID3v1Extractor:
     * @param tailBuffer the buffer with the ID3v1 data
     * @return an option of an ''ID3TagProvider'' for extracting tag information
     */
-  def providerFor(tailBuffer: TailBuffer): Option[MetaDataProvider] =
+  def providerFor(tailBuffer: TailBuffer): Option[MetadataProvider] =
     val buf = tailBuffer.tail()
     if buf.startsWith("TAG") && buf.length == FrameSize then
       Some(createProviderFromBuffer(buf))
@@ -86,7 +86,7 @@ object ID3v1Extractor:
     * @param buf the buffer with ID3 data
     * @return an ''ID3TagProvider'' providing access to the tag values
     */
-  private def createProviderFromBuffer(buf: ByteString): MetaDataProvider =
+  private def createProviderFromBuffer(buf: ByteString): MetadataProvider =
     ID3v1TagProvider(title = extractString(buf, TitlePos, TitleLen),
       artist = extractString(buf, ArtistPos, ArtistLen),
       album = extractString(buf, AlbumPos, AlbumLen),
@@ -142,5 +142,5 @@ object ID3v1Extractor:
                                       artist: Option[String], album: Option[String],
                                       inceptionYearString: Option[String], trackNoString:
                                       Option[String])
-    extends MetaDataProvider
+    extends MetadataProvider
 

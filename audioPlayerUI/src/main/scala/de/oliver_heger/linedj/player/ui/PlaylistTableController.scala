@@ -28,7 +28,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   *
   * This class is responsible for updating the table control with the playlist
   * items based on events received from the audio platform. It interacts with
-  * a [[PlaylistMetaDataService]] to convert playlist update notifications to
+  * a [[PlaylistMetadataService]] to convert playlist update notifications to
   * actions on the table model. These actions are then executed, so that the
   * table reflects the current status of the playlist. Also, the selection of
   * the table is set to the current song in the playlist, which is obtained
@@ -40,7 +40,7 @@ import net.sf.jguiraffe.gui.builder.components.model.TableHandler
   * @param tableHandler    the handler for the table control
   */
 class PlaylistTableController(songDataFactory: SongDataFactory,
-                              plMetaService: PlaylistMetaDataService,
+                              plMetaService: PlaylistMetadataService,
                               plService: PlaylistService[Playlist, MediaFileID],
                               tableHandler: TableHandler):
   /** Stores the most recent state of the metadata resolver. */
@@ -64,7 +64,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param metaData the new metadata
     */
-  def handleMetaDataUpdate(metaData: PlaylistMetaData): Unit =
+  def handleMetaDataUpdate(metaData: PlaylistMetadata): Unit =
     val selIdx = tableHandler.getSelectedIndex
     val (delta, nextState) = plMetaService.processMetadataUpdate(metaData,
       metaDataState)(songDataFactory)
@@ -79,7 +79,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     * @param delta     the delta to be processed
     * @param nextState the next state of metadata resolving
     */
-  private def processDelta(delta: MetaDataResolveDelta, nextState: MetaDataResolveState): Unit =
+  private def processDelta(delta: MetadataResolveDelta, nextState: MetadataResolveState): Unit =
     if delta.fullUpdate then processFullPlaylistUpdate(delta)
     else processPartialPlaylistUpdate(delta)
     metaDataState = nextState
@@ -90,7 +90,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param delta the delta to be processed
     */
-  private def processFullPlaylistUpdate(delta: MetaDataResolveDelta): Unit =
+  private def processFullPlaylistUpdate(delta: MetadataResolveDelta): Unit =
     lazy val model = tableHandler.getModel
     tableHandler.getModel.clear()
     delta.resolvedSongs foreach (e => model.add(e._1))
@@ -102,7 +102,7 @@ class PlaylistTableController(songDataFactory: SongDataFactory,
     *
     * @param delta the delta to be processed
     */
-  private def processPartialPlaylistUpdate(delta: MetaDataResolveDelta): Unit =
+  private def processPartialPlaylistUpdate(delta: MetadataResolveDelta): Unit =
     lazy val model = tableHandler.getModel
     delta.resolvedSongs foreach (e => model.set(e._2, e._1))
     delta.updatedRanges foreach (t => tableHandler.rowsUpdated(t._1, t._2))

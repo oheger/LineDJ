@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.ui
 
 import de.oliver_heger.linedj.platform.ActionTestHelper
 import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
-import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetaData, PlaylistMetaDataRegistration, PlaylistService}
+import de.oliver_heger.linedj.platform.audio.playlist.{Playlist, PlaylistMetadata, PlaylistMetadataRegistration, PlaylistService}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
@@ -105,7 +105,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
     state.playlistSeqNo should be(PlaylistService.SeqNoInitial)
 
   it should "pass playlist metadata to the playlist table controller" in:
-    val meta = PlaylistMetaData(Map.empty)
+    val meta = PlaylistMetadata(Map.empty)
     val state = createState(playing = false)
     val optIndex = Some(42)
     val helper = new ControllerTestHelper
@@ -276,7 +276,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
     private lazy val stateConsumer = findRegistration[AudioPlayerStateChangeRegistration].callback
 
     /** The consumer function for metadata updates. */
-    private lazy val metaDataConsumer = findRegistration[PlaylistMetaDataRegistration].callback
+    private lazy val metaDataConsumer = findRegistration[PlaylistMetadataRegistration].callback
 
     /**
       * Sends a notification about an update in the player state to the test
@@ -327,7 +327,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
       * @param meta the metadata
       * @return this test helper
       */
-    def metaDataChanged(meta: PlaylistMetaData): ControllerTestHelper =
+    def metaDataChanged(meta: PlaylistMetadata): ControllerTestHelper =
       metaDataConsumer(meta)
       this
 
@@ -339,7 +339,7 @@ class UIControllerSpec extends AnyFlatSpec with Matchers:
       * @param optIdx the optional index in the playlist
       * @return this test helper
       */
-    def verifyMetaDataPassedToSubController(meta: PlaylistMetaData, optIdx: Option[Int]):
+    def verifyMetaDataPassedToSubController(meta: PlaylistMetadata, optIdx: Option[Int]):
     ControllerTestHelper =
       val io = Mockito.inOrder(tableController, currentSongController)
       io.verify(tableController).handleMetaDataUpdate(meta)

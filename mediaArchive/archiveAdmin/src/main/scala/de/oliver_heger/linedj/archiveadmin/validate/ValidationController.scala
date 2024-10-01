@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaFile, Severity}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaFile, Severity}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{ValidationErrorItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.platform.mediaifc.MetaDataService
+import de.oliver_heger.linedj.platform.mediaifc.MetadataService
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.components.model.TableHandler
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer
 import net.sf.jguiraffe.gui.builder.window.{Window, WindowEvent, WindowListener, WindowUtils}
@@ -103,7 +103,7 @@ object ValidationController:
   * @param statusHandler   the handler for the status line
   * @tparam RESULT the result type used by the managed [[ValidationFlow]]
   */
-class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMedia, Map[MediaFileID, MediaMetaData]],
+class ValidationController[RESULT](metaDataService: MetadataService[AvailableMedia, Map[MediaFileID, MediaMetadata]],
                                    app: ClientApplication,
                                    sync: GUISynchronizer,
                                    tableHandler: TableHandler,
@@ -192,7 +192,7 @@ class ValidationController[RESULT](metaDataService: MetaDataService[AvailableMed
     val source = createSource(media)
     val sink = Sink.foreach[Seq[ValidationErrorItem]](appendValidationErrors)
     val graph = source.viaMat(KillSwitches.single)(Keep.right)
-      .mapAsync(1)(mid => metaDataService.fetchMetaDataOfMedium(mid)(messageBus).map((mid, _)))
+      .mapAsync(1)(mid => metaDataService.fetchMetadataOfMedium(mid)(messageBus).map((mid, _)))
       .map(t => t._2.toList.map(e => MediaFile(t._1, e._1.uri, e._2)))
       .via(validationFlow)
       .filter(_.result.isFailure)

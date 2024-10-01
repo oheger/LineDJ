@@ -30,7 +30,7 @@ import org.apache.pekko.util.ByteString
   * extracts the last 128 bytes block of the file, which may contain and ID3
   * version 1 frame. This data is passed to an extractor. The result of the
   * extraction operation is then passed to a processor actor as an
-  * [[de.oliver_heger.linedj.extract.id3.processor.ID3v1MetaData]] message. Note
+  * [[de.oliver_heger.linedj.extract.id3.processor.ID3v1Metadata]] message. Note
   * that messages of this type are always sent, even if no valid ID3v1 data
   * was found.
   *
@@ -55,7 +55,7 @@ class ID3v1ProcessingStage(procActor: ActorRef)
         }
 
         override def onUpstreamFinish(): Unit = {
-          procActor ! ID3v1MetaData(ID3v1Extractor.providerFor(tailBuffer))
+          procActor ! ID3v1Metadata(ID3v1Extractor.providerFor(tailBuffer))
           super.onUpstreamFinish()
         }
       })

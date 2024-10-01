@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
-import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetaDataCache, StateListenerExtension}
+import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetadataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
@@ -294,7 +294,7 @@ class ClientManagementApplication extends Application with ClientApplicationCont
   Iterable[MessageBusListener] =
     List(new ArchiveAvailabilityExtension, new StateListenerExtension(facade),
       new AvailableMediaExtension(facade),
-      new MetaDataCache(facade,
+      new MetadataCache(facade,
         appCtx.getConfiguration.getInt(PropMetadataCacheSize, DefaultMetadataCacheSize)))
 
   /**

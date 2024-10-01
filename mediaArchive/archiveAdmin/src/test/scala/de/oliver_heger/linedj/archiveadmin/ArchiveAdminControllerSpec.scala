@@ -51,12 +51,12 @@ object ArchiveAdminControllerSpec:
   private val ArchiveNames = List("Arc1", "Arc2", "Arc3")
 
   /** A test archive state. */
-  private val ArchiveState = MetaDataState(mediaCount = 28,
+  private val ArchiveState = MetadataState(mediaCount = 28,
     songCount = 1088, size = 20161020213108L, duration = ((7 * 24 * 60 * 60 + 3 * 60 * 60 + 25 * 60) + 14) * 1000L,
     scanInProgress = false, updateInProgress = false, archiveCompIDs = ArchiveNames.toSet)
 
   /** A test state object with data from the media archive. */
-  private val CurrentState = MetaDataStateUpdated(ArchiveState)
+  private val CurrentState = MetadataStateUpdated(ArchiveState)
 
   /** The name to be displayed for the union archive */
   private val UnionArchiveName = "The union"
@@ -109,9 +109,9 @@ object ArchiveAdminControllerSpec:
     * @param inProgress the in progress flag
     * @return the update event
     */
-  private def stateWithInProgressFlag(inProgress: Boolean): MetaDataStateUpdated =
+  private def stateWithInProgressFlag(inProgress: Boolean): MetadataStateUpdated =
     if CurrentState.state.scanInProgress == inProgress then CurrentState
-    else MetaDataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
+    else MetadataStateUpdated(CurrentState.state.copy(updateInProgress = inProgress))
 
   /**
     * Generates a (long) duration string based on the default duration, but
@@ -161,8 +161,8 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "ignore irrelevant metadata state events" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataScanCanceled)
-      .sendMetaDataStateEvent(MetaDataScanCompleted)
+    helper.sendMetaDataStateEvent(MetadataScanCanceled$)
+      .sendMetaDataStateEvent(MetadataScanCompleted$)
     verifyNoInteractions(helper.form)
 
   it should "set the property for the song count" in:
@@ -205,7 +205,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "set the archive state if an update operation starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataUpdateInProgress)
+    helper.sendMetaDataStateEvent(MetadataUpdateInProgress$)
       .verifyArchiveState(TextScanInProgress, IconScanInProgress)
 
   it should "not update the archive status when the archive becomes available" in:
@@ -217,7 +217,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update the archive state if an update operation is complete" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataUpdateCompleted)
+    helper.sendMetaDataStateEvent(MetadataUpdateCompleted$)
       .verifyArchiveState(TextNoScanInProgress, IconNoScanInProgress)
 
   it should "disable actions if the archive is not available" in:
@@ -231,7 +231,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update action states if an update operation starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataUpdateInProgress)
+    helper.sendMetaDataStateEvent(MetadataUpdateInProgress$)
       .verifyAction("startScanAction", enabled = false)
       .verifyAction("cancelScanAction", enabled = true)
       .verifyAction("metaDataFilesAction", enabled = false)
@@ -255,7 +255,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update action states if an update operation is complete" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataUpdateCompleted)
+    helper.sendMetaDataStateEvent(MetadataUpdateCompleted$)
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
       .verifyAction("metaDataFilesAction", enabled = false)
@@ -263,7 +263,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "disable the archives combo box when a new scan starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataScanStarted)
+    helper.sendMetaDataStateEvent(MetadataScanStarted$)
     verify(helper.comboArchives).setEnabled(false)
     verify(helper.comboArchives, never()).setData(any())
 
@@ -272,7 +272,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.initArchivesComboModel(FirstArchive, "Arc1", "Arc2")
-      .sendMetaDataStateEvent(MetaDataScanStarted)
+      .sendMetaDataStateEvent(MetadataScanStarted$)
     verify(helper.comboArchives).setData(FirstArchive)
 
   it should "initialize the archives combo box at the end of an update operation" in:
@@ -280,8 +280,8 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.initArchivesComboModel("foo", "bar", "baz")
-      .sendMetaDataStateEvent(MetaDataStateUpdated(state))
-      .sendMetaDataStateEvent(MetaDataUpdateCompleted)
+      .sendMetaDataStateEvent(MetadataStateUpdated(state))
+      .sendMetaDataStateEvent(MetadataUpdateCompleted$)
       .verifyArchivesComboCleared()
       .verifyArchivesComboInitialized(UnionArchiveName :: ArchiveNames: _*)
       .verifyArchiveSelected(UnionArchiveName)
@@ -299,7 +299,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val state = ArchiveState.copy(archiveCompIDs = Set.empty)
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+    helper.sendMetaDataStateEvent(MetadataStateUpdated(state))
       .verifyArchivesComboInitialized(UnionArchiveName)
 
   it should "not add the union archive entry to the combo if there is only a single archive component" in:
@@ -307,7 +307,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val state = ArchiveState.copy(archiveCompIDs = Set(ArchiveName))
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+    helper.sendMetaDataStateEvent(MetadataStateUpdated(state))
       .verifyArchivesComboInitialized(ArchiveName)
       .verifyArchiveSelected(ArchiveName)
 
@@ -407,7 +407,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val state = CurrentState.state.copy(archiveCompIDs = Set(ArchiveName))
     val helper = new ArchiveAdminControllerTestHelper
 
-    val data = helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+    val data = helper.sendMetaDataStateEvent(MetadataStateUpdated(state))
       .resetFormMock()
       .prepareArchiveStatsRequestAndSelect(ArchiveName)
       .verifyFormUpdate()
@@ -458,7 +458,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val state = ArchiveState.copy(archiveCompIDs = Set(ArchiveName))
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetaDataStateUpdated(state))
+    helper.sendMetaDataStateEvent(MetadataStateUpdated(state))
       .selectArchiveComponent(ArchiveName)
       .verifyAction("metaDataFilesAction", enabled = true)
 
@@ -514,7 +514,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param event the event to be sent
       * @return this test helper
       */
-    def sendMetaDataStateEvent(event: MetaDataStateEvent): ArchiveAdminControllerTestHelper =
+    def sendMetaDataStateEvent(event: MetadataStateEvent): ArchiveAdminControllerTestHelper =
       findRegistration[StateListenerExtension.StateListenerRegistration](controller)
         .callback(event)
       this

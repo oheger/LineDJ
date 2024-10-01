@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.browser.media
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.commons.configuration.HierarchicalConfiguration
 
 import scala.collection.immutable.{SortedMap, SortedSet}
@@ -63,7 +63,7 @@ private object MediumTreeModel:
    * @param meta the metadata
    * @return the ''AlbumKeyWithYear''
    */
-  private def keyWithYear(key: AlbumKey, meta: MediaMetaData): AlbumKeyWithYear =
+  private def keyWithYear(key: AlbumKey, meta: MediaMetadata): AlbumKeyWithYear =
     AlbumKeyWithYear(key, meta.inceptionYear getOrElse Integer.MAX_VALUE)
 
 /**

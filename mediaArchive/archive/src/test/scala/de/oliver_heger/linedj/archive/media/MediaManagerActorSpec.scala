@@ -18,14 +18,14 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.metadata.MetaDataManagerActor
+import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.shared.archive.metadata.GetMetaDataFileInfo
+import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
@@ -282,7 +282,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "ignore an ACK message from another source" in:
     val helper = new MediaManagerTestHelper
 
-    helper.send(MetaDataManagerActor.ScanResultProcessed)
+    helper.send(MetadataManagerActor.ScanResultProcessed)
       .expectNoStateUpdate()
 
   it should "handle an incoming result object" in:
@@ -429,8 +429,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
       TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
 
-    manager ! GetMetaDataFileInfo
-    expectMsg(ForwardTestActor.ForwardedMessage(GetMetaDataFileInfo))
+    manager ! GetMetadataFileInfo
+    expectMsg(ForwardTestActor.ForwardedMessage(GetMetadataFileInfo))
 
   /**
     * A test helper class managing a test actor instance and its dependencies.
@@ -512,7 +512,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       * @return this test helper
       */
     def postAckFromMetaManager(): MediaManagerTestHelper =
-      testManagerActor.tell(MetaDataManagerActor.ScanResultProcessed, probeMetadataManager.ref)
+      testManagerActor.tell(MetadataManagerActor.ScanResultProcessed, probeMetadataManager.ref)
       this
 
     /**

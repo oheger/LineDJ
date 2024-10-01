@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetaDataFileInfo, MetaDataFileInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status}
@@ -155,7 +155,7 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     mediumInfoProcessor = createChildActor(SmallestMailboxPool(InfoParallelism)
       .props(Props[MediumInfoResponseProcessingActor]()))
     metadataProcessor = createChildActor(SmallestMailboxPool(MetadataParallelism)
-      .props(Props[MetaDataResponseProcessingActor]()))
+      .props(Props[MetadataResponseProcessingActor]()))
     downloadManagementActor = createChildActor(HttpDownloadManagementActor(config = config,
       pathGenerator = pathGenerator, monitoringActor = monitoringActor,
       removeActor = removeActor))
@@ -196,9 +196,9 @@ class HttpArchiveManagementActor(processingService: ContentProcessingUpdateServi
     case alive: DownloadActorAlive =>
       monitoringActor ! alive
 
-    case GetMetaDataFileInfo =>
+    case GetMetadataFileInfo =>
       // here just a dummy response is returned for this archive type
-      sender() ! MetaDataFileInfo(Map.empty, Set.empty, None)
+      sender() ! MetadataFileInfo(Map.empty, Set.empty, None)
 
     case CloseRequest =>
       archiveContentProcessor ! CancelStreams

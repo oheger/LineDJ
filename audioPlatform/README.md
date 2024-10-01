@@ -56,7 +56,7 @@ in background: Whenever new songs are added to the current playlist, their
 metadata is requested automatically from the media archive. Clients interested in 
 this metadata can register themselves as consumers for `PlaylistMetaData`
 objects. The corresponding classes are defined in the
-[PlaylistMetaData](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetaData.scala)
+[PlaylistMetaData](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetadata.scala)
 file.
 
 A consumer has to publish a `PlaylistMetaDataRegistration` message on the
@@ -67,7 +67,7 @@ thread) with the complete metadata fetched so far.
 Metadata is fetched chunk-wise; so UI applications have to determine which 
 metadata is available currently and update their display accordingly. This use
 case is supported by the
-[PlaylistMetaDataService](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetaDataService.scala).
+[PlaylistMetaDataService](src/main/scala/de/oliver_heger/linedj/platform/audio/playlist/PlaylistMetadataService.scala).
 The service offers methods to translate incoming updates of metadata to
 operations for typical UI applications to update their visual representation.
 The service assumes that the application holds songs in an indexed

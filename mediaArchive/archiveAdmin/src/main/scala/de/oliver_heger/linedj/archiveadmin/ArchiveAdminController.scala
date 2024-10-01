@@ -71,7 +71,7 @@ object ArchiveAdminController:
     * An initial state of the union archive that is set before the first state
     * update event is received.
     */
-  private val InitialUnionArchiveState = MetaDataState(mediaCount = 0, songCount = 0, size = 0,
+  private val InitialUnionArchiveState = MetadataState(mediaCount = 0, songCount = 0, size = 0,
     duration = 0, scanInProgress = false, updateInProgress = false, archiveCompIDs = Set.empty)
 
   /**
@@ -212,9 +212,9 @@ class ArchiveAdminController(application: ArchiveAdminApp,
     *
     * @param event the state event
     */
-  private def consumeStateEvent(event: MetaDataStateEvent): Unit =
+  private def consumeStateEvent(event: MetadataStateEvent): Unit =
     event match
-      case MetaDataStateUpdated(state) =>
+      case MetadataStateUpdated(state) =>
         formatStats(state.mediaCount, state.songCount, state.size, state.duration)
         val data = archiveStatusForUpdateEvent(state)
         updateArchiveStatus(data)
@@ -225,12 +225,12 @@ class ArchiveAdminController(application: ArchiveAdminApp,
         if !state.updateInProgress then
           initializeArchivesCombo(state.archiveCompIDs)
 
-      case MetaDataUpdateInProgress =>
+      case MetadataUpdateInProgress$ =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = true))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true, updateInProgress = true))
 
-      case MetaDataUpdateCompleted =>
+      case MetadataUpdateCompleted$ =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = false))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
@@ -238,7 +238,7 @@ class ArchiveAdminController(application: ArchiveAdminApp,
         initializeArchivesCombo(unionArchiveState.archiveCompIDs)
         comboArchives.setEnabled(true)
 
-      case MetaDataScanStarted =>
+      case MetadataScanStarted$ =>
         comboArchives.setEnabled(false)
         if comboArchives.getListModel.size() > 0 then
           selectUnionArchive()
@@ -301,7 +301,7 @@ class ArchiveAdminController(application: ArchiveAdminApp,
     * @param state the state
     * @return the status to be displayed for the archive
     */
-  private def archiveStatusForUpdateEvent(state: MetaDataState): StaticTextData =
+  private def archiveStatusForUpdateEvent(state: MetadataState): StaticTextData =
     archiveStatusForScanFlag(state.updateInProgress)
 
   /**

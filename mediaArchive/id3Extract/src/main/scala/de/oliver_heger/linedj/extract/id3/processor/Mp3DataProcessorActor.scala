@@ -39,7 +39,7 @@ class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) 
       extractor addData data
       sender() ! Mp3DataProcessed
 
-    case Mp3MetaDataRequest =>
+    case Mp3MetadataRequest =>
       sender() ! createMetadata()
 
   /**
@@ -47,7 +47,7 @@ class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) 
     *
     * @return the metadata object
     */
-  private def createMetadata(): Mp3MetaData =
-    Mp3MetaData(version = extractor.getVersion, layer = extractor.getLayer,
+  private def createMetadata(): Mp3Metadata =
+    Mp3Metadata(version = extractor.getVersion, layer = extractor.getLayer,
       sampleRate = extractor.getSampleRate, minimumBitRat = extractor.getMinBitRate,
       maximumBitRate = extractor.getMaxBitRate, duration = extractor.getDuration.toInt)

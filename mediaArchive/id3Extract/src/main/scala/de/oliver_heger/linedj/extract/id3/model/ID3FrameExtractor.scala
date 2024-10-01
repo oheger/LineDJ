@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.extract.metadata.MetaDataProvider
+import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
 
 import scala.collection.immutable.IndexedSeq
@@ -153,7 +153,7 @@ object ID3FrameExtractor:
       * @param frame the frame
       * @return an ''ID3TagProvider'' for reading data from this frame
       */
-    def createProvider(frame: ID3Frame): MetaDataProvider =
+    def createProvider(frame: ID3Frame): MetadataProvider =
       new ID3v2TagProvider(frame, tagNames)
 
   /**
@@ -318,7 +318,7 @@ class ID3FrameExtractor(val header: ID3Header, val tagSizeLimit: Int = Integer.M
     *
     * @return an option with an ''ID3TagProvider'' for the current frame data
     */
-  def createTagProvider(): Option[MetaDataProvider] =
+  def createTagProvider(): Option[MetadataProvider] =
     versionData map (_.createProvider(createFrame()))
 
 

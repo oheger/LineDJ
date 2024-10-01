@@ -96,7 +96,7 @@ case class HttpArchiveProcessingComplete(nextState: HttpArchiveState)
   * @param metadata a list with metadata objects for the songs on this medium
   * @param seqNo    the sequence number of the current scan operation
   */
-case class MetaDataResponseProcessingResult(mediumID: MediumID,
+case class MetadataResponseProcessingResult(mediumID: MediumID,
                                             metadata: Iterable[MetadataProcessingSuccess],
                                             seqNo: Int)
 

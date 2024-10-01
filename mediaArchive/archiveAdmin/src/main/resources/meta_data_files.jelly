@@ -86,7 +86,7 @@
 
     <!-- The controller bean -->
     <di:bean name="controller"
-             beanClassName="de.oliver_heger.linedj.archiveadmin.MetaDataFilesController">
+             beanClassName="de.oliver_heger.linedj.archiveadmin.MetadataFilesController">
       <di:constructor>
         <di:param refName="jguiraffe.application"/>
         <di:param refName="jguiraffe.applicationContext"/>
@@ -122,7 +122,7 @@
   </di:bean>
 
   <di:bean name="closeTask"
-           beanClassName="de.oliver_heger.linedj.archiveadmin.CloseMetaDataFilesDialogTask">
+           beanClassName="de.oliver_heger.linedj.archiveadmin.CloseMetadataFilesDialogTask">
     <di:constructor>
       <di:param refName="controller"/>
     </di:constructor>

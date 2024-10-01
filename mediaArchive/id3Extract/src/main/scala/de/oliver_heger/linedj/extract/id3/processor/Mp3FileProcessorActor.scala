@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.extract.id3.processor
 
 import de.oliver_heger.linedj.extract.id3.model._
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
@@ -27,7 +27,7 @@ import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, Superv
 object Mp3FileProcessorActor:
 
   private class Mp3FileProcessorActorImpl(metaDataActor: ActorRef, tagSizeLimit: Int,
-                                          collector: MetaDataPartsCollector,
+                                          collector: MetadataPartsCollector,
                                           resultTemplate: MetadataProcessingSuccess)
     extends Mp3FileProcessorActor(metaDataActor, tagSizeLimit, collector, resultTemplate)
       with ChildActorFactory
@@ -47,7 +47,7 @@ object Mp3FileProcessorActor:
   def apply(metadataActor: ActorRef, tagSizeLimit: Int, mp3File: FileData,
             resultData: MetadataProcessingSuccess): Props =
     Props(classOf[Mp3FileProcessorActorImpl], metadataActor, tagSizeLimit,
-      new MetaDataPartsCollector(mp3File), resultData)
+      new MetadataPartsCollector(mp3File), resultData)
 
 /**
   * An actor class responsible for processing a whole mp3 file and extracting
@@ -66,7 +66,7 @@ object Mp3FileProcessorActor:
   * @param resultTemplate an object defining parameters for the result
   */
 class Mp3FileProcessorActor(metadataActor: ActorRef, tagSizeLimit: Int,
-                            collector: MetaDataPartsCollector,
+                            collector: MetadataPartsCollector,
                             resultTemplate: MetadataProcessingSuccess) extends Actor:
   this: ChildActorFactory =>
 
@@ -127,11 +127,11 @@ class Mp3FileProcessorActor(metadataActor: ActorRef, tagSizeLimit: Int,
       if chunksInProgress == 1 then
         ackActor ! Mp3ChunkAck
 
-    case mp3Data: Mp3MetaData =>
-      sendResultIfAvailable(collector setMp3MetaData mp3Data)
+    case mp3Data: Mp3Metadata =>
+      sendResultIfAvailable(collector setMp3Metadata mp3Data)
 
-    case ID3v1MetaData(metaData) =>
-      sendResultIfAvailable(collector setID3v1MetaData metaData)
+    case ID3v1Metadata(metaData) =>
+      sendResultIfAvailable(collector setID3v1Metadata metaData)
 
     case procMsg: ProcessID3FrameData =>
       val id3Actor = optID3ProcessorActor getOrElse createID3ProcessorActor(procMsg)
@@ -143,13 +143,13 @@ class Mp3FileProcessorActor(metadataActor: ActorRef, tagSizeLimit: Int,
       optID3ProcessorActor.get ! id3Inc
       optID3ProcessorActor = None
 
-    case id3Data: ID3FrameMetaData =>
+    case id3Data: ID3FrameMetadata =>
       sendResultIfAvailable(collector addID3Data id3Data)
       context unwatch sender()
       context stop sender()
 
     case Mp3StreamCompleted =>
-      mp3DataActor ! Mp3MetaDataRequest
+      mp3DataActor ! Mp3MetadataRequest
 
     case Mp3StreamFailure(exception) =>
       handleProcessingError(exception)
@@ -163,9 +163,9 @@ class Mp3FileProcessorActor(metadataActor: ActorRef, tagSizeLimit: Int,
     *
     * @param optMeta an option with the extracted metadata
     */
-  private def sendResultIfAvailable(optMeta: Option[MediaMetaData]): Unit =
+  private def sendResultIfAvailable(optMeta: Option[MediaMetadata]): Unit =
     optMeta foreach { m =>
-      metadataActor ! resultTemplate.copy(metaData = m)
+      metadataActor ! resultTemplate.copy(metadata = m)
       stopSelf()
     }
 

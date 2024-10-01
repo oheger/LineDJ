@@ -43,14 +43,14 @@ class UIHelpersSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   "OpenMetaDataFilesDlgCommand" should "pass the locator to the base class" in:
     val locator = mock[Locator]
-    val command = new OpenMetaDataFilesDlgCommand(locator, new AtomicReference[String])
+    val command = new OpenMetadataFilesDlgCommand(locator, new AtomicReference[String])
 
     command.getLocator should be(locator)
 
   it should "pass the property for the selected archive to the builder data object" in:
     val ArchiveName = "The selected archive"
     val builderData = mock[ApplicationBuilderData]
-    val command = new OpenMetaDataFilesDlgCommand(mock[Locator], new AtomicReference[String](ArchiveName))
+    val command = new OpenMetadataFilesDlgCommand(mock[Locator], new AtomicReference[String](ArchiveName))
 
     command.prepareBuilderData(builderData)
-    verify(builderData).addProperty(MetaDataFilesController.PropSelectedArchiveID, ArchiveName)
+    verify(builderData).addProperty(MetadataFilesController.PropSelectedArchiveID, ArchiveName)

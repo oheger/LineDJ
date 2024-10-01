@@ -212,14 +212,14 @@
 
   <!-- Action tasks for adding songs to the playlist -->
   <di:bean name="startScanTask"
-    beanClassName="de.oliver_heger.linedj.archiveadmin.StartMetaDataScanTask">
+    beanClassName="de.oliver_heger.linedj.archiveadmin.StartMetadataScanTask">
     <di:constructor>
       <di:param refName="LineDJ_MediaFacade"/>
     </di:constructor>
   </di:bean>
 
   <di:bean name="cancelScanTask"
-    beanClassName="de.oliver_heger.linedj.archiveadmin.CancelMetaDataScanTask">
+    beanClassName="de.oliver_heger.linedj.archiveadmin.CancelMetadataScanTask">
     <di:constructor>
       <di:param refName="LineDJ_MediaFacade"/>
     </di:constructor>
@@ -227,7 +227,7 @@
 
   <!-- Command and task for opening the metadata files dialog -->
   <di:bean name="metaFilesDlgCommand"
-           beanClassName="de.oliver_heger.linedj.archiveadmin.OpenMetaDataFilesDlgCommand">
+           beanClassName="de.oliver_heger.linedj.archiveadmin.OpenMetadataFilesDlgCommand">
     <di:constructor>
       <di:param value="classpath:meta_data_files.jelly"/>
       <di:param refName="refSelectedArchiveID"/>

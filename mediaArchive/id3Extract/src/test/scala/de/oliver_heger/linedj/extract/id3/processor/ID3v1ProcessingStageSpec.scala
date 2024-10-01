@@ -62,7 +62,7 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * @param file the file to be processed
     * @return the extracted ID3v1 metadata
     */
-  private def processFile(file: String): ID3v1MetaData =
+  private def processFile(file: String): ID3v1Metadata =
     val probeProcessor = TestProbe()
     val fileContent = readFile(file)
     val source = Source(fileContent)
@@ -72,15 +72,15 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val data = Await.result(futStream, 3.seconds)
     val content = fileContent.foldLeft(ByteString.empty)(_ ++ _)
     data should be(content)
-    probeProcessor.expectMsgType[ID3v1MetaData]
+    probeProcessor.expectMsgType[ID3v1Metadata]
 
   "An ID3v1ProcessingStage" should "handle a file without ID3v1 data" in:
     val result = processFile("testID3v2Data.bin")
 
-    result.metaData shouldBe empty
+    result.metadata shouldBe empty
 
   it should "extract valid ID3v1 data" in:
-    val meta = processFile("testMP3id3v1.mp3").metaData.get
+    val meta = processFile("testMP3id3v1.mp3").metadata.get
 
     meta.title should be(Some("Test Title"))
     meta.artist should be(Some("Test Artist"))
@@ -93,4 +93,4 @@ class ID3v1ProcessingStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     val futStream = source.via(stage).runWith(Sink.ignore)
     Await.result(futStream, 3.seconds)
-    probeProcessor.expectMsgType[ID3v1MetaData].metaData shouldBe empty
+    probeProcessor.expectMsgType[ID3v1Metadata].metadata shouldBe empty

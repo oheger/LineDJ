@@ -70,8 +70,8 @@
   <di:contextBean var="playlistServiceVar" name="playlistService"/>
 
   <!-- The playlist metadata service -->
-  <di:const var="playlistMetaDataServiceVar"
-            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistMetaDataService$"
+  <di:const var="playlistMetadataServiceVar"
+            targetClassName="de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistMetadataService$"
             field="MODULE$"/>
-  <di:contextBean var="playlistMetaDataServiceVar" name="playlistMetaDataService"/>
+  <di:contextBean var="playlistMetadataServiceVar" name="playlistMetadataService"/>
 </j:jelly>

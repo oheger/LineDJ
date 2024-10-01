@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveadmin.validate
 
-import de.oliver_heger.linedj.archiveadmin.validate.MetaDataValidator.{MediaAlbum, MediaFile}
+import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaAlbum, MediaFile}
 import de.oliver_heger.linedj.archiveadmin.validate.ValidationModel.{DisplayFunc, ValidatedItem, ValidationFlow}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.shared.archive.media.UriHelper
@@ -118,7 +118,7 @@ class OpenFileValidationWindowCommand(scriptLocator: Locator, app: ClientApplica
     Flow[List[MediaFile]].mapConcat(identity)
       .mapAsyncUnordered(parallelism) { file =>
         Future:
-          val valResult = MetaDataValidator.validateFile(file)
+          val valResult = MetadataValidator.validateFile(file)
           ValidatedItem(file.mediumID, file.uri, createDisplayFunc(file), valResult)
       }
 
@@ -161,7 +161,7 @@ class OpenAlbumValidationWindowCommand(scriptLocator: Locator, app: ClientApplic
     Flow[List[MediaFile]].mapConcat(groupToAlbums)
       .mapAsyncUnordered(parallelism) { album =>
         Future:
-          val result = MetaDataValidator.validateAlbum(album)
+          val result = MetadataValidator.validateAlbum(album)
           ValidatedItem(album.mediumID, album.uri, displayFunc, result)
       }
 

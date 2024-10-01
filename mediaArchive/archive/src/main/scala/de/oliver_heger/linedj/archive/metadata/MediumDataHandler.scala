@@ -27,7 +27,7 @@ import scala.collection.immutable.Seq
   * An internally used helper class for storing and managing the metadata
   * of a medium.
   *
-  * For each medium to be processed the [[MetaDataManagerActor]] creates an
+  * For each medium to be processed the [[MetadataManagerActor]] creates an
   * instance of this class. The instance stores all paths that belong to the
   * medium and allows keeping track when this medium has been completed.
   *

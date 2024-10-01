@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.reorder.album
 
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -29,7 +29,7 @@ object PlaylistReordererAlbumSpec:
     * @param data the metadata for the song
     * @return the created ''SongData''
     */
-  private def createSong(data: MediaMetaData): SongData =
+  private def createSong(data: MediaMetadata): SongData =
     SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + data.title.getOrElse("testSong")),
       data, data.title getOrElse "", data.artist getOrElse "", data.album getOrElse "")
 end PlaylistReordererAlbumSpec
@@ -47,15 +47,15 @@ class PlaylistReordererAlbumSpec extends AnyFlatSpec with Matchers:
     reorder.name should not be null
 
   it should "order a sequence of songs correctly" in:
-    val s1 = createSong(MediaMetaData(inceptionYear = Some(1983), album = Some("Crisis"),
+    val s1 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
       trackNumber = Some(1)))
-    val s2 = createSong(MediaMetaData(inceptionYear = Some(1983), album = Some("Crisis"),
+    val s2 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
       trackNumber = Some(2), title = Some("Moonlight Shadow")))
-    val s3 = createSong(MediaMetaData(inceptionYear = Some(1984), album = Some("Ammonia Avenue"),
+    val s3 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Ammonia Avenue"),
       artist = Some("Alan Parson"), title = Some("Some song")))
-    val s4 = createSong(MediaMetaData(inceptionYear = Some(1984), album = Some("Discovery"),
+    val s4 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Discovery"),
       title = Some("Talk about your life"), artist = Some("Mike Oldfield")))
-    val s5 = createSong(MediaMetaData(album = Some("On every street"), trackNumber = Some(1),
+    val s5 = createSong(MediaMetadata(album = Some("On every street"), trackNumber = Some(1),
       title = Some("Calling Elvis")))
     val songs = List(s3, s1, s5, s4, s2)
     val reorder = new PlaylistReordererAlbum

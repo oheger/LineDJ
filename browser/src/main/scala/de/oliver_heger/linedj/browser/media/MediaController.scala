@@ -24,7 +24,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.MediaIfcExtension.ConsumerRegistrationProvider
-import de.oliver_heger.linedj.platform.mediaifc.ext.MetaDataCache.{MediumContent, MetaDataRegistration, RemoveMetaDataRegistration}
+import de.oliver_heger.linedj.platform.mediaifc.ext.MetadataCache.{MediumContent, MetadataRegistration, RemoveMetadataRegistration}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -181,7 +181,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     */
   def selectMedium(mediumID: MediumID): Unit =
     selectedMediumID foreach clearOldMediumSelection
-    publish(MetaDataRegistration(mediumID, componentID, processMetaDataChunk(mediumID)))
+    publish(MetadataRegistration(mediumID, componentID, processMetaDataChunk(mediumID)))
     selectedMediumID = Some(mediumID)
     inProgressWidget setVisible true
     treeModel.getRootNode setName nameForMedium(mediumID)
@@ -371,7 +371,7 @@ ListComponentHandler, treeHandler: TreeHandler, tableHandler: TableHandler, inPr
     * @param mediumID the ID of the last selected medium
     */
   private def clearOldMediumSelection(mediumID: MediumID): Unit =
-    publish(RemoveMetaDataRegistration(mediumID, componentID))
+    publish(RemoveMetadataRegistration(mediumID, componentID))
     models = None
     treeModel.clear()
     tableModel.clear()

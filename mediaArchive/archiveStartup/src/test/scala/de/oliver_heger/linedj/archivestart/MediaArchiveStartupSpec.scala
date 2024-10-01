@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivestart
 
-import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetaDataUnionActor}
+import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
@@ -68,7 +68,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val helper = new MediaArchiveStartupTestHelper
     val startup = helper.activateStartup(helper.createStartup())
 
-    startup getActor "metaDataManager" should be(helper.probeMetaDataManager.ref)
+    startup getActor "metadataManager" should be(helper.probeMetadataManager.ref)
     startup getActor "mediaManager" should be(helper.probeMediaManager.ref)
 
   /**
@@ -79,7 +79,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     val probeMediaManager: TestProbe = TestProbe()
 
     /** Test probe for the metadata manager actor. */
-    val probeMetaDataManager: TestProbe = TestProbe()
+    val probeMetadataManager: TestProbe = TestProbe()
 
     /** A set for the actors that have been created by the test factory. */
     private var createdActors = Set.empty[TestProbe]
@@ -147,12 +147,12 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
           val props = invocation.getArguments.head.asInstanceOf[Props]
           val name = invocation.getArguments()(1).asInstanceOf[String]
           name match {
-            case "metaDataManager" =>
-              props should be(Props(classOf[MetaDataUnionActor], ArchiveConfig))
-              actorCreation(probeMetaDataManager)
+            case "metadataManager" =>
+              props should be(Props(classOf[MetadataUnionActor], ArchiveConfig))
+              actorCreation(probeMetadataManager)
 
             case "mediaManager" =>
-              props should be(MediaUnionActor(probeMetaDataManager.ref))
+              props should be(MediaUnionActor(probeMetadataManager.ref))
               actorCreation(probeMediaManager)
           }
         })

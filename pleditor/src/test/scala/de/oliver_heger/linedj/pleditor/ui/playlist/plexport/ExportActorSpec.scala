@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportResult
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetaData
+import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -129,7 +129,7 @@ object ExportActorSpec:
    */
   private def createSongData(index: Int, size: Option[Long] = None): SongData =
     SongData(MediaFileID(medium(index), songUri(index)),
-      MediaMetaData(title = Some(songTitle(index)), size = size orElse Some(songSize(index))),
+      MediaMetadata(title = Some(songTitle(index)), size = size orElse Some(songSize(index))),
       songTitle(index), null, null)
 
   /**
@@ -221,8 +221,8 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "use the correct file extension when generating operations" in:
     val songList = List(SongData(MediaFileID(medium(1), "song://Test1.mp2"),
-      MediaMetaData(title = Some(songTitle(1))), songTitle(1), null, null),
-      SongData(MediaFileID(medium(2), "song://Test2"), MediaMetaData(title = Some(songTitle(2))),
+      MediaMetadata(title = Some(songTitle(1))), songTitle(1), null, null),
+      SongData(MediaFileID(medium(2), "song://Test2"), MediaMetadata(title = Some(songTitle(2))),
         songTitle(2), null, null))
     val data = ExportActor.ExportData(songList, TestScanResult, ExportPath, clearTarget = false,
       overrideFiles = false)
@@ -244,7 +244,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val title = "Song:\t My *, \"<Love>|Pet/Heart Come\\ - yes?"
     val replacedTitle = "Song__ My _, __Love__Pet_Heart Come_ - yes_"
     val songList = List(SongData(MediaFileID(medium(1), songUri(1)),
-      MediaMetaData(title = Some(title)), title, null, null))
+      MediaMetadata(title = Some(title)), title, null, null))
     val data = ExportActor.ExportData(songList, TestScanResult, ExportPath, clearTarget = false,
       overrideFiles = false)
 

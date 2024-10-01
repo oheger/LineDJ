@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
-import de.oliver_heger.linedj.shared.archive.metadata.MetaDataScanCompleted
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataScanCompleted$
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.Actor.Receive
 
@@ -140,7 +140,7 @@ trait MediaIfcExtension[C, K] extends ConsumerSupport[C, K] with MessageBusListe
     * @return the base messaging function
     */
   private def receiveBase: Receive =
-    case MetaDataScanCompleted => onMediaScanCompleted(consumerMap.nonEmpty)
+    case MetadataScanCompleted$ => onMediaScanCompleted(consumerMap.nonEmpty)
     case MediaFacade.MediaArchiveAvailable => onArchiveAvailable(consumerMap.nonEmpty)
 
 /**
