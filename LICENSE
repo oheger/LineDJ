@@ -199,8 +199,3 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-
----------------------------
-This product incorporates a few source files derived from the book "Functional
-Programming in Scala" by Paul Chiusano and Rúnar Bjarnason, Manning, 2015 under
-the MIT license as provided here as LICENSE-MIT.
