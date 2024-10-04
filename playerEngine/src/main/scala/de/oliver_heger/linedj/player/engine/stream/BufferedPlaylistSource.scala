@@ -941,12 +941,22 @@ object BufferedPlaylistSource:
         /** The number of bytes that has been emitted so far. */
         private var bytesProcessed = 0L
 
+        /**
+          * Stores data to complete this stage the next time a request from
+          * downstream arrives.
+          */
+        private var optResult: Option[BridgeSourceCompletionReason] = None
+
         /** The maximum number of bytes to issue. */
         private var limit = initialLimit
 
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
-            requestNextChunk()
+            optResult match
+              case Some(result) =>
+                completeStageWithResult(result)
+              case None =>
+                requestNextChunk()
 
           override def onDownstreamFinish(cause: Throwable): Unit =
             val result = createSourceResult(BridgeSourceCompletionReason.LimitReached)
@@ -995,7 +1005,7 @@ object BufferedPlaylistSource:
             case Success(DataChunkResponse.DataChunk(chunk)) =>
               push(out, chunk)
               bytesProcessed += chunk.size
-              completeIfLimitReached()
+              completeIfLimitReached(immediate = false)
             case Success(DataChunkResponse.LimitChanged(updatedLimit)) =>
               updateLimit(updatedLimit)
               if !completeIfLimitReached() then requestNextChunk()
@@ -1003,13 +1013,21 @@ object BufferedPlaylistSource:
 
         /**
           * Checks whether the current source limit has been reached. If so,
-          * this stage is completed accordingly.
+          * this stage is completed accordingly. If the ''immediate'' flag is
+          * '''true''', completion happens directly. Otherwise, state is set to
+          * complete the stage when the next request for data from downstream
+          * comes in. This is necessary to make sure that the last chunk of
+          * data is processed correctly.
           *
+          * @param immediate flag whether to immediately complete this stage
           * @return a flag whether the limit has been reached
           */
-        private def completeIfLimitReached(): Boolean =
+        private def completeIfLimitReached(immediate: Boolean = true): Boolean =
           if limit >= 0 && bytesProcessed >= limit then
-            completeStageWithResult(BridgeSourceCompletionReason.LimitReached)
+            if immediate then
+              completeStageWithResult(BridgeSourceCompletionReason.LimitReached)
+            else
+              optResult = Some(BridgeSourceCompletionReason.LimitReached)
             true
           else
             false
@@ -1196,12 +1214,16 @@ object BufferedPlaylistSource:
                                       fileRequest: Option[PrepareReadBufferFile],
                                       fileCount: Int):
     /**
-      * Returns a flag whether the end of the current buffer file has been
-      * reached.
+      * Returns a flag whether all data from the current buffer file has been
+      * read. This is used to determine whether a [[PrepareReadBufferFile]]
+      * request can be processed. This can only be safely done when all the
+      * data of the file has been consumed. Note that at that time the file has
+      * been fully copied into the buffer; the question is only if there are
+      * chunks missing that have not yet been read.
       *
-      * @return a flag if the current buffer file is at its end
+      * @return a flag if the current buffer file has been fully read
       */
-    def isFileEnd: Boolean = bytesProcessed % bufferFileSize == 0 && chunks.isEmpty
+    def isFileFullyRead: Boolean = chunks.isEmpty
   end BridgeActorState
 
   /**
@@ -1324,14 +1346,11 @@ object BufferedPlaylistSource:
           state.consumer.foreach(ctx.self ! _)
           (replyTo, None)
         handleBridgeCommand(
-          replyPrepareReadBufferFile(
-            ctx,
-            state.copy(
-              chunks = nextChunks,
-              producer = nextProducer,
-              consumer = nextConsumer,
-              bytesProcessed = nextPos
-            )
+          state.copy(
+            chunks = nextChunks,
+            producer = nextProducer,
+            consumer = nextConsumer,
+            bytesProcessed = nextPos
           )
         )
 
@@ -1368,7 +1387,7 @@ object BufferedPlaylistSource:
                 state.copy(chunks = Nil, consumer = Some(msg))
             handleBridgeCommand(replyPrepareReadBufferFile(ctx, nextState))
 
-      case (ctx, msg: PrepareReadBufferFile) if state.isFileEnd =>
+      case (ctx, msg: PrepareReadBufferFile) if state.isFileFullyRead =>
         ctx.log.info("PrepareReadBufferFile {} at end of file.", msg)
         val nextState = handlePrepareReadBufferFile(ctx, msg, state)
         handleBridgeCommand(nextState)
@@ -1494,7 +1513,7 @@ object BufferedPlaylistSource:
     */
   private def replyPrepareReadBufferFile(ctx: ActorContext[SourceSinkBridgeCommand],
                                          state: BridgeActorState): BridgeActorState =
-    state.fileRequest.filter(_ => state.isFileEnd)
+    state.fileRequest.filter(_ => state.isFileFullyRead)
       .map(request => handlePrepareReadBufferFile(ctx, request, state))
       .getOrElse(state)
 
