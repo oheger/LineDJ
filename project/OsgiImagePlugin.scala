@@ -128,10 +128,7 @@ object OsgiImagePlugin extends AutoPlugin {
       sourceImagePaths := Nil,
       osgiImage := {
         val dependencies = update.value.matching(createDependenciesFilter(excludedModules.value))
-        runTaskOnAffectedProjects(OsgiKeys.bundle).value
-        runTaskOnAffectedProjects(publishLocal).value
-        val projectFiles = runTaskOnAffectedProjects(sbt.Keys.packagedArtifacts).value
-          .map(findBundleArtifact)
+        val projectFiles = runTaskOnAffectedProjects(OsgiKeys.bundle).value
           .filter(_.isDefined)
           .map(_.get)
         buildOsgiImage(dependencies, projectFiles, target.value, bundleDir.value, sourceImagePaths.value,
@@ -201,25 +198,6 @@ object OsgiImagePlugin extends AutoPlugin {
     val filter = ScopeFilter(inProjects(currentProjectDependencies: _*))
     (task ?).all(filter)
   }
-
-  /**
-    * Tries to determine the file associated with the OSGi bundle artifact from
-    * the given optional map. Per default, this is the jar artifact. In case of
-    * a project processed by SpiFly, there is another jar artifact with the
-    * "spifly" classifier.
-    *
-    * @param optArtifacts an optional map with published artifacts
-    * @return an option with the extracted artifact file
-    */
-  private def findBundleArtifact(optArtifacts: Option[Map[Artifact, File]]): Option[File] =
-    optArtifacts flatMap { artifactMap =>
-      val jarArtifacts = artifactMap.filter(e => e._1.`type` == "jar" && e._1.extension == "jar")
-      jarArtifacts.size match {
-        case 1 => jarArtifacts.get(jarArtifacts.keys.head)
-        case 2 => jarArtifacts.find(e => e._1.classifier.contains("spifly")).map(_._2)
-        case _ => None
-      }
-    }
 
   /**
     * Checks whether a file is a valid OSGi bundle. Only such files are copied 
