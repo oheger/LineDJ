@@ -17,11 +17,10 @@
 package de.oliver_heger.linedj.platform.app.tray.wndlist
 
 import java.awt.{Image, PopupMenu, SystemTray, TrayIcon}
-
 import javax.swing.ImageIcon
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -46,7 +45,15 @@ class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   import TrayHandlerSpec._
 
+  /**
+    * Checks whether the [[SystemTray]] is available on this platform and
+    * cancels the current test if not.
+    */
+  private def assumeSystemTray(): Unit =
+    assume(SystemTray.isSupported, "SystemTray is not available on this platform.")
+
   "TrayHandlerImpl" should "create a correct icon handler" in:
+    assumeSystemTray()
     val tray = mock[SystemTray]
     val image = createImage()
 
@@ -59,6 +66,7 @@ class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     handler.icon.getToolTip should be(Tip)
 
   it should "handle an exception when adding the icon to the tray" in:
+    assumeSystemTray()
     val tray = mock[SystemTray]
     when(tray.add(any(classOf[TrayIcon]))).thenThrow(new IllegalArgumentException)
 
@@ -79,6 +87,7 @@ class TrayHandlerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     verify(tray).remove(icon)
 
   it should "set the icon's popup menu" in:
+    assumeSystemTray()
     val icon = new TrayIcon(createImage())
     val menu = new PopupMenu
     val handler = new TrayIconHandler(icon, mock[SystemTray])

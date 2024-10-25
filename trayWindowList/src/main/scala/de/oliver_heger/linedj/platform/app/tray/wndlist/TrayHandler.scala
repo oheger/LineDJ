@@ -68,8 +68,8 @@ private object TrayHandlerImpl extends TrayHandler:
     */
   def addIconToTray(tray: SystemTray, icon: Image, tip: String): Option[TrayIconHandler] =
     Log.info("Adding system tray icon.")
-    val trayIcon = new TrayIcon(icon, tip)
     try
+      val trayIcon = new TrayIcon(icon, tip)
       tray add trayIcon
       Some(new TrayIconHandler(trayIcon, tray))
     catch
