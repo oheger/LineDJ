@@ -163,7 +163,7 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     *             application's main window.
     */
   override protected def onApplicationShutdown(app: ClientApplication): Unit =
-    publishMessage(HideApplicationWindow(app))
+    handleAppShutdownOrWindowClosing(app)
 
   /**
     * @inheritdoc This implementation searches for the application to which
@@ -172,7 +172,20 @@ class WindowHidingApplicationManager extends BaseApplicationManager
     */
   override protected def onWindowClosing(window: Window): Unit =
     val optApp = getApplications.find(_.optMainWindow.orNull == window)
-    optApp foreach (app => publishMessage(HideApplicationWindow(app)))
+    optApp foreach handleAppShutdownOrWindowClosing
+
+  /**
+    * Handles notifications about an application shutdown or the closing of an
+    * application window. If the application is a main application, the whole
+    * platform is shut down; otherwise, only the window is made invisible.
+    *
+    * @param app the affected application
+    */
+  private def handleAppShutdownOrWindowClosing(app: ClientApplication): Unit =
+    if windowConfig.isMainApplication(app) then
+      triggerShutdown()
+    else
+      publishMessage(HideApplicationWindow(app))
 
   /**
     * Updates the visibility state of the given application. The window is

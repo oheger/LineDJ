@@ -35,6 +35,14 @@ object WindowHidingApplicationManagerSpec:
   private val AppName = "testApplication"
 
   /**
+    * Generates the name of a test application with a given index.
+    *
+    * @param index the index of the test application
+    * @return the name to be used for this test application
+    */
+  private def testApplicationName(index: Int): String = AppName + index
+
+  /**
     * Initializes the given configuration with window management data. All
     * specified application names are marked as invisible.
     *
@@ -49,6 +57,8 @@ object WindowHidingApplicationManagerSpec:
       config.addProperty("platform.windowManagement.apps." + n, false)
     }
     config
+end WindowHidingApplicationManagerSpec
+
 
 /**
   * Test class for ''WindowHidingApplicationManager''.
@@ -85,11 +95,11 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     * Creates mock data about applications. A number of application mocks is
     * created, and for each one a test title is generated.
     *
-    * @param appCount the number of of mock applications
+    * @param appCount the number of mock applications
     * @return the mock application data
     */
   private def createApplicationData(appCount: Int): List[(ClientApplication, String)] =
-    (1 to appCount).map(i => (createApplicationMock(AppName + i), "AppTitle" + i)).toList
+    (1 to appCount).map(i => (createApplicationMock(testApplicationName(i)), "AppTitle" + i)).toList
 
   "A WindowHidingApplicationManager" should "have an empty initial state" in:
     val reg = createRegistration()
@@ -273,8 +283,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
   it should "adapt window visible states when receiving a new configuration" in:
     val data = createApplicationData(3)
     val app = createApplicationMock()
-    initWindowManagementConfig(app.getUserConfiguration, AppName + "1",
-      AppName + "3", AppName)
+    initWindowManagementConfig(app.getUserConfiguration, testApplicationName(1),
+      testApplicationName(3), AppName)
     val reg = createRegistration()
     val manager = new WindowHidingAppManagerTestImpl
 
@@ -294,6 +304,30 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager.sendMessage(ApplicationManager.ApplicationRegistered(app))
     verify(app, never()).showMainWindow(false)
+
+  it should "shut down the platform when a main window is closed" in:
+    val appData = createApplicationData(2)
+    val app = appData.head._1
+    val config = initWindowManagementConfig(app.getUserConfiguration)
+    config.addProperty("platform.windowManagement.main.name", app.appName)
+    val manager = new WindowHidingAppManagerTestImpl
+    manager.addApplications(appData)
+
+    manager.onWindowClosing(app.optMainWindow.get)
+
+    manager.shutdownTriggerCount should be(1)
+
+  it should "shut down the platform when a main application is shut down" in:
+    val appData = createApplicationData(2)
+    val app = appData.head._1
+    val config = initWindowManagementConfig(app.getUserConfiguration)
+    config.addProperty("platform.windowManagement.main.name", app.appName)
+    val manager = new WindowHidingAppManagerTestImpl
+    manager.addApplications(appData)
+
+    manager onApplicationShutdown app
+
+    manager.shutdownTriggerCount should be(1)
 
   it should "update the window configuration if a window is shown" in:
     val data = createApplicationData(2)
