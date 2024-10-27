@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.app.hide.impl
 
 import de.oliver_heger.linedj.platform.app.ApplicationManager.{ApplicationRegistered, ApplicationRemoved, ApplicationTitleUpdated}
-import de.oliver_heger.linedj.platform.app.hide._
+import de.oliver_heger.linedj.platform.app.hide.*
 import de.oliver_heger.linedj.platform.app.{BaseApplicationManager, ClientApplication, ClientApplicationContext}
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport
 import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
@@ -25,6 +25,8 @@ import net.sf.jguiraffe.gui.builder.window.Window
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.Actor.Receive
 import org.osgi.service.component.ComponentContext
+
+import java.awt.SystemTray
 
 /**
   * A specialized ''ApplicationManager'' implementation which keeps track on
@@ -55,9 +57,25 @@ import org.osgi.service.component.ComponentContext
   * On the other hand, it can send messages to the manager to show or hide
   * application windows. The state of visible application windows can also be
   * persisted, so that it can be restored after a restart of the application.
+  *
+  * It is possible to declare some applications as "main applications" (refer to
+  * [[AppConfigWindowConfiguration]] for further details). If the user closes
+  * the window of such an application, the whole platform is shut down. This
+  * application manager can also run in a mode in which it is not possible to
+  * close non-main windows. This may be necessary if no component is available
+  * to list the applications; in this case, closing/hiding a window could not
+  * be reverted anymore. Since the system tray is typically used by a listing
+  * component, this mode is enabled by default if the system tray is
+  * unavailable on the current platform.
+  *
+  * @param ignoreCloseNonMainApps flag whether notifications for closing
+  *                               windows or shutting down apps for non-main
+  *                               applications should be ignored
   */
-class WindowHidingApplicationManager extends BaseApplicationManager
+class WindowHidingApplicationManager(ignoreCloseNonMainApps: Boolean) extends BaseApplicationManager
   with ConsumerSupport[ApplicationWindowState, AnyRef]:
+  def this() = this(ignoreCloseNonMainApps = !SystemTray.isSupported)
+
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
 
@@ -184,7 +202,7 @@ class WindowHidingApplicationManager extends BaseApplicationManager
   private def handleAppShutdownOrWindowClosing(app: ClientApplication): Unit =
     if windowConfig.isMainApplication(app) then
       triggerShutdown()
-    else
+    else if !ignoreCloseNonMainApps then
       publishMessage(HideApplicationWindow(app))
 
   /**

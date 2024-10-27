@@ -212,6 +212,13 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
     manager onApplicationShutdown app
     manager.publishedMessages should contain only HideApplicationWindow(app)
 
+  it should "ignore an application shutdown notification for a non-main app if configured" in:
+    val app = createApplicationMock()
+    val manager = new WindowHidingAppManagerTestImpl(ignoreCloseNonMainApps = true)
+
+    manager onApplicationShutdown app
+    manager.publishedMessages shouldBe empty
+
   it should "hide an application window when it is closed" in:
     val data = createApplicationData(2)
     val app = data.head._1
@@ -220,6 +227,15 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
 
     manager onWindowClosing app.optMainWindow.get
     manager.publishedMessages should contain only HideApplicationWindow(app)
+
+  it should "ignore a window closing event for a non-main app if configured" in:
+    val data = createApplicationData(2)
+    val app = data.head._1
+    val manager = new WindowHidingAppManagerTestImpl(ignoreCloseNonMainApps = true)
+    manager.initAppData(data)
+
+    manager onWindowClosing app.optMainWindow.get
+    manager.publishedMessages shouldBe empty
 
   it should "ignore a window closing event for an unknown window" in:
     val manager = new WindowHidingAppManagerTestImpl
@@ -371,7 +387,8 @@ class WindowHidingApplicationManagerSpec extends AnyFlatSpec with Matchers with 
   * A test implementation of the application manager allowing advanced mocking
   * facilities.
   */
-private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationManager:
+private class WindowHidingAppManagerTestImpl(ignoreCloseNonMainApps: Boolean = false)
+  extends WindowHidingApplicationManager(ignoreCloseNonMainApps):
   /** Stores mock application data. */
   private var appData: Iterable[(ClientApplication, String)] = List.empty
 
@@ -462,8 +479,8 @@ private class WindowHidingAppManagerTestImpl extends WindowHidingApplicationMana
   /**
     * Increases visibility.
     */
-  override def onApplicationShutdown(app: ClientApplication): Unit = super
-    .onApplicationShutdown(app)
+  override def onApplicationShutdown(app: ClientApplication): Unit = 
+    super.onApplicationShutdown(app)
 
   /**
     * Increases visibility.
