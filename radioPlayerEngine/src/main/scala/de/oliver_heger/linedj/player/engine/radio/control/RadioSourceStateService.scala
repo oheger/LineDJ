@@ -312,8 +312,9 @@ object RadioSourceStateServiceImpl:
                                   radioConfig: RadioPlayerConfig,
                                   nextSeq: Int): EvalFunc = (service, time, ec) =>
     if state.disabledSources.contains(source) then
+      val from = new LazyDate(time)
       val until = new LazyDate(time.plusSeconds(radioConfig.maximumEvalDelay.toSeconds))
-      Future.successful(EvaluateIntervalsResponse(Inside(until), nextSeq))
+      Future.successful(EvaluateIntervalsResponse(Inside(from, until), nextSeq))
     else service.evaluateIntervals(sourcesConfig.exclusions(source), time, nextSeq)(ec)
 
   /**
@@ -402,7 +403,7 @@ class RadioSourceStateServiceImpl(val config: RadioPlayerConfig) extends RadioSo
           val delay = durationBetween(refTime, start.value, config.maximumEvalDelay)
           updateCurrentSourceActive(config, s, delay, sourceChanged)
 
-        case Inside(until) =>
+        case Inside(_, until) =>
           val nextActions = addActionForSource(s) { source =>
             val replaceFunc: ReplaceFunc = (replaceService, evalService, system) =>
               replaceService.selectReplacementSource(s.sourcesConfig, s.rankedSources, s.disabledSources + source,

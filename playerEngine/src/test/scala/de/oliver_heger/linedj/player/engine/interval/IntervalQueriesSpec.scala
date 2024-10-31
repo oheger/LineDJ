@@ -65,7 +65,7 @@ object IntervalQueriesSpec:
   private def findInsideDays(q: IntervalTypes.IntervalQuery): Seq[Int] =
     DayList map (d => (d._1, q(d._2))) filter {
       _._2 match
-        case Inside(_) => true
+        case Inside(_, _) => true
         case _ => false
     } map (_._1)
 
@@ -99,7 +99,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.hours(21, 23)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(21, 0))
         until.value should be(todayAt(23, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -108,7 +109,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.hours(21, 24)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(21, 0))
         val expUntil = todayAt(0, 0) plusDays 1
         until.value should be(expUntil)
       case r => fail("Unexpected result: " + r)
@@ -136,7 +138,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.minutes(55, 60)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(21, 55))
         until.value should be(todayAt(22, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -145,7 +148,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.days(8, 14)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(LocalDateTime.of(2016, Month.JUNE, 8, 0, 0))
         until.value should be(LocalDateTime.of(2016, Month.JUNE, 14, 0, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -154,7 +158,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.months(Month.MAY.getValue, Month.AUGUST.getValue)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(LocalDateTime.of(2016, Month.MAY, 1, 0, 0))
         until.value should be(LocalDateTime.of(2016, Month.AUGUST, 1, 0, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -163,8 +168,9 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.months(Month.JUNE.getValue, Month.DECEMBER.getValue + 1)
 
     query(date) match
-      case Inside(until) =>
-        until.value should be(LocalDateTime.of(2017, Month.JANUARY.getValue, 1, 0, 0))
+      case Inside(from, until) =>
+        from.value should be(LocalDateTime.of(2016, Month.JUNE, 1, 0, 0))
+        until.value should be(LocalDateTime.of(2017, Month.JANUARY, 1, 0, 0))
       case r => fail("Unexpected result: " + r)
 
   "A combined query" should "return a correct Before result" in:
@@ -240,7 +246,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val combined = IntervalQueries.combine(coarser, finer)
 
     combined(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(22, 4))
         until.value should be(todayAt(22, 8))
       case r => fail("Unexpected result: " + r)
 
@@ -278,7 +285,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val query = IntervalQueries.weekDays(DayOfWeek.WEDNESDAY.getValue, DayOfWeek.FRIDAY.getValue)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(LocalDateTime.of(2016, Month.JUNE, 15, 0, 0))
         until.value should be(LocalDateTime.of(2016, Month.JUNE, 17, 0, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -315,7 +323,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     val cyclic = IntervalQueries.cyclic(wrapped)
 
     cyclic(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(21, 0))
         until.value should be(todayAt(22, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -379,14 +388,14 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
 
   it should "compare an Inside with an After" in:
     val r1 = After(identity[LocalDateTime])
-    val r2 = Inside(new LazyDate(todayAt(22, 17)))
+    val r2 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(22, 17)))
 
     IntervalQueries.LongestInside(r1, r2) shouldBe false
     IntervalQueries.LongestInside(r2, r1) shouldBe true
 
   it should "compare an Inside with a Before" in:
     val r1 = Before(new LazyDate(todayAt(22, 18, 10)))
-    val r2 = Inside(new LazyDate(todayAt(22, 19, 1)))
+    val r2 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(22, 19, 1)))
 
     IntervalQueries.LongestInside(r1, r2) shouldBe false
     IntervalQueries.LongestInside(r2, r1) shouldBe true
@@ -399,8 +408,8 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
     IntervalQueries.LongestInside(r2, r1) shouldBe false
 
   it should "compare two Inside results" in:
-    val r1 = Inside(new LazyDate(todayAt(22, 26, 22)))
-    val r2 = Inside(new LazyDate(todayAt(22, 19, 1)))
+    val r1 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(22, 26, 22)))
+    val r2 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(22, 19, 1)))
 
     IntervalQueries.LongestInside(r1, r2) shouldBe true
     IntervalQueries.LongestInside(r2, r1) shouldBe false
@@ -408,11 +417,11 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
   it should "sort a list of results" in:
     val r1 = After(identity[LocalDateTime])
     val r2 = Before(new LazyDate(todayAt(20, 59) plusDays 1))
-    val r3 = Inside(new LazyDate(todayAt(21, 0)))
+    val r3 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(21, 0)))
     val r4 = After(identity[LocalDateTime])
     val r5 = Before(new LazyDate(todayAt(22, 1)))
-    val r6 = Inside(new LazyDate(todayAt(23, 59)))
-    val r7 = Inside(new LazyDate(todayAt(1, 28) plusDays 1))
+    val r6 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(23, 59)))
+    val r7 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(1, 28) plusDays 1))
     val inputList = List(r1, r2, r3, r4, r5, r6, r7)
 
     val sortedList = inputList.sortWith(IntervalQueries.LongestInside)
@@ -425,7 +434,7 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
   it should "have an inverse counterpart" in:
     val r1 = After(identity[LocalDateTime])
     val r2 = Before(new LazyDate(todayAt(20, 45)))
-    val r3 = Inside(new LazyDate(todayAt(21, 0)))
+    val r3 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(21, 0)))
     val r4 = Before(new LazyDate(todayAt(20, 46)))
 
     IntervalQueries.ShortestInside(r1, r2) shouldBe true
@@ -440,7 +449,7 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
 
   it should "compare two results correctly" in:
     val r1 = Before(new LazyDate(todayAt(21, 27)))
-    val r2 = Inside(new LazyDate(todayAt(21, 28)))
+    val r2 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(21, 28)))
 
     IntervalQueries.LongestInsideSelector(Some(r2), r1).get should be(r2)
 
@@ -451,18 +460,18 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
   it should "select the correct result from a list" in:
     val r1 = After(identity[LocalDateTime])
     val r2 = Before(new LazyDate(todayAt(20, 59) plusDays 2))
-    val r3 = Inside(new LazyDate(todayAt(21, 36)))
+    val r3 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(21, 36)))
     val r4 = After(identity[LocalDateTime])
     val r5 = Before(new LazyDate(todayAt(22, 1)))
-    val r6 = Inside(new LazyDate(todayAt(23, 59)))
-    val r7 = Inside(new LazyDate(todayAt(1, 28) plusDays 1))
+    val r6 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(23, 59)))
+    val r7 = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(1, 28) plusDays 1))
     val inputList = List(r1, r2, r3, r4, r5, r6, r7)
 
     IntervalQueries.selectResult(inputList,
       IntervalQueries.LongestInsideSelector).get should be(r7)
 
   "A sequence query" should "support an empty sequence" in:
-    val defResult = Inside(new LazyDate(todayAt(22, 22)))
+    val defResult = Inside(new LazyDate(todayAt(12, 0)), new LazyDate(todayAt(22, 22)))
     val query = IntervalQueries.sequence(List.empty, IntervalQueries.LongestInsideSelector,
       defResult)
 
@@ -479,12 +488,17 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
 
   it should "return the correct combined result" in:
     val date = todayAt(17, 54, 10, 28)
-    val queries = List(IntervalQueries.hours(1, 10), IntervalQueries.hours(20, 22),
-      IntervalQueries.hours(17, 18), IntervalQueries.hours(13, 17),
-      IntervalQueries.hours(17, 20))
+    val queries = List(
+      IntervalQueries.hours(1, 10),
+      IntervalQueries.hours(20, 22),
+      IntervalQueries.hours(17, 18),
+      IntervalQueries.hours(13, 17),
+      IntervalQueries.hours(17, 20)
+    )
     val query = IntervalQueries.sequence(queries)
 
     query(date) match
-      case Inside(until) =>
+      case Inside(from, until) =>
+        from.value should be(todayAt(17, 0))
         until.value should be(todayAt(20, 0))
       case r => fail("Unexpected result: " + r)

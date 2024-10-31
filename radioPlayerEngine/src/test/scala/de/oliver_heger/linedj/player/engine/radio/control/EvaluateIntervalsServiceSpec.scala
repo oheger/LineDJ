@@ -60,7 +60,8 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
     val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, date, SeqNo))
 
     result match
-      case EvaluateIntervalsResponse(Inside(until), seqNo) if seqNo == SeqNo =>
+      case EvaluateIntervalsResponse(Inside(since, until), seqNo) if seqNo == SeqNo =>
+        since.value should be(LocalDateTime.of(2023, Month.JANUARY, 15, 21, 0))
         until.value should be(LocalDateTime.of(2023, Month.JANUARY, 15, 23, 0))
       case r => fail("Unexpected result: " + r)
 
@@ -87,7 +88,7 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
         val updatedNames = names + threadName
         threadCount = updatedNames.size
         done = names.size == threadCount || threadNamesRef.compareAndSet(names, updatedNames)
-      Inside(new LazyDate(refDate plusMinutes threadCount))
+      Inside(new LazyDate(refDate), new LazyDate(refDate plusMinutes threadCount))
     }
 
     val queries = (1 to 32) map (_ => createQuery())
@@ -95,6 +96,6 @@ class EvaluateIntervalsServiceSpec(testSystem: ActorSystem) extends TestKit(test
     val result = futureResult(EvaluateIntervalsServiceImpl.evaluateIntervals(queries, refDate, SeqNo))
 
     result match
-      case EvaluateIntervalsResponse(Inside(until), SeqNo) =>
+      case EvaluateIntervalsResponse(Inside(_, until), SeqNo) =>
         until.value.getMinute should be > 1
       case r => fail("Unexpected result: " + r)

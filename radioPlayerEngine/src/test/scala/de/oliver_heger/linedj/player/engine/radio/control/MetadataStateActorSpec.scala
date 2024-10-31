@@ -518,7 +518,7 @@ class MetadataStateActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
 
     helper.prepareFinderService(nextMetadata, refTime = refTime)
       .expectRetrieverCommand(MetadataStateActor.GetMetadata)
-      .prepareIntervalsService(refTime, Inside(new LazyDate(refTime.plusMinutes(1))))
+      .prepareIntervalsService(refTime, Inside(new LazyDate(refTime), new LazyDate(refTime.plusMinutes(1))))
       .sendCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(nextMetadata), refTime))
       .expectRetrieverCommand(MetadataStateActor.CancelStream)
       .sendCommand(MetadataStateActor.RadioStreamStopped)
@@ -1080,7 +1080,7 @@ class MetadataStateActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
       */
     private def createIntervalsService(): EvaluateIntervalsService =
       initIntervalsServiceResult(mock[EvaluateIntervalsService], sourceConfig.resumeIntervals, timeForTicks(1),
-        Inside(new LazyDate(timeForTicks(1).plusMinutes(2))))
+        Inside(new LazyDate(RefTime), new LazyDate(timeForTicks(1).plusMinutes(2))))
 
     /**
       * Creates a factory for a check runner behavior that checks the passed in

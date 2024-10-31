@@ -302,7 +302,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val ExistingAction = mock[RadioSourceStateService.StateAction]
     val refTime = LocalDateTime.now()
     val insideTime = LocalDateTime.of(2023, Month.JANUARY, 24, 21, 36, 28)
-    val evalResult = Inside(new LazyDate(insideTime))
+    val evalResult = Inside(new LazyDate(insideTime.minusSeconds(10)), new LazyDate(insideTime))
     val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo)
     val currentSource = radioSource(5)
     val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(RadioSourceConfigTestHelper.TestSourcesQueryMap)
@@ -347,7 +347,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
     val SeqNo = 39
     val refTime = LocalDateTime.now()
     val insideTime = LocalDateTime.of(2023, Month.JANUARY, 24, 22, 11, 33)
-    val evalResult = Inside(new LazyDate(insideTime))
+    val evalResult = Inside(new LazyDate(insideTime.minusSeconds(5)), new LazyDate(insideTime))
     val evalResponse = EvaluateIntervalsResponse(evalResult, SeqNo - 1)
     val state = RadioSourceStateServiceImpl.InitialState.copy(seqNo = SeqNo,
       currentSource = Some(radioSource(4)))
@@ -569,7 +569,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
         val evalResult = futureResult(evalFunc(evalService, refDate, ec))
         evalResult.seqNo should be(SeqNo + 1)
         evalResult.result match
-          case Inside(until) =>
+          case Inside(_, until) =>
             until.value should be(expUntilDate)
           case res => fail("Unexpected evaluation result: " + res)
 
@@ -625,7 +625,7 @@ class RadioSourceStateServiceSpec extends AnyFlatSpec with Matchers with Mockito
         val evalResult = futureResult(evalFunc(evalService, refDate, ec))
         evalResult.seqNo should be(state.seqNo + 1)
         evalResult.result match
-          case Inside(until) =>
+          case Inside(_, until) =>
             until.value should be(expUntilDate)
           case res => fail("Unexpected evaluation result: " + res)
 

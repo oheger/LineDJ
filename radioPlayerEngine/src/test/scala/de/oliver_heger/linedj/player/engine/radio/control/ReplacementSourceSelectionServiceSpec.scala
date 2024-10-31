@@ -84,7 +84,10 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
 
   it should "filter out sources that cannot be played" in:
     val helper = new SelectionServiceTestHelper
-    val source = helper.createSourceWithQueries(1, Inside(new LazyDate(ReferenceDate.plusSeconds(1))))
+    val source = helper.createSourceWithQueries(
+      1,
+      Inside(new LazyDate(ReferenceDate), new LazyDate(ReferenceDate.plusSeconds(1)))
+    )
     val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(Map(source))
 
     val result = helper.callSelectionService(sourcesConfig, singleSortedSource(source._1))
@@ -103,7 +106,10 @@ class ReplacementSourceSelectionServiceSpec(testSystem: ActorSystem) extends Tes
 
   it should "select a source that leaves a forbidden interval earlier" in:
     val helper = new SelectionServiceTestHelper
-    val source = helper.createSourceWithQueries(1, Inside(new LazyDate(ReferenceDate.minusSeconds(1))))
+    val source = helper.createSourceWithQueries(
+      1,
+      Inside(new LazyDate(ReferenceDate), new LazyDate(ReferenceDate.minusSeconds(1)))
+    )
     val sourcesConfig = RadioSourceConfigTestHelper.createSourceConfig(Map(source))
 
     val result = helper.callSelectionService(sourcesConfig, singleSortedSource(source._1))

@@ -137,7 +137,7 @@ object ReplacementSourceSelectionServiceImpl extends ReplacementSourceSelectionS
           untilDate,
           evaluateService) { (source, queryResult) =>
           queryResult match
-            case Inside(d) if d.value.isAfter(untilDate) => None
+            case Inside(_, d) if d.value.isAfter(untilDate) => None
             case Before(start) => Some(SelectedReplacementSource(source, start.value))
             case _ => Some(SelectedReplacementSource(source, untilDate))
         }

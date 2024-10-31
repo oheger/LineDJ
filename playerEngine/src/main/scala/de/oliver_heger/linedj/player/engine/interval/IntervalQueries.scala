@@ -266,11 +266,10 @@ object IntervalQueries:
     * @param optNextDate an optional next date for an after result
     * @return the query result
     */
-  @tailrec private def processCombinedQueryWithNextDate(coarser: IntervalQuery, finer:
-  IntervalQuery,
-                                                        date: LocalDateTime, optNextDate:
-                                                        Option[LocalDateTime]):
-  IntervalQueryResult =
+  @tailrec private def processCombinedQueryWithNextDate(coarser: IntervalQuery,
+                                                        finer: IntervalQuery,
+                                                        date: LocalDateTime,
+                                                        optNextDate: Option[LocalDateTime]): IntervalQueryResult =
     /*
      * Special treatment for an inside result. Insides are not allowed if the
      * coarser query had an Inside result and the finer had an After result.
@@ -280,7 +279,7 @@ object IntervalQueries:
     optNextDate match
       case Some(d) =>
         result match
-          case Inside(_) =>
+          case Inside(_, _) =>
             // in this case, nextDate is the next interval start date
             Before(new LazyDate(d))
           case r => r
@@ -292,7 +291,7 @@ object IntervalQueries:
           case f: Before => f
           case _ => rb
 
-      case Inside(_) =>
+      case Inside(_, _) =>
         finer(date) match
           case After(f) =>
             val nextDate = f(date)
@@ -330,17 +329,22 @@ object IntervalQueries:
     * @param until the end of the interval (exclusive)
     * @return the new interval query
     */
-  private def fieldRangeF(field: ChronoField, fSet: (LocalDateTime, Int) => LocalDateTime,
-                          fInc: LocalDateTime => LocalDateTime, from: Int, until: Int):
-  IntervalQuery =
+  private def fieldRangeF(field: ChronoField,
+                          fSet: (LocalDateTime, Int) => LocalDateTime,
+                          fInc: LocalDateTime => LocalDateTime,
+                          from: Int,
+                          until: Int): IntervalQuery =
     date => {
       if date.get(field) >= until then After { _ =>
           fInc(fSet(date, date.range(field).getMaximum.toInt))
         }
       else if date.get(field) < from then
         Before(new LazyDate(fSet(date, from)))
-      else
-        Inside(new LazyDate(fInc(fSet(date, until - 1))))
+      else {
+        val fromDate = new LazyDate(fSet(date, from))
+        val untilDate = new LazyDate(fInc(fSet(date, until - 1)))
+        Inside(fromDate, untilDate)
+      }
     }
 
   /**
@@ -353,7 +357,7 @@ object IntervalQueries:
     * @param fieldIdx the index of the field to be incremented
     * @return the updated date
     */
-  @tailrec def increase(date: LocalDateTime, fieldIdx: Int): LocalDateTime =
+  @tailrec private def increase(date: LocalDateTime, fieldIdx: Int): LocalDateTime =
     val value = date.get(Fields(fieldIdx))
     val range = date.range(Fields(fieldIdx))
 
@@ -388,11 +392,11 @@ object IntervalQueries:
       case Before(d2) =>
         r1 match
           case After(_) => false
-          case Inside(_) => true
+          case Inside(_, _) => true
           case Before(d1) => d1.value.compareTo(d2.value) < 0
-      case Inside(d2) =>
+      case Inside(_, d2) =>
         r1 match
-          case Inside(d1) => d1.value.compareTo(d2.value) > 0
+          case Inside(_, d1) => d1.value.compareTo(d2.value) > 0
           case _ => false
 
   /**

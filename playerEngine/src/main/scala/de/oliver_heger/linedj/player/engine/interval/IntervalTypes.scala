@@ -45,11 +45,13 @@ object IntervalTypes:
 
   /**
     * The result ''inside'': the queried data is inside the time interval. It
-    * is possible to find out how long the interval is going to last.
+    * is possible to find out when the interval started and how long it is 
+    * going to last.
     *
-    * @param until     the end date of the interval
+    * @param since the start date of the interval
+    * @param until the end date of the interval
     */
-  case class Inside(until: LazyDate) extends IntervalQueryResult
+  case class Inside(since: LazyDate, until: LazyDate) extends IntervalQueryResult
 
   /**
     * The result ''after'': the queried date lies after the time interval.

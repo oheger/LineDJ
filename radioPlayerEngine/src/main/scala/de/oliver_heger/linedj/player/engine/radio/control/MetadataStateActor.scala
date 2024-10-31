@@ -527,7 +527,7 @@ object MetadataStateActor:
     def resumeIntervalAt(time: LocalDateTime): Option[IntervalQueryResult] =
       optResumeInterval flatMap:
         case r@Before(start) if time.isBefore(start.value) => Some(r)
-        case r@Inside(until) if time.isBefore(until.value) => Some(r)
+        case r@Inside(_, until) if time.isBefore(until.value) => Some(r)
         case _ => None
 
   /**
@@ -625,7 +625,7 @@ object MetadataStateActor:
     */
   private def isInResumeInterval(result: IntervalQueryResult): Boolean =
     result match
-      case Inside(_) => true
+      case Inside(_, _) => true
       case _ => false
 
   /**
