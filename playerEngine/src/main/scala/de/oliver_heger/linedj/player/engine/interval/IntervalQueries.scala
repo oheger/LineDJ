@@ -204,12 +204,17 @@ object IntervalQueries:
     * @return the resulting cyclic query
     */
   def cyclic(wrapped: IntervalQuery): IntervalQuery =
-    @tailrec def cycleQuery(date: LocalDateTime): IntervalQueryResult =
+    @tailrec def cycleQuery(date: LocalDateTime, cycling: Boolean): IntervalQueryResult =
       wrapped(date) match
-        case After(f) => cycleQuery(f(date))
+        case After(f) => cycleQuery(f(date), cycling = true)
+        case Inside(since, _) if cycling =>
+          // This fixes a corner case in which a reference time is incorrectly considered inside in an interval
+          // starting at a value of 0 of the chronological field. Buf if we are cycling, the result can never be
+          // inside.
+          Before(since)
         case r => r
 
-    date => cycleQuery(date)
+    date => cycleQuery(date, cycling = false)
 
   /*
    * TODO add support for stopping the iteration over all queries when a

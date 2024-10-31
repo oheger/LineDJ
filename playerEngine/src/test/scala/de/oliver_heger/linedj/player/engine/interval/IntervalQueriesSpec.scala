@@ -371,6 +371,15 @@ class IntervalQueriesSpec extends AnyFlatSpec with Matchers:
         start.value should be(LocalDateTime.of(2016, Month.SEPTEMBER, 9, 18, 0, 0))
       case r => fail("Unexpected result: " + r)
 
+  it should "return a correct Before result if starting at a full hour" in :
+    val date = todayAt(21, 34)
+    val query = IntervalQueries.cyclic(IntervalQueries.minutes(0, 5))
+
+    query(date) match
+      case Before(start) =>
+        start.value should be(todayAt(22, 0))
+      case r => fail("Unexpected result: " + r)
+
   "LongestInside result comparator" should "return true for After results" in:
     val r1 = After(identity[LocalDateTime])
     val r2 = After(d => d.plusDays(1))
