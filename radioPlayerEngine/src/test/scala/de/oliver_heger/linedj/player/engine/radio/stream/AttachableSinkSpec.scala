@@ -18,11 +18,14 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.actor.typed.Scheduler
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Succeeded}
+
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 /**
   * Test class for [[AttachableSink]].
@@ -48,3 +51,24 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     val probeWatch = typedTestkit.createTestProbe()
     probeWatch.expectTerminated(controlActor)
     Succeeded
+
+  it should "support attaching a consumer" in :
+    val source = Source.queue[Int](8)
+    val sink = AttachableSink[Int]("testAttachableSink")
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+    queue.offer(1)
+
+    given scheduler: Scheduler = typedTestkit.scheduler
+
+    AttachableSink.attachConsumer(controlActor).map { consumerSource =>
+      val resultQueue = new LinkedBlockingQueue[Int]
+      val resultSink = Sink.foreach[Int](resultQueue.offer)
+      consumerSource.runWith(resultSink)
+
+      queue.offer(2)
+      queue.offer(3)
+      queue.complete()
+
+      resultQueue.poll(3, TimeUnit.SECONDS) should be(2)
+      resultQueue.poll(3, TimeUnit.SECONDS) should be(3)
+    }
