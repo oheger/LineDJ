@@ -145,6 +145,12 @@ object AttachableSink:
       * A message type indicating that the original stream has been completed.
       */
     case Complete
+
+    /**
+      * A message type indicating that the original stream has failed with the
+      * contained exception.
+      */
+    case Failure(ex: Throwable)
   end StreamMessage
 
   /**
@@ -218,6 +224,10 @@ object AttachableSink:
           override def onUpstreamFinish(): Unit =
             super.onUpstreamFinish()
             sendMessage(StreamMessage.Complete)
+
+          override def onUpstreamFailure(ex: Throwable): Unit =
+            super.onUpstreamFailure(ex)
+            sendMessage(StreamMessage.Failure(ex))
         )
 
         override def preStart(): Unit =
@@ -295,6 +305,8 @@ object AttachableSink:
             push(out, element)
           case Success(StreamMessage.Complete) =>
             completeStage()
+          case Success(StreamMessage.Failure(ex)) =>
+            failStage(ex)
 
   /**
     * An internal data class to hold the state of the control actor for the

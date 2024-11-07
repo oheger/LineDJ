@@ -103,3 +103,18 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     }.map { result =>
       result should contain theSameElementsInOrderAs elements.reverse
     }
+
+  it should "fail the attached source" in :
+    val exception = new IllegalStateException("test exception")
+    val source = Source.queue[Int](8)
+    val sink = AttachableSink[Int]("sinkToBeFailed")
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+
+    AttachableSink.attachConsumer(controlActor).flatMap { consumerSource =>
+      val consumerSink = foldSink[Int]()
+      val futConsumerResult = consumerSource.runWith(consumerSink)
+      queue.offer(42)
+      queue.fail(exception)
+     
+      recoverToExceptionIf[IllegalStateException](futConsumerResult).map(ex => ex should be(exception))
+    }
