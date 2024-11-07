@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -104,12 +104,6 @@ object AttachableSink:
     * @tparam T the type of data to be processed by the sink
     */
   private case class GetMessage[T](replyTo: ActorRef[StreamMessage[T]]) extends AttachableSinkControlCommand[T]
-
-  /**
-    * An internal command for the control actor to signal that the stream is
-    * done, and the actor should terminate itself.
-    */
-  private case class Stop() extends AttachableSinkControlCommand[Nothing]
 
   /**
     * A response message sent by the control actor for a request to attach a
@@ -233,10 +227,6 @@ object AttachableSink:
         override def preStart(): Unit =
           pull(in)
 
-        override def postStop(): Unit =
-          controlActor ! Stop()
-          super.postStop()
-
         /**
           * Sends the given message to the control actor and prepares the
           * processing of the response.
@@ -312,18 +302,20 @@ object AttachableSink:
     * An internal data class to hold the state of the control actor for the
     * attachable sink.
     *
-    * @param element    an element to be passed from the sink to the source
+    * @param elements   elements to be passed from the sink to the source; per
+    *                   default, there is only a single element; only in 
+    *                   corner case, such as the end of the stream, there can
+    *                   be two elements
     * @param producer   a producer waiting for the element to be consumed
     * @param consumer   a consumer waiting for an element to become available
     * @param isAttached a flag whether a consumer is attached to the sink
     * @param sinkName   the name of the attachable sink
     * @tparam T the type of the data to be processed
     */
-  private case class ControlActorState[T](element: Option[StreamMessage[T]],
+  private case class ControlActorState[T](elements: List[StreamMessage[T]],
                                           producer: Option[ActorRef[MessageProcessed]],
                                           consumer: Option[ActorRef[StreamMessage[T]]],
                                           isAttached: Boolean,
-                                          isStopped: Boolean,
                                           sinkName: String)
 
   /**
@@ -338,11 +330,10 @@ object AttachableSink:
     */
   private def createControlActor[T](name: String): Behavior[AttachableSinkControlCommand[T]] =
     val state = ControlActorState[T](
-      element = None,
+      elements = Nil,
       producer = None,
       consumer = None,
       isAttached = false,
-      isStopped = false,
       sinkName = name
     )
     handleControlCommand(state)
@@ -356,30 +347,32 @@ object AttachableSink:
     */
   private def handleControlCommand[T](state: ControlActorState[T]): Behavior[AttachableSinkControlCommand[T]] =
     Behaviors.receive {
-      case (_, pm: PutMessage[T] @unchecked) if state.isAttached =>
-        val nextState = state.consumer match
+      case (ctx, pm: PutMessage[T] @unchecked) if state.isAttached =>
+        state.consumer match
           case Some(consumerRef) =>
             consumerRef ! pm.message
-            pm.replyTo ! MessageProcessed()
-            state.copy(consumer = None)
+            nextStateForMessage(ctx, state, pm.message) {
+              pm.replyTo ! MessageProcessed()
+              handleControlCommand(state.copy(consumer = None))
+            }
           case None =>
-            state.copy(element = Some(pm.message), producer = Some(pm.replyTo))
-        handleControlCommand(nextState)
+            handleControlCommand(state.copy(elements = state.elements :+ pm.message, producer = Some(pm.replyTo)))
 
-      case (_, pm: PutMessage[T] @unchecked) =>
-        pm.replyTo ! MessageProcessed()
-        Behaviors.same
+      case (ctx, pm: PutMessage[T] @unchecked) =>
+        nextStateForMessage(ctx, state, pm.message) {
+          pm.replyTo ! MessageProcessed()
+          Behaviors.same
+        }
 
-      case (_, gm: GetMessage[T] @unchecked) =>
-        state.element match
-          case Some(message) =>
+      case (ctx, gm: GetMessage[T] @unchecked) =>
+        state.elements match
+          case message :: t =>
             gm.replyTo ! message
-            if state.isStopped then
-              Behaviors.stopped
-            else
+            nextStateForMessage(ctx, state, message) {
               state.producer.foreach(_ ! MessageProcessed())
-              handleControlCommand(state.copy(element = None, producer = None))
-          case None =>
+              handleControlCommand(state.copy(elements = t, producer = None))
+            }
+          case _ =>
             handleControlCommand(state.copy(consumer = Some(gm.replyTo)))
 
       case (ctx, ac: AttachConsumer[T] @unchecked) =>
@@ -397,15 +390,49 @@ object AttachableSink:
         ctx.log.info("Detaching consumer from sink '{}'.", state.sinkName)
         // TODO: Handle detach command.
         Behaviors.same
-
-      case (ctx, Stop()) =>
-        ctx.log.info("Received stop command for control actor '{}'.", state.sinkName)
-        // Do not stop this actor before the last message has been fetched by an attached source.
-        if state.element.isDefined then
-          handleControlCommand(state.copy(isStopped = true))
-        else
-          Behaviors.stopped
     }
+
+  /**
+    * Returns a follow-up state based on the given message. If this happens to
+    * be a message indicating the end of the stream, this actor gets stopped.
+    * Otherwise, the given block is executed to compute the next state.
+    *
+    * @param ctx     the actor context
+    * @param state   the current state
+    * @param message the message in question
+    * @param block   the bock to compute the next state
+    * @tparam T the type of data to be processed
+    * @return the next state for this actor
+    */
+  private def nextStateForMessage[T](ctx: ActorContext[AttachableSinkControlCommand[T]],
+                                     state: ControlActorState[T],
+                                     message: StreamMessage[T])
+                                    (block: => Behavior[AttachableSinkControlCommand[T]]):
+  Behavior[AttachableSinkControlCommand[T]] =
+    if isStreamEnd(message) then
+      ctx.log.info(
+        "Stopping control actor '{}' after message '{}', attached state = {}.",
+        state.sinkName,
+        message,
+        state.isAttached
+      )
+      Behaviors.stopped
+    else
+      block
+
+  /**
+    * Checks if the given message indicates an end of the original stream. This
+    * is used to figure out whether the control actor needs to be stopped.
+    *
+    * @param message the message
+    * @tparam U the type of the data
+    * @return a flag whether this message indicates the stream end
+    */
+  private def isStreamEnd[U](message: StreamMessage[U]): Boolean =
+    message match
+      case StreamMessage.Data(_) => false
+      case StreamMessage.Complete => true
+      case StreamMessage.Failure(ex) => true
 
   /**
     * Provides an [[ExecutionContext]] in implicit scope from the given actor

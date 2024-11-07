@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
-import org.apache.pekko.actor.typed.Scheduler
+import org.apache.pekko.actor.typed.{ActorRef, Scheduler}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -59,14 +59,22 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
 
   import AttachableSinkSpec.*
 
+  /**
+    * Checks whether the given actor has been terminated.
+    * @param controlActor the control actor to check for
+    */
+  private def checkControlActorTerminated(controlActor: ActorRef[AttachableSink.AttachableSinkControlCommand[Int]]):
+  Unit = 
+    val probeWatch = typedTestkit.createTestProbe()
+    probeWatch.expectTerminated(controlActor)
+
   "AttachableSink" should "ignore all data if in unattached mode" in :
     val source = Source(List(1, 2, 3, 4, 5, 6, 7, 8))
     val sink = AttachableSink[Int]("testAttachableSink")
 
     val controlActor = source.runWith(sink)
 
-    val probeWatch = typedTestkit.createTestProbe()
-    probeWatch.expectTerminated(controlActor)
+    checkControlActorTerminated(controlActor)
     Succeeded
 
   it should "support attaching a consumer" in :
@@ -116,5 +124,6 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
       queue.offer(42)
       queue.fail(exception)
      
+      checkControlActorTerminated(controlActor)
       recoverToExceptionIf[IllegalStateException](futConsumerResult).map(ex => ex should be(exception))
     }
