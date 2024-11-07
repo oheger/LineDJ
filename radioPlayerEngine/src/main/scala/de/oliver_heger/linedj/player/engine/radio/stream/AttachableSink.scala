@@ -188,6 +188,18 @@ object AttachableSink:
     }.map(_.source)
 
   /**
+    * A helper function for detaching the consumer from the sink controlled by
+    * the given actor. This is a fire-and-forget operation for which no
+    * confirmation is returned. Detaching happens asynchronously. Note that the
+    * stream using the attached source has to be stopped manually.
+    *
+    * @param controlActor the control actor for the attachable sink
+    * @tparam T the type of the data processed by the sink
+    */
+  def detachConsumer[T](controlActor: ActorRef[AttachableSinkControlCommand[T]]): Unit =
+    controlActor ! DetachConsumer()
+
+  /**
     * An internal implementation of a [[Sink]] that passes the data it receives
     * to the given control actor. This actor then decides how to handle this
     * data.
@@ -303,7 +315,7 @@ object AttachableSink:
     * attachable sink.
     *
     * @param elements   elements to be passed from the sink to the source; per
-    *                   default, there is only a single element; only in 
+    *                   default, there is only a single element; only in
     *                   corner case, such as the end of the stream, there can
     *                   be two elements
     * @param producer   a producer waiting for the element to be consumed
@@ -316,7 +328,13 @@ object AttachableSink:
                                           producer: Option[ActorRef[MessageProcessed]],
                                           consumer: Option[ActorRef[StreamMessage[T]]],
                                           isAttached: Boolean,
-                                          sinkName: String)
+                                          sinkName: String):
+    /**
+      * Sends a [[MessageProcessed]] notification to a producer if one is
+      * pending.
+      */
+    def notifyPendingProducer(): Unit =
+      producer.foreach(_ ! MessageProcessed())
 
   /**
     * The handler function of the actor that controls an attachable sink. The
@@ -369,7 +387,7 @@ object AttachableSink:
           case message :: t =>
             gm.replyTo ! message
             nextStateForMessage(ctx, state, message) {
-              state.producer.foreach(_ ! MessageProcessed())
+              state.notifyPendingProducer()
               handleControlCommand(state.copy(elements = t, producer = None))
             }
           case _ =>
@@ -388,8 +406,13 @@ object AttachableSink:
 
       case (ctx, DetachConsumer()) =>
         ctx.log.info("Detaching consumer from sink '{}'.", state.sinkName)
-        // TODO: Handle detach command.
-        Behaviors.same
+        if state.isAttached then
+          state.notifyPendingProducer()
+          handleControlCommand(state.copy(isAttached = false, producer = None))
+        else
+          ctx.log.warn("Ignoring DetachConsumer command for sink '{}', since no consumer is attached.",
+            state.sinkName)
+          Behaviors.same
     }
 
   /**

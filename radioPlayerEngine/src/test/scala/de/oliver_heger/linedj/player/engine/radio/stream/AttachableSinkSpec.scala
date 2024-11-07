@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
-import org.apache.pekko.actor.typed.{ActorRef, Scheduler}
+import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
@@ -61,10 +61,11 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
 
   /**
     * Checks whether the given actor has been terminated.
+    *
     * @param controlActor the control actor to check for
     */
   private def checkControlActorTerminated(controlActor: ActorRef[AttachableSink.AttachableSinkControlCommand[Int]]):
-  Unit = 
+  Unit =
     val probeWatch = typedTestkit.createTestProbe()
     probeWatch.expectTerminated(controlActor)
 
@@ -123,7 +124,41 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
       val futConsumerResult = consumerSource.runWith(consumerSink)
       queue.offer(42)
       queue.fail(exception)
-     
+
       checkControlActorTerminated(controlActor)
       recoverToExceptionIf[IllegalStateException](futConsumerResult).map(ex => ex should be(exception))
     }
+
+  it should "support detaching a consumer" in :
+    val source = Source.queue[String](8)
+    val sink = AttachableSink[String]("testDetachedSink")
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+
+    AttachableSink.attachConsumer(controlActor).map { consumerSource =>
+      val resultQueue = new LinkedBlockingQueue[String]
+      val resultSink = Sink.foreach[String](resultQueue.offer)
+      consumerSource.runWith(resultSink)
+      queue.offer("foo")
+      resultQueue.poll(3, TimeUnit.SECONDS) should be("foo")
+
+      AttachableSink.detachConsumer(controlActor)
+      queue.offer("bar")
+      queue.offer("baz")
+      queue.complete()
+
+      resultQueue.poll(250, TimeUnit.MILLISECONDS) should be(null)
+    }
+
+  it should "ignore a detach command if no consumer is attached" in :
+    val source = Source.queue[Int](8)
+    val sink = AttachableSink[Int]("testIgnoreDetachSink")
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+    queue.offer(100)
+
+    AttachableSink.detachConsumer(controlActor)
+
+    queue.offer(200)
+    queue.complete()
+
+    checkControlActorTerminated(controlActor)
+    Succeeded
