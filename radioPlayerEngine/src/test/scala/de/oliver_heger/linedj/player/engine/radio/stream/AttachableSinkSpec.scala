@@ -26,6 +26,21 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Succeeded}
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import scala.concurrent.Future
+
+object AttachableSinkSpec:
+  /**
+    * Creates a [[Sink]] that collects all received elements in a (reversed)
+    * list.
+    *
+    * @tparam T the type of data to be received
+    * @return the collecting sink
+    */
+  private def foldSink[T](): Sink[T, Future[List[T]]] =
+    Sink.fold[List[T], T](Nil) { (lst, e) =>
+      e :: lst
+    }
+end AttachableSinkSpec
 
 /**
   * Test class for [[AttachableSink]].
@@ -41,6 +56,8 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     typedTestkit.shutdownTestKit()
     TestKit.shutdownActorSystem(system)
     super.afterAll()
+
+  import AttachableSinkSpec.*
 
   "AttachableSink" should "ignore all data if in unattached mode" in :
     val source = Source(List(1, 2, 3, 4, 5, 6, 7, 8))
@@ -58,8 +75,6 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
     queue.offer(1)
 
-    given scheduler: Scheduler = typedTestkit.scheduler
-
     AttachableSink.attachConsumer(controlActor).map { consumerSource =>
       val resultQueue = new LinkedBlockingQueue[Int]
       val resultSink = Sink.foreach[Int](resultQueue.offer)
@@ -71,4 +86,20 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
 
       resultQueue.poll(3, TimeUnit.SECONDS) should be(2)
       resultQueue.poll(3, TimeUnit.SECONDS) should be(3)
+    }
+
+  it should "complete the attached source" in :
+    val elements = List(1, 2, 3, 5, 7, 11, 13, 17)
+    val source = Source.queue[Int](8)
+    val sink = AttachableSink[Int]("sinkToBeCompleted")
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+
+    AttachableSink.attachConsumer(controlActor).flatMap { consumerSource =>
+      val consumerSink = foldSink[Int]()
+      val futConsumerResult = consumerSource.runWith(consumerSink)
+      elements.foreach(queue.offer)
+      queue.complete()
+      futConsumerResult
+    }.map { result =>
+      result should contain theSameElementsInOrderAs elements.reverse
     }

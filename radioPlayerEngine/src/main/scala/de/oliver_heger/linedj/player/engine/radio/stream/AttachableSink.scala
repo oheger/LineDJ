@@ -134,12 +134,18 @@ object AttachableSink:
     *
     * @tparam T the type of data processed by the stream
     */
-  private enum StreamMessage[T]:
+  private enum StreamMessage[+T]:
     /**
       * A message type to represent an element with data that is passed through
       * the stream.
       */
     case Data(element: T)
+
+    /**
+      * A message type indicating that the original stream has been completed.
+      */
+    case Complete
+  end StreamMessage
 
   /**
     * Creates a [[Sink]] which allows attaching a consumer dynamically. The
@@ -207,9 +213,11 @@ object AttachableSink:
         setHandler(in, new InHandler:
           override def onPush(): Unit =
             val elem = grab(in)
-            controlActor.ask[MessageProcessed] { ref =>
-              PutMessage(StreamMessage.Data(elem), ref)
-            }.onComplete(onProcessedCallback.invoke)
+            sendMessage(StreamMessage.Data(elem))
+
+          override def onUpstreamFinish(): Unit =
+            super.onUpstreamFinish()
+            sendMessage(StreamMessage.Complete)
         )
 
         override def preStart(): Unit =
@@ -218,6 +226,17 @@ object AttachableSink:
         override def postStop(): Unit =
           controlActor ! Stop()
           super.postStop()
+
+        /**
+          * Sends the given message to the control actor and prepares the
+          * processing of the response.
+          *
+          * @param message the message to be sent
+          */
+        private def sendMessage(message: StreamMessage[T]): Unit =
+          controlActor.ask[MessageProcessed] { ref =>
+            PutMessage(message, ref)
+          }.onComplete(onProcessedCallback.invoke)
 
         /**
           * A callback function that is invoked when the control actor sends
@@ -274,6 +293,8 @@ object AttachableSink:
             failStage(exception)
           case Success(StreamMessage.Data(element)) =>
             push(out, element)
+          case Success(StreamMessage.Complete) =>
+            completeStage()
 
   /**
     * An internal data class to hold the state of the control actor for the
@@ -290,6 +311,7 @@ object AttachableSink:
                                           producer: Option[ActorRef[MessageProcessed]],
                                           consumer: Option[ActorRef[StreamMessage[T]]],
                                           isAttached: Boolean,
+                                          isStopped: Boolean,
                                           sinkName: String)
 
   /**
@@ -308,6 +330,7 @@ object AttachableSink:
       producer = None,
       consumer = None,
       isAttached = false,
+      isStopped = false,
       sinkName = name
     )
     handleControlCommand(state)
@@ -331,19 +354,21 @@ object AttachableSink:
             state.copy(element = Some(pm.message), producer = Some(pm.replyTo))
         handleControlCommand(nextState)
 
-      case (_, PutMessage(_, replyTo)) =>
-        replyTo ! MessageProcessed()
+      case (_, pm: PutMessage[T] @unchecked) =>
+        pm.replyTo ! MessageProcessed()
         Behaviors.same
 
       case (_, gm: GetMessage[T] @unchecked) =>
-        val nextState = state.element match
+        state.element match
           case Some(message) =>
             gm.replyTo ! message
-            state.copy(element = None, producer = None)
+            if state.isStopped then
+              Behaviors.stopped
+            else
+              state.producer.foreach(_ ! MessageProcessed())
+              handleControlCommand(state.copy(element = None, producer = None))
           case None =>
-            state.copy(consumer = Some(gm.replyTo))
-        state.producer.foreach(_ ! MessageProcessed())
-        handleControlCommand(nextState)
+            handleControlCommand(state.copy(consumer = Some(gm.replyTo)))
 
       case (ctx, ac: AttachConsumer[T] @unchecked) =>
         ctx.log.info("Attaching consumer to sink '{}'.", state.sinkName)
@@ -363,7 +388,11 @@ object AttachableSink:
 
       case (ctx, Stop()) =>
         ctx.log.info("Received stop command for control actor '{}'.", state.sinkName)
-        Behaviors.stopped
+        // Do not stop this actor before the last message has been fetched by an attached source.
+        if state.element.isDefined then
+          handleControlCommand(state.copy(isStopped = true))
+        else
+          Behaviors.stopped
     }
 
   /**
