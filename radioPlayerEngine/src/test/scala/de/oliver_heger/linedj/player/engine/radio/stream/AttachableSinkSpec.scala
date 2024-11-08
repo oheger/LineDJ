@@ -206,3 +206,17 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
       expectQueueValue(resultQueue, 2)
       expectQueueValue(resultQueue, 3)
     }
+
+  it should "fail if multiple consumers are attached" in :
+    val source = Source.queue[Int](4)
+    val sink = AttachableSink[Int]("testMultiAttachSink", buffered = true)
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+    queue.offer(0)
+
+    AttachableSink.attachConsumer(controlActor).flatMap { _ =>
+      val futAttach2 = AttachableSink.attachConsumer(controlActor)
+      recoverToExceptionIf[IllegalStateException](futAttach2).map { ex =>
+        queue.complete()
+        ex.getMessage should include("attached consumer")
+      }
+    }

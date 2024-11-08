@@ -108,12 +108,13 @@ object AttachableSink:
   /**
     * A response message sent by the control actor for a request to attach a
     * new consumer. The [[Source]] in this response can be used to run a new
-    * stream that receives the data passed to the original sink.
+    * stream that receives the data passed to the original sink. It is ''None''
+    * if there is already a consumer attached to this sink.
     *
-    * @param source the source to consume the stream data
+    * @param source the source to consume the stream data if successful
     * @tparam T the type of the data produced by the source
     */
-  case class ConsumerAttached[T](source: Source[T, NotUsed])
+  case class ConsumerAttached[T](source: Option[Source[T, NotUsed]])
 
   /**
     * An internal response message sent by the control actor after a stream
@@ -185,7 +186,12 @@ object AttachableSink:
                        (using system: classic.ActorSystem): Future[Source[T, NotUsed]] =
     controlActor.ask[ConsumerAttached[T]] { ref =>
       AttachConsumer(ref)
-    }.map(_.source)
+    }.map { result =>
+      result.source match
+        case Some(value) => value
+        case None =>
+          throw new IllegalStateException("Attach operation failed since there is already an attached consumer.")
+    }
 
   /**
     * A helper function for detaching the consumer from the sink controlled by
@@ -400,6 +406,11 @@ object AttachableSink:
           case _ =>
             handleControlCommand(state.copy(consumer = Some(gm.replyTo)))
 
+      case (ctx, ac: AttachConsumer[T] @unchecked) if state.isAttached =>
+        ctx.log.warn("Attempt to attach a consumer to sink '{}' which is already in attached state.", state.sinkName)
+        ac.replyTo ! ConsumerAttached(None)
+        Behaviors.same
+
       case (ctx, ac: AttachConsumer[T] @unchecked) =>
         ctx.log.info("Attaching consumer to sink '{}'.", state.sinkName)
 
@@ -408,7 +419,7 @@ object AttachableSink:
         given ExecutionContext = ctx.system.executionContext
 
         val consumerSource = Source.fromGraph(new SourceImpl(ctx.self))
-        ac.replyTo ! ConsumerAttached(consumerSource)
+        ac.replyTo ! ConsumerAttached(Some(consumerSource))
         handleControlCommand(state.copy(isAttached = true))
 
       case (ctx, DetachConsumer()) =>
