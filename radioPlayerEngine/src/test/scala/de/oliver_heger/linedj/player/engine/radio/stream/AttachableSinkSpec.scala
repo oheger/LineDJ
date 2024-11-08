@@ -23,9 +23,9 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, Succeeded}
+import org.scalatest.{Assertion, BeforeAndAfterAll, Succeeded}
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.Future
 
 object AttachableSinkSpec:
@@ -69,9 +69,30 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     val probeWatch = typedTestkit.createTestProbe()
     probeWatch.expectTerminated(controlActor)
 
+  /**
+    * Checks whether the given queue contains the expected value within a
+    * timeout.
+    *
+    * @param queue the queue to check
+    * @param value the expected value
+    * @tparam T the type of the value
+    * @return the assertion that is checked
+    */
+  private def expectQueueValue[T](queue: BlockingQueue[T], value: T): Assertion =
+    queue.poll(3, TimeUnit.SECONDS) should be(value)
+
   "AttachableSink" should "ignore all data if in unattached mode" in :
     val source = Source(List(1, 2, 3, 4, 5, 6, 7, 8))
     val sink = AttachableSink[Int]("testAttachableSink")
+
+    val controlActor = source.runWith(sink)
+
+    checkControlActorTerminated(controlActor)
+    Succeeded
+
+  it should "ignore all data if in unattached and buffered mode" in :
+    val source = Source(List(1, 2, 3, 4, 5, 6, 7, 8))
+    val sink = AttachableSink[Int]("testAttachableBufferedSink", buffered = true)
 
     val controlActor = source.runWith(sink)
 
@@ -83,6 +104,7 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
     val sink = AttachableSink[Int]("testAttachableSink")
     val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
     queue.offer(1)
+    Thread.sleep(50) // small delay to make sure the value gets processed
 
     AttachableSink.attachConsumer(controlActor).map { consumerSource =>
       val resultQueue = new LinkedBlockingQueue[Int]
@@ -93,8 +115,8 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
       queue.offer(3)
       queue.complete()
 
-      resultQueue.poll(3, TimeUnit.SECONDS) should be(2)
-      resultQueue.poll(3, TimeUnit.SECONDS) should be(3)
+      expectQueueValue(resultQueue, 2)
+      expectQueueValue(resultQueue, 3)
     }
 
   it should "complete the attached source" in :
@@ -139,7 +161,7 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
       val resultSink = Sink.foreach[String](resultQueue.offer)
       consumerSource.runWith(resultSink)
       queue.offer("foo")
-      resultQueue.poll(3, TimeUnit.SECONDS) should be("foo")
+      expectQueueValue(resultQueue, "foo")
 
       AttachableSink.detachConsumer(controlActor)
       queue.offer("bar")
@@ -162,3 +184,25 @@ class AttachableSinkSpec(testSystem: classic.ActorSystem) extends TestKit(testSy
 
     checkControlActorTerminated(controlActor)
     Succeeded
+
+  it should "support buffering of elements" in :
+    val source = Source.queue[Int](8)
+    val sink = AttachableSink[Int]("testBufferedSink", buffered = true)
+    val (queue, controlActor) = source.toMat(sink)(Keep.both).run()
+    queue.offer(0)
+    queue.offer(1)
+    Thread.sleep(50) // small delay to make sure the value gets processed
+
+    AttachableSink.attachConsumer(controlActor).map { consumerSource =>
+      val resultQueue = new LinkedBlockingQueue[Int]
+      val resultSink = Sink.foreach[Int](resultQueue.offer)
+      consumerSource.runWith(resultSink)
+
+      queue.offer(2)
+      queue.offer(3)
+      queue.complete()
+
+      expectQueueValue(resultQueue, 1)
+      expectQueueValue(resultQueue, 2)
+      expectQueueValue(resultQueue, 3)
+    }

@@ -165,7 +165,7 @@ object AttachableSink:
     */
   def apply[T](name: String, buffered: Boolean = false)
               (using system: classic.ActorSystem): Sink[T, ActorRef[AttachableSinkControlCommand[T]]] =
-    val controlActor = system.spawn(createControlActor(name), name)
+    val controlActor = system.spawn(createControlActor(name, buffered), name)
     Sink.fromGraph(new SinkImpl[T](controlActor))
 
   /**
@@ -322,13 +322,15 @@ object AttachableSink:
     * @param consumer   a consumer waiting for an element to become available
     * @param isAttached a flag whether a consumer is attached to the sink
     * @param sinkName   the name of the attachable sink
+    * @param buffered   flag whether buffering is enabled
     * @tparam T the type of the data to be processed
     */
   private case class ControlActorState[T](elements: List[StreamMessage[T]],
                                           producer: Option[ActorRef[MessageProcessed]],
                                           consumer: Option[ActorRef[StreamMessage[T]]],
                                           isAttached: Boolean,
-                                          sinkName: String):
+                                          sinkName: String,
+                                          buffered: Boolean):
     /**
       * Sends a [[MessageProcessed]] notification to a producer if one is
       * pending.
@@ -342,17 +344,19 @@ object AttachableSink:
     * this is the case, it acts as a bridge between the sink and the [[Source]]
     * used by the consumer.
     *
-    * @param name the name of the sink to be controlled
+    * @param name     the name of the sink to be controlled
+    * @param buffered flag whether the sink is buffered
     * @tparam T the type of data to be processed
     * @return the [[Behavior]] for the new actor instance
     */
-  private def createControlActor[T](name: String): Behavior[AttachableSinkControlCommand[T]] =
+  private def createControlActor[T](name: String, buffered: Boolean): Behavior[AttachableSinkControlCommand[T]] =
     val state = ControlActorState[T](
       elements = Nil,
       producer = None,
       consumer = None,
       isAttached = false,
-      sinkName = name
+      sinkName = name,
+      buffered = buffered
     )
     handleControlCommand(state)
 
@@ -379,7 +383,10 @@ object AttachableSink:
       case (ctx, pm: PutMessage[T] @unchecked) =>
         nextStateForMessage(ctx, state, pm.message) {
           pm.replyTo ! MessageProcessed()
-          Behaviors.same
+          if state.buffered then
+            handleControlCommand(state.copy(elements = List(pm.message)))
+          else
+            Behaviors.same
         }
 
       case (ctx, gm: GetMessage[T] @unchecked) =>
