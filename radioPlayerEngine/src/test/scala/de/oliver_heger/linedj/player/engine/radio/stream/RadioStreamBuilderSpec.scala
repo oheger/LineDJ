@@ -17,7 +17,6 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
-import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
@@ -52,14 +51,16 @@ class RadioStreamBuilderSpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def invokeBuilder(uri: String): RadioStreamBuilder.BuilderResult[Future[ByteString], Future[ByteString]] =
     implicit val ec: ExecutionContext = system.dispatcher
-    val config = TestPlayerConfig.copy(inMemoryBufferSize = 2097152,
-      playbackContextLimit = 1048570,
-      bufferFileSize = 4194304,
-      bufferChunkSize = 8192)
     val builder = RadioStreamBuilder()
     val sinkAudio = RadioStreamTestHelper.aggregateSink()
     val sinkMeta = RadioStreamTestHelper.aggregateSink()
-    futureResult(builder.buildRadioStream(config, uri, sinkAudio, sinkMeta))
+    val parameters = RadioStreamBuilder.RadioStreamParameters(
+      streamUri = uri,
+      sinkAudio = sinkAudio,
+      sinkMeta = sinkMeta,
+      bufferSize = 16
+    )
+    futureResult(builder.buildRadioStream(parameters))
 
   "RadioStreamBuilder" should "create a correct graph to process the radio stream" in:
     val ChunkCount = 8

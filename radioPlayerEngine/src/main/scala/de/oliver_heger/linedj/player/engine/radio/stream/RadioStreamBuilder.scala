@@ -16,12 +16,11 @@
 
 package de.oliver_heger.linedj.player.engine.radio.stream
 
-import de.oliver_heger.linedj.player.engine.PlayerConfig
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
-import org.apache.pekko.stream._
+import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.util.ByteString
 
@@ -30,6 +29,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
 object RadioStreamBuilder:
+  /**
+    * The default size of a buffer for radio streams. The value refers to the
+    * number of chunks (with a default chunk size of 4096) that are buffered in
+    * memory.
+    */
+  final val DefaultBufferSize = 16
+  
   /**
     * The headers to be added to requests for a radio stream. Here the header
     * asking for metadata is included. If the response contains a corresponding
@@ -50,6 +56,25 @@ object RadioStreamBuilder:
 
   /** A counter to generate unique names for kill switches. */
   private val counter = new AtomicInteger
+
+  /**
+    * A data class defining the parameters to be provided when creating a radio
+    * stream. [[RadioStreamBuilder]] uses this class as input and produces a 
+    * [[BuilderResult]] as output.
+ *
+    * @param streamUri the URI of the radio stream to be played; it can point
+    *                  to the actual data stream or to an m3u file; in the 
+    *                  latter case, it is resolved accordingly
+    * @param sinkAudio the [[Sink]] for audio data
+    * @param sinkMeta the [[Sink]] for metadata
+    * @param bufferSize the size of a playback buffer 
+    * @tparam AUD the type of the materialized value of the audio sink
+    * @tparam META the type of the materialized value of the metadata sink
+    */
+  case class RadioStreamParameters[AUD, META](streamUri: String,
+                                              sinkAudio: Sink[ByteString, AUD],
+                                              sinkMeta: Sink[ByteString, META],
+                                              bufferSize: Int = DefaultBufferSize)
 
   /**
     * A data class representing the result of [[RadioStreamBuilder]]. The main
@@ -102,26 +127,22 @@ object RadioStreamBuilder:
     * data flows to the audio data sink.
     *
     * @param dataSource the source of the radio stream
-    * @param config     the player configuration
-    * @param sinkAudio  the sink for processing audio data
-    * @param sinkMeta   the sink for processing metadata
+    * @param parameters the parameters defining the radio stream
     * @tparam AUD  the materialized type of the audio data sink
     * @tparam META the materialized type of the metadata sink
     * @return a tuple with the graph and a kill switch to cancel the stream
     */
   def createGraphForSource[AUD, META](dataSource: Source[ByteString, Any],
-                                      config: PlayerConfig,
-                                      sinkAudio: Sink[ByteString, AUD],
-                                      sinkMeta: Sink[ByteString, META],
+                                      parameters: RadioStreamParameters[AUD, META],
                                       optChunkSize: Option[Int]):
   (RunnableGraph[(AUD, META)], KillSwitch) =
-    val source = createStreamSource(dataSource, config)
+    val source = createStreamSource(dataSource, parameters.bufferSize)
     val killSwitch = KillSwitches.shared("stopRadioStream" + counter.incrementAndGet())
 
-    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(sinkAudio, sinkMeta)((_, _)) {
+    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(parameters.sinkAudio, parameters.sinkMeta)((_, _)) {
       implicit builder =>
         (sink1, sink2) =>
-          import GraphDSL.Implicits._
+          import GraphDSL.Implicits.*
 
           val ks = builder.add(killSwitch.flow[ByteString])
           val extractionStage = builder.add(MetadataExtractionStage(optChunkSize))
@@ -139,35 +160,27 @@ object RadioStreamBuilder:
     * response entity applying some buffering.
     *
     * @param responseSource the source from the response entity
-    * @param config         the player config
+    * @param bufferSize the size of the playback buffer
     * @return the ''Source'' of the radio stream
     */
   private def createStreamSource(responseSource: Source[ByteString, Any],
-                                 config: PlayerConfig): Source[ByteString, Any] =
-    responseSource.buffer(config.inMemoryBufferSize / config.bufferChunkSize, OverflowStrategy.backpressure)
+                                 bufferSize: Int): Source[ByteString, Any] =
+    responseSource.buffer(bufferSize, OverflowStrategy.backpressure)
 
   /**
     * Creates a [[RunnableGraph]] to process a radio stream.
     *
-    * @param config         the player configuration
-    * @param sinkAudio      the sink for processing audio data
-    * @param sinkMeta       the sink for processing metadata
+    * @param parameters the parameters defining the radio stream
     * @param resolvedStream the data object for the resolved radio stream
     * @tparam AUD  the materialized type of the audio data sink
     * @tparam META the materialized type of the metadata sink
     * @return a ''Future'' with the graph and a kill switch to cancel the
     *         stream
     */
-  private def createGraph[AUD, META](config: PlayerConfig,
-                                     sinkAudio: Sink[ByteString, AUD],
-                                     sinkMeta: Sink[ByteString, META],
+  private def createGraph[AUD, META](parameters: RadioStreamParameters[AUD, META],
                                      resolvedStream: ResolvedRadioStream):
   Future[(RunnableGraph[(AUD, META)], KillSwitch)] =
-    Future.successful(createGraphForSource(resolvedStream.dataSource,
-      config,
-      sinkAudio,
-      sinkMeta,
-      resolvedStream.optChunkSize))
+    Future.successful(createGraphForSource(resolvedStream.dataSource, parameters, resolvedStream.optChunkSize))
 
 /**
   * A class to create a runnable graph that can be used to process a radio
@@ -189,33 +202,25 @@ object RadioStreamBuilder:
 class RadioStreamBuilder private(streamLoader: HttpStreamLoader,
                                  m3uReader: M3uReader):
 
-  import RadioStreamBuilder._
+  import RadioStreamBuilder.*
 
   /**
-    * Constructs a [[BuilderResult]] for a radio stream from the given URI
-    * using the provided sinks for audio data and metadata. The URI can point
-    * to the actual data stream or to an m3u file; in the latter case, it is
-    * resolved accordingly.
+    * Constructs a [[BuilderResult]] for a radio stream from the given 
+    * parameters. 
     *
-    * @param config    the audio player configuration
-    * @param streamUri the URI of the radio stream
-    * @param sinkAudio the ''Sink'' for audio data
-    * @param sinkMeta  the ''Sink'' for metadata
+    * @param parameters the parameters defining the radio stream
     * @param ec        the execution context
     * @param mat       the object to materialize streams
     * @tparam AUD  the materialized type of the audio data sink
     * @tparam META the materialized type of the metadata sink
     * @return a ''Future'' with the result produced by this builder
     */
-  def buildRadioStream[AUD, META](config: PlayerConfig,
-                                  streamUri: String,
-                                  sinkAudio: Sink[ByteString, AUD],
-                                  sinkMeta: Sink[ByteString, META])
+  def buildRadioStream[AUD, META](parameters: RadioStreamParameters[AUD, META])
                                  (implicit ec: ExecutionContext, mat: Materializer):
   Future[BuilderResult[AUD, META]] =
     for
-      resolvedStream <- resolveRadioStream(streamUri)
-      (graph, kill) <- createGraph(config, sinkAudio, sinkMeta, resolvedStream)
+      resolvedStream <- resolveRadioStream(parameters.streamUri)
+      (graph, kill) <- createGraph(parameters, resolvedStream)
     yield BuilderResult(resolvedStream.resolvedUri, graph, kill, resolvedStream.optChunkSize.isDefined)
 
   /**

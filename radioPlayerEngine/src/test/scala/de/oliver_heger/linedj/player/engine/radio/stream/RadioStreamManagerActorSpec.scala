@@ -19,16 +19,17 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.AudioSource
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor
-import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
+import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe as TypedTestProbe}
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.testkit.{TestKit, TestProbe}
-import org.apache.pekko.actor as classic
-import org.mockito.ArgumentMatchers.{any, eq as eqArg}
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -74,7 +75,7 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
     TestKit shutdownActorSystem system
     super.afterAll()
 
-  import RadioStreamManagerActorSpec._
+  import RadioStreamManagerActorSpec.*
 
   /**
     * Helper function to test whether a correct radio event with metadata is
@@ -242,8 +243,10 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       * @return this test helper
       */
     def verifyStreamActorCreated(): StreamManagerTestHelper =
-      verify(streamBuilder, timeout(3000)).buildRadioStream(eqArg(TestPlayerConfig), eqArg(TestRadioSource.uri),
-        any(), any())(any(), any())
+      val capture = ArgumentCaptor.forClass(classOf[RadioStreamBuilder.RadioStreamParameters[Any, Any]])
+      verify(streamBuilder, timeout(3000)).buildRadioStream(capture.capture())(any(), any())
+      capture.getValue.streamUri should be(TestRadioSource.uri)
+      capture.getValue.bufferSize should be(TestPlayerConfig.inMemoryBufferSize / TestPlayerConfig.bufferChunkSize)
       this
 
     /**
@@ -322,7 +325,7 @@ class RadioStreamManagerActorSpec(testSystem: classic.ActorSystem) extends TestK
       */
     private def createStreamBuilder(): RadioStreamBuilder =
       val builder = mock[RadioStreamBuilder]
-      when(builder.buildRadioStream(any(), any(), any(), any())(any(), any()))
+      when(builder.buildRadioStream(any())(any(), any()))
         .thenReturn(Future.failed(new IllegalStateException("Test exception")))
       builder
 

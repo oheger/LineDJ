@@ -404,15 +404,17 @@ class RadioStreamActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
       */
     private def createStreamBuilder(): RadioStreamBuilder =
       val builder = mock[RadioStreamBuilder]
-      when(builder.buildRadioStream(argEq(Config), argEq(PlaylistStreamUri), any(), any())(any(), any()))
+      when(builder.buildRadioStream(any())(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
           import system.dispatcher
           audioStreamRequested.set(true)
-          val sinkAudio = invocation.getArgument[Sink[ByteString, NotUsed]](2)
-          val sinkMeta = invocation.getArgument[Sink[ByteString, Future[Done]]](3)
+          val parameters = invocation.getArgument[RadioStreamBuilder.RadioStreamParameters[NotUsed, Future[Done]]](0)
+          parameters.streamUri should be(PlaylistStreamUri)
+          parameters.bufferSize should be(4)
+          val sinkAudio = parameters.sinkAudio
+          val sinkMeta = parameters.sinkMeta
           radioSourcePromise.future.map { sourceData =>
-            val (graph, kill) = RadioStreamBuilder.createGraphForSource(sourceData._1, Config, sinkAudio,
-              sinkMeta, sourceData._2)
+            val (graph, kill) = RadioStreamBuilder.createGraphForSource(sourceData._1, parameters, sourceData._2)
             RadioStreamBuilder.BuilderResult(AudioStreamUri, graph, kill, sourceData._2.isDefined)
           }
         })

@@ -173,7 +173,13 @@ private class RadioStreamActor(config: PlayerConfig,
     val sinkAudio = createAudioSink()
     val sinkMeta = createMetadataSink()
 
-    streamBuilder.buildRadioStream(config, streamSource.uri, sinkAudio, sinkMeta) onComplete { triedResult =>
+    val parameters = RadioStreamBuilder.RadioStreamParameters(
+      streamUri = streamSource.uri,
+      sinkAudio = sinkAudio,
+      sinkMeta = sinkMeta,
+      bufferSize = config.inMemoryBufferSize / config.bufferChunkSize
+    )
+    streamBuilder.buildRadioStream(parameters) onComplete { triedResult =>
       val resultMsg = triedResult match
         case Failure(exception) =>
           StreamFailure(new IllegalStateException("Resolving of stream reference failed.", exception))
