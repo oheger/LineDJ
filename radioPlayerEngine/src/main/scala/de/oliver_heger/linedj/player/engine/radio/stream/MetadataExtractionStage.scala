@@ -95,4 +95,4 @@ private class MetadataExtractionStage private(extractionService: MetadataExtract
           pull(in)
 
         extracted.metadataChunk foreach:
-          push(outMeta, _)
+          emit(outMeta, _)

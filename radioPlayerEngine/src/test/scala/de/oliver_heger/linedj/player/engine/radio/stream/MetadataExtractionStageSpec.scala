@@ -21,12 +21,14 @@ import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamTestHelper.{
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.ClosedShape
-import org.apache.pekko.stream.scaladsl.{GraphDSL, RunnableGraph, Source}
+import org.apache.pekko.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.{Future, Promise}
 
 /**
   * Test class for [[MetadataExtractionStage]].
@@ -40,15 +42,20 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
     super.afterAll()
 
   /**
-    * Runs a stream with the given source and an extraction stage. Returns the
-    * aggregated data from the two output channels of the extraction stage.
+    * Constructs a stream with the given source and an extraction stage. The
+    * stream is started, and the [[Future]]s for the results of the sinks are
+    * returned. This function can be used to have more control over the
+    * components integrated into the stream.
     *
-    * @param source       the source of the stream
     * @param optChunkSize the optional size of audio chunks
-    * @return a tuple with the audio and metadata
+    * @param source       the source of the stream
+    * @param metaSink     a sink for processing metadata
+    * @return a tuple with the futures for audio and metadata
     */
-  private def runStream(optChunkSize: Option[Int], source: Source[ByteString, NotUsed]): (ByteString, ByteString) =
-    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(aggregateSink(), aggregateSink())((_, _)) {
+  private def setupStream(optChunkSize: Option[Int],
+                          source: Source[ByteString, NotUsed],
+                          metaSink: Sink[ByteString, Future[ByteString]]): (Future[ByteString], Future[ByteString]) =
+    val graph = RunnableGraph.fromGraph(GraphDSL.createGraph(aggregateSink(), metaSink)((_, _)) {
       implicit builder =>
         (sinkAudio, sinkMeta) =>
           import GraphDSL.Implicits._
@@ -60,8 +67,21 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
           extractionStage.out1 ~> sinkMeta
           ClosedShape
     })
+    graph.run()
 
-    val (futAudio, futMeta) = graph.run()
+  /**
+    * Runs a stream with the given source and an extraction stage. Returns the
+    * aggregated data from the two output channels of the extraction stage.
+    *
+    * @param optChunkSize the optional size of audio chunks
+    * @param source       the source of the stream
+    * @param metaSink     a sink for processing metadata
+    * @return a tuple with the audio and metadata
+    */
+  private def runStream(optChunkSize: Option[Int],
+                        source: Source[ByteString, NotUsed],
+                        metaSink: Sink[ByteString, Future[ByteString]] = aggregateSink()): (ByteString, ByteString) =
+    val (futAudio, futMeta) = setupStream(optChunkSize, source, metaSink)
     (futureResult(futAudio), futureResult(futMeta))
 
   /**
@@ -109,3 +129,21 @@ class MetadataExtractionStageSpec(testSystem: ActorSystem) extends TestKit(testS
 
     extractedAudioData should be(audioData)
     extractedMetadata shouldBe empty
+
+  it should "correctly pass metadata downstream" in:
+    val ChunkCount = 16
+    val expectedAudioData = ByteString(RadioStreamTestHelper.refData(ChunkCount * AudioChunkSize))
+    val expectedMetadata = (1 to ChunkCount).map(RadioStreamTestHelper.generateMetadata)
+      .foldLeft(ByteString.empty) { (aggregate, chunk) => aggregate ++ ByteString(chunk) }
+    val promiseMetaSink = Promise[Sink[ByteString, Future[ByteString]]]()
+    val metaSink = Sink.futureSink(promiseMetaSink.future).mapMaterializedValue(_.flatten)
+
+    val (futExtractedAudioData, futExtractedMetadata) = setupStream(
+      Some(AudioChunkSize),
+      RadioStreamTestHelper.generateRadioStreamSource(ChunkCount),
+      metaSink
+    )
+    promiseMetaSink.success(aggregateSink())
+
+    futureResult(futExtractedAudioData) should be(expectedAudioData)
+    futureResult(futExtractedMetadata) should be(expectedMetadata)
