@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamHandle.SinkType
-import org.apache.pekko.Done
+import org.apache.pekko.{Done, NotUsed}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
@@ -30,12 +30,28 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, TryValues}
+import org.scalatest.{BeforeAndAfterAll, Succeeded, TryValues}
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.Future
+
+object RadioStreamHandleSpec:
+  /** The default playback buffer size for radio streams. */
+  private val BufferSize = 77
+
+  /**
+    * Returns a resolved URI for the given stream URI. This is used to
+    * simulate a resolving mechanism.
+    *
+    * @param streamUri the original stream URI
+    * @return the resolved stream URI
+    */
+  private def resolvedStreamUri(streamUri: String): String =
+    streamUri.replace(".com/", ".com/resolved/")
+      .replace(".m3u", ".mp3")
+end RadioStreamHandleSpec
 
 /**
   * Test class for [[RadioStreamHandle]].
@@ -52,29 +68,40 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  "RadioStreamHandle" should "create an instance using a builder" in :
-    val RadioStreamUri = "https://example.com/radio.m3u"
-    val RadioStreamResolvedUri = "https://example.com/resolved/radio.mp3"
-    val RadioStreamChunkCount = 16
-    val BufferSize = 77
-    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
-      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
-    val radioDataSource = Source.cycle(() => streamData.iterator)
+  import RadioStreamHandleSpec.*
 
+  /**
+    * Creates a mock [[RadioStreamBuilder]] that is prepared to construct a
+    * radio stream with the given parameters.
+    *
+    * @param streamUri the URI for the stream
+    * @param source    the source for the stream
+    * @return the mock builder for creating this stream
+    */
+  private def createMockStreamBuilder(streamUri: String, source: Source[ByteString, NotUsed]): RadioStreamBuilder =
     val streamBuilder = mock[RadioStreamBuilder]
     when(streamBuilder.buildRadioStream(any())(any(), any())).thenAnswer((invocation: InvocationOnMock) =>
       val params = invocation.getArgument[RadioStreamBuilder.RadioStreamParameters[SinkType, SinkType]](0)
-      params.streamUri should be(RadioStreamUri)
+      params.streamUri should be(streamUri)
       params.bufferSize should be(BufferSize)
       val (graph, killSwitch) =
-        RadioStreamBuilder.createGraphForSource(radioDataSource, params, Some(RadioStreamTestHelper.AudioChunkSize))
+        RadioStreamBuilder.createGraphForSource(source, params, Some(RadioStreamTestHelper.AudioChunkSize))
       val result = RadioStreamBuilder.BuilderResult(
-        resolvedUri = RadioStreamResolvedUri,
+        resolvedUri = resolvedStreamUri(streamUri),
         graph = graph,
         killSwitch = killSwitch,
         metadataSupported = true
       )
       Future.successful(result))
+    streamBuilder
+
+  "RadioStreamHandle" should "create an instance using a builder" in :
+    val RadioStreamUri = "https://example.com/radio.m3u"
+    val RadioStreamChunkCount = 16
+    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource = Source.cycle(() => streamData.iterator)
+    val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
 
     def createSinkForQueue(queue: BlockingQueue[ByteString]): Sink[ByteString, Future[Done]] =
       Sink.foreach(queue.offer)
@@ -91,7 +118,10 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         chunk should not be null
         readAudioChunks(queue, current ++ chunk)
 
-    RadioStreamHandle.create(streamBuilder, RadioStreamUri, BufferSize) flatMap { handle =>
+    RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize) flatMap { handle =>
+      handle.builderResult.resolvedUri should be(resolvedStreamUri(RadioStreamUri))
+      handle.builderResult.metadataSupported shouldBe true
+
       handle.attach() flatMap { (sourceAudio, sourceMeta) =>
         val audioDataQueue = new LinkedBlockingQueue[ByteString]
         val audioDataSink = createSinkForQueue(audioDataQueue)
@@ -137,3 +167,25 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     ctrlAudioMsg should be(AttachableSink.DetachConsumer())
     val ctrlMetaMsg = controlMeta.expectMessageType[AttachableSink.AttachableSinkControlCommand[ByteString]]
     ctrlMetaMsg should be(AttachableSink.DetachConsumer())
+
+  it should "set unique names to support multiple streams in parallel" in :
+    val RadioStreamUri1 = "https://radio.example.com/foo.mp3"
+    val streamData1 = RadioStreamTestHelper.generateAudioDataWithMetadata(32,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource1 = Source.cycle(() => streamData1.iterator)
+    val streamBuilder1 = createMockStreamBuilder(RadioStreamUri1, radioDataSource1)
+    val RadioStreamUri2 = "https://radio.example.com/bar.m3u"
+    val streamData2 = RadioStreamTestHelper.generateAudioDataWithMetadata(8,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource2 = Source.cycle(() => streamData2.iterator)
+    val streamBuilder2 = createMockStreamBuilder(RadioStreamUri2, radioDataSource2)
+
+    val futHandles = for
+      handle1 <- RadioStreamHandle.factory.create(streamBuilder1, RadioStreamUri1, BufferSize)
+      handle2 <- RadioStreamHandle.factory.create(streamBuilder2, RadioStreamUri2, BufferSize, "stream2")
+    yield (handle1, handle2)
+    futHandles map { (handle1, handle2) =>
+      handle1.cancelStream()
+      handle2.cancelStream()
+      Succeeded
+    }

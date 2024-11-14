@@ -34,32 +34,52 @@ object RadioStreamHandle:
   type SinkType = ActorRef[AttachableSink.AttachableSinkControlCommand[ByteString]]
 
   /**
-    * Creates a new instance of this class (asynchronously) associated with a
-    * radio stream constructed using the given builder. The instance holds
-    * references to the control actors for the stream. Via these, it is
-    * possible to attach to the stream.
-    *
-    * @param builder    the builder to construct the radio stream
-    * @param streamUri  the URI of the stream
-    * @param bufferSize the size of the playback buffer
-    * @param system     the implicit actor system
-    * @return a [[Future]] with the newly created instance for the specified
-    *         radio stream
+    * A trait defining a factory function for [[RadioStreamHandle]] instances
+    * based on a [[RadioStreamBuilder]]. Since the setup of radio streams and
+    * their handles is not trivial, a dedicated factory trait is introduced for
+    * this purpose. This also improves testability, since a stub or mock
+    * factory can be created easily.
     */
-  def create(builder: RadioStreamBuilder, streamUri: String, bufferSize: Int = RadioStreamBuilder.DefaultBufferSize)
-            (using system: classic.ActorSystem): Future[RadioStreamHandle] =
-    val audioSink = AttachableSink[ByteString]("audioStream")
-    val metaSink = AttachableSink[ByteString]("metadataStream", buffered = true)
-    val params = RadioStreamBuilder.RadioStreamParameters(
-      streamUri = streamUri,
-      sinkAudio = audioSink,
-      sinkMeta = metaSink,
-      bufferSize = bufferSize
-    )
-    builder.buildRadioStream(params).map { result =>
-      val (audioSinkCtrl, metaSinkCtrl) = result.graph.run()
-      RadioStreamHandle(audioSinkCtrl, metaSinkCtrl, result)
-    }
+  trait Factory:
+    /**
+      * Creates a radio stream using the given [[RadioStreamBuilder]] with the
+      * provided parameters. Starts this stream and returns a
+      * [[RadioStreamHandle]] to it.
+      *
+      * @param builder    the builder to construct the radio stream
+      * @param streamUri  the URI of the stream
+      * @param bufferSize the size of the playback buffer
+      * @param streamName a name for the stream; if multiple streams are active
+      *                   in parallel, a unique name must be provided here
+      * @param system     the implicit actor system
+      * @return a [[Future]] with the newly created instance for the specified
+      *         radio stream
+      */
+    def create(builder: RadioStreamBuilder,
+               streamUri: String,
+               bufferSize: Int = RadioStreamBuilder.DefaultBufferSize,
+               streamName: String = "radioStream")
+              (using system: classic.ActorSystem): Future[RadioStreamHandle]
+  end Factory
+
+  final val factory: Factory = new Factory:
+    override def create(builder: RadioStreamBuilder,
+                        streamUri: String,
+                        bufferSize: Int,
+                        streamName: String)
+                       (using system: classic.ActorSystem): Future[RadioStreamHandle] =
+      val audioSink = AttachableSink[ByteString](s"${streamName}_audioStream")
+      val metaSink = AttachableSink[ByteString](s"${streamName}_metadataStream", buffered = true)
+      val params = RadioStreamBuilder.RadioStreamParameters(
+        streamUri = streamUri,
+        sinkAudio = audioSink,
+        sinkMeta = metaSink,
+        bufferSize = bufferSize
+      )
+      builder.buildRadioStream(params).map { result =>
+        val (audioSinkCtrl, metaSinkCtrl) = result.graph.run()
+        RadioStreamHandle(audioSinkCtrl, metaSinkCtrl, result)
+      }
 
   private given executionContextFromSystem(using system: classic.ActorSystem): ExecutionContext = system.dispatcher
 end RadioStreamHandle
