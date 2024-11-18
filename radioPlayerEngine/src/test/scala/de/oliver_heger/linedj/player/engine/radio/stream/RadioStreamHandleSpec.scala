@@ -17,13 +17,13 @@
 package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamHandle.SinkType
-import org.apache.pekko.{Done, NotUsed}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
+import org.apache.pekko.{Done, NotUsed}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
@@ -33,9 +33,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Succeeded, TryValues}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object RadioStreamHandleSpec:
   /** The default playback buffer size for radio streams. */
@@ -94,6 +94,21 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       )
       Future.successful(result))
     streamBuilder
+
+  /**
+    * Creates a [[CountDownLatch]] that gets triggered when the given
+    * [[Future]] completes. This can be used to check whether completion
+    * happens within a specific time frame.
+    *
+    * @param future the future to check
+    * @return the latch triggered by the future
+    */
+  private def createLatchForFutureCompletion(future: Future[Unit]): CountDownLatch =
+    given ExecutionContext = system.dispatcher
+
+    val latch = new CountDownLatch(1)
+    future.onComplete(_ => latch.countDown())
+    latch
 
   "RadioStreamHandle" should "create an instance using a builder" in :
     val RadioStreamUri = "https://example.com/radio.m3u"
@@ -158,7 +173,8 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val handle = RadioStreamHandle(
       controlAudio.ref,
       controlMeta.ref,
-      mock[RadioStreamBuilder.BuilderResult[SinkType, SinkType]]
+      mock[RadioStreamBuilder.BuilderResult[SinkType, SinkType]],
+      null
     )
 
     handle.detach()
@@ -188,4 +204,35 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       handle1.cancelStream()
       handle2.cancelStream()
       Succeeded
+    }
+
+  it should "not complete the future for the completed stream before the stream completes" in :
+    val RadioStreamUri = "https://example.com/ongoing-radio.m3u"
+    val RadioStreamChunkCount = 16
+    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource = Source.cycle(() => streamData.iterator)
+    val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
+
+    RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize) map { handle =>
+      val latch = createLatchForFutureCompletion(handle.futStreamDone)
+      val completed = latch.await(100, TimeUnit.MILLISECONDS)
+      handle.cancelStream()
+      completed shouldBe false
+    }
+
+  it should "complete the future indicating stream completion" in :
+    val RadioStreamUri = "https://example.com/completed-radio.m3u"
+    val RadioStreamChunkCount = 16
+    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource = Source.cycle(() => streamData.iterator)
+    val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
+
+    RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize, "notifyStream") map { handle =>
+      val latch = createLatchForFutureCompletion(handle.futStreamDone)
+      handle.cancelStream()
+      println("Checking for completion of future.")
+      val completed = latch.await(3, TimeUnit.SECONDS)
+      completed shouldBe true
     }

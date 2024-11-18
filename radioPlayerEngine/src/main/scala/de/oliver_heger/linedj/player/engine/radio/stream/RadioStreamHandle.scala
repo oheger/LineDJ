@@ -19,11 +19,13 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamHandle.SinkType
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor as classic
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.{ByteString, Timeout}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object RadioStreamHandle:
   /**
@@ -62,6 +64,10 @@ object RadioStreamHandle:
               (using system: classic.ActorSystem): Future[RadioStreamHandle]
   end Factory
 
+  /**
+    * A default implementation of the [[Factory]] trait that is fully
+    * functional and can be used to create new [[RadioStreamHandle]] instances.
+    */
   final val factory: Factory = new Factory:
     override def create(builder: RadioStreamBuilder,
                         streamUri: String,
@@ -78,10 +84,63 @@ object RadioStreamHandle:
       )
       builder.buildRadioStream(params).map { result =>
         val (audioSinkCtrl, metaSinkCtrl) = result.graph.run()
-        RadioStreamHandle(audioSinkCtrl, metaSinkCtrl, result)
+        RadioStreamHandle(audioSinkCtrl, metaSinkCtrl, result, createStreamWatcherActor(audioSinkCtrl, streamName))
       }
 
+  /**
+    * A ''given'' to obtain the [[ExecutionContext]] from a given actor system.
+    *
+    * @param system the actor system
+    * @return the execution context from the actor system
+    */
   private given executionContextFromSystem(using system: classic.ActorSystem): ExecutionContext = system.dispatcher
+
+  /**
+    * An internal message that tells the stream completion watcher actor that
+    * the monitored stream has completed.
+    *
+    * @param notifyPromise the promise to propagate the notification
+    * @param streamName    the name of the affected stream
+    */
+  private case class StreamCompleted(notifyPromise: Promise[Unit],
+                                     streamName: String)
+
+  /**
+    * Returns a [[Future]] that gets completed when the radio stream controlled
+    * by the given actor completes. This function spawns another actor that
+    * watches the control actor. When it terminates, this means that the radio
+    * stream has been completed. Via the future returned by this function, it
+    * is easy to find out when the stream is done.
+    *
+    * @param ctrlActor  the actor controlling the audio stream
+    * @param streamName the name of the radio stream
+    * @param system     the actor system
+    * @return a [[Future]] that completes when the stream completes
+    */
+  private def createStreamWatcherActor(ctrlActor: SinkType, streamName: String)
+                                      (using system: classic.ActorSystem): Future[Unit] =
+    val promise = Promise[Unit]()
+    val notifyMessage = StreamCompleted(promise, streamName)
+    system.spawn(handleWatchStream(ctrlActor, notifyMessage), s"${streamName}_watcher")
+    promise.future
+
+  /**
+    * The message handling function of the stream watcher actor.
+    *
+    * @return the next behavior function for the actor
+    */
+  private def handleWatchStream(ctrActor: SinkType, msg: StreamCompleted): Behavior[StreamCompleted] =
+    Behaviors.setup[StreamCompleted] { context =>
+      context.watchWith(ctrActor, msg)
+      context.log.info("Watching for death of control actor for radio stream '{}'.", msg.streamName)
+
+      Behaviors.receive {
+        case (context, StreamCompleted(promise, streamName)) =>
+          context.log.info("Received notification about completed radio stream '{}'.", streamName)
+          promise.success(())
+          Behaviors.stopped
+      }
+    }
 end RadioStreamHandle
 
 /**
@@ -91,7 +150,9 @@ end RadioStreamHandle
   * passing in [[AttachableSink]] objects for the audio data and metadata. It
   * holds the control actors for those sinks and provides some convenience
   * functions to interact with them. Using this class, a radio stream can be
-  * attached to concrete sources, detached, and completely canceled.
+  * attached to concrete sources, detached, and completely canceled. It is also
+  * possible to monitor when the stream completes by using the [[Future]]
+  * property.
   *
   * @param audioSinkControl the control actor for the audio data sink
   * @param metaSinkControl  the control actor for the metadata sink
@@ -99,7 +160,8 @@ end RadioStreamHandle
   */
 case class RadioStreamHandle(audioSinkControl: ActorRef[AttachableSink.AttachableSinkControlCommand[ByteString]],
                              metaSinkControl: ActorRef[AttachableSink.AttachableSinkControlCommand[ByteString]],
-                             builderResult: RadioStreamBuilder.BuilderResult[SinkType, SinkType]):
+                             builderResult: RadioStreamBuilder.BuilderResult[SinkType, SinkType],
+                             futStreamDone: Future[Unit]):
 
   import RadioStreamHandle.executionContextFromSystem
 
