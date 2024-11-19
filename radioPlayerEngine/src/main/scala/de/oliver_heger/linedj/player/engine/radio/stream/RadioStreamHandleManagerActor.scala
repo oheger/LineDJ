@@ -122,6 +122,16 @@ object RadioStreamHandleManagerActor:
   private case class CacheTimeEnd(source: RadioSource) extends RadioStreamHandleCommand
 
   /**
+    * An internal command notifying this actor that a stream that has been
+    * added to the cache completed. The stream is then removed from the cache.
+    * This notification mechanism is also used to make sure that the actor does
+    * not stop before all cached streams have been completed.
+    *
+    * @param source the radio source of the affected stream
+    */
+  private case class StreamCompleted(source: RadioSource) extends RadioStreamHandleCommand
+
+  /**
     * A data class collecting the information that needs to be stored in the
     * cache for stream handles.
     *
@@ -208,6 +218,7 @@ object RadioStreamHandleManagerActor:
         val invocation = ScheduledInvocationActor.typedInvocationCommand(state.cacheTime,
           context.self, CacheTimeEnd(source))
         state.scheduler ! invocation
+        streamHandle.futStreamDone.onComplete(_ => context.self ! StreamCompleted(source))(context.executionContext)
         handle(nextState)
 
       case (context, GetStreamHandle(params, replyTo)) =>
@@ -229,9 +240,39 @@ object RadioStreamHandleManagerActor:
             handle(nextState)
           case None => Behaviors.same
 
-      case (context, Stop) =>
+      case (context, StreamCompleted(source)) =>
+        context.log.info("Received completed notification for source '{}'.", source)
+        val nextCache = state.cache - source
+        handle(state.copy(cache = nextCache))
+
+      case (context, Stop) if state.cache.isEmpty =>
         context.log.info("Stopping RadioStreamHandleManagerActor.")
         Behaviors.stopped
+
+      case (context, Stop) =>
+        context.log.info("Received Stop command. Waiting for {} streams to complete.", state.cache.size)
+        state.cache.values.foreach(_.streamHandle.cancelStream())
+        stopping(state)
+    }
+
+  /**
+    * A message handler function that becomes active when the actor receives a
+    * request to stop itself, and there are still streams in the cache. In this
+    * case, the actor waits until streams have completed.
+    *
+    * @param state the current state of this actor
+    * @return the next behavior
+    */
+  private def stopping(state: RadioStreamHandleState): Behavior[RadioStreamHandleCommand] =
+    Behaviors.receivePartial {
+      case (context, StreamCompleted(source)) =>
+        context.log.info("Received completed notification for source '{}' in stopping state.", source)
+        val nextCache = state.cache - source
+        if nextCache.isEmpty then
+          context.log.info("Stopping RadioStreamHandleManagerActor.")
+          Behaviors.stopped
+        else
+          stopping(state.copy(cache = nextCache))
     }
 
   /**

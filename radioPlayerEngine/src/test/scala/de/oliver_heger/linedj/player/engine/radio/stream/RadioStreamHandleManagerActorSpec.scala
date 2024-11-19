@@ -34,8 +34,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
 import scala.concurrent.duration.*
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 object RadioStreamHandleManagerActorSpec:
@@ -69,8 +69,22 @@ class RadioStreamHandleManagerActorSpec(testSystem: classic.ActorSystem) extends
 
   import RadioStreamHandleManagerActorSpec.*
 
-  "RadioStreamHandleManagerActor" should "return a cached entry" in :
+  /**
+    * Creates a mock for a [[RadioStreamHandle]] that is prepared to return a
+    * [[Future]] indicating the completion of its associated stream. The future
+    * is obtained from the optional [[Promise]].
+    *
+    * @param optPromise an optional promise to control the completion future
+    * @return the mock for the handle
+    */
+  private def createHandleMock(optPromise: Option[Promise[Unit]] = None): RadioStreamHandle =
     val handle = mock[RadioStreamHandle]
+    val promise = optPromise.getOrElse(Promise[Unit]())
+    when(handle.futStreamDone).thenReturn(promise.future)
+    handle
+
+  "RadioStreamHandleManagerActor" should "return a cached entry" in :
+    val handle = createHandleMock()
     val metadata = CurrentMetadata("myMetadata")
     val helper = new ManagerTestHelper
 
@@ -87,7 +101,7 @@ class RadioStreamHandleManagerActorSpec(testSystem: classic.ActorSystem) extends
     verify(handle, never()).cancelStream()
 
   it should "return a newly created stream handle" in :
-    val handle = mock[RadioStreamHandle]
+    val handle = createHandleMock()
     val helper = new ManagerTestHelper
 
     val response = helper.prepareHandleCreation(handle)
@@ -106,8 +120,8 @@ class RadioStreamHandleManagerActorSpec(testSystem: classic.ActorSystem) extends
     response.triedStreamHandle should be(Failure(exception))
 
   it should "cancel a stream if the cache time is exceeded" in :
-    val handle = mock[RadioStreamHandle]
-    val newHandle = mock[RadioStreamHandle]
+    val handle = createHandleMock()
+    val newHandle = createHandleMock()
     val helper = new ManagerTestHelper
 
     val response = helper.sendCommand(ReleaseStreamHandle(TestRadioSource, handle, None))
@@ -124,6 +138,47 @@ class RadioStreamHandleManagerActorSpec(testSystem: classic.ActorSystem) extends
 
     val probe = helper.sendCommand(RadioStreamHandleManagerActor.Stop)
       .deathWatchProbe
+
+    probe.expectMsgType[classic.Terminated]
+
+  it should "not stop itself before all streams in the cache have completed" in :
+    val radioSource2 = RadioSource("https://other.example.com/radio/stream.mp3")
+    val promiseStreamCompleted1 = Promise[Unit]()
+    val promiseStreamCompleted2 = Promise[Unit]()
+    val handle1 = createHandleMock(Some(promiseStreamCompleted1))
+    val handle2 = createHandleMock(Some(promiseStreamCompleted2))
+    val helper = new ManagerTestHelper
+
+    val probe = helper.sendCommand(ReleaseStreamHandle(TestRadioSource, handle1, None))
+      .sendCommand(ReleaseStreamHandle(radioSource2, handle2, None))
+      .sendCommand(RadioStreamHandleManagerActor.Stop)
+      .deathWatchProbe
+
+    verify(handle1, timeout(3000)).cancelStream()
+    verify(handle2, timeout(3000)).cancelStream()
+    probe.expectNoMessage(200.millis)
+
+    promiseStreamCompleted1.success(())
+    probe.expectNoMessage(200.millis)
+
+    promiseStreamCompleted2.success(())
+    probe.expectMsgType[classic.Terminated]
+
+  it should "handle a stream completed notification in normal state" in :
+    val radioSource2 = RadioSource("https://other.example.com/radio/stream.mp3")
+    val promiseStreamCompleted1 = Promise[Unit]()
+    val promiseStreamCompleted2 = Promise[Unit]()
+    promiseStreamCompleted2.success(())
+    val handle1 = createHandleMock(Some(promiseStreamCompleted1))
+    val handle2 = createHandleMock(Some(promiseStreamCompleted2))
+    val helper = new ManagerTestHelper
+
+    val probe = helper.sendCommand(ReleaseStreamHandle(TestRadioSource, handle1, None))
+      .sendCommand(ReleaseStreamHandle(radioSource2, handle2, None))
+      .deathWatchProbe
+      
+    helper.sendCommand(RadioStreamHandleManagerActor.Stop)
+    promiseStreamCompleted1.success(())
 
     probe.expectMsgType[classic.Terminated]
 
