@@ -16,14 +16,15 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
-import de.oliver_heger.linedj.player.engine.AudioStreamFactory
+import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFunc
-import org.apache.pekko.{NotUsed, actor as classic}
-import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.logging.log4j.LogManager
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.{ActorAttributes, Attributes, FlowShape, Graph, KillSwitch, KillSwitches, Materializer, SharedKillSwitch, Supervision}
+import org.apache.pekko.stream.*
 import org.apache.pekko.util.ByteString
+import org.apache.pekko.{NotUsed, actor as classic}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,7 +84,7 @@ object AudioStreamPlayerStage:
     */
   case class AudioStreamPlayerConfig[SRC, SNK](sourceResolverFunc: SourceResolverFunc[SRC],
                                                sinkProviderFunc: SinkProviderFunc[SRC, SNK],
-                                               audioStreamFactory: AudioStreamFactory,
+                                               audioStreamFactory: AsyncAudioStreamFactory,
                                                pauseActor: ActorRef[PausePlaybackStage.PausePlaybackCommand],
                                                inMemoryBufferSize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                                lineCreatorFunc: LineCreatorFunc =
@@ -124,6 +125,9 @@ object AudioStreamPlayerStage:
     * @tparam SNK the type of results produced by the audio stream sink
     */
   case class AudioStreamEnd[+SNK](result: SNK) extends PlaylistStreamResult[Nothing, SNK]
+
+  /** The logger. */
+  private val log = LogManager.getLogger()
 
   /**
     * A supervision strategy to be applied to playlist streams. This strategy
@@ -208,9 +212,16 @@ object AudioStreamPlayerStage:
 
     Flow[SRC].mapAsync(parallelism = 1) { src =>
         config.sourceResolverFunc(src).map(_ -> config.sinkProviderFunc(src))
-      }.map { (streamSource, sink) =>
-        config.audioStreamFactory.playbackDataFor(streamSource.url).map { playbackData =>
-          (streamSource, sink, playbackData)
+      }.mapAsync(1) { (streamSource, sink) =>
+        config.audioStreamFactory.playbackDataForAsync(streamSource.url).map { playbackData =>
+          Some((streamSource, sink, playbackData))
+        }.recover {
+          case e: AsyncAudioStreamFactory.UnsupportedUriException =>
+            log.info("Unsupported audio stream URI: '{}'. Skipping.", e.uri)
+            None
+          case exception =>
+            log.error("AudioStreamFactory threw an exception. Skipping.", exception)
+            None
         }
       }.filter(_.isDefined)
       .map(_.get)

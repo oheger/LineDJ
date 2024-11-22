@@ -54,7 +54,14 @@ object AudioStreamPlayerStageSpec:
     * The name of a source that triggers an error when creating a line. This is
     * used for testing error handling.
     */
-  private val ErrorSource = "willFail"
+  private val LineErrorSource = "lineWillFail"
+
+  /**
+    * The name of a source that triggers an error when invoking the audio
+    * stream factory. This is used for testing error handling when obtaining
+    * audio streams.
+    */
+  private val AudioFactoryErrorSource = "audioFactoryWillFail"
 
   /**
     * A special instance of [[PlayedChunks]] to indicate the end of the
@@ -201,6 +208,17 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       .expectResult(firstSource)
       .expectResult(lastSource)
 
+  it should "skip elements for which the AudioStreamFactory throws an exception" in :
+    val firstSource = "theFirstSource"
+    val lastSource = "theLastSource"
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.addAudioSource(firstSource, 512)
+      .addAudioSource(lastSource, 256)
+      .runPlaylistStream(List(firstSource, AudioFactoryErrorSource, lastSource))
+      .expectResult(firstSource)
+      .expectResult(lastSource)
+
   it should "support a kill switch to cancel the audio stream" in :
     val source = "SourceToBeCanceled"
     val killSwitch = KillSwitches.shared("testKillSwitch")
@@ -236,11 +254,11 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     resultCount should be < SourceCount - 1
 
   it should "continue with the next audio source when playback crashes" in :
-    val sources = List("firstSource", ErrorSource, "sourceAfterError")
+    val sources = List("firstSource", LineErrorSource, "sourceAfterError")
     val helper = new StreamPlayerStageTestHelper
 
     helper.addAudioSource(sources.head, 128)
-      .addAudioSource(ErrorSource, 42)
+      .addAudioSource(LineErrorSource, 42)
       .addAudioSource(sources.last, 256)
       .runPlaylistStream(sources)
       .expectResult(sources.head)
@@ -542,9 +560,13 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @return the [[AudioStreamFactory]] for tests
       */
     private def createAudioStreamFactory(): AudioStreamFactory =
-      (uri: String) => audioSourceData.get(uri).map { _ =>
-        AudioStreamFactory.AudioStreamPlaybackData(createAudioStream, StreamFactoryLimit)
-      }
+      (uri: String) =>
+        if uri != AudioFactoryErrorSource then
+          audioSourceData.get(uri).map { _ =>
+            AudioStreamFactory.AudioStreamPlaybackData(createAudioStream, StreamFactoryLimit)
+          }
+        else
+          throw IllegalStateException("Test exception: Cannot create audio stream.")
 
     /**
       * Resolves an audio source by its name. This function creates a source
@@ -585,7 +607,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         val nextSource = currentSources.head
         refSources.set(currentSources.tail)
 
-        if nextSource == ErrorSource then
+        if nextSource == LineErrorSource then
           throw new IllegalStateException("Test exception: Unsupported audio source.")
         audioSourceData(nextSource).line
 
