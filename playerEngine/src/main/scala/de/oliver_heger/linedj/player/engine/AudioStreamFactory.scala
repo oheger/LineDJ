@@ -21,6 +21,8 @@ import de.oliver_heger.linedj.player.engine.AudioStreamFactory.AudioStreamPlayba
 import java.io.InputStream
 import javax.sound.sampled.{AudioFormat, AudioInputStream, AudioSystem}
 import scala.annotation.tailrec
+import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 object AudioStreamFactory:
   /**
@@ -87,6 +89,21 @@ object AudioStreamFactory:
     val posExtension = uri.lastIndexOf('.')
     if posExtension < 0 then false
     else uri.substring(posExtension + 1).equalsIgnoreCase(extension)
+
+  /**
+    * A conversion function to treat a regular [[AudioStreamFactory]] as an
+    * asynchronous one. The resulting asynchronous factory returns a successful
+    * future if the original factory supports the passed in URI. Otherwise, the
+    * future fails with an [[AsyncAudioStreamFactory.UnsupportedUriException]]
+    * or the original exception thrown by the factory.
+    *
+    * @return an [[AsyncAudioStreamFactory]] on top of a synchronous one
+    */
+  given Conversion[AudioStreamFactory, AsyncAudioStreamFactory] = (f: AudioStreamFactory) =>
+    (uri: String) => Future.fromTry(Try(f.playbackDataFor(uri)).flatMap {
+      case Some(data) => Success(data)
+      case None => Failure(new AsyncAudioStreamFactory.UnsupportedUriException(uri))
+    })
 end AudioStreamFactory
 
 /**
@@ -156,3 +173,38 @@ class CompositeAudioStreamFactory(val factories: List[AudioStreamFactory]) exten
       case Nil =>
         None
 end CompositeAudioStreamFactory
+
+object AsyncAudioStreamFactory:
+  /**
+    * A special exception class that is used by [[AsyncAudioStreamFactory]] to
+    * indicate that a passed in URI for audio data is not supported. In this
+    * case, the resulting [[Future]] fails with an exception instance of this
+    * type.
+    *
+    * @param uri the URI that is not supported
+    */
+  class UnsupportedUriException(val uri: String) extends IllegalArgumentException
+end AsyncAudioStreamFactory
+
+/**
+  * A trait defining an object that can create an [[AudioInputStream]] from an
+  * input stream with audio data asynchronously. This is analogously to
+  * [[AudioStreamFactory]], but the function returning the audio data returns a
+  * [[Future]]. This can be used for more complex operations that could also
+  * fail.
+  */
+trait AsyncAudioStreamFactory:
+  /**
+    * Returns an [[AudioStreamPlaybackData]] instance asynchronously for a file
+    * with the given URI if this URI is supported by this factory
+    * implementation. The [[Future]] returned by this function can fail if
+    * there was an error when constructing the result. In case the URI is not
+    * supported, it fails with the special exception type
+    * [[AsyncAudioStreamFactory.UnsupportedUriException]].
+    *
+    * @param uri the uri of the audio file/stream
+    * @return a [[Future]] with an [[AudioStreamCreator]] that can create an
+    *         audio stream for this audio data
+    */
+  def playbackDataForAsync(uri: String): Future[AudioStreamPlaybackData]
+end AsyncAudioStreamFactory

@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import javax.sound.sampled.AudioFormat
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 
 /**
   * Test class for functionality provided by the companion object for
@@ -86,10 +87,10 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
     val playbackData = DefaultAudioStreamFactory.playbackDataFor("test.what.ever")
 
     checkAudioStreamCreator(playbackData.value.streamCreator)
-    
-  it should "return a correctly initialized playback data instance" in:
+
+  it should "return a correctly initialized playback data instance" in :
     val playbackData = DefaultAudioStreamFactory.playbackDataFor("test.wav").value
-    
+
     playbackData.streamFactoryLimit should be(2 * AudioStreamFactory.DefaultAudioBufferSize)
 
   "CompositeAudioStreamFactory" should "return None if no child factory supports the URI" in :
@@ -118,3 +119,37 @@ class AudioStreamFactorySpec extends AnyFlatSpec with Matchers with TryValues wi
 
     optData.value should be(playbackData)
     verifyNoInteractions(childFactory3)
+
+  "AsyncAudioStreamFactory" should "provide a conversion for normal factories" in :
+    val AudioFileUri = "someAudioFile.uri"
+    val playbackData = AudioStreamFactory.AudioStreamPlaybackData(mock, 8192)
+    val factory = mock[AudioStreamFactory]
+    when(factory.playbackDataFor(AudioFileUri)).thenReturn(Some(playbackData))
+
+    val futData = factory.playbackDataForAsync(AudioFileUri)
+
+    futData.value should be(Some(Success(playbackData)))
+
+  it should "return a failed future if the URI is not supported" in :
+    val AudioFileUri = "unsupported.uri"
+    val factory = mock[AudioStreamFactory]
+    when(factory.playbackDataFor(AudioFileUri)).thenReturn(None)
+
+    val futData = factory.playbackDataForAsync(AudioFileUri)
+
+    futData.value match
+      case Some(Failure(exception: AsyncAudioStreamFactory.UnsupportedUriException)) =>
+        exception.uri should be(AudioFileUri)
+      case v => fail("Unexpected result: " + v)
+
+  it should "return a failed future if the synchronous factory throws an exception" in:
+    val exception = new IllegalStateException("Test exception: Could not create audio stream.")
+    val factory = mock[AudioStreamFactory]
+    when(factory.playbackDataFor(any())).thenThrow(exception)
+
+    val futData = factory.playbackDataForAsync("someUri")
+
+    futData.value match
+      case Some(Failure(e)) =>
+        e should be(exception)
+      case v => fail("Unexpected result: " + v)

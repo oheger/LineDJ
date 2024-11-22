@@ -71,6 +71,7 @@ lazy val scala3Options = Seq(
   "-new-syntax",
   "-print-lines",
   "-unchecked",
+  "-language:implicitConversions",
   "-Ykind-projector",
   "-Xfatal-warnings",
   "-Xmigration"
