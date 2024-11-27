@@ -20,9 +20,10 @@ import de.oliver_heger.linedj.player.engine.radio.stream.RadioStreamHandle.SinkT
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.scaladsl.{RunnableGraph, Sink, Source}
 import org.apache.pekko.testkit.TestKit
-import org.apache.pekko.util.ByteString
+import org.apache.pekko.util.{ByteString, Timeout}
 import org.apache.pekko.{Done, NotUsed}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.*
@@ -33,8 +34,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Succeeded, TryValues}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{TimeUnit, *}
 import scala.annotation.tailrec
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 object RadioStreamHandleSpec:
@@ -137,7 +139,7 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       handle.builderResult.resolvedUri should be(resolvedStreamUri(RadioStreamUri))
       handle.builderResult.metadataSupported shouldBe true
 
-      handle.attach() flatMap { (sourceAudio, sourceMeta) =>
+      handle.attachOrCancel() flatMap { (sourceAudio, sourceMeta) =>
         val audioDataQueue = new LinkedBlockingQueue[ByteString]
         val audioDataSink = createSinkForQueue(audioDataQueue)
         val futAudioDataSink = sourceAudio.runWith(audioDataSink)
@@ -235,4 +237,28 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       println("Checking for completion of future.")
       val completed = latch.await(3, TimeUnit.SECONDS)
       completed shouldBe true
+    }
+
+  it should "cancel the stream if an attach operation fails" in :
+    val killSwitch = mock[KillSwitch]
+    val controlAudio = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val controlMeta = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val builderResult = RadioStreamBuilder.BuilderResult(
+      resolvedUri = "someStreamUri",
+      graph = mock[RunnableGraph[(RadioStreamHandle.SinkType, RadioStreamHandle.SinkType)]],
+      killSwitch = killSwitch,
+      metadataSupported = false
+    )
+    val handle = RadioStreamHandle(
+      controlAudio.ref,
+      controlMeta.ref,
+      builderResult,
+      null
+    )
+
+    recoverToSucceededIf[TimeoutException] {
+      handle.attachOrCancel(Timeout(1.millis))
+    } map { _ =>
+      verify(killSwitch).shutdown()
+      Succeeded
     }

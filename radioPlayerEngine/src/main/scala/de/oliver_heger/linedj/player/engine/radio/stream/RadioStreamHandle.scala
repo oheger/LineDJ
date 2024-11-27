@@ -26,6 +26,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.{ByteString, Timeout}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.Failure
 
 object RadioStreamHandle:
   /**
@@ -183,6 +184,27 @@ case class RadioStreamHandle(audioSinkControl: ActorRef[AttachableSink.Attachabl
       audioSource <- futAudioSource
       metaSource <- futMetaSource
     yield (audioSource, metaSource)
+
+  /**
+    * Tries to attach to both the audio sink and the metadata sink of the
+    * associated radio stream and returns a [[Future]] with a tuple of the
+    * resulting sources. If this operation fails, the
+    * [[RadioStreamHandle.cancelStream]] function is called. This function
+    * supports error handling in the typical use case of creating a radio 
+    * stream and directly attaching to it. If the handle could be created, but
+    * later attaching fails for whatever reason, the whole operation should be
+    * treated as an error, and the stream should be released.
+    *
+    * @param timeout a timeout for the operations to attach to the sinks
+    * @param system  the implicit actor system
+    * @return a [[Future]] with the sources to obtain the radio stream data
+    */
+  def attachOrCancel(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
+                    (using system: classic.ActorSystem):
+  Future[(Source[ByteString, NotUsed], Source[ByteString, NotUsed])] =
+    attach(timeout).andThen {
+      case Failure(exception) => cancelStream()
+    }
 
   /**
     * Convenience function to send a request to detach from the sinks of the

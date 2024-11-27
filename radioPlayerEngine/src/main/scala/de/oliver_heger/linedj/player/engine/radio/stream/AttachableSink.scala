@@ -184,6 +184,8 @@ object AttachableSink:
   def attachConsumer[T](controlActor: ActorRef[AttachableSinkControlCommand[T]],
                         timeout: Timeout = DefaultAttachTimeout)
                        (using system: classic.ActorSystem): Future[Source[T, NotUsed]] =
+    given Timeout = timeout
+
     controlActor.ask[ConsumerAttached[T]] { ref =>
       AttachConsumer(ref)
     }.map { result =>
