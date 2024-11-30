@@ -18,16 +18,16 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
-import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFunc
 import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
-import org.apache.pekko.actor as classic
+import org.apache.pekko.{NotUsed, actor as classic}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import org.apache.pekko.util.Timeout
+import org.apache.pekko.util.{ByteString, Timeout}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,13 +61,18 @@ object RadioStreamPlaybackActor:
   /**
     * A data class holding the configuration settings for this actor.
     *
-    * @param audioStreamFactory the factory for creating audio streams
-    * @param handleActor        the actor for obtaining stream handles
-    * @param eventActor         the actor for sending events
-    * @param inMemoryBufferSize the size of the in-memory buffer for audio data
-    * @param timeout            a timeout for requests sent to other components
-    * @param lineCreatorFunc    the function to create audio line objects
-    * @param dispatcherName     the dispatcher for writing to lines
+    * @param audioStreamFactory     the factory for creating audio streams
+    * @param handleActor            the actor for obtaining stream handles
+    * @param eventActor             the actor for sending events
+    * @param inMemoryBufferSize     the size of the in-memory buffer for audio
+    *                               data
+    * @param timeout                a timeout for requests sent to other
+    *                               components
+    * @param lineCreatorFunc        the function to create audio line objects
+    * @param dispatcherName         the dispatcher for writing to lines
+    * @param progressEventThreshold a threshold for sending playback progress
+    *                               events during radio playback; another event
+    *                               is sent only after this duration
     */
   case class RadioStreamPlaybackConfig(audioStreamFactory: AsyncAudioStreamFactory,
                                        handleActor: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
@@ -75,7 +80,8 @@ object RadioStreamPlaybackActor:
                                        inMemoryBufferSize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                        timeout: Timeout = DefaultTimeout,
                                        lineCreatorFunc: LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc,
-                                       dispatcherName: String = LineWriterStage.BlockingDispatcherName)
+                                       dispatcherName: String = LineWriterStage.BlockingDispatcherName,
+                                       progressEventThreshold: FiniteDuration = 1.second)
 
   /**
     * The type of the sink for the playlist stream.
@@ -106,6 +112,26 @@ object RadioStreamPlaybackActor:
   private case class PlaylistStreamResultReceived(result: PlaylistSinkType) extends RadioStreamPlaybackCommand
 
   /**
+    * An internal command to notify the actor about a chunk passed through the
+    * audio line. This is used to generate playback progress events.
+    *
+    * @param chunk  the audio chunk that was processed
+    * @param source the affected radio source
+    */
+  private case class AudioChunkProcessed(chunk: LineWriterStage.PlayedAudioChunk,
+                                         source: RadioSource) extends RadioStreamPlaybackCommand
+
+  /**
+    * An internal command to notify the actor that new metadata for the radio
+    * stream has been received.
+    *
+    * @param metadata the metadata
+    * @param source   the affected radio source
+    */
+  private case class MetadataReceived(metadata: ByteString,
+                                      source: RadioSource) extends RadioStreamPlaybackCommand
+
+  /**
     * A factory trait allowing the creation of new instances of this actor
     * implementation.
     */
@@ -124,6 +150,25 @@ object RadioStreamPlaybackActor:
     * create new actor instances.
     */
   final val behavior: Factory = config => setup(config)
+
+  /**
+    * A data class holding the current state of the playback actor.
+    *
+    * @param sourceBytesProcessed the bytes processed for the current source
+    * @param sourcePlaybackTime   the playback time for the current source
+    * @param lastProgressEvent    the time when the last progress event was
+    *                             sent
+    */
+  private case class RadioPlaybackState(sourceBytesProcessed: Long,
+                                        sourcePlaybackTime: FiniteDuration,
+                                        lastProgressEvent: FiniteDuration)
+
+  /** Constant for the initial state of a new actor instance. */
+  private val InitialPlaybackState = RadioPlaybackState(
+    sourceBytesProcessed = 0,
+    sourcePlaybackTime = 0.millis,
+    lastProgressEvent = 0.millis
+  )
 
   /**
     * A function setting up a new actor instance.
@@ -148,12 +193,23 @@ object RadioStreamPlaybackActor:
             )
           }
           handle <- Future.fromTry(handleResult.triedStreamHandle)
-          sources <- handle.attach(config.timeout)
-        yield AudioStreamPlayerStage.AudioStreamSource(radioSource.uri, sources._1)
+          sources <- handle.attachOrCancel(config.timeout)
+        yield createAudioStreamSource(radioSource, sources)
+
+      def createAudioStreamSource(radioSource: RadioSource,
+                                  sources: (Source[ByteString, NotUsed], Source[ByteString, NotUsed])):
+      AudioStreamPlayerStage.AudioStreamSource =
+        val metadataSink = Sink.foreach[ByteString] { metadata =>
+          context.self ! MetadataReceived(metadata, radioSource)
+        }
+        sources._2.runWith(metadataSink)
+        AudioStreamPlayerStage.AudioStreamSource(radioSource.uri, sources._1)
 
       def createRadioStreamSink(radioSource: RadioSource):
       Sink[LineWriterStage.PlayedAudioChunk, Future[RadioSource]] =
-        Sink.ignore.mapMaterializedValue(_.map(_ => radioSource))
+        Sink.foreach[LineWriterStage.PlayedAudioChunk] { chunk =>
+          context.self ! AudioChunkProcessed(chunk, radioSource)
+        }.mapMaterializedValue(_.map(_ => radioSource))
 
       val playbackStreamSource = Source.queue[RadioSource](8)
       val playbackStreamSink = Sink.foreach[PlaylistSinkType] { streamResult =>
@@ -179,11 +235,12 @@ object RadioStreamPlaybackActor:
         playbackStreamSink
       )._1
 
-      def handle(): Behavior[RadioStreamPlaybackCommand] =
+      def handle(state: RadioPlaybackState): Behavior[RadioStreamPlaybackCommand] =
         Behaviors.receiveMessage {
           case PlayRadioSource(source) =>
             context.log.info("Adding radio source to playlist: {}.", source)
             radioSourceQueue.offer(source)
+            config.eventActor ! EventManagerActor.Publish(RadioSourceChangedEvent(source))
             Behaviors.same
 
           case PlaylistStreamResultReceived(result) =>
@@ -196,10 +253,46 @@ object RadioStreamPlaybackActor:
                 val event = RadioSourceErrorEvent(source)
                 config.eventActor ! EventManagerActor.Publish(event)
                 Behaviors.same
+
+          case AudioChunkProcessed(chunk, source) =>
+            val nextBytesProcessed = state.sourceBytesProcessed + chunk.size
+            val nextPlaybackTime = state.sourcePlaybackTime + chunk.duration
+            val sendProgressEvent = checkProgressEvent(state, chunk.duration, config.progressEventThreshold)
+            if sendProgressEvent then
+              val progressEvent = RadioPlaybackProgressEvent(
+                source = source,
+                bytesProcessed = nextBytesProcessed,
+                playbackTime = nextPlaybackTime
+              )
+              config.eventActor ! EventManagerActor.Publish(progressEvent)
+            handle(state.copy(
+              sourceBytesProcessed = nextBytesProcessed,
+              sourcePlaybackTime = nextPlaybackTime,
+              lastProgressEvent = if sendProgressEvent then nextPlaybackTime else state.lastProgressEvent)
+            )
+
+          case MetadataReceived(metadata, source) =>
+            val metadataEvent = RadioMetadataEvent(source, CurrentMetadata(metadata.utf8String))
+            config.eventActor ! EventManagerActor.Publish(metadataEvent)
+            Behaviors.same
         }
 
-      handle()
+      handle(InitialPlaybackState)
     }
+
+  /**
+    * Checks whether a new playback progress event should be sent given the
+    * current state and playback duration.
+    *
+    * @param state         the current state of the actor
+    * @param chunkDuration the duration of the current chunk
+    * @param threshold     the threshold duration when to send event
+    * @return a flag whether another event should be sent
+    */
+  private def checkProgressEvent(state: RadioPlaybackState,
+                                 chunkDuration: FiniteDuration,
+                                 threshold: FiniteDuration): Boolean =
+    (state.sourcePlaybackTime + chunkDuration - state.lastProgressEvent) > threshold
 
   /**
     * Provides an [[ExecutionContext]] from an actor system in the context.
