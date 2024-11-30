@@ -31,6 +31,7 @@ import org.apache.pekko.util.{ByteString, Timeout}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /**
   * An actor implementation for managing a stream with radio sources that are
@@ -192,9 +193,20 @@ object RadioStreamPlaybackActor:
               replyTo = ref
             )
           }
-          handle <- Future.fromTry(handleResult.triedStreamHandle)
+          handle <- evaluateHandleResponse(handleResult)
           sources <- handle.attachOrCancel(config.timeout)
         yield createAudioStreamSource(radioSource, sources)
+
+      def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse):
+      Future[RadioStreamHandle] =
+        Future.fromTry(response.triedStreamHandle).andThen {
+          case Success(_) =>
+            response.optLastMetadata.foreach { currentMetadata =>
+              config.eventActor ! EventManagerActor.Publish(RadioMetadataEvent(response.source, currentMetadata))
+            }
+          case Failure(exception) =>
+            config.eventActor ! EventManagerActor.Publish(RadioSourceErrorEvent(response.source))
+        }
 
       def createAudioStreamSource(radioSource: RadioSource,
                                   sources: (Source[ByteString, NotUsed], Source[ByteString, NotUsed])):

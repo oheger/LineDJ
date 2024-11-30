@@ -44,7 +44,8 @@ import javax.sound.sampled.{AudioInputStream, SourceDataLine}
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 import scala.concurrent.duration.*
-import scala.util.{Random, Success, Try}
+import scala.reflect.ClassTag
+import scala.util.{Failure, Random, Success, Try}
 
 object RadioStreamPlaybackActorSpec:
   /** The limit for calling the audio stream factory. */
@@ -85,6 +86,19 @@ object RadioStreamPlaybackActorSpec:
     */
   private def createAudioStream(in: InputStream): AudioInputStream =
     new AudioStreamTestHelper.DummyEncoderStream(in, new LinkedBlockingQueue)
+
+  /**
+    * Filters a collection for objects of a given type.
+    *
+    * @param collection the collection to filter
+    * @tparam T the type of the desired objects
+    * @return the filtered collection
+    */
+  private def filterType[T: ClassTag](collection: Seq[Any]): Seq[T] =
+    collection.flatMap {
+      case e: T => Some(e)
+      case _ => None
+    }
 end RadioStreamPlaybackActorSpec
 
 /**
@@ -217,6 +231,60 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
           e.metadata should be(CurrentMetadata(meta))
         case e => fail("Unexpected event: " + e)
     }
+
+  it should "send an error event if a radio source cannot be started" in :
+    val errorSource = RadioSource("errorSource.mp3")
+    val errorSourceFailure = new IllegalStateException("Test exception: Failed to load radio source.")
+    val nextSource = RadioSource("successSource.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(errorSource))
+      .answerHandleRequest(errorSource, Failure(errorSourceFailure))
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(nextSource))
+      .answerHandleRequestWithData(nextSource, createSourceData(1024), List("metadata"))
+
+    val events = helper.fishForEvents {
+      case e: RadioSourceErrorEvent =>
+        if e.source == errorSource then FishingOutcome.Continue
+        else FishingOutcome.Complete
+      case e: RadioMetadataEvent =>
+        FishingOutcome.Continue
+      case _ =>
+        FishingOutcome.ContinueAndIgnore
+    }
+
+    val metadataEvents = filterType[RadioMetadataEvent](events)
+    metadataEvents should have size 1
+    metadataEvents.head.metadata should be(CurrentMetadata("metadata"))
+
+    val errorEvents = filterType[RadioSourceErrorEvent](events).map(_.source)
+    errorEvents should contain theSameElementsInOrderAs List(errorSource, nextSource)
+
+  it should "send a metadata event if there is already metadata present when obtaining the handle" in :
+    val radioSource = RadioSource("plentyOfMetadata.mp3")
+    val metadata = List("metadata1", "more metadata", "further metadata")
+    val initialMetadata = "The original metadata"
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequestWithData(
+        radioSource,
+        createSourceData(1024),
+        metadata,
+        optMetadata = Some(CurrentMetadata(initialMetadata))
+      )
+
+    val metadataEvents = filterType[RadioMetadataEvent](helper.fishForEvents {
+      case e: RadioSourceErrorEvent =>
+        FishingOutcome.Complete
+      case e: RadioMetadataEvent =>
+        FishingOutcome.Continue
+      case _ => FishingOutcome.ContinueAndIgnore
+    })
+
+    metadataEvents.head.metadata should be(CurrentMetadata(initialMetadata))
+    val expectedMetadata = metadata.map(CurrentMetadata.apply)
+    metadataEvents.tail.map(_.metadata) should contain theSameElementsInOrderAs expectedMetadata
 
   /**
     * A test helper class managing an actor under test and its dependencies.
