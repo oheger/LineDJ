@@ -26,6 +26,7 @@ import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
+import org.apache.pekko.stream.OverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.{ByteString, Timeout}
 
@@ -87,7 +88,7 @@ object RadioStreamPlaybackActor:
   /**
     * The type of the sink for the playlist stream.
     */
-  private type PlaylistSinkType = AudioStreamPlayerStage.PlaylistStreamResult[RadioSource, RadioSource]
+  private type PlaylistSinkType = AudioStreamPlayerStage.PlaylistStreamResult[PlaybackRadioSource, PlaybackRadioSource]
 
   /**
     * The base trait for the commands processed by this actor implementation.
@@ -113,6 +114,16 @@ object RadioStreamPlaybackActor:
   private case class PlaylistStreamResultReceived(result: PlaylistSinkType) extends RadioStreamPlaybackCommand
 
   /**
+    * An internal command to pass the handle of the current radio stream to the
+    * actor when it becomes available.
+    *
+    * @param handle the handle to the radio stream
+    * @param source the affected radio source
+    */
+  private case class RadioStreamHandleReceived(handle: RadioStreamHandle,
+                                               source: RadioSource) extends RadioStreamPlaybackCommand
+
+  /**
     * An internal command to notify the actor about a chunk passed through the
     * audio line. This is used to generate playback progress events.
     *
@@ -120,7 +131,7 @@ object RadioStreamPlaybackActor:
     * @param source the affected radio source
     */
   private case class AudioChunkProcessed(chunk: LineWriterStage.PlayedAudioChunk,
-                                         source: RadioSource) extends RadioStreamPlaybackCommand
+                                         source: PlaybackRadioSource) extends RadioStreamPlaybackCommand
 
   /**
     * An internal command to notify the actor that new metadata for the radio
@@ -153,19 +164,43 @@ object RadioStreamPlaybackActor:
   final val behavior: Factory = config => setup(config)
 
   /**
+    * A data class to represent the current radio source that is played by this
+    * actor. In addition to the actual [[RadioSource]], this class also stores
+    * a sequence number, which is increased for every new source to be played.
+    * Using this, race conditions can be detected, for instance when still
+    * events from a previous source come in.
+    *
+    * @param radioSource the [[RadioSource]] to be played
+    * @param seqNo       the current sequence number
+    */
+  private case class PlaybackRadioSource(radioSource: RadioSource,
+                                         seqNo: Long)
+
+  /**
     * A data class holding the current state of the playback actor.
     *
+    * @param seqNo                the current sequence number
+    * @param streamStart          the start event for the current audio stream
+    *                             if available
+    * @param streamHandle         the handle to the current stream if available
     * @param sourceBytesProcessed the bytes processed for the current source
     * @param sourcePlaybackTime   the playback time for the current source
     * @param lastProgressEvent    the time when the last progress event was
     *                             sent
     */
-  private case class RadioPlaybackState(sourceBytesProcessed: Long,
+  private case class RadioPlaybackState(seqNo: Long,
+                                        streamStart:
+                                        Option[AudioStreamPlayerStage.AudioStreamStart[PlaybackRadioSource]],
+                                        streamHandle: Option[RadioStreamHandle],
+                                        sourceBytesProcessed: Long,
                                         sourcePlaybackTime: FiniteDuration,
                                         lastProgressEvent: FiniteDuration)
 
   /** Constant for the initial state of a new actor instance. */
   private val InitialPlaybackState = RadioPlaybackState(
+    seqNo = 0,
+    streamStart = None,
+    streamHandle = None,
     sourceBytesProcessed = 0,
     sourcePlaybackTime = 0.millis,
     lastProgressEvent = 0.millis
@@ -185,25 +220,26 @@ object RadioStreamPlaybackActor:
 
       given Timeout = config.timeout
 
-      def resolveRadioSource(radioSource: RadioSource): Future[AudioStreamPlayerStage.AudioStreamSource] =
+      def resolveRadioSource(source: PlaybackRadioSource): Future[AudioStreamPlayerStage.AudioStreamSource] =
         for
           handleResult <- config.handleActor.ask[RadioStreamHandleManagerActor.GetStreamHandleResponse] { ref =>
             RadioStreamHandleManagerActor.GetStreamHandle(
-              params = RadioStreamHandleManagerActor.GetStreamHandleParameters(radioSource, PlaybackStreamName),
+              params = RadioStreamHandleManagerActor.GetStreamHandleParameters(source.radioSource, PlaybackStreamName),
               replyTo = ref
             )
           }
           handle <- evaluateHandleResponse(handleResult)
           sources <- handle.attachOrCancel(config.timeout)
-        yield createAudioStreamSource(radioSource, sources)
+        yield createAudioStreamSource(source.radioSource, sources)
 
       def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse):
       Future[RadioStreamHandle] =
         Future.fromTry(response.triedStreamHandle).andThen {
-          case Success(_) =>
+          case Success(handle) =>
             response.optLastMetadata.foreach { currentMetadata =>
               config.eventActor ! EventManagerActor.Publish(RadioMetadataEvent(response.source, currentMetadata))
             }
+            context.self ! RadioStreamHandleReceived(handle, response.source)
           case Failure(exception) =>
             config.eventActor ! EventManagerActor.Publish(RadioSourceErrorEvent(response.source))
         }
@@ -217,13 +253,13 @@ object RadioStreamPlaybackActor:
         sources._2.runWith(metadataSink)
         AudioStreamPlayerStage.AudioStreamSource(radioSource.uri, sources._1)
 
-      def createRadioStreamSink(radioSource: RadioSource):
-      Sink[LineWriterStage.PlayedAudioChunk, Future[RadioSource]] =
+      def createRadioStreamSink(source: PlaybackRadioSource):
+      Sink[LineWriterStage.PlayedAudioChunk, Future[PlaybackRadioSource]] =
         Sink.foreach[LineWriterStage.PlayedAudioChunk] { chunk =>
-          context.self ! AudioChunkProcessed(chunk, radioSource)
-        }.mapMaterializedValue(_.map(_ => radioSource))
+          context.self ! AudioChunkProcessed(chunk, source)
+        }.mapMaterializedValue(_.map(_ => source))
 
-      val playbackStreamSource = Source.queue[RadioSource](8)
+      val playbackStreamSource = Source.queue[PlaybackRadioSource](1, OverflowStrategy.dropHead)
       val playbackStreamSink = Sink.foreach[PlaylistSinkType] { streamResult =>
         context.self ! PlaylistStreamResultReceived(streamResult)
       }
@@ -251,20 +287,37 @@ object RadioStreamPlaybackActor:
         Behaviors.receiveMessage {
           case PlayRadioSource(source) =>
             context.log.info("Adding radio source to playlist: {}.", source)
-            radioSourceQueue.offer(source)
+            state.streamStart.foreach { start =>
+              context.log.info("Stopping playback of radio source: {}.", start.source)
+              start.killSwitch.shutdown()
+            }
+            state.streamHandle.foreach(_.cancelStream())
+            val playbackSource = PlaybackRadioSource(source, state.seqNo + 1)
+            radioSourceQueue.offer(playbackSource)
             config.eventActor ! EventManagerActor.Publish(RadioSourceChangedEvent(source))
-            Behaviors.same
+            handle(state.copy(seqNo = playbackSource.seqNo, streamHandle = None, streamStart = None))
 
           case PlaylistStreamResultReceived(result) =>
             result match
-              case AudioStreamPlayerStage.AudioStreamStart(source, _) =>
-                context.log.info("Playback starts for radio source {}.", source)
-                Behaviors.same
+              case start@AudioStreamPlayerStage.AudioStreamStart(source, killSwitch) =>
+                if source.seqNo < state.seqNo then
+                  context.log.info("Stopping radio source {}, since another source has been selected.", source)
+                  killSwitch.shutdown()
+                  Behaviors.same
+                else
+                  context.log.info("Playback starts for radio source {}.", source)
+                  handle(state.copy(streamStart = Some(start)))
               case AudioStreamPlayerStage.AudioStreamEnd(source) =>
                 context.log.info("Playback ends for radio source {}.", source)
-                val event = RadioSourceErrorEvent(source)
-                config.eventActor ! EventManagerActor.Publish(event)
+                if source.seqNo == state.seqNo then
+                  // Playback ended unexpectedly.
+                  val event = RadioSourceErrorEvent(source.radioSource)
+                  config.eventActor ! EventManagerActor.Publish(event)
                 Behaviors.same
+
+          case RadioStreamHandleReceived(streamHandle, source) =>
+            context.log.info("Radio stream handle available for radio source {}.", source)
+            handle(state.copy(streamHandle = Some(streamHandle)))
 
           case AudioChunkProcessed(chunk, source) =>
             val nextBytesProcessed = state.sourceBytesProcessed + chunk.size
@@ -272,7 +325,7 @@ object RadioStreamPlaybackActor:
             val sendProgressEvent = checkProgressEvent(state, chunk.duration, config.progressEventThreshold)
             if sendProgressEvent then
               val progressEvent = RadioPlaybackProgressEvent(
-                source = source,
+                source = source.radioSource,
                 bytesProcessed = nextBytesProcessed,
                 playbackTime = nextPlaybackTime
               )
