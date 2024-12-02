@@ -379,6 +379,91 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
     helper.playedRadioSourceUris.last should be(finalSource.uri)
     filterType[RadioMetadataEvent](events).last.metadata should be(finalSourceMetadata)
 
+  it should "suppress playback progress events for the previous source after switching to a new one" in :
+    val firstSource = RadioSource("first.mp3")
+    val secondSource = RadioSource("second.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(firstSource))
+      .answerHandleRequest(
+        firstSource,
+        Success(createMockHandle(createSourceData(32768), Nil, cyclic = true))
+      ).fishForEvents {
+        // Wait for the arrival of a progress event
+        case e: RadioPlaybackProgressEvent => FishingOutcome.Complete
+        case _ => FishingOutcome.ContinueAndIgnore
+      }
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(secondSource))
+    helper.answerHandleRequestWithData(secondSource, createSourceData(32768), Nil)
+
+    val events = helper.fishForEvents {
+      case e: RadioSourceErrorEvent => FishingOutcome.Complete
+      case _ => FishingOutcome.Continue
+    }
+    val secondStartEventIdx = events.indexWhere {
+      case RadioSourceChangedEvent(source, _) if source == secondSource => true
+      case _ => false
+    }
+    val progressSources = filterType[RadioPlaybackProgressEvent](events.drop(secondStartEventIdx)).map(_.source)
+    progressSources should not be empty
+    progressSources should not contain firstSource
+
+  it should "reset playback progress data when switching to another source" in :
+    val source1 = RadioSource("source1.mp3")
+    val source2 = RadioSource("source2.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(source1))
+      .answerHandleRequestWithData(source1, createSourceData(16384), Nil)
+      .fishForEvents {
+        case _: RadioSourceErrorEvent => FishingOutcome.Complete
+        case _ => FishingOutcome.ContinueAndIgnore
+      }
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(source2))
+      .answerHandleRequestWithData(source2, createSourceData(32768), Nil)
+    val progressEvent = filterType[RadioPlaybackProgressEvent](
+      helper.fishForEvents {
+        case _: RadioPlaybackProgressEvent => FishingOutcome.Complete
+        case _ => FishingOutcome.ContinueAndIgnore
+      }
+    ).head
+    println(progressEvent)
+    progressEvent.bytesProcessed should be < 9000L
+    progressEvent.playbackTime should be(10929706.nanos)
+
+  it should "suppress metadata events for the previous source after switching to a new one" in :
+    val firstSource = RadioSource("metaFirst.mp3")
+    val secondSource = RadioSource("metaSecond.mp3")
+    val secondMetadata = List("meta2.1", "meta2.2", "meta2.3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(firstSource))
+      .answerHandleRequest(
+        firstSource,
+        Success(createMockHandle(createSourceData(1024), List("meta1.1", "meta1.2"), cyclic = true))
+      ).fishForEvents {
+        // Wait for the arrival of a metadata event
+        case e: RadioMetadataEvent => FishingOutcome.Complete
+        case _ => FishingOutcome.ContinueAndIgnore
+      }
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(secondSource))
+    helper.answerHandleRequestWithData(secondSource, createSourceData(1024), secondMetadata)
+
+    val events = helper.fishForEvents {
+      case e: RadioSourceErrorEvent => FishingOutcome.Complete
+      case _ => FishingOutcome.Continue
+    }
+    val secondStartEventIdx = events.indexWhere {
+      case RadioSourceChangedEvent(source, _) if source == secondSource => true
+      case _ => false
+    }
+    val expectedMetadata = secondMetadata.map(CurrentMetadata.apply)
+    val receivedMetadata = filterType[RadioMetadataEvent](events.drop(secondStartEventIdx)).map(_.metadata)
+    receivedMetadata should contain theSameElementsInOrderAs expectedMetadata
+
   /**
     * A test helper class managing an actor under test and its dependencies.
     */

@@ -141,7 +141,7 @@ object RadioStreamPlaybackActor:
     * @param source   the affected radio source
     */
   private case class MetadataReceived(metadata: ByteString,
-                                      source: RadioSource) extends RadioStreamPlaybackCommand
+                                      source: PlaybackRadioSource) extends RadioStreamPlaybackCommand
 
   /**
     * A factory trait allowing the creation of new instances of this actor
@@ -230,7 +230,7 @@ object RadioStreamPlaybackActor:
           }
           handle <- evaluateHandleResponse(handleResult)
           sources <- handle.attachOrCancel(config.timeout)
-        yield createAudioStreamSource(source.radioSource, sources)
+        yield createAudioStreamSource(source, sources)
 
       def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse):
       Future[RadioStreamHandle] =
@@ -244,14 +244,14 @@ object RadioStreamPlaybackActor:
             config.eventActor ! EventManagerActor.Publish(RadioSourceErrorEvent(response.source))
         }
 
-      def createAudioStreamSource(radioSource: RadioSource,
+      def createAudioStreamSource(source: PlaybackRadioSource,
                                   sources: (Source[ByteString, NotUsed], Source[ByteString, NotUsed])):
       AudioStreamPlayerStage.AudioStreamSource =
         val metadataSink = Sink.foreach[ByteString] { metadata =>
-          context.self ! MetadataReceived(metadata, radioSource)
+          context.self ! MetadataReceived(metadata, source)
         }
         sources._2.runWith(metadataSink)
-        AudioStreamPlayerStage.AudioStreamSource(radioSource.uri, sources._1)
+        AudioStreamPlayerStage.AudioStreamSource(source.radioSource.uri, sources._1)
 
       def createRadioStreamSink(source: PlaybackRadioSource):
       Sink[LineWriterStage.PlayedAudioChunk, Future[PlaybackRadioSource]] =
@@ -295,7 +295,16 @@ object RadioStreamPlaybackActor:
             val playbackSource = PlaybackRadioSource(source, state.seqNo + 1)
             radioSourceQueue.offer(playbackSource)
             config.eventActor ! EventManagerActor.Publish(RadioSourceChangedEvent(source))
-            handle(state.copy(seqNo = playbackSource.seqNo, streamHandle = None, streamStart = None))
+            handle(
+              state.copy(
+                seqNo = playbackSource.seqNo,
+                streamHandle = None,
+                streamStart = None,
+                sourceBytesProcessed = 0,
+                sourcePlaybackTime = 0.millis,
+                lastProgressEvent = 0.millis
+              )
+            )
 
           case PlaylistStreamResultReceived(result) =>
             result match
@@ -320,25 +329,29 @@ object RadioStreamPlaybackActor:
             handle(state.copy(streamHandle = Some(streamHandle)))
 
           case AudioChunkProcessed(chunk, source) =>
-            val nextBytesProcessed = state.sourceBytesProcessed + chunk.size
-            val nextPlaybackTime = state.sourcePlaybackTime + chunk.duration
-            val sendProgressEvent = checkProgressEvent(state, chunk.duration, config.progressEventThreshold)
-            if sendProgressEvent then
-              val progressEvent = RadioPlaybackProgressEvent(
-                source = source.radioSource,
-                bytesProcessed = nextBytesProcessed,
-                playbackTime = nextPlaybackTime
+            if source.seqNo == state.seqNo then
+              val nextBytesProcessed = state.sourceBytesProcessed + chunk.size
+              val nextPlaybackTime = state.sourcePlaybackTime + chunk.duration
+              val sendProgressEvent = checkProgressEvent(state, chunk.duration, config.progressEventThreshold)
+              if sendProgressEvent then
+                val progressEvent = RadioPlaybackProgressEvent(
+                  source = source.radioSource,
+                  bytesProcessed = nextBytesProcessed,
+                  playbackTime = nextPlaybackTime
+                )
+                config.eventActor ! EventManagerActor.Publish(progressEvent)
+              handle(state.copy(
+                sourceBytesProcessed = nextBytesProcessed,
+                sourcePlaybackTime = nextPlaybackTime,
+                lastProgressEvent = if sendProgressEvent then nextPlaybackTime else state.lastProgressEvent)
               )
-              config.eventActor ! EventManagerActor.Publish(progressEvent)
-            handle(state.copy(
-              sourceBytesProcessed = nextBytesProcessed,
-              sourcePlaybackTime = nextPlaybackTime,
-              lastProgressEvent = if sendProgressEvent then nextPlaybackTime else state.lastProgressEvent)
-            )
+            else
+              Behaviors.same
 
           case MetadataReceived(metadata, source) =>
-            val metadataEvent = RadioMetadataEvent(source, CurrentMetadata(metadata.utf8String))
-            config.eventActor ! EventManagerActor.Publish(metadataEvent)
+            if source.seqNo == state.seqNo then
+              val metadataEvent = RadioMetadataEvent(source.radioSource, CurrentMetadata(metadata.utf8String))
+              config.eventActor ! EventManagerActor.Publish(metadataEvent)
             Behaviors.same
         }
 
