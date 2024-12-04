@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioPlaybackProgressEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioPlaybackProgressEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFunc
 import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
 import org.apache.pekko.{NotUsed, actor as classic}
@@ -103,6 +103,14 @@ object RadioStreamPlaybackActor:
     * @param source the radio source to be played
     */
   case class PlayRadioSource(source: RadioSource) extends RadioStreamPlaybackCommand
+
+  /**
+    * A command to stop the playback of the current radio source. If a radio
+    * stream is currently active, it is canceled. Note that there is no command
+    * to resume playback. Instead, another [[PlaybackRadioSource]] command has
+    * to be sent.
+    */
+  case object StopPlayback extends RadioStreamPlaybackCommand
 
   /**
     * An internal command to trigger the processing of an event received from 
@@ -220,6 +228,14 @@ object RadioStreamPlaybackActor:
 
       given Timeout = config.timeout
 
+      /**
+        * The function to resolve the source with audio data for the audio
+        * player stage. The function obtains the handle from the manager actor
+        * and also updates the playback actor.
+        *
+        * @param source the next radio source to be played
+        * @return a [[Future]] with information about the radio source
+        */
       def resolveRadioSource(source: PlaybackRadioSource): Future[AudioStreamPlayerStage.AudioStreamSource] =
         for
           handleResult <- config.handleActor.ask[RadioStreamHandleManagerActor.GetStreamHandleResponse] { ref =>
@@ -232,6 +248,14 @@ object RadioStreamPlaybackActor:
           sources <- handle.attachOrCancel(config.timeout)
         yield createAudioStreamSource(source, sources)
 
+      /**
+        * Processes the response received from the
+        * [[RadioStreamHandleManagerActor]]. Depending on the result,
+        * corresponding events need to be published.
+        *
+        * @param response the response from the stream handle manager actor
+        * @return a [[Future]] with the resulting [[RadioStreamHandle]]
+        */
       def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse):
       Future[RadioStreamHandle] =
         Future.fromTry(response.triedStreamHandle).andThen {
@@ -244,6 +268,16 @@ object RadioStreamPlaybackActor:
             config.eventActor ! EventManagerActor.Publish(RadioSourceErrorEvent(response.source))
         }
 
+      /**
+        * Creates the object with information about the next audio source for
+        * the playlist stream. This is derived from the audio source of the
+        * attached radio stream handle. Also, the stream for processing
+        * metadata is set up.
+        *
+        * @param source  the current radio source to be played
+        * @param sources the sources for the audio and metadata streams
+        * @return information about the next audio source to be played
+        */
       def createAudioStreamSource(source: PlaybackRadioSource,
                                   sources: (Source[ByteString, NotUsed], Source[ByteString, NotUsed])):
       AudioStreamPlayerStage.AudioStreamSource =
@@ -253,11 +287,34 @@ object RadioStreamPlaybackActor:
         sources._2.runWith(metadataSink)
         AudioStreamPlayerStage.AudioStreamSource(source.radioSource.uri, sources._1)
 
+      /**
+        * The function for creating the [[Sink]] for the next audio stream in
+        * the playlist stream. This sink forwards playback progress information
+        * to the playback actor.
+        *
+        * @param source the current radio source to be played
+        * @return the [[Sink]] for the next audio stream
+        */
       def createRadioStreamSink(source: PlaybackRadioSource):
       Sink[LineWriterStage.PlayedAudioChunk, Future[PlaybackRadioSource]] =
         Sink.foreach[LineWriterStage.PlayedAudioChunk] { chunk =>
           context.self ! AudioChunkProcessed(chunk, source)
         }.mapMaterializedValue(_.map(_ => source))
+
+      /**
+        * Stops playback of the current radio source if there is one.
+        *
+        * @param state the current state of the playback actor
+        * @return an [[Option]] with the current [[RadioSource]]; if this is
+        *         defined, playback was stopped
+        */
+      def stopPlaybackIfActive(state: RadioPlaybackState): Option[RadioSource] =
+        state.streamHandle.foreach(_.cancelStream())
+        state.streamStart.foreach { start =>
+          context.log.info("Stopping playback of radio source: {}.", start.source)
+          start.killSwitch.shutdown()
+        }
+        state.streamStart.map(_.source.radioSource)
 
       val playbackStreamSource = Source.queue[PlaybackRadioSource](1, OverflowStrategy.dropHead)
       val playbackStreamSink = Sink.foreach[PlaylistSinkType] { streamResult =>
@@ -283,15 +340,17 @@ object RadioStreamPlaybackActor:
         playbackStreamSink
       )._1
 
+      /**
+        * The message handler function for the playback actor.
+        *
+        * @param state the current state of the actor
+        * @return the next behavior of the actor
+        */
       def handle(state: RadioPlaybackState): Behavior[RadioStreamPlaybackCommand] =
         Behaviors.receiveMessage {
           case PlayRadioSource(source) =>
             context.log.info("Adding radio source to playlist: {}.", source)
-            state.streamStart.foreach { start =>
-              context.log.info("Stopping playback of radio source: {}.", start.source)
-              start.killSwitch.shutdown()
-            }
-            state.streamHandle.foreach(_.cancelStream())
+            stopPlaybackIfActive(state)
             val playbackSource = PlaybackRadioSource(source, state.seqNo + 1)
             radioSourceQueue.offer(playbackSource)
             config.eventActor ! EventManagerActor.Publish(RadioSourceChangedEvent(source))
@@ -305,6 +364,17 @@ object RadioStreamPlaybackActor:
                 lastProgressEvent = 0.millis
               )
             )
+
+          case StopPlayback =>
+            stopPlaybackIfActive(state) match
+              case Some(source) =>
+                context.log.info("Handled StopPlayback command for source {}.", source)
+                config.eventActor ! EventManagerActor.Publish(RadioPlaybackStoppedEvent(source))
+                handle(
+                  state.copy(seqNo = state.seqNo + 1, streamStart = None, streamHandle = None)
+                )
+              case None =>
+                Behaviors.same
 
           case PlaylistStreamResultReceived(result) =>
             result match

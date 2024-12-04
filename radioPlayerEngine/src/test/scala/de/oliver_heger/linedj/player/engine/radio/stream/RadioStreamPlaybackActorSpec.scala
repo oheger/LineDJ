@@ -28,7 +28,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
-import org.mockito.Mockito.{verify, when}
+import org.mockito.Mockito.{times, verify, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterAll
@@ -388,11 +388,7 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
       .answerHandleRequest(
         firstSource,
         Success(createMockHandle(createSourceData(32768), Nil, cyclic = true))
-      ).fishForEvents {
-        // Wait for the arrival of a progress event
-        case e: RadioPlaybackProgressEvent => FishingOutcome.Complete
-        case _ => FishingOutcome.ContinueAndIgnore
-      }
+      ).awaitPlayback(firstSource)
 
     helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(secondSource))
     helper.answerHandleRequestWithData(secondSource, createSourceData(32768), Nil)
@@ -463,6 +459,71 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
     val expectedMetadata = secondMetadata.map(CurrentMetadata.apply)
     val receivedMetadata = filterType[RadioMetadataEvent](events.drop(secondStartEventIdx)).map(_.metadata)
     receivedMetadata should contain theSameElementsInOrderAs expectedMetadata
+
+  it should "support stopping playback" in :
+    val radioSource = RadioSource("toBeStopped.mp3")
+    val handle = createMockHandle(createSourceData(8192), List("meta", "data"), cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequest(radioSource, Success(handle))
+      .awaitPlayback(radioSource)
+
+    val events = helper.sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .fishForEvents {
+        case e: RadioPlaybackStoppedEvent if e.source == radioSource => FishingOutcome.Complete
+        case _ => FishingOutcome.Continue
+      }
+    filterType[RadioSourceErrorEvent](events) shouldBe empty
+    verify(handle).cancelStream()
+
+    // Verify that the stream was actually stopped by starting a new one.
+    val nextSource = RadioSource("afterStop.mp3")
+    val nextEvents = helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(nextSource))
+      .answerHandleRequestWithData(nextSource, createSourceData(512), Nil)
+      .fishForEvents {
+        case e: RadioSourceErrorEvent if e.source == nextSource => FishingOutcome.Complete
+        case _ => FishingOutcome.Continue
+      }
+    nextEvents.head match
+      case e: RadioSourceChangedEvent =>
+        e.source should be(nextSource)
+      case e => fail("Unexpected event: " + e)
+
+  it should "ignore a StopPlayback command if no source is currently playing" in :
+    val radioSource = RadioSource("afterIgnoredStop.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    val events = helper.sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequestWithData(radioSource, createSourceData(512), Nil)
+      .fishForEvents {
+        case e: RadioSourceErrorEvent if e.source == radioSource => FishingOutcome.Complete
+        case _ => FishingOutcome.Continue
+      }
+
+    filterType[RadioPlaybackStoppedEvent](events) shouldBe empty
+
+  it should "reset playback data after handling a StopPlayback command" in :
+    val radioSource = RadioSource("toBeStoppedMulti.mp3")
+    val handle = createMockHandle(createSourceData(8192), List("meta", "data"), cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequest(radioSource, Success(handle))
+      .awaitPlayback(radioSource)
+      .sendCommand(RadioStreamPlaybackActor.StopPlayback)
+
+    val nextSource = RadioSource("afterStop.mp3")
+    val nextEvents = helper.sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(nextSource))
+      .answerHandleRequestWithData(nextSource, createSourceData(512), Nil)
+      .fishForEvents {
+        case e: RadioSourceErrorEvent if e.source == nextSource => FishingOutcome.Complete
+        case _ => FishingOutcome.Continue
+      }
+    filterType[RadioPlaybackStoppedEvent](nextEvents) should have size 1
+    verify(handle, times(1)).cancelStream()
 
   /**
     * A test helper class managing an actor under test and its dependencies.
@@ -586,6 +647,20 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
         case EventManagerActor.Publish(event: RadioEvent) => event
         case _ => fail("Cannot happen!")
       }
+
+    /**
+      * Waits for the arrival of a playback progress event for the given source
+      * to make sure that playback is actually ongoing.
+      *
+      * @param source the expected radio source
+      * @return this test helper
+      */
+    def awaitPlayback(source: RadioSource): PlaybackActorTestHelper =
+      fishForEvents {
+        case e: RadioPlaybackProgressEvent if e.source == source => FishingOutcome.Complete
+        case _ => FishingOutcome.ContinueAndIgnore
+      }
+      this
 
     /**
       * Creates an [[AudioStreamFactory]] to be used by the test actor. The
