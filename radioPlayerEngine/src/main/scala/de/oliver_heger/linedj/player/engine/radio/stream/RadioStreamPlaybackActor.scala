@@ -129,7 +129,7 @@ object RadioStreamPlaybackActor:
     * @param source the affected radio source
     */
   private case class RadioStreamHandleReceived(handle: RadioStreamHandle,
-                                               source: RadioSource) extends RadioStreamPlaybackCommand
+                                               source: PlaybackRadioSource) extends RadioStreamPlaybackCommand
 
   /**
     * An internal command to notify the actor about a chunk passed through the
@@ -229,6 +229,14 @@ object RadioStreamPlaybackActor:
       given Timeout = config.timeout
 
       /**
+        * Publishes the given event via the configured event actor.
+        *
+        * @param event the event to publish
+        */
+      def publishEvent(event: RadioEvent): Unit =
+        config.eventActor ! EventManagerActor.Publish(event)
+
+      /**
         * The function to resolve the source with audio data for the audio
         * player stage. The function obtains the handle from the manager actor
         * and also updates the playback actor.
@@ -244,7 +252,7 @@ object RadioStreamPlaybackActor:
               replyTo = ref
             )
           }
-          handle <- evaluateHandleResponse(handleResult)
+          handle <- evaluateHandleResponse(handleResult, source)
           sources <- handle.attachOrCancel(config.timeout)
         yield createAudioStreamSource(source, sources)
 
@@ -254,18 +262,19 @@ object RadioStreamPlaybackActor:
         * corresponding events need to be published.
         *
         * @param response the response from the stream handle manager actor
+        * @param source   the next radio source to be played
         * @return a [[Future]] with the resulting [[RadioStreamHandle]]
         */
-      def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse):
-      Future[RadioStreamHandle] =
+      def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse,
+                                 source: PlaybackRadioSource): Future[RadioStreamHandle] =
         Future.fromTry(response.triedStreamHandle).andThen {
           case Success(handle) =>
             response.optLastMetadata.foreach { currentMetadata =>
-              config.eventActor ! EventManagerActor.Publish(RadioMetadataEvent(response.source, currentMetadata))
+              publishEvent(RadioMetadataEvent(response.source, currentMetadata))
             }
-            context.self ! RadioStreamHandleReceived(handle, response.source)
+            context.self ! RadioStreamHandleReceived(handle, source)
           case Failure(exception) =>
-            config.eventActor ! EventManagerActor.Publish(RadioSourceErrorEvent(response.source))
+            publishEvent(RadioSourceErrorEvent(response.source))
         }
 
       /**
@@ -353,7 +362,7 @@ object RadioStreamPlaybackActor:
             stopPlaybackIfActive(state)
             val playbackSource = PlaybackRadioSource(source, state.seqNo + 1)
             radioSourceQueue.offer(playbackSource)
-            config.eventActor ! EventManagerActor.Publish(RadioSourceChangedEvent(source))
+            publishEvent(RadioSourceChangedEvent(source))
             handle(
               state.copy(
                 seqNo = playbackSource.seqNo,
@@ -369,12 +378,12 @@ object RadioStreamPlaybackActor:
             stopPlaybackIfActive(state) match
               case Some(source) =>
                 context.log.info("Handled StopPlayback command for source {}.", source)
-                config.eventActor ! EventManagerActor.Publish(RadioPlaybackStoppedEvent(source))
+                publishEvent(RadioPlaybackStoppedEvent(source))
                 handle(
                   state.copy(seqNo = state.seqNo + 1, streamStart = None, streamHandle = None)
                 )
               case None =>
-                Behaviors.same
+                handle(state.copy(seqNo = state.seqNo + 1))
 
           case PlaylistStreamResultReceived(result) =>
             result match
@@ -382,6 +391,8 @@ object RadioStreamPlaybackActor:
                 if source.seqNo < state.seqNo then
                   context.log.info("Stopping radio source {}, since another source has been selected.", source)
                   killSwitch.shutdown()
+                  if state.streamStart.isEmpty then
+                    publishEvent(RadioPlaybackStoppedEvent(source.radioSource))
                   Behaviors.same
                 else
                   context.log.info("Playback starts for radio source {}.", source)
@@ -390,13 +401,17 @@ object RadioStreamPlaybackActor:
                 context.log.info("Playback ends for radio source {}.", source)
                 if source.seqNo == state.seqNo then
                   // Playback ended unexpectedly.
-                  val event = RadioSourceErrorEvent(source.radioSource)
-                  config.eventActor ! EventManagerActor.Publish(event)
+                  publishEvent(RadioSourceErrorEvent(source.radioSource))
                 Behaviors.same
 
           case RadioStreamHandleReceived(streamHandle, source) =>
             context.log.info("Radio stream handle available for radio source {}.", source)
-            handle(state.copy(streamHandle = Some(streamHandle)))
+            if source.seqNo == state.seqNo then
+              handle(state.copy(streamHandle = Some(streamHandle)))
+            else
+              context.log.info("Canceling stream, since there was a change in the playback state.")
+              streamHandle.cancelStream()
+              Behaviors.same
 
           case AudioChunkProcessed(chunk, source) =>
             if source.seqNo == state.seqNo then
@@ -409,7 +424,7 @@ object RadioStreamPlaybackActor:
                   bytesProcessed = nextBytesProcessed,
                   playbackTime = nextPlaybackTime
                 )
-                config.eventActor ! EventManagerActor.Publish(progressEvent)
+                publishEvent(progressEvent)
               handle(state.copy(
                 sourceBytesProcessed = nextBytesProcessed,
                 sourcePlaybackTime = nextPlaybackTime,
@@ -421,7 +436,7 @@ object RadioStreamPlaybackActor:
           case MetadataReceived(metadata, source) =>
             if source.seqNo == state.seqNo then
               val metadataEvent = RadioMetadataEvent(source.radioSource, CurrentMetadata(metadata.utf8String))
-              config.eventActor ! EventManagerActor.Publish(metadataEvent)
+              publishEvent(metadataEvent)
             Behaviors.same
         }
 

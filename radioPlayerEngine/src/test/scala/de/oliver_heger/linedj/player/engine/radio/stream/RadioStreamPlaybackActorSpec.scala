@@ -28,7 +28,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
-import org.mockito.Mockito.{times, verify, when}
+import org.mockito.Mockito.{timeout, times, verify, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterAll
@@ -379,6 +379,18 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
     helper.playedRadioSourceUris.last should be(finalSource.uri)
     filterType[RadioMetadataEvent](events).last.metadata should be(finalSourceMetadata)
 
+  it should "close a handle that arrives after selecting a new source" in :
+    val radioSource1 = RadioSource("firstDelayed.mp3")
+    val radioSource2 = RadioSource("fastNext.mp3")
+    val handle = createMockHandle(createSourceData(2048), Nil, cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource1))
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource2))
+      .answerHandleRequest(radioSource1, Success(handle))
+
+    verify(handle, timeout(3000)).cancelStream()
+
   it should "suppress playback progress events for the previous source after switching to a new one" in :
     val firstSource = RadioSource("first.mp3")
     val secondSource = RadioSource("second.mp3")
@@ -524,6 +536,23 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
       }
     filterType[RadioPlaybackStoppedEvent](nextEvents) should have size 1
     verify(handle, times(1)).cancelStream()
+
+  it should "handle race conditions with stopping playback before it fully started" in :
+    val radioSource = RadioSource("stoppedAbruptly.mp3")
+    val handle = createMockHandle(createSourceData(4096), List("some", "meta", "data"), cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .answerHandleRequest(radioSource, Success(handle))
+
+    val events = helper.fishForEvents {
+      case e: RadioPlaybackStoppedEvent => FishingOutcome.Complete
+      case _ => FishingOutcome.Continue
+    }
+    filterType[RadioSourceChangedEvent](events).map(_.source) should contain only radioSource
+    filterType[RadioPlaybackStoppedEvent](events).map(_.source) should contain only radioSource
+    verify(handle, timeout(3000)).cancelStream()
 
   /**
     * A test helper class managing an actor under test and its dependencies.
