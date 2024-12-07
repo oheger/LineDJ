@@ -20,12 +20,14 @@ import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.stream.{AudioStreamTestHelper, LineWriterStage}
-import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.FishingOutcome
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
+import org.apache.pekko.testkit.TestProbe as ClassicTestProbe
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
 import org.mockito.Mockito.{timeout, times, verify, when}
@@ -115,9 +117,9 @@ end RadioStreamPlaybackActorSpec
 /**
   * Test class for [[RadioStreamPlaybackActor]].
   */
-class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar:
-  def this() = this(ActorSystem("RadioStreamPlaybackActorSpec"))
+  def this() = this(classic.ActorSystem("RadioStreamPlaybackActorSpec"))
 
   /** A test kit for testing typed actors. */
   private val actorTestKit = ActorTestKit()
@@ -147,7 +149,7 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
     else
       (Source(audioStreamData), Source(metaStreamData))
 
-    given ActorSystem = any()
+    given classic.ActorSystem = any()
 
     when(handle.attachOrCancel(eqArg(TestTimeout)))
       .thenReturn(Future.successful((audioSource, metaSource)))
@@ -554,6 +556,24 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
     filterType[RadioPlaybackStoppedEvent](events).map(_.source) should contain only radioSource
     verify(handle, timeout(3000)).cancelStream()
 
+  it should "stop itself on receiving a Stop command" in :
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.Stop)
+      .checkTerminated()
+
+  it should "stop a currently played source when it is stopped" in :
+    val radioSource = RadioSource("toStopOnTermination.mp3")
+    val handle = createMockHandle(createSourceData(8192), Nil, cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequest(radioSource, Success(handle))
+      .awaitPlayback(radioSource)
+      .sendCommand(RadioStreamPlaybackActor.Stop)
+      .checkTerminated()
+    verify(handle, timeout(1000)).cancelStream()
+
   /**
     * A test helper class managing an actor under test and its dependencies.
     */
@@ -690,6 +710,14 @@ class RadioStreamPlaybackActorSpec(testSystem: ActorSystem) extends TestKit(test
         case _ => FishingOutcome.ContinueAndIgnore
       }
       this
+
+    /**
+      * Checks whether the actor under test has terminated.
+      */
+    def checkTerminated(): Unit =
+      val probeWatch = ClassicTestProbe()
+      probeWatch.watch(playbackActor.toClassic)
+      probeWatch.expectMsgType[classic.Terminated]
 
     /**
       * Creates an [[AudioStreamFactory]] to be used by the test actor. The

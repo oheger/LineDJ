@@ -113,6 +113,12 @@ object RadioStreamPlaybackActor:
   case object StopPlayback extends RadioStreamPlaybackCommand
 
   /**
+    * A command to stop this actor and free all resources. After processing 
+    * this command, the actor instance can no longer be used.
+    */
+  case object Stop extends RadioStreamPlaybackCommand
+
+  /**
     * An internal command to trigger the processing of an event received from 
     * the playlist stream. That way, the actor gets notifications when a radio
     * source is started or terminates.
@@ -384,6 +390,10 @@ object RadioStreamPlaybackActor:
                 )
               case None =>
                 handle(state.copy(seqNo = state.seqNo + 1))
+
+          case Stop =>
+            stopPlaybackIfActive(state)
+            Behaviors.stopped
 
           case PlaylistStreamResultReceived(result) =>
             result match
