@@ -366,13 +366,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(source))
     }
 
-    @tailrec def waitForFinalSourceRequest(): Unit =
-      val requestedSource = helper.answerAnyHandleRequest(sourceData)
-      if requestedSource != finalSource then
-        waitForFinalSourceRequest()
-
     helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(finalSource))
-    waitForFinalSourceRequest()
+      .waitForFinalSourceRequest(sourceData, finalSource)
 
     val events = helper.fishForEvents {
       case e: RadioSourceErrorEvent => FishingOutcome.Complete
@@ -476,7 +471,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
 
   it should "support stopping playback" in :
     val radioSource = RadioSource("toBeStopped.mp3")
-    val handle = createMockHandle(createSourceData(8192), List("meta", "data"), cyclic = true)
+    val handle = createMockHandle(createSourceData(8192), Nil, cyclic = true)
     val helper = new PlaybackActorTestHelper
 
     helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
@@ -520,7 +515,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
 
   it should "reset playback data after handling a StopPlayback command" in :
     val radioSource = RadioSource("toBeStoppedMulti.mp3")
-    val handle = createMockHandle(createSourceData(8192), List("meta", "data"), cyclic = true)
+    val handle = createMockHandle(createSourceData(8192), Nil, cyclic = true)
     val helper = new PlaybackActorTestHelper
 
     helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
@@ -536,24 +531,26 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
         case e: RadioSourceErrorEvent if e.source == nextSource => FishingOutcome.Complete
         case _ => FishingOutcome.Continue
       }
-    filterType[RadioPlaybackStoppedEvent](nextEvents) should have size 1
     verify(handle, times(1)).cancelStream()
 
   it should "handle race conditions with stopping playback before it fully started" in :
     val radioSource = RadioSource("stoppedAbruptly.mp3")
-    val handle = createMockHandle(createSourceData(4096), List("some", "meta", "data"), cyclic = true)
+    val nextSource = RadioSource("afterAbruptStop.mp3")
+    val handle = createMockHandle(createSourceData(4096), Nil, cyclic = true)
     val helper = new PlaybackActorTestHelper
 
     helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
       .sendCommand(RadioStreamPlaybackActor.StopPlayback)
       .answerHandleRequest(radioSource, Success(handle))
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(nextSource))
+      .answerHandleRequestWithData(nextSource, createSourceData(1024), Nil)
 
     val events = helper.fishForEvents {
-      case e: RadioPlaybackStoppedEvent => FishingOutcome.Complete
+      case e: RadioSourceErrorEvent => FishingOutcome.Complete
       case _ => FishingOutcome.Continue
     }
-    filterType[RadioSourceChangedEvent](events).map(_.source) should contain only radioSource
-    filterType[RadioPlaybackStoppedEvent](events).map(_.source) should contain only radioSource
+    filterType[RadioSourceChangedEvent](events).map(_.source) should contain only nextSource
+    filterType[RadioPlaybackStoppedEvent](events).map(_.source) shouldBe empty
     verify(handle, timeout(3000)).cancelStream()
 
   it should "stop itself on receiving a Stop command" in :
@@ -573,6 +570,45 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       .sendCommand(RadioStreamPlaybackActor.Stop)
       .checkTerminated()
     verify(handle, timeout(1000)).cancelStream()
+
+  it should "not send change events for radio sources for which playback is not started" in :
+    val tempSources = (1 to 8).map(idx => RadioSource(s"temSource$idx.mp3"))
+    val sourceData = tempSources.map { source =>
+      val handle = createMockHandle(createSourceData(2048), Nil)
+      source -> SourceHandleData(Success(handle), None)
+    }.toMap
+    val nextSource = RadioSource("nextToBePlayed.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    tempSources.foreach { source =>
+      helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(source))
+    }
+    val events = helper.waitForFinalSourceRequest(sourceData, tempSources.last)
+      .fishForEvents {
+        case RadioSourceErrorEvent(source, _) if source == tempSources.last => FishingOutcome.Complete
+        case _ => FishingOutcome.Continue
+      }
+    val startedSources = filterType[RadioSourceChangedEvent](events).map(_.source)
+    startedSources.size should be < tempSources.size
+
+  it should "not send a playback stopped event if playback has been started anew" in :
+    val firstSource = RadioSource("first.mp3")
+    val nextSource = RadioSource("next.mp3")
+    val handle = createMockHandle(createSourceData(8192), Nil, cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(firstSource))
+      .answerHandleRequest(firstSource, Success(handle))
+      .awaitPlayback(firstSource)
+      .sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .sendCommand(RadioStreamPlaybackActor.PlayRadioSource(nextSource))
+      .answerHandleRequestWithData(nextSource, createSourceData(1024), Nil)
+
+    val events = helper.fishForEvents {
+      case RadioSourceErrorEvent(source, _) if source == nextSource => FishingOutcome.Complete
+      case _ => FishingOutcome.Continue
+    }
+    filterType[RadioPlaybackStoppedEvent](events) shouldBe empty
 
   /**
     * A test helper class managing an actor under test and its dependencies.
@@ -622,27 +658,6 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     def sendCommand(command: RadioStreamPlaybackActor.RadioStreamPlaybackCommand): PlaybackActorTestHelper =
       playbackActor ! command
       this
-
-    /**
-      * Expects a request to the handle actor for a source contained in the
-      * specified map. This function can be used if it is unclear which
-      * requests will actually arrive, since sources may already have been
-      * terminated before they start.
-      *
-      * @param sources the map with handle data for the possible sources
-      * @return the requested source
-      */
-    def answerAnyHandleRequest(sources: Map[RadioSource, SourceHandleData]): RadioSource =
-      val request = probeHandleActor.expectMessageType[RadioStreamHandleManagerActor.GetStreamHandle]
-      request.params.streamName should be(RadioStreamPlaybackActor.PlaybackStreamName)
-      val handleData = sources(request.params.streamSource)
-      val response = RadioStreamHandleManagerActor.GetStreamHandleResponse(
-        source = request.params.streamSource,
-        triedStreamHandle = handleData.triedHandle,
-        optLastMetadata = handleData.optLastMetadata
-      )
-      request.replyTo ! response
-      request.params.streamSource
 
     /**
       * Expects a request to the handle actor for the given radio source. The
@@ -712,12 +727,52 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       this
 
     /**
+      * Answers requests for a stream handle based on the given map until a
+      * request for the given source is received. This function can be used if
+      * many sources are sent to the playback actor in sequence. It is then not
+      * deterministic for which source playback actually starts, since some
+      * sources are likely to be directly ignored.
+      *
+      * @param sourceData the map with handle data for radio sources
+      * @param source     the source to wait for
+      * @return this test helper
+      */
+    @tailrec final def waitForFinalSourceRequest(sourceData: Map[RadioSource, SourceHandleData],
+                                                 source: RadioSource): PlaybackActorTestHelper =
+      val requestedSource = answerAnyHandleRequest(sourceData)
+      if requestedSource != source then
+        waitForFinalSourceRequest(sourceData, source)
+      else
+        this
+
+    /**
       * Checks whether the actor under test has terminated.
       */
     def checkTerminated(): Unit =
       val probeWatch = ClassicTestProbe()
       probeWatch.watch(playbackActor.toClassic)
       probeWatch.expectMsgType[classic.Terminated]
+
+    /**
+      * Expects a request to the handle actor for a source contained in the
+      * specified map. This function can be used if it is unclear which
+      * requests will actually arrive, since sources may already have been
+      * terminated before they start.
+      *
+      * @param sources the map with handle data for the possible sources
+      * @return the requested source
+      */
+    private def answerAnyHandleRequest(sources: Map[RadioSource, SourceHandleData]): RadioSource =
+      val request = probeHandleActor.expectMessageType[RadioStreamHandleManagerActor.GetStreamHandle]
+      request.params.streamName should be(RadioStreamPlaybackActor.PlaybackStreamName)
+      val handleData = sources(request.params.streamSource)
+      val response = RadioStreamHandleManagerActor.GetStreamHandleResponse(
+        source = request.params.streamSource,
+        triedStreamHandle = handleData.triedHandle,
+        optLastMetadata = handleData.optLastMetadata
+      )
+      request.replyTo ! response
+      request.params.streamSource
 
     /**
       * Creates an [[AudioStreamFactory]] to be used by the test actor. The

@@ -201,6 +201,7 @@ object RadioStreamPlaybackActor:
     * @param sourcePlaybackTime   the playback time for the current source
     * @param lastProgressEvent    the time when the last progress event was
     *                             sent
+    * @param currentSource        the source that is currently played
     */
   private case class RadioPlaybackState(seqNo: Long,
                                         streamStart:
@@ -208,7 +209,8 @@ object RadioStreamPlaybackActor:
                                         streamHandle: Option[RadioStreamHandle],
                                         sourceBytesProcessed: Long,
                                         sourcePlaybackTime: FiniteDuration,
-                                        lastProgressEvent: FiniteDuration)
+                                        lastProgressEvent: FiniteDuration,
+                                        currentSource: Option[PlaybackRadioSource])
 
   /** Constant for the initial state of a new actor instance. */
   private val InitialPlaybackState = RadioPlaybackState(
@@ -217,7 +219,8 @@ object RadioStreamPlaybackActor:
     streamHandle = None,
     sourceBytesProcessed = 0,
     sourcePlaybackTime = 0.millis,
-    lastProgressEvent = 0.millis
+    lastProgressEvent = 0.millis,
+    currentSource = None
   )
 
   /**
@@ -273,15 +276,16 @@ object RadioStreamPlaybackActor:
         */
       def evaluateHandleResponse(response: RadioStreamHandleManagerActor.GetStreamHandleResponse,
                                  source: PlaybackRadioSource): Future[RadioStreamHandle] =
-        Future.fromTry(response.triedStreamHandle).andThen {
+        response.triedStreamHandle match
           case Success(handle) =>
             response.optLastMetadata.foreach { currentMetadata =>
               publishEvent(RadioMetadataEvent(response.source, currentMetadata))
             }
             context.self ! RadioStreamHandleReceived(handle, source)
+            Future.successful(handle)
           case Failure(exception) =>
             publishEvent(RadioSourceErrorEvent(response.source))
-        }
+            Future.failed(exception)
 
       /**
         * Creates the object with information about the next audio source for
@@ -368,7 +372,6 @@ object RadioStreamPlaybackActor:
             stopPlaybackIfActive(state)
             val playbackSource = PlaybackRadioSource(source, state.seqNo + 1)
             radioSourceQueue.offer(playbackSource)
-            publishEvent(RadioSourceChangedEvent(source))
             handle(
               state.copy(
                 seqNo = playbackSource.seqNo,
@@ -384,7 +387,6 @@ object RadioStreamPlaybackActor:
             stopPlaybackIfActive(state) match
               case Some(source) =>
                 context.log.info("Handled StopPlayback command for source {}.", source)
-                publishEvent(RadioPlaybackStoppedEvent(source))
                 handle(
                   state.copy(seqNo = state.seqNo + 1, streamStart = None, streamHandle = None)
                 )
@@ -401,27 +403,24 @@ object RadioStreamPlaybackActor:
                 if source.seqNo < state.seqNo then
                   context.log.info("Stopping radio source {}, since another source has been selected.", source)
                   killSwitch.shutdown()
-                  if state.streamStart.isEmpty then
-                    publishEvent(RadioPlaybackStoppedEvent(source.radioSource))
                   Behaviors.same
                 else
                   context.log.info("Playback starts for radio source {}.", source)
+                  publishEvent(RadioSourceChangedEvent(source.radioSource))
                   handle(state.copy(streamStart = Some(start)))
               case AudioStreamPlayerStage.AudioStreamEnd(source) =>
-                context.log.info("Playback ends for radio source {}.", source)
-                if source.seqNo == state.seqNo then
-                  // Playback ended unexpectedly.
-                  publishEvent(RadioSourceErrorEvent(source.radioSource))
-                Behaviors.same
+                context.log.info("Playback ends for radio source {} in state {}.", source, state)
+                sourceEndEvent(state, source).foreach(publishEvent)
+                handle(state.copy(currentSource = None))
 
           case RadioStreamHandleReceived(streamHandle, source) =>
             context.log.info("Radio stream handle available for radio source {}.", source)
             if source.seqNo == state.seqNo then
-              handle(state.copy(streamHandle = Some(streamHandle)))
+              handle(state.copy(streamHandle = Some(streamHandle), currentSource = Some(source)))
             else
               context.log.info("Canceling stream, since there was a change in the playback state.")
               streamHandle.cancelStream()
-              Behaviors.same
+              handle(state.copy(currentSource = None))
 
           case AudioChunkProcessed(chunk, source) =>
             if source.seqNo == state.seqNo then
@@ -466,6 +465,28 @@ object RadioStreamPlaybackActor:
                                  chunkDuration: FiniteDuration,
                                  threshold: FiniteDuration): Boolean =
     (state.sourcePlaybackTime + chunkDuration - state.lastProgressEvent) > threshold
+
+  /**
+    * Generates an optional event to be published for the end of the given
+    * source. The function deals with different cases:
+    *  - The source could have ended unexpectedly; then an error event needs to
+    *    be generated.
+    *  - The source was stopped because playback of another source started;
+    *    then no event needs to be generated.
+    *  - The source was stopped, and now playback is interrupted; then a
+    *    playback stopped event needs to be generated.
+    *
+    * @param state  the current state of the actor
+    * @param source the affected source
+    * @return the option event to publish for this case
+    */
+  private def sourceEndEvent(state: RadioPlaybackState, source: PlaybackRadioSource): Option[RadioEvent] =
+    if source.seqNo == state.seqNo && state.streamStart.isDefined then
+      Some(RadioSourceErrorEvent(source.radioSource))
+    else if state.currentSource.contains(source) && source.seqNo == state.seqNo - 1 then
+      Some(RadioPlaybackStoppedEvent(source.radioSource))
+    else
+      None
 
   /**
     * Provides an [[ExecutionContext]] from an actor system in the context.
