@@ -202,6 +202,11 @@ object RadioStreamPlaybackActor:
     * @param lastProgressEvent    the time when the last progress event was
     *                             sent
     * @param currentSource        the source that is currently played
+    * @param pendingSource        a source that is currently waiting for its
+    *                             playback to start
+    * @param stopped              flag whether the actor has been stopped;
+    *                             this is used to handle pending stream handles
+    *                             gracefully when stopping the actor
     */
   private case class RadioPlaybackState(seqNo: Long,
                                         streamStart:
@@ -210,7 +215,9 @@ object RadioStreamPlaybackActor:
                                         sourceBytesProcessed: Long,
                                         sourcePlaybackTime: FiniteDuration,
                                         lastProgressEvent: FiniteDuration,
-                                        currentSource: Option[PlaybackRadioSource])
+                                        currentSource: Option[PlaybackRadioSource],
+                                        pendingSource: Option[PlaybackRadioSource],
+                                        stopped: Boolean)
 
   /** Constant for the initial state of a new actor instance. */
   private val InitialPlaybackState = RadioPlaybackState(
@@ -220,7 +227,9 @@ object RadioStreamPlaybackActor:
     sourceBytesProcessed = 0,
     sourcePlaybackTime = 0.millis,
     lastProgressEvent = 0.millis,
-    currentSource = None
+    currentSource = None,
+    pendingSource = None,
+    stopped = false
   )
 
   /**
@@ -379,9 +388,14 @@ object RadioStreamPlaybackActor:
                 streamStart = None,
                 sourceBytesProcessed = 0,
                 sourcePlaybackTime = 0.millis,
-                lastProgressEvent = 0.millis
+                lastProgressEvent = 0.millis,
+                pendingSource = Some(playbackSource)
               )
             )
+
+          case StopPlayback if state.stopped =>
+            context.log.warn("Received StopPlayback command after Stop. Ignoring.")
+            Behaviors.same
 
           case StopPlayback =>
             stopPlaybackIfActive(state) match
@@ -395,7 +409,11 @@ object RadioStreamPlaybackActor:
 
           case Stop =>
             stopPlaybackIfActive(state)
-            Behaviors.stopped
+            if state.pendingSource.isDefined then
+              handle(state.copy(stopped = true))
+            else
+              context.log.info("Stopping radio stream playback actor.")
+              Behaviors.stopped
 
           case PlaylistStreamResultReceived(result) =>
             result match
@@ -416,7 +434,15 @@ object RadioStreamPlaybackActor:
           case RadioStreamHandleReceived(streamHandle, source) =>
             context.log.info("Radio stream handle available for radio source {}.", source)
             if source.seqNo == state.seqNo then
-              handle(state.copy(streamHandle = Some(streamHandle), currentSource = Some(source)))
+              if state.stopped then
+                stopPlaybackIfActive(state)
+                streamHandle.cancelStream()
+                context.log.info("Stopping radio stream playback actor after canceling last audio stream.")
+                Behaviors.stopped
+              else
+                handle(
+                  state.copy(streamHandle = Some(streamHandle), currentSource = Some(source), pendingSource = None)
+                )
             else
               context.log.info("Canceling stream, since there was a change in the playback state.")
               streamHandle.cancelStream()

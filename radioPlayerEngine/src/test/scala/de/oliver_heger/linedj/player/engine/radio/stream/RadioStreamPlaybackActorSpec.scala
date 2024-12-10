@@ -23,11 +23,10 @@ import de.oliver_heger.linedj.player.engine.stream.{AudioStreamTestHelper, LineW
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.FishingOutcome
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.Source
-import org.apache.pekko.testkit.TestKit
-import org.apache.pekko.testkit.TestProbe as ClassicTestProbe
+import org.apache.pekko.testkit.{TestKit, TestProbe as ClassicTestProbe}
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
 import org.mockito.Mockito.{timeout, times, verify, when}
@@ -569,6 +568,31 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       .awaitPlayback(radioSource)
       .sendCommand(RadioStreamPlaybackActor.Stop)
       .checkTerminated()
+    verify(handle, timeout(1000)).cancelStream()
+
+  it should "not stop itself before closing pending radio streams" in :
+    val radioSource = RadioSource("toBeStoppedOnTermination.mp3")
+    val handle = createMockHandle(createSourceData(8192), List("stop", "on", "termination"), cyclic = true)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .sendCommand(RadioStreamPlaybackActor.Stop)
+      .answerHandleRequest(radioSource, Success(handle))
+      .checkTerminated()
+
+    verify(handle, timeout(1000)).cancelStream()
+
+  it should "handle a stop playback command after a stop command gracefully" in :
+    val radioSource = RadioSource("toBeStoppedOnTermination.mp3")
+    val handle = createMockHandle(createSourceData(8192), Nil)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .sendCommand(RadioStreamPlaybackActor.Stop)
+      .sendCommand(RadioStreamPlaybackActor.StopPlayback)
+      .answerHandleRequest(radioSource, Success(handle))
+      .checkTerminated()
+
     verify(handle, timeout(1000)).cancelStream()
 
   it should "not send change events for radio sources for which playback is not started" in :
