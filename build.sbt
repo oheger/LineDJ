@@ -666,7 +666,8 @@ lazy val radioPlayerEngine = (project in file("radioPlayerEngine"))
     OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.radio.*"),
     OsgiKeys.privatePackage := Seq()
-  ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test")
+  ) dependsOn (shared % "compile->compile;test->test", playerEngine % "compile->compile;test->test",
+      mp3PlaybackContextFactory /* TODO: Remove this dependency when factories are handled dynamically. */)
 
 /**
   * Project for the radio player configuration. This project provides standard functionality for parsing configuration
