@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.{AppWithTestPlatform, ApplicationAsyncStartup, ApplicationSyncStartup, ApplicationTestSupport, ClientApplicationContext, ClientApplicationContextImpl}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
+import de.oliver_heger.linedj.platform.app.*
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
 import de.oliver_heger.linedj.utils.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -224,7 +224,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     */
   private class RadioPlayerApplicationTestHelper extends ApplicationTestSupport:
     /** A mock for the radio player. */
-    val player: RadioPlayer = createPlayerMock()
+    val player: RadioPlayerNew = createPlayerMock()
 
     /** A mock for the radio player factory. */
     val playerFactory: RadioPlayerFactory = createPlayerFactory(player)
@@ -282,7 +282,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return the set with added ''PlaybackContextFactory'' objects
       */
     def addedPlaybackContextFactories: Set[PlaybackContextFactory] =
-      import scala.jdk.CollectionConverters._
+      import scala.jdk.CollectionConverters.*
       playbackContextFactories.keySet().asScala.toSet
 
     /**
@@ -329,8 +329,8 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       *
       * @return the mock radio player
       */
-    private def createPlayerMock(): RadioPlayer =
-      val player = mock[RadioPlayer]
+    private def createPlayerMock(): RadioPlayerNew =
+      val player = mock[RadioPlayerNew]
       doAnswer((invocation: InvocationOnMock) => {
         val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
         playbackContextFactories.put(pcf, java.lang.Boolean.TRUE)
@@ -350,7 +350,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param playerMock the mock player to be returned by the factory
       * @return the mock player factory
       */
-    private def createPlayerFactory(playerMock: RadioPlayer): RadioPlayerFactory =
+    private def createPlayerFactory(playerMock: RadioPlayerNew): RadioPlayerFactory =
       val factory = mock[RadioPlayerFactory]
       initPlayerFactoryMock(factory, Future.successful(playerMock))
       factory
@@ -362,7 +362,7 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @param factory       the factory mock to be initialized
       * @param factoryResult the result to be returned by the factory
       */
-    private def initPlayerFactoryMock(factory: RadioPlayerFactory, factoryResult: Future[RadioPlayer]): Unit =
+    private def initPlayerFactoryMock(factory: RadioPlayerFactory, factoryResult: Future[RadioPlayerNew]): Unit =
       when(factory.createRadioPlayer(any(classOf[ActorManagementComponent]))(any(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
           invocation.getArguments.head should be(app)

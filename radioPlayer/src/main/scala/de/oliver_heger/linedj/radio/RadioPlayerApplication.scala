@@ -22,15 +22,15 @@ import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
 import net.sf.jguiraffe.gui.app.ApplicationContext
-import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import org.apache.pekko.actor.typed.{ActorRef, Scheduler}
 import org.apache.pekko.util.Timeout
 import org.osgi.service.component.ComponentContext
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future, Promise, TimeoutException}
 
 /**
@@ -157,7 +157,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *
     * @return a ''Future'' with the [[RadioPlayer]].
     */
-  private def createPlayer(): Future[RadioPlayer] =
+  private def createPlayer(): Future[RadioPlayerNew] =
     for
       player <- playerFactory.createRadioPlayer(this)
       _ <- promiseUI.future

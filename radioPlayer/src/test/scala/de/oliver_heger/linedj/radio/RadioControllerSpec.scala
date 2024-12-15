@@ -17,25 +17,25 @@
 package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
-import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioSourceConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormChangeEvent
 import org.apache.commons.configuration.{HierarchicalConfiguration, XMLConfiguration}
-import org.mockito.ArgumentMatchers._
+import org.mockito.ArgumentMatchers.*
 import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
 object RadioControllerSpec:
@@ -390,7 +390,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     */
   private class RadioControllerTestHelper:
     /** Mock for the radio player. */
-    val player: RadioPlayer = mock[RadioPlayer]
+    val player: RadioPlayerNew = mock[RadioPlayerNew]
 
     /** Mock for the status line controller. */
     val statusLineController: RadioStatusLineController = mock[RadioStatusLineController]

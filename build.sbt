@@ -701,7 +701,9 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
       "com.googlecode.soundlibs" % "mp3spi" % VersionMp3Spi
     ),
     libraryDependencies ++= logDependencies,
-    OsgiKeys.privatePackage := Seq(
+    // TODO: Convert again to a private package after the new radio player engine supports dynamic audio stream
+    //       factories.
+    OsgiKeys.exportPackage := Seq(
       "de.oliver_heger.linedj.player.engine.mp3.*"
     ),
     OsgiKeys.additionalHeaders :=

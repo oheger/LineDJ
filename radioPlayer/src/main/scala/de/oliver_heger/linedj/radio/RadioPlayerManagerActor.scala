@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerMan
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.radio.RadioEvent
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
 import org.apache.pekko.actor.typed.Behavior
 
 import scala.concurrent.Future
@@ -36,17 +36,17 @@ import scala.util.{Failure, Success}
   */
 object RadioPlayerManagerActor:
   def apply(messageBus: MessageBus)
-           (playerCreationFunc: () => Future[RadioPlayer]): Behavior[PlayerManagementCommand] =
-    val manager = new PlayerManagerActor[RadioPlayer, RadioEvent]:
-      override protected def getPlayer(state: RadioPlayer): PlayerControl[RadioEvent] = state
+           (playerCreationFunc: () => Future[RadioPlayerNew]): Behavior[PlayerManagementCommand] =
+    val manager = new PlayerManagerActor[RadioPlayerNew, RadioEvent]:
+      override protected def getPlayer(state: RadioPlayerNew): PlayerControl[RadioEvent] = state
 
-      override protected def onInit(state: RadioPlayer): RadioPlayer =
+      override protected def onInit(state: RadioPlayerNew): RadioPlayerNew =
         messageBus publish RadioController.RadioPlayerInitialized(Success(state))
         state
 
       override protected def onInitFailure(cause: Throwable): Unit =
         messageBus publish RadioController.RadioPlayerInitialized(Failure(cause))
 
-      override protected def onClose(state: RadioPlayer): Unit = {}
+      override protected def onClose(state: RadioPlayerNew): Unit = {}
 
     manager.behavior(messageBus)(playerCreationFunc)
