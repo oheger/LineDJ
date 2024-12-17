@@ -240,3 +240,21 @@ class AudioEncodingStageSpec(testSystem: ActorSystem) extends TestKit(testSystem
         _.available should be < (InMemoryBufferSize + inputChunkSize)
       }
     }
+
+  it should "fail the stream if the limit from the factory exceeds the memory size" in :
+    val data = ByteString(generateData(20241217213718L, 16384))
+    val streamCreator: AudioStreamFactory.AudioStreamCreator = input => {
+      new DummyEncoderStream(input, new LinkedBlockingQueue[ReadData])
+    }
+    val playbackData = AudioStreamFactory.AudioStreamPlaybackData(
+      streamCreator = streamCreator,
+      streamFactoryLimit = InMemoryBufferSize + 1
+    )
+    val source = Source(data.grouped(256).toList)
+    val sink = Sink.ignore
+    val stage = new AudioEncodingStage(playbackData, InMemoryBufferSize)
+
+    recoverToExceptionIf[IllegalArgumentException](source.via(stage).runWith(sink)) map { exception =>
+      exception.getMessage should include(InMemoryBufferSize.toString)
+      exception.getMessage should include(playbackData.streamFactoryLimit.toString)
+    }

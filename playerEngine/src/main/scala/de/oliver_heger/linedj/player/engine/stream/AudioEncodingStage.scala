@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.stream
 import de.oliver_heger.linedj.io.DynamicInputStream
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.stream.AudioEncodingStage.{AudioChunk, AudioData, AudioStreamHeader}
-import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler, StageLogging}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import org.apache.pekko.util.ByteString
 
@@ -86,7 +86,7 @@ class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackDat
   override def shape: FlowShape[ByteString, AudioData] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape):
+    new GraphStageLogic(shape) with StageLogging:
       /** A stream serving as buffer for data from upstream. */
       private val dataStream = new DynamicInputStream
 
@@ -109,6 +109,16 @@ class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackDat
         * audio data is pushed.
         */
       private var headerPushed = false
+
+      override def preStart(): Unit =
+        super.preStart()
+        if playbackData.streamFactoryLimit > inMemoryBufferSize then
+          val exception = new IllegalArgumentException(
+            s"Invalid parameters for AudioEncodingStage. Stream factory limit ${playbackData.streamFactoryLimit} " +
+              s"is greater than memory buffer size $inMemoryBufferSize."
+          )
+          log.error(exception, "Terminating audio stream.")
+          failStage(exception)
 
       setHandler(in, new InHandler {
         override def onUpstreamFinish(): Unit =
@@ -151,6 +161,7 @@ class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackDat
                 if dataStream.completed then
                   completeStage()
                 else
+                  log.info("Clearing buffer, since playback has stalled.")
                   dataStream.clear()
 
       /**
@@ -174,6 +185,7 @@ class AudioEncodingStage(playbackData: AudioStreamFactory.AudioStreamPlaybackDat
           case Some(stream) =>
             stream
           case None =>
+            log.info("Creating audio stream with a buffer of {} bytes.", dataStream.available())
             val stream = playbackData.streamCreator(dataStream)
             val format = stream.getFormat
             buffer = new Array(AudioStreamFactory.audioBufferSize(format))
