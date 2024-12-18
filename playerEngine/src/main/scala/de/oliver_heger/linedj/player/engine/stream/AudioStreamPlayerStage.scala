@@ -70,15 +70,19 @@ object AudioStreamPlayerStage:
     * streams. The values specified here control how audio sources are
     * resolved, and the data they contain is processed.
     *
-    * @param sourceResolverFunc the function to resolve audio sources
-    * @param sinkProviderFunc   the function to create sinks for audio streams
-    * @param audioStreamFactory the factory for creating audio encoding streams
-    * @param pauseActor         the actor to pause playback
-    * @param inMemoryBufferSize the in-memory buffer size
-    * @param lineCreatorFunc    the function to create audio line objects
-    * @param optKillSwitch      an optional [[SharedKillSwitch]] to cancel the
-    *                           audio stream
-    * @param dispatcherName     the dispatcher for writing to lines
+    * @param sourceResolverFunc    the function to resolve audio sources
+    * @param sinkProviderFunc      the function to create sinks for audio 
+    *                              streams
+    * @param audioStreamFactory    the factory for creating audio encoding 
+    *                              streams
+    * @param pauseActor            the actor to pause playback
+    * @param inMemoryBufferSize    the in-memory buffer size
+    * @param lineCreatorFunc       the function to create audio line objects
+    * @param optKillSwitch         an optional [[SharedKillSwitch]] to cancel
+    *                              the audio stream
+    * @param dispatcherName        the dispatcher for writing to lines
+    * @param optStreamFactoryLimit an optional limit to override the one 
+    *                              returned by the stream factory
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the result type of the sinks for audio streams
     */
@@ -90,7 +94,8 @@ object AudioStreamPlayerStage:
                                                lineCreatorFunc: LineCreatorFunc =
                                                LineWriterStage.DefaultLineCreatorFunc,
                                                optKillSwitch: Option[SharedKillSwitch] = None,
-                                               dispatcherName: String = LineWriterStage.BlockingDispatcherName)
+                                               dispatcherName: String = LineWriterStage.BlockingDispatcherName,
+                                               optStreamFactoryLimit: Option[Int] = None)
 
   /**
     * The root element of a type hierarchy that defines the results returned by
@@ -229,8 +234,11 @@ object AudioStreamPlayerStage:
         val source = config.optKillSwitch.fold(streamSource.source) { ks =>
           streamSource.source.via(ks.flow)
         }
+        val adjustedPlaybackData = config.optStreamFactoryLimit.fold(playbackData) { overrideLimit =>
+          playbackData.copy(streamFactoryLimit = overrideLimit)
+        }
         val audioStreamSource = streamSource.source
-          .via(AudioEncodingStage(playbackData, config.inMemoryBufferSize))
+          .via(AudioEncodingStage(adjustedPlaybackData, config.inMemoryBufferSize))
           .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
           .via(LineWriterStage(config.lineCreatorFunc, config.dispatcherName))
         appendOptionalKillSwitch(audioStreamSource, optKillSwitch)

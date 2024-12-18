@@ -45,7 +45,7 @@ import scala.util.Random
 
 object AudioStreamPlayerStageSpec:
   /** The limit for calling the audio stream factory. */
-  private val StreamFactoryLimit = 128
+  private val StreamFactoryLimit = 1024
 
   /** The chunk size used by audio sources. */
   private val SourceChunkSize = 64
@@ -181,9 +181,18 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
   it should "correctly configure the encoding stage" in :
     val helper = new StreamPlayerStageTestHelper
 
-    helper.addAudioSource("testSource", 1024)
-      // Set a too low memory size, this should stall playback.
+    val streamResult = helper.addAudioSource("testSource", 1024)
+      // Set a too low memory size, this should cause an exception, and the stream is aborted.
       .runPlaylistStream(List("testSource"), memorySize = 128)
+      .nextResult()
+    streamResult.get.totalSize should be(-1)
+
+  it should "support overriding the stream factory limit" in :
+    val memorySize = 768
+    val helper = new StreamPlayerStageTestHelper
+
+    helper.addAudioSource("testSource", 1024)
+      .runPlaylistStream(List("testSource"), memorySize = memorySize, optStreamFactoryLimit = Some(memorySize))
       .expectNoResult(skip = 1)
 
   it should "correctly integrate the pause actor" in :
@@ -370,16 +379,20 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * Executes a playlist stream with the given sources. The results are
       * stored in a queue and can be queried using ''nextResult()''.
       *
-      * @param sources       the sources for the playlist
-      * @param memorySize    the size of the in-memory buffer
-      * @param optKillSwitch an optional kill switch to add to the stream
-      * @param withDelay     flag whether audio sources should be delayed
+      * @param sources               the sources for the playlist
+      * @param memorySize            the size of the in-memory buffer
+      * @param optKillSwitch         an optional kill switch to add to the
+      *                              stream
+      * @param withDelay             flag whether audio sources should be
+      *                              delayed
+      * @param optStreamFactoryLimit a limit for the stream factory
       * @return this test helper
       */
     def runPlaylistStream(sources: List[String],
                           memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                           optKillSwitch: Option[SharedKillSwitch] = None,
-                          withDelay: Boolean = false): StreamPlayerStageTestHelper =
+                          withDelay: Boolean = false,
+                          optStreamFactoryLimit: Option[Int] = None): StreamPlayerStageTestHelper =
       given ec: ExecutionContext = system.dispatcher
 
       val source = Source(sources)
@@ -388,7 +401,8 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         sources,
         memorySize,
         optKillSwitch,
-        withDelay
+        withDelay,
+        optStreamFactoryLimit
       )
       futSink.foreach { _ => resultQueue.offer(PlaylistEnd) }
       this
@@ -398,11 +412,15 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * [[Source]] of the stream can be explicitly specified, and its
       * materialized value is returned.
       *
-      * @param source        the source for the audio sources in the playlist
-      * @param sources       the audio sources to be played
-      * @param memorySize    the size of the in-memory buffer
-      * @param optKillSwitch an optional kill switch to add to the stream
-      * @param withDelay     flag whether audio sources should be delayed
+      * @param source                the source for the audio sources in the
+      *                              playlist
+      * @param sources               the audio sources to be played
+      * @param memorySize            the size of the in-memory buffer
+      * @param optKillSwitch         an optional kill switch to add to the
+      *                              stream
+      * @param withDelay             flag whether audio sources should be
+      *                              delayed
+      * @param optStreamFactoryLimit a limit for the stream factory
       * @tparam MAT the type of the data materialized by the source
       * @return the materialized data from the source
       */
@@ -410,9 +428,10 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
                                          sources: List[String],
                                          memorySize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                          optKillSwitch: Option[SharedKillSwitch] = None,
-                                         withDelay: Boolean = false): (MAT, Future[Done]) =
+                                         withDelay: Boolean = false,
+                                         optStreamFactoryLimit: Option[Int] = None): (MAT, Future[Done]) =
       val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[String, PlayedChunks]](resultQueue.offer)
-      val config = createStageConfig(sources, memorySize, optKillSwitch, withDelay)
+      val config = createStageConfig(sources, memorySize, optKillSwitch, withDelay, optStreamFactoryLimit)
 
       AudioStreamPlayerStage.runPlaylistStream(config, source, sink)
 
@@ -428,7 +447,8 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       val config = createStageConfig(List(source),
         AudioEncodingStage.DefaultInMemoryBufferSize,
         Some(killSwitch),
-        withDelay = false)
+        withDelay = false,
+        optStreamFactoryLimit = None)
       val streamSource = Source.single(source)
       val streamSink = Sink.foreach[PlayedChunks] { chunks =>
         resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(chunks))
@@ -614,17 +634,19 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
     /**
       * Creates the configuration for the player stage to be tested.
       *
-      * @param sources       the list of expected sources
-      * @param memorySize    the size of the in-memory buffer
-      * @param optKillSwitch the kill switch for the config
-      * @param withDelay     flag whether the audio source should be
-      *                      delayed
+      * @param sources               the list of expected sources
+      * @param memorySize            the size of the in-memory buffer
+      * @param optKillSwitch         the kill switch for the config
+      * @param withDelay             flag whether the audio source should be
+      *                              delayed
+      * @param optStreamFactoryLimit a limit for the stream factory
       * @return the configuration for the stage
       */
     private def createStageConfig(sources: List[String],
                                   memorySize: Int,
                                   optKillSwitch: Option[SharedKillSwitch],
-                                  withDelay: Boolean):
+                                  withDelay: Boolean,
+                                  optStreamFactoryLimit: Option[Int]):
     AudioStreamPlayerStage.AudioStreamPlayerConfig[String, PlayedChunks] =
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveSource(withDelay),
@@ -633,5 +655,6 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         sinkProviderFunc = createSink,
         lineCreatorFunc = createLineCreator(sources),
         optKillSwitch = optKillSwitch,
-        inMemoryBufferSize = memorySize
+        inMemoryBufferSize = memorySize,
+        optStreamFactoryLimit = optStreamFactoryLimit
       )
