@@ -72,6 +72,8 @@ object RadioStreamPlaybackActor:
     *                               components
     * @param lineCreatorFunc        the function to create audio line objects
     * @param dispatcherName         the dispatcher for writing to lines
+    * @param optStreamFactoryLimit  an optional limit to override the one
+    *                               returned by the stream factory
     * @param progressEventThreshold a threshold for sending playback progress
     *                               events during radio playback; another event
     *                               is sent only after this duration
@@ -83,6 +85,7 @@ object RadioStreamPlaybackActor:
                                        timeout: Timeout = DefaultTimeout,
                                        lineCreatorFunc: LineCreatorFunc = LineWriterStage.DefaultLineCreatorFunc,
                                        dispatcherName: String = LineWriterStage.BlockingDispatcherName,
+                                       optStreamFactoryLimit: Option[Int] = None,
                                        progressEventThreshold: FiniteDuration = 1.second)
 
   /**
@@ -360,7 +363,8 @@ object RadioStreamPlaybackActor:
         inMemoryBufferSize = config.inMemoryBufferSize,
         lineCreatorFunc = config.lineCreatorFunc,
         optKillSwitch = None,
-        dispatcherName = config.dispatcherName
+        dispatcherName = config.dispatcherName,
+        optStreamFactoryLimit = config.optStreamFactoryLimit
       )
       val radioSourceQueue = AudioStreamPlayerStage.runPlaylistStream(
         playerStageConfig,

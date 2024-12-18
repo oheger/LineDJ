@@ -51,7 +51,10 @@ import scala.util.{Failure, Random, Success, Try}
 
 object RadioStreamPlaybackActorSpec:
   /** The limit for calling the audio stream factory. */
-  private val StreamFactoryLimit = 128
+  private val StreamFactoryLimit = 2 * 1024 * 1024
+
+  /** The size of the in-memory buffer. */
+  private val MemoryBufferSize = 1024 * 1024
 
   /** A timeout value for the test configuration. */
   private val TestTimeout = Timeout(11.seconds)
@@ -850,6 +853,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
         eventActor = probeEventActor.ref,
         lineCreatorFunc = createLineCreator(),
         timeout = TestTimeout,
-        progressEventThreshold = 10.millis
+        progressEventThreshold = 10.millis,
+        inMemoryBufferSize = MemoryBufferSize,
+        optStreamFactoryLimit = Some(MemoryBufferSize)
       )
       actorTestKit.spawn(RadioStreamPlaybackActor.behavior(config))
