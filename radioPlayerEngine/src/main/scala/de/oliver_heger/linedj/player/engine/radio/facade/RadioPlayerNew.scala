@@ -101,7 +101,8 @@ object RadioPlayerNew:
         handleActor = streamHandleManager,
         eventActor = eventActors._1,
         inMemoryBufferSize = config.playerConfig.inMemoryBufferSize,
-        dispatcherName = config.playerConfig.blockingDispatcherName.getOrElse(LineWriterStage.BlockingDispatcherName)
+        dispatcherName = config.playerConfig.blockingDispatcherName.getOrElse(LineWriterStage.BlockingDispatcherName),
+        optStreamFactoryLimit = Some(config.playerConfig.playbackContextLimit)
       )
       val playbackActorBehavior = playbackFactory(playbackActorConfig)
       val playbackActor = creator.createActor(

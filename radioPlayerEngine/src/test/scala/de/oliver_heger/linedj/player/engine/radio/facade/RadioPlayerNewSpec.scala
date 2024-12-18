@@ -407,6 +407,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
         actorConfig.handleActor should be(probeStreamHandleManagerActor.ref)
         actorConfig.inMemoryBufferSize should be(config.playerConfig.inMemoryBufferSize)
         actorConfig.dispatcherName should be(BlockingDispatcherName)
+        actorConfig.optStreamFactoryLimit should be(Some(config.playerConfig.playbackContextLimit))
 
         playbackActorBehavior
 
