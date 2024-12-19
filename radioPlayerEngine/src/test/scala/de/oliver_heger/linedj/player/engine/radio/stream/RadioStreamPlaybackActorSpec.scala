@@ -637,6 +637,23 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     }
     filterType[RadioPlaybackStoppedEvent](events) shouldBe empty
 
+  it should "take the radio source's extension into account when constructing the source URI" in :
+    val radioSource = RadioSource("testRadioSourceWithExt.m3u", Some("mp3"))
+    val expectedRadioSourceUri = radioSource.uri + ".mp3"
+    val audioData = createSourceData(2048)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequestWithData(radioSource, audioData, Nil)
+
+    helper.fishForEvents {
+      case _: RadioSourceErrorEvent =>
+        FishingOutcome.Complete
+      case _ => FishingOutcome.ContinueAndIgnore
+    }
+
+    helper.playedRadioSourceUris should contain only expectedRadioSourceUri
+
   /**
     * A test helper class managing an actor under test and its dependencies.
     */

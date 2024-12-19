@@ -317,7 +317,11 @@ object RadioStreamPlaybackActor:
           context.self ! MetadataReceived(metadata, source)
         }
         sources._2.runWith(metadataSink)
-        AudioStreamPlayerStage.AudioStreamSource(source.radioSource.uri, sources._1)
+
+        val radioSourceUri = source.radioSource.defaultExtension.fold(source.radioSource.uri) { extension =>
+          s"${source.radioSource.uri}.$extension"
+        }
+        AudioStreamPlayerStage.AudioStreamSource(radioSourceUri, sources._1)
 
       /**
         * The function for creating the [[Sink]] for the next audio stream in
