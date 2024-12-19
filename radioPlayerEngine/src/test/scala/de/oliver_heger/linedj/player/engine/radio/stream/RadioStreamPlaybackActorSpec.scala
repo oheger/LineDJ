@@ -652,6 +652,9 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     /** Stores the URIs that are passed to the audio stream factory. */
     private val audioStreamUris = new AtomicReference[List[String]](Nil)
 
+    /** Stores the stream names used by the actor. */
+    private val streamNames = new AtomicReference[Set[String]](Set.empty)
+
     /** Stores the data that was passed to the line. */
     private val lineData = new AtomicReference[ByteString](ByteString.empty)
 
@@ -791,7 +794,10 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       */
     private def answerAnyHandleRequest(sources: Map[RadioSource, SourceHandleData]): RadioSource =
       val request = probeHandleActor.expectMessageType[RadioStreamHandleManagerActor.GetStreamHandle]
-      request.params.streamName should be(RadioStreamPlaybackActor.PlaybackStreamName)
+      val streamName = request.params.streamName
+      streamName should startWith (RadioStreamPlaybackActor.PlaybackStreamName)
+      streamNames.get() should not contain streamName
+      streamNames.set(streamNames.get() + streamName)
       val handleData = sources(request.params.streamSource)
       val response = RadioStreamHandleManagerActor.GetStreamHandleResponse(
         source = request.params.streamSource,

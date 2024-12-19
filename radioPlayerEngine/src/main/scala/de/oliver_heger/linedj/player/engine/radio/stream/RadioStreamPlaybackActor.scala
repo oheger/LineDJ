@@ -266,10 +266,11 @@ object RadioStreamPlaybackActor:
         * @return a [[Future]] with information about the radio source
         */
       def resolveRadioSource(source: PlaybackRadioSource): Future[AudioStreamPlayerStage.AudioStreamSource] =
+        val streamName = s"${PlaybackStreamName}_${source.seqNo}"
         for
           handleResult <- config.handleActor.ask[RadioStreamHandleManagerActor.GetStreamHandleResponse] { ref =>
             RadioStreamHandleManagerActor.GetStreamHandle(
-              params = RadioStreamHandleManagerActor.GetStreamHandleParameters(source.radioSource, PlaybackStreamName),
+              params = RadioStreamHandleManagerActor.GetStreamHandleParameters(source.radioSource, streamName),
               replyTo = ref
             )
           }
