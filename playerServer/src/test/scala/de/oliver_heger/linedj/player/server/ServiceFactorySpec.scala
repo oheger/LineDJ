@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.server
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.Done
@@ -56,7 +56,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       .copy(optCurrentConfig = Some(currentConfig))
 
     val radioPlayerFactory = mock[RadioPlayerFactory]
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
@@ -73,7 +73,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
   it should "skip starting playback if no radio sources are available" in {
     val config = ServerConfigTestHelper.defaultServerConfig(mock)
     val radioPlayerFactory = mock[RadioPlayerFactory]
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayerFactory.createRadioPlayer(config)(system)).thenReturn(Future.successful(radioPlayer))
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)

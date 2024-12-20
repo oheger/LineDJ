@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
-import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActorNew
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioSource, RadioSourceChangedEvent, RadioSourceReplacementStartEvent}
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.commons.configuration.HierarchicalConfiguration
@@ -154,7 +154,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     * @param block           the test block to execute
     */
   private def runHttpServerTest(config: PlayerServerConfig = baseServerConfig,
-                                radioPlayer: RadioPlayer = mock,
+                                radioPlayer: RadioPlayerNew = mock,
                                 shutdownPromise: Promise[Done] = Promise())
                                (block: PlayerServerConfig => Future[Assertion]): Future[Assertion] =
     val factory = new ServiceFactory
@@ -254,7 +254,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "define a route to start radio playback" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       reset(radioPlayer)
@@ -269,7 +269,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "define a route to stop radio playback" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       reset(radioPlayer)
@@ -284,8 +284,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "define a route to query the current playback status" in {
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = true, None)
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(None, None, playbackActive = true, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -299,7 +299,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "handle errors when querying the current playback status" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -314,8 +314,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   it should "define a route to query the current radio source if it is defined" in {
     val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
     val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
       Some(sourceSelected.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
@@ -335,8 +335,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "define a route to query the current radio source if it is undefined" in {
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None)
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(None, None, playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -349,7 +349,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "handle errors when querying the current source" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -364,8 +364,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   it should "define a route to query the current source status if all sources are defined" in {
     val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
     val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
       Some(sourceSelected.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
@@ -388,8 +388,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
     val sourceSelected = ServerConfigTestHelper.TestRadioSource("selected", ranking = 24)
     val Title = "ACDC / Highway to Hell"
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
       Some(sourceSelected.toRadioSource),
       playbackActive = true,
       Some(CurrentMetadata(s"StreamTitle='$Title';")))
@@ -411,8 +411,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "define a route to query the current source status if no sources are defined" in {
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None)
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(None, None, playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
 
@@ -430,8 +430,8 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
   it should "return an empty replacement source ID if the current source equals the selected source" in {
     val sourceCurrent = ServerConfigTestHelper.TestRadioSource("current", ranking = 25)
-    val radioPlayer = mock[RadioPlayer]
-    val playbackState = RadioControlActor.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
+    val radioPlayer = mock[RadioPlayerNew]
+    val playbackState = RadioControlActorNew.CurrentPlaybackState(Some(sourceCurrent.toRadioSource),
       Some(sourceCurrent.toRadioSource), playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
@@ -450,7 +450,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "handle errors when querying the full source status" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayer.currentPlaybackState).thenReturn(Future.failed(new IllegalStateException("test exception")))
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
@@ -468,7 +468,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     }
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       sources)
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       val sourcesRequest = HttpRequest(uri = serverUri(config, "/api/radio/sources"))
@@ -496,7 +496,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val sources = favorite2 :: otherSources.appended(favorite1)
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       sources)
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     val favoriteModel1 = RadioModel.RadioSource("", "f1", 0, 0, "Favorite")
     val favoriteModel2 = RadioModel.RadioSource("", "f2", 0, 1, "f2")
 
@@ -514,7 +514,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val source = ServerConfigTestHelper.TestRadioSource("myFavoriteSource", 99)
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       List(source))
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       for
@@ -538,7 +538,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val currentConfig = new HierarchicalConfiguration
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
       List(source)).copy(optCurrentConfig = Some(currentConfig))
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(config = serverConfig, radioPlayer = radioPlayer) { config =>
       for
@@ -556,7 +556,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
   }
 
   it should "handle an unknown source ID" in {
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
 
     runHttpServerTest(radioPlayer = radioPlayer) { config =>
       val currentSourceRequest = HttpRequest(method = HttpMethods.POST,
@@ -581,7 +581,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val radioSource2ID = "dcUrULxnshBcQ2uSguf6WMQqvSw="
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(sources = List(radioSource1, radioSource2),
       creator = ServerConfigTestHelper.actorCreator(system, Some(testKit)))
-    val radioPlayer = mock[RadioPlayer]
+    val radioPlayer = mock[RadioPlayerNew]
     when(radioPlayer.config).thenReturn(serverConfig.radioPlayerConfig)
     when(radioPlayer.addEventListener(any())).thenAnswer((invocation: InvocationOnMock) =>
       val listener = invocation.getArgument(0, classOf[ActorRef[RadioEvent]])
