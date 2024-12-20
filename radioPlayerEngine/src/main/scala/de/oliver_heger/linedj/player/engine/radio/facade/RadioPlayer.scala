@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActorNew
+import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.*
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource}
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage
@@ -35,7 +35,7 @@ import scala.collection.immutable.Seq
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
-object RadioPlayerNew:
+object RadioPlayer:
   /**
     * Creates a new radio player instance based on the given configuration.
     * This is an asynchronous operation; therefore, this function returns a
@@ -57,8 +57,8 @@ object RadioPlayerNew:
             streamHandleManagerFactory: RadioStreamHandleManagerActor.Factory =
             RadioStreamHandleManagerActor.behavior,
             playbackFactory: RadioStreamPlaybackActor.Factory = RadioStreamPlaybackActor.behavior,
-            controlActorFactory: RadioControlActorNew.Factory = RadioControlActorNew.behavior)
-           (implicit system: classics.ActorSystem, ec: ExecutionContext): Future[RadioPlayerNew] =
+            controlActorFactory: RadioControlActor.Factory = RadioControlActor.behavior)
+           (implicit system: classics.ActorSystem, ec: ExecutionContext): Future[RadioPlayer] =
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
@@ -124,15 +124,15 @@ object RadioPlayerNew:
       val controlActor = creator.createActor(
         controlBehavior,
         "radioControlActor",
-        Some(RadioControlActorNew.Stop)
+        Some(RadioControlActor.Stop)
       )
 
-      new RadioPlayerNew(config,
+      new RadioPlayer(config,
         eventActors._1,
         factoryActor,
         scheduledInvocationActor,
         controlActor)(typedSystem)
-end RadioPlayerNew
+end RadioPlayer
 
 /**
   * A facade on the player engine that allows playing radio streams.
@@ -152,15 +152,15 @@ end RadioPlayerNew
   * @param scheduledInvocationActor    the actor for scheduled invocations
   * @param controlActor                reference to the control actor
   */
-class RadioPlayerNew private(val config: RadioPlayerConfig,
-                             override protected val eventManagerActor:
+class RadioPlayer private(val config: RadioPlayerConfig,
+                          override protected val eventManagerActor:
                              ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-                             override protected val playbackContextFactoryActor:
+                          override protected val playbackContextFactoryActor:
                              ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                             override protected val scheduledInvocationActor:
+                          override protected val scheduledInvocationActor:
                              ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
-                             controlActor: ActorRef[RadioControlActorNew.RadioControlCommand])
-                            (implicit actorSystem: ActorSystem[_])
+                          controlActor: ActorRef[RadioControlActor.RadioControlCommand])
+                         (implicit actorSystem: ActorSystem[_])
   extends PlayerControl[RadioEvent]:
   /**
     * Updates the configuration for radio sources. This determines when
@@ -169,7 +169,7 @@ class RadioPlayerNew private(val config: RadioPlayerConfig,
     * @param config the configuration for radio sources
     */
   def initRadioSourceConfig(config: RadioSourceConfig): Unit =
-    controlActor ! RadioControlActorNew.InitRadioSourceConfig(config)
+    controlActor ! RadioControlActor.InitRadioSourceConfig(config)
 
   /**
     * Updates the metadata configuration. This allows disabling radio sources
@@ -178,7 +178,7 @@ class RadioPlayerNew private(val config: RadioPlayerConfig,
     * @param config the metadata configuration
     */
   def initMetadataConfig(config: MetadataConfig): Unit =
-    controlActor ! RadioControlActorNew.InitMetadataConfig(config)
+    controlActor ! RadioControlActor.InitMetadataConfig(config)
 
   /**
     * Sets the given [[RadioSource]] as the new current source. If possible,
@@ -188,7 +188,7 @@ class RadioPlayerNew private(val config: RadioPlayerConfig,
     * @param source the new current [[RadioSource]]
     */
   def switchToRadioSource(source: RadioSource): Unit =
-    controlActor ! RadioControlActorNew.SelectRadioSource(source)
+    controlActor ! RadioControlActor.SelectRadioSource(source)
 
   /**
     * Queries the current playback state and returns a [[Future]] with the
@@ -196,15 +196,15 @@ class RadioPlayerNew private(val config: RadioPlayerConfig,
     *
     * @return the ''Future'' with the current playback state
     */
-  def currentPlaybackState: Future[RadioControlActorNew.CurrentPlaybackState] =
+  def currentPlaybackState: Future[RadioControlActor.CurrentPlaybackState] =
     implicit val timeout: Timeout = Timeout(5.seconds)
-    controlActor.ask(RadioControlActorNew.GetPlaybackState.apply)
+    controlActor.ask(RadioControlActor.GetPlaybackState.apply)
 
   override protected def startPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
-    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActorNew.StartPlayback)
+    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StartPlayback)
 
   override protected def stopPlaybackInvocation: ScheduledInvocationActor.ActorInvocation =
-    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActorNew.StopPlayback)
+    ScheduledInvocationActor.typedInvocation(controlActor, RadioControlActor.StopPlayback)
 
   // TODO: Refactor base trait to not expect a facade actor any more.
   override protected val playerFacadeActor: classics.ActorRef = null

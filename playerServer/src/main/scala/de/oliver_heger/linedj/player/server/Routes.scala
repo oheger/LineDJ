@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
@@ -48,13 +48,13 @@ object Routes extends RadioModel.RadioJsonSupport:
     * Returns the top-level route for the player server.
     *
     * @param config          the [[PlayerServerConfig]]
-    * @param radioPlayer     the [[RadioPlayerNew]]
+    * @param radioPlayer     the [[RadioPlayer]]
     * @param shutdownPromise a promise to trigger when the shutdown command is
     *                        invoked
     * @param system          the current actor system
     * @return the top-level route of the server
     */
-  def route(config: PlayerServerConfig, radioPlayer: RadioPlayerNew, shutdownPromise: Promise[Done])
+  def route(config: PlayerServerConfig, radioPlayer: RadioPlayer, shutdownPromise: Promise[Done])
            (implicit system: ActorSystem): Route =
     concat(
       apiRoute(config, radioPlayer, shutdownPromise),
@@ -66,13 +66,13 @@ object Routes extends RadioModel.RadioJsonSupport:
     * server.
     *
     * @param serverConfig    the [[PlayerServerConfig]]
-    * @param radioPlayer     the [[RadioPlayerNew]]
+    * @param radioPlayer     the [[RadioPlayer]]
     * @param shutdownPromise the promise to trigger shutdown
     * @param system          the current actor system
     * @return the API route
     */
   private def apiRoute(serverConfig: PlayerServerConfig,
-                       radioPlayer: RadioPlayerNew,
+                       radioPlayer: RadioPlayer,
                        shutdownPromise: Promise[Done])
                       (implicit system: ActorSystem): Route =
     pathPrefix("api") {
@@ -85,12 +85,12 @@ object Routes extends RadioModel.RadioJsonSupport:
   /**
     * Returns the route for handling API requests related to the radio player.
     *
-    * @param radioPlayer  the [[RadioPlayerNew]]
+    * @param radioPlayer  the [[RadioPlayer]]
     * @param serverConfig the [[PlayerServerConfig]]
     * @param system       the current actor system
     * @return the route for the radio API
     */
-  private def radioRoute(radioPlayer: RadioPlayerNew,
+  private def radioRoute(radioPlayer: RadioPlayer,
                          serverConfig: PlayerServerConfig)
                         (implicit system: ActorSystem): Route = {
     implicit val ec: ExecutionContext = system.dispatcher

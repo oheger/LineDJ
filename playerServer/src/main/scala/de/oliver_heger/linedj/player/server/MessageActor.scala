@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.pekko.actor as classic
@@ -87,7 +87,7 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     * @param system    the actor system
     * @return a ''Future'' with the flow for web socket messages
     */
-  def newMessageFlow(player: RadioPlayerNew,
+  def newMessageFlow(player: RadioPlayer,
                      sourceMap: Map[RadioSource, String])
                     (implicit system: classic.ActorSystem): Future[Flow[Message, Message, Any]] =
     implicit val typedSystem: ActorSystem[_] = system.toTyped

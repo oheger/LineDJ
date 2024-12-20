@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioSourceConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.{ActionStore, FormAction}
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, ListModel, StaticTextHandler}
@@ -390,7 +390,7 @@ class RadioControllerSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     */
   private class RadioControllerTestHelper:
     /** Mock for the radio player. */
-    val player: RadioPlayerNew = mock[RadioPlayerNew]
+    val player: RadioPlayer = mock[RadioPlayer]
 
     /** Mock for the status line controller. */
     val statusLineController: RadioStatusLineController = mock[RadioStatusLineController]

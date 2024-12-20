@@ -45,17 +45,17 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.reflect.ClassTag
 
-object RadioPlayerNewSpec:
+object RadioPlayerSpec:
   /** The name of the dispatcher for blocking actors. */
   private val BlockingDispatcherName = "TheBlockingDispatcher"
 
 /**
   * Test class for ''RadioPlayer''.
   */
-class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
+class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
 
-  import RadioPlayerNewSpec.*
+  import RadioPlayerSpec.*
 
   def this() = this(ActorSystem("RadioPlayerSpec"))
 
@@ -99,7 +99,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     helper.player.initRadioSourceConfig(sourcesConfig)
 
-    helper.expectControlCommand(RadioControlActorNew.InitRadioSourceConfig(sourcesConfig))
+    helper.expectControlCommand(RadioControlActor.InitRadioSourceConfig(sourcesConfig))
 
   it should "support setting the metadata configuration" in :
     val metaConfig = mock[MetadataConfig]
@@ -107,7 +107,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     helper.player.initMetadataConfig(metaConfig)
 
-    helper.expectControlCommand(RadioControlActorNew.InitMetadataConfig(metaConfig))
+    helper.expectControlCommand(RadioControlActor.InitMetadataConfig(metaConfig))
 
   it should "support switching to another radio source" in :
     val source = RadioSource("newCurrentSource")
@@ -115,14 +115,14 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     helper.player.switchToRadioSource(source)
 
-    helper.expectControlCommand(RadioControlActorNew.SelectRadioSource(source))
+    helper.expectControlCommand(RadioControlActor.SelectRadioSource(source))
 
   it should "support starting radio playback" in :
     val helper = new RadioPlayerTestHelper
 
     helper.player.startPlayback()
 
-    helper.expectControlCommand(RadioControlActorNew.StartPlayback)
+    helper.expectControlCommand(RadioControlActor.StartPlayback)
 
   it should "support starting radio playback with a delay" in :
     val Delay = 21.seconds
@@ -133,14 +133,14 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val command = helper.expectScheduleCommand()
     command.delay should be(Delay)
     command.invocation.send()
-    helper.expectControlCommand(RadioControlActorNew.StartPlayback)
+    helper.expectControlCommand(RadioControlActor.StartPlayback)
 
   it should "support stopping radio playback" in :
     val helper = new RadioPlayerTestHelper
 
     helper.player.stopPlayback()
 
-    helper.expectControlCommand(RadioControlActorNew.StopPlayback)
+    helper.expectControlCommand(RadioControlActor.StopPlayback)
 
   it should "support stopping radio playback with a delay" in :
     val Delay = 43.seconds
@@ -151,7 +151,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val command = helper.expectScheduleCommand()
     command.delay should be(Delay)
     command.invocation.send()
-    helper.expectControlCommand(RadioControlActorNew.StopPlayback)
+    helper.expectControlCommand(RadioControlActor.StopPlayback)
 
   it should "create only a single stream builder" in :
     val helper = new RadioPlayerTestHelper
@@ -159,13 +159,13 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     helper.checkStreamManager()
 
   it should "return the current playback state" in :
-    val playbackState = RadioControlActorNew.CurrentPlaybackState(Some(RadioSource("testSource")),
+    val playbackState = RadioControlActor.CurrentPlaybackState(Some(RadioSource("testSource")),
       Some(RadioSource("selectedSource")), playbackActive = true, Some(CurrentMetadata("artist / title")))
     val helper = new RadioPlayerTestHelper
 
     val futState = helper.player.currentPlaybackState
 
-    val getCommand = helper.nextControlCommand[RadioControlActorNew.GetPlaybackState]
+    val getCommand = helper.nextControlCommand[RadioControlActor.GetPlaybackState]
     getCommand.replyTo ! playbackState
     futureResult(futState) should be(playbackState)
 
@@ -228,7 +228,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
       case "radioControlActor" =>
         behavior should be(controlBehavior)
-        optStopCmd should be(Some(RadioControlActorNew.Stop))
+        optStopCmd should be(Some(RadioControlActor.Stop))
         probeControlActor.ref
     }
 
@@ -264,10 +264,10 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
         Behaviors.ignore)
 
     /** Test probe for the control actor. */
-    private val probeControlActor = testKit.createTestProbe[RadioControlActorNew.RadioControlCommand]()
+    private val probeControlActor = testKit.createTestProbe[RadioControlActor.RadioControlCommand]()
 
     /** The behavior used for the control actor. */
-    private val controlBehavior = Behaviors.monitor[RadioControlActorNew.RadioControlCommand](probeControlActor.ref,
+    private val controlBehavior = Behaviors.monitor[RadioControlActor.RadioControlCommand](probeControlActor.ref,
       Behaviors.ignore)
 
     /**
@@ -281,7 +281,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val config: RadioPlayerConfig = createPlayerConfig()
 
     /** The player to be tested. */
-    val player: RadioPlayerNew = futureResult(RadioPlayerNew(config,
+    val player: RadioPlayer = futureResult(RadioPlayer(config,
       createStreamManagerActorFactory(),
       createStreamHandleManagerActorFactory(),
       createPlaybackActorFactory(),
@@ -294,7 +294,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       * @tparam T the message type
       * @return the message that was received
       */
-    def nextControlCommand[T <: RadioControlActorNew.RadioControlCommand](implicit t: ClassTag[T]): T =
+    def nextControlCommand[T <: RadioControlActor.RadioControlCommand](implicit t: ClassTag[T]): T =
       probeControlActor.expectMessageType[T]
 
     /**
@@ -302,7 +302,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       *
       * @param command the expected command
       */
-    def expectControlCommand(command: RadioControlActorNew.RadioControlCommand): Unit =
+    def expectControlCommand(command: RadioControlActor.RadioControlCommand): Unit =
       probeControlActor.expectMessage(command)
 
     /**
@@ -417,7 +417,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       *
       * @return the factory for the control actor
       */
-    private def createControlActorFactory(): RadioControlActorNew.Factory =
+    private def createControlActorFactory(): RadioControlActor.Factory =
       (radioConfig: RadioPlayerConfig,
        eventActor: typed.ActorRef[RadioEvent],
        eventManagerActor: typed.ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
@@ -430,7 +430,7 @@ class RadioPlayerNewSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
        optStateService: Option[RadioSourceStateService],
        _: Timeout,
        _: RadioSourceStateActor.Factory,
-       _: PlaybackStateActorNew.Factory,
+       _: PlaybackStateActor.Factory,
        _: ErrorStateActor.Factory,
        _: MetadataStateActor.Factory) => {
         radioConfig should be(config)

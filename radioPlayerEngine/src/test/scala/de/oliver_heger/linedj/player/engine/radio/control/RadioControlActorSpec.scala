@@ -39,14 +39,14 @@ import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import scala.concurrent.duration.*
 
 /**
-  * Test class for [[RadioControlActorNew]]. This class tests direct interactions
+  * Test class for [[RadioControlActor]]. This class tests direct interactions
   * between the control actor and its children. The integration with the radio
   * player engine is tested by another spec.
   */
-class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
+class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
   "RadioControlActor" should "initialize the radio sources config" in:
     val sourcesConfig = mock[RadioSourceConfig]
-    val initCommand = RadioControlActorNew.InitRadioSourceConfig(sourcesConfig)
+    val initCommand = RadioControlActor.InitRadioSourceConfig(sourcesConfig)
     val expStateCommand = RadioSourceStateActor.InitRadioSourceConfig(sourcesConfig)
     val helper = new ControlActorTestHelper
 
@@ -55,7 +55,7 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
 
   it should "initialize the metadata config" in:
     val metaConfig = mock[MetadataConfig]
-    val initCommand = RadioControlActorNew.InitMetadataConfig(metaConfig)
+    val initCommand = RadioControlActor.InitMetadataConfig(metaConfig)
     val expMetaStateCommand = MetadataStateActor.InitMetadataConfig(metaConfig)
     val helper = new ControlActorTestHelper
 
@@ -64,9 +64,9 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
 
   it should "support selecting a radio source" in:
     val newSource = radioSource(4)
-    val setSourceCommand = RadioControlActorNew.SelectRadioSource(newSource)
+    val setSourceCommand = RadioControlActor.SelectRadioSource(newSource)
     val expStateCommand = RadioSourceStateActor.RadioSourceSelected(newSource)
-    val expPlaybackStateCommand = PlaybackStateActorNew.SourceSelected(newSource)
+    val expPlaybackStateCommand = PlaybackStateActor.SourceSelected(newSource)
     val helper = new ControlActorTestHelper
 
     helper.sendCommand(setSourceCommand)
@@ -78,19 +78,19 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
     val helper = new ControlActorTestHelper
 
     helper.sendSwitchToSourceCommand(nextSource)
-      .checkPlaybackStateCommand(PlaybackStateActorNew.PlaybackSource(nextSource))
+      .checkPlaybackStateCommand(PlaybackStateActor.PlaybackSource(nextSource))
 
   it should "handle a command to start playback" in:
     val helper = new ControlActorTestHelper
 
-    helper.sendCommand(RadioControlActorNew.StartPlayback)
-      .checkPlaybackStateCommand(PlaybackStateActorNew.StartPlayback)
+    helper.sendCommand(RadioControlActor.StartPlayback)
+      .checkPlaybackStateCommand(PlaybackStateActor.StartPlayback)
 
   it should "handle a command to stop playback" in:
     val helper = new ControlActorTestHelper
 
-    helper.sendCommand(RadioControlActorNew.StopPlayback)
-      .checkPlaybackStateCommand(PlaybackStateActorNew.StopPlayback)
+    helper.sendCommand(RadioControlActor.StopPlayback)
+      .checkPlaybackStateCommand(PlaybackStateActor.StopPlayback)
 
   it should "handle a command to disable a source" in:
     val source = radioSource(7)
@@ -110,80 +110,80 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
     val probe = testKit.createTestProbe[ErrorStateActor.SourcesInErrorState]()
     val helper = new ControlActorTestHelper
 
-    helper.sendCommand(RadioControlActorNew.GetSourcesInErrorState(probe.ref))
+    helper.sendCommand(RadioControlActor.GetSourcesInErrorState(probe.ref))
       .checkErrorStateCommand(ErrorStateActor.GetSourcesInErrorState(probe.ref))
 
   it should "handle a Stop command" in:
     val helper = new ControlActorTestHelper
 
-    helper.sendCommand(RadioControlActorNew.Stop)
+    helper.sendCommand(RadioControlActor.Stop)
       .checkControlActorStopped()
 
   it should "handle a command to query the current playback state" in:
     val currentSource = radioSource(11)
     val selectedSource = radioSource(12)
-    val probeClient = testKit.createTestProbe[RadioControlActorNew.CurrentPlaybackState]()
-    val playbackState = PlaybackStateActorNew.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val playbackState = PlaybackStateActor.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
       playbackActive = true)
     val helper = new ControlActorTestHelper
 
-    helper.sendCommand(RadioControlActorNew.GetPlaybackState(probeClient.ref))
+    helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
       .expectAndHandleGetPlaybackStateCommand(playbackState)
 
-    probeClient.expectMessage(RadioControlActorNew.CurrentPlaybackState(Some(currentSource),
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource),
       Some(selectedSource), playbackActive = true, titleInfo = None))
 
   it should "handle a timeout when querying the playback state" in:
-    val probeClient = testKit.createTestProbe[RadioControlActorNew.CurrentPlaybackState]()
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
     val helper = new ControlActorTestHelper(Timeout(10.millis))
 
-    helper.sendCommand(RadioControlActorNew.GetPlaybackState(probeClient.ref))
+    helper.sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
 
-    probeClient.expectMessage(RadioControlActorNew.CurrentPlaybackState(None, None, playbackActive = false, None))
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None))
 
   it should "return the current title information in the playback state" in:
     val currentSource = radioSource(11)
     val selectedSource = radioSource(12)
-    val probeClient = testKit.createTestProbe[RadioControlActorNew.CurrentPlaybackState]()
-    val playbackState = PlaybackStateActorNew.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val playbackState = PlaybackStateActor.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
       playbackActive = true)
     val currentMetadata = CurrentMetadata("This is the current title.")
     val helper = new ControlActorTestHelper
 
     helper.sendRadioEvent(RadioMetadataEvent(currentSource, currentMetadata))
-      .sendCommand(RadioControlActorNew.GetPlaybackState(probeClient.ref))
+      .sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
       .expectAndHandleGetPlaybackStateCommand(playbackState)
 
-    probeClient.expectMessage(RadioControlActorNew.CurrentPlaybackState(Some(currentSource),
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource),
       Some(selectedSource), playbackActive = true, titleInfo = Some(currentMetadata)))
 
   it should "handle a metadata event that resets the current title information" in:
     val currentSource = radioSource(11)
     val selectedSource = radioSource(12)
-    val probeClient = testKit.createTestProbe[RadioControlActorNew.CurrentPlaybackState]()
-    val playbackState = PlaybackStateActorNew.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val playbackState = PlaybackStateActor.CurrentPlaybackState(Some(currentSource), Some(selectedSource),
       playbackActive = true)
     val helper = new ControlActorTestHelper
 
     helper.sendRadioEvent(RadioMetadataEvent(currentSource, CurrentMetadata("some data")))
       .sendRadioEvent(RadioMetadataEvent(currentSource, MetadataNotSupported))
-      .sendCommand(RadioControlActorNew.GetPlaybackState(probeClient.ref))
+      .sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
       .expectAndHandleGetPlaybackStateCommand(playbackState)
 
-    probeClient.expectMessage(RadioControlActorNew.CurrentPlaybackState(Some(currentSource),
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(Some(currentSource),
       Some(selectedSource), playbackActive = true, titleInfo = None))
 
   it should "ignore other radio events received by the event listener" in:
     val selectedSource = radioSource(13)
-    val probeClient = testKit.createTestProbe[RadioControlActorNew.CurrentPlaybackState]()
-    val playbackState = PlaybackStateActorNew.CurrentPlaybackState(None, Some(selectedSource), playbackActive = false)
+    val probeClient = testKit.createTestProbe[RadioControlActor.CurrentPlaybackState]()
+    val playbackState = PlaybackStateActor.CurrentPlaybackState(None, Some(selectedSource), playbackActive = false)
     val helper = new ControlActorTestHelper
 
     helper.sendRadioEvent(RadioSourceChangedEvent(radioSource(27)))
-      .sendCommand(RadioControlActorNew.GetPlaybackState(probeClient.ref))
+      .sendCommand(RadioControlActor.GetPlaybackState(probeClient.ref))
       .expectAndHandleGetPlaybackStateCommand(playbackState)
 
-    probeClient.expectMessage(RadioControlActorNew.CurrentPlaybackState(None, Some(selectedSource),
+    probeClient.expectMessage(RadioControlActor.CurrentPlaybackState(None, Some(selectedSource),
       playbackActive = false, titleInfo = None))
 
   /**
@@ -222,7 +222,7 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
     private val probeSourceStateActor = testKit.createTestProbe[RadioSourceStateActor.RadioSourceStateCommand]()
 
     /** Test probe for the playback state actor. */
-    private val probePlayStateActor = testKit.createTestProbe[PlaybackStateActorNew.PlaybackStateCommand]()
+    private val probePlayStateActor = testKit.createTestProbe[PlaybackStateActor.PlaybackStateCommand]()
 
     /** Test probe for the error state actor. */
     private val probeErrorStateActor = testKit.createTestProbe[ErrorStateActor.ErrorStateCommand]()
@@ -254,7 +254,7 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       * @param command the command
       * @return this test helper
       */
-    def sendCommand(command: RadioControlActorNew.RadioControlCommand): ControlActorTestHelper =
+    def sendCommand(command: RadioControlActor.RadioControlCommand): ControlActorTestHelper =
       controlActor ! command
       this
 
@@ -294,8 +294,8 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       *
       * @return the message passed to the playback state actor
       */
-    def expectPlaybackStateCommand(): PlaybackStateActorNew.PlaybackStateCommand =
-      probePlayStateActor.expectMessageType[PlaybackStateActorNew.PlaybackStateCommand]
+    def expectPlaybackStateCommand(): PlaybackStateActor.PlaybackStateCommand =
+      probePlayStateActor.expectMessageType[PlaybackStateActor.PlaybackStateCommand]
 
     /**
       * Expects a request to the playback state actor to query the current
@@ -304,10 +304,10 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       * @param state the current playback state to report
       * @return this test helper
       */
-    def expectAndHandleGetPlaybackStateCommand(state: PlaybackStateActorNew.CurrentPlaybackState):
+    def expectAndHandleGetPlaybackStateCommand(state: PlaybackStateActor.CurrentPlaybackState):
     ControlActorTestHelper =
       expectPlaybackStateCommand() match
-        case PlaybackStateActorNew.GetPlaybackState(replyTo) =>
+        case PlaybackStateActor.GetPlaybackState(replyTo) =>
           replyTo ! state
           this
         case m => fail("Unexpected playback state command: " + m)
@@ -318,7 +318,7 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       * @param command the expected command
       * @return this test helper
       */
-    def checkPlaybackStateCommand(command: PlaybackStateActorNew.PlaybackStateCommand): ControlActorTestHelper =
+    def checkPlaybackStateCommand(command: PlaybackStateActor.PlaybackStateCommand): ControlActorTestHelper =
       expectPlaybackStateCommand() should be(command)
       this
 
@@ -386,8 +386,8 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       *
       * @return the actor to be tested
       */
-    private def createControlActor(): ActorRef[RadioControlActorNew.RadioControlCommand] =
-      testKit.spawn(RadioControlActorNew.behavior(stateActorFactory = createStateActorFactory(),
+    private def createControlActor(): ActorRef[RadioControlActor.RadioControlCommand] =
+      testKit.spawn(RadioControlActor.behavior(stateActorFactory = createStateActorFactory(),
         playActorFactory = createPlayActorFactory(),
         errorActorFactory = createErrorStateActorFactory(),
         metaActorFactory = createMetadataStateActorFactory(),
@@ -430,7 +430,7 @@ class RadioControlActorNewSpec extends AnyFlatSpec with Matchers with ActorTestK
       *
       * @return the factory for the playback state actor
       */
-    private def createPlayActorFactory(): PlaybackStateActorNew.Factory =
+    private def createPlayActorFactory(): PlaybackStateActor.Factory =
       (playbackActor: ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand]) =>
         playbackActor should be(probePlaybackActor.ref)
         Behaviors.monitor(probePlayStateActor.ref, Behaviors.ignore)

@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.bus.Identifiable
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
@@ -157,7 +157,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *
     * @return a ''Future'' with the [[RadioPlayer]].
     */
-  private def createPlayer(): Future[RadioPlayerNew] =
+  private def createPlayer(): Future[RadioPlayer] =
     for
       player <- playerFactory.createRadioPlayer(this)
       _ <- promiseUI.future

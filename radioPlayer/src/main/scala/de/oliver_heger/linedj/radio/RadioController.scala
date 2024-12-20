@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.ui.TextTimeFunctions
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.model.{ListComponentHandler, StaticTextHandler}
@@ -73,9 +73,9 @@ object RadioController:
     * the initialized player instance. Depending on the result of the
     * initialization, the controller can then update itself.
     *
-    * @param triedRadioPlayer a ''Try'' with the [[RadioPlayerNew]]
+    * @param triedRadioPlayer a ''Try'' with the [[RadioPlayer]]
     */
-  case class RadioPlayerInitialized(triedRadioPlayer: Try[RadioPlayerNew])
+  case class RadioPlayerInitialized(triedRadioPlayer: Try[RadioPlayer])
 
 /**
   * A controller class responsible for the main window of the radio player
@@ -118,7 +118,7 @@ class RadioController(val userConfig: Configuration,
   private val log = LogManager.getLogger(getClass)
 
   /** The player managed by this controller. */
-  private var player: RadioPlayerNew = _
+  private var player: RadioPlayer = _
 
   /** Stores the currently available radio sources. */
   private var radioSources = Seq.empty[(String, RadioSource)]

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,15 +27,15 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 private class RadioPlayerFactory {
   /**
-    * Creates a new [[RadioPlayerNew]] object asynchronously using the given
+    * Creates a new [[RadioPlayer]] object asynchronously using the given
     * configuration.
     *
     * @param config the configuration for the player server
     * @param system the current actor system
-    * @return a ''Future'' with the new [[RadioPlayerNew]]
+    * @return a ''Future'' with the new [[RadioPlayer]]
     */
   def createRadioPlayer(config: PlayerServerConfig)
-                       (implicit system: ActorSystem): Future[RadioPlayerNew] =
+                       (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
-    RadioPlayerNew(config.radioPlayerConfig)
+    RadioPlayer(config.radioPlayerConfig)
 }

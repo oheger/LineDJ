@@ -37,7 +37,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
   * Note: Since the state to be managed is rather simple, there is no
   * associated update service.
   */
-object PlaybackStateActorNew:
+object PlaybackStateActor:
   /**
     * The base trait of the commands supported by this actor.
     */

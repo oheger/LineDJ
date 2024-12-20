@@ -21,14 +21,14 @@ import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * An internally used helper class for creating a [[RadioPlayerNew]] instance.
+  * An internally used helper class for creating a [[RadioPlayer]] instance.
   *
   * This class is used during setup of the radio player application to create
   * the actual player object.
@@ -45,8 +45,8 @@ private class RadioPlayerFactory:
     * @return a ''Future'' with the newly created ''RadioPlayer''
     */
   def createRadioPlayer(actorManagement: ActorManagementComponent)
-                       (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayerNew] =
-    RadioPlayerNew(createPlayerConfig(actorManagement))
+                       (implicit system: ActorSystem, ec: ExecutionContext): Future[RadioPlayer] =
+    RadioPlayer(createPlayerConfig(actorManagement))
 
   /**
     * Creates the configuration for the new player instance. This

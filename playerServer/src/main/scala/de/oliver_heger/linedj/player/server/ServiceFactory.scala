@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
 import de.oliver_heger.linedj.utils.ActorManagement
 import org.apache.logging.log4j.LogManager
@@ -56,7 +56,7 @@ object ServiceFactory:
   * A factory class for creating several services used by the Player Server
   * application based on the current [[PlayerServerConfig]].
   *
-  * @param radioPlayerFactory the factory for creating the [[RadioPlayerNew]]
+  * @param radioPlayerFactory the factory for creating the [[RadioPlayer]]
   */
 class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFactory):
   /**
@@ -76,14 +76,14 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     config.radioPlayerConfig.playerConfig.actorCreator.createClassicActor(props, EndpointRequestHandlerName)
 
   /**
-    * Creates the [[RadioPlayerNew]] instance based on the given configuration.
+    * Creates the [[RadioPlayer]] instance based on the given configuration.
     *
     * @param config the [[PlayerServerConfig]]
     * @param system the actor system
     * @return the radio player instance
     */
   def createRadioPlayer(config: PlayerServerConfig)
-                       (implicit system: ActorSystem): Future[RadioPlayerNew] =
+                       (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
     radioPlayerFactory.createRadioPlayer(config) map { player =>
       player.addPlaybackContextFactory(new Mp3PlaybackContextFactory)
@@ -110,7 +110,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     * @return a [[Future]] with the [[ServerBinding]] object
     */
   def createHttpServer(config: PlayerServerConfig,
-                       radioPlayer: RadioPlayerNew,
+                       radioPlayer: RadioPlayer,
                        shutdownPromise: Promise[Done])
                       (implicit system: ActorSystem): Future[ServerStartupData] =
     Http().newServerAt("0.0.0.0", config.serverPort)

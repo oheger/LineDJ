@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
-import de.oliver_heger.linedj.player.engine.radio.facade.{RadioPlayer, RadioPlayerNew}
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.server.model.RadioModel
 import org.apache.pekko.actor as classic
@@ -219,11 +219,11 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
       *
       * @return the mock radio player
       */
-    private def createRadioPlayerMock(): RadioPlayerNew =
+    private def createRadioPlayerMock(): RadioPlayer =
       val creator = ServerConfigTestHelper.actorCreator(testKit.system.classicSystem, Some(testKit))
       val config = ServerConfigTestHelper.defaultServerConfig(creator)
 
-      val player = mock[RadioPlayerNew]
+      val player = mock[RadioPlayer]
       when(player.config).thenReturn(config.radioPlayerConfig)
       when(player.addEventListener(any())).thenAnswer((invocation: InvocationOnMock) =>
         val listener = invocation.getArgument(0, classOf[ActorRef[RadioEvent]])

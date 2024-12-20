@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayerNew
+import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.getActorManagement
 import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
 import org.apache.commons.configuration.StrictConfigurationComparator
@@ -70,7 +70,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
         key should be(Server.PropConfigFileName)
         configFile
 
-    val mockPlayer = mock[RadioPlayerNew]
+    val mockPlayer = mock[RadioPlayer]
     val binding = mock[ServerBinding]
     when(binding.localAddress).thenReturn(InetSocketAddress.createUnresolved("127.0.0.1", 8080))
     val bindingFuture = Future.successful(ServiceFactory.ServerStartupData(binding, expectedConfig))
