@@ -63,7 +63,8 @@ object AudioPlayer:
       "eventManagerActor") map { eventActors =>
       val facadeActor = config.actorCreator.createClassicActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
-      new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor)
+      // TODO: Set a valid DynamicAudioStreamFactory when it is used.
+      new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor, null)
     }
 
   /**
@@ -96,6 +97,7 @@ object AudioPlayer:
   * @param playbackContextFactoryActor the actor managing playback context
   *                                    factories
   * @param scheduledInvocationActor    the actor for scheduled invocations
+  * @param dynamicAudioStreamFactory   the factory for creating audio streams
   */
 class AudioPlayer private(protected override val playerFacadeActor: classics.ActorRef,
                           protected override val eventManagerActor:
@@ -103,7 +105,8 @@ class AudioPlayer private(protected override val playerFacadeActor: classics.Act
                           protected override val playbackContextFactoryActor:
                           ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                           protected override val scheduledInvocationActor:
-                          ActorRef[ScheduledInvocationActor.ActorInvocationCommand])
+                          ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
+                          protected override val dynamicAudioStreamFactory: DynamicAudioStreamFactory)
   extends PlayerControl[PlayerEvent]:
 
   import AudioPlayer._

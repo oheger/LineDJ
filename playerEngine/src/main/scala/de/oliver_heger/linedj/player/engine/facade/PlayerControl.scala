@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.player.engine.facade
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioStreamFactory, PlaybackContextFactory, PlayerConfig}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
@@ -154,6 +154,12 @@ trait PlayerControl[E]:
   protected val playerFacadeActor: classics.ActorRef
 
   /**
+    * The factory for creating audio streams. This supports the dynamic
+    * addition and removal of stream factories.
+    */
+  protected val dynamicAudioStreamFactory: DynamicAudioStreamFactory
+
+  /**
     * Adds the specified ''PlaybackContextFactory'' to this audio player.
     * Before audio files can be played, corresponding factories supporting
     * this audio format have to be added.
@@ -171,6 +177,25 @@ trait PlayerControl[E]:
     */
   def removePlaybackContextFactory(factory: PlaybackContextFactory): Unit =
     playbackContextFactoryActor ! PlaybackContextFactoryActor.RemovePlaybackContextFactory(factory)
+
+  /**
+    * Adds the specified [[AudioStreamFactory]] to this audio player. Before
+    * audio files can be played, corresponding factories supporting this audio
+    * format have to be added.
+    *
+    * @param factory the [[AudioStreamFactory]] to be added
+    */
+  def addAudioStreamFactory(factory: AudioStreamFactory): Unit =
+    dynamicAudioStreamFactory.addAudioStreamFactory(factory)
+
+  /**
+    * Removes the specified [[AudioStreamFactory]] from this audio player.
+    * Audio files handled by this factory can no longer be played.
+    *
+    * @param factory the [[AudioStreamFactory]] to be removed
+    */
+  def removeAudioStreamFactory(factory: AudioStreamFactory): Unit =
+    dynamicAudioStreamFactory.removeAudioStreamFactory(factory)
 
   /**
     * Starts audio playback. Provided that sufficient audio data has been
@@ -227,7 +252,9 @@ trait PlayerControl[E]:
     */
   def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
     val futureAck = playerFacadeActor ? CloseRequest
-    futureAck.mapTo[CloseAck] map { List(_) }
+    futureAck.mapTo[CloseAck] map {
+      List(_)
+    }
 
   /**
     * Returns a [[ScheduledInvocationActor.ActorInvocation]] for starting

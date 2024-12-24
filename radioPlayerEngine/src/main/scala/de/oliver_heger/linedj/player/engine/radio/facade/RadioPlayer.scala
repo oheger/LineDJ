@@ -131,6 +131,7 @@ object RadioPlayer:
         eventActors._1,
         factoryActor,
         scheduledInvocationActor,
+        null, // TODO: Create a proper DynamicAudioStreamFactory.
         controlActor)(typedSystem)
 end RadioPlayer
 
@@ -150,6 +151,7 @@ end RadioPlayer
   * @param playbackContextFactoryActor the actor to create playback context
   *                                    objects
   * @param scheduledInvocationActor    the actor for scheduled invocations
+  * @param dynamicAudioStreamFactory   the factory for audio streams
   * @param controlActor                reference to the control actor
   */
 class RadioPlayer private(val config: RadioPlayerConfig,
@@ -159,6 +161,7 @@ class RadioPlayer private(val config: RadioPlayerConfig,
                              ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                           override protected val scheduledInvocationActor:
                              ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
+                          override protected val dynamicAudioStreamFactory: DynamicAudioStreamFactory,
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
                          (implicit actorSystem: ActorSystem[_])
   extends PlayerControl[RadioEvent]:
