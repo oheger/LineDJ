@@ -251,6 +251,7 @@ trait PlayerControl[E]:
     * @return a ''Future'' for the ''CloseAck'' messages from child actors
     */
   def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
+    dynamicAudioStreamFactory.shutdown()
     val futureAck = playerFacadeActor ? CloseRequest
     futureAck.mapTo[CloseAck] map {
       List(_)

@@ -63,8 +63,7 @@ object AudioPlayer:
       "eventManagerActor") map { eventActors =>
       val facadeActor = config.actorCreator.createClassicActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
-      // TODO: Set a valid DynamicAudioStreamFactory when it is used.
-      new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor, null)
+      new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor, DynamicAudioStreamFactory())
     }
 
   /**

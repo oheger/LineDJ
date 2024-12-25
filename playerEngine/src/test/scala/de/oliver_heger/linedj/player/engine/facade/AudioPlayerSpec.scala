@@ -62,86 +62,109 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     testKit.shutdownTestKit()
     tearDownTestFile()
 
-  "An AudioPlayer" should "support adding playlist info objects to the playlist" in:
-    val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
+  /**
+    * Creates an [[AudioPlayerTestHelper]] test helper object and runs the
+    * given test function with it. Afterward, the player is closed, so that all
+    * resources are freed.
+    *
+    * @param test the test function
+    */
+  private def runTest(test: AudioPlayerTestHelper => Unit): Unit =
+    given Timeout = Timeout(100.milliseconds)
+
     val helper = new AudioPlayerTestHelper
+    try
+      test(helper)
+    finally
+      helper.player.close()
 
-    helper.player addToPlaylist info
-    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
+  "An AudioPlayer" should "support adding playlist info objects to the playlist" in :
+    val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
+    runTest { helper =>
+      helper.player addToPlaylist info
+      helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
+    }
 
-  it should "support an overloaded method of adding songs to the playlist" in:
+  it should "support an overloaded method of adding songs to the playlist" in :
     val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"),
       20160413222120L, 20160413222133L)
-    val helper = new AudioPlayerTestHelper
+    runTest { helper =>
+      helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri, info.skip, info.skipTime)
+      helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
+    }
 
-    helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri, info.skip, info.skipTime)
-    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
-
-  it should "set default values for skip properties in addToPlaylist()" in:
+  it should "set default values for skip properties in addToPlaylist()" in :
     val info = AudioSourcePlaylistInfo(MediaFileID(MediumID("someMedium", None), "someURI"), 0, 0)
-    val helper = new AudioPlayerTestHelper
+    runTest { helper =>
+      helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)
+      helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
+    }
 
-    helper.player.addToPlaylist(info.sourceID.mediumID, info.sourceID.uri)
-    helper.expectFacadeMessage(info, TargetSourceReader("AudioPlayer.DownloadActor"))
+  it should "support closing the playlist" in :
+    runTest { helper =>
+      helper.player.closePlaylist()
+      helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetSourceReader("AudioPlayer.DownloadActor"))
+    }
 
-  it should "support closing the playlist" in:
-    val helper = new AudioPlayerTestHelper
+  it should "support starting playback" in :
+    runTest { helper =>
+      helper.player.startPlayback()
+      helper.expectFacadeMessage(PlaybackActor.StartPlayback, TargetPlaybackActor)
+    }
 
-    helper.player.closePlaylist()
-    helper.expectFacadeMessage(SourceDownloadActor.PlaylistEnd, TargetSourceReader("AudioPlayer.DownloadActor"))
+  it should "support stopping playback" in :
+    runTest { helper =>
+      helper.player.stopPlayback()
+      helper.expectFacadeMessage(PlaybackActor.StopPlayback, TargetPlaybackActor)
+    }
 
-  it should "support starting playback" in:
-    val helper = new AudioPlayerTestHelper
+  it should "allow skipping the current source" in :
+    runTest { helper =>
+      helper.player.skipCurrentSource()
+      helper.expectFacadeMessage(PlaybackActor.SkipSource, TargetPlaybackActor)
+    }
 
-    helper.player.startPlayback()
-    helper.expectFacadeMessage(PlaybackActor.StartPlayback, TargetPlaybackActor)
+  it should "allow resetting the engine" in :
+    runTest { helper =>
+      helper.player.reset()
 
-  it should "support stopping playback" in:
-    val helper = new AudioPlayerTestHelper
+      helper.expectMessageToFacadeActor(PlayerFacadeActor.ResetEngine)
+    }
 
-    helper.player.stopPlayback()
-    helper.expectFacadeMessage(PlaybackActor.StopPlayback, TargetPlaybackActor)
-
-  it should "allow skipping the current source" in:
-    val helper = new AudioPlayerTestHelper
-
-    helper.player.skipCurrentSource()
-    helper.expectFacadeMessage(PlaybackActor.SkipSource, TargetPlaybackActor)
-
-  it should "allow resetting the engine" in:
-    val helper = new AudioPlayerTestHelper
-
-    helper.player.reset()
-
-    helper.expectMessageToFacadeActor(PlayerFacadeActor.ResetEngine)
-
-  it should "correctly implement the close() method" in:
+  it should "correctly implement the close() method" in :
     val helper = new AudioPlayerTestHelper
     implicit val timeout: Timeout = Timeout(100.milliseconds)
     intercept[AskTimeoutException]:
       Await.result(helper.player.close(), 1.second)
     helper.expectActorsClosed()
 
-  it should "pass the event actor to the super class" in:
+  it should "pass the event actor to the super class" in :
     val probeListener = testKit.createTestProbe[PlayerEvent]()
-    val helper = new AudioPlayerTestHelper
+    runTest { helper =>
+      helper.player.addEventListener(probeListener.ref)
 
-    helper.player.addEventListener(probeListener.ref)
+      helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
+        case EventManagerActor.RegisterListener(listener) if listener == probeListener.ref =>
+          FishingOutcomes.complete
+        case _ => FishingOutcomes.continueAndIgnore
+    }
 
-    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
-      case EventManagerActor.RegisterListener(listener) if listener == probeListener.ref =>
-        FishingOutcomes.complete
-      case _ => FishingOutcomes.continueAndIgnore
-
-  it should "pass the schedule actor to the super class" in:
+  it should "pass the schedule actor to the super class" in :
     val Delay = 10.minutes
-    val helper = new AudioPlayerTestHelper
+    runTest { helper =>
+      helper.player.startPlayback(Delay)
 
-    helper.player.startPlayback(Delay)
+      val command = helper.expectScheduleCommand()
 
-    val command = helper.expectScheduleCommand()
+      command.delay should be(Delay)
+    }
 
-    command.delay should be(Delay)
+  it should "create a correct audio stream factory" in :
+    runTest { helper =>
+      // As long as the factory is not actually used, it can only be tested that no exception occurs when adding a
+      // child factory.
+      helper.player.addAudioStreamFactory(mock)
+    }
 
   /**
     * A test helper class collecting all required dependencies.
