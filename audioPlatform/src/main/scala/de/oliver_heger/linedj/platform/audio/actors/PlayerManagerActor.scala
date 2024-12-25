@@ -16,9 +16,9 @@
 
 package de.oliver_heger.linedj.platform.audio.actors
 
-import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor._
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.*
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, PlaybackContextFactory}
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -56,6 +56,22 @@ object PlayerManagerActor:
     */
   case class RemovePlaybackContextFactories(factories: List[PlaybackContextFactory])
     extends PlayerManagementCommand
+
+  /**
+    * A message class that adds the given [[AudioStreamFactory]] instances to
+    * the managed audio player.
+    *
+    * @param factories the [[AudioStreamFactory]] object to add
+    */
+  case class AddAudioStreamFactories(factories: List[AudioStreamFactory]) extends PlayerManagementCommand
+
+  /**
+    * A message class that removes the given [[AudioStreamFactory]] instances
+    * from the managed audio player.
+    *
+    * @param factories the [[AudioStreamFactory]] objects to remove
+    */
+  case class RemoveAudioStreamFactories(factories: List[AudioStreamFactory]) extends PlayerManagementCommand
 
   /**
     * A message class that publishes a specific message on the message bus
@@ -101,7 +117,7 @@ object PlayerManagerActor:
     * @param result the result of the close operation
     */
   case class CloseAck(result: Try[Unit])
-
+end PlayerManagerActor
 
 /**
   * A base trait for an actor implementation that manages the asynchronous
@@ -131,7 +147,7 @@ trait PlayerManagerActor[STATE, EVENT]:
     */
   private case class PlayerCreated(state: STATE) extends PlayerManagementCommand
 
-/**
+  /**
     * Returns the behavior of an actor instance to manage the lifecycle of a
     * player of the supported type.
     *
@@ -150,7 +166,7 @@ trait PlayerManagerActor[STATE, EVENT]:
         context.self ! message
       }
 
-      playerCreationPending(messageBus, List.empty, List.empty, None)
+      playerCreationPending(messageBus, List.empty, List.empty, List.empty, None)
     }
 
   /**
@@ -198,35 +214,45 @@ trait PlayerManagerActor[STATE, EVENT]:
     * bus are tracked. It is also possible that the player is already closed
     * before the creation is done.
     *
-    * @param messageBus the central message bus
-    * @param factories  the current list of factories
-    * @param messages   the message to publish on the bus
-    * @param optClose   indicates whether the player has been closed
+    * @param messageBus       the central message bus
+    * @param contextFactories the current list of playback context factories
+    * @param streamFactories  the current list of audio stream factories
+    * @param messages         the message to publish on the bus
+    * @param optClose         indicates whether the player has been closed
     * @return the behavior waiting for the player creation
     */
   private def playerCreationPending(messageBus: MessageBus,
-                                    factories: List[PlaybackContextFactory],
+                                    contextFactories: List[PlaybackContextFactory],
+                                    streamFactories: List[AudioStreamFactory],
                                     messages: List[Any],
                                     optClose: Option[Close]): Behavior[PlayerManagementCommand] =
     Behaviors.receivePartial:
       case (_, AddPlaybackContextFactories(newFactories)) =>
-        playerCreationPending(messageBus, newFactories ::: factories, messages, optClose)
+        playerCreationPending(messageBus, newFactories ::: contextFactories, streamFactories, messages, optClose)
 
       case (_, RemovePlaybackContextFactories(removeFactories)) =>
-        playerCreationPending(messageBus, factories filterNot (factory => removeFactories.contains(factory)),
-          messages, optClose)
+        playerCreationPending(messageBus, contextFactories filterNot (factory => removeFactories.contains(factory)),
+          streamFactories, messages, optClose)
+
+      case (_, AddAudioStreamFactories(newFactories)) =>
+        playerCreationPending(messageBus, contextFactories, newFactories ::: streamFactories, messages, optClose)
+
+      case (_, RemoveAudioStreamFactories(removeFactories)) =>
+        val newStreamFactories = streamFactories filterNot removeFactories.contains
+        playerCreationPending(messageBus, contextFactories, newStreamFactories, messages, optClose)
 
       case (_, PublishAfterCreation(message)) =>
-        playerCreationPending(messageBus, factories, message :: messages, optClose)
+        playerCreationPending(messageBus, contextFactories, streamFactories, message :: messages, optClose)
 
       case (context, c: PlayerCreated) =>
         optClose match
           case None =>
             val initState = onInit(c.state)
             val player = getPlayer(initState)
-            factories foreach { factory =>
+            contextFactories foreach { factory =>
               player.addPlaybackContextFactory(factory)
             }
+            streamFactories foreach player.addAudioStreamFactory
             val listener = addEventListener(context, messageBus, player)
             messages.reverse.foreach(messageBus.publish)
             context.log.info("Player was created successfully.")
@@ -247,7 +273,7 @@ trait PlayerManagerActor[STATE, EVENT]:
             Behaviors.stopped
 
       case (_, close: Close) =>
-        playerCreationPending(messageBus, factories, messages, Some(close))
+        playerCreationPending(messageBus, contextFactories, streamFactories, messages, Some(close))
 
   /**
     * A message handler function for the state in which the managed player is
@@ -269,6 +295,14 @@ trait PlayerManagerActor[STATE, EVENT]:
 
       case (_, RemovePlaybackContextFactories(factories)) =>
         factories foreach getPlayer(state).removePlaybackContextFactory
+        Behaviors.same
+
+      case (_, AddAudioStreamFactories(factories)) =>
+        factories foreach getPlayer(state).addAudioStreamFactory
+        Behaviors.same
+
+      case (_, RemoveAudioStreamFactories(factories)) =>
+        factories foreach getPlayer(state).removeAudioStreamFactory
         Behaviors.same
 
       case (_, PublishAfterCreation(message)) =>

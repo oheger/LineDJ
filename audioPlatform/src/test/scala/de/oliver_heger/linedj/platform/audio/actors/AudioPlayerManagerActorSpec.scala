@@ -19,11 +19,11 @@ package de.oliver_heger.linedj.platform.audio.actors
 import de.oliver_heger.linedj.ActorTestKitSupport
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddPlaybackContextFactories, PlayerManagementCommand, RemovePlaybackContextFactories}
+import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.{AddAudioStreamFactories, AddPlaybackContextFactories, PlayerManagementCommand, RemoveAudioStreamFactories, RemovePlaybackContextFactories}
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, AudioPlayerStateChangedEvent}
 import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService, UnregisterService}
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, PlaybackContextFactory, PlayerEvent}
+import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourceStartedEvent, AudioStreamFactory, PlaybackContextFactory, PlayerEvent}
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.util.Timeout
@@ -58,27 +58,47 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
   import AudioPlayerManagerActorSpec.*
 
   /**
-    * Creates a number of mock factories.
+    * Creates a number of mock [[PlaybackContextFactory]] objects.
     *
     * @param count the number of factories to create
     * @return a list with the mock factories
     */
-  private def createFactories(count: Int): List[PlaybackContextFactory] =
+  private def createPlaybackContextFactories(count: Int): List[PlaybackContextFactory] =
     (1 to count).map(_ => mock[PlaybackContextFactory]).toList
 
-  "AudioPlayerManagerActor" should "manage factories received before the player creation" in:
-    val factories = createFactories(4)
+  /**
+    * Creates a number of mock [[AudioStreamFactory]] objects.
+    *
+    * @param count the number of factories to create
+    * @return a list with the mock factories
+    */
+  private def createAudioStreamFactories(count: Int): List[AudioStreamFactory] =
+    (1 to count).map(_ => mock[AudioStreamFactory]).toList
+
+  "AudioPlayerManagerActor" should "manage playback context factories received before the player creation" in :
+    val factories = createPlaybackContextFactories(4)
     val helper = new ManagerActorTestHelper
 
     helper.sendCommand(AddPlaybackContextFactories(factories))
       .controllerCreated()
 
     factories foreach { factory =>
-      helper.verifyFactoryAdded(factory)
+      helper.verifyPlaybackContextFactoryAdded(factory)
     }
 
-  it should "support removing factories before the player creation" in:
-    val factories = createFactories(8)
+  it should "manage audio stream factories received before the player creation" in :
+    val factories = createAudioStreamFactories(4)
+    val helper = new ManagerActorTestHelper
+
+    helper.sendCommand(AddAudioStreamFactories(factories))
+      .controllerCreated()
+
+    factories foreach { factory =>
+      helper.verifyAudioStreamFactoryAdded(factory)
+    }
+
+  it should "support removing playback context factories before the player creation" in :
+    val factories = createPlaybackContextFactories(8)
     val removedFactories = List(factories(2), factories(5))
     val helper = new ManagerActorTestHelper
 
@@ -86,20 +106,35 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
       .sendCommand(RemovePlaybackContextFactories(removedFactories))
       .controllerCreated()
 
-    helper.verifyFactoryAdded(factories.head)
-      .verifyFactoryRemoved(removedFactories.head, never())
+    helper.verifyPlaybackContextFactoryAdded(factories.head)
+      .verifyPlaybackContextFactoryRemoved(removedFactories.head, never())
     removedFactories foreach { factory =>
-      helper.verifyFactoryAdded(factory, never())
+      helper.verifyPlaybackContextFactoryAdded(factory, never())
     }
 
-  it should "register the player controller when it is created" in:
+  it should "support removing audio stream factories before the player creation" in :
+    val factories = createAudioStreamFactories(8)
+    val removedFactories = List(factories(2), factories(5))
+    val helper = new ManagerActorTestHelper
+
+    helper.sendCommand(AddAudioStreamFactories(factories))
+      .sendCommand(RemoveAudioStreamFactories(removedFactories))
+      .controllerCreated()
+
+    helper.verifyAudioStreamFactoryAdded(factories.head)
+      .verifyAudioStreamFactoryRemoved(removedFactories.head, never())
+    removedFactories foreach { factory =>
+      helper.verifyAudioStreamFactoryAdded(factory, never())
+    }
+
+  it should "register the player controller when it is created" in :
     val helper = new ManagerActorTestHelper
 
     helper.controllerCreated()
       .checkControllerRegistration()
 
-  it should "support adding factories after the player creation" in:
-    val factories = createFactories(2)
+  it should "support adding playback context factories after the player creation" in :
+    val factories = createPlaybackContextFactories(2)
     val helper = new ManagerActorTestHelper
 
     helper.controllerCreated()
@@ -107,11 +142,23 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
       .sendCommand(AddPlaybackContextFactories(factories))
 
     factories foreach { factory =>
-      helper.verifyFactoryAdded(factory)
+      helper.verifyPlaybackContextFactoryAdded(factory)
     }
 
-  it should "support removing factories after the player creation" in:
-    val factories = createFactories(2)
+  it should "support adding audio stream factories after the player creation" in :
+    val factories = createAudioStreamFactories(2)
+    val helper = new ManagerActorTestHelper
+
+    helper.controllerCreated()
+      .checkControllerRegistration()
+      .sendCommand(AddAudioStreamFactories(factories))
+
+    factories foreach { factory =>
+      helper.verifyAudioStreamFactoryAdded(factory)
+    }
+
+  it should "support removing playback context factories after the player creation" in :
+    val factories = createPlaybackContextFactories(2)
     val helper = new ManagerActorTestHelper
 
     helper.controllerCreated()
@@ -119,10 +166,22 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
       .sendCommand(RemovePlaybackContextFactories(factories))
 
     factories foreach { factory =>
-      helper.verifyFactoryRemoved(factory)
+      helper.verifyPlaybackContextFactoryRemoved(factory)
     }
 
-  it should "register an event actor at the audio player" in:
+  it should "support audio stream factories after the player creation" in :
+    val factories = createAudioStreamFactories(2)
+    val helper = new ManagerActorTestHelper
+
+    helper.controllerCreated()
+      .checkControllerRegistration()
+      .sendCommand(RemoveAudioStreamFactories(factories))
+
+    factories foreach { factory =>
+      helper.verifyAudioStreamFactoryRemoved(factory)
+    }
+
+  it should "register an event actor at the audio player" in :
     val helper = new ManagerActorTestHelper
 
     val eventListener = helper.controllerCreated()
@@ -133,7 +192,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     eventListener ! event
     helper.messageBus.expectMessageType[PlayerEvent] should be(event)
 
-  it should "remove registrations when closing the player" in:
+  it should "remove registrations when closing the player" in :
     val closeResult = Promise[Seq[CloseAck]]()
     val helper = new ManagerActorTestHelper
 
@@ -146,7 +205,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
       .verifyEventListenerRemoved()
     probeClient.expectNoMessage(100.millis)
 
-  it should "send an Ack message when the player has been closed successfully" in:
+  it should "send an Ack message when the player has been closed successfully" in :
     val closeResult = Future.successful(Seq.empty[CloseAck])
     val helper = new ManagerActorTestHelper
 
@@ -158,12 +217,12 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     probeClient.expectMessage(PlayerManagerActor.CloseAck(Success(())))
     helper.checkActorStopped()
 
-  it should "send an Ack message when the player has been closed with a failure" in:
+  it should "send an Ack message when the player has been closed with a failure" in :
     val exception = new IllegalStateException("Test exception: Could not close audio player.")
     val closeResult = Future.failed[Seq[CloseAck]](exception)
     val helper = new ManagerActorTestHelper
 
-    val probeClient =helper.controllerCreated()
+    val probeClient = helper.controllerCreated()
       .checkControllerRegistration()
       .prepareClosing(closeResult)
       .closePlayer()
@@ -172,7 +231,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     ack.result should be(Failure(exception))
     helper.checkActorStopped()
 
-  it should "handle a close command before the player has been created" in:
+  it should "handle a close command before the player has been created" in :
     val helper = new ManagerActorTestHelper
 
     val probeClient = helper.prepareClosing(Future.successful(Seq.empty))
@@ -183,7 +242,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
 
-  it should "handle a failed creation of the controller" in:
+  it should "handle a failed creation of the controller" in :
     val exception = new IllegalStateException("Test exception: Could not create audio controller.")
     val helper = new ManagerActorTestHelper
 
@@ -195,7 +254,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
 
-  it should "handle a close command before the creation of the player failed" in:
+  it should "handle a close command before the creation of the player failed" in :
     val exception = new IllegalStateException("Test exception: Could not create audio controller.")
     val helper = new ManagerActorTestHelper
 
@@ -207,7 +266,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
     helper.messageBus.expectNoMessage(200.millis)
     helper.checkActorStopped()
 
-  it should "publish a message after the audio controller has been registered" in:
+  it should "publish a message after the audio controller has been registered" in :
     val message = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
     val helper = new ManagerActorTestHelper
 
@@ -217,7 +276,7 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
 
     helper.messageBus.findMessageType[AudioPlayerStateChangedEvent] should be(message)
 
-  it should "collect messages to be published until the audio controller has been created" in:
+  it should "collect messages to be published until the audio controller has been created" in :
     val message1 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial)
     val message2 = AudioPlayerStateChangedEvent(AudioPlayerState.Initial.copy(playlistSeqNo = 42))
     val helper = new ManagerActorTestHelper
@@ -280,27 +339,55 @@ class AudioPlayerManagerActorSpec extends AnyFlatSpec with Matchers with Mockito
       this
 
     /**
-      * Verifies that the given factory was added to the managed player.
+      * Verifies that the given [[PlaybackContextFactory]] was added to the
+      * managed player.
       *
       * @param factory the factory to check
       * @param mode    the verification mode
       * @return this test helper
       */
-    def verifyFactoryAdded(factory: PlaybackContextFactory,
-                           mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
+    def verifyPlaybackContextFactoryAdded(factory: PlaybackContextFactory,
+                                          mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
       verify(player, mode).addPlaybackContextFactory(factory)
       this
 
     /**
-      * Verifies that the given factory was removed from the managed player.
+      * Verifies that the given [[PlaybackContextFactory]] was removed from the
+      * managed player.
       *
       * @param factory the factory to check
       * @param mode    the verification mode
       * @return this test helper
       */
-    def verifyFactoryRemoved(factory: PlaybackContextFactory,
-                             mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
+    def verifyPlaybackContextFactoryRemoved(factory: PlaybackContextFactory,
+                                            mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
       verify(player, mode).removePlaybackContextFactory(factory)
+      this
+
+    /**
+      * Verifies that the given [[AudioStreamFactory]] was added to the managed
+      * player.
+      *
+      * @param factory the factory to check
+      * @param mode    the verification mode
+      * @return this test helper
+      */
+    def verifyAudioStreamFactoryAdded(factory: AudioStreamFactory,
+                                      mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
+      verify(player, mode).addAudioStreamFactory(factory)
+      this
+
+    /**
+      * Verifies that the given [[AudioStreamFactory]] was removed from the
+      * managed player.
+      *
+      * @param factory the factory to check
+      * @param mode    the verification mode
+      * @return this test helper
+      */
+    def verifyAudioStreamFactoryRemoved(factory: AudioStreamFactory,
+                                        mode: VerificationMode = DefaultVerificationMode): ManagerActorTestHelper =
+      verify(player, mode).removeAudioStreamFactory(factory)
       this
 
     /**
