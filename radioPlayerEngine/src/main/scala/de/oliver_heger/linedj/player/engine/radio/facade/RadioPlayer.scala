@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.player.engine.radio.facade
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.facade.PlayerControl
-import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.stream.*
@@ -73,6 +72,7 @@ object RadioPlayer:
       }
     yield
       val streamBuilder = RadioStreamBuilder()
+      val audioStreamFactory = DynamicAudioStreamFactory()
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator, "radioSchedulerInvocationActor")
       val streamManagerBehavior = streamManagerFactory(
         config.playerConfig,
@@ -97,7 +97,7 @@ object RadioPlayer:
         Some(RadioStreamHandleManagerActor.Stop)
       )
       val playbackActorConfig = RadioStreamPlaybackActor.RadioStreamPlaybackConfig(
-        audioStreamFactory = Mp3AudioStreamFactory,
+        audioStreamFactory = audioStreamFactory,
         handleActor = streamHandleManager,
         eventActor = eventActors._1,
         inMemoryBufferSize = config.playerConfig.inMemoryBufferSize,
@@ -131,7 +131,7 @@ object RadioPlayer:
         eventActors._1,
         factoryActor,
         scheduledInvocationActor,
-        null, // TODO: Create a proper DynamicAudioStreamFactory.
+        audioStreamFactory,
         controlActor)(typedSystem)
 end RadioPlayer
 
@@ -156,11 +156,11 @@ end RadioPlayer
   */
 class RadioPlayer private(val config: RadioPlayerConfig,
                           override protected val eventManagerActor:
-                             ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
+                          ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                           override protected val playbackContextFactoryActor:
-                             ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                          ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
                           override protected val scheduledInvocationActor:
-                             ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
+                          ActorRef[ScheduledInvocationActor.ActorInvocationCommand],
                           override protected val dynamicAudioStreamFactory: DynamicAudioStreamFactory,
                           controlActor: ActorRef[RadioControlActor.RadioControlCommand])
                          (implicit actorSystem: ActorSystem[_])
@@ -213,4 +213,5 @@ class RadioPlayer private(val config: RadioPlayerConfig,
   override protected val playerFacadeActor: classics.ActorRef = null
 
   override def close()(implicit ec: ExecutionContext, timeout: Timeout): Future[Seq[CloseAck]] =
+    dynamicAudioStreamFactory.shutdown()
     Future.successful(Seq.empty)

@@ -41,8 +41,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.ConcurrentHashMap
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.reflect.ClassTag
 
 object RadioPlayerSpec:
@@ -69,105 +69,125 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     TestKit shutdownActorSystem system
     testKit.shutdownTestKit()
 
-  "A RadioPlayer" should "provide access to its current config" in :
-    val helper = new RadioPlayerTestHelper
-
-    helper.player.config should be(helper.config)
-
-  it should "correctly implement the close() method" in :
-    val helper = new RadioPlayerTestHelper
-    implicit val ec: ExecutionContextExecutor = system.dispatcher
+  /**
+    * Creates a [[RadioPlayerTestHelper]] instance and executes the given block
+    * with it to execute a test. This function makes sure that proper cleanup
+    * is done after the test.
+    *
+    * @param test the test function to execute
+    */
+  private def runTest(test: RadioPlayerTestHelper => Unit): Unit =
     implicit val timeout: Timeout = Timeout(500.milliseconds)
+    val helper = new RadioPlayerTestHelper
+    try
+      test(helper)
+    finally
+      helper.player.close()
 
-    // Can only check that no exception occurs.
-    futureResult(helper.player.close())
+  "A RadioPlayer" should "provide access to its current config" in :
+    runTest { helper =>
+      helper.player.config should be(helper.config)
+    }
 
   it should "pass the event actor to the super class" in :
     val probeListener = testKit.createTestProbe[RadioEvent]()
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player removeEventListener probeListener.ref
 
-    helper.player removeEventListener probeListener.ref
-
-    helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
-      case EventManagerActor.RemoveListener(listener) if listener == probeListener.ref =>
-        FishingOutcomes.complete
-      case _ => FishingOutcomes.continueAndIgnore
+      helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
+        case EventManagerActor.RemoveListener(listener) if listener == probeListener.ref =>
+          FishingOutcomes.complete
+        case _ => FishingOutcomes.continueAndIgnore
+    }
 
   it should "support setting the configuration for radio sources" in :
     val sourcesConfig = mock[RadioSourceConfig]
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.initRadioSourceConfig(sourcesConfig)
 
-    helper.player.initRadioSourceConfig(sourcesConfig)
-
-    helper.expectControlCommand(RadioControlActor.InitRadioSourceConfig(sourcesConfig))
+      helper.expectControlCommand(RadioControlActor.InitRadioSourceConfig(sourcesConfig))
+    }
 
   it should "support setting the metadata configuration" in :
     val metaConfig = mock[MetadataConfig]
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.initMetadataConfig(metaConfig)
 
-    helper.player.initMetadataConfig(metaConfig)
-
-    helper.expectControlCommand(RadioControlActor.InitMetadataConfig(metaConfig))
+      helper.expectControlCommand(RadioControlActor.InitMetadataConfig(metaConfig))
+    }
 
   it should "support switching to another radio source" in :
     val source = RadioSource("newCurrentSource")
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.switchToRadioSource(source)
 
-    helper.player.switchToRadioSource(source)
-
-    helper.expectControlCommand(RadioControlActor.SelectRadioSource(source))
+      helper.expectControlCommand(RadioControlActor.SelectRadioSource(source))
+    }
 
   it should "support starting radio playback" in :
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.startPlayback()
 
-    helper.player.startPlayback()
-
-    helper.expectControlCommand(RadioControlActor.StartPlayback)
+      helper.expectControlCommand(RadioControlActor.StartPlayback)
+    }
 
   it should "support starting radio playback with a delay" in :
     val Delay = 21.seconds
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.startPlayback(Delay)
 
-    helper.player.startPlayback(Delay)
-
-    val command = helper.expectScheduleCommand()
-    command.delay should be(Delay)
-    command.invocation.send()
-    helper.expectControlCommand(RadioControlActor.StartPlayback)
+      val command = helper.expectScheduleCommand()
+      command.delay should be(Delay)
+      command.invocation.send()
+      helper.expectControlCommand(RadioControlActor.StartPlayback)
+    }
 
   it should "support stopping radio playback" in :
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.stopPlayback()
 
-    helper.player.stopPlayback()
-
-    helper.expectControlCommand(RadioControlActor.StopPlayback)
+      helper.expectControlCommand(RadioControlActor.StopPlayback)
+    }
 
   it should "support stopping radio playback with a delay" in :
     val Delay = 43.seconds
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      helper.player.stopPlayback(Delay)
 
-    helper.player.stopPlayback(Delay)
-
-    val command = helper.expectScheduleCommand()
-    command.delay should be(Delay)
-    command.invocation.send()
-    helper.expectControlCommand(RadioControlActor.StopPlayback)
+      val command = helper.expectScheduleCommand()
+      command.delay should be(Delay)
+      command.invocation.send()
+      helper.expectControlCommand(RadioControlActor.StopPlayback)
+    }
 
   it should "create only a single stream builder" in :
-    val helper = new RadioPlayerTestHelper
-
-    helper.checkStreamManager()
+    runTest { helper =>
+      helper.checkStreamManager()
+    }
 
   it should "return the current playback state" in :
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(RadioSource("testSource")),
       Some(RadioSource("selectedSource")), playbackActive = true, Some(CurrentMetadata("artist / title")))
-    val helper = new RadioPlayerTestHelper
+    runTest { helper =>
+      val futState = helper.player.currentPlaybackState
 
-    val futState = helper.player.currentPlaybackState
+      val getCommand = helper.nextControlCommand[RadioControlActor.GetPlaybackState]
+      getCommand.replyTo ! playbackState
+      futureResult(futState) should be(playbackState)
+    }
 
-    val getCommand = helper.nextControlCommand[RadioControlActor.GetPlaybackState]
-    getCommand.replyTo ! playbackState
-    futureResult(futState) should be(playbackState)
+  it should "create a correct audio stream factory" in :
+    runTest { helper =>
+      val factory = helper.checkAudioStreamFactory()
+
+      val audioUri = "testAudioStream.mp3"
+      val playbackData = mock[AudioStreamFactory.AudioStreamPlaybackData]
+      val childFactory = mock[AudioStreamFactory]
+      Mockito.when(childFactory.playbackDataFor(audioUri)).thenReturn(Some(playbackData))
+
+      helper.player.addAudioStreamFactory(childFactory)
+      futureResult(factory.playbackDataForAsync(audioUri)) should be(playbackData)
+    }
 
   /**
     * A helper class managing the dependencies of the test radio player
@@ -277,6 +297,12 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     private val streamManagers =
       new ConcurrentHashMap[typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand], Boolean]()
 
+    /**
+      * Stores the audio stream factories passed to different actor creation
+      * functions. There should be exactly one factory.
+      */
+    private val audioStreamFactories = new ConcurrentHashMap[AsyncAudioStreamFactory, Boolean]()
+
     /** The test player configuration. */
     val config: RadioPlayerConfig = createPlayerConfig()
 
@@ -319,6 +345,16 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     def checkStreamManager(): Unit =
       streamManagers should have size 1
+
+    /**
+      * Checks whether exactly one audio stream factory was created and
+      * propagated to all involved actors.
+      *
+      * @return the single factory
+      */
+    def checkAudioStreamFactory(): AsyncAudioStreamFactory =
+      audioStreamFactories should have size 1
+      audioStreamFactories.keys().nextElement()
 
     /**
       * Creates a stub [[ActorCreator]] for the configuration of the test
@@ -408,6 +444,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         actorConfig.inMemoryBufferSize should be(config.playerConfig.inMemoryBufferSize)
         actorConfig.dispatcherName should be(BlockingDispatcherName)
         actorConfig.optStreamFactoryLimit should be(Some(config.playerConfig.playbackContextLimit))
+        audioStreamFactories.put(actorConfig.audioStreamFactory, true)
 
         playbackActorBehavior
 
