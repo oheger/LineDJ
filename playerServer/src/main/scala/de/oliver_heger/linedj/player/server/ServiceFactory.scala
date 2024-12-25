@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
 import de.oliver_heger.linedj.utils.ActorManagement
@@ -86,7 +86,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
                        (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
     radioPlayerFactory.createRadioPlayer(config) map { player =>
-      player.addPlaybackContextFactory(new Mp3PlaybackContextFactory)
+      player.addAudioStreamFactory(Mp3AudioStreamFactory)
       player.initRadioSourceConfig(config.sourceConfig)
       player.initMetadataConfig(config.metadataConfig)
 

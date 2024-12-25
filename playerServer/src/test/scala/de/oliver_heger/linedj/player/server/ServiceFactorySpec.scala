@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.mp3.Mp3PlaybackContextFactory
+import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.utils.ActorManagement
@@ -61,7 +61,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
     factory.createRadioPlayer(config) map { player =>
-      verify(player).addPlaybackContextFactory(any[Mp3PlaybackContextFactory]())
+      verify(player).addAudioStreamFactory(Mp3AudioStreamFactory)
       verify(player).initRadioSourceConfig(config.sourceConfig)
       verify(player).initMetadataConfig(config.metadataConfig)
       verify(player).switchToRadioSource(currentSource.toRadioSource)
