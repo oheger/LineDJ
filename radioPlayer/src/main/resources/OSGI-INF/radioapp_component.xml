@@ -33,8 +33,10 @@
   <reference interface="de.oliver_heger.linedj.platform.app.ApplicationManager"
              name="applicationManager" bind="initApplicationManager"/>
 
-  <reference interface="de.oliver_heger.linedj.player.engine.PlaybackContextFactory"
-             name="playbackContextFactory" bind="addPlaylistContextFactory"
-             unbind="removePlaylistContextFactory" cardinality="1..n"
+  <reference interface="de.oliver_heger.linedj.player.engine.AudioStreamFactory"
+             name="audioStreamFactory"
+             bind="addAudioStreamFactory"
+             unbind="removeAudioStreamFactory"
+             cardinality="1..n"
              policy="dynamic"/>
 </component>

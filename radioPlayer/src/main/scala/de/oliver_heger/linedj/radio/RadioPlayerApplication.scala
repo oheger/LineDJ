@@ -21,8 +21,8 @@ import de.oliver_heger.linedj.platform.app.{ApplicationAsyncStartup, ClientAppli
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor
 import de.oliver_heger.linedj.platform.audio.actors.PlayerManagerActor.PlayerManagementCommand
 import de.oliver_heger.linedj.platform.bus.Identifiable
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, PlaybackContextFactory}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.adapter.ClassicActorSystemOps
@@ -67,16 +67,16 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
   private val promiseUI = Promise[Unit]()
 
   /**
-    * A list for storing playback context factories that arrive before the
-    * radio player was created.
+    * A list for storing audio stream factories that arrive before the radio
+    * player was created.
     */
-  private var pendingPlaybackContextFactories = List.empty[PlaybackContextFactory]
+  private var pendingAudioStreamFactories = List.empty[AudioStreamFactory]
 
   /** The reference to the actor managing the client. */
   private var optManagerActor: Option[ActorRef[PlayerManagementCommand]] = None
 
   /**
-    * Adds a ''PlaybackContextFactory'' service to this application. If the
+    * Adds an [[AudioStreamFactory]] service to this application. If the
     * management actor has already been created, the factory is passed to this
     * actor. Otherwise, it is stored until the creation of this actor. Note
     * that no special synchronization is necessary; all access to this field
@@ -84,22 +84,22 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     *
     * @param factory the factory service to be added
     */
-  def addPlaylistContextFactory(factory: PlaybackContextFactory): Unit =
+  def addAudioStreamFactory(factory: AudioStreamFactory): Unit =
     optManagerActor match
-      case Some(actor) => actor ! PlayerManagerActor.AddPlaybackContextFactories(List(factory))
-      case None => pendingPlaybackContextFactories = factory :: pendingPlaybackContextFactories
+      case Some(actor) => actor ! PlayerManagerActor.AddAudioStreamFactories(List(factory))
+      case None => pendingAudioStreamFactories = factory :: pendingAudioStreamFactories
 
   /**
-    * Removes a ''PlaybackContextFactory'' service from this application. This
+    * Removes an [[AudioStreamFactory]] service from this application. This
     * operation is delegated to the management actor if it is already
     * available. This method is called by the declarative services runtime.
     *
     * @param factory the factory service to be removed
     */
-  def removePlaylistContextFactory(factory: PlaybackContextFactory): Unit =
+  def removeAudioStreamFactory(factory: AudioStreamFactory): Unit =
     optManagerActor match
-      case Some(actor) => actor ! PlayerManagerActor.RemovePlaybackContextFactories(List(factory))
-      case None => pendingPlaybackContextFactories = pendingPlaybackContextFactories filterNot (_ == factory)
+      case Some(actor) => actor ! PlayerManagerActor.RemoveAudioStreamFactories(List(factory))
+      case None => pendingAudioStreamFactories = pendingAudioStreamFactories filterNot (_ == factory)
 
   /**
     * @inheritdoc This implementation stores the user configuration as a bean,
@@ -122,7 +122,7 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
 
     val managerBehavior = RadioPlayerManagerActor(clientApplicationContext.messageBus)(createPlayer)
     val managerActor = clientApplicationContext.actorFactory.createActor(managerBehavior, "radioPlayerManagerActor")
-    managerActor ! PlayerManagerActor.AddPlaybackContextFactories(pendingPlaybackContextFactories)
+    managerActor ! PlayerManagerActor.AddAudioStreamFactories(pendingAudioStreamFactories)
     optManagerActor = Some(managerActor)
 
   /**

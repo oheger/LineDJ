@@ -18,9 +18,9 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.io.CloseAck
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
-import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.*
-import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
+import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
+import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
 import de.oliver_heger.linedj.utils.ActorFactory
@@ -72,60 +72,60 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new RadioPlayerApplicationTestHelper
     helper.activateRadioApp()
 
-    val factories = helper addPlaybackContextFactories 8
-    helper.checkAddedPlaybackContextFactories(factories)
+    val factories = helper addAudioStreamFactories 8
+    helper.checkAddedAudioStreamFactories(factories)
 
   it should "remove playback context factories from the player after startup" in:
     val helper = new RadioPlayerApplicationTestHelper
     helper.activateRadioApp()
 
-    val factoriesAdded = helper addPlaybackContextFactories 8
+    val factoriesAdded = helper addAudioStreamFactories 8
     val part = Random.shuffle(factoriesAdded) splitAt 4
-    part._1 foreach helper.app.removePlaylistContextFactory
-    helper.checkAddedPlaybackContextFactories(part._2)
+    part._1 foreach helper.app.removeAudioStreamFactory
+    helper.checkAddedAudioStreamFactories(part._2)
 
   it should "add playback context factories arrived before creation of the player" in:
     val helper = new RadioPlayerApplicationTestHelper
-    val factories = helper addPlaybackContextFactories 8
+    val factories = helper addAudioStreamFactories 8
     helper.activateRadioApp()
 
-    helper.checkAddedPlaybackContextFactories(factories)
+    helper.checkAddedAudioStreamFactories(factories)
 
   it should "remove playback context factories before the creation of the player" in:
     val helper = new RadioPlayerApplicationTestHelper
-    val factoriesAdded = helper addPlaybackContextFactories 8
+    val factoriesAdded = helper addAudioStreamFactories 8
     val part = Random.shuffle(factoriesAdded) splitAt 4
-    part._1 foreach helper.app.removePlaylistContextFactory
+    part._1 foreach helper.app.removeAudioStreamFactory
     helper.activateRadioApp()
 
-    helper.checkAddedPlaybackContextFactories(part._2)
+    helper.checkAddedAudioStreamFactories(part._2)
 
   it should "correctly synchronize adding playlist context factories" in:
     val helper = new RadioPlayerApplicationTestHelper
-    val queue = new ArrayBlockingQueue[Seq[PlaybackContextFactory]](1)
+    val queue = new ArrayBlockingQueue[Seq[AudioStreamFactory]](1)
     val thread = new Thread:
       override def run(): Unit =
         Thread sleep 500
-        queue.put(helper addPlaybackContextFactories 2000)
+        queue.put(helper addAudioStreamFactories 2000)
     thread.start()
     helper.activateRadioApp()
     thread.join(5000)
 
     val factories = queue.poll(2, TimeUnit.SECONDS)
-    helper.checkAddedPlaybackContextFactories(factories)
+    helper.checkAddedAudioStreamFactories(factories)
 
   it should "correctly synchronize removing playlist context factories" in:
     val helper = new RadioPlayerApplicationTestHelper
-    val factories = helper addPlaybackContextFactories 2500
+    val factories = helper addAudioStreamFactories 2500
     val thread = new Thread:
       override def run(): Unit =
         Thread sleep 500
-        factories foreach helper.app.removePlaylistContextFactory
+        factories foreach helper.app.removeAudioStreamFactory
     thread.start()
     helper.activateRadioApp()
     thread.join(5000)
 
-    helper.checkAddedPlaybackContextFactories(List.empty)
+    helper.checkAddedAudioStreamFactories(List.empty)
 
   it should "close the player on shutdown" in:
     val helper = new RadioPlayerApplicationTestHelper
@@ -237,10 +237,10 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     val messageBus = new MessageBusTestImpl
 
     /**
-      * Stores the ''PlaybackContextFactory'' objects that were passed to the
+      * Stores the [[AudioStreamFactory]] objects that were passed to the
       * player mock.
       */
-    private val playbackContextFactories = new ConcurrentHashMap[PlaybackContextFactory, Boolean]
+    private val audioStreamFactories = new ConcurrentHashMap[AudioStreamFactory, Boolean]
 
     /**
       * @inheritdoc Injects the test message bus in the application context.
@@ -264,37 +264,37 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       activatedApp
 
     /**
-      * Creates the given number of ''PlaybackContextFactory'' mocks and adds
-      * them to the test application.
+      * Creates the given number of [[AudioStreamFactory]] mocks and adds them
+      * to the test application.
       *
       * @param count the number of factories to be added
       * @return a sequence with the mock factories that have been created
       */
-    def addPlaybackContextFactories(count: Int): Seq[PlaybackContextFactory] =
-      val factories = (1 to count).map(_ => mock[PlaybackContextFactory])
-      factories foreach app.addPlaylistContextFactory
+    def addAudioStreamFactories(count: Int): Seq[AudioStreamFactory] =
+      val factories = (1 to count).map(_ => mock[AudioStreamFactory])
+      factories foreach app.addAudioStreamFactory
       factories
 
     /**
-      * Returns a set with the playback context factories that have been
+      * Returns a set with the audio stream factories that have been
       * added to the radio player.
       *
-      * @return the set with added ''PlaybackContextFactory'' objects
+      * @return the set with added [[AudioStreamFactory]] objects
       */
-    def addedPlaybackContextFactories: Set[PlaybackContextFactory] =
+    def addedAudioStreamFactories: Set[AudioStreamFactory] =
       import scala.jdk.CollectionConverters.*
-      playbackContextFactories.keySet().asScala.toSet
+      audioStreamFactories.keySet().asScala.toSet
 
     /**
-      * Checks whether the expected ''PlaybackContextFactory'' objects have
+      * Checks whether the expected [[AudioStreamFactory]] objects have
       * been added to the radio player. This is a bit tricky, since the player
       * is created asynchronously.
       *
       * @param expected the expected factories
       */
-    def checkAddedPlaybackContextFactories(expected: Iterable[PlaybackContextFactory]): Unit =
+    def checkAddedAudioStreamFactories(expected: Iterable[AudioStreamFactory]): Unit =
       val expectedSet = expected.toSet
-      awaitCond(addedPlaybackContextFactories == expectedSet)
+      awaitCond(addedAudioStreamFactories == expectedSet)
 
     /**
       * Triggers a test for a deactivation of the application. Note: When
@@ -332,15 +332,15 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
     private def createPlayerMock(): RadioPlayer =
       val player = mock[RadioPlayer]
       doAnswer((invocation: InvocationOnMock) => {
-        val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
-        playbackContextFactories.put(pcf, java.lang.Boolean.TRUE)
+        val factory = invocation.getArguments.head.asInstanceOf[AudioStreamFactory]
+        audioStreamFactories.put(factory, java.lang.Boolean.TRUE)
         null
-      }).when(player).addPlaybackContextFactory(any(classOf[PlaybackContextFactory]))
+      }).when(player).addAudioStreamFactory(any(classOf[AudioStreamFactory]))
       doAnswer((invocation: InvocationOnMock) => {
-        val pcf = invocation.getArguments.head.asInstanceOf[PlaybackContextFactory]
-        playbackContextFactories remove pcf
+        val factory = invocation.getArguments.head.asInstanceOf[AudioStreamFactory]
+        audioStreamFactories remove factory
         null
-      }).when(player).removePlaybackContextFactory(any(classOf[PlaybackContextFactory]))
+      }).when(player).removeAudioStreamFactory(any(classOf[AudioStreamFactory]))
       player
 
     /**
