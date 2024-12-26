@@ -61,7 +61,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
     val factory = new ServiceFactory(radioPlayerFactory = radioPlayerFactory)
     factory.createRadioPlayer(config) map { player =>
-      verify(player).addAudioStreamFactory(Mp3AudioStreamFactory)
+      verify(player).addAudioStreamFactory(any[Mp3AudioStreamFactory]())
       verify(player).initRadioSourceConfig(config.sourceConfig)
       verify(player).initMetadataConfig(config.metadataConfig)
       verify(player).switchToRadioSource(currentSource.toRadioSource)

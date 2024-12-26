@@ -33,7 +33,8 @@ class Mp3AudioStreamFactorySpec extends AnyFlatSpec with Matchers with OptionVal
     * @param uri the URI to be passed to the factory
     */
   private def checkAudioStreamCreator(uri: String): Unit =
-    val playbackData = Mp3AudioStreamFactory.playbackDataFor(uri).value
+    val factory = new Mp3AudioStreamFactory
+    val playbackData = factory.playbackDataFor(uri).value
     Using(playbackData.streamCreator(getClass.getResourceAsStream("/test.mp3"))) { stream =>
       val format = stream.getFormat
       format.getEncoding should be(AudioFormat.Encoding.PCM_SIGNED)
@@ -48,7 +49,8 @@ class Mp3AudioStreamFactorySpec extends AnyFlatSpec with Matchers with OptionVal
     checkAudioStreamCreator("test.mp3")
 
   it should "return None for an unsupported file extension" in :
-    Mp3AudioStreamFactory.playbackDataFor("test.mp4") shouldBe empty
+    val factory = new Mp3AudioStreamFactory
+    factory.playbackDataFor("test.mp4") shouldBe empty
 
   it should "ignore case in the file extension" in :
     checkAudioStreamCreator("test.Mp3")

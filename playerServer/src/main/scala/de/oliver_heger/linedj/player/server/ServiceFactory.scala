@@ -86,7 +86,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
                        (implicit system: ActorSystem): Future[RadioPlayer] =
     implicit val ec: ExecutionContext = system.dispatcher
     radioPlayerFactory.createRadioPlayer(config) map { player =>
-      player.addAudioStreamFactory(Mp3AudioStreamFactory)
+      player.addAudioStreamFactory(new Mp3AudioStreamFactory)
       player.initRadioSourceConfig(config.sourceConfig)
       player.initMetadataConfig(config.metadataConfig)
 

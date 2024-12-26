@@ -80,7 +80,7 @@ object AudioPlayerShell:
     println("Type `help` for a list of available commands.")
 
     implicit val actorSystem: classic.ActorSystem = classic.ActorSystem("AudioPlayerShell")
-    val audioStreamFactory = new CompositeAudioStreamFactory(List(Mp3AudioStreamFactory, DefaultAudioStreamFactory))
+    val audioStreamFactory = new CompositeAudioStreamFactory(List(new Mp3AudioStreamFactory, DefaultAudioStreamFactory))
     val streamHandler = new PlaylistStreamHandler(audioStreamFactory, createBufferConfigFunc(args))
     var done = false
 

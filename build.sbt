@@ -704,7 +704,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
       "de.oliver_heger.linedj.player.engine.mp3.*"
     ),
     OsgiKeys.additionalHeaders :=
-      Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml",
+      Map("Service-Component" -> "OSGI-INF/mp3PbCtxFactory_component.xml,OSGI-INF/mp3AudioStreamFactory_component.xml",
         "SPI-Consumer" -> "javax.sound.sampled.AudioSystem#getAudioInputStream")
   ) dependsOn playerEngine
 
