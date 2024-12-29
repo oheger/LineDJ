@@ -10,8 +10,8 @@ toc::[]
 == Synopsis
 This module provides an alternative player implementation. Instead of a desktop OSGi application, the player is made
 available via an HTTP server that allows controlling playback via REST calls. The intended use case is that the server
-runs on a machine in the local network, maybe on a Raspberry Pi. The exposed player can then be controlled from other
-devices in the network. If a mobile device is used for this purpose, this works similar to a remove control.
+runs on a machine in the local network, maybe on a https://www.raspberrypi.com/[Raspberry Pi]. The exposed player can then be controlled from other
+devices in the network - either via the REST API or the <<player_ui>>. If a mobile device is used for this purpose, this works similar to a remote control.
 
 Currently, only the radio player is exposed via the server implementation. This may change in the future to also
 support the audio player.
@@ -26,6 +26,15 @@ server application launches a listener on a configurable multicast group and por
 request with a specific payload it sends an answer back that contains the base URL of the server. So, clients can send
 a corresponding multicast request. From the response, they can obtain the URL for further interactions with the server.
 
+The discovery mechanism implemented by the server is compatible with the https://github.com/oheger/WifiControl[Wi-Fi Control] app. So, this Android app can be used to control the player via its UI. More details about the protocol used for discovery can be found in the https://github.com/oheger/WifiControl/blob/main/docs/Discovery.adoc[protocol specification].
+
+[#player_ui]
+== UI
+The player server defines a REST API that can be used to query the available radio sources, switch to a specific radio source, and start or stop playback. Via this API, programmatic access is possible.
+
+As an alternative, a UI is available which is served via a <<player_configuration,configurable>> endpoint. This transforms the player server into an interactive Web application. The UI is not part of this repository, since it is based on a different implementation technology. It is located in the https://github.com/oheger/player-server-ui[Player Server UI] repository.
+
+[#player_configuration]
 == Configuration
 The server is configured via a configuration file that is read via the
 https://commons.apache.org/proper/commons-configuration/userguide_v1.10/howto_configurationbuilder.html#Using_DefaultConfigurationBuilder[DefaultConfigurationBuilder]
@@ -76,11 +85,7 @@ engines. An example file could look as follows:
     <player>
         <memoryBufferSize>65536</memoryBufferSize>
         <playbackContextLimit>8192</playbackContextLimit>
-        <bufferChunkSize>4096</bufferChunkSize>
         <blockingDispatcherName>io-dispatcher</blockingDispatcherName>
-        <radio>
-          <stalledPlaybackCheck unit="seconds">4</stalledPlaybackCheck>
-        </radio>
     </player>
 </configuration>
 ----
@@ -114,10 +119,15 @@ server application.
 
 |uiContentFolder
 |This property defines the local folder which contains the assets of the UI. This folder is served as a static
- resource. This can be either an absolute or a relative path.
+ resource. This can be either an absolute or a relative path. The referenced folder must contain the artifacts that comprise the player server UI; this is typically the output of the build process of the https://github.com/oheger/player-server-ui[Player Server UI] project.
 |ui
 
 |uiPath
 |A property to define the URL path for loading the web UI. When requesting this path from the HTTP server, the player
- UI is returned. Other endpoints, especially the REST API endpoints, are static.
+ UI (as defined by the `uiContentFolder` property) is returned. Other endpoints, especially the REST API endpoints, are static.
+|/ui/index.html
+
+|shutdownCommand
+|Here an arbitrary command can be specified that the server will execute (in a new process of the operating system) during its shutdown phase. The intention behind this is to do some cleanup or trigger final actions when the server terminates. For instance, if the server is running on a Raspberry Pi that is used exclusively as an Internet radio, it may make sense to shut down the machine on termination of the server; so, here the corresponding shutdown command could be provided.
+|(undefined)
 |====
