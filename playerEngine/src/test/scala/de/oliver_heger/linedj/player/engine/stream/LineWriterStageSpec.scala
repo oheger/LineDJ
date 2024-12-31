@@ -88,10 +88,12 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
     * @param format the expected audio format passed to the function
     * @return the line creator function
     */
-  private def lineCreatorFunc(line: SourceDataLine, format: AudioFormat = Format): LineWriterStage.LineCreatorFunc =
-    header =>
+  private def lineCreatorFunc(line: SourceDataLine,
+                              format: AudioFormat = Format): Option[LineWriterStage.LineCreatorFunc] =
+    val func: LineWriterStage.LineCreatorFunc = header =>
       header.format should be(format)
       line
+    Some(func)
 
   "LineWriterStage" should "be prepared to run on a blocking dispatcher" in :
     val DispatcherName = "mySpecialDispatcherForBlockingStages"
@@ -132,6 +134,14 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       result =>
         result.map(_.size) should be(List(5, 3, 3))
 
+  it should "produce results with correct sizes if no line is created" in :
+    val data = List(ByteString("foo"), ByteString("bar"), ByteString("blubb"))
+    val stage = LineWriterStage(None)
+
+    runStream(Source(data), stage) map :
+      result =>
+        result.map(_.size) should be(List(5, 3, 3))
+
   /**
     * Checks whether results with playback times are produced in case the
     * playback duration cannot be determined from the audio format.
@@ -153,11 +163,11 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
           _ should be >= 1.millis
         }
 
-  it should "produce results with playback times if not frame rate is specified in the format" in :
+  it should "produce results with playback times if no frame rate is specified in the format" in :
     val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 2, AudioSystem.NOT_SPECIFIED, false)
     checkMeasuredPlaybackTimes(format)
 
-  it should "produce results with playback times if not frame size is specified in the format" in :
+  it should "produce results with playback times if no frame size is specified in the format" in :
     val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, AudioSystem.NOT_SPECIFIED, 44100.0, false)
     checkMeasuredPlaybackTimes(format)
 
@@ -168,6 +178,18 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
         val chunk = Array.fill(4096)(idx.toByte)
         ByteString(chunk)
     val stage = LineWriterStage(lineCreatorFunc(line))
+
+    runStream(Source(data), stage) map :
+      result =>
+        val duration = result.map(_.duration).fold(0.nanos) { (agg, time) => agg + time }
+        duration should be(232199540.nanos)
+
+  it should "produce results with exact playback times based on the audio format if no line is created" in :
+    val data = (1 to 5).map:
+      idx =>
+        val chunk = Array.fill(4096)(idx.toByte)
+        ByteString(chunk)
+    val stage = LineWriterStage(None)
 
     runStream(Source(data), stage) map :
       result =>
@@ -204,7 +226,7 @@ class LineWriterStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   it should "correctly handle an empty stream" in :
     val creatorFunc: LineWriterStage.LineCreatorFunc = _ =>
       throw new UnsupportedOperationException("Unexpected call")
-    val stage = LineWriterStage(creatorFunc)
+    val stage = LineWriterStage(Some(creatorFunc))
     val source = Source.empty[AudioEncodingStage.AudioData]
     val sink = Sink.ignore
 

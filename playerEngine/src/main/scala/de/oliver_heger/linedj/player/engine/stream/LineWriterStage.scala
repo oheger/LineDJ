@@ -63,18 +63,20 @@ object LineWriterStage:
 
   /**
     * Creates a new instance of [[LineWriterStage]] that writes audio data into
-    * the given line. With the given ''close'' flag, it can be controlled
-    * whether the line should be closed after stream processing.
+    * a line obtained from the given [[LineCreatorFunc]]. If no line creator
+    * function is given, the resulting stage is just a dummy that passes data
+    * through. This is needed for some use cases, e.g. to check whether an 
+    * audio source is available.
     *
-    * @param lineCreator    the function to create the audio line
+    * @param optLineCreator the optional function to create the audio line
     * @param dispatcherName the name of the dispatcher to be used for this
     *                       stage
     * @return the new stage instance
     */
-  def apply(lineCreator: LineCreatorFunc,
+  def apply(optLineCreator: Option[LineCreatorFunc],
             dispatcherName: String = BlockingDispatcherName):
   Graph[FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk], NotUsed] =
-    new LineWriterStage(lineCreator).withAttributes(ActorAttributes.dispatcher(dispatcherName))
+    new LineWriterStage(optLineCreator).withAttributes(ActorAttributes.dispatcher(dispatcherName))
 
   /**
     * Calculates the duration of a chunk of audio data in nanoseconds. This
@@ -97,10 +99,12 @@ end LineWriterStage
   * A [[GraphStage]] implementation that feeds audio data into a
   * [[SourceDataLine]], so that audio is played.
   *
-  * An instance created with default settings creates a [[SourceDataLine]] that
-  * is compatible with the audio data in the stream once the audio format is
-  * known. Optionally, a function can be provided that allows adapting the line
-  * creation process.
+  * The [[SourceDataLine]] for audio playback is obtained from a provided
+  * [[LineCreatorFunc]] based on the audio format reported by the audio 
+  * encoding stage. It is possible to pass ''None'' for the line creator
+  * function. Then the stage is just a dummy that passes through data without
+  * actual audio playback. This is needed for some use cases, e.g. to verify
+  * whether an audio source is available.
   *
   * The stage writes the data into the line and measures the time for the
   * playback. It produces data that allows keeping track on the audio playback.
@@ -113,9 +117,9 @@ end LineWriterStage
   * stage should run on a dedicated dispatcher for blocking operations. The
   * companion object provides a factory function that fulfills this criterion.
   *
-  * @param lineCreator the function for creating the line
+  * @param optLineCreator the optional function for creating the line
   */
-class LineWriterStage private(lineCreator: LineCreatorFunc)
+class LineWriterStage private(optLineCreator: Option[LineCreatorFunc])
   extends GraphStage[FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk]]:
   private val in = Inlet[AudioEncodingStage.AudioData]("LineWriterStage.in")
   private val out = Outlet[PlayedAudioChunk]("LineWriterStage.out")
@@ -123,8 +127,8 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
   override def shape: FlowShape[AudioEncodingStage.AudioData, PlayedAudioChunk] = FlowShape.of(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape):
-    /** The line to output the audio data. */
-    private var line: SourceDataLine = _
+    /** The line to output the audio data if available. */
+    private var optLine: Option[SourceDataLine] = None
 
     /**
       * Stores the duration of a single chunk of audio data. This value is
@@ -137,9 +141,12 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
       override def onPush(): Unit =
         grab(in) match
           case header: AudioEncodingStage.AudioStreamHeader =>
-            line = lineCreator(header)
-            line.open(header.format)
-            line.start()
+            optLine = optLineCreator.map { creator =>
+              val line = creator(header)
+              line.open(header.format)
+              line.start()
+              line
+            }
             optChunkDuration = calculateChunkDuration(header.format)
             pull(in)
           case chunk: AudioEncodingStage.AudioChunk =>
@@ -154,9 +161,10 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
     )
 
     override def postStop(): Unit =
-      if line != null then
+      optLine.foreach { line =>
         line.drain()
         line.close()
+      }
       super.postStop()
 
     /**
@@ -168,5 +176,5 @@ class LineWriterStage private(lineCreator: LineCreatorFunc)
       */
     private def playAudio(data: ByteString): FiniteDuration =
       val startTime = System.nanoTime()
-      line.write(data.toArray, 0, data.size)
+      optLine.foreach(_.write(data.toArray, 0, data.size))
       (System.nanoTime() - startTime).nanos
