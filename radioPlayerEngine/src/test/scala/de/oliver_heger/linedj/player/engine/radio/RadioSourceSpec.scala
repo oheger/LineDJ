@@ -36,3 +36,26 @@ class RadioSourceSpec extends AnyFlatSpec with Matchers:
 
     RadioSource.NoExclusions(source1) shouldBe empty
     RadioSource.NoExclusions(source2) shouldBe empty
+
+  it should "return the normal URI if no default extension is provided" in:
+    val uri = "https://example.com/radio.lala"
+    val source = RadioSource(uri)
+
+    source.uriWithExtension should be(uri)
+
+  it should "append the default extension to the URI if necessary" in:
+    val source = RadioSource("https://example.com/radio/music.m3u", defaultExtension = Some("mp3"))
+
+    source.uriWithExtension should be("https://example.com/radio/music.m3u.mp3")
+
+  it should "not append the default extension multiple times" in:
+    val uri = "https://example.com/radio.mp3"
+    val source = RadioSource(uri, defaultExtension = Some("mp3"))
+
+    source.uriWithExtension should be(uri)
+
+  it should "make sure that the default extension starts with a dot" in:
+    val uri = "https://example.com/web-radio/mp3"
+    val source = RadioSource(uri, defaultExtension = Some("mp3"))
+
+    source.uriWithExtension should be(uri + ".mp3")

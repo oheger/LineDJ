@@ -68,4 +68,15 @@ object RadioSource:
   * @param uri              the URI of the stream to be played
   * @param defaultExtension an optional default extension
   */
-case class RadioSource(uri: String, defaultExtension: Option[String] = None)
+case class RadioSource(uri: String, defaultExtension: Option[String] = None):
+  /**
+    * Returns a URI for this radio source that has a proper file extension.
+    * If a default extension is provided, this function makes sure that the
+    * resulting URI ends on this extension.
+    *
+    * @return a radio source URI with a correct file extension
+    */
+  def uriWithExtension: String =
+    defaultExtension match
+      case Some(ext) if !uri.endsWith("." + ext) => s"$uri.$ext"
+      case _ => uri

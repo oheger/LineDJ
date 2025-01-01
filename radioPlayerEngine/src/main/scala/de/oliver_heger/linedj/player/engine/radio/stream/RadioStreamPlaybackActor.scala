@@ -318,9 +318,7 @@ object RadioStreamPlaybackActor:
         }
         sources._2.runWith(metadataSink)
 
-        val radioSourceUri = source.radioSource.defaultExtension.fold(source.radioSource.uri) { extension =>
-          s"${source.radioSource.uri}.$extension"
-        }
+        val radioSourceUri = source.radioSource.uriWithExtension
         AudioStreamPlayerStage.AudioStreamSource(radioSourceUri, sources._1)
 
       /**
