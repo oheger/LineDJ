@@ -651,9 +651,9 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveSource(withDelay),
         audioStreamFactory = createAudioStreamFactory(),
-        pauseActor = pauseActor,
+        optPauseActor = Some(pauseActor),
         sinkProviderFunc = createSink,
-        lineCreatorFunc = createLineCreator(sources),
+        optLineCreatorFunc = Some(createLineCreator(sources)),
         optKillSwitch = optKillSwitch,
         inMemoryBufferSize = memorySize,
         optStreamFactoryLimit = optStreamFactoryLimit

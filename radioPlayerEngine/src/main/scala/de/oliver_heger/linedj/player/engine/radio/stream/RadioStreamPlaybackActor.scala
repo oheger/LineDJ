@@ -18,10 +18,9 @@ package de.oliver_heger.linedj.player.engine.radio.stream
 
 import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
-import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioPlaybackProgressEvent, RadioPlaybackStoppedEvent, RadioSource, RadioSourceChangedEvent, RadioSourceErrorEvent}
+import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.stream.LineWriterStage.LineCreatorFunc
-import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, AudioStreamPlayerStage, LineWriterStage, PausePlaybackStage}
-import org.apache.pekko.{NotUsed, actor as classic}
+import de.oliver_heger.linedj.player.engine.stream.{AudioEncodingStage, AudioStreamPlayerStage, LineWriterStage}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
@@ -29,6 +28,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.stream.OverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.{ByteString, Timeout}
+import org.apache.pekko.{NotUsed, actor as classic}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -356,17 +356,13 @@ object RadioStreamPlaybackActor:
       val playbackStreamSink = Sink.foreach[PlaylistSinkType] { streamResult =>
         context.self ! PlaylistStreamResultReceived(streamResult)
       }
-      val pauseActor = context.spawn(
-        PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPossible),
-        s"${PlaybackStreamName}_pauseActor"
-      )
       val playerStageConfig = AudioStreamPlayerStage.AudioStreamPlayerConfig(
         sourceResolverFunc = resolveRadioSource,
         sinkProviderFunc = createRadioStreamSink,
         audioStreamFactory = config.audioStreamFactory,
-        pauseActor = pauseActor,
+        optPauseActor = None,
         inMemoryBufferSize = config.inMemoryBufferSize,
-        lineCreatorFunc = config.lineCreatorFunc,
+        optLineCreatorFunc = Some(config.lineCreatorFunc),
         optKillSwitch = None,
         dispatcherName = config.dispatcherName,
         optStreamFactoryLimit = config.optStreamFactoryLimit

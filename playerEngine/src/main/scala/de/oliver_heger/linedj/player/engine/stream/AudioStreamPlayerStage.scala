@@ -75,9 +75,12 @@ object AudioStreamPlayerStage:
     *                              streams
     * @param audioStreamFactory    the factory for creating audio encoding 
     *                              streams
-    * @param pauseActor            the actor to pause playback
+    * @param optPauseActor         the optional actor to pause playback; if 
+    *                              undefined, playback cannot be interrupted
     * @param inMemoryBufferSize    the in-memory buffer size
-    * @param lineCreatorFunc       the function to create audio line objects
+    * @param optLineCreatorFunc    the optional function to create audio line
+    *                              objects; if undefined, only audio data flows
+    *                              through the stream, but no playback is done
     * @param optKillSwitch         an optional [[SharedKillSwitch]] to cancel
     *                              the audio stream
     * @param dispatcherName        the dispatcher for writing to lines
@@ -89,10 +92,11 @@ object AudioStreamPlayerStage:
   case class AudioStreamPlayerConfig[SRC, SNK](sourceResolverFunc: SourceResolverFunc[SRC],
                                                sinkProviderFunc: SinkProviderFunc[SRC, SNK],
                                                audioStreamFactory: AsyncAudioStreamFactory,
-                                               pauseActor: ActorRef[PausePlaybackStage.PausePlaybackCommand],
+                                               optPauseActor: 
+                                               Option[ActorRef[PausePlaybackStage.PausePlaybackCommand]],
                                                inMemoryBufferSize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
-                                               lineCreatorFunc: LineCreatorFunc =
-                                               LineWriterStage.DefaultLineCreatorFunc,
+                                               optLineCreatorFunc: Option[LineCreatorFunc] =
+                                               Some(LineWriterStage.DefaultLineCreatorFunc),
                                                optKillSwitch: Option[SharedKillSwitch] = None,
                                                dispatcherName: String = LineWriterStage.BlockingDispatcherName,
                                                optStreamFactoryLimit: Option[Int] = None)
@@ -239,8 +243,8 @@ object AudioStreamPlayerStage:
         }
         val audioStreamSource = streamSource.source
           .via(AudioEncodingStage(adjustedPlaybackData, config.inMemoryBufferSize))
-          .via(PausePlaybackStage.pausePlaybackStage(Some(config.pauseActor)))
-          .via(LineWriterStage(Some(config.lineCreatorFunc), config.dispatcherName))
+          .via(PausePlaybackStage.pausePlaybackStage(config.optPauseActor))
+          .via(LineWriterStage(config.optLineCreatorFunc, config.dispatcherName))
         appendOptionalKillSwitch(audioStreamSource, optKillSwitch)
           .runWith(sink)
       }

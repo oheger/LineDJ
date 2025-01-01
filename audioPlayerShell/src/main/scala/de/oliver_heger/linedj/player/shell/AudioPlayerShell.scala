@@ -325,7 +325,7 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
       sourceResolverFunc = resolveAudioSource,
       sinkProviderFunc = audioStreamSink,
       audioStreamFactory = audioStreamFactory,
-      pauseActor = pauseActor,
+      optPauseActor = Some(pauseActor),
       optKillSwitch = Some(playlistKillSwitch)
     )
     val source = Source.queue[String](100)

@@ -132,7 +132,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     AudioStreamPlayerStage.AudioStreamPlayerConfig(sourceResolverFunc = sourceResolverFunc,
       sinkProviderFunc = _ => Sink.ignore,
       audioStreamFactory = DefaultAudioStreamFactory,
-      pauseActor = testKit.createTestProbe().ref
+      optPauseActor = None
     )
 
   /**
