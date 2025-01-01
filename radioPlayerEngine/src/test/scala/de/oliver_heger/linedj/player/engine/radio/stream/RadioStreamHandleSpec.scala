@@ -43,6 +43,21 @@ object RadioStreamHandleSpec:
   /** The default playback buffer size for radio streams. */
   private val BufferSize = 77
 
+  /** URL of a test radio stream. */
+  private val RadioStreamUri = "https://example.com/radio.m3u"
+
+  /** The chunk count when generating a test radio stream. */
+  private val RadioStreamChunkCount = 16
+
+  /** The expected audio data that is generated for the test stream. */
+  private val ExpectedAudioChunks = (0 until RadioStreamChunkCount).foldLeft(ByteString.empty) { (str, idx) =>
+    val block = RadioStreamTestHelper.dataBlock(RadioStreamTestHelper.AudioChunkSize, idx)
+    str ++ block
+  }
+
+  /** The expected metadata that is generated for the test stream. */
+  private val ExpectedMetadata = (1 to RadioStreamChunkCount).map(RadioStreamTestHelper.generateMetadata)
+
   /**
     * Returns a resolved URI for the given stream URI. This is used to
     * simulate a resolving mechanism.
@@ -112,28 +127,49 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     future.onComplete(_ => latch.countDown())
     latch
 
+  /**
+    * Creates a [[Sink]] that populates the given queue.
+    *
+    * @param queue the queue
+    * @return the sink for writing data into the queue
+    */
+  private def createSinkForQueue(queue: BlockingQueue[ByteString]): Sink[ByteString, Future[Done]] =
+    Sink.foreach(queue.offer)
+
+  /**
+    * Reads metadata from the given queue.
+    *
+    * @param queue   the queue to read data from
+    * @param current the metadata that was already read
+    * @return a set with the metadata strings read from the queue
+    */
+  @tailrec private def readMetadataChunks(queue: BlockingQueue[ByteString], current: Set[ByteString]):
+  Set[ByteString] =
+    if queue.isEmpty then current
+    else readMetadataChunks(queue, current + queue.poll())
+
+  /**
+    * Reads audio data from the given queue. Since the audio source is cyclic,
+    * only a certain number of chunks is read. This should be sufficient to
+    * verify whether the correct data is received.
+    *
+    * @param queue   the queue to read data from
+    * @param current the audio data that was already read
+    * @return a string with the audio data that has been read
+    */
+  @tailrec private def readAudioChunks(queue: BlockingQueue[ByteString], current: ByteString): ByteString =
+    if current.length >= 3 * RadioStreamChunkCount * RadioStreamTestHelper.AudioChunkSize then
+      current
+    else
+      val chunk = queue.poll(3, TimeUnit.SECONDS)
+      chunk should not be null
+      readAudioChunks(queue, current ++ chunk)
+
   "RadioStreamHandle" should "create an instance using a builder" in :
-    val RadioStreamUri = "https://example.com/radio.m3u"
-    val RadioStreamChunkCount = 16
     val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
       RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
     val radioDataSource = Source.cycle(() => streamData.iterator)
     val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
-
-    def createSinkForQueue(queue: BlockingQueue[ByteString]): Sink[ByteString, Future[Done]] =
-      Sink.foreach(queue.offer)
-
-    @tailrec def readMetadataChunks(queue: BlockingQueue[ByteString], current: Set[ByteString]): Set[ByteString] =
-      if queue.isEmpty then current
-      else readMetadataChunks(queue, current + queue.poll())
-
-    @tailrec def readAudioChunks(queue: BlockingQueue[ByteString], current: ByteString): ByteString =
-      if current.length >= 3 * RadioStreamChunkCount * RadioStreamTestHelper.AudioChunkSize then
-        current
-      else
-        val chunk = queue.poll(3, TimeUnit.SECONDS)
-        chunk should not be null
-        readAudioChunks(queue, current ++ chunk)
 
     RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize) flatMap { handle =>
       handle.builderResult.resolvedUri should be(resolvedStreamUri(RadioStreamUri))
@@ -157,14 +193,53 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         yield Done
 
         futSinks map { _ =>
-          val expectedMetadata = (1 to RadioStreamChunkCount).map(RadioStreamTestHelper.generateMetadata)
           readMetadataChunks(metadataQueue, Set.empty)
-            .map(_.utf8String) should contain theSameElementsAs expectedMetadata
-          val expectedAudioChunks = (0 until RadioStreamChunkCount).foldLeft(ByteString.empty) { (str, idx) =>
-            val block = RadioStreamTestHelper.dataBlock(RadioStreamTestHelper.AudioChunkSize, idx)
-            str ++ block
-          }
-          audioChunks.utf8String should include(expectedAudioChunks.utf8String)
+            .map(_.utf8String) should contain theSameElementsAs ExpectedMetadata
+          audioChunks.utf8String should include(ExpectedAudioChunks.utf8String)
+        }
+      }
+    }
+
+  it should "support attaching only to the audio data source" in :
+    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource = Source.cycle(() => streamData.iterator)
+    val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
+
+    RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize) flatMap { handle =>
+      handle.attachAudioSink() flatMap { sourceAudio =>
+        val audioDataQueue = new LinkedBlockingQueue[ByteString]
+        val audioDataSink = createSinkForQueue(audioDataQueue)
+        val futAudioDataSink = sourceAudio.runWith(audioDataSink)
+
+        val audioChunks = readAudioChunks(audioDataQueue, ByteString.empty)
+
+        handle.cancelStream()
+
+        futAudioDataSink map { _ =>
+          audioChunks.utf8String should include(ExpectedAudioChunks.utf8String)
+        }
+      }
+    }
+
+  it should "support attaching only to the metadata source" in :
+    val streamData = RadioStreamTestHelper.generateAudioDataWithMetadata(RadioStreamChunkCount,
+      RadioStreamTestHelper.AudioChunkSize)(RadioStreamTestHelper.generateMetadata)
+    val radioDataSource = Source.cycle(() => streamData.iterator)
+    val streamBuilder = createMockStreamBuilder(RadioStreamUri, radioDataSource)
+
+    RadioStreamHandle.factory.create(streamBuilder, RadioStreamUri, BufferSize) flatMap { handle =>
+      handle.attachMetadataSink() flatMap { sourceMeta =>
+        val metadataQueue = new LinkedBlockingQueue[ByteString]
+        val metadataSink = createSinkForQueue(metadataQueue)
+
+        val futMetadataSink = sourceMeta.runWith(metadataSink)
+        awaitCond(metadataQueue.size() >= RadioStreamChunkCount)
+        handle.cancelStream()
+
+        futMetadataSink map { _ =>
+          readMetadataChunks(metadataQueue, Set.empty)
+            .map(_.utf8String) should contain theSameElementsAs ExpectedMetadata
         }
       }
     }
@@ -258,6 +333,54 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     recoverToSucceededIf[TimeoutException] {
       handle.attachOrCancel(Timeout(1.millis))
+    } map { _ =>
+      verify(killSwitch).shutdown()
+      Succeeded
+    }
+
+  it should "cancel the stream if an attach operation for audio data fails" in :
+    val killSwitch = mock[KillSwitch]
+    val controlAudio = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val controlMeta = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val builderResult = RadioStreamBuilder.BuilderResult(
+      resolvedUri = "someStreamUri",
+      graph = mock[RunnableGraph[(RadioStreamHandle.SinkType, RadioStreamHandle.SinkType)]],
+      killSwitch = killSwitch,
+      metadataSupported = false
+    )
+    val handle = RadioStreamHandle(
+      controlAudio.ref,
+      controlMeta.ref,
+      builderResult,
+      null
+    )
+
+    recoverToSucceededIf[TimeoutException] {
+      handle.attachAudioSinkOrCancel(Timeout(1.millis))
+    } map { _ =>
+      verify(killSwitch).shutdown()
+      Succeeded
+    }
+
+  it should "cancel the stream if an attach operation for metadata fails" in :
+    val killSwitch = mock[KillSwitch]
+    val controlAudio = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val controlMeta = typedTestKit.createTestProbe[AttachableSink.AttachableSinkControlCommand[ByteString]]()
+    val builderResult = RadioStreamBuilder.BuilderResult(
+      resolvedUri = "someStreamUri",
+      graph = mock[RunnableGraph[(RadioStreamHandle.SinkType, RadioStreamHandle.SinkType)]],
+      killSwitch = killSwitch,
+      metadataSupported = false
+    )
+    val handle = RadioStreamHandle(
+      controlAudio.ref,
+      controlMeta.ref,
+      builderResult,
+      null
+    )
+
+    recoverToSucceededIf[TimeoutException] {
+      handle.attachMetadataSinkOrCancel(Timeout(1.millis))
     } map { _ =>
       verify(killSwitch).shutdown()
       Succeeded

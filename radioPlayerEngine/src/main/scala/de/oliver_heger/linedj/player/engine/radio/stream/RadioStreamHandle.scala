@@ -178,8 +178,8 @@ case class RadioStreamHandle(audioSinkControl: ActorRef[AttachableSink.Attachabl
     */
   def attach(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
             (using system: classic.ActorSystem): Future[(Source[ByteString, NotUsed], Source[ByteString, NotUsed])] =
-    val futAudioSource = AttachableSink.attachConsumer(audioSinkControl, timeout)
-    val futMetaSource = AttachableSink.attachConsumer(metaSinkControl, timeout)
+    val futAudioSource = attachAudioSink(timeout)
+    val futMetaSource = attachMetadataSink(timeout)
     for
       audioSource <- futAudioSource
       metaSource <- futMetaSource
@@ -202,9 +202,65 @@ case class RadioStreamHandle(audioSinkControl: ActorRef[AttachableSink.Attachabl
   def attachOrCancel(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
                     (using system: classic.ActorSystem):
   Future[(Source[ByteString, NotUsed], Source[ByteString, NotUsed])] =
-    attach(timeout).andThen {
-      case Failure(exception) => cancelStream()
-    }
+    cancelOnError(attach(timeout))
+
+  /**
+    * Attaches to the [[Sink]] for audio data of the managed stream and returns
+    * a [[Future]] with a [[Source]] that can be used to stream this data.
+    *
+    * @param timeout a timeout for the operation to attach to the sink
+    * @param system  the implicit actor system
+    * @return a [[Future]] with the source to obtain the audio data of the 
+    *         radio stream
+    */
+  def attachAudioSink(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
+                     (using system: classic.ActorSystem): Future[Source[ByteString, NotUsed]] =
+    AttachableSink.attachConsumer(audioSinkControl, timeout)
+
+  /**
+    * Tries to attach to the [[Sink]] for audio data and returns a [[Future]]
+    * with a [[Source]] that can be used to stream this data. If this operation
+    * fails, this function calls the [[RadioStreamHandle.cancelStream]] method.
+    * This is analogous to the [[RadioStreamHandle.attachOrCancel]] method, but
+    * limit to the audio data source.
+    *
+    * @param timeout a timeout for the operation to attach to the sink
+    * @param system  the implicit actor system
+    * @return a [[Future]] with the source to obtain the audio data of the
+    *         radio stream
+    */
+  def attachAudioSinkOrCancel(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
+                             (using system: classic.ActorSystem): Future[Source[ByteString, NotUsed]] =
+    cancelOnError(attachAudioSink(timeout))
+
+  /**
+    * Attaches to the [[Sink]] for metadata of the managed stream and returns a
+    * [[Future]] with a [[Source]] that can be used to obtain this data.
+    *
+    * @param timeout a timeout for the operation to attach to the sink
+    * @param system  the implicit actor system
+    * @return a [[Future]] with the source to obtain the metadata of the radio
+    *         stream
+    */
+  def attachMetadataSink(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
+                        (using system: classic.ActorSystem): Future[Source[ByteString, NotUsed]] =
+    AttachableSink.attachConsumer(metaSinkControl, timeout)
+
+  /**
+    * Tries to attach to the [[Sink]] for metadata and returns a [[Future]]
+    * with a [[Source]] that can be used to stream this data. If this operation
+    * fails, this function calls the [[RadioStreamHandle.cancelStream]] method.
+    * This is analogous to the [[RadioStreamHandle.attachOrCancel]] method, but
+    * limit to the metadata source.
+    *
+    * @param timeout a timeout for the operation to attach to the sink
+    * @param system  the implicit actor system
+    * @return a [[Future]] with the source to obtain the metadata of the radio
+    *         stream
+    */
+  def attachMetadataSinkOrCancel(timeout: Timeout = AttachableSink.DefaultAttachTimeout)
+                                (using system: classic.ActorSystem): Future[Source[ByteString, NotUsed]] =
+    cancelOnError(attachMetadataSink(timeout))
 
   /**
     * Convenience function to send a request to detach from the sinks of the
@@ -221,3 +277,18 @@ case class RadioStreamHandle(audioSinkControl: ActorRef[AttachableSink.Attachabl
     */
   def cancelStream(): Unit =
     builderResult.killSwitch.shutdown()
+
+  /**
+    * Decorates the given [[Future]] with a side effect for error handling, so
+    * that the associated stream is canceled in case of a failure.
+    *
+    * @param futResult the affected [[Future]]
+    * @param system    the implicit actor system
+    * @tparam A the type of the [[Future]]
+    * @return the decorated [[Future]]
+    */
+  private def cancelOnError[A](futResult: Future[A])
+                              (using system: classic.ActorSystem): Future[A] =
+    futResult.andThen {
+      case Failure(exception) => cancelStream()
+    }
