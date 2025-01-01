@@ -239,7 +239,7 @@ object AudioStreamPlayerStage:
         }
         val audioStreamSource = streamSource.source
           .via(AudioEncodingStage(adjustedPlaybackData, config.inMemoryBufferSize))
-          .via(PausePlaybackStage.pausePlaybackStage(config.pauseActor))
+          .via(PausePlaybackStage.pausePlaybackStage(Some(config.pauseActor)))
           .via(LineWriterStage(Some(config.lineCreatorFunc), config.dispatcherName))
         appendOptionalKillSwitch(audioStreamSource, optKillSwitch)
           .runWith(sink)

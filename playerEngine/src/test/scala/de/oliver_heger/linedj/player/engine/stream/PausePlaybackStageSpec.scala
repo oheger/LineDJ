@@ -53,7 +53,7 @@ class PausePlaybackStageSpec(testSystem: classic.ActorSystem) extends TestKit(te
     val pauseActor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPossible))
     val source = Source(audioData)
     val sink = Sink.fold[List[ByteString], ByteString](Nil) { (list, chunk) => chunk :: list }
-    val stage = PausePlaybackStage.pausePlaybackStage[ByteString](pauseActor)
+    val stage = PausePlaybackStage.pausePlaybackStage[ByteString](Some(pauseActor))
 
     source.via(stage).runWith(sink) map { result =>
       result.reverse should contain theSameElementsInOrderAs audioData
@@ -64,9 +64,19 @@ class PausePlaybackStageSpec(testSystem: classic.ActorSystem) extends TestKit(te
     val probe = testKit.createTestProbe[ByteString]
     val source = Source(List(ByteString("foo"), ByteString("bar"), ByteString("baz")))
     val sink = Sink.foreach[ByteString](probe.ref ! _)
-    val stage = PausePlaybackStage.pausePlaybackStage[ByteString](pauseActor)
+    val stage = PausePlaybackStage.pausePlaybackStage[ByteString](Some(pauseActor))
 
     source.via(stage).runWith(sink)
 
     probe.expectNoMessage(500.millis)
     Succeeded
+
+  it should "handle an undefined pause actor" in :
+    val audioData = List(ByteString("chunk1"), ByteString("chunk"), ByteString("anotherChunk"))
+    val source = Source(audioData)
+    val sink = Sink.fold[List[ByteString], ByteString](Nil) { (list, chunk) => chunk :: list }
+    val stage = PausePlaybackStage.pausePlaybackStage[ByteString](None)
+
+    source.via(stage).runWith(sink) map { result =>
+      result.reverse should contain theSameElementsInOrderAs audioData
+    }

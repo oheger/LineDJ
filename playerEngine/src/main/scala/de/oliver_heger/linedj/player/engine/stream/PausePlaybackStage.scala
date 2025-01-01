@@ -129,20 +129,26 @@ object PausePlaybackStage {
 
   /**
     * Returns a stage that allows pausing playback with the help of the given
-    * pause playback actor.
+    * pause playback actor. If the actor is undefined, the function returns a
+    * dummy stage that simply forwards all incoming data. This is useful if
+    * pausing playback is not desired for a specific stream.
     *
-    * @param pauseActor the actor to control the [[PlaybackState]]
+    * @param optPauseActor the optional actor to control the [[PlaybackState]]
     * @tparam T the type of data processed by the stage
     * @return the new pause playback stage
     */
-  def pausePlaybackStage[T](pauseActor: ActorRef[PausePlaybackCommand])
+  def pausePlaybackStage[T](optPauseActor: Option[ActorRef[PausePlaybackCommand]])
                            (using system: ActorSystem[_]): Flow[T, T, NotUsed] =
     given ec: ExecutionContext = system.executionContext
 
-    Flow[T].mapAsync(1) { data =>
-      val futReply: Future[PlaybackPossible] = pauseActor.ask(ref => WaitForPlaybackPossible(ref))
-      futReply.map(_ => data)
-    }
+    optPauseActor match
+      case Some(pauseActor) =>
+        Flow[T].mapAsync(1) { data =>
+          val futReply: Future[PlaybackPossible] = pauseActor.ask(ref => WaitForPlaybackPossible(ref))
+          futReply.map(_ => data)
+        }
+      case None =>
+        Flow[T].map(identity)
 
   /**
     * The command handler function of the pause playback actor.

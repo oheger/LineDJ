@@ -419,7 +419,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     val source = Source(sourceIndices)
     val pauseActor =
       testKit.spawn(PausePlaybackStage.pausePlaybackActor(PausePlaybackStage.PlaybackState.PlaybackPaused))
-    val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferFileWritten[Int]](pauseActor)
+    val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferFileWritten[Int]](Some(pauseActor))
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
     val futStream = source.via(stage).via(pauseStage).runWith(sink)
