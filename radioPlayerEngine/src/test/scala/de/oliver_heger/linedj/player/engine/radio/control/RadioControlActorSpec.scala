@@ -18,14 +18,14 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.ActorTestKitSupport
-import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.player.engine.{ActorCreator, AsyncAudioStreamFactory}
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamManagerActor, RadioStreamPlaybackActor}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamManagerActor, RadioStreamPlaybackActor}
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -205,13 +205,13 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
       sourceCheckTimeout = 1.minute,
       streamCacheTime = 3.seconds,
       stalledPlaybackCheck = 30.seconds)
+    
+    /** Mock for the stream factory. */
+    private val streamFactory = mock[AsyncAudioStreamFactory]
 
     /** Test probe for the schedule invocation actor. */
     private val probeScheduleActor = testKit.createTestProbe[ScheduledInvocationCommand]()
-
-    /** Test probe for the playback context factory actor. */
-    private val probeFactoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
-
+    
     /** Test probe for the actor for publishing events. */
     private val probeEventActor = testKit.createTestProbe[RadioEvent]()
 
@@ -232,6 +232,10 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
 
     /** Test probe for the stream manager actor. */
     private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+    
+    /** Test probe for the stream handle manager actor. */
+    private val probleHandleManagerActor =
+      testKit.createTestProbe[RadioStreamHandleManagerActor.RadioStreamHandleCommand]()
     
     /** The probe for the radio stream playback actor. */
     private val probePlaybackActor = testKit.createTestProbe[RadioStreamPlaybackActor.RadioStreamPlaybackCommand]()
@@ -395,8 +399,9 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
         eventManagerActor = probeEventManagerActor.ref,
         playbackActor = probePlaybackActor.ref,
         scheduleActor = probeScheduleActor.ref,
-        factoryActor = probeFactoryActor.ref,
+        streamFactory = streamFactory,
         streamManagerActor = probeStreamManagerActor.ref,
+        handleManagerActor = probleHandleManagerActor.ref,
         config = config,
         askTimeout = askTimeout))
 
@@ -444,18 +449,18 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
     private def createErrorStateActorFactory(): ErrorStateActor.Factory =
       (radioConfig: RadioPlayerConfig,
        enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
-       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       audioStreamFactory: AsyncAudioStreamFactory,
        scheduledInvocationActor: ActorRef[ScheduledInvocationCommand],
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+       handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
        _: ErrorStateActor.CheckSchedulerActorFactory,
        _: ErrorStateActor.CheckSourceActorFactory,
        optSpawner: Option[Spawner]) => {
         radioConfig should be(config)
-        factoryActor should be(probeFactoryActor.ref)
+        audioStreamFactory should be(streamFactory)
         scheduledInvocationActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
-        streamManager should be(probeStreamManagerActor.ref)
+        handleManager should be(probleHandleManagerActor.ref)
         optSpawner shouldBe empty
 
         enabledStateActor.actorCreated(enabledActor)

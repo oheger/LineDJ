@@ -118,8 +118,9 @@ object RadioPlayer:
         eventActors._1,
         playbackActor,
         scheduledInvocationActor,
-        factoryActor,
-        streamManager
+        audioStreamFactory,
+        streamManager,
+        streamHandleManager
       )
       val controlActor = creator.createActor(
         controlBehavior,

@@ -16,11 +16,12 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
+import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
+import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
-import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamManagerActor, RadioStreamPlaybackActor}
 import de.oliver_heger.linedj.player.engine.radio.*
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamManagerActor, RadioStreamPlaybackActor}
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -205,9 +206,9 @@ object RadioControlActor:
       * @param eventManagerActor     the actor managing event listeners
       * @param playbackActor         the actor controlling the playback state
       * @param scheduleActor         the actor for scheduled invocations
-      * @param factoryActor          the actor managing playback context
-      *                              factories
+      * @param streamFactory         the factory for creating audio streams
       * @param streamManagerActor    the actor managing radio stream actors
+      * @param handleManagerActor    the actor managing radio stream handles
       * @param optEvalService        the optional service to evaluate interval
       *                              queries (None for default)
       * @param optReplacementService the optional service to select a
@@ -226,8 +227,9 @@ object RadioControlActor:
               eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
               playbackActor: ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
               scheduleActor: ActorRef[ScheduledInvocationCommand],
-              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              streamFactory: AsyncAudioStreamFactory,
               streamManagerActor: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManagerActor: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               optEvalService: Option[EvaluateIntervalsService] = None,
               optReplacementService: Option[ReplacementSourceSelectionService] = None,
               optStateService: Option[RadioSourceStateService] = None,
@@ -247,8 +249,9 @@ object RadioControlActor:
                                  eventManagerActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
                                  playbackActor: ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
-                                 factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                 streamFactory: AsyncAudioStreamFactory,
                                  streamManagerActor: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+                                 handleManagerActor: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                                  optEvalService: Option[EvaluateIntervalsService],
                                  optReplacementService: Option[ReplacementSourceSelectionService],
                                  optStateService: Option[RadioSourceStateService],
@@ -276,10 +279,10 @@ object RadioControlActor:
       val playStateActor = context.spawn(playActorFactory(playbackActor), PlayStateActorName)
       val errorStateActor = context.spawn(errorActorFactory(config,
         enabledStateAdapter,
-        factoryActor,
+        streamFactory,
         scheduleActor,
         eventManagerActor,
-        streamManagerActor), ErrorStateActorName)
+        handleManagerActor), ErrorStateActorName)
       val metadataStateActor = context.spawn(metaActorFactory(config,
         enabledStateAdapter,
         scheduleActor,

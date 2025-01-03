@@ -17,21 +17,24 @@
 package de.oliver_heger.linedj.player.engine.radio.control
 
 import com.github.cloudfiles.core.http.factory.Spawner
-import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.*
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamManagerActor}
-import org.apache.pekko.actor.Actor
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandle, RadioStreamHandleManagerActor}
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe as TypedTestProbe}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
-import org.apache.pekko.testkit.{TestKit, TestProbe}
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
-import org.apache.pekko.actor as classic
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -39,11 +42,17 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import javax.sound.sampled.{AudioFormat, AudioInputStream}
+import scala.concurrent.Future
 import scala.concurrent.duration.*
+import scala.util.{Failure, Random, Success, Try}
 
 object ErrorStateActorSpec:
   /** A prefix for actor names. */
   private val ActorNamePrefix = "ErrorCheck_"
+
+  /** A format used by the test audio input streams. */
+  final val Format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 44.1, 16, 2, 17, 44100.0, false)
 
   /** A test radio player configuration. */
   private val TestRadioConfig = RadioPlayerConfig(playerConfig = TestPlayerConfig,
@@ -58,10 +67,11 @@ object ErrorStateActorSpec:
     stalledPlaybackCheck = 1.minute)
 
   /** A radio source used by tests */
-  private val TestRadioSource = RadioSource("http://radio.example.org/music.mp3")
+  private val TestRadioSource = RadioSource("http://radio.example.org/music.m3u", Some("mp3"))
 
   /** A counter for generating unique actor names. */
   private val counter = new AtomicInteger
+end ErrorStateActorSpec
 
 /**
   * Test class for the [[ErrorStateActor]] module.
@@ -78,7 +88,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     TestKit shutdownActorSystem system
     super.afterAll()
 
-  import ErrorStateActorSpec._
+  import ErrorStateActorSpec.*
 
   /**
     * Tests whether the given actor has been stopped.
@@ -90,167 +100,86 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     val probe = testKit.createDeadLetterProbe()
     probe.expectTerminated(actor)
 
-  "playbackActorsFactory" should "create correct playback actors" in:
-    val creator = new ActorCreatorForPlaybackActors
+  "Check playback actor" should "execute a successful check for the current radio source" in :
+    val helper = new CheckPlaybackTestHelper
+    val handle = helper.createHandle()
 
-    val result = creator.callPlaybackFactory(ErrorStateActor.playbackActorsFactory)
+    val checkActor = helper.createCheckPlaybackActor()
 
-    result.playActor should be(creator.probePlayActor.ref)
-    result.sourceActor should be(creator.probeSourceActor.ref)
-
-  it should "create a line writer actor responding to a write command" in:
-    val probe = TestProbe()
-    val creator = new ActorCreatorForPlaybackActors
-    creator.callPlaybackFactory(ErrorStateActor.playbackActorsFactory)
-
-    val writeCommand = LineWriterActor.WriteAudioData(line = null, data = ByteString("some data"),
-      replyTo = probe.ref)
-    creator.lineWriterActor ! writeCommand
-
-    val writtenMsg = probe.expectMsgType[LineWriterActor.AudioDataWritten]
-    writtenMsg.duration.toMillis should be >= 1000L
-    writtenMsg.chunkLength should be >= 1024
-
-  it should "create a line writer actor responding to a drain command" in:
-    val probe = TestProbe()
-    val creator = new ActorCreatorForPlaybackActors
-    creator.callPlaybackFactory(ErrorStateActor.playbackActorsFactory)
-
-    creator.lineWriterActor ! LineWriterActor.DrainLine(null, probe.ref)
-
-    probe.expectMsg(LineWriterActor.LineDrained)
-
-  "Check playback actor" should "trigger the check of the current radio source" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-
-    factory.createCheckPlaybackActor()
-
-    factory.probeSourceActor.expectMsg(TestRadioSource)
-    factory.probePlayActor.expectMsg(PlaybackActor.StartPlayback)
-
-  it should "handle a timeout command" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
-
-    checkActor ! ErrorStateActor.CheckTimeout
-
-    factory.expectCheckResult(checkActor, success = false)
-
-  it should "trigger only a single close operation and wait for its completion" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
-    val deadLetters = testKit.createDeadLetterProbe()
-    checkActor ! ErrorStateActor.CheckTimeout
-    factory.expectCloseRequest(factory.probeSourceActor, reply = false)
-
-    checkActor ! ErrorStateActor.CheckTimeout
-
-    factory.probeSourceActor.expectNoMessage(250.millis)
-    deadLetters.expectNoMessage(250.millis)
-
-  it should "stop itself if the source actor dies" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
-
-    system.stop(factory.probeSourceActor.ref)
-
-    factory.expectCloseRequest(factory.probePlayActor)
-      .expectNoSuccess()
+    helper.expectAndAnswerHandleRequest(Success(handle))
+      .expectSuccess()
+    Mockito.verify(handle, Mockito.timeout(3000)).cancelStream()
     checkStopped(checkActor)
 
-  it should "stop itself if the play actor dies" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
+  it should "handle a timeout command before the handle is available" in :
+    val helper = new CheckPlaybackTestHelper
+    val handle = helper.createHandle()
+    val checkActor = helper.createCheckPlaybackActor()
 
-    system.stop(factory.probePlayActor.ref)
+    checkActor ! ErrorStateActor.CheckTimeout
 
-    factory.expectCloseRequest(factory.probeSourceActor)
+    helper.expectNoSuccess()
+      .expectAndAnswerHandleRequest(Success(handle))
       .expectNoSuccess()
+    Mockito.verify(handle, Mockito.timeout(3000)).cancelStream()
     checkStopped(checkActor)
 
-  it should "report a successful check on receiving a playback progress event" in:
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
+  it should "handle a timeout command when waiting for audio playback" in :
+    val helper = new CheckPlaybackTestHelper
+    val handle = helper.createHandle(delayed = true)
+    val checkActor = helper.createCheckPlaybackActor()
 
-    factory.playerEventActor ! PlaybackProgressEvent(1024L, 1.second, AudioSource("test", 10000, 0, 0))
+    helper.expectAndAnswerHandleRequest(Success(handle))
+    checkActor ! ErrorStateActor.CheckTimeout
 
-    factory.expectCheckResult(checkActor, success = true)
+    helper.expectNoSuccess()
+    Mockito.verify(handle, Mockito.timeout(3000)).cancelStream()
+    checkStopped(checkActor)
 
-  it should "ignore irrelevant player events" in:
-    val audioSource = AudioSource.infinite(TestRadioSource.uri)
-    val events = List(AudioSourceStartedEvent(audioSource), AudioSourceFinishedEvent(audioSource))
-    val factory = new PlaybackActorsFactoryTestImpl
-    factory.createCheckPlaybackActor()
+  it should "handle a failed request for a stream handle" in :
+    val helper = new CheckPlaybackTestHelper
+    val checkActor = helper.createCheckPlaybackActor()
 
-    events foreach factory.playerEventActor.!
+    helper.expectAndAnswerHandleRequest(Failure(new IllegalStateException("Test exception: No handle.")))
+      .expectNoSuccess()
 
-    factory.probePlayActor.expectMsgType[AnyRef] // The original start playback message
-    factory.probePlayActor.expectNoMessage(200.millis)
+    checkStopped(checkActor)
 
-  it should "ignore irrelevant radio events" in:
-    val events = List(RadioSourceChangedEvent(TestRadioSource),
-      RadioSourceReplacementStartEvent(TestRadioSource, TestRadioSource),
-      RadioSourceReplacementEndEvent(TestRadioSource),
-      RadioPlaybackProgressEvent(TestRadioSource, 1024L, 1.second))
-    val factory = new PlaybackActorsFactoryTestImpl
-    factory.createCheckPlaybackActor()
+  it should "handle a failed operation to attach to the handle" in :
+    val handle = mock[RadioStreamHandle]
 
-    events foreach factory.radioEventActor.!
+    given classic.ActorSystem = any()
 
-    factory.probePlayActor.expectMsgType[AnyRef] // The original start playback message
-    factory.probePlayActor.expectNoMessage(200.millis)
+    Mockito.when(handle.attachAudioSinkOrCancel(any()))
+      .thenReturn(Future.failed(new IllegalStateException("Test exception: Failed to attach to handle.")))
+    val helper = new CheckPlaybackTestHelper
+    val checkActor = helper.createCheckPlaybackActor()
 
-  /**
-    * Checks whether an error event sent to the player event actor is correctly
-    * detected.
-    *
-    * @param event the event
-    */
-  private def checkErrorPlayerEvent(event: PlayerEvent): Unit =
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
+    helper.expectAndAnswerHandleRequest(Success(handle))
+      .expectNoSuccess()
 
-    factory.playerEventActor ! event
+    checkStopped(checkActor)
 
-    factory.expectCheckResult(checkActor, success = false)
+  it should "handle a failed audio stream" in :
+    val helper = new CheckPlaybackTestHelper
+    val handle = helper.createHandle()
+    val checkActor = helper.failAudioStreamCreation()
+      .createCheckPlaybackActor()
 
-  it should "handle a PlaybackContextCreationFailedEvent event" in:
-    checkErrorPlayerEvent(PlaybackContextCreationFailedEvent(AudioSource.infinite(TestRadioSource.uri)))
+    helper.expectAndAnswerHandleRequest(Success(handle))
+      .expectNoSuccess()
 
-  it should "handle a PlaybackErrorEvent event" in:
-    checkErrorPlayerEvent(PlaybackErrorEvent(AudioSource.infinite(TestRadioSource.uri)))
+    checkStopped(checkActor)
+    Mockito.verify(handle).cancelStream()
 
-  /**
-    * Checks whether an error event sent to the radio event actor is correctly
-    * detected.
-    *
-    * @param event the event
-    */
-  private def checkErrorRadioEvent(event: RadioEvent): Unit =
-    val factory = new PlaybackActorsFactoryTestImpl
-    val checkActor = factory.createCheckPlaybackActor()
-
-    factory.radioEventActor ! event
-
-    factory.expectCheckResult(checkActor, success = false)
-
-  it should "handle a RadioSourceErrorEvent" in:
-    checkErrorRadioEvent(RadioSourceErrorEvent(TestRadioSource))
-
-  it should "handle a RadioPlaybackContextCreationFailedEvent" in:
-    checkErrorRadioEvent(RadioPlaybackContextCreationFailedEvent(TestRadioSource))
-
-  it should "handle a RadioPlaybackErrorEvent" in:
-    checkErrorRadioEvent(RadioPlaybackErrorEvent(TestRadioSource))
-
-  "Check scheduler actor" should "schedule check commands for radio sources" in:
+  "Check scheduler actor" should "schedule check commands for radio sources" in :
     val helper = new CheckSchedulerTestHelper
 
     val probe = helper.handleSchedule()
 
     probe.expectMessage(helper.runCheckCommand)
 
-  it should "only trigger one check at a given time" in:
+  it should "only trigger one check at a given time" in :
     val helper = new CheckSchedulerTestHelper
     helper.handleSchedule()
 
@@ -258,7 +187,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     probe.expectNoMessage(200.millis)
 
-  it should "continue with the next pending check if the current one is rescheduled" in:
+  it should "continue with the next pending check if the current one is rescheduled" in :
     val helper = new CheckSchedulerTestHelper
     val probe1 = helper.handleSchedule()
     val probe2 = helper.handleSchedule()
@@ -271,7 +200,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     probe3.expectMessage(helper.runCheckCommand)
 
-  it should "reset the current check when it is complete" in:
+  it should "reset the current check when it is complete" in :
     val helper = new CheckSchedulerTestHelper
     val probe1 = helper.handleSchedule()
     helper.send(ErrorStateActor.AddScheduledCheck(probe1.ref, 10.seconds))
@@ -281,7 +210,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     probe2.expectMessage(helper.runCheckCommand)
 
-  it should "handle the termination of the current check actor" in:
+  it should "handle the termination of the current check actor" in :
     val helper = new CheckSchedulerTestHelper
     val probe1 = helper.handleSchedule()
 
@@ -290,7 +219,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     val probe2 = helper.handleSchedule()
     probe2.expectMessage(helper.runCheckCommand)
 
-  "Check radio source actor" should "execute a successful test" in:
+  "Check radio source actor" should "execute a successful test" in :
     val helper = new CheckSourceTestHelper
 
     helper.triggerCheck()
@@ -300,7 +229,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       .stopCheckPlaybackActor()
       .expectActorStopped()
 
-  it should "use a default spawner" in:
+  it should "use a default spawner" in :
     val helper = new CheckSourceTestHelper(provideSpawner = false)
 
     helper.triggerCheck()
@@ -309,7 +238,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     helper.triggerCheck()
     probe.expectNoMessage(200.millis)
 
-  it should "reschedule a check if the current one failed" in:
+  it should "reschedule a check if the current one failed" in :
     val helper = new CheckSourceTestHelper
 
     helper.triggerCheck()
@@ -318,7 +247,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       .triggerCheck()
       .expectPlaybackNamePrefix(helper.namePrefix + "_2_")
 
-  it should "take the maximum retry delay into account" in:
+  it should "take the maximum retry delay into account" in :
     val helper = new CheckSourceTestHelper
 
     helper.triggerCheck()
@@ -328,7 +257,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       .stopCheckPlaybackActor()
       .expectSchedule(TestRadioConfig.maxRetryFailedSource)
 
-  it should "handle timeouts correctly" in:
+  it should "handle timeouts correctly" in :
     val helper = new CheckSourceTestHelper
 
     helper.triggerCheck()
@@ -336,7 +265,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       .sendCheckTimeout()
       .expectPlaybackActorTimeout()
 
-  it should "not stop itself before the current check actor is stopped" in:
+  it should "not stop itself before the current check actor is stopped" in :
     val helper = new CheckSourceTestHelper
     helper.triggerCheck()
       .expectTimeoutSchedule()
@@ -347,7 +276,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     probe.expectNoMessage(200.millis)
 
-  it should "not send a timeout to the check playback actor if the check is already successful" in:
+  it should "not send a timeout to the check playback actor if the check is already successful" in :
     val helper = new CheckSourceTestHelper
 
     helper.triggerCheck()
@@ -356,7 +285,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       .sendCheckTimeout()
       .expectNoPlaybackActorMessage()
 
-  it should "ignore a timeout for a previous check" in:
+  it should "ignore a timeout for a previous check" in :
     val helper = new CheckSourceTestHelper
     helper.triggerCheck()
       .expectTimeoutSchedule()
@@ -369,35 +298,35 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     probe.expectNoMessage(100.millis)
 
-  "Error state actor" should "return an initial empty error state" in:
+  "Error state actor" should "return an initial empty error state" in :
     val helper = new ErrorStateTestHelper
 
     val errorSources = helper.querySourcesInErrorState()
 
     errorSources.errorSources shouldBe empty
 
-  it should "handle a radio source playback error event" in:
+  it should "handle a radio source playback error event" in :
     val errorSource = radioSource(7)
     val event = RadioPlaybackErrorEvent(errorSource)
     val helper = new ErrorStateTestHelper
 
     helper.testErrorEvent(event, errorSource)
 
-  it should "handle a radio source playback context creation failed event" in:
+  it should "handle a radio source playback context creation failed event" in :
     val errorSource = radioSource(11)
     val event = RadioPlaybackContextCreationFailedEvent(errorSource)
     val helper = new ErrorStateTestHelper
 
     helper.testErrorEvent(event, errorSource)
 
-  it should "handle a radio source error event" in:
+  it should "handle a radio source error event" in :
     val errorSource = radioSource(13)
     val event = RadioSourceErrorEvent(errorSource)
     val helper = new ErrorStateTestHelper
 
     helper.testErrorEvent(event, errorSource)
 
-  it should "manage multiple error sources" in:
+  it should "manage multiple error sources" in :
     val helper = new ErrorStateTestHelper
 
     (1 to 4) foreach { idx =>
@@ -409,7 +338,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       helper.checkSourceDataFor(idx).get.source should be(radioSource(idx))
     }
 
-  it should "not create multiple check actors for the same radio source" in:
+  it should "not create multiple check actors for the same radio source" in :
     val errorSource = radioSource(17)
     val helper = new ErrorStateTestHelper
 
@@ -422,7 +351,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     helper.checkSourceDataFor(2, await = false) shouldBe empty
     helper.expectNoErrorStateUpdate()
 
-  it should "remove a source from error state when the check actor stops itself" in:
+  it should "remove a source from error state when the check actor stops itself" in :
     val source1 = radioSource(7)
     val source2 = radioSource(77)
     val helper = new ErrorStateTestHelper
@@ -438,7 +367,7 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     val errorSources = helper.querySourcesInErrorState()
     errorSources.errorSources should contain only source2
 
-  it should "use a default Spawner" in:
+  it should "use a default Spawner" in :
     val errorSource = radioSource(23)
     val helper = new ErrorStateTestHelper(provideSpawner = false)
 
@@ -446,100 +375,25 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
 
     val errorSources = helper.querySourcesInErrorState()
     errorSources.errorSources should contain only errorSource
-
+  
   /**
-    * A test implementation of [[ActorCreator]] that checks whether correct
-    * parameters are provided when creating the expected actors.
+    * A test helper implementation for testing the check playback actor.
     */
-  private class ActorCreatorForPlaybackActors extends ActorCreator:
-    /** The test probe for the source actor. */
-    val probeSourceActor: TestProbe = TestProbe()
-
-    /** The test probe for the playback actor. */
-    val probePlayActor: TestProbe = TestProbe()
-
-    /** Test probe for the player event actor. */
-    private val probePlayerEventActor: TypedTestProbe[PlayerEvent] = testKit.createTestProbe[PlayerEvent]()
-
-    /** Test probe for the radio event actor. */
-    private val probeRadioEventActor: TypedTestProbe[RadioEvent] = testKit.createTestProbe[RadioEvent]()
-
-    /** Test probe for the playback context factory actor. */
-    private val probeFactoryActor: TypedTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand] =
-      testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
-
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
-
-    /** Stores the line writer actor created via the factory. */
-    var lineWriterActor: ActorRef[LineWriterActor.LineWriterCommand] = _
-
-    /**
-      * Invokes the given factory for playback actors with the test data
-      * managed by this instance.
-      *
-      * @param factory the factory to invoke
-      * @return the result produced by the factory
-      */
-    def callPlaybackFactory(factory: ErrorStateActor.PlaybackActorsFactory):
-    ErrorStateActor.PlaybackActorsFactoryResult =
-      factory.createPlaybackActors(ActorNamePrefix, probePlayerEventActor.ref, probeRadioEventActor.ref,
-        probeFactoryActor.ref, TestPlayerConfig, this, probeStreamManagerActor.ref)
-
-    override def createActor[T](behavior: Behavior[T],
-                                name: String,
-                                optStopCommand: Option[T],
-                                props: Props): ActorRef[T] =
-      name should be(ActorNamePrefix + "LineWriter")
-      optStopCommand shouldBe empty
-      lineWriterActor = testKit.spawn(behavior).asInstanceOf[ActorRef[LineWriterActor.LineWriterCommand]]
-      lineWriterActor.asInstanceOf[ActorRef[T]]
-
-    override def createClassicActor(props: classic.Props,
-                                    name: String,
-                                    optStopCommand: Option[Any]): classic.ActorRef =
-      optStopCommand shouldBe empty
-      name match
-        case s"${ActorNamePrefix}SourceActor" =>
-          val expProps = RadioDataSourceActor(TestPlayerConfig, probeRadioEventActor.ref, probeStreamManagerActor.ref)
-          props should be(expProps)
-          probeSourceActor.ref
-
-        case s"${ActorNamePrefix}PlaybackActor" =>
-          props.args should have size 5
-          val expProps = PlaybackActor(TestPlayerConfig, probeSourceActor.ref, lineWriterActor,
-            probePlayerEventActor.ref, probeFactoryActor.ref)
-          props should be(expProps)
-          probePlayActor.ref
-
-  /**
-    * A test implementation of the factory for playback actors. This class
-    * manages test probes for the playback actors to check the interaction with
-    * them.
-    */
-  private class PlaybackActorsFactoryTestImpl extends ErrorStateActor.PlaybackActorsFactory:
-    /** Test probe for the radio data source actor. */
-    val probeSourceActor: TestProbe = TestProbe()
-
-    /** Test probe for the playback actor. */
-    val probePlayActor: TestProbe = TestProbe()
-
-    /** Test probe for the playback context factory actor. */
-    private val probeFactoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
-
+  private class CheckPlaybackTestHelper:
     /**
       * Test probe for the actor receiving the result of a radio source check.
       */
     private val probeReceiverActor = testKit.createTestProbe[ErrorStateActor.RadioSourceCheckSuccessful]()
 
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+    /** Test probe for the stream handle manager actor. */
+    private val probeHandleManagerActor =
+      testKit.createTestProbe[RadioStreamHandleManagerActor.RadioStreamHandleCommand]()
 
-    /** Stores the actor for receiving player events. */
-    private val refPlayerEventActor = new AtomicReference[ActorRef[PlayerEvent]]
+    /** The mock for the audio stream factory. */
+    private val mockStreamFactory = createStreamFactoryMock()
 
-    /** Stores the actor for receiving radio events. */
-    private val refRadioEventActor = new AtomicReference[ActorRef[RadioEvent]]
+    /** An object for creating random data. */
+    private val random = Random()
 
     /**
       * Creates a check playback actor instance that is configured with test
@@ -548,16 +402,35 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       * @return the check actor instance
       */
     def createCheckPlaybackActor(): ActorRef[ErrorStateActor.CheckPlaybackCommand] =
-      val behavior = ErrorStateActor.checkPlaybackBehavior(probeReceiverActor.ref, TestRadioSource, ActorNamePrefix,
-        probeFactoryActor.ref, TestPlayerConfig, probeStreamManagerActor.ref, this)
+      val behavior = ErrorStateActor.checkPlaybackBehavior(probeReceiverActor.ref,
+        TestRadioSource,
+        ActorNamePrefix,
+        mockStreamFactory,
+        TestPlayerConfig,
+        probeHandleManagerActor.ref)
       testKit.spawn(behavior)
+
+    /**
+      * Expects a request to the stream handle manager actor and answers it
+      * with the provided handle.
+      *
+      * @param triedHandle the handle to put into the response
+      * @return this test helper
+      */
+    def expectAndAnswerHandleRequest(triedHandle: Try[RadioStreamHandle]): CheckPlaybackTestHelper =
+      val request = probeHandleManagerActor.expectMessageType[RadioStreamHandleManagerActor.GetStreamHandle]
+      request.params.streamSource should be(TestRadioSource)
+      request.params.streamName should be(ActorNamePrefix + "_errorCheck")
+      val response = RadioStreamHandleManagerActor.GetStreamHandleResponse(TestRadioSource, triedHandle, None)
+      request.replyTo ! response
+      this
 
     /**
       * Expects that a success message was sent to the receiver actor.
       *
       * @return this factory
       */
-    def expectSuccess(): PlaybackActorsFactoryTestImpl =
+    def expectSuccess(): CheckPlaybackTestHelper =
       probeReceiverActor.expectMessage(ErrorStateActor.RadioSourceCheckSuccessful())
       this
 
@@ -566,126 +439,57 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       *
       * @return this factory
       */
-    def expectNoSuccess(): PlaybackActorsFactoryTestImpl =
+    def expectNoSuccess(): CheckPlaybackTestHelper =
       probeReceiverActor.expectNoMessage(250.millis)
       this
 
     /**
-      * Expects that the given probe receives a close request. Optionally, the
-      * request is answered with an ACK.
+      * Creates a mock for a [[RadioStreamHandle]] that is prepared to handle
+      * an operation to attach for audio data.
       *
-      * @param probe the test probe
-      * @param reply flag whether to reply with an ACK
-      * @return this factory
+      * @param delayed flag whether the data source of the handle should send
+      *                data with a delay
+      * @return the mock handle
       */
-    def expectCloseRequest(probe: TestProbe, reply: Boolean = true): PlaybackActorsFactoryTestImpl =
-      probe.fishForSpecificMessage():
-        case CloseRequest => CloseRequest
-      if reply then
-        probe.reply(CloseAck(probe.ref))
+    def createHandle(delayed: Boolean = false): RadioStreamHandle =
+      val data = ByteString(random.nextBytes(4096)).grouped(512).toList
+      val source = Source(data)
+      val delayedSource = if delayed then source.delay(1.second) else source
+      val handle = mock[RadioStreamHandle]
+
+      given classic.ActorSystem = any()
+
+      Mockito.when(handle.attachAudioSinkOrCancel(any()))
+        .thenReturn(Future.successful(delayedSource))
+      handle
+
+    /**
+      * Prepares the mock for the audio stream factory to return a failure
+      * result. This should cause the whole audio stream to fail.
+      *
+      * @return this test helper
+      */
+    def failAudioStreamCreation(): CheckPlaybackTestHelper =
+      val future: Future[AudioStreamFactory.AudioStreamPlaybackData] =
+        Future.failed(new IllegalStateException("Test exception: No audio stream."))
+      Mockito.doReturn(future).when(mockStreamFactory).playbackDataForAsync(any())
       this
 
     /**
-      * Expects that the check actor triggers a close operation and stops
-      * itself with a result determined by the success flag.
+      * Creates a mock for an audio stream factory that is prepared to return
+      * a dummy audio stream.
       *
-      * @param checkActor the check actor
-      * @param success    the success flag
+      * @return the mock stream factory
       */
-    def expectCheckResult(checkActor: ActorRef[ErrorStateActor.CheckPlaybackCommand], success: Boolean): Unit =
-      expectCloseRequest(probeSourceActor)
-      expectCloseRequest(probePlayActor)
-      if success then expectSuccess() else expectNoSuccess()
-      checkStopped(checkActor)
-
-    /**
-      * Returns the actor for player events passed to this factory.
-      *
-      * @return the actor for receiving player events
-      */
-    def playerEventActor: ActorRef[PlayerEvent] = fetchFactoryParameter(refPlayerEventActor)
-
-    /**
-      * Returns the actor for radio events passed to this factory.
-      *
-      * @return the actor for receiving radio events
-      */
-    def radioEventActor: ActorRef[RadioEvent] = fetchFactoryParameter(refRadioEventActor)
-
-    override def createPlaybackActors(namePrefix: String,
-                                      playerEventActor: ActorRef[PlayerEvent],
-                                      radioEventActor: ActorRef[RadioEvent],
-                                      factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                                      config: PlayerConfig,
-                                      creator: ActorCreator,
-                                      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
-    ErrorStateActor.PlaybackActorsFactoryResult =
-      namePrefix should be(ActorNamePrefix)
-      config should be(TestPlayerConfig)
-      refPlayerEventActor.set(playerEventActor)
-      refRadioEventActor.set(radioEventActor)
-      streamManager should be(probeStreamManagerActor.ref)
-      testActorCreatorTyped(creator)
-      testActorCreatorClassic(creator)
-
-      ErrorStateActor.PlaybackActorsFactoryResult(sourceActor = probeSourceActor.ref,
-        playActor = probePlayActor.ref)
-
-    /**
-      * Tests whether the [[ActorCreator]] passed to this factory can be used
-      * to create a typed actor.
-      *
-      * @param creator the creator to test
-      */
-    private def testActorCreatorTyped(creator: ActorCreator): Unit =
-      val Message = new Object
-      val ActorName = ActorNamePrefix + "typedTestActor"
-      val ref = new AtomicReference[AnyRef]
-
-      val behavior = Behaviors.receiveMessagePartial[AnyRef]:
-        case msg =>
-          ref.set(msg)
-          Behaviors.same
-      val testActor = creator.createActor(behavior, ActorName, None)
-
-      testActor.path.name should endWith(ActorName)
-      testActor ! Message
-      awaitCond(ref.get() == Message)
-
-    /**
-      * Tests whether the [[ActorCreator]] passed to this factory can be used
-      * to create a classic actor.
-      *
-      * @param creator the creator to test
-      */
-    private def testActorCreatorClassic(creator: ActorCreator): Unit =
-      val Message = new Object
-      val ActorName = ActorNamePrefix + "classicTestActor"
-      val ref = new AtomicReference[Any]
-
-      val props = classic.Props(new Actor {
-        override def receive: Receive = {
-          case msg => ref.set(msg)
-        }
-      })
-      val testActor = creator.createClassicActor(props, ActorName)
-
-      testActor.path.name should endWith(ActorName)
-      testActor ! Message
-      awaitCond(ref.get() == Message)
-
-    /**
-      * Returns one of the parameters passed to the factory method. Since the
-      * factory is called asynchronously, we might have to wait until the value
-      * becomes available.
-      *
-      * @param ref the reference storing the value
-      * @tparam T the type of the parameter
-      * @return the parameter value
-      */
-    private def fetchFactoryParameter[T](ref: AtomicReference[T]): T =
-      awaitCond(ref.get() != null)
-      ref.get()
+    private def createStreamFactoryMock(): AsyncAudioStreamFactory =
+      val factory = mock[AsyncAudioStreamFactory]
+      Mockito.when(factory.playbackDataForAsync(any())).thenAnswer((invocation: InvocationOnMock) =>
+        val uri = invocation.getArgument[String](0)
+        uri should be(TestRadioSource.uriWithExtension)
+        val creator: AudioStreamFactory.AudioStreamCreator = in =>
+          new AudioInputStream(in, Format, 8192)
+        Future.successful(AudioStreamFactory.AudioStreamPlaybackData(creator, 1024)))
+      factory
 
   /**
     * A test helper class for tests of the check scheduler actor.
@@ -761,16 +565,13 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     /** Test probe for the check scheduler actor. */
     private val probeScheduler = testKit.createTestProbe[ErrorStateActor.ScheduleCheckCommand]()
 
-    /** Test probe for the actor managing playback context factories. */
-    private val probePlaybackContextActor =
-      testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
-
     /** Test probe for the scheduled invocation actor. */
     private val probeScheduledInvocation =
       testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
 
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+    /** Test probe for the stream handle manager actor. */
+    private val probeHandleManagerActor =
+      testKit.createTestProbe[RadioStreamHandleManagerActor.RadioStreamHandleCommand]()
 
     /**
       * Stores a test probe for the check playback actor. The dummy factory for
@@ -783,6 +584,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       * [[Spawner]] implementation to inject a test probe.
       */
     private val refCheckPlaybackBehavior = new AtomicReference[Behavior[ErrorStateActor.CheckPlaybackCommand]]
+
+    /** The mock for the audio stream factory. */
+    private val mockAudioFactory = mock[AsyncAudioStreamFactory]
 
     /** Stores the name prefix passed to the check playback factory. */
     private val refNamePrefix = new AtomicReference[String]
@@ -944,9 +748,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       val behavior = ErrorStateActor.checkSourceBehavior(TestRadioConfig,
         TestRadioSource,
         namePrefix,
-        probePlaybackContextActor.ref,
+        mockAudioFactory,
         probeScheduler.ref,
-        probeStreamManagerActor.ref,
+        probeHandleManagerActor.ref,
         createCheckPlaybackActorFactory(),
         optSpawner = if provideSpawner then Some(this) else None)
       val actor = testKit.spawn(behavior)
@@ -964,14 +768,13 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       (receiver: ActorRef[ErrorStateActor.RadioSourceCheckSuccessful],
        radioSource: RadioSource,
        namePrefix: String,
-       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       factoryActor: AsyncAudioStreamFactory,
        config: PlayerConfig,
-       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
-       _: ErrorStateActor.PlaybackActorsFactory) => {
+       streamManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand]) => {
         receiver should be(checkActor)
         radioSource should be(TestRadioSource)
-        factoryActor should be(probePlaybackContextActor.ref)
-        streamManager should be(probeStreamManagerActor.ref)
+        factoryActor should be(mockAudioFactory)
+        streamManager should be(probeHandleManagerActor.ref)
         config should be(TestPlayerConfig)
         refNamePrefix set namePrefix
 
@@ -998,11 +801,11 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     * @param provideSpawner flag whether a spawner should be provided
     */
   private class ErrorStateTestHelper(provideSpawner: Boolean = true) extends Spawner:
+    /** Mock for the audio stream factory. */
+    private val mockStreamFactory = mock[AsyncAudioStreamFactory]
+
     /** Test probe for the enabled state actor. */
     private val probeEnabledStateActor = testKit.createTestProbe[RadioControlProtocol.SourceEnabledStateCommand]()
-
-    /** Test probe for the playback context factory actor. */
-    private val probeFactoryActor = testKit.createTestProbe[PlaybackContextFactoryActor.PlaybackContextCommand]()
 
     /** Test probe for the scheduled invocation actor. */
     private val probeScheduledInvActor = testKit.createTestProbe[ScheduledInvocationActor.ScheduledInvocationCommand]()
@@ -1013,8 +816,9 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     /** Test probe for the check scheduler actor. */
     private val probeSchedulerActor = testKit.createTestProbe[ErrorStateActor.ScheduleCheckCommand]()
 
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
+    /** Test probe for the stream handle manager actor. */
+    private val probeHandleManagerActor =
+      testKit.createTestProbe[RadioStreamHandleManagerActor.RadioStreamHandleCommand]()
 
     /** The behavior for the check scheduler actor. */
     private val schedulerBehavior = Behaviors.monitor[ErrorStateActor.ScheduleCheckCommand](probeSchedulerActor.ref,
@@ -1126,10 +930,10 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
     private def createStateActor(): ActorRef[ErrorStateActor.ErrorStateCommand] =
       val behavior = ErrorStateActor.errorStateBehavior(TestRadioConfig,
         probeEnabledStateActor.ref,
-        probeFactoryActor.ref,
+        mockStreamFactory,
         probeScheduledInvActor.ref,
         probeEventActor.ref,
-        probeStreamManagerActor.ref,
+        probeHandleManagerActor.ref,
         createSchedulerFactory(),
         createCheckSourceFactory(),
         if provideSpawner then Some(this) else None)
@@ -1162,14 +966,14 @@ class ErrorStateActorSpec(testSystem: classic.ActorSystem) extends TestKit(testS
       (config: RadioPlayerConfig,
        source: RadioSource,
        namePrefix: String,
-       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       streamFactory: AsyncAudioStreamFactory,
        scheduler: ActorRef[ErrorStateActor.ScheduleCheckCommand],
-       builder: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+       handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
        _: ErrorStateActor.CheckPlaybackActorFactory,
        _: Option[Spawner]) => {
         config should be(TestRadioConfig)
-        factoryActor should be(probeFactoryActor.ref)
-        builder should be(probeStreamManagerActor.ref)
+        streamFactory should be(mockStreamFactory)
+        handleManager should be(probeHandleManagerActor.ref)
         if provideSpawner then
           scheduler should be(probeSchedulerActor.ref)
 

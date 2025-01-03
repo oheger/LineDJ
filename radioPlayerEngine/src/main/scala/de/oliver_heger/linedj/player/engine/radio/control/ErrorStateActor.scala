@@ -17,19 +17,24 @@
 package de.oliver_heger.linedj.player.engine.radio.control
 
 import com.github.cloudfiles.core.http.factory.Spawner
-import de.oliver_heger.linedj.io.CloseSupportTyped
-import de.oliver_heger.linedj.player.engine._
-import de.oliver_heger.linedj.player.engine.actors._
-import de.oliver_heger.linedj.player.engine.radio._
+import de.oliver_heger.linedj.player.engine.*
+import de.oliver_heger.linedj.player.engine.actors.*
+import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioDataSourceActor, RadioStreamManagerActor}
-import org.apache.pekko.actor.typed.scaladsl.adapter._
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandle, RadioStreamHandleManagerActor}
+import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, LineWriterStage}
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
-import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
-import org.apache.pekko.{actor => classic}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props, Scheduler}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.util.{ByteString, Timeout}
+import org.apache.pekko.{NotUsed, actor as classic}
 
 import scala.collection.immutable.Queue
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 /**
   * An actor implementation to manage radio sources whose playback caused an
@@ -107,11 +112,10 @@ object ErrorStateActor:
       * @param config                   the config for the radio player
       * @param enabledStateActor        the actor that manages the enabled
       *                                 state of radio sources
-      * @param factoryActor             the actor managing playback context
-      *                                 factories
+      * @param streamFactory            the factory for creating audio streams
       * @param scheduledInvocationActor the actor for scheduled invocations
       * @param eventActor               the event manager actor
-      * @param streamManager            the actor managing radio stream actors
+      * @param handleManager            the actor managing radio stream handles
       * @param schedulerFactory         the factory to create a scheduler actor
       * @param checkSourceActorFactory  the factory to create a source check
       *                                 actor
@@ -120,10 +124,10 @@ object ErrorStateActor:
       */
     def apply(config: RadioPlayerConfig,
               enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
-              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              streamFactory: AsyncAudioStreamFactory,
               scheduledInvocationActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               schedulerFactory: CheckSchedulerActorFactory = checkSchedulerBehavior,
               checkSourceActorFactory: CheckSourceActorFactory = checkSourceBehavior,
               optSpawner: Option[Spawner] = None): Behavior[ErrorStateCommand]
@@ -134,88 +138,27 @@ object ErrorStateActor:
     */
   final val errorStateBehavior: Factory = (config: RadioPlayerConfig,
                                            enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
-                                           factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                           streamFactory: AsyncAudioStreamFactory,
                                            scheduledInvocationActor: ActorRef[
                                              ScheduledInvocationActor.ScheduledInvocationCommand],
                                            eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-                                           streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+                                           handleManager:
+                                           ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                                            schedulerFactory: CheckSchedulerActorFactory,
                                            checkSourceActorFactory: CheckSourceActorFactory,
                                            optSpawner: Option[Spawner]) => {
     val context = ErrorStateContext(config,
       enabledStateActor,
-      factoryActor,
+      streamFactory,
       scheduledInvocationActor,
       eventActor,
-      streamManager,
+      handleManager,
       schedulerFactory,
       checkSourceActorFactory,
       optSpawner)
     handleErrorStateCommand(context)
   }
-
-  /**
-    * An internal data class to hold the actors required for playing audio
-    * data.
-    *
-    * @param sourceActor the actor providing the source to be played
-    * @param playActor   the playback actor
-    */
-  private[control] case class PlaybackActorsFactoryResult(sourceActor: classic.ActorRef,
-                                                          playActor: classic.ActorRef)
-
-  /**
-    * An internal trait that supports the creation of the actors required for
-    * playing audio data. An instance is used to setup the infrastructure to
-    * test a radio source.
-    */
-  private[control] trait PlaybackActorsFactory:
-    /**
-      * Returns an object with the actors required for playing audio data. This
-      * function creates a dummy line writer actor, a source actor, and a
-      * playback actor and connects them. Note that for this purpose a
-      * dedicated [[ActorCreator]] is used, not the one contained in the
-      * [[PlayerConfig]].
-      *
-      * @param namePrefix       the prefix for generating actor names
-      * @param playerEventActor the event actor for player events
-      * @param radioEventActor  the event actor for radio events
-      * @param factoryActor     the playback context factory actor
-      * @param config           the configuration for the audio player
-      * @param creator          the object for creating actors
-      * @param streamManager    the actor managing radio stream actors
-      * @return the object with the actor references
-      */
-    def createPlaybackActors(namePrefix: String,
-                             playerEventActor: ActorRef[PlayerEvent],
-                             radioEventActor: ActorRef[RadioEvent],
-                             factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                             config: PlayerConfig,
-                             creator: ActorCreator,
-                             streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
-    PlaybackActorsFactoryResult
-
-  /**
-    * A default implementation of [[PlaybackActorsFactory]]. It uses the
-    * actor creator in the provided configuration to create the required actor
-    * instances.
-    */
-  private[control] val playbackActorsFactory = new PlaybackActorsFactory:
-    override def createPlaybackActors(namePrefix: String,
-                                      playerEventActor: ActorRef[PlayerEvent],
-                                      radioEventActor: ActorRef[RadioEvent],
-                                      factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
-                                      config: PlayerConfig,
-                                      creator: ActorCreator,
-                                      streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand]):
-    PlaybackActorsFactoryResult =
-      val lineWriter = creator.createActor(dummyLineWriterActor(), namePrefix + "LineWriter", None)
-      val sourceActor = creator.createClassicActor(RadioDataSourceActor(config, radioEventActor, streamManager),
-        namePrefix + "SourceActor")
-      val playActor = creator.createClassicActor(PlaybackActor(config, sourceActor, lineWriter,
-        playerEventActor, factoryActor), namePrefix + "PlaybackActor")
-      PlaybackActorsFactoryResult(sourceActor, playActor)
-
+  
   /**
     * The base command trait of an internal actor that periodically checks the
     * error state of a specific radio source.
@@ -276,10 +219,9 @@ object ErrorStateActor:
       * @param config               the radio player configuration
       * @param source               the affected radio source
       * @param namePrefix           a prefix to generate names for child actors
-      * @param factoryActor         the actor managing playback context
-      *                             factories
+      * @param streamFactory        the factory for creating audio streams
       * @param scheduler            the scheduler actor
-      * @param streamManager        the actor managing radio stream actors
+      * @param handleManager        the actor managing radio stream handles
       * @param checkPlaybackFactory the factory to create a check playback
       *                             actor
       * @param optSpawner           an optional [[Spawner]]
@@ -288,9 +230,9 @@ object ErrorStateActor:
     def apply(config: RadioPlayerConfig,
               source: RadioSource,
               namePrefix: String,
-              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              streamFactory: AsyncAudioStreamFactory,
               scheduler: ActorRef[ScheduleCheckCommand],
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               checkPlaybackFactory: CheckPlaybackActorFactory = checkPlaybackBehavior,
               optSpawner: Option[Spawner] = None): Behavior[CheckRadioSourceCommand]
 
@@ -302,17 +244,17 @@ object ErrorStateActor:
     override def apply(config: RadioPlayerConfig,
                        source: RadioSource,
                        namePrefix: String,
-                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                       streamFactory: AsyncAudioStreamFactory,
                        scheduler: ActorRef[ScheduleCheckCommand],
-                       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+                       handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                        checkPlaybackFactory: CheckPlaybackActorFactory,
                        optSpawner: Option[Spawner]): Behavior[CheckRadioSourceCommand] =
       val ctx = RadioSourceCheckContext(config = config,
         source = source,
         namePrefix = namePrefix,
-        factoryActor = factoryActor,
+        streamFactory = streamFactory,
         scheduler = scheduler,
-        streamManager = streamManager,
+        handleManager = handleManager,
         checkPlaybackFactory = checkPlaybackFactory,
         optSpawner = optSpawner,
         retryDelay = config.retryFailedSource)
@@ -331,26 +273,24 @@ object ErrorStateActor:
   private[control] case object CheckTimeout extends CheckPlaybackCommand
 
   /**
-    * A command received by the check playback actor that tells it that the
-    * ongoing close operation is complete.
-    */
-  private[control] case object CloseComplete extends CheckPlaybackCommand
-
-  /**
-    * A command received by the check playback actor informing it that one of
-    * the actors for playing audio data died. This should cause the check to
-    * fail.
-    */
-  private[control] case object PlaybackActorDied extends CheckPlaybackCommand
-
-  /**
-    * A command received by the check playback actor when an event was fired
-    * during playback of the radio source to check. This event determines the
-    * result of the check.
+    * A command received by the check playback actor that notifies it about the
+    * arrival of the radio stream handle.
     *
-    * @param event the event
+    * @param triedHandleResult the result for the handle and the attached audio
+    *                          source
     */
-  private[control] case class PlaybackEventReceived(event: AnyRef) extends CheckPlaybackCommand
+  private[control] case class RadioStreamHandleReceived(triedHandleResult:
+                                                        Try[(RadioStreamHandle, Source[ByteString, NotUsed])])
+    extends CheckPlaybackCommand
+
+  /**
+    * A command received by the check playback actor when the result of the
+    * audio stream sink is available. Then it is clear whether the stream could
+    * be played or not.
+    *
+    * @param result the result from the sink of the audio stream
+    */
+  private[control] case class PlaybackSinkResultReceived(result: Try[Unit]) extends CheckPlaybackCommand
 
   /**
     * A trait defining a factory function for creating an internal actor
@@ -364,21 +304,19 @@ object ErrorStateActor:
       * Returns a ''Behavior'' to create an instance of the actor to check a
       * specific radio source.
       *
-      * @param radioSource           the radio source to be checked
-      * @param namePrefix            the prefix to generate actor names
-      * @param factoryActor          the playback context factory actor
-      * @param config                the configuration for the audio player
-      * @param streamManager         the actor managing radio stream actors
-      * @param playbackActorsFactory factory for creating playback actors
+      * @param radioSource   the radio source to be checked
+      * @param namePrefix    the prefix to generate actor names
+      * @param streamFactory the factory for creating audio streams
+      * @param config        the configuration for the audio player
+      * @param handleManager the actor managing radio stream handles
       * @return the ''Behavior'' for the check playback actor
       */
     def apply(receiver: ActorRef[RadioSourceCheckSuccessful],
               radioSource: RadioSource,
               namePrefix: String,
-              factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+              streamFactory: AsyncAudioStreamFactory,
               config: PlayerConfig,
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
-              playbackActorsFactory: PlaybackActorsFactory = ErrorStateActor.playbackActorsFactory):
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand]):
     Behavior[CheckPlaybackCommand]
 
   /**
@@ -389,58 +327,87 @@ object ErrorStateActor:
     (receiver: ActorRef[RadioSourceCheckSuccessful],
      radioSource: RadioSource,
      namePrefix: String,
-     factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+     streamFactory: AsyncAudioStreamFactory,
      config: PlayerConfig,
-     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
-     playbackActorsFactory: PlaybackActorsFactory) => Behaviors.setup { context =>
-      context.log.info("Checking error state of radio source {}.", radioSource)
-      val playerEventAdapter = context.messageAdapter[PlayerEvent] { event => PlaybackEventReceived(event) }
-      val radioEventAdapter = context.messageAdapter[RadioEvent] { event => PlaybackEventReceived(event) }
+     handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand]) =>
+      Behaviors.setup { context =>
+        val logPrefix = s"[ERROR CHECK '${radioSource.uri}']"
+        context.log.info("{} Starting check.", logPrefix)
 
-      val playbackActors = playbackActorsFactory.createPlaybackActors(namePrefix,
-        playerEventAdapter,
-        radioEventAdapter,
-        factoryActor,
-        config,
-        childActorCreator(context),
-        streamManager)
-      playbackActors.sourceActor ! radioSource
-      playbackActors.playActor ! PlaybackActor.StartPlayback
-      context.watchWith(playbackActors.sourceActor, PlaybackActorDied)
-      context.watchWith(playbackActors.playActor, PlaybackActorDied)
+        given Scheduler = context.system.scheduler
 
-      def checking(): Behavior[CheckPlaybackCommand] =
-        Behaviors.receiveMessagePartial:
-          case CheckTimeout =>
-            closeAndStop()
+        given classic.ActorSystem = context.system.toClassic
 
-          case PlaybackActorDied =>
-            closeAndStop()
+        given ExecutionContext = context.executionContext
 
-          case PlaybackEventReceived(event) =>
-            val success = isSuccessEvent(event)
-            val error = isErrorEvent(event)
-            if success || error then
-              if success then receiver ! RadioSourceCheckSuccessful()
-              closeAndStop()
-            else Behaviors.same
+        // Set a rather long timeout to prevent that a stream is created which is then not released.
+        given Timeout(1.hour)
+        val futHandle = handleManager.ask[RadioStreamHandleManagerActor.GetStreamHandleResponse] { ref =>
+          val params = RadioStreamHandleManagerActor.GetStreamHandleParameters(radioSource,
+            s"${namePrefix}_errorCheck")
+          RadioStreamHandleManagerActor.GetStreamHandle(params, ref)
+        }
+        (for
+          handleResponse <- futHandle
+          handle <- Future.fromTry(handleResponse.triedStreamHandle)
+          source <- handle.attachAudioSinkOrCancel()
+        yield (handle, source)).onComplete { triedResult =>
+          context.self ! RadioStreamHandleReceived(triedResult)
+        }
 
-      def closing(): Behavior[CheckPlaybackCommand] =
-        Behaviors.receiveMessagePartial:
-          case CloseComplete =>
-            Behaviors.stopped
+        def init(isTimeout: Boolean): Behavior[CheckPlaybackCommand] =
+          Behaviors.receiveMessagePartial:
+            case CheckTimeout =>
+              context.log.info("{} Timeout before stream handle was received.", logPrefix)
+              init(isTimeout = true)
 
-          case m =>
-            context.log.info("Ignoring message {} while waiting for CloseAck.", m)
-            Behaviors.same
+            case RadioStreamHandleReceived(triedHandleResult) =>
+              triedHandleResult match
+                case Failure(exception) =>
+                  context.log.info("{} Could not obtain stream handle. Still in error state.", logPrefix, exception)
+                  Behaviors.stopped
+                case Success(handleResult) if isTimeout =>
+                  closeAndStop(handleResult._1)
+                case Success(handleResult) =>
+                  context.log.info("{} Received stream handle. Trying audio playback.", logPrefix)
+                  val resolverFunc: AudioStreamPlayerStage.SourceResolverFunc[Source[ByteString, NotUsed]] = src =>
+                    Future.successful(AudioStreamPlayerStage.AudioStreamSource(radioSource.uriWithExtension, src))
+                  val sink = Sink.head[LineWriterStage.PlayedAudioChunk]
+                  val playerStageConfig = AudioStreamPlayerStage.AudioStreamPlayerConfig(
+                    sourceResolverFunc = resolverFunc,
+                    sinkProviderFunc = _ => sink,
+                    audioStreamFactory = streamFactory,
+                    optPauseActor = None,
+                    inMemoryBufferSize = config.inMemoryBufferSize,
+                    optStreamFactoryLimit = Some(config.playbackContextLimit),
+                    optLineCreatorFunc = None
+                  )
+                  val playerStage = AudioStreamPlayerStage(playerStageConfig)
+                  val futAudioStream = Source.single(handleResult._2).via(playerStage).runWith(sink)
+                  futAudioStream.map(_ => ()).onComplete { triedResult =>
+                    context.self ! PlaybackSinkResultReceived(triedResult)
+                  }
+                  checking(handleResult._1)
 
-      def closeAndStop(): Behavior[CheckPlaybackCommand] =
-        CloseSupportTyped.triggerClose(context, context.self, CloseComplete,
-          List(playbackActors.sourceActor, playbackActors.playActor))
-        closing()
+        def checking(handle: RadioStreamHandle): Behavior[CheckPlaybackCommand] =
+          Behaviors.receiveMessagePartial:
+            case CheckTimeout =>
+              closeAndStop(handle)
 
-      checking()
-    }
+            case PlaybackSinkResultReceived(result) =>
+              result.foreach { _ =>
+                context.log.info("{} Playback successful. Leaving error state.", logPrefix)
+                receiver ! RadioSourceCheckSuccessful()
+              }
+              closeAndStop(handle)
+
+        def closeAndStop(handle: RadioStreamHandle): Behavior[CheckPlaybackCommand] =
+          context.log.info("{} Terminating check actor.", logPrefix)
+          handle.cancelStream()
+          Behaviors.stopped
+
+        init(isTimeout = false)
+      }
 
   /**
     * The base command trait of an internal actor that handles interaction with
@@ -653,10 +620,9 @@ object ErrorStateActor:
     * @param config               the radio player configuration
     * @param source               the affected radio source
     * @param namePrefix           a prefix to generate names for child actors
-    * @param factoryActor         the actor managing playback context
-    *                             factories
+    * @param streamFactory        the factory for creating audio streams
     * @param scheduler            the scheduler actor
-    * @param streamManager        the actor managing radio stream actors
+    * @param handleManager        the actor managing radio stream handles
     * @param checkPlaybackFactory the factory to create a check playback
     *                             actor
     * @param optSpawner           an optional [[Spawner]]
@@ -667,11 +633,10 @@ object ErrorStateActor:
   private case class RadioSourceCheckContext(config: RadioPlayerConfig,
                                              source: RadioSource,
                                              namePrefix: String,
-                                             factoryActor:
-                                             ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                             streamFactory: AsyncAudioStreamFactory,
                                              scheduler: ActorRef[ScheduleCheckCommand],
-                                             streamManager:
-                                             ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+                                             handleManager:
+                                             ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                                              checkPlaybackFactory: CheckPlaybackActorFactory,
                                              optSpawner: Option[Spawner],
                                              retryDelay: FiniteDuration,
@@ -688,8 +653,8 @@ object ErrorStateActor:
     ActorRef[CheckPlaybackCommand] =
       val spawner = getSpawner(optSpawner, actorContext)
       val playbackNamePrefix = s"${namePrefix}_${count}_"
-      val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, factoryActor,
-        config.playerConfig, streamManager)
+      val checkPlaybackBehavior = checkPlaybackFactory(actorContext.self, source, playbackNamePrefix, streamFactory,
+        config.playerConfig, handleManager)
       val checkPlaybackActor = spawner.spawn(checkPlaybackBehavior, Some(playbackNamePrefix + "check"))
       actorContext.watchWith(checkPlaybackActor, CheckPlaybackActorStopped)
       checkPlaybackActor
@@ -755,11 +720,10 @@ object ErrorStateActor:
     * @param config                   the config for the radio player
     * @param enabledStateActor        the actor that manages the enabled
     *                                 state of radio sources
-    * @param factoryActor             the actor managing playback context
-    *                                 factories
+    * @param streamFactory            the factory for creating audio streams
     * @param scheduledInvocationActor the actor for scheduled invocations
     * @param eventActor               the event manager actor
-    * @param streamManager            the actor managing radio stream actors
+    * @param handleManager            the actor managing radio stream actors
     * @param schedulerFactory         the factory to create a scheduler actor
     * @param checkSourceActorFactory  the factory to create a source check
     *                                 actor
@@ -770,11 +734,11 @@ object ErrorStateActor:
     */
   private case class ErrorStateContext(config: RadioPlayerConfig,
                                        enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
-                                       factoryActor: ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+                                       streamFactory: AsyncAudioStreamFactory,
                                        scheduledInvocationActor: ActorRef[
                                          ScheduledInvocationActor.ScheduledInvocationCommand],
                                        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-                                       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+                                       handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                                        schedulerFactory: CheckSchedulerActorFactory,
                                        checkSourceActorFactory: CheckSourceActorFactory,
                                        optSpawner: Option[Spawner],
@@ -800,9 +764,9 @@ object ErrorStateActor:
         val checkBehavior = checkSourceActorFactory(config,
           errorSource,
           childNamePrefix,
-          factoryActor,
+          streamFactory,
           scheduler,
-          streamManager)
+          handleManager)
         val checkActor = getSpawner(optSpawner, actorContext).spawn(checkBehavior, Some(childNamePrefix))
 
         actorContext.watchWith(checkActor, SourceAvailableAgain(errorSource))

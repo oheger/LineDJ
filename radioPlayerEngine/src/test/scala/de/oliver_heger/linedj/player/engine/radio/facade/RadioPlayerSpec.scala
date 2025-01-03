@@ -460,8 +460,9 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        eventManagerActor: typed.ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
        playbackActor: typed.ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
        scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
-       factoryActor: typed.ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand],
+       streamFactory: AsyncAudioStreamFactory,
        streamManagerActor: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+       handleManagerActor: typed.ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
        optEvalService: Option[EvaluateIntervalsService],
        optReplacementService: Option[ReplacementSourceSelectionService],
        optStateService: Option[RadioSourceStateService],
@@ -475,11 +476,12 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         eventManagerActor should be(actorCreator.eventManagerActor)
         playbackActor should be(probePlaybackActor.ref)
         scheduleActor should be(probeSchedulerInvocationActor.ref)
-        factoryActor should be(probeFactoryActor.ref)
+        handleManagerActor should be(probeStreamHandleManagerActor.ref)
         optEvalService shouldBe empty
         optReplacementService shouldBe empty
         optStateService shouldBe empty
         streamManagers.put(streamManagerActor, true)
+        audioStreamFactories.put(streamFactory, true)
 
         controlBehavior
       }

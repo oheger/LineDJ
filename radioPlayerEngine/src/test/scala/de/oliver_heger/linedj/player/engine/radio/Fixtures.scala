@@ -22,7 +22,7 @@ import scala.concurrent.duration.*
 
 object Fixtures:
   /** A test player configuration that can be used by all tests. */
-  final val TestPlayerConfig = PlayerConfig(inMemoryBufferSize = 10000,
+  final val TestPlayerConfig = PlayerConfig(inMemoryBufferSize = 48000,
     playbackContextLimit = 24000,
     bufferFileSize = 65536,
     bufferChunkSize = 16384,
