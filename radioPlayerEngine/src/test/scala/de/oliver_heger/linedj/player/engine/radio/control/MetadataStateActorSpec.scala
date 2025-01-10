@@ -16,23 +16,22 @@
 
 package de.oliver_heger.linedj.player.engine.radio.control
 
+import de.oliver_heger.linedj.ActorTestKitSupport
 import de.oliver_heger.linedj.player.engine.AudioSource
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBufferActor, PlaybackActor, ScheduledInvocationActor}
+import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, ScheduledInvocationActor}
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.interval.{IntervalTypes, LazyDate}
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandle, RadioStreamHandleManagerActor, RadioStreamManagerActor}
-import de.oliver_heger.linedj.{ActorTestKitSupport, FileTestHelper}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandle, RadioStreamHandleManagerActor}
 import org.apache.pekko.actor.testkit.typed.scaladsl.TestProbe
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
 import org.apache.pekko.stream.{Attributes, Outlet, SourceShape}
-import org.apache.pekko.testkit.TestProbe as ClassicTestProbe
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.{NotUsed, actor as classic}
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}
@@ -43,7 +42,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.io.PipedOutputStream
 import java.time.*
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
@@ -284,283 +282,7 @@ end MetadataStateActorSpec
 class MetadataStateActorSpec extends AnyFlatSpec with Matchers with ActorTestKitSupport with MockitoSugar:
 
   import MetadataStateActorSpec.*
-
-  "Metadata retriever actor" should "send the latest metadata" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendMetadata(1)
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
-
-  it should "ignore other kinds of radio events" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendEvent(RadioMetadataEvent(TestRadioSource, MetadataNotSupported))
-      .sendEvent(RadioSourceErrorEvent(TestRadioSource))
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .expectNoCheckRunnerCommand()
-      .sendMetadata(1)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
-
-  it should "reset the pending request flag after sending metadata" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendMetadata(1)
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .expectCheckRunnerCommand()
-
-    helper.sendMetadata(2)
-      .expectNoCheckRunnerCommand()
-
-  it should "only send metadata if it has changed" in :
-    val time2 = LocalDateTime.of(2023, Month.MAY, 4, 22, 24, 27)
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendMetadata(1)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(1)), RefTime))
-      .sendMetadata(1)
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .sendMetadata(2, time2)
-      .checkRunnerCommand(MetadataStateActor.MetadataRetrieved(CurrentMetadata(metadata(2)), time2))
-
-  it should "permanently request new audio data" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .expectAudioDataRequest()
-      .answerAudioDataRequest()
-      .expectAudioDataRequest()
-
-  it should "stop processing gracefully when receiving a CancelStream command" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendMetadata(1)
-      .sendRetrieverCommand(MetadataStateActor.GetMetadata)
-      .expectCheckRunnerCommand()
-
-    helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
-      .expectAudioDataRequest()
-      .answerAudioDataRequest()
-      .expectStreamActorReleased(Some(CurrentMetadata(metadata(1))))
-      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-
-  it should "handle a CancelStream command before receiving the stream actor" in :
-    val helper = new RetrieverTestHelper
-
-    helper.sendRetrieverCommand(MetadataStateActor.CancelStream)
-      .passStreamActor()
-      .expectNoAudioDataRequest()
-      .expectStreamActorReleased(None)
-      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-
-  it should "not release the stream actor before a pending data request is answered" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .sendRetrieverCommand(MetadataStateActor.CancelStream)
-      .expectNoStreamActorRelease()
-
-  it should "handle a terminated stream actor" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .expectAudioDataRequest()
-      .stopStreamActor()
-      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-      .expectNoStreamActorRelease()
-
-  it should "handle a terminated stream actor when waiting for cancellation" in :
-    val helper = new RetrieverTestHelper
-
-    helper.passStreamActor()
-      .expectAudioDataRequest()
-      .sendRetrieverCommand(MetadataStateActor.CancelStream)
-      .stopStreamActor()
-      .checkRunnerCommand(MetadataStateActor.RadioStreamStopped)
-      .expectNoStreamActorRelease()
-
-  /**
-    * Test helper class for testing the metadata retriever actor.
-    */
-  private class RetrieverTestHelper extends AutoCloseable:
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManager = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
-
-    /** Test probe for the check runner actor. */
-    private val probeRunner = testKit.createTestProbe[MetadataStateActor.MetadataCheckRunnerCommand]()
-
-    /** Test probe for the radio stream actor. */
-    private val probeStreamActor = ClassicTestProbe()(system.classicSystem)
-
-    /** Stores the event actor passed to the stream manager. */
-    private var eventActor: ActorRef[RadioEvent] = _
-
-    /** A stream to be used for the data source of the radio stream. */
-    private val radioStream = new PipedOutputStream
-
-    /** The retriever actor to be tested. */
-    private val retrieverActor = createRetrieverActor()
-
-    /**
-      * @inheritdoc This implementation closes the simulated radio stream.
-      */
-    override def close(): Unit =
-      radioStream.close()
-
-    /**
-      * Sends a metadata event with specific content to the registered event
-      * listener actor.
-      *
-      * @param index the index of the metadata
-      * @param time  the time of the event
-      * @return this test helper
-      */
-    def sendMetadata(index: Int, time: LocalDateTime = RefTime): RetrieverTestHelper =
-      val event = RadioMetadataEvent(TestRadioSource, CurrentMetadata(metadata(index)), time)
-      sendEvent(event)
-
-    /**
-      * Sends the given event to the event actor registered at the stream
-      * actor.
-      *
-      * @param event the event to send
-      * @return this test helper
-      */
-    def sendEvent(event: RadioEvent): RetrieverTestHelper =
-      eventActor should not be null
-      eventActor ! event
-      this
-
-    /**
-      * Handles the interaction with the stream manager actor to pass the
-      * requested stream actor to the actor under test.
-      *
-      * @return this test helper
-      */
-    def passStreamActor(): RetrieverTestHelper =
-      val request = probeStreamManager.expectMessageType[RadioStreamManagerActor.GetStreamActor]
-      request.params.streamSource should be(TestRadioSource)
-      eventActor = request.params.eventActor
-      request.replyTo ! RadioStreamManagerActor.StreamActorResponse(TestRadioSource, probeStreamActor.ref)
-      request.params.sourceListener(TestAudioSource, probeStreamActor.ref)
-      this
-
-    /**
-      * Sends the given command to the retriever actor under test.
-      *
-      * @param command the command
-      * @return this test helper
-      */
-    def sendRetrieverCommand(command: MetadataStateActor.MetadataRetrieveCommand): RetrieverTestHelper =
-      retrieverActor ! command
-      this
-
-    /**
-      * Expects that a command has been sent to the check runner actor and
-      * returns it.
-      *
-      * @return the command sent to the check runner actor
-      */
-    def expectCheckRunnerCommand(): MetadataStateActor.MetadataCheckRunnerCommand =
-      probeRunner.expectMessageType[MetadataStateActor.MetadataCheckRunnerCommand]
-
-    /**
-      * Expects that the given command was sent to the check runner actor.
-      *
-      * @param expectedCommand the expected command
-      * @return this test helper
-      */
-    def checkRunnerCommand(expectedCommand: MetadataStateActor.MetadataCheckRunnerCommand): RetrieverTestHelper =
-      expectCheckRunnerCommand() should be(expectedCommand)
-      this
-
-    /**
-      * Expects that no command was sent to the check runner actor.
-      *
-      * @return this test helper
-      */
-    def expectNoCheckRunnerCommand(): RetrieverTestHelper =
-      probeRunner.expectNoMessage(250.millis)
-      this
-
-    /**
-      * Simulates a failure of the radio stream actor by stopping it.
-      *
-      * @return this test helper
-      */
-    def stopStreamActor(): RetrieverTestHelper =
-      system.classicSystem stop probeStreamActor.ref
-      this
-
-    /**
-      * Expects that a request for audio data has been sent to the radio stream
-      * actor.
-      *
-      * @return this test helper
-      */
-    def expectAudioDataRequest(): RetrieverTestHelper =
-      probeStreamActor.expectMsg(PlaybackActor.GetAudioData(4096))
-      this
-
-    /**
-      * Answers a request for audio data by sending a chunk of dummy data.
-      *
-      * @return this test helper
-      */
-    def answerAudioDataRequest(): RetrieverTestHelper =
-      val data = LocalBufferActor.BufferDataResult(ByteString(FileTestHelper.TestData))
-      probeStreamActor.reply(data)
-      this
-
-    /**
-      * Expects that no request for audio data has been sent to the radio
-      * stream actor.
-      *
-      * @return this test helper
-      */
-    def expectNoAudioDataRequest(): RetrieverTestHelper =
-      probeStreamActor.expectNoMessage(200.millis)
-      this
-
-    /**
-      * Expects that the radio stream actor has been released to the stream
-      * manager actor.
-      *
-      * @param optMetadata the expected metadata in the release message
-      * @return this test helper
-      */
-    def expectStreamActorReleased(optMetadata: Option[CurrentMetadata]): RetrieverTestHelper =
-      val releaseMsg = RadioStreamManagerActor.ReleaseStreamActor(TestRadioSource, probeStreamActor.ref,
-        TestAudioSource, optMetadata)
-      probeStreamManager.expectMessage(releaseMsg)
-      this
-
-    /**
-      * Expects that no release command has been sent to the stream manager
-      * actor.
-      *
-      * @return this test helper
-      */
-    def expectNoStreamActorRelease(): RetrieverTestHelper =
-      probeStreamManager.expectNoMessage(200.millis)
-      this
-
-    /**
-      * Creates the metadata retriever actor to be tested.
-      *
-      * @return the retriever actor to be tested
-      */
-    private def createRetrieverActor(): ActorRef[MetadataStateActor.MetadataRetrieveCommand] =
-      testKit.spawn(MetadataStateActor.retrieveMetadataBehavior(TestRadioSource,
-        probeStreamManager.ref,
-        probeRunner.ref))
-
+  
   "Check runner actor" should "send a result if metadata has changed" in :
     val nextMetadata = "No problem here"
     val helper = new RunnerTestHelper(MetaNotWanted)
