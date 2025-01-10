@@ -234,7 +234,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
     private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
     
     /** Test probe for the stream handle manager actor. */
-    private val probleHandleManagerActor =
+    private val probeHandleManagerActor =
       testKit.createTestProbe[RadioStreamHandleManagerActor.RadioStreamHandleCommand]()
     
     /** The probe for the radio stream playback actor. */
@@ -401,7 +401,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
         scheduleActor = probeScheduleActor.ref,
         streamFactory = streamFactory,
         streamManagerActor = probeStreamManagerActor.ref,
-        handleManagerActor = probleHandleManagerActor.ref,
+        handleManagerActor = probeHandleManagerActor.ref,
         config = config,
         askTimeout = askTimeout))
 
@@ -460,7 +460,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
         audioStreamFactory should be(streamFactory)
         scheduledInvocationActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
-        handleManager should be(probleHandleManagerActor.ref)
+        handleManager should be(probeHandleManagerActor.ref)
         optSpawner shouldBe empty
 
         enabledStateActor.actorCreated(enabledActor)
@@ -478,7 +478,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
        enabledActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
        scheduleActor: ActorRef[ScheduledInvocationCommand],
        eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-       streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+       handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
        intervalService: EvaluateIntervalsService,
        finderService: MetadataExclusionFinderService,
        _: Clock,
@@ -486,7 +486,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
         radioConfig should be(config)
         scheduleActor should be(probeScheduleActor.ref)
         eventActor should be(probeEventManagerActor.ref)
-        streamManager should be(probeStreamManagerActor.ref)
+        handleManager should be(probeHandleManagerActor.ref)
         intervalService should be(EvaluateIntervalsServiceImpl)
         finderService match
           case svc: MetadataExclusionFinderServiceImpl =>

@@ -21,16 +21,22 @@ import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, LocalBuff
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQueryResult}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MetadataExclusion, ResumeMode}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig}
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, RadioStreamManagerActor}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamActor, RadioStreamHandle, RadioStreamHandleManagerActor, RadioStreamManagerActor}
 import de.oliver_heger.linedj.player.engine.radio.{CurrentMetadata, RadioEvent, RadioMetadataEvent, RadioSource}
-import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.actor.{Actor, Props}
-import org.apache.pekko.{actor => classic}
+import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import org.apache.pekko.{NotUsed, actor as classic}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.util.{ByteString, Timeout}
 
 import java.time.{Clock, LocalDateTime, ZoneOffset}
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.duration.*
+import scala.util.{Failure, Success, Try}
 
 /**
   * A module providing functionality related to checking and enforcing metadata
@@ -120,7 +126,7 @@ object MetadataStateActor:
       * @param enabledStateActor  the actor managing the source enabled state
       * @param scheduleActor      the actor for scheduled invocations
       * @param eventActor         the event manager actor
-      * @param streamManager      the actor managing radio stream actors
+      * @param handleManager      the actor managing radio stream handles
       * @param intervalService    the evaluate intervals service
       * @param finderService      the service for finding metadata exclusions
       * @param clock              a clock
@@ -131,7 +137,7 @@ object MetadataStateActor:
               enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
               scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               intervalService: EvaluateIntervalsService,
               finderService: MetadataExclusionFinderService,
               clock: Clock = Clock.systemDefaultZone(),
@@ -183,7 +189,7 @@ object MetadataStateActor:
      enabledStateActor: ActorRef[RadioControlProtocol.SourceEnabledStateCommand],
      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
      eventActor: ActorRef[EventManagerActor.EventManagerCommand[RadioEvent]],
-     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+     handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
      intervalService: EvaluateIntervalsService,
      finderService: MetadataExclusionFinderService,
      clock: Clock,
@@ -228,7 +234,7 @@ object MetadataStateActor:
                 context.self,
                 scheduleActor,
                 clock,
-                streamManager,
+                handleManager,
                 intervalService,
                 finderService)
               val checkActor = context.spawn(checkBehavior, checkName)
@@ -298,6 +304,17 @@ object MetadataStateActor:
                                         result: IntervalQueryResult) extends SourceCheckCommand
 
   /**
+    * Constant for a [[MetadataCheckResult]] message that indicates a
+    * successful result of a metadata check. On receiving this result, the
+    * source check actor assumes that the affected radio source can be played
+    * again, since no applying exclusion was found. Note that this result is
+    * sent also in case that there was an error with the radio stream. In this
+    * case, the error will probably happen again when playback starts of this
+    * source, and then the error state actor will kick in.
+    */
+  private val SuccessMetadataCheckResult = MetadataCheckResult(None)
+
+  /**
     * A trait defining a factory function for an internal actor implementation
     * responsible for monitoring the metadata exclusion state of a specific
     * radio source. This actor schedules metadata checks on this radio source
@@ -315,7 +332,7 @@ object MetadataStateActor:
       * @param stateActor       the metadata state actor
       * @param scheduleActor    the actor for scheduled invocations
       * @param clock            the clock
-      * @param streamManager    the actor managing radio stream actors
+      * @param handleManager    the actor managing radio stream handles
       * @param intervalService  the intervals service
       * @param finderService    the service for finding metadata exclusions
       * @param runnerFactory    the factory for check runner actors
@@ -329,7 +346,7 @@ object MetadataStateActor:
               stateActor: ActorRef[MetadataExclusionStateCommand],
               scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
               clock: Clock,
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               intervalService: EvaluateIntervalsService,
               finderService: MetadataExclusionFinderService,
               runnerFactory: MetadataCheckRunnerFactory = checkRunnerBehavior): Behavior[SourceCheckCommand]
@@ -347,7 +364,7 @@ object MetadataStateActor:
      stateActor: ActorRef[MetadataExclusionStateCommand],
      scheduleActor: ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
      clock: Clock,
-     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+     handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
      intervalService: EvaluateIntervalsService,
      finderService: MetadataExclusionFinderService,
      runnerFactory: MetadataCheckRunnerFactory) => Behaviors.setup { context =>
@@ -363,10 +380,11 @@ object MetadataStateActor:
               namePrefix + "_run" + nextCount,
               metadataConfig,
               exclusion,
-              streamManager,
+              handleManager,
               intervalService,
               finderService,
-              context.self)
+              context.self,
+              clock)
             val runner = context.spawn(runnerBehavior, namePrefix + nextCount)
 
             val timeout = ScheduledInvocationActor.typedInvocationCommand(radioConfig.metadataCheckTimeout,
@@ -454,24 +472,39 @@ object MetadataStateActor:
   private[control] case object MetadataCheckRunnerTimeout extends MetadataCheckRunnerCommand
 
   /**
-    * An internal command the check runner actor sends to itself when the
-    * result of an interval query for the resume intervals arrives.
+    * An internal command to notify the check runner actor about the
+    * availability of the handle for the current radio stream. If everything
+    * went well, the message contains both the handle and the attached source
+    * for metadata.
     *
-    * @param result the query result
+    * @param triedHandleResult a [[Try]] with the stream handle and the
+    *                          [[Source]] for metadata
     */
-  private case class ResumeIntervalResult(result: IntervalQueryResult) extends MetadataCheckRunnerCommand
+  private case class RadioStreamHandleReceived(triedHandleResult:
+                                               Try[(RadioStreamHandle, Source[ByteString, NotUsed])])
+    extends MetadataCheckRunnerCommand
 
   /**
     * An internal command the check runner actor sends to itself when the
-    * result of a request to the metadata exclusion finder service arrives.
-    * Note: In this case, there is no risk of stale results, since new metadata
-    * is explicitly requested and cannot arrive at any time.
+    * response of a query to the intervals service arrives.
+    *
+    * @param response the response from the service
+    */
+  private case class ResumeIntervalResult(response: EvaluateIntervalsService.EvaluateIntervalsResponse)
+    extends MetadataCheckRunnerCommand
+
+  /**
+    * An internal command the check runner actor sends to itself when the
+    * response of a request to the metadata exclusion finder service arrives.
+    * The sequence number of the response is checked to filter out stale
+    * responses.
     *
     * @param metadataRetrieved the related metadata retrieved command
-    * @param result            the result received from the service
+    * @param response          the response received from the service
     */
-  private case class ExclusionFinderResult(metadataRetrieved: MetadataRetrieved,
-                                           result: Option[MetadataExclusion]) extends MetadataCheckRunnerCommand
+  private case class ExclusionFinderResponse(metadataRetrieved: MetadataRetrieved,
+                                             response: MetadataExclusionFinderService.MetadataExclusionFinderResponse)
+    extends MetadataCheckRunnerCommand
 
   /**
     * A trait defining a factory function for an internal actor that executes
@@ -488,23 +521,22 @@ object MetadataStateActor:
       * @param namePrefix       prefix to generate actor names
       * @param metadataConfig   the global metadata config
       * @param currentExclusion the currently detected metadata exclusion
-      * @param streamManager    the actor managing radio stream actors
+      * @param handleManager    the actor managing radio stream handles
       * @param intervalService  the interval query service
       * @param finderService    the service for finding metadata exclusions
       * @param sourceChecker    the source checker parent actor
-      * @param retrieverFactory the factory to create a retriever actor
+      * @param clock            the clock for querying the current time
       * @return the ''Behavior'' to create a new actor instance
       */
     def apply(source: RadioSource,
               namePrefix: String,
               metadataConfig: MetadataConfig,
               currentExclusion: MetadataExclusion,
-              streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+              handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               intervalService: EvaluateIntervalsService,
               finderService: MetadataExclusionFinderService,
               sourceChecker: ActorRef[SourceCheckCommand],
-              retrieverFactory: MetadataRetrieveActorFactory = retrieveMetadataBehavior):
-    Behavior[MetadataCheckRunnerCommand]
+              clock: Clock): Behavior[MetadataCheckRunnerCommand]
 
   /**
     * An internal data class holding the information required while running a
@@ -513,9 +545,17 @@ object MetadataStateActor:
     * @param currentExclusion  the currently active exclusion
     * @param optResumeInterval the result of the latest query for resume
     *                          intervals
+    * @param handle            the handle of the current radio stream
+    * @param killSwitch        a [[KillSwitch]] to cancel the radio stream
+    * @param optLastMetadata   the last metadata that was received
+    * @param seqNo             a sequence number to deal with stale results
     */
   private case class CheckState(currentExclusion: MetadataExclusion,
-                                optResumeInterval: Option[IntervalQueryResult]):
+                                optResumeInterval: Option[IntervalQueryResult],
+                                handle: RadioStreamHandle,
+                                killSwitch: KillSwitch,
+                                optLastMetadata: Option[CurrentMetadata],
+                                seqNo: Int):
     /**
       * Returns the last cached interval query result for the resume interval
       * if it is available and if it is still valid for the reference time
@@ -525,10 +565,20 @@ object MetadataStateActor:
       * @return an ''Option'' with the resume interval query result
       */
     def resumeIntervalAt(time: LocalDateTime): Option[IntervalQueryResult] =
-      optResumeInterval flatMap:
+      optResumeInterval flatMap :
         case r@Before(start) if time.isBefore(start.value) => Some(r)
         case r@Inside(_, until) if time.isBefore(until.value) => Some(r)
         case _ => None
+
+    /**
+      * Returns an updated [[CheckState]] instance with an increment sequence
+      * number. This can be used to prepare an operation that could suffer from
+      * a stale result.
+      *
+      * @return the updated state
+      */
+    def withNextSeqNo(): CheckState = copy(seqNo = seqNo + 1)
+  end CheckState
 
   /**
     * A default [[MetadataCheckRunnerFactory]] instance that can be used to
@@ -539,81 +589,233 @@ object MetadataStateActor:
      namePrefix: String,
      metadataConfig: MetadataConfig,
      currentExclusion: MetadataExclusion,
-     streamManager: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
+     handleManager: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
      intervalService: EvaluateIntervalsService,
      finderService: MetadataExclusionFinderService,
      sourceChecker: ActorRef[SourceCheckCommand],
-     retrieverFactory: MetadataRetrieveActorFactory) => Behaviors.setup[MetadataCheckRunnerCommand] { context =>
-      implicit val ec: ExecutionContext = context.executionContext
-      val retrieverBehavior = retrieverFactory(source, streamManager, context.self)
-      val retriever = context.spawn(retrieverBehavior, namePrefix + "_retriever")
-      retriever ! GetMetadata
+     clock: Clock) => Behaviors.setup[MetadataCheckRunnerCommand] { context =>
+      val logPrefix = s"[METADATA CHECK '${source.uri}']"
+      context.log.info("{} Starting check.", logPrefix)
+
+      given classic.ActorSystem = context.system.toClassic
+
+      given ExecutionContext = context.executionContext
+
       val metadataSourceConfig = metadataConfig.metadataSourceConfig(source)
 
-      def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
-        Behaviors.receiveMessage:
-          case retrieved@MetadataRetrieved(data, time) =>
-            context.log.info("Received metadata during check: {}.", data.data)
-            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, time, 0) foreach { res =>
-              context.self ! ExclusionFinderResult(retrieved, res.result)
-            }
-            Behaviors.same
+      /**
+        * Tries to obtain a handle to the current radio stream. The outcome is
+        * passed to this actor.
+        */
+      def obtainStreamHandle(): Unit =
+        // Set a rather long timeout to prevent that a stream is created which is then not released.
+        given Timeout(1.hour)
 
-          case ExclusionFinderResult(MetadataRetrieved(data, time), result) =>
-            result match
+        given Scheduler = context.system.scheduler
+
+        val futHandle = handleManager.ask[RadioStreamHandleManagerActor.GetStreamHandleResponse] { ref =>
+          val params = RadioStreamHandleManagerActor.GetStreamHandleParameters(source,
+            s"${namePrefix}_metadataCheck")
+          RadioStreamHandleManagerActor.GetStreamHandle(params, ref)
+        }
+        (for
+          handleResponse <- futHandle
+          handle <- Future.fromTry(handleResponse.triedStreamHandle)
+          source <- handle.attachMetadataSinkOrCancel()
+        yield (handle, source)).onComplete { triedResult =>
+          context.self ! RadioStreamHandleReceived(triedResult)
+        }
+
+      /**
+        * Starts a stream that reads the metadata from the current radio source
+        * and passes it to this actor instance.
+        *
+        * @param metadataSource the source for metadata
+        * @return a [[KillSwitch]] to cancel the stream
+        */
+      def runMetadataStream(metadataSource: Source[ByteString, NotUsed]): KillSwitch =
+        val sink = Sink.foreach[ByteString] { metadata =>
+          val metadataMessage = MetadataRetrieved(CurrentMetadata(metadata.utf8String), time(clock))
+          context.self ! metadataMessage
+        }
+        val (killSwitch, futSink) = metadataSource.viaMat(KillSwitches.single)(Keep.right)
+          .toMat(sink)(Keep.both)
+          .run()
+        futSink onComplete { _ =>
+          context.self ! RadioStreamStopped
+        }
+        killSwitch
+
+      /**
+        * The command handler function of this actor that is active until the
+        * radio stream has been set up.
+        *
+        * @param isTimeout flag whether the timeout is already reached
+        * @return the next behavior of this actor
+        */
+      def init(isTimeout: Boolean): Behavior[MetadataCheckRunnerCommand] =
+        Behaviors.receiveMessagePartial:
+          case MetadataCheckRunnerTimeout =>
+            context.log.info("{} Timeout before stream handle was received.", logPrefix)
+            init(isTimeout = true)
+
+          case RadioStreamHandleReceived(triedHandleResult) =>
+            triedHandleResult match
+              case Failure(exception) =>
+                context.log.info("{} Could not obtain stream handle. Aborting check.", logPrefix, exception)
+                sourceChecker ! SuccessMetadataCheckResult
+                Behaviors.stopped
+              case Success(handleResult) if isTimeout =>
+                closeAndStop(handleResult._1, None, stopDirectly = true)
+              case Success(handleResult) =>
+                context.log.info("{} Received stream handle. Starting metadata stream.", logPrefix)
+                val killSwitch = runMetadataStream(handleResult._2)
+                val state = CheckState(
+                  currentExclusion = currentExclusion,
+                  optResumeInterval = None,
+                  handle = handleResult._1,
+                  killSwitch = killSwitch,
+                  optLastMetadata = None,
+                  seqNo = 0
+                )
+                handle(state)
+
+      /**
+        * The command handler function of this actor that is active while the
+        * metadata check is in progress.
+        *
+        * @param state the current state of the check operation
+        * @return the next behavior of this actor
+        */
+      def handle(state: CheckState): Behavior[MetadataCheckRunnerCommand] =
+        Behaviors.receiveMessagePartial:
+          case retrieved@MetadataRetrieved(data, time) =>
+            context.log.info("{} Received metadata during check: {}.", logPrefix, data.data)
+            val nextState = state.withNextSeqNo().copy(optLastMetadata = Some(data))
+            finderService.findMetadataExclusion(metadataConfig, metadataSourceConfig, data, time, nextState.seqNo)
+              .foreach { res =>
+                context.self ! ExclusionFinderResponse(retrieved, res)
+              }
+            handle(nextState)
+
+          case ExclusionFinderResponse(MetadataRetrieved(data, time), response) if response.seqNo == state.seqNo =>
+            response.result match
               case Some(exclusion) =>
-                retriever ! GetMetadata
                 handle(state.copy(currentExclusion = exclusion))
               case None if state.currentExclusion.resumeMode == ResumeMode.MetadataChange =>
-                terminateCheck(None)
+                closeAndStopMetadataCheck(state)
               case None =>
                 if metadataSourceConfig.optSongPattern.isEmpty ||
                   matches(metadataSourceConfig.optSongPattern.get, data.title) then
-                  terminateCheck(None)
+                  closeAndStopMetadataCheck(state)
                 else
                   state.resumeIntervalAt(time) match
                     case Some(value) =>
                       handleResumeIntervalResult(value, state)
                     case None =>
-                      intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, time,
-                        0) foreach { res =>
-                        context.self ! ResumeIntervalResult(res.result)
-                      }
-                      Behaviors.same
+                      val nextState = state.withNextSeqNo()
+                      intervalService.evaluateIntervals(metadataSourceConfig.resumeIntervals, time, nextState.seqNo)
+                        .foreach { res =>
+                          context.self ! ResumeIntervalResult(res)
+                        }
+                      handle(nextState)
 
-          case ResumeIntervalResult(result) =>
-            handleResumeIntervalResult(result, state.copy(optResumeInterval = Some(result)))
+          case r: ExclusionFinderResponse =>
+            // Ignore a state result with a non-matching sequence number.
+            Behaviors.same
+
+          case ResumeIntervalResult(response) if response.seqNo == state.seqNo =>
+            handleResumeIntervalResult(response.result, state.copy(optResumeInterval = Some(response.result)))
+
+          case r: ResumeIntervalResult =>
+            // Ignore an interval result with a non-matching sequence number.
+            Behaviors.same
 
           case MetadataCheckRunnerTimeout =>
-            retriever ! CancelStream
-            handleTimeout(Some(state.currentExclusion))
+            closeAndStopMetadataCheck(state, MetadataCheckResult(Some(state.currentExclusion)))
 
           case RadioStreamStopped =>
             // This means that the radio stream stopped due to an error. In this case, report a success result to
             // the parent. If the source is played again, the error can be handled, or - if it no longer occurs -,
             // updated metadata will be available again.
-            sourceChecker ! MetadataCheckResult(None)
-            Behaviors.stopped
+            context.log.warn("{} Unexpected end of metadata stream.", logPrefix)
+            closeAndStop(state.handle, None, stopDirectly = true)
 
-      def handleTimeout(result: Option[MetadataExclusion]): Behavior[MetadataCheckRunnerCommand] =
+      /**
+        * The command handler function for the state in which the actor just
+        * waits for the completion of the radio stream after the handle was
+        * released.
+        *
+        * @return the next behavior of this actor
+        */
+      def closing(): Behavior[MetadataCheckRunnerCommand] =
         Behaviors.receiveMessagePartial:
           case RadioStreamStopped =>
-            sourceChecker ! MetadataCheckResult(result)
+            context.log.info("{} Radio stream completed.", logPrefix)
             Behaviors.stopped
 
-      def terminateCheck(result: Option[MetadataExclusion]): Behavior[MetadataCheckRunnerCommand] =
-        retriever ! CancelStream
-        handleTimeout(result)
+      /**
+        * Initiates a graceful termination of the check operation from the
+        * metadata check in progress state. The required information is
+        * obtained from the given state.
+        *
+        * @param state         the current check state
+        * @param resultMessage the result to send to the source check actor
+        * @return the next behavior of this actor
+        */
+      def closeAndStopMetadataCheck(state: CheckState,
+                                    resultMessage: MetadataCheckResult = SuccessMetadataCheckResult):
+      Behavior[MetadataCheckRunnerCommand] =
+        context.log.info("{} Shutting down metadata stream.", logPrefix)
+        state.killSwitch.shutdown()
+        closeAndStop(state.handle, state.optLastMetadata, resultMessage)
 
+      /**
+        * Initiates a graceful termination of the check operation by sending a
+        * result message to the source checker actor and canceling the radio
+        * stream. The actor stays alive until the metadata stream ends; this is
+        * done to avoid a dead letter warning being logged when the stream is
+        * complete.
+        *
+        * @param handle          the handle of the radio stream
+        * @param optLastMetadata the last known metadata for this source
+        * @param resultMessage   the result to send to the source checker actor
+        * @param stopDirectly    flag whether the actor should stop immediately;
+        *                        otherwise, a behavior is entered that waits for
+        *                        the metadata stream to complete
+        * @return the next behavior of this actor
+        */
+      def closeAndStop(handle: RadioStreamHandle,
+                       optLastMetadata: Option[CurrentMetadata],
+                       resultMessage: MetadataCheckResult = SuccessMetadataCheckResult,
+                       stopDirectly: Boolean = false): Behavior[MetadataCheckRunnerCommand] =
+        context.log.info("{} Terminating check actor.", logPrefix)
+        handleManager ! RadioStreamHandleManagerActor.ReleaseStreamHandle(source, handle, optLastMetadata)
+        sourceChecker ! resultMessage
+        if stopDirectly then
+          Behaviors.stopped
+        else
+          closing()
+
+      /**
+        * Handles a result from the [[EvaluateIntervalsService]]. The function
+        * basically checks whether the radio source is in a resume interval,
+        * and the current change of metadata is sufficient to terminate the
+        * check.
+        *
+        * @param result    the result from the intervals service
+        * @param nextState the next state to continue the check
+        * @return the next behavior of this actor
+        */
       def handleResumeIntervalResult(result: IntervalQueryResult,
                                      nextState: CheckState): Behavior[MetadataCheckRunnerCommand] =
         if isInResumeInterval(result) then
-          terminateCheck(None)
+          closeAndStopMetadataCheck(nextState)
         else
-          retriever ! GetMetadata
           handle(nextState)
 
-      handle(CheckState(currentExclusion, None))
+      obtainStreamHandle()
+      init(isTimeout = false)
     }
 
   /**

@@ -287,7 +287,7 @@ object RadioControlActor:
         enabledStateAdapter,
         scheduleActor,
         eventManagerActor,
-        streamManagerActor,
+        handleManagerActor,
         evalService,
         new MetadataExclusionFinderServiceImpl(evalService)), MetadataStateActorName)
 
