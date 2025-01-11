@@ -160,11 +160,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       helper.expectControlCommand(RadioControlActor.StopPlayback)
     }
 
-  it should "create only a single stream builder" in :
-    runTest { helper =>
-      helper.checkStreamManager()
-    }
-
   it should "return the current playback state" in :
     val playbackState = RadioControlActor.CurrentPlaybackState(Some(RadioSource("testSource")),
       Some(RadioSource("selectedSource")), playbackActive = true, Some(CurrentMetadata("artist / title")))
@@ -461,7 +456,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        playbackActor: typed.ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
        scheduleActor: typed.ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand],
        streamFactory: AsyncAudioStreamFactory,
-       streamManagerActor: typed.ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
        handleManagerActor: typed.ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
        optEvalService: Option[EvaluateIntervalsService],
        optReplacementService: Option[ReplacementSourceSelectionService],
@@ -480,7 +474,6 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
         optEvalService shouldBe empty
         optReplacementService shouldBe empty
         optStateService shouldBe empty
-        streamManagers.put(streamManagerActor, true)
         audioStreamFactories.put(streamFactory, true)
 
         controlBehavior

@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamManagerActor, RadioStreamPlaybackActor}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamPlaybackActor}
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -229,9 +229,6 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
 
     /** Test probe for the metadata state actor. */
     private val probeMetadataStateActor = testKit.createTestProbe[MetadataStateActor.MetadataExclusionStateCommand]()
-
-    /** Test probe for the stream manager actor. */
-    private val probeStreamManagerActor = testKit.createTestProbe[RadioStreamManagerActor.RadioStreamManagerCommand]()
     
     /** Test probe for the stream handle manager actor. */
     private val probeHandleManagerActor =
@@ -400,7 +397,6 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
         playbackActor = probePlaybackActor.ref,
         scheduleActor = probeScheduleActor.ref,
         streamFactory = streamFactory,
-        streamManagerActor = probeStreamManagerActor.ref,
         handleManagerActor = probeHandleManagerActor.ref,
         config = config,
         askTimeout = askTimeout))

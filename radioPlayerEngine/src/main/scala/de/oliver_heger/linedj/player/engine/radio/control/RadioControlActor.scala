@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamManagerActor, RadioStreamPlaybackActor}
+import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamPlaybackActor}
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -207,7 +207,6 @@ object RadioControlActor:
       * @param playbackActor         the actor controlling the playback state
       * @param scheduleActor         the actor for scheduled invocations
       * @param streamFactory         the factory for creating audio streams
-      * @param streamManagerActor    the actor managing radio stream actors
       * @param handleManagerActor    the actor managing radio stream handles
       * @param optEvalService        the optional service to evaluate interval
       *                              queries (None for default)
@@ -228,7 +227,6 @@ object RadioControlActor:
               playbackActor: ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
               scheduleActor: ActorRef[ScheduledInvocationCommand],
               streamFactory: AsyncAudioStreamFactory,
-              streamManagerActor: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
               handleManagerActor: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
               optEvalService: Option[EvaluateIntervalsService] = None,
               optReplacementService: Option[ReplacementSourceSelectionService] = None,
@@ -250,7 +248,6 @@ object RadioControlActor:
                                  playbackActor: ActorRef[RadioStreamPlaybackActor.RadioStreamPlaybackCommand],
                                  scheduleActor: ActorRef[ScheduledInvocationCommand],
                                  streamFactory: AsyncAudioStreamFactory,
-                                 streamManagerActor: ActorRef[RadioStreamManagerActor.RadioStreamManagerCommand],
                                  handleManagerActor: ActorRef[RadioStreamHandleManagerActor.RadioStreamHandleCommand],
                                  optEvalService: Option[EvaluateIntervalsService],
                                  optReplacementService: Option[ReplacementSourceSelectionService],
