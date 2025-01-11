@@ -41,8 +41,6 @@ object RadioPlayer:
     * ''Future''.
     *
     * @param config                     the radio player configuration
-    * @param streamManagerFactory       factory for creating the stream manager
-    *                                   actor
     * @param streamHandleManagerFactory factory for creating the stream handle
     *                                   manager actor
     * @param playbackFactory            factory for creating the playback actor
@@ -52,7 +50,6 @@ object RadioPlayer:
     * @return a ''Future'' with the new ''RadioPlayer'' instance
     */
   def apply(config: RadioPlayerConfig,
-            streamManagerFactory: RadioStreamManagerActor.Factory = RadioStreamManagerActor.behavior,
             streamHandleManagerFactory: RadioStreamHandleManagerActor.Factory =
             RadioStreamHandleManagerActor.behavior,
             playbackFactory: RadioStreamPlaybackActor.Factory = RadioStreamPlaybackActor.behavior,
@@ -74,17 +71,6 @@ object RadioPlayer:
       val streamBuilder = RadioStreamBuilder()
       val audioStreamFactory = DynamicAudioStreamFactory()
       val scheduledInvocationActor = PlayerControl.createSchedulerActor(creator, "radioSchedulerInvocationActor")
-      val streamManagerBehavior = streamManagerFactory(
-        config.playerConfig,
-        streamBuilder,
-        scheduledInvocationActor,
-        config.streamCacheTime
-      )
-      val streamManager = creator.createActor(
-        streamManagerBehavior,
-        "radioStreamManagerActor",
-        Some(RadioStreamManagerActor.Stop)
-      )
       val streamHandleManagerBehavior = streamHandleManagerFactory(
         streamBuilder,
         RadioStreamHandle.factory,
