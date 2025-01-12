@@ -257,9 +257,9 @@ class RadioStreamHandleSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     handle.detach()
 
     val ctrlAudioMsg = controlAudio.expectMessageType[AttachableSink.AttachableSinkControlCommand[ByteString]]
-    ctrlAudioMsg should be(AttachableSink.DetachConsumer())
+    ctrlAudioMsg should be(AttachableSink.DetachConsumer)
     val ctrlMetaMsg = controlMeta.expectMessageType[AttachableSink.AttachableSinkControlCommand[ByteString]]
-    ctrlMetaMsg should be(AttachableSink.DetachConsumer())
+    ctrlMetaMsg should be(AttachableSink.DetachConsumer)
 
   it should "set unique names to support multiple streams in parallel" in :
     val RadioStreamUri1 = "https://radio.example.com/foo.mp3"

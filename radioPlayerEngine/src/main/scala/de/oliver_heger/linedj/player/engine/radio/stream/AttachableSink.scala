@@ -79,7 +79,7 @@ object AttachableSink:
     * to unattached mode. After processing this command, the sink will ignore
     * again all the data is receives.
     */
-  case class DetachConsumer() extends AttachableSinkControlCommand[Nothing]
+  case object DetachConsumer extends AttachableSinkControlCommand[Nothing]
 
   /**
     * An internal command for the control actor to pass a stream message from
@@ -205,7 +205,7 @@ object AttachableSink:
     * @tparam T the type of the data processed by the sink
     */
   def detachConsumer[T](controlActor: ActorRef[AttachableSinkControlCommand[T]]): Unit =
-    controlActor ! DetachConsumer()
+    controlActor ! DetachConsumer
 
   /**
     * An internal implementation of a [[Sink]] that passes the data it receives
@@ -424,7 +424,7 @@ object AttachableSink:
         ac.replyTo ! ConsumerAttached(Some(consumerSource))
         handleControlCommand(state.copy(isAttached = true))
 
-      case (ctx, DetachConsumer()) =>
+      case (ctx, DetachConsumer) =>
         ctx.log.info("Detaching consumer from sink '{}'.", state.sinkName)
         if state.isAttached then
           state.notifyPendingProducer()
