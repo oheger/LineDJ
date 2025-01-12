@@ -136,7 +136,7 @@ object AudioStreamPlayerStage:
   case class AudioStreamEnd[+SNK](result: SNK) extends PlaylistStreamResult[Nothing, SNK]
 
   /** The logger. */
-  private val log = LogManager.getLogger()
+  private val log = LogManager.getLogger(AudioStreamPlayerStage.getClass)
 
   /**
     * A supervision strategy to be applied to playlist streams. This strategy
