@@ -280,7 +280,7 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
     */
   private def assertInside(query: IntervalQuery, date: LocalDateTime, until: LocalDateTime): Unit =
     query(date) match
-      case Inside(d, _) => d.value should be(until)
+      case Inside(_, d) => d.value should be(until)
       case r => fail("Unexpected result: " + r)
 
   /**
