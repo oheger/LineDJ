@@ -60,6 +60,15 @@ object PlayerServerConfig:
   final val PropUiContentFolder = "uiContentFolder"
 
   /**
+    * Name of the configuration property that defines a folder on the resources
+    * (the classpath) containing the assets of the UI. If this property is
+    * defined, it takes precedence over an external content folder, and the UI
+    * is served from this folder from the resources. Note that the resource
+    * name specified here should not start with a slash.
+    */
+  final val PropUiContentResource = "uiContentResource"
+
+  /**
     * Name of the configuration property that defines the URL path for loading
     * the web UI. When requesting this path from the HTTP server, the player UI
     * is returned.
@@ -170,6 +179,7 @@ object PlayerServerConfig:
       lookupPort = config.getInt(PropLookupPort, DefaultLookupPort),
       lookupCommand = config.getString(PropLookupCommand, DefaultLookupCommand),
       uiContentFolder = Paths.get(config.getString(PropUiContentFolder, DefaultUiContentFolder)),
+      optUiContentResource = Option(config.getString(PropUiContentResource)),
       uiPath = config.getString(PropUiPath, DefaultUiPath),
       optCurrentConfig = getAndInitCurrentConfig(config),
       optShutdownCommand = Option(config.getString(PropShutdownCommand)))
@@ -222,6 +232,10 @@ end PlayerServerConfig
   * @param lookupPort             the port for lookup requests
   * @param lookupCommand          the command expected in lookup requests
   * @param uiContentFolder        the folder containing the UI assets
+  * @param optUiContentResource   an optional name of a classpath resource
+  *                               containing the UI assets; if defined, the UI
+  *                               is served from the classpath rather than from
+  *                               an external folder
   * @param uiPath                 the URL path for accessing the Web UI
   * @param optCurrentConfig       the optional configuration to store the
   *                               current radio source
@@ -236,6 +250,7 @@ case class PlayerServerConfig(radioPlayerConfig: RadioPlayerConfig,
                               lookupPort: Int,
                               lookupCommand: String,
                               uiContentFolder: Path,
+                              optUiContentResource: Option[String],
                               uiPath: String,
                               optCurrentConfig: Option[Configuration],
                               optShutdownCommand: Option[String]):

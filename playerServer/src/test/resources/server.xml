@@ -25,6 +25,7 @@
     <lookupPort>9876</lookupPort>
     <lookupCommand>HELLO</lookupCommand>
     <uiContentFolder>webapp</uiContentFolder>
+    <uiContentResource>/webapp-resource</uiContentResource>
     <uiPath>/ui/test/welcome.html</uiPath>
     <shutdownCommand>sudo shutdown -h now</shutdownCommand>
 </configuration>

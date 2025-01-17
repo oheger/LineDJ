@@ -136,6 +136,7 @@ object ServerConfigTestHelper:
       lookupPort = PlayerServerConfig.DefaultLookupPort,
       lookupCommand = PlayerServerConfig.DefaultLookupCommand,
       uiContentFolder = Paths get PlayerServerConfig.DefaultUiContentFolder,
+      optUiContentResource = None,
       uiPath = PlayerServerConfig.DefaultUiPath,
       optCurrentConfig = None,
       optShutdownCommand = None)
