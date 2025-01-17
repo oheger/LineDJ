@@ -42,7 +42,7 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
-lazy val VersionByteBuddy = "1.14.17"
+lazy val VersionByteBuddy = "1.15.11"
 lazy val VersionDisruptor = "4.0.0"
 lazy val VersionScalaTest = "3.2.19"
 lazy val VersionScalaTestMockito = "3.2.19.0"
