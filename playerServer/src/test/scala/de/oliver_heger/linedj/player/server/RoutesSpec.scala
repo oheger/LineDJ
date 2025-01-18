@@ -240,6 +240,22 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     }
   }
 
+  it should "serve the UI from the classpath if configured" in :
+    val orgConfig = httpServerConfig().copy(optUiContentResource = Some("ui-resource"))
+    val localPath = Paths.get("playerServer/src/test/resources/ui-resource")
+
+    runHttpServerTest(orgConfig) { config =>
+      val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
+      sendRequest(uiRequest) flatMap { response =>
+        response.status should be(StatusCodes.OK)
+
+        for
+          expectedString <- readSource(FileIO.fromPath(localPath.resolve("index.html")))
+          responseString <- readSource(response.entity.dataBytes)
+        yield responseString should be(expectedString)
+      }
+    }
+
   it should "define a route to trigger the server shutdown" in {
     val shutdownPromise = Promise[Done]()
 

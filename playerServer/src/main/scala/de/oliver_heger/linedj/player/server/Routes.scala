@@ -188,15 +188,20 @@ object Routes extends RadioModel.RadioJsonSupport:
 
   /**
     * Returns the route for the web UI of the player server. This route exposes
-    * the content of a configurable directory for GET operations. The URL path
-    * of this route is also defined in the configuration.
+    * the content of a configurable directory for GET operations, either in an
+    * external path or from the classpath. The URL path of this route is also
+    * defined in the configuration.
     *
     * @param config the configuration
     * @return the route for the web UI of the player
     */
   private def uiRoute(config: PlayerServerConfig): Route =
     pathPrefix(config.uiPathPrefix) {
-      getFromDirectory(config.uiContentFolder.toAbsolutePath.toString)
+      config.optUiContentResource match
+        case Some(resource) =>
+          getFromResourceDirectory(resource)
+        case None =>
+          getFromDirectory(config.uiContentFolder.toAbsolutePath.toString)
     }
 
   /**
