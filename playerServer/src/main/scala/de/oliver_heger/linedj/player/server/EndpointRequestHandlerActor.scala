@@ -222,6 +222,7 @@ private class EndpointRequestHandlerActor(multicastAddress: String,
         val nextDelay = if nextIncrement < MaxBindRetryDelay then nextIncrement else MaxBindRetryDelay
         scheduleBind(InitBinding(nextDelay), initBinding.nextAttempt)
       case list =>
+        logInterfacesForBinding(list)
         multicastConfig = MulticastConfig(multicastAddress, list)
         IO(Udp) ! Udp.Bind(self, new InetSocketAddress(port), List(multicastConfig))
 
@@ -241,3 +242,13 @@ private class EndpointRequestHandlerActor(multicastAddress: String,
       case regExRequestWithPort(port) =>
         Some(new InetSocketAddress(remote.getAddress, port.toInt))
       case _ => None
+
+  /**
+    * Print a log message about the local network addresses the server will be
+    * bound to. This is helpful to access it from the same machine.
+    *
+    * @param interfaces the list of supported network interfaces
+    */
+  private def logInterfacesForBinding(interfaces: List[NetworkInterface]): Unit =
+    val addresses = interfaces.flatMap(_.localAddress).mkString
+    log.info("Binding server to these addresses: {}.", addresses)
