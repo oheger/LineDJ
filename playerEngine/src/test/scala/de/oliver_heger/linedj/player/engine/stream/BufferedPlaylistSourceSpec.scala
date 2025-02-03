@@ -397,10 +397,10 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     val source = Source.single(1)
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
-    recoverToExceptionIf[BufferedPlaylistSource.BridgeSourceFailure] {
+    recoverToExceptionIf[IllegalStateException] {
       source.via(stage).runWith(sink)
     } map { actualException =>
-      actualException.getCause should be(exception)
+      actualException should be(exception)
     }
 
   it should "not create more than two active files in the buffer" in :
@@ -483,8 +483,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   "applySkipUntil" should "handle an undefined skip position" in :
     val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk"), 0),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"), 0)
     )
 
     val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 11, -1)
@@ -493,8 +493,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a skip position after the offset" in :
     val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk"), 0),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"), 0)
     )
 
     val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 100, 100)
@@ -503,8 +503,8 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a skip position before the beginning of the buffer" in :
     val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is a chunk"), 1),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("This is another chunk"), 1)
     )
 
     val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 100, 10)
@@ -513,13 +513,13 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "correctly skip the chunks in the buffer" in :
     val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31.")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26.")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31."), 1),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26."), 2),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."), 3)
     )
     val expectedResult: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("h a length of 26.")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("h a length of 26."), 2),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."), 3)
     )
 
     val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 1000, 943)
@@ -528,9 +528,9 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
 
   it should "handle a skip position at the beginning of one chunk" in :
     val chunks: List[BufferedPlaylistSource.DataChunkResponse.DataChunk] = List(
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31.")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26.")),
-      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."))
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("The length of this chunk is 31."), 1),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("Chunk with a length of 26."), 2),
+      BufferedPlaylistSource.DataChunkResponse.DataChunk(ByteString("A final chunk with a length of 40 chars."), 3)
     )
 
     val modifiedChunks = BufferedPlaylistSource.applySkipUntil(chunks, 1000, 934)
