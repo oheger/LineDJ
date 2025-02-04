@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.stream
 
-import org.apache.pekko.actor as classic
+import org.apache.pekko.{Done, actor as classic}
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
@@ -594,7 +594,7 @@ object BufferedPlaylistSource:
           * A callback function that gets invoked when an audio source has been
           * read from the buffer.
           */
-        private val onSourceComplete = getAsyncCallback[Try[BridgeSourceResult]](handleSourceCompleted)
+        private val onSourceComplete = getAsyncCallback[(Try[Any], Int)](handleSourceCompleted)
 
         /**
           * A callback function that gets invoked when a buffer file has been
@@ -721,19 +721,20 @@ object BufferedPlaylistSource:
             sourceCount += 1
             inProgressCount += 1
             val size = sourceSize(currentSource)
+            val sourceIndex = sourceCount
             log.info("Start processing audio source '{}' with size {}..", currentSource.source, size)
 
             push(out, new SourceInBuffer[SRC]:
               override def originalSource: SRC = currentSource.source
 
               override def resolveSource(): Future[AudioStreamPlayerStage.AudioStreamSource] = Future {
-                val promiseResult = Promise[BridgeSourceResult]()
-                promiseResult.future.onComplete(onSourceComplete.invoke)
+                val promiseResult = Promise[Done]()
+                promiseResult.future.onComplete(res => onSourceComplete.invoke((res, sourceIndex)))
 
                 val source = Source.fromGraph(new BridgeSource(bridgeActor,
                   currentSource.startOffset,
                   size,
-                  sourceCount,
+                  sourceIndex,
                   promiseResult))
                 AudioStreamPlayerStage.AudioStreamSource(currentSource.url, source)
               }
@@ -765,21 +766,16 @@ object BufferedPlaylistSource:
 
         /**
           * A callback function that is invoked when an audio source completes.
-          * Here it needs to be handled whether bytes have to be skipped or the
-          * playlist is complete.
+          * The internal state is updated, and the bridge actor needs to be
+          * notified.
           *
-          * @param triedResult the result from the source
+          * @param sourceData information about the completed source and its
+          *                   outcome
           */
-        private def handleSourceCompleted(triedResult: Try[BridgeSourceResult]): Unit =
-          log.info("Current source completed with result {}.", triedResult)
+        private def handleSourceCompleted(sourceData: (Try[Any], Int)): Unit =
+          log.info("Source '{}' completed with result {}.", sourceData._2, sourceData._1)
           inProgressCount -= 1
-
-          triedResult.recover {
-            case e: BridgeSourceFailure => e.result
-          }.foreach { result =>
-            bridgeActor ! SourceCompleted(result)
-          }
-
+          bridgeActor ! SourceCompleted(sourceData._2)
           if !completeStageIfDone() then pushNextSource()
 
         /**
@@ -876,48 +872,6 @@ object BufferedPlaylistSource:
   end BridgeSink
 
   /**
-    * An enumeration defining the reasons for the completion of a
-    * [[BridgeSource]].
-    */
-  private[stream] enum BridgeSourceCompletionReason:
-    case PlaylistStreamEnd
-    case LimitReached
-
-  /**
-    * A data class defining the result object produced by a [[BridgeSource]].
-    * This is used to determine the next steps to be performed after the source
-    * was read. For instance, if the source was read only partly, some special
-    * handling is required.
-    *
-    * @param bytesRead        the number of bytes that were read
-    * @param startOffset      the offset where this source starts
-    * @param size             the size of the source or -1 if this is not yet
-    *                         known
-    * @param sourceIndex      the index of this source
-    * @param completionReason the reason for the completion
-    */
-  private[stream] case class BridgeSourceResult(bytesRead: Long,
-                                                startOffset: Long,
-                                                size: Long,
-                                                sourceIndex: Int,
-                                                completionReason: BridgeSourceCompletionReason)
-
-  /**
-    * An exception class to signal a problem with a bridge source. When reading
-    * from the buffer, the exception must still contain information about the
-    * current state of the source when it terminated. Note that early
-    * termination (for instance with the ''take'' operator) also causes the
-    * source to be completed with an exception (a special cancellation
-    * exception in this case).
-    *
-    * @param result the [[BridgeSourceResult]] describing the state of the
-    *               source when it terminated
-    * @param cause  the original exception that caused the failure
-    */
-  private[stream] class BridgeSourceFailure(val result: BridgeSourceResult,
-                                            cause: Throwable) extends Throwable(cause)
-
-  /**
     * An internal [[Source]] implementation that reads its data from a bridge
     * actor instance. It is possible to limit the number of bytes issued by
     * this source. This is necessary for instance to make sure that files in
@@ -953,15 +907,15 @@ object BufferedPlaylistSource:
                              startOffset: Long,
                              initialLimit: Long,
                              index: Int,
-                             promiseMat: Promise[BridgeSourceResult] = Promise())
+                             promiseMat: Promise[Done] = Promise())
                             (using system: ActorSystem[_])
-    extends GraphStageWithMaterializedValue[SourceShape[ByteString], Future[BridgeSourceResult]]:
+    extends GraphStageWithMaterializedValue[SourceShape[ByteString], Future[Done]]:
     private val out: Outlet[ByteString] = Outlet("BridgeSource")
 
     override def shape: SourceShape[ByteString] = SourceShape(out)
 
     override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
-    (GraphStageLogic, Future[BridgeSourceResult]) =
+    (GraphStageLogic, Future[Done]) =
       val logic = new GraphStageLogic(shape):
         /**
           * A callback to handle data chunks that have been retrieved
@@ -969,37 +923,14 @@ object BufferedPlaylistSource:
           */
         private val onDataCallback = getAsyncCallback[Try[DataChunkResponse]](dataAvailable)
 
-        /** The number of bytes that has been emitted so far. */
-        private var bytesProcessed = 0L
-
-        /**
-          * Stores data to complete this stage the next time a request from
-          * downstream arrives.
-          */
-        private var optResult: Option[BridgeSourceCompletionReason] = None
-
-        /** The maximum number of bytes to issue. */
-        private var limit = initialLimit
-
         setHandler(out, new OutHandler:
           override def onPull(): Unit =
-            optResult match
-              case Some(result) =>
-                completeStageWithResult(result)
-              case None =>
-                requestNextChunk()
+            requestNextChunk()
 
           override def onDownstreamFinish(cause: Throwable): Unit =
-            val result = createSourceResult(BridgeSourceCompletionReason.LimitReached)
-            val sourceFailure = new BridgeSourceFailure(result, cause)
-            promiseMat.failure(sourceFailure)
+            promiseMat.failure(cause)
             super.onDownstreamFinish(cause)
         )
-
-        override def preStart(): Unit =
-          super.preStart()
-          if limit < 0 then
-            bridgeActor ! GetSourceLimit
 
         /**
           * Queries the bridge actor for the next chunk for data.
@@ -1007,19 +938,8 @@ object BufferedPlaylistSource:
         private def requestNextChunk(): Unit =
           given ec: ExecutionContext = system.executionContext
 
-          val maxSize = if limit < 0 then ReadChunkSize
-          else math.min(limit - bytesProcessed, ReadChunkSize).toInt
-          bridgeActor.ask[DataChunkResponse](ref => GetNextDataChunk(ref, maxSize, index))
+          bridgeActor.ask[DataChunkResponse](ref => GetNextDataChunk(ref, ReadChunkSize, index))
             .onComplete(onDataCallback.invoke)
-
-        /**
-          * Updates the limit. This function gets called when the size of the
-          * current source becomes available.
-          *
-          * @param nextLimit the limit to set
-          */
-        private def updateLimit(nextLimit: Long): Unit =
-          limit = nextLimit
 
         /**
           * Handles responses from the bridge actor for requests to the next
@@ -1033,54 +953,17 @@ object BufferedPlaylistSource:
         private def dataAvailable(triedChunk: Try[DataChunkResponse]): Unit =
           triedChunk match
             case Success(DataChunkResponse.EndOfData) =>
-              completeStageWithResult(BridgeSourceCompletionReason.PlaylistStreamEnd)
+              completeStageWithMaterializedValue()
             case Success(DataChunkResponse.DataChunk(chunk, _)) =>
               push(out, chunk)
-              bytesProcessed += chunk.size
-              completeIfLimitReached(immediate = false)
             case Failure(exception) => cancelStage(exception)
 
         /**
-          * Checks whether the current source limit has been reached. If so,
-          * this stage is completed accordingly. If the ''immediate'' flag is
-          * '''true''', completion happens directly. Otherwise, state is set to
-          * complete the stage when the next request for data from downstream
-          * comes in. This is necessary to make sure that the last chunk of
-          * data is processed correctly.
-          *
-          * @param immediate flag whether to immediately complete this stage
-          * @return a flag whether the limit has been reached
+          * Sets this stage to completed and constructs the materialized value.
           */
-        private def completeIfLimitReached(immediate: Boolean = true): Boolean =
-          if limit >= 0 && bytesProcessed >= limit then
-            if immediate then
-              completeStageWithResult(BridgeSourceCompletionReason.LimitReached)
-            else
-              optResult = Some(BridgeSourceCompletionReason.LimitReached)
-            true
-          else
-            false
-
-        /**
-          * Sets this stage to completed and constructs the materialized value
-          * with a proper result that contains the given completion reason.
-          *
-          * @param reason the completion reason for this stage
-          */
-        private def completeStageWithResult(reason: BridgeSourceCompletionReason): Unit =
+        private def completeStageWithMaterializedValue(): Unit =
           completeStage()
-          val result = createSourceResult(reason)
-          promiseMat.success(result)
-
-        /**
-          * Creates a [[BridgeSourceResult]] from the current state of this
-          * source with the given reason.
-          *
-          * @param reason the completion reason for this stage
-          * @return the result for this source
-          */
-        private def createSourceResult(reason: BridgeSourceCompletionReason): BridgeSourceResult =
-          BridgeSourceResult(bytesProcessed, startOffset, limit, index, reason)
+          promiseMat.success(Done)
 
       (logic, promiseMat.future)
   end BridgeSource
@@ -1198,13 +1081,13 @@ object BufferedPlaylistSource:
 
   /**
     * A command that notifies the bridge actor that a source has been
-    * completed - either regularly or before it was fully read. Information
-    * about the result of this source is provided. The actor then configures
-    * skipping of data if necessary.
+    * completed - either regularly or before it was fully read. The index of
+    * the affected source is provided. Based on this message, the actor then
+    * configures skipping of data if necessary.
     *
-    * @param result the result produced by the source
+    * @param sourceIndex the index of the completed source
     */
-  private case class SourceCompleted(result: BridgeSourceResult) extends SourceSinkBridgeCommand
+  private case class SourceCompleted(sourceIndex: Int) extends SourceSinkBridgeCommand
 
   /**
     * A command that notifies the bridge actor that the playlist is now
@@ -1574,11 +1457,11 @@ object BufferedPlaylistSource:
       //          )
       //        )
 
-      case (ctx, SourceCompleted(result)) =>
-        ctx.log.info("Handling a completed source with index {}.", result.sourceIndex)
-        if result.sourceIndex == state.sourceCount then
-          if state.currentProcessed < state.sourceSize(result.sourceIndex) then
-            ctx.log.info("Source '{}' has been canceled early.", result.sourceIndex)
+      case (ctx, SourceCompleted(sourceIndex)) =>
+        ctx.log.info("Handling a completed source with index {}.", sourceIndex)
+        if sourceIndex == state.sourceCount then
+          if state.currentProcessed < state.sourceSize(sourceIndex) then
+            ctx.log.info("Source '{}' has been canceled early.", sourceIndex)
             state.producer.foreach(_ ! DataChunkProcessed())
             handleBridgeCommand(state.copy(chunks = Nil, producer = None, skipSource = state.sourceCount))
           else Behaviors.same
