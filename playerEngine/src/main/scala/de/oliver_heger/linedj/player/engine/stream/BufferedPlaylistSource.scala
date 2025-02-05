@@ -353,14 +353,6 @@ object BufferedPlaylistSource:
         private var sourceInProgress = false
 
         /**
-          * A flag that reports whether a pull request for upstream is
-          * currently pending. This is used to figure out whether the
-          * ''onUpstreamFinish'' callback has to take additional action to push
-          * the last buffer file downstream.
-          */
-        private var sourceRequested = false
-
-        /**
           * A flag indicating that the playlist (upstream) is finished. This
           * stage typically cannot complete immediately, but has to wait until
           * all ongoing processing is done, and the produced results have been
@@ -519,7 +511,7 @@ object BufferedPlaylistSource:
           * contains already two files), no immediate action is triggered.
           */
         private def createAndFillBufferFile(): Unit =
-          if !bufferFileWriteInProgress && dataBuffer.size < 1 && (sourceInProgress || sourceRequested) then
+          if !bufferFileWriteInProgress && dataBuffer.size < 1 && sourceInProgress then
             bufferFileWriteInProgress = true
             val startOffset = bufferFileCount * config.bufferFileSize
             bufferFileCount += 1

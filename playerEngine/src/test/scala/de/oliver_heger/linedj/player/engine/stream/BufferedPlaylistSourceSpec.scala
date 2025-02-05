@@ -108,6 +108,9 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
   /** Provides a typed actor system in implicit scope. */
   given typedSystem: ActorSystem[_] = testKit.system
 
+  /** The global configuration for tests using eventually. */
+  given pc: PatienceConfig = PatienceConfig(timeout = scaled(1.second))
+
   override protected def afterEach(): Unit =
     tearDownTestFile()
     super.afterEach()
@@ -1046,8 +1049,6 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     queue.offer(2)
     val bufferFile = bufferDir.resolve("buffer01.dat")
     val expectedFileSize = sourceData.map(_.size).sum
-
-    given pc: PatienceConfig = PatienceConfig(timeout = scaled(1.second))
 
     eventually:
       Files.size(bufferFile) should be(expectedFileSize)
