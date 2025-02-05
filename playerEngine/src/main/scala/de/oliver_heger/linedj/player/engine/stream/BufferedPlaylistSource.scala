@@ -1073,13 +1073,6 @@ object BufferedPlaylistSource:
                                            offsets: List[SourceOffsets]) extends SourceSinkBridgeCommand
 
   /**
-    * A command to indicate to the bridge actor that the limit for the current
-    * source is not known. The actor then passes the limit to the source as
-    * soon as it becomes available.
-    */
-  private case object GetSourceLimit extends SourceSinkBridgeCommand
-
-  /**
     * A command that notifies the bridge actor that a source has been
     * completed - either regularly or before it was fully read. The index of
     * the affected source is provided. Based on this message, the actor then
@@ -1112,11 +1105,6 @@ object BufferedPlaylistSource:
     * @param chunks            the current buffer of chunks
     * @param producer          the reference to the producer of the chunk
     * @param consumer          the reference to the consumer of chunks
-    * @param limitUpdate       a pending update of the limit for the currently
-    *                          processed source
-    * @param limitUnknown      a flag that indicates whether for the current
-    *                          source the limit is not known; then this source
-    *                          is sent a notification when there is an update
     * @param fileOverlap       a flag that determines whether the last source
     *                          in the current buffer file overlaps into the
     *                          next file
@@ -1127,8 +1115,6 @@ object BufferedPlaylistSource:
     * @param skipSource        the index of the source that is currently
     *                          skipped; this is part of the mechanism to handle
     *                          sources that were canceled early
-    * @param fileRequest       an optional pending request to prepare the next
-    *                          buffer file
     * @param fileCount         the number of buffer files processed
     * @param sourceCount       the number of sources encountered so far
     * @param sourceSizes       a map storing the known sizes of sources
@@ -1138,28 +1124,13 @@ object BufferedPlaylistSource:
                                       chunks: List[DataChunkResponse.DataChunk],
                                       producer: Option[ActorRef[DataChunkProcessed]],
                                       consumer: Option[GetNextDataChunk],
-                                      limitUpdate: Option[Long],
-                                      limitUnknown: Boolean,
                                       fileOverlap: Boolean,
                                       bytesProcessed: Long,
                                       currentProcessed: Long,
                                       skipSource: Int,
-                                      fileRequest: Option[PrepareReadBufferFile],
                                       fileCount: Int,
                                       sourceCount: Int,
                                       sourceSizes: Map[Int, Long]):
-    /**
-      * Returns a flag whether all data from the current buffer file has been
-      * read. This is used to determine whether a [[PrepareReadBufferFile]]
-      * request can be processed. This can only be safely done when all the
-      * data of the file has been consumed. Note that at that time the file has
-      * been fully copied into the buffer; the question is only if there are
-      * chunks missing that have not yet been read.
-      *
-      * @return a flag if the current buffer file has been fully read
-      */
-    def isFileFullyRead: Boolean = chunks.isEmpty
-
     /**
       * Updates information about the sizes of sources based on the given list
       * of offsets.
@@ -1256,13 +1227,10 @@ object BufferedPlaylistSource:
     chunks = Nil,
     producer = None,
     consumer = None,
-    limitUpdate = None,
-    limitUnknown = false,
     fileOverlap = false,
     bytesProcessed = 0,
     currentProcessed = 0,
     skipSource = -1,
-    fileRequest = None,
     fileCount = 0,
     sourceCount = 1,
     sourceSizes = Map.empty
@@ -1415,47 +1383,12 @@ object BufferedPlaylistSource:
               state
             else
               state.copy(consumer = Some(msg))
-        handleBridgeCommand(replyPrepareReadBufferFile(ctx, nextState))
-
-      case (ctx, msg: PrepareReadBufferFile) if state.isFileFullyRead =>
-        ctx.log.info("PrepareReadBufferFile {} at end of file.", msg)
-        val nextState = handlePrepareReadBufferFile(ctx, msg, state)
         handleBridgeCommand(nextState)
 
       case (ctx, msg: PrepareReadBufferFile) =>
         ctx.log.info("PrepareReadBufferFile {}.", msg)
-        handleBridgeCommand(state.copy(fileRequest = Some(msg)))
-
-      case (ctx, GetSourceLimit) =>
-        ctx.log.info("Limit for current source is unavailable. Stored value is {}.", state.limitUpdate)
-        handleBridgeCommand(state.copy(limitUnknown = true))
-
-      //      case (ctx, SourceCompleted(result)) if result.size < 0 || result.bytesRead < result.size =>
-      //        ctx.log.info("Handling a canceled source with result {} at position {}.", result, state.bytesProcessed)
-      //        val resultSize = if result.size >= 0 then result.size
-      //        else state.limitUpdate getOrElse result.size
-      //        val skipPos = if resultSize < 0 then
-      //          (state.fileCount + 1L) * state.bufferFileSize + 1
-      //        else
-      //          result.startOffset + resultSize
-      //        ctx.log.info("Setting skip position to {}.", skipPos)
-      //        val skippedChunks = applySkipUntil(state.chunks, state.bytesProcessed, skipPos)
-      //        val nextProducer = if state.producer.isDefined && skippedChunks.isEmpty then
-      //          state.producer.get ! DataChunkProcessed()
-      //          None
-      //        else state.producer
-      //        handleBridgeCommand(
-      //          replyPrepareReadBufferFile(
-      //            ctx,
-      //            state.copy(
-      //              chunks = skippedChunks,
-      //              skipUntil = skipPos,
-      //              producer = nextProducer,
-      //              limitUpdate = None,
-      //              limitUnknown = false
-      //            )
-      //          )
-      //        )
+        val nextState = handlePrepareReadBufferFile(ctx, msg, state)
+        handleBridgeCommand(nextState)
 
       case (ctx, SourceCompleted(sourceIndex)) =>
         ctx.log.info("Handling a completed source with index {}.", sourceIndex)
@@ -1499,7 +1432,6 @@ object BufferedPlaylistSource:
       fileOverlap = nextOverlap,
       bytesProcessed = state.bytesProcessed + fileSkipIncrement,
       currentProcessed = state.currentProcessed + fileSkipIncrement,
-      fileRequest = None,
       fileCount = nextFileCount
     )
 
@@ -1509,20 +1441,6 @@ object BufferedPlaylistSource:
     val nextStateWithSizes = nextState.updateSourceSizes(msg.offsets)
     ctx.log.info("Updates source sizes: {}.", nextStateWithSizes.sourceSizes)
     nextStateWithSizes
-
-  /**
-    * Checks whether there is a pending request to prepare a buffer file. If
-    * this is the case and all condition are met, the request is now answered.
-    *
-    * @param ctx   the actor context
-    * @param state the current actor state
-    * @return the updated actor state
-    */
-  private def replyPrepareReadBufferFile(ctx: ActorContext[SourceSinkBridgeCommand],
-                                         state: BridgeActorState): BridgeActorState =
-    state.fileRequest.filter(_ => state.isFileFullyRead)
-      .map(request => handlePrepareReadBufferFile(ctx, request, state))
-      .getOrElse(state)
 
   /**
     * Generates the name of the buffer file with the given index.
