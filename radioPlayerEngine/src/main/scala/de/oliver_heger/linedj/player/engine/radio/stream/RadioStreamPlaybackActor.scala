@@ -58,7 +58,7 @@ object RadioStreamPlaybackActor:
   final val PlaybackStreamName = "radioPlayback"
 
   /** A default timeout setting for the playback configuration. */
-  private val DefaultTimeout = Timeout(5.seconds)
+  private val DefaultTimeout = Timeout(60.seconds)
 
   /**
     * A data class holding the configuration settings for this actor.
