@@ -216,5 +216,23 @@
       </exclusions>
     </source>
   </sources>
+  <favorites>
+    <favorite>
+      <sourceRef>Rockantenne Klassik</sourceRef>
+      <displayName>Classic Rock</displayName>
+    </favorite>
+    <favorite>
+      <sourceRef>SWR 1 BW</sourceRef>
+    </favorite>
+    <favorite>
+      <sourceRef>HR 1</sourceRef>
+    </favorite>
+    <favorite>
+      <sourceRef>non-existing radio source</sourceRef>
+    </favorite>
+    <favorite>
+      <invalid>true</invalid>
+    </favorite>
+  </favorites>
 </radioSources>
 </configuration>

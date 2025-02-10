@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalQueries
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, RadioSourceMetadataConfig, ResumeMode}
+import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig.DefaultRanking
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import org.apache.commons.configuration.{Configuration, ConversionException, HierarchicalConfiguration}
 import org.apache.logging.log4j.LogManager
@@ -108,8 +109,6 @@ import scala.util.Try
   *     <name>HR 1</name>
   *     <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
   *     <ranking>42</ranking>
-  *     <favoriteIndex>5</favoriteIndex>
-  *     <favoriteName>Hessen</favoriteName>
   *     <extension>mp3</extension>
   *     <exclusions>
   *       <exclusion>
@@ -151,15 +150,18 @@ import scala.util.Try
   *     </metadata>
   *   </source>
   * </sources>
+  * <favorites>
+  *   <favorite>
+  *     <sourceRef>Rockantenne Klassik</sourceRef>
+  *     <displayName>Classic Rock</displayName>
+  *   </favorite>
+  *   <favorite>
+  *     <sourceRef>SWR 1 BW</sourceRef>
+  *   </favorite>
+  * </favorites>
   * }}}
   */
 object RadioSourceConfigLoader:
-  /**
-    * Constant for a default value ranking. This ranking is assigned to a
-    * radio source if no explicit value is specified in the configuration.
-    */
-  final val DefaultRanking = 0
-
   /** The key for the top-level radio section in the configuration. */
   private val KeyRadio = "radio"
 
@@ -174,12 +176,6 @@ object RadioSourceConfigLoader:
 
   /** Configuration key for the ranking of a radio source. */
   private val KeySourceRanking = "ranking"
-
-  /** Configuration key for the favorite index. */
-  private val KeyFavoriteIndex = "favoriteIndex"
-
-  /** Configuration key for the favorite name. */
-  private val KeyFavoriteName = "favoriteName"
 
   /** Configuration key for the extension of a radio source. */
   private val KeySourceExtension = "extension"
@@ -247,6 +243,15 @@ object RadioSourceConfigLoader:
     */
   private val KeyApplicable = "applicableAt.time"
 
+  /** The key of the section defining the favorites. */
+  private val KeyFavorites = "favorites.favorite"
+
+  /** The key for referencing a radio source from a favorite. */
+  private val KeyFavoriteSource = "sourceRef"
+
+  /** The key defining the display name of a favorite. */
+  private val KeyFavoriteDisplay = "displayName"
+
   /** The default match context value. */
   private val DefaultMatchContext = "Raw"
 
@@ -255,6 +260,22 @@ object RadioSourceConfigLoader:
 
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
+
+  /**
+    * Type definition for the data that is extracted for a radio source:
+    *  - The name of the source.
+    *  - The radio source itself.
+    *  - The ranking of this source.
+    *  - A sequence with interval queries defined for this source.
+    */
+  private type RadioSourceData = (String, RadioSource, Int, Seq[IntervalQuery])
+
+  /**
+    * Type definition for the data that is extracted for favorites:
+    *  - A display name for the favorite.
+    *  - The referenced radio source.
+    */
+  private type FavoriteData = (String, RadioSource)
 
   /**
     * Creates a new instance of ''RadioSourceConfig'' with the content of the
@@ -266,11 +287,13 @@ object RadioSourceConfigLoader:
     * @return the new ''RadioSourceConfig''
     */
   def loadSourceConfig(config: HierarchicalConfiguration, rootKey: String = KeyRadio): RadioSourceConfig =
-    val srcData = readSourcesFromConfig(config, rootKey)
+    val rootConfig = Try {
+      config configurationAt rootKey
+    } getOrElse new HierarchicalConfiguration
+
+    val srcData = readSourcesFromConfig(rootConfig, rootKey)
     val sources = srcData map (t => (t._1, t._2))
-    val favorites = srcData.filter(_._5 >= 0)
-      .sortBy(_._5)
-      .map(t => (t._6, t._2))
+    val favorites = readFavorites(rootConfig, sources)
     val exclusions = srcData map (t => (t._2, t._4))
     val ranking = srcData.map(t => (t._2, t._3)).toMap
     RadioSourceConfigImpl(sources, exclusions.toMap, ranking, favorites)
@@ -300,23 +323,17 @@ object RadioSourceConfigLoader:
     *         favorite index (-1 if the source is not a favorite), and the
     *         favorite name
     */
-  private def readSourcesFromConfig(config: HierarchicalConfiguration, rootKey: String):
-  Seq[(String, RadioSource, Int, Seq[IntervalQuery], Int, String)] =
-    val rootConfig = Try {
-      config configurationAt rootKey
-    } getOrElse new HierarchicalConfiguration
-    val namedExclusions = readNamedExclusions(rootConfig)
-    val exclusionSets = readExclusionSets(rootConfig, namedExclusions)
+  private def readSourcesFromConfig(config: HierarchicalConfiguration, rootKey: String): Seq[RadioSourceData] =
+    val namedExclusions = readNamedExclusions(config)
+    val exclusionSets = readExclusionSets(config, namedExclusions)
 
-    val sources = sourcesConfig(rootConfig) map { c =>
+    val sources = sourcesConfig(config) map { c =>
       val name = c.getString(KeySourceName)
       (name,
         RadioSource(c.getString(KeySourceURI),
           Option(c.getString(KeySourceExtension))),
         c.getInt(KeySourceRanking, DefaultRanking),
-        readExclusionsSection(c, namedExclusions, exclusionSets),
-        c.getInt(KeyFavoriteIndex, -1),
-        c.getString(KeyFavoriteName, name)
+        readExclusionsSection(c, namedExclusions, exclusionSets)
       )
     }
 
@@ -430,8 +447,7 @@ object RadioSourceConfigLoader:
     * @param t2 the second tuple
     * @return '''true''' if t1 is less than t2
     */
-  private def compareSources(t1: (String, RadioSource, Int, Seq[_], Int, String),
-                             t2: (String, RadioSource, Int, Seq[_], Int, String)): Boolean =
+  private def compareSources(t1: RadioSourceData, t2: RadioSourceData): Boolean =
     if t1._3 != t2._3 then t1._3 > t2._3
     else t1._1 < t2._1
 
@@ -547,33 +563,59 @@ object RadioSourceConfigLoader:
     else MetadataConfig.EmptySourceConfig
 
   /**
-    * Internal implementation of the radio source config trait as a plain case
-    * class.
+    * Constructs the list of favorite radio stations from the given 
+    * configuration. The given sequence of sources is used to map the favorites
+    * to existing sources. For favorite declarations for which this fails, a
+    * warning message is logged, and the declaration is ignored.
     *
-    * @param namedSources  the list with sources
-    * @param exclusionsMap the map with exclusions
-    * @param rankingMap    a map with source rankings
-    * @param favorites     the list with favorite sources
+    * @param config       the configuration to extract the favorites
+    * @param namedSources a sequence with radio sources and their names
+    * @return a sequence with the extracted favorites
     */
-  private case class RadioSourceConfigImpl(override val namedSources: Seq[(String, RadioSource)],
-                                           exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
-                                           rankingMap: Map[RadioSource, Int],
-                                           override val favorites: Seq[(String, RadioSource)])
-    extends RadioSourceConfig:
-    override def ranking(source: RadioSource): Int =
-      rankingMap.getOrElse(source, DefaultRanking)
+  private def readFavorites(config: HierarchicalConfiguration, namedSources: Seq[(String, RadioSource)]):
+  Seq[FavoriteData] =
+    val sourcesByName = namedSources.toMap
+    val (validConfigs, invalidConfigs) = config.configurationsAt(KeyFavorites).asScala.partition { c =>
+      sourcesByName.contains(c.getString(KeyFavoriteSource))
+    }
 
-    override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
+    if invalidConfigs.nonEmpty then
+      log.warn("Found {} invalid favorite declarations.", invalidConfigs.size)
+    validConfigs.map { c =>
+      val sourceName = c.getString(KeyFavoriteSource)
+      val displayName = c.getString(KeyFavoriteDisplay, sourceName)
+      (displayName, sourcesByName(sourceName))
+    }.toSeq
+end RadioSourceConfigLoader
 
-  /**
-    * Internal implementation of the [[MetadataConfig]] trait as a plain case
-    * class.
-    *
-    * @param exclusions            the sequence with global metadata exclusions
-    * @param sourceMetadataConfigs a map with metadata configs for sources
-    */
-  private case class MetadataConfigImpl(override val exclusions: Seq[MetadataExclusion],
-                                        sourceMetadataConfigs: Map[String, RadioSourceMetadataConfig])
-    extends MetadataConfig:
-    override def metadataSourceConfig(source: RadioSource): RadioSourceMetadataConfig =
-      sourceMetadataConfigs.getOrElse(source.uri, super.metadataSourceConfig(source))
+/**
+  * Internal implementation of the radio source config trait as a plain case
+  * class.
+  *
+  * @param namedSources  the list with sources
+  * @param exclusionsMap the map with exclusions
+  * @param rankingMap    a map with source rankings
+  * @param favorites     the list with favorite sources
+  */
+private case class RadioSourceConfigImpl(override val namedSources: Seq[(String, RadioSource)],
+                                         exclusionsMap: Map[RadioSource, Seq[IntervalQuery]],
+                                         rankingMap: Map[RadioSource, Int],
+                                         override val favorites: Seq[(String, RadioSource)])
+  extends RadioSourceConfig:
+  override def ranking(source: RadioSource): Int =
+    rankingMap.getOrElse(source, DefaultRanking)
+
+  override def exclusions(source: RadioSource): Seq[IntervalQuery] = exclusionsMap.getOrElse(source, Seq.empty)
+
+/**
+  * Internal implementation of the [[MetadataConfig]] trait as a plain case
+  * class.
+  *
+  * @param exclusions            the sequence with global metadata exclusions
+  * @param sourceMetadataConfigs a map with metadata configs for sources
+  */
+private case class MetadataConfigImpl(override val exclusions: Seq[MetadataExclusion],
+                                      sourceMetadataConfigs: Map[String, RadioSourceMetadataConfig])
+  extends MetadataConfig:
+  override def metadataSourceConfig(source: RadioSource): RadioSourceMetadataConfig =
+    sourceMetadataConfigs.getOrElse(source.uri, super.metadataSourceConfig(source))

@@ -52,7 +52,6 @@
       <uri>http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u</uri>
       <extension>mp3</extension>
       <ranking>1</ranking>
-      <favoriteIndex>5</favoriteIndex>
       <exclusions>
         <exclusion>
           <days>
@@ -139,7 +138,6 @@
       <uri>http://mp3-live.swr.de/swr1bw_m.m3u</uri>
       <extension>mp3</extension>
       <ranking>1</ranking>
-      <favoriteIndex>3</favoriteIndex>
       <exclusions>
         <exclusion>
           <days>
@@ -168,8 +166,6 @@
       <uri>http://www.rockantenne.de/webradio/channels/classic-perlen.m3u</uri>
       <extension>mp3</extension>
       <ranking>9</ranking>
-      <favoriteIndex>1</favoriteIndex>
-      <favoriteName>Classic Rock</favoriteName>
       <exclusions>
       </exclusions>
     </source>
@@ -218,5 +214,23 @@
       </exclusions>
     </source>
   </sources>
+  <favorites>
+    <favorite>
+      <sourceRef>Rockantenne Klassik</sourceRef>
+      <displayName>Classic Rock</displayName>
+    </favorite>
+    <favorite>
+      <sourceRef>SWR 1 BW</sourceRef>
+    </favorite>
+    <favorite>
+      <sourceRef>HR 1</sourceRef>
+    </favorite>
+    <favorite>
+      <sourceRef>non-existing radio source</sourceRef>
+    </favorite>
+    <favorite>
+      <invalid>true</invalid>
+    </favorite>
+  </favorites>
 </radio>
 </configuration>

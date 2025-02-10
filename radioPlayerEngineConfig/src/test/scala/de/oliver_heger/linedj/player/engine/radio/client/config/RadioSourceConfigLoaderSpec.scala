@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.radio.client.config
 
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.{Before, Inside, IntervalQuery}
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
-import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig
+import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.MatchContext.MatchContext
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.ResumeMode.ResumeMode
 import de.oliver_heger.linedj.player.engine.radio.config.MetadataConfig.{MatchContext, MetadataExclusion, ResumeMode}
@@ -683,13 +683,13 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
 
     sourceConfig ranking radioSource(1) should be(5)
     sourceConfig ranking radioSource(2) should be(42)
-    sourceConfig ranking radioSource(3) should be(RadioSourceConfigLoader.DefaultRanking)
+    sourceConfig ranking radioSource(3) should be(RadioSourceConfig.DefaultRanking)
 
   it should "return the default ranking for an unknown source" in:
     val config = createSourceConfiguration(4)
     val sourceConfig = RadioSourceConfigLoader.loadSourceConfig(config)
 
-    sourceConfig ranking radioSource(28) should be(RadioSourceConfigLoader.DefaultRanking)
+    sourceConfig ranking radioSource(28) should be(RadioSourceConfig.DefaultRanking)
     
   it should "return the favorite sources in correct order" in:
     val expectedFavorites = List(
@@ -794,3 +794,14 @@ class RadioSourceConfigLoaderSpec extends AnyFlatSpec with Matchers:
     val sourceConfig = metaConfig.metadataSourceConfig(source)
 
     sourceConfig should be(MetadataConfig.EmptySourceConfig)
+
+  it should "read favorites from an alternative key" in:
+    val expectedFavorites = List(
+      "Classic Rock" -> RadioSource("http://www.rockantenne.de/webradio/channels/classic-perlen.m3u", Some("mp3")),
+      "SWR 1 BW" -> RadioSource("http://mp3-live.swr.de/swr1bw_m.m3u", Some("mp3")),
+      "HR 1" -> RadioSource("http://metafiles.gl-systemhaus.de/hr/hr1_2.m3u", Some("mp3"))
+    )
+    val config = new XMLConfiguration("test-radio-configuration-alternative-key.xml")
+    val sourcesConfig = RadioSourceConfigLoader.loadSourceConfig(config, "radioSources")
+
+    sourcesConfig.favorites should contain theSameElementsInOrderAs expectedFavorites
