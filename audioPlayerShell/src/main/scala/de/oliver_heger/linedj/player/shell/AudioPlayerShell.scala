@@ -72,8 +72,8 @@ object AudioPlayerShell:
     * Type definition for a function that can create a configuration for a
     * buffered source.
     */
-  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, String] =>
-    Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, String]]
+  type BufferFunc = AudioStreamPlayerStage.AudioStreamPlayerConfig[String, Any] =>
+    Option[BufferedPlaylistSource.BufferedPlaylistSourceConfig[String, Any]]
 
   def main(args: Array[String]): Unit =
     println("Audio Player Shell")
@@ -329,8 +329,8 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
       optKillSwitch = Some(playlistKillSwitch)
     )
     val source = Source.queue[String](100)
-    val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, String]] {
-      case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath) =>
+    val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, Any]] {
+      case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath, _) =>
         refCancelStream.set(null)
         printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
       case AudioStreamPlayerStage.AudioStreamStart(audioSourcePath, killSwitch) =>
@@ -366,6 +366,6 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     * @param audioSourcePath the path of the current audio source
     * @return the sink for playing a single audio stream
     */
-  private def audioStreamSink(audioSourcePath: String): Sink[LineWriterStage.PlayedAudioChunk, Future[String]] =
-    Sink.last[LineWriterStage.PlayedAudioChunk].mapMaterializedValue(_.map(_ => audioSourcePath))
+  private def audioStreamSink(audioSourcePath: String): Sink[LineWriterStage.PlayedAudioChunk, Future[Any]] =
+    Sink.last[LineWriterStage.PlayedAudioChunk]
 end PlaylistStreamHandler

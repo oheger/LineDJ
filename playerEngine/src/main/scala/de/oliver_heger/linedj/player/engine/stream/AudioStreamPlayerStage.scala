@@ -130,10 +130,12 @@ object AudioStreamPlayerStage:
     * From an instance, the result produced by the sink of the audio stream can
     * be obtained.
     *
+    * @param source the audio source of the stream
     * @param result the materialized value of the audio stream sink
     * @tparam SNK the type of results produced by the audio stream sink
     */
-  case class AudioStreamEnd[+SNK](result: SNK) extends PlaylistStreamResult[Nothing, SNK]
+  case class AudioStreamEnd[+SRC, +SNK](source: SRC,
+                                         result: SNK) extends PlaylistStreamResult[SRC, SNK]
 
   /** The logger. */
   private val log = LogManager.getLogger(AudioStreamPlayerStage.getClass)
@@ -281,11 +283,11 @@ object AudioStreamPlayerStage:
   private def runAudioStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
                                        src: SRC,
                                        killSwitch: SharedKillSwitch)
-                                      (using system: classic.ActorSystem): Future[AudioStreamEnd[SNK]] =
+                                      (using system: classic.ActorSystem): Future[AudioStreamEnd[SRC, SNK]] =
     Source.single(src)
       .via(createPlaylistStream(config, Some(killSwitch)))
       .runWith(Sink.last)
-      .map(AudioStreamEnd.apply)
+      .map(result => AudioStreamEnd(src, result))
 
   /**
     * Creates a new kill switch with a unique name that can be integrated into

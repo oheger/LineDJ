@@ -91,7 +91,7 @@ object RadioStreamPlaybackActor:
   /**
     * The type of the sink for the playlist stream.
     */
-  private type PlaylistSinkType = AudioStreamPlayerStage.PlaylistStreamResult[PlaybackRadioSource, PlaybackRadioSource]
+  private type PlaylistSinkType = AudioStreamPlayerStage.PlaylistStreamResult[PlaybackRadioSource, Any]
 
   /**
     * The base trait for the commands processed by this actor implementation.
@@ -330,10 +330,10 @@ object RadioStreamPlaybackActor:
         * @return the [[Sink]] for the next audio stream
         */
       def createRadioStreamSink(source: PlaybackRadioSource):
-      Sink[LineWriterStage.PlayedAudioChunk, Future[PlaybackRadioSource]] =
+      Sink[LineWriterStage.PlayedAudioChunk, Future[Any]] =
         Sink.foreach[LineWriterStage.PlayedAudioChunk] { chunk =>
           context.self ! AudioChunkProcessed(chunk, source)
-        }.mapMaterializedValue(_.map(_ => source))
+        }
 
       /**
         * Stops playback of the current radio source if there is one.
@@ -429,7 +429,7 @@ object RadioStreamPlaybackActor:
                   context.log.info("Playback starts for radio source {}.", source)
                   publishEvent(RadioSourceChangedEvent(source.radioSource))
                   handle(state.copy(streamStart = Some(start)))
-              case AudioStreamPlayerStage.AudioStreamEnd(source) =>
+              case AudioStreamPlayerStage.AudioStreamEnd(source, _) =>
                 context.log.info("Playback ends for radio source {} in state {}.", source, state)
                 sourceEndEvent(state, source).foreach(publishEvent)
                 handle(state.copy(currentSource = None))

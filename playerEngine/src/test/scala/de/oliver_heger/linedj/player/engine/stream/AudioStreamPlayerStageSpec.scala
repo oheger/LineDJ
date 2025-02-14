@@ -68,7 +68,7 @@ object AudioStreamPlayerStageSpec:
     * playlist stream. The test helper writes this value into the results
     * queue when the stream ends.
     */
-  private val PlaylistEnd = AudioStreamPlayerStage.AudioStreamEnd(PlayedChunks("", -1))
+  private val PlaylistEnd = AudioStreamPlayerStage.AudioStreamEnd("", PlayedChunks(-1))
 
   /**
     * The timeout (in milliseconds) when polling the result queue and no result
@@ -77,7 +77,7 @@ object AudioStreamPlayerStageSpec:
   private val TimeoutNoResultMs = 500
 
   /**
-    * The timeout (in milliseconds) when polling he result queue for an
+    * The timeout (in milliseconds) when polling the result queue for an
     * expected result.
     */
   private val TimeoutResultMs = 3000
@@ -89,11 +89,9 @@ object AudioStreamPlayerStageSpec:
     * A data class used to aggregate over the played audio chunks for a single
     * audio source.
     *
-    * @param sourceName the name of the source
     * @param totalSize  the total size in bytes of this source
     */
-  private case class PlayedChunks(sourceName: String,
-                                  totalSize: Int):
+  private case class PlayedChunks(totalSize: Int):
     /**
       * Returns an updated instance that incorporates the given chunk.
       *
@@ -314,8 +312,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     startEvent.killSwitch.shutdown()
 
-    val endEvent = helper.nextResult().value
-    endEvent.sourceName should be(CanceledSource)
+    val endEvent = helper.nextResult(Some(CanceledSource)).value
     endEvent.totalSize should be < CanceledSourceSize
 
     val otherStartEvent = helper.nextAudioStreamStartEvent()
@@ -333,8 +330,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
 
     startEvent.killSwitch.shutdown()
 
-    val result = helper.nextResult().value
-    result.sourceName should be(SourceName)
+    val result = helper.nextResult(Some(SourceName)).value
     result.totalSize should be(0)
 
   /**
@@ -451,7 +447,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         optStreamFactoryLimit = None)
       val streamSource = Source.single(source)
       val streamSink = Sink.foreach[PlayedChunks] { chunks =>
-        resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(chunks))
+        resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(source, chunks))
       }
       val audioFlow = AudioStreamPlayerStage.apply(config)
       streamSource.via(audioFlow).runWith(streamSink)
@@ -463,11 +459,12 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       *
       * @return an ''Option'' with the next [[PlayedChunks]]
       */
-    def nextResult(): Option[PlayedChunks] =
+    def nextResult(optExpSource: Option[String] = None): Option[PlayedChunks] =
       nextPlaylistResult() match
-        case None => None
-        case Some(AudioStreamPlayerStage.AudioStreamEnd(result)) => Some(result)
+        case Some(AudioStreamPlayerStage.AudioStreamEnd(source, result))
+          if optExpSource.forall(_ == source) => Some(result)
         case Some(_: AudioStreamPlayerStage.AudioStreamStart[String]) => nextResult()
+        case _ => None
 
     /**
       * Obtains the next result from the playlist stream sink and compares it
@@ -477,8 +474,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @return this test helper
       */
     def expectResult(name: String): StreamPlayerStageTestHelper =
-      val playedChunks = nextResult().value
-      playedChunks.sourceName should be(name)
+      val playedChunks = nextResult(Some(name)).value
 
       val expectedSize = AudioStreamTestHelper.encodeBytes(audioSourceData(name).content).length
       playedChunks.totalSize should be(expectedSize)
@@ -611,7 +607,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       * @return the sink for this source
       */
     private def createSink(name: String): Sink[LineWriterStage.PlayedAudioChunk, Future[PlayedChunks]] =
-      Sink.fold(PlayedChunks(name, 0)) { (agg, chunk) => agg.addChunk(chunk) }
+      Sink.fold(PlayedChunks(0)) { (agg, chunk) => agg.addChunk(chunk) }
 
     /**
       * Returns a function to create the next source data line.
