@@ -68,7 +68,8 @@ object AudioStreamPlayerStageSpec:
     * playlist stream. The test helper writes this value into the results
     * queue when the stream ends.
     */
-  private val PlaylistEnd = AudioStreamPlayerStage.AudioStreamEnd("", PlayedChunks(-1))
+  private val PlaylistEnd: AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd[String, PlayedChunks] =
+    AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd("", PlayedChunks(-1))
 
   /**
     * The timeout (in milliseconds) when polling the result queue and no result
@@ -447,7 +448,7 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
         optStreamFactoryLimit = None)
       val streamSource = Source.single(source)
       val streamSink = Sink.foreach[PlayedChunks] { chunks =>
-        resultQueue.offer(AudioStreamPlayerStage.AudioStreamEnd(source, chunks))
+        resultQueue.offer(AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, chunks))
       }
       val audioFlow = AudioStreamPlayerStage.apply(config)
       streamSource.via(audioFlow).runWith(streamSink)
@@ -461,9 +462,10 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       */
     def nextResult(optExpSource: Option[String] = None): Option[PlayedChunks] =
       nextPlaylistResult() match
-        case Some(AudioStreamPlayerStage.AudioStreamEnd(source, result))
+        case Some(AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, result))
           if optExpSource.forall(_ == source) => Some(result)
-        case Some(_: AudioStreamPlayerStage.AudioStreamStart[String]) => nextResult()
+        case Some(_: AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart[String, PlayedChunks]) => 
+          nextResult()
         case _ => None
 
     /**
@@ -502,11 +504,12 @@ class AudioStreamPlayerStageSpec(testSystem: classic.ActorSystem) extends TestKi
       *
       * @return the next [[AudioStreamPlayerStage.AudioStreamStart]] event
       */
-    def nextAudioStreamStartEvent(): AudioStreamPlayerStage.AudioStreamStart[String] =
+    def nextAudioStreamStartEvent(): 
+    AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart[String, PlayedChunks] =
       val startEvent = nextPlaylistResult().value
 
       startEvent match
-        case start: AudioStreamPlayerStage.AudioStreamStart[String] => start
+        case start: AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart[String, PlayedChunks] => start
         case e => fail("Unexpected start event: " + e)
 
     /**

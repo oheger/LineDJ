@@ -213,7 +213,8 @@ object RadioStreamPlaybackActor:
     */
   private case class RadioPlaybackState(seqNo: Long,
                                         streamStart:
-                                        Option[AudioStreamPlayerStage.AudioStreamStart[PlaybackRadioSource]],
+                                        Option[AudioStreamPlayerStage.PlaylistStreamResult
+                                        .AudioStreamStart[PlaybackRadioSource, Any]],
                                         streamHandle: Option[RadioStreamHandle],
                                         sourceBytesProcessed: Long,
                                         sourcePlaybackTime: FiniteDuration,
@@ -420,7 +421,7 @@ object RadioStreamPlaybackActor:
 
           case PlaylistStreamResultReceived(result) =>
             result match
-              case start@AudioStreamPlayerStage.AudioStreamStart(source, killSwitch) =>
+              case start@AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(source, killSwitch) =>
                 if source.seqNo < state.seqNo then
                   context.log.info("Stopping radio source {}, since another source has been selected.", source)
                   killSwitch.shutdown()
@@ -429,7 +430,7 @@ object RadioStreamPlaybackActor:
                   context.log.info("Playback starts for radio source {}.", source)
                   publishEvent(RadioSourceChangedEvent(source.radioSource))
                   handle(state.copy(streamStart = Some(start)))
-              case AudioStreamPlayerStage.AudioStreamEnd(source, _) =>
+              case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(source, _) =>
                 context.log.info("Playback ends for radio source {} in state {}.", source, state)
                 sourceEndEvent(state, source).foreach(publishEvent)
                 handle(state.copy(currentSource = None))

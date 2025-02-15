@@ -102,40 +102,35 @@ object AudioStreamPlayerStage:
                                                optStreamFactoryLimit: Option[Int] = None)
 
   /**
-    * The root element of a type hierarchy that defines the results returned by
-    * a playlist stream. Via these classes, certain lifecycle events are passed
-    * downstream.
+    * An enumeration that defines the results returned by a playlist stream.
+    * Via these types, certain lifecycle events are passed downstream.
     *
     * @tparam SRC the type of the data identifying audio sources
     * @tparam SNK the type of results produced by the audio stream sink
     */
-  sealed trait PlaylistStreamResult[+SRC, +SNK]
+  enum PlaylistStreamResult[+SRC, +SNK]:
+    /**
+      * A [[PlaylistStreamResult]] indicating the start of a new audio stream.
+      * An instance contains the audio source to be played. In addition, there is
+      * a [[KillSwitch]] that allows terminating the audio stream. That way, this
+      * audio source can be skipped to forward to the next element of the
+      * playlist.
+      *
+      * @param source     the audio source of the stream
+      * @param killSwitch the [[KillSwitch]] to terminate the stream
+      */
 
-  /**
-    * A [[PlaylistStreamResult]] indicating the start of a new audio stream.
-    * An instance contains the audio source to be played. In addition, there is
-    * a [[KillSwitch]] that allows terminating the audio stream. That way, this
-    * audio source can be skipped to forward to the next element of the 
-    * playlist.
-    *
-    * @param source     the audio source of the stream
-    * @param killSwitch the [[KillSwitch]] to terminate the stream
-    * @tparam SRC the type of the data identifying audio sources
-    */
-  case class AudioStreamStart[+SRC](source: SRC,
-                                    killSwitch: KillSwitch) extends PlaylistStreamResult[SRC, Nothing]
+    case AudioStreamStart(source: SRC, killSwitch: KillSwitch)
 
-  /**
-    * A [[PlaylistStreamResult]] indicating that an audio stream completed.
-    * From an instance, the result produced by the sink of the audio stream can
-    * be obtained.
-    *
-    * @param source the audio source of the stream
-    * @param result the materialized value of the audio stream sink
-    * @tparam SNK the type of results produced by the audio stream sink
-    */
-  case class AudioStreamEnd[+SRC, +SNK](source: SRC,
-                                         result: SNK) extends PlaylistStreamResult[SRC, SNK]
+    /**
+      * A [[PlaylistStreamResult]] indicating that an audio stream completed.
+      * From an instance, the result produced by the sink of the audio stream can
+      * be obtained.
+      *
+      * @param source the audio source of the stream
+      * @param result the materialized value of the audio stream sink
+      */
+    case AudioStreamEnd(source: SRC, result: SNK)
 
   /** The logger. */
   private val log = LogManager.getLogger(AudioStreamPlayerStage.getClass)
@@ -198,7 +193,7 @@ object AudioStreamPlayerStage:
     val playlistStream = appendOptionalKillSwitch(source, config.optKillSwitch)
       .mapConcat { src =>
         val audioStreamKillSwitch = createKillSwitch()
-        val startEvent = Future.successful(AudioStreamStart(src, audioStreamKillSwitch))
+        val startEvent = Future.successful(PlaylistStreamResult.AudioStreamStart(src, audioStreamKillSwitch))
         val streamResult = runAudioStream(config, src, audioStreamKillSwitch)
         List(startEvent, streamResult)
       }
@@ -283,11 +278,12 @@ object AudioStreamPlayerStage:
   private def runAudioStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
                                        src: SRC,
                                        killSwitch: SharedKillSwitch)
-                                      (using system: classic.ActorSystem): Future[AudioStreamEnd[SRC, SNK]] =
+                                      (using system: classic.ActorSystem):
+  Future[PlaylistStreamResult.AudioStreamEnd[SRC, SNK]] =
     Source.single(src)
       .via(createPlaylistStream(config, Some(killSwitch)))
       .runWith(Sink.last)
-      .map(result => AudioStreamEnd(src, result))
+      .map(result => PlaylistStreamResult.AudioStreamEnd(src, result))
 
   /**
     * Creates a new kill switch with a unique name that can be integrated into

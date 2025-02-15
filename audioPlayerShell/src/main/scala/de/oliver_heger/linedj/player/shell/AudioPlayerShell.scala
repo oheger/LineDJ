@@ -330,10 +330,10 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
     )
     val source = Source.queue[String](100)
     val sink = Sink.foreach[AudioStreamPlayerStage.PlaylistStreamResult[Any, Any]] {
-      case AudioStreamPlayerStage.AudioStreamEnd(audioSourcePath, _) =>
+      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(audioSourcePath, _) =>
         refCancelStream.set(null)
         printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
-      case AudioStreamPlayerStage.AudioStreamStart(audioSourcePath, killSwitch) =>
+      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(audioSourcePath, killSwitch) =>
         refCancelStream.set(killSwitch)
         printAndPrompt(s"Starting playback of '$audioSourcePath'.")
     }
