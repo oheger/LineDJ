@@ -333,6 +333,11 @@ private class PlaylistStreamHandler(audioStreamFactory: AudioStreamFactory,
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamEnd(audioSourcePath, _) =>
         refCancelStream.set(null)
         printAndPrompt(s"Audio stream for '$audioSourcePath' was completed successfully.")
+      case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(audioSourcePath, exception) =>
+        refCancelStream.set(null)
+        println(s"Audio stream for '$audioSourcePath' failed with an exception:")
+        exception.printStackTrace()
+        prompt()
       case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamStart(audioSourcePath, killSwitch) =>
         refCancelStream.set(killSwitch)
         printAndPrompt(s"Starting playback of '$audioSourcePath'.")

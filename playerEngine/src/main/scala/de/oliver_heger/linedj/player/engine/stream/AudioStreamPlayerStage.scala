@@ -92,7 +92,7 @@ object AudioStreamPlayerStage:
   case class AudioStreamPlayerConfig[SRC, SNK](sourceResolverFunc: SourceResolverFunc[SRC],
                                                sinkProviderFunc: SinkProviderFunc[SRC, SNK],
                                                audioStreamFactory: AsyncAudioStreamFactory,
-                                               optPauseActor: 
+                                               optPauseActor:
                                                Option[ActorRef[PausePlaybackStage.PausePlaybackCommand]],
                                                inMemoryBufferSize: Int = AudioEncodingStage.DefaultInMemoryBufferSize,
                                                optLineCreatorFunc: Option[LineCreatorFunc] =
@@ -132,6 +132,16 @@ object AudioStreamPlayerStage:
       */
     case AudioStreamEnd(source: SRC, result: SNK)
 
+    /**
+      * A [[PlaylistStreamResult]] indicating that a failure occurred while
+      * playing an audio stream. Information about the stream source and the
+      * exception is available.
+      *
+      * @param source    the audio source of the stream
+      * @param exception the exception that was thrown
+      */
+    case AudioStreamFailure(source: SRC, exception: Throwable)
+
   /** The logger. */
   private val log = LogManager.getLogger(AudioStreamPlayerStage.getClass)
 
@@ -162,7 +172,7 @@ object AudioStreamPlayerStage:
     */
   def apply[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK])
                      (using system: classic.ActorSystem): Graph[FlowShape[SRC, SNK], NotUsed] =
-    createPlaylistStream(config, config.optKillSwitch)
+    createAudioStreamFlow(config, config.optKillSwitch)
 
   /**
     * Runs a stream with a full playlist. For each element issued by the given
@@ -210,9 +220,22 @@ object AudioStreamPlayerStage:
     val supervisedStream = playlistStream.withAttributes(ActorAttributes.supervisionStrategy(playlistStreamDecider))
     supervisedStream.run()
 
-  private def createPlaylistStream[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
-                                             optKillSwitch: Option[SharedKillSwitch])
-                                            (using system: classic.ActorSystem):
+  /**
+    * Creates a [[Flow]] that can run an audio stream for a source received
+    * from upstream. The stage handles all required steps, from resolving the
+    * audio source, to obtaining an audio stream factory, setting up the audio
+    * encoding, and the line.
+    *
+    * @param config        the configuration of the audio stream
+    * @param optKillSwitch an optional kill switch to cancel the audio stream
+    * @param system        the actor system
+    * @tparam SRC the type to represent audio sources
+    * @tparam SNK the result produced by the stream sink
+    * @return the [[Flow]] to run audio streams
+    */
+  private def createAudioStreamFlow[SRC, SNK](config: AudioStreamPlayerConfig[SRC, SNK],
+                                              optKillSwitch: Option[SharedKillSwitch])
+                                             (using system: classic.ActorSystem):
   Graph[FlowShape[SRC, SNK], NotUsed] =
     given typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -221,13 +244,6 @@ object AudioStreamPlayerStage:
       }.mapAsync(1) { (streamSource, sink) =>
         config.audioStreamFactory.playbackDataForAsync(streamSource.url).map { playbackData =>
           Some((streamSource, sink, playbackData))
-        }.recover {
-          case e: AsyncAudioStreamFactory.UnsupportedUriException =>
-            log.info("Unsupported audio stream URI: '{}'. Skipping.", e.uri)
-            None
-          case exception =>
-            log.error("AudioStreamFactory threw an exception. Skipping.", exception)
-            None
         }
       }.filter(_.isDefined)
       .map(_.get)
@@ -279,11 +295,14 @@ object AudioStreamPlayerStage:
                                        src: SRC,
                                        killSwitch: SharedKillSwitch)
                                       (using system: classic.ActorSystem):
-  Future[PlaylistStreamResult.AudioStreamEnd[SRC, SNK]] =
+  Future[PlaylistStreamResult[SRC, SNK]] =
     Source.single(src)
-      .via(createPlaylistStream(config, Some(killSwitch)))
+      .via(createAudioStreamFlow(config, Some(killSwitch)))
       .runWith(Sink.last)
       .map(result => PlaylistStreamResult.AudioStreamEnd(src, result))
+      .recover {
+        case e => PlaylistStreamResult.AudioStreamFailure(src, e)
+      }
 
   /**
     * Creates a new kill switch with a unique name that can be integrated into

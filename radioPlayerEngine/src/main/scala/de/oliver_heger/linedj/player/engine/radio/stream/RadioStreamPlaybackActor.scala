@@ -434,6 +434,9 @@ object RadioStreamPlaybackActor:
                 context.log.info("Playback ends for radio source {} in state {}.", source, state)
                 sourceEndEvent(state, source).foreach(publishEvent)
                 handle(state.copy(currentSource = None))
+              case _ =>
+                // TODO: Handle failed audio streams.
+                Behaviors.same
 
           case RadioStreamHandleReceived(streamHandle, source) =>
             context.log.info("Radio stream handle available for radio source {}.", source)
