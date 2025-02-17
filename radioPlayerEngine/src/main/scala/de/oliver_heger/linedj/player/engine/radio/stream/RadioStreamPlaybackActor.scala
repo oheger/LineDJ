@@ -298,7 +298,6 @@ object RadioStreamPlaybackActor:
             context.self ! RadioStreamHandleReceived(handle, source)
             Future.successful(handle)
           case Failure(exception) =>
-            publishEvent(RadioSourceErrorEvent(response.source))
             Future.failed(exception)
 
       /**
@@ -434,9 +433,10 @@ object RadioStreamPlaybackActor:
                 context.log.info("Playback ends for radio source {} in state {}.", source, state)
                 sourceEndEvent(state, source).foreach(publishEvent)
                 handle(state.copy(currentSource = None))
-              case _ =>
-                // TODO: Handle failed audio streams.
-                Behaviors.same
+              case AudioStreamPlayerStage.PlaylistStreamResult.AudioStreamFailure(source, exception) =>
+                context.log.error("Error when playing radio source {}.", source, exception)
+                publishEvent(RadioSourceErrorEvent(source.radioSource))
+                handle(state.copy(currentSource = None))
 
           case RadioStreamHandleReceived(streamHandle, source) =>
             context.log.info("Radio stream handle available for radio source {}.", source)

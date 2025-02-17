@@ -57,10 +57,16 @@ object RadioStreamPlaybackActorSpec:
   private val MemoryBufferSize = 1024 * 1024
 
   /** A timeout value for the test configuration. */
-  private val TestTimeout = Timeout(11.seconds)
+  private val TestTimeout = Timeout(1.seconds)
 
   /** A random object for generating content for radio sources. */
   private val random = Random(20241123214707L)
+
+  /**
+    * The name of a radio source that will cause the test audio stream factory
+    * to return a failure result.
+    */
+  private val AudioFactoryErrorSource = "AudioStreamFactoryFailure"
 
   /**
     * A data class containing the data that needs to be stored to answer a
@@ -279,6 +285,30 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
 
     val errorEvents = filterType[RadioSourceErrorEvent](events).map(_.source)
     errorEvents should contain theSameElementsInOrderAs List(errorSource, nextSource)
+
+  it should "send an error event if there is an error during audio stream playback" in :
+    val errorSource = RadioSource(AudioFactoryErrorSource)
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(errorSource))
+      .answerHandleRequestWithData(errorSource, createSourceData(8192), List("this will fail"))
+
+    val events = helper.fishForEvents {
+      case e: RadioSourceErrorEvent if e.source == errorSource => FishingOutcome.Complete
+      case _ => FishingOutcome.Continue
+    }
+    events.size should be < 4
+
+  it should "send an error event if there is a timeout when retrieving the handle of the audio stream" in :
+    val timeoutSource = RadioSource("timeout.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(timeoutSource))
+      .fishForEvents {
+        case e: RadioSourceChangedEvent if e.source == timeoutSource => FishingOutcome.Continue
+        case e: RadioSourceErrorEvent if e.source == timeoutSource => FishingOutcome.Complete
+        case e => FishingOutcome.Fail("Unexpected event: " + e)
+      }
 
   it should "send a metadata event if there is already metadata present when obtaining the handle" in :
     val radioSource = RadioSource("plentyOfMetadata.mp3")
@@ -812,7 +842,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     private def answerAnyHandleRequest(sources: Map[RadioSource, SourceHandleData]): RadioSource =
       val request = probeHandleActor.expectMessageType[RadioStreamHandleManagerActor.GetStreamHandle]
       val streamName = request.params.streamName
-      streamName should startWith (RadioStreamPlaybackActor.PlaybackStreamName)
+      streamName should startWith(RadioStreamPlaybackActor.PlaybackStreamName)
       streamNames.get() should not contain streamName
       streamNames.set(streamNames.get() + streamName)
       val handleData = sources(request.params.streamSource)
@@ -834,6 +864,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       (uri: String) =>
         val urisList = audioStreamUris.get()
         audioStreamUris.set(uri :: urisList)
+        if uri == AudioFactoryErrorSource then
+          throw new IllegalArgumentException("Test exception: Cannot create stream for error source.")
         Some(AudioStreamFactory.AudioStreamPlaybackData(createAudioStream, StreamFactoryLimit))
 
     /**
