@@ -18,9 +18,11 @@ package de.oliver_heger.linedj.player.engine.stream
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.player.engine.DefaultAudioStreamFactory
+import de.oliver_heger.linedj.player.engine.stream.AudioStreamPlayerStage.SourceResolverFunc
 import de.oliver_heger.linedj.player.engine.stream.BufferedPlaylistSource.{BufferFileWritten, BufferedSource}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
@@ -425,7 +427,7 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     val pauseStage = PausePlaybackStage.pausePlaybackStage[BufferFileWritten[Int]](Some(pauseActor))
     val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
 
-    val futStream = source.via(stage).via(pauseStage).runWith(sink)
+    source.via(stage).via(pauseStage).runWith(sink)
     resultQueue.poll(500, TimeUnit.MILLISECONDS) should be(null)
 
     Files.isRegularFile(bufferDir.resolve("buffer01.dat")) shouldBe true
@@ -438,6 +440,62 @@ class BufferedPlaylistSourceSpec(testSystem: classic.ActorSystem) extends TestKi
     }
     Files.size(bufferDir.resolve("buffer04.dat")) should be(6 * 4096 - 3 * 8000)
     resultQueue.poll(100, TimeUnit.MILLISECONDS) should be(null)
+
+  it should "fill complete sources in the buffer if configured" in:
+    val bufferDir = createPathInDirectory("fullBuffer")
+    val random = new Random(20250219221134L)
+    val sourceData = IndexedSeq(ByteString(random.nextBytes(52500)), ByteString(random.nextBytes(4096)))
+    val lastResolvedSource = new AtomicInteger(-1)
+    val baseResolverFunc = seqBasedResolverFunc(sourceData)
+    val resolverFunc: SourceResolverFunc[Int] = srcIdx =>
+      lastResolvedSource.set(srcIdx)
+      baseResolverFunc(srcIdx)
+
+    val streamPlayerConfig = createStreamPlayerConfig(resolverFunc)
+    val bufferConfig = BufferedPlaylistSource.BufferedPlaylistSourceConfig(streamPlayerConfig = streamPlayerConfig,
+      bufferFolder = bufferDir,
+      bufferFileSize = 10000,
+      bufferFullSources = true)
+    val sink = Sink.queue[BufferFileWritten[Int]](1).withAttributes(Attributes.inputBuffer(1, 1))
+    val source = Source(List(1, 2))
+    val stage = new BufferedPlaylistSource.FillBufferFlowStage(bufferConfig)
+    val queue = source.via(stage).toMat(sink)(Keep.right).run()
+
+    def fetchBufferFileInFullState(): Future[Assertion] =
+      queue.pull().map { optFile =>
+        lastResolvedSource.get() should be < 2
+        optFile should not be empty
+      }
+
+    def fetchExistingBufferFile(): Future[Assertion] =
+      queue.pull().map { optFile =>
+        optFile should not be empty
+      }
+
+    val futFirstFile = fetchBufferFileInFullState()
+    val lastFileForSource = bufferDir.resolve("buffer06.dat")
+    eventually:
+      Files.isRegularFile(lastFileForSource) shouldBe true
+      Files.size(lastFileForSource) should be(2500)
+
+    // Check whether the second source starts when the buffer is emptied.
+    (for
+      _ <- futFirstFile
+      _ <- fetchBufferFileInFullState()
+      _ <- fetchBufferFileInFullState()
+      optFile <- fetchExistingBufferFile()
+    yield optFile) flatMap { _ =>
+      eventually:
+        lastResolvedSource.get() should be(2)
+
+      (for
+        _ <- fetchExistingBufferFile()
+        _ <- fetchExistingBufferFile()
+        last <- queue.pull()
+      yield last) map { lastFile =>
+        lastFile shouldBe empty
+      }
+    }
 
   it should "correctly fill the buffer with a fast consumer" in :
     val bufferDir = createPathInDirectory("buffer")

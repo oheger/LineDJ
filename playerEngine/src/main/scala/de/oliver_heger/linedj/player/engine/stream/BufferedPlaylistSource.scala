@@ -47,6 +47,16 @@ import scala.util.{Failure, Success, Try}
   * that time, there is again space in the buffer, and a new file is created
   * and populated with data from audio sources. So, while audio processing
   * (typically playback) takes place, the buffer is filled up again.
+  *
+  * While this is the normal mode of operation, it is possible via
+  * configuration to enable a mode in which always full audio sources are
+  * written into the buffer - even if this exceeds the capacity, and more than
+  * two files of the maximum size have to be created. This can be useful if it
+  * is not easily possible to pause a source; for instance, when audio data is
+  * loaded via an HTTP request. So, in this mode, there is no guaranteed
+  * maximum size. The processing of the next source is delayed until the data
+  * from the previous one has been consumed to a degree, so that again capacity
+  * is available.
   */
 object BufferedPlaylistSource:
   /**
@@ -144,6 +154,11 @@ object BufferedPlaylistSource:
     *                           created dynamically are derived; so if multiple
     *                           sources are active at the same time, the names
     *                           need to be changed to be unique
+    * @param bufferFullSources  if '''true''', a source that was started is
+    *                           fully loaded and stored in the buffer, even if
+    *                           this exceeds the buffer capacity; this may be
+    *                           required if the download of the source cannot
+    *                           be interrupted, e.g. for HTTP downloads
     * @tparam SRC the type of the elements in the playlist
     * @tparam SNK the type expected by the sink of the stream
     */
@@ -154,7 +169,8 @@ object BufferedPlaylistSource:
                                                     bufferSinkFunc: BufferSinkFunc = defaultBufferSink,
                                                     bufferSourceFunc: BufferSourceFunc = defaultBufferSource,
                                                     bufferDeleteFunc: BufferDeleteFunc = defaultBufferDelete,
-                                                    sourceName: String = DefaultSourceName)
+                                                    sourceName: String = DefaultSourceName,
+                                                    bufferFullSources: Boolean = false)
 
   /**
     * Creates a new [[BufferedPlaylistSource]] that wraps a given source. This
@@ -381,6 +397,7 @@ object BufferedPlaylistSource:
                 push(out, head)
                 dataBuffer = next
                 createAndFillBufferFile()
+                startNextSourceIfPossible()
               case Nil =>
                 completeIfDone()
           }
@@ -423,10 +440,21 @@ object BufferedPlaylistSource:
           * @param data the data to be pushed
           */
         private def pushData(data: BufferFileWritten[SRC]): Unit =
+          dataBuffer = dataBuffer :+ data
           if isAvailable(out) then
-            push(out, data)
-          else
-            dataBuffer = dataBuffer :+ data
+            push(out, dataBuffer.head)
+            dataBuffer = dataBuffer.tail
+            startNextSourceIfPossible()
+
+        /**
+          * Triggers the start of a new source if this is currently possible.
+          * This is needed in the mode where full sources are buffered to make
+          * sure that processing of sources continues after files in the buffer
+          * have been completed.
+          */
+        private def startNextSourceIfPossible(): Unit =
+          if !sourceInProgress then
+            requestNextSource()
 
         /**
           * Initiates filling of the given data source into a buffer file. In
@@ -491,17 +519,18 @@ object BufferedPlaylistSource:
           }
 
         /**
-          * Request the next source from upstream to continue filling the
-          * buffer. Handle the end of the playlist stream correctly.
+          * Requests the next source from upstream to continue filling the
+          * buffer. Handles the end of the playlist stream correctly.
           */
         private def requestNextSource(): Unit =
           sourceInProgress = false
-          if playlistFinished then
-            bridgeActor ! PlaylistEnd
-            completeIfDone()
-          else
-            pull(in)
-          currentSource = None
+          if dataBuffer.isEmpty then
+            if playlistFinished then
+              bridgeActor ! PlaylistEnd
+              completeIfDone()
+            else
+              pull(in)
+            currentSource = None
 
         /**
           * Creates a new file in the buffer if possible and starts a stream
@@ -511,7 +540,7 @@ object BufferedPlaylistSource:
           * contains already two files), no immediate action is triggered.
           */
         private def createAndFillBufferFile(): Unit =
-          if !bufferFileWriteInProgress && dataBuffer.size < 1 && sourceInProgress then
+          if !bufferFileWriteInProgress && (dataBuffer.isEmpty || config.bufferFullSources) && sourceInProgress then
             bufferFileWriteInProgress = true
             val startOffset = bufferFileCount * config.bufferFileSize
             bufferFileCount += 1
