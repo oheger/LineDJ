@@ -64,6 +64,9 @@ object AudioPlayerShell:
 
   /** The command line argument to define the size of buffer files. */
   private val BufferSizeArgument = "--buffer-size"
+  
+  /** The command line argument to enable the buffer full sources mode. */
+  private val BufferFullSourcesArgument = "--buffer-full-sources"
 
   /** The default size of a buffer file. */
   private val DefaultBufferFileSize = 8388608 // 8 MB
@@ -164,7 +167,8 @@ object AudioPlayerShell:
       BufferedPlaylistSource.BufferedPlaylistSourceConfig(
         streamPlayerConfig = streamPlayerConfig,
         bufferFolder = Paths.get(bufferDir),
-        bufferFileSize = argsMap.get(BufferSizeArgument).map(_.toInt).getOrElse(DefaultBufferFileSize)
+        bufferFileSize = argsMap.get(BufferSizeArgument).map(_.toInt).getOrElse(DefaultBufferFileSize),
+        bufferFullSources = argsMap.get(BufferFullSourcesArgument).exists(_.toBoolean)
       )
     }
 
