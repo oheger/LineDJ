@@ -292,9 +292,11 @@ object RadioStreamPlaybackActor:
                                  source: PlaybackRadioSource): Future[RadioStreamHandle] =
         response.triedStreamHandle match
           case Success(handle) =>
-            response.optLastMetadata.foreach { currentMetadata =>
-              publishEvent(RadioMetadataEvent(response.source, currentMetadata))
-            }
+            val currentMetadata = response.optLastMetadata match
+              case Some(value) => value
+              case None if handle.builderResult.metadataSupported => CurrentMetadata("")
+              case None => MetadataNotSupported
+            publishEvent(RadioMetadataEvent(response.source, currentMetadata))
             context.self ! RadioStreamHandleReceived(handle, source)
             Future.successful(handle)
           case Failure(exception) =>

@@ -143,12 +143,18 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     * Creates a mock [[RadioStreamHandle]] that returns sources with the given
     * data when it is attached.
     *
-    * @param audioData the data for the audio source
-    * @param metadata  the single metadata strings for the metadata source
-    * @param cyclic    a flag whether endless cyclic sources should be created
+    * @param audioData       the data for the audio source
+    * @param metadata        the single metadata strings for the metadata
+    *                        source
+    * @param cyclic          a flag whether endless cyclic sources should be
+    *                        created
+    * @param metadataSupport flag whether this radio stream supports metadata
     * @return the mock stream handle
     */
-  def createMockHandle(audioData: ByteString, metadata: List[String], cyclic: Boolean = false): RadioStreamHandle =
+  def createMockHandle(audioData: ByteString,
+                       metadata: List[String],
+                       cyclic: Boolean = false,
+                       metadataSupport: Boolean = true): RadioStreamHandle =
     val handle = mock[RadioStreamHandle]
     val audioStreamData = audioData.grouped(64).toList
     val metaStreamData = metadata.map(metaStr => ByteString(metaStr))
@@ -156,6 +162,9 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       (Source.cycle(() => audioStreamData.iterator), Source.cycle(() => metaStreamData.iterator))
     else
       (Source(audioStreamData), Source(metaStreamData))
+    val builderResult = mock[RadioStreamBuilder.BuilderResult[RadioStreamHandle.SinkType, RadioStreamHandle.SinkType]]
+    when(builderResult.metadataSupported).thenReturn(metadataSupport)
+    when(handle.builderResult).thenReturn(builderResult)
 
     given classic.ActorSystem = any()
 
@@ -194,6 +203,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
 
     val events = helper.fishForEvents {
       case _: RadioSourceChangedEvent => FishingOutcome.Complete
+      case _: RadioMetadataEvent => FishingOutcome.ContinueAndIgnore
       case e => FishingOutcome.Fail("Unexpected event: " + e)
     }
     events should have size 1
@@ -249,8 +259,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       case _ => FishingOutcome.ContinueAndIgnore
     }.init
 
-    metadataMessages should have size metadata.size
-    forEvery(metadataMessages.zip(metadata)) { (event, meta) =>
+    metadataMessages should have size metadata.size + 1
+    forEvery(metadataMessages.tail.zip(metadata)) { (event, meta) =>
       event match
         case e: RadioMetadataEvent =>
           e.source should be(radioSource)
@@ -280,8 +290,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     }
 
     val metadataEvents = filterType[RadioMetadataEvent](events)
-    metadataEvents should have size 1
-    metadataEvents.head.metadata should be(CurrentMetadata("metadata"))
+    metadataEvents should have size 2
+    metadataEvents.last.metadata should be(CurrentMetadata("metadata"))
 
     val errorEvents = filterType[RadioSourceErrorEvent](events).map(_.source)
     errorEvents should contain theSameElementsInOrderAs List(errorSource, nextSource)
@@ -297,7 +307,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       case e: RadioSourceErrorEvent if e.source == errorSource => FishingOutcome.Complete
       case _ => FishingOutcome.Continue
     }
-    events.size should be < 4
+    events.size should be < 5
 
   it should "send an error event if there is a timeout when retrieving the handle of the audio stream" in :
     val timeoutSource = RadioSource("timeout.mp3")
@@ -336,6 +346,44 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
     val expectedMetadata = metadata.map(CurrentMetadata.apply)
     metadataEvents.tail.map(_.metadata) should contain theSameElementsInOrderAs expectedMetadata
 
+  it should "send an event with empty metadata if there is no metadata present when obtaining the handle" in :
+    val radioSource = RadioSource("noInitialMetadata.mp3")
+    val liveMetadata = "metadata retrieved later"
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequestWithData(radioSource, createSourceData(1024), List(liveMetadata))
+
+    val metadataEvents = filterType[RadioMetadataEvent](helper.fishForEvents {
+      case e: RadioSourceErrorEvent =>
+        FishingOutcome.Complete
+      case e: RadioMetadataEvent =>
+        FishingOutcome.Continue
+      case _ => FishingOutcome.ContinueAndIgnore
+    })
+
+    metadataEvents should have size 2
+    metadataEvents.head.metadata should be(CurrentMetadata(""))
+    metadataEvents(1).metadata should be(CurrentMetadata(liveMetadata))
+
+  it should "send a MetadataNotSupported event if the radio stream does not support metadata" in :
+    val radioSource = RadioSource("noMetadataSupport.mp3")
+    val helper = new PlaybackActorTestHelper
+
+    helper.sendCommand(RadioStreamPlaybackActor.PlayRadioSource(radioSource))
+      .answerHandleRequestWithData(radioSource, createSourceData(1024), Nil, metadataSupport = false)
+
+    val metadataEvents = filterType[RadioMetadataEvent](helper.fishForEvents {
+      case e: RadioSourceErrorEvent =>
+        FishingOutcome.Complete
+      case e: RadioMetadataEvent =>
+        FishingOutcome.Continue
+      case _ => FishingOutcome.ContinueAndIgnore
+    })
+
+    metadataEvents should have size 1
+    metadataEvents.head.metadata should be(MetadataNotSupported)
+
   it should "switch to a new source" in :
     val radioSource1 = RadioSource("interruptedSource.mp3")
     val radioSource2 = RadioSource("nextSource.mp3")
@@ -350,8 +398,8 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
         Success(handle1)
       )
       .fishForEvents {
-        case e: RadioSourceChangedEvent if e.source == radioSource1 =>
-          FishingOutcome.Complete
+        case e: RadioSourceChangedEvent if e.source == radioSource1 => FishingOutcome.Complete
+        case _: RadioMetadataEvent => FishingOutcome.ContinueAndIgnore
         case e => FishingOutcome.Fail("Unexpected event: " + e)
       }
 
@@ -364,7 +412,7 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       case _ => FishingOutcome.Continue
     }
     filterType[RadioSourceErrorEvent](events).map(_.source) should contain only radioSource2
-    val expectedMetadata = metadata2.map(CurrentMetadata.apply)
+    val expectedMetadata = CurrentMetadata("") :: metadata2.map(CurrentMetadata.apply)
     val metadata2Events = filterType[RadioMetadataEvent](events).filter(_.source == radioSource2).map(_.metadata)
     metadata2Events should contain theSameElementsInOrderAs expectedMetadata
     val expectedAudioData = encode(audioData2)
@@ -498,7 +546,9 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       case _ => false
     }
     val expectedMetadata = secondMetadata.map(CurrentMetadata.apply)
-    val receivedMetadata = filterType[RadioMetadataEvent](events.drop(secondStartEventIdx)).map(_.metadata)
+    val receivedMetadata = filterType[RadioMetadataEvent](events.drop(secondStartEventIdx))
+      .map(_.metadata)
+      .dropWhile(_ == CurrentMetadata(""))
     receivedMetadata should contain theSameElementsInOrderAs expectedMetadata
 
   it should "support stopping playback" in :
@@ -757,17 +807,20 @@ class RadioStreamPlaybackActorSpec(testSystem: classic.ActorSystem) extends Test
       * should yield a handle with the provided data. The function creates a
       * corresponding mock handle and passes it to the requesting party.
       *
-      * @param expectedSource the expected radio source
-      * @param audioData      the audio data for the mock handle
-      * @param metadata       the metadata for the mock handle
-      * @param optMetadata    the optional last metadata for this source
+      * @param expectedSource  the expected radio source
+      * @param audioData       the audio data for the mock handle
+      * @param metadata        the metadata for the mock handle
+      * @param optMetadata     the optional last metadata for this source
+      * @param metadataSupport flag whether the simulated stream should support
+      *                        metadata
       * @return this test helper
       */
     def answerHandleRequestWithData(expectedSource: RadioSource,
                                     audioData: ByteString,
                                     metadata: List[String],
-                                    optMetadata: Option[CurrentMetadata] = None): PlaybackActorTestHelper =
-      val handle = createMockHandle(audioData, metadata)
+                                    optMetadata: Option[CurrentMetadata] = None,
+                                    metadataSupport: Boolean = true): PlaybackActorTestHelper =
+      val handle = createMockHandle(audioData, metadata, metadataSupport = metadataSupport)
       answerHandleRequest(expectedSource, Success(handle), optMetadata)
 
     /**
