@@ -83,10 +83,10 @@ object MetadataUnionActorSpec:
     * Constant for a fishing function for finding the scan completed event.
     */
   private val FishForScanComplete: PartialFunction[Any, Boolean] =
-    case MetadataScanStarted$ => false
+    case MetadataScanStarted => false
     case _: MetadataStateUpdated => false
     case _: MediumMetadataCompleted => false
-    case MetadataScanCompleted$ => true
+    case MetadataScanCompleted => true
 
   /**
     * Helper method for generating a path.
@@ -520,7 +520,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendContribution()
     listener.expectMsgType[MetadataStateUpdated].state.scanInProgress shouldBe false
 
-    listener.expectMsg(MetadataScanStarted$)
+    listener.expectMsg(MetadataScanStarted)
     helper.sendAllProcessingResults(Contribution)
     val (completedMedia, updates) = Contribution.files.keys.map { _ =>
       (listener.expectMsgType[MediumMetadataCompleted].mediumID,
@@ -528,7 +528,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     }.unzip
     listener.expectMsg(MediumMetadataCompleted(MediumID.UndefinedMediumID))
     val lastUpdate = listener.expectMsgType[MetadataStateUpdated]
-    listener.expectMsg(MetadataScanCompleted$)
+    listener.expectMsg(MetadataScanCompleted)
     completedMedia.toSet should be(Contribution.files.keySet)
     val mediaCounts = updates map (u => u.state.mediaCount)
     val expMediaCounts = 1 to Contribution.files.size
@@ -545,11 +545,11 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val contrib2 = MediaContribution(Map(mid -> files))
     helper.processContribution(contrib2)
 
-    listener.expectMsg(MetadataScanStarted$)
+    listener.expectMsg(MetadataScanStarted)
     listener.expectMsg(MediumMetadataCompleted(mid))
     listener.expectMsgType[MetadataStateUpdated]
     listener.expectMsgType[MetadataStateUpdated]
-    listener.expectMsg(MetadataScanCompleted$)
+    listener.expectMsg(MetadataScanCompleted)
 
   it should "support metadata without a duration" in:
     val helper = new MetadataUnionActorTestHelper
@@ -589,9 +589,9 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val listener = helper.newStateListener()
     helper.sendCloseRequest()
 
-    listener.expectMsg(MetadataScanCanceled$)
+    listener.expectMsg(MetadataScanCanceled)
     listener.expectMsgType[MetadataStateUpdated]
-    listener.expectMsg(MetadataScanCompleted$)
+    listener.expectMsg(MetadataScanCompleted)
 
   it should "send only a single event if the scan is canceled multiple times" in:
     val helper = new MetadataUnionActorTestHelper
@@ -600,7 +600,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     helper.sendCloseRequest()
 
     helper.sendCloseRequest()
-    listener.expectMsg(MetadataScanCanceled$)
+    listener.expectMsg(MetadataScanCanceled)
     listener.expectMsgType[MetadataStateUpdated]
 
   it should "send only a cancel event on receiving CloseRequest if a scan is running" in:
@@ -617,7 +617,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
     helper.actor ! RemoveMetadataStateListener(listener2.ref)
     helper.actor receive Contribution
-    listener1.expectMsg(MetadataScanStarted$)
+    listener1.expectMsg(MetadataScanStarted)
     expectNoMoreMessage(listener2)
 
   it should "support only a single listener registration per actor" in:
@@ -628,8 +628,8 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     listener.expectMsgType[MetadataStateUpdated]
     helper.sendContribution()
     helper.sendCloseRequest()
-    listener.expectMsg(MetadataScanStarted$)
-    listener.expectMsg(MetadataScanCanceled$)
+    listener.expectMsg(MetadataScanStarted)
+    listener.expectMsg(MetadataScanCanceled)
 
   it should "remove a state listener if this actor dies" in:
     val helper = new MetadataUnionActorTestHelper
@@ -647,7 +647,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val startEventCount = new AtomicInteger
     helper.sendAllProcessingResults(Contribution)
     findScanCompletedEvent(listener):
-      case MetadataScanStarted$ =>
+      case MetadataScanStarted =>
         startEventCount.incrementAndGet()
         false
     val mid = extractMediumID(contrib2)
@@ -773,9 +773,9 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val listener2 = helper.newStateListener()
 
     helper.sendArchiveComponentRemoved()
-    listener2.expectMsg(MetadataScanStarted$)
+    listener2.expectMsg(MetadataScanStarted)
     listener2.expectMsg(orgState)
-    listener2.expectMsg(MetadataScanCompleted$)
+    listener2.expectMsg(MetadataScanCompleted)
 
   it should "reset the undefined medium when another scan starts" in:
     val helper = new MetadataUnionActorTestHelper
@@ -801,9 +801,9 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     findScanCompletedEvent(listener)()
     stateInProgress.scanInProgress shouldBe true
     stateInProgress.songCount should be(SongCount)
-    listener.expectMsg(MetadataScanStarted$)
+    listener.expectMsg(MetadataScanStarted)
     val endState = listener.expectMsgType[MetadataStateUpdated]
-    listener.expectMsg(MetadataScanCompleted$)
+    listener.expectMsg(MetadataScanCompleted)
     endState.state should be(orgState)
     helper.expectRemovedConfirmation()
 
@@ -930,15 +930,15 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val listener = helper.newStateListener()
 
     helper.actor ! UpdateOperationStarts(None)
-    listener.expectMsg(MetadataUpdateInProgress$)
+    listener.expectMsg(MetadataUpdateInProgress)
     helper.actor ! UpdateOperationCompleted(None)
-    listener.expectMsg(MetadataUpdateCompleted$)
+    listener.expectMsg(MetadataUpdateCompleted)
 
   it should "ignore an update completed message from an unknown processor actor" in:
     val helper = new MetadataUnionActorTestHelper
     val listener = helper.newStateListener()
     helper.actor ! UpdateOperationStarts(None)
-    listener.expectMsg(MetadataUpdateInProgress$)
+    listener.expectMsg(MetadataUpdateInProgress)
 
     helper.actor receive UpdateOperationCompleted(Some(TestProbe().ref))
     expectNoMoreMessage(listener)
@@ -948,13 +948,13 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new MetadataUnionActorTestHelper
     val listener = helper.newStateListener()
     helper.actor ! UpdateOperationStarts(None)
-    listener.expectMsg(MetadataUpdateInProgress$)
+    listener.expectMsg(MetadataUpdateInProgress)
 
     helper.actor receive UpdateOperationStarts(Some(otherProcessor))
     expectNoMoreMessage(listener)
     helper.actor ! UpdateOperationCompleted(None)
     helper.actor receive UpdateOperationCompleted(Some(otherProcessor))
-    listener.expectMsg(MetadataUpdateCompleted$)
+    listener.expectMsg(MetadataUpdateCompleted)
     expectNoMoreMessage(listener)
 
   it should "monitor processor actors to remove them when they die" in:
@@ -962,10 +962,10 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     val helper = new MetadataUnionActorTestHelper
     val listener = helper.newStateListener()
     helper.actor ! UpdateOperationStarts(Some(processor))
-    listener.expectMsg(MetadataUpdateInProgress$)
+    listener.expectMsg(MetadataUpdateInProgress)
 
     system stop processor
-    listener.expectMsg(MetadataUpdateCompleted$)
+    listener.expectMsg(MetadataUpdateCompleted)
 
   it should "update the operation in progress flag in the metadata state" in:
     val helper = new MetadataUnionActorTestHelper

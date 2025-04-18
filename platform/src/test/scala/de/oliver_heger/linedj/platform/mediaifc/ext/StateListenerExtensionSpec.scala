@@ -63,12 +63,12 @@ class StateListenerExtensionSpec extends AnyFlatSpec with Matchers with MockitoS
     ext receive reg1
     ext receive reg2
 
-    ext receive MetadataScanStarted$
-    ext receive MetadataScanCompleted$
-    verify(reg1.callback).apply(MetadataScanStarted$)
-    verify(reg2.callback).apply(MetadataScanStarted$)
-    verify(reg1.callback).apply(MetadataScanCompleted$)
-    verify(reg2.callback).apply(MetadataScanCompleted$)
+    ext receive MetadataScanStarted
+    ext receive MetadataScanCompleted
+    verify(reg1.callback).apply(MetadataScanStarted)
+    verify(reg2.callback).apply(MetadataScanStarted)
+    verify(reg1.callback).apply(MetadataScanCompleted)
+    verify(reg2.callback).apply(MetadataScanCompleted)
 
   it should "create a listener registration for the first consumer" in:
     val ext = createExtension()

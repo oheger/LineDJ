@@ -225,12 +225,12 @@ class ArchiveAdminController(application: ArchiveAdminApp,
         if !state.updateInProgress then
           initializeArchivesCombo(state.archiveCompIDs)
 
-      case MetadataUpdateInProgress$ =>
+      case MetadataUpdateInProgress =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = true))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true, updateInProgress = true))
 
-      case MetadataUpdateCompleted$ =>
+      case MetadataUpdateCompleted =>
         updateArchiveStatus(archiveStatusForScanFlag(scanInProgress = false))
         updateForm()
         updateActions(enabledActionsForState(archiveAvailable = true,
@@ -238,7 +238,7 @@ class ArchiveAdminController(application: ArchiveAdminApp,
         initializeArchivesCombo(unionArchiveState.archiveCompIDs)
         comboArchives.setEnabled(true)
 
-      case MetadataScanStarted$ =>
+      case MetadataScanStarted =>
         comboArchives.setEnabled(false)
         if comboArchives.getListModel.size() > 0 then
           selectUnionArchive()

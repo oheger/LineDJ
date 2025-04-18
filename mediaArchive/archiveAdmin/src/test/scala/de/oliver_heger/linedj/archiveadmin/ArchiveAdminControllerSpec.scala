@@ -161,8 +161,8 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "ignore irrelevant metadata state events" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataScanCanceled$)
-      .sendMetaDataStateEvent(MetadataScanCompleted$)
+    helper.sendMetaDataStateEvent(MetadataScanCanceled)
+      .sendMetaDataStateEvent(MetadataScanCompleted)
     verifyNoInteractions(helper.form)
 
   it should "set the property for the song count" in:
@@ -205,7 +205,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "set the archive state if an update operation starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataUpdateInProgress$)
+    helper.sendMetaDataStateEvent(MetadataUpdateInProgress)
       .verifyArchiveState(TextScanInProgress, IconScanInProgress)
 
   it should "not update the archive status when the archive becomes available" in:
@@ -217,7 +217,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update the archive state if an update operation is complete" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataUpdateCompleted$)
+    helper.sendMetaDataStateEvent(MetadataUpdateCompleted)
       .verifyArchiveState(TextNoScanInProgress, IconNoScanInProgress)
 
   it should "disable actions if the archive is not available" in:
@@ -231,7 +231,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update action states if an update operation starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataUpdateInProgress$)
+    helper.sendMetaDataStateEvent(MetadataUpdateInProgress)
       .verifyAction("startScanAction", enabled = false)
       .verifyAction("cancelScanAction", enabled = true)
       .verifyAction("metaDataFilesAction", enabled = false)
@@ -255,7 +255,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "update action states if an update operation is complete" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataUpdateCompleted$)
+    helper.sendMetaDataStateEvent(MetadataUpdateCompleted)
       .verifyAction("startScanAction", enabled = true)
       .verifyAction("cancelScanAction", enabled = false)
       .verifyAction("metaDataFilesAction", enabled = false)
@@ -263,7 +263,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "disable the archives combo box when a new scan starts" in:
     val helper = new ArchiveAdminControllerTestHelper
 
-    helper.sendMetaDataStateEvent(MetadataScanStarted$)
+    helper.sendMetaDataStateEvent(MetadataScanStarted)
     verify(helper.comboArchives).setEnabled(false)
     verify(helper.comboArchives, never()).setData(any())
 
@@ -272,7 +272,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
     val helper = new ArchiveAdminControllerTestHelper
 
     helper.initArchivesComboModel(FirstArchive, "Arc1", "Arc2")
-      .sendMetaDataStateEvent(MetadataScanStarted$)
+      .sendMetaDataStateEvent(MetadataScanStarted)
     verify(helper.comboArchives).setData(FirstArchive)
 
   it should "initialize the archives combo box at the end of an update operation" in:
@@ -281,7 +281,7 @@ class ArchiveAdminControllerSpec(testSystem: ActorSystem) extends TestKit(testSy
 
     helper.initArchivesComboModel("foo", "bar", "baz")
       .sendMetaDataStateEvent(MetadataStateUpdated(state))
-      .sendMetaDataStateEvent(MetadataUpdateCompleted$)
+      .sendMetaDataStateEvent(MetadataUpdateCompleted)
       .verifyArchivesComboCleared()
       .verifyArchivesComboInitialized(UnionArchiveName :: ArchiveNames: _*)
       .verifyArchiveSelected(UnionArchiveName)

@@ -198,7 +198,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       context watch procRef
       processorActors += procRef
       if processorActors.size == 1 then
-        fireStateEvent(MetadataUpdateInProgress$)
+        fireStateEvent(MetadataUpdateInProgress)
 
     case UpdateOperationCompleted(processor) =>
       val procRef = obtainProcessorActor(processor)
@@ -209,7 +209,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       log.info("Received MediaContribution.")
       if !scanInProgress then
         scanInProgress = true
-        fireStateEvent(MetadataScanStarted$)
+        fireStateEvent(MetadataScanStarted)
         log.info("Scan starts.")
       files foreach prepareHandlerForMedium
 
@@ -263,7 +263,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
 
     case CloseRequest =>
       if scanInProgress then
-        fireStateEvent(MetadataScanCanceled$)
+        fireStateEvent(MetadataScanCanceled)
         mediumListeners.clear()
         completeScanOperation()
       sender() ! CloseAck(self)
@@ -376,7 +376,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     if nextProcessors != processorActors then
       processorActors = nextProcessors
       if nextProcessors.isEmpty then
-        fireStateEvent(MetadataUpdateCompleted$)
+        fireStateEvent(MetadataUpdateCompleted)
       true
     else false
 
@@ -384,7 +384,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
     * Prepares a new scan operation. Initializes some internal state.
     */
   private def initiateNewScan(): Unit =
-    fireStateEvent(MetadataScanStarted$)
+    fireStateEvent(MetadataScanStarted)
     mediaMap.clear()
     scanInProgress = true
     totalCounters = InitialComponentCounters
@@ -510,7 +510,7 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
       fireStateEvent(MediumMetadataCompleted(MediumID.UndefinedMediumID))
     handlePendingMediumListeners()
     fireStateEvent(createStateUpdatedEvent()) // a final update event
-    fireStateEvent(MetadataScanCompleted$)
+    fireStateEvent(MetadataScanCompleted)
     updateForRemovedArchiveComponent()
 
   /**
@@ -576,9 +576,9 @@ class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLog
         duration = totalCounters.duration - c.counters.duration)
       c.sender ! RemovedArchiveComponentProcessed(c.componentID)
     }
-    fireStateEvent(MetadataScanStarted$)
+    fireStateEvent(MetadataScanStarted)
     fireStateEvent(createStateUpdatedEvent())
-    fireStateEvent(MetadataScanCompleted$)
+    fireStateEvent(MetadataScanCompleted)
     removedComponentData = List.empty
 
   /**

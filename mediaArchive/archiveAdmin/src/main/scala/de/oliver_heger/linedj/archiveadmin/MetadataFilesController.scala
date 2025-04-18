@@ -371,9 +371,9 @@ class MetadataFilesController(application: ArchiveAdminApp,
     */
   private def consumeStateEvents(event: MetadataStateEvent): Unit =
     event match
-      case MetadataScanStarted$ =>
+      case MetadataScanStarted =>
         switchToState(StateScanning)
-      case MetadataScanCompleted$ =>
+      case MetadataScanCompleted =>
         switchToState(StateLoading)
       case MetadataStateUpdated(MetadataState(_, _, _, _, true, _, _)) =>
         switchToState(StateScanning)

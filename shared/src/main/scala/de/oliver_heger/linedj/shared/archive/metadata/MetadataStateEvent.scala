@@ -40,7 +40,7 @@ sealed trait MetadataStateEvent extends RemoteSerializable
   * During the scan, further events may be produced that report the progress of
   * the operation.
   */
-case object MetadataScanStarted$ extends MetadataStateEvent
+case object MetadataScanStarted extends MetadataStateEvent
 
 /**
   * A metadata state event indicating the completion of a media scan
@@ -49,7 +49,7 @@ case object MetadataScanStarted$ extends MetadataStateEvent
   * This is the last event generated for a scan. Afterwards no more data is
   * going to become available.
   */
-case object MetadataScanCompleted$ extends MetadataStateEvent
+case object MetadataScanCompleted extends MetadataStateEvent
 
 /**
   * A metadata state event indicating that now updates of the metadata in
@@ -63,7 +63,7 @@ case object MetadataScanCompleted$ extends MetadataStateEvent
   * counterpart) to only get notified at the very beginning and the end of the
   * operation.
   */
-case object MetadataUpdateInProgress$ extends MetadataStateEvent
+case object MetadataUpdateInProgress extends MetadataStateEvent
 
 /**
   * A metadata state event indicating that now all updates of metadata in
@@ -72,7 +72,7 @@ case object MetadataUpdateInProgress$ extends MetadataStateEvent
   * This event corresponds to [[MetadataUpdateInProgress$]] and reports the
   * end of an operation that updates metadata in the archive.
   */
-case object MetadataUpdateCompleted$ extends MetadataStateEvent
+case object MetadataUpdateCompleted extends MetadataStateEvent
 
 /**
   * A metadata state event indicating that a scan operation has been
@@ -82,7 +82,7 @@ case object MetadataUpdateCompleted$ extends MetadataStateEvent
   * operation does not terminate immediately, but may need some more time to
   * shutdown gracefully. Finally, a [[MetadataScanCompleted$]] event is fired.
   */
-case object MetadataScanCanceled$ extends MetadataStateEvent
+case object MetadataScanCanceled extends MetadataStateEvent
 
 /**
   * A metadata state event notifying listeners that the full metadata for a

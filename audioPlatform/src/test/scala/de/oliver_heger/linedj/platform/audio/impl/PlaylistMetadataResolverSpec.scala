@@ -340,13 +340,13 @@ class PlaylistMetadataResolverSpec(testSystem: ActorSystem) extends TestKit(test
       .prepareMetaDataRequest(req2, resp2)
       .sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))
       .processMessageOnBus()
-      .send(MetadataScanCompleted$)
+      .send(MetadataScanCompleted)
       .expectMetaDataUpdate(resp2.data)
 
   it should "handle a scan completed event before a playlist was set" in:
     val helper = new ResolverTestHelper
 
-    helper.send(MetadataScanCompleted$)
+    helper.send(MetadataScanCompleted)
       .expectNoMessageOnBus()
 
   it should "handle a request to remove a consumer" in:

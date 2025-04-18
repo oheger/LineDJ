@@ -191,7 +191,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new MetadataFilesControllerTestHelper
 
     helper.openWindow()
-      .sendStateEvent(MetadataScanStarted$)
+      .sendStateEvent(MetadataScanStarted)
       .verifyDisabledState("files_state_scanning")
 
   it should "update its state for a scan completed event" in:
@@ -199,7 +199,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     helper.tableModelList add "some data"
 
     helper.openWindow()
-      .sendStateEvent(MetadataScanCompleted$)
+      .sendStateEvent(MetadataScanCompleted)
       .verifyDisabledState("files_state_loading", verifyRequest = false)
       .verifyActorRequestExecuted[MetadataFileInfo]
     helper.tableModelList.isEmpty shouldBe true
@@ -223,14 +223,14 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new MetadataFilesControllerTestHelper
 
     helper.openWindow()
-      .sendStateEvent(MetadataScanCanceled$)
+      .sendStateEvent(MetadataScanCanceled)
       .expectNoDataRequest()
 
   it should "ignore state transitions to the same target state" in:
     val helper = new MetadataFilesControllerTestHelper
 
     helper.openWindow()
-      .sendStateEvent(MetadataScanStarted$)
+      .sendStateEvent(MetadataScanStarted)
       .sendStateEvent(updateEvent(scanInProgress = true))
       .verifyDisabledState("files_state_scanning")
 
@@ -246,7 +246,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new MetadataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
-    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
     verify(helper.tableHandler).tableDataChanged()
     checkTableModel(helper)
@@ -254,14 +254,14 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "handle a failed request for file information" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest[MetadataFileInfo](Failure(new Exception))
       .verifyDisabledState("files_state_error_actor_access", verifyRequest = false)
 
   it should "update its state when data becomes available" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .verifyAction("refreshAction", enabled = true)
       .verifyAction("removeFilesAction", enabled = false)
@@ -274,7 +274,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val moreMedia = (mediumID(42), mediumInfo(42)) :: avMedia.mediaList
 
     helper.openWindow().sendAvailableMedia(avMedia.copy(mediaList = moreMedia))
-      .sendStateEvent(MetadataScanCompleted$)
+      .sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
     checkTableModel(helper)
 
@@ -282,7 +282,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new MetadataFilesControllerTestHelper
     helper.tableModelList.add("some initial data")
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendAvailableMedia()
     verify(helper.tableHandler).tableDataChanged()
@@ -291,7 +291,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "reset file data if the archive becomes unavailable" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendArchiveAvailability(MediaFacade.MediaArchiveUnavailable)
       .sendAvailableMedia()
@@ -300,16 +300,16 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "reset file data if a scan starts" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
-      .sendStateEvent(MetadataScanStarted$)
+      .sendStateEvent(MetadataScanStarted)
       .sendAvailableMedia()
     verify(helper.tableHandler, never()).tableDataChanged()
 
   it should "enable the remove action if files are selected" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendAvailableMedia()
       .resetMocks()
@@ -319,7 +319,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "disable the remove action if no files are selected" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendAvailableMedia()
       .resetMocks()
@@ -329,7 +329,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "disable the remove action if no update actor is available" in:
     val helper = new MetadataFilesControllerTestHelper
 
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo().copy(optUpdateActor = None)))
       .sendAvailableMedia()
       .resetMocks()
@@ -354,7 +354,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
   it should "react on the remove action" in:
     val helper = new MetadataFilesControllerTestHelper
     val selection = Array(0, 2)
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendAvailableMedia()
       .triggerTableSelection(selection).resetMocks()
@@ -366,7 +366,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
 
   it should "react on the refresh action" in:
     val helper = new MetadataFilesControllerTestHelper
-    helper.openWindow().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .sendAvailableMedia()
 
@@ -380,7 +380,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetadata(checksumSet)
     val result = RemovePersistentMetadataResult(request, checksumSet)
-    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .resetMocks()
 
@@ -401,7 +401,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetadata(checksumSet)
     val result = RemovePersistentMetadataResult(request, checksumSet - OrphanedChecksum2)
-    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .resetMocks()
 
@@ -416,7 +416,7 @@ class MetadataFilesControllerSpec(testSystem: ActorSystem) extends TestKit(testS
     val helper = new MetadataFilesControllerTestHelper
     val checksumSet = Set(OrphanedChecksum1, OrphanedChecksum2, checksum(2))
     val request = RemovePersistentMetadata(checksumSet)
-    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted$)
+    helper.openWindow().sendAvailableMedia().sendStateEvent(MetadataScanCompleted)
       .expectAndAnswerActorRequest(Success(helper.metadataFileInfo()))
       .resetMocks()
 
