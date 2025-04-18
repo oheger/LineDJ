@@ -47,7 +47,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import spray.json.*
 
 import java.net.ServerSocket
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Using}
@@ -242,7 +242,10 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
 
   it should "serve the UI from the classpath if configured" in :
     val orgConfig = httpServerConfig().copy(optUiContentResource = Some("ui-resource"))
-    val localPath = Paths.get("playerServer/src/test/resources/ui-resource")
+    // The path is different when executed from the IDE and from SBT.
+    val modulePath = Paths.get("playerServer/src/test/resources/ui-resource")
+    val localPath = if Files.exists(modulePath) then modulePath
+    else Paths.get("src/test/resources/ui-resource")
 
     runHttpServerTest(orgConfig) { config =>
       val uiRequest = HttpRequest(uri = serverUri(config, config.uiPath))
@@ -250,7 +253,7 @@ class RoutesSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
         response.status should be(StatusCodes.OK)
 
         for
-          expectedString <- readSource(FileIO.fromPath(localPath.resolve("index.html")))
+          expectedString <- readSource(FileIO.fromPath(localPath.toAbsolutePath.resolve("index.html")))
           responseString <- readSource(response.entity.dataBytes)
         yield responseString should be(expectedString)
       }
