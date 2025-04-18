@@ -18,19 +18,19 @@ import OsgiImagePlugin.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
-lazy val VersionAeron = "1.46.8"
+lazy val VersionAeron = "1.47.4"
 lazy val VersionAries = "1.3.7"
-lazy val VersionCloudFiles = "0.8"
+lazy val VersionCloudFiles = "0.10"
 lazy val VersionCommonsBeanutils = "1.10.0"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
-lazy val VersionJackson = "2.18.2"
+lazy val VersionJackson = "2.18.3"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.4.1"
 lazy val VersionJLayer = "1.0.1.4"
 lazy val VersionLog4j = "2.24.3"
 lazy val VersionMp3Spi = "1.9.5.4"
-lazy val VersionNetty = "4.1.117.Final"
+lazy val VersionNetty = "4.2.0.Final"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionPekko = "1.1.3"
 lazy val VersionPekkoHttp = "1.1.0"
@@ -42,7 +42,7 @@ lazy val VersionSslConfig = "0.6.1"
 lazy val VersionTritonus = "0.3.7.4"
 
 /** Test dependencies. */
-lazy val VersionByteBuddy = "1.15.11"
+lazy val VersionByteBuddy = "1.17.5"
 lazy val VersionDisruptor = "4.0.0"
 lazy val VersionScalaTest = "3.2.19"
 lazy val VersionScalaTestMockito = "3.2.19.0"
