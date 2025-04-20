@@ -951,6 +951,7 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
   * via an HTTP server.
   */
 lazy val playerServer = (project in file("playerServer"))
+  .enablePlugins(GraalVMNativeImagePlugin)
   .settings(defaultSettings)
   .settings(
     name := "linedj-player-server",
@@ -960,7 +961,11 @@ lazy val playerServer = (project in file("playerServer"))
       collectionsDependency,
       beanUtilsDependency
     ),
-    assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
+    Compile / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain"),
+    graalVMNativeImageOptions := Seq(
+      "--verbose",
+      "-march=compatibility"
+    )
   ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
 
 /**
