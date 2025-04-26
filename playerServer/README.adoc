@@ -131,3 +131,16 @@ server application.
 |Here an arbitrary command can be specified that the server will execute (in a new process of the operating system) during its shutdown phase. The intention behind this is to do some cleanup or trigger final actions when the server terminates. For instance, if the server is running on a Raspberry Pi that is used exclusively as an Internet radio, it may make sense to shut down the machine on termination of the server; so, here the corresponding shutdown command could be provided.
 |(undefined)
 |====
+
+== Native image
+It is possible to build a https://www.graalvm.org/latest/reference-manual/native-image/[GraalVM native image] for the Player Server application. This could have some benefits like reduced startup times or memory consumption. The native image is constructed using the https://www.scala-sbt.org/sbt-native-packager/[SBT Native Packager] plugin.
+
+Building the native image requires a local GraalVM installation with the `native-builder` tool available on the path. This is the standard configuration for the SBT Native Packager plugin, which just invokes the `native-builder` command.
+
+WARNING: A fully functional native image could be built successfully using the GraalVM Community Edition in version 24.0.1. With the GraalVM 21.0.2 version, the image could be built without failures, but audio playback was not possible. This seems to be a bug in older GraalVM versions.
+
+With a local GraalVM installation that meets the described prerequisites available, the following SBT command generates the native image:
+
+ sbt playerServer/GraalVMNativeImage/packageBin
+
+The resulting artifacts can be found in the folder `playerServer/target/graalvm-native-image`. They consist of the actual binary for the Player Server application plus the `libjsound.so` library required for audio playback using the JavaX Sound API. This library needs to be placed in the same folder as the binary when launching the application.
