@@ -1,0 +1,29 @@
+on:
+  workflow_dispatch:
+
+jobs:
+  player-server-native-image:
+    strategy:
+      matrix:
+        os: [ ubuntu-22.04, ubuntu-22.04-arm, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '24'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+
+      - name: Build Player Server native image for ${{ matrix.os }}
+        run: sbt playerServer/GraalVMNativeImage/packageBin
+
+      - name: Upload native image for ${{ matrix.os }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-server-${{ matrix.os }}
+          path: |
+            playerServer/target/graalvm-native-image/*
+            !playerServer/target/graalvm-native-image/*.txt

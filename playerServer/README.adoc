@@ -144,3 +144,5 @@ With a local GraalVM installation that meets the described prerequisites availab
  sbt playerServer/GraalVMNativeImage/packageBin
 
 The resulting artifacts can be found in the folder `playerServer/target/graalvm-native-image`. They consist of the actual binary for the Player Server application plus the `libjsound.so` library required for audio playback using the JavaX Sound API. This library needs to be placed in the same folder as the binary when launching the application.
+
+This repository also contains a https://github.com/oheger/LineDJ/actions/workflows/player-server-native-image.yml[workflow] that generates native images for the Player Server application for different operation systems and target architectures.
