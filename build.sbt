@@ -18,8 +18,9 @@ import OsgiImagePlugin.autoImport.*
 import com.typesafe.sbt.osgi.OsgiKeys
 
 /** Definition of versions for production dependencies. */
-lazy val VersionAeron = "1.47.4"
+lazy val VersionAeron = "1.46.8"
 lazy val VersionAries = "1.3.7"
+lazy val VersionBouncyCastle = "1.80"
 lazy val VersionCloudFiles = "0.10"
 lazy val VersionCommonsBeanutils = "1.10.0"
 lazy val VersionCommonsCollections = "3.2.2"
@@ -113,6 +114,9 @@ lazy val remotingDependencies = Seq(
   "io.aeron" % "aeron-driver" % VersionAeron,
   "io.netty" % "netty-transport" % VersionNetty,
   "io.netty" % "netty-handler" % VersionNetty,
+  "org.bouncycastle" % "bcprov-jdk18on" % VersionBouncyCastle,
+  "org.bouncycastle" % "bcutil-jdk18on" % VersionBouncyCastle,
+  "org.bouncycastle" % "bctls-jdk18on" % VersionBouncyCastle
 )
 
 lazy val testDependencies = Seq(
