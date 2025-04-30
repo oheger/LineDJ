@@ -53,7 +53,7 @@ object MetadataPartsCollectorSpec:
   private val Metadata = MediaMetadata(title = ID3Metadata.title, artist = ID3Metadata.artist,
     album = ID3Metadata.album, inceptionYear = ID3Metadata.inceptionYear, trackNumber =
       ID3Metadata.trackNo, duration = Some(Mp3Data.duration), formatDescription = Some("128 kbps"),
-    size = Some(File.size))
+    size = Some(File.size.toInt))
 
 /**
   * Test class for ''MetadataPartsCollector''.

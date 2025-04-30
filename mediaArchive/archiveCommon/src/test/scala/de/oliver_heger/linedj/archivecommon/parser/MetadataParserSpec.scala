@@ -49,7 +49,6 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  import MetadataParser.*
   import MetadataParserSpec.*
   import spray.json.*
 
@@ -91,7 +90,7 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       artist = Some("testArtist"),
       title = Some("testTitle"),
       formatDescription = Some("testFormat"),
-      size = Some(4581376L),
+      size = Some(4581376),
       inceptionYear = Some(2024),
       trackNumber = Some(1),
       duration = Some(100000)

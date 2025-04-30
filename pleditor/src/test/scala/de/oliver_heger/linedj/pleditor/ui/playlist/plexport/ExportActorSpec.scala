@@ -127,7 +127,7 @@ object ExportActorSpec:
    * @param size an optional size for the test song
    * @return the test ''SongData'' object
    */
-  private def createSongData(index: Int, size: Option[Long] = None): SongData =
+  private def createSongData(index: Int, size: Option[Int] = None): SongData =
     SongData(MediaFileID(medium(index), songUri(index)),
       MediaMetadata(title = Some(songTitle(index)), size = size orElse Some(songSize(index))),
       songTitle(index), null, null)

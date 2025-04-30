@@ -41,11 +41,11 @@ case class MediaMetadata(title: Option[String] = None,
                          trackNumber: Option[Int] = None,
                          duration: Option[Int] = None,
                          formatDescription: Option[String] = None,
-                         size: Option[Long] = None) extends RemoteSerializable:
+                         size: Option[Int] = None) extends RemoteSerializable:
   /**
     * Returns the size of the media file (in bytes) as a ''Long''. Result is 0
     * if the size is unknown.
     *
     * @return the size of the media file in bytes
     */
-  def fileSize: Long = size.getOrElse(0)
+  def fileSize: Long = size.getOrElse(0).toLong
