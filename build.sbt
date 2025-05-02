@@ -264,6 +264,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-localfs" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metaDataExtract, id3Extract)
 

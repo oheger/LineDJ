@@ -16,17 +16,20 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.io.DirectoryStreamSource
+import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.utils.Walk
+import com.github.cloudfiles.localfs.{LocalFileSystem, LocalFsConfig}
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorLogging, ActorRef, Props}
+import org.apache.pekko.actor.typed
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.pattern.ask
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
 import org.apache.pekko.util.Timeout
 
 import java.nio.file.Path
-import java.util.Locale
 import scala.concurrent.Promise
 
 /**
@@ -38,6 +41,12 @@ object MediaScannerActor:
 
   /** The extension for settings files to be used in filter expressions. */
   private val SettingsExtFilter = "SETTINGS"
+
+  /** Constant for an undefined file extension. */
+  private val NoExtension = ""
+
+  /** Constant for the extension delimiter character. */
+  private val Dot = '.'
 
   /**
     * Returns a ''Props'' object to create an instance of this actor class.
@@ -73,6 +82,19 @@ object MediaScannerActor:
     file.toString endsWith SettingsExtension
 
   /**
+    * Extracts the file extension from the given path and returns it in
+    * uppercase, so that filtering can be applied.
+    *
+    * @param path the path
+    * @return the extracted extension
+    */
+  private def extractExtension(path: Path): String =
+    val fileName = path.getFileName.toString
+    val pos = fileName lastIndexOf Dot
+    if pos >= 0 then fileName.substring(pos + 1).toUpperCase
+    else NoExtension
+
+  /**
     * A message received by ''MediaScannerActor'' telling it to scan a
     * specific directory for media files. When the scan is done, an object of
     * type [[MediaScanResult]] is sent back.
@@ -96,7 +118,7 @@ object MediaScannerActor:
                                       mediumInfoParser: ActorRef, parserTimeout: Timeout)
     extends MediaScannerActor(archiveName, exclusions, inclusions, maxBufSize,
       mediumInfoParser, parserTimeout) with ChildActorFactory
-
+end MediaScannerActor
 
 /**
   * An actor implementation which parses a directory structure for media
@@ -157,11 +179,23 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     * @return the source for scanning this structure
     */
   private[media] def createSource(path: Path): Source[Path, Any] =
-    DirectoryStreamSource.newDFSSource[(Path, Boolean)](path,
-      pathFilter = createFilter()) { (p, d) =>
-      (p, d)
-    }.filterNot(_._2)
-      .map(_._1)
+    val fsOptions = LocalFsConfig(path, context.dispatcher)
+    val localFs = new LocalFileSystem(fsOptions)
+    val walkConfig = Walk.WalkConfig(
+      fileSystem = localFs,
+      httpActor = null,
+      rootID = path,
+      transform = filterElementsFunc()
+    )
+
+    given typed.ActorSystem[_] = context.system.toTyped
+
+    Walk.dfsSource(walkConfig)
+      .filter {
+        case _: Model.File[Path] => true
+        case _ => false
+      }
+      .map(_.id)
 
   /**
     * Executes a stream with the provided source and returns a sequence of
@@ -171,7 +205,7 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     * @param source    the source
     * @param root      the root path to be scanned
     * @param sinkActor the actor serving as sink
-    * @return a tuple with with a kill switch and the future result of stream
+    * @return a tuple with a kill switch and the future result of stream
     *         processing
     */
   private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
@@ -216,15 +250,21 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
       MediumAggregateStage.mediumIDFromSettingsPath(p, archiveName, converter), 0)
 
   /**
-    * Creates the filter for the directory stream source based on the provided
-    * sets for inclusions and exclusions. If both are defined, inclusions take
-    * precedence.
+    * Returns a function to filter out undesired elements from the iteration of
+    * media files.
     *
-    * @return the filter for the directory source
+    * @return the transformation function for the walk operation
     */
-  private def createFilter(): DirectoryStreamSource.PathFilter =
-    val extFilter = if inclusions.nonEmpty then
-      DirectoryStreamSource.includeExtensionsFilter(inclusions +
-        SettingsExtFilter.toUpperCase(Locale.ROOT))
-    else DirectoryStreamSource.excludeExtensionsFilter(exclusions)
-    extFilter || DirectoryStreamSource.AcceptSubdirectoriesFilter
+  private def filterElementsFunc(): Walk.TransformFunc[Path] =
+    val fileFilter: Model.File[Path] => Boolean =
+      if inclusions.nonEmpty then
+        val includedExtensions = inclusions + SettingsExtFilter
+        elem => includedExtensions.contains(extractExtension(elem.id))
+      else
+        elem => !exclusions.contains(extractExtension(elem.id))
+
+    elements =>
+      elements.filter {
+        case f: Model.File[Path] => fileFilter(f)
+        case _ => true
+      }

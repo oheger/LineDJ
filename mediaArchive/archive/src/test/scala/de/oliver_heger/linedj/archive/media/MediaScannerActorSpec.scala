@@ -94,7 +94,8 @@ object MediaScannerActorSpec:
     val sub3 = medium3 resolve "sub3"
     val otherDir = RootPath resolve "other"
 
-    List(createFile(RootPath, "noMedium1.mp3"),
+    List(
+      createFile(RootPath, "noMedium1.mp3"),
       createFile(medium1, "noMedium2.mp3"),
       createFile(medium1, "medium1.settings"),
       createFile(sub1, "medium1Song1.mp3"),
@@ -105,7 +106,9 @@ object MediaScannerActorSpec:
       createFile(sub2, "medium2Text.txt"),
       createFile(sub3, "medium3Song1.mp3"),
       createFile(medium3, "medium3.settings"),
-      createFile(otherDir, "noMedium3.mp3"))
+      createFile(otherDir, "noMedium3.mp3"),
+      createFile(otherDir, "noMedium_foo")
+    )
 
   /**
     * Generates a URI relative to the test root path that corresponds to the
@@ -269,7 +272,7 @@ class MediaScannerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val mid = resUndef.result.scanResult.mediaFiles.keys
       .find(_.mediumDescriptionPath.isEmpty).get
     val files = resUndef.result.scanResult.mediaFiles(mid).map(extractFileName)
-    files should have size 3
+    files should have size 4
     files forall (_.startsWith("noMedium")) shouldBe true
 
   it should "obtain medium information for defined media" in:
