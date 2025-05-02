@@ -33,16 +33,16 @@ object MediaArchiveConfig:
     * Constant for the section with configuration settings about local
     * archives.
     */
-  val ArchivesSection = "media.localArchives."
+  final val ArchivesSection = "media.localArchives."
 
   /** Constant for the key prefix under which all options are located. */
-  val ArchivesKey: String = ArchivesSection + "localArchive"
+  final val ArchivesKey: String = ArchivesSection + "localArchive"
 
   /** The configuration property for the info size restriction. */
-  val PropInfoSizeLimit: String = "infoSizeLimit"
+  final val PropInfoSizeLimit: String = "infoSizeLimit"
 
   /** The configuration property for the excluded file extensions. */
-  val PropExcludedExtensions: String = "excludedExtensions"
+  final val PropExcludedExtensions: String = "excludedExtensions"
 
   /**
     * The configuration property for file extensions to be included when
@@ -50,19 +50,19 @@ object MediaArchiveConfig:
     * extension defined here are taken into account. Note that this property
     * takes precedence over excluded file extensions.
     */
-  val PropIncludedExtensions: String = "includedExtensions"
+  final val PropIncludedExtensions: String = "includedExtensions"
 
   /** Constant for the prefix for the metadata extraction configuration. */
-  val MetaExtractionPrefix: String = "metaDataExtraction."
+  final val MetaExtractionPrefix: String = "metaDataExtraction."
 
   /** The configuration property for metadata extraction chunk size. */
-  val PropMetaDataReadChunkSize: String = MetaExtractionPrefix + "readChunkSize"
+  final val PropMetaDataReadChunkSize: String = MetaExtractionPrefix + "readChunkSize"
 
   /** The configuration property for the size restriction for ID3 tags. */
-  val PropTagSizeLimit: String = MetaExtractionPrefix + "tagSizeLimit"
+  final val PropTagSizeLimit: String = MetaExtractionPrefix + "tagSizeLimit"
 
   /** The configuration property for the processing timeout. */
-  val PropProcessingTimeout: String = MetaExtractionPrefix + "processingTimeout"
+  final val PropProcessingTimeout: String = MetaExtractionPrefix + "processingTimeout"
 
   /**
     * The configuration property defining a maximum buffer size for the
@@ -78,29 +78,29 @@ object MediaArchiveConfig:
     * been processed completely. This property has a direct impact on the
     * memory consumption during metadata extraction.
     */
-  val PropMetaDataBufferSize: String = MetaExtractionPrefix + "metaDataMediaBufferSize"
+  final val PropMetaDataBufferSize: String = MetaExtractionPrefix + "metaDataMediaBufferSize"
 
   /** Constant for the prefix for the metadata persistence configuration. */
-  val MetaPersistencePrefix: String = "metaDataPersistence."
+  final val MetaPersistencePrefix: String = "metaDataPersistence."
 
   /** The configuration property for the metadata persistence path. */
-  val PropMetaDataPersistencePath: String = MetaPersistencePrefix + "path"
+  final val PropMetaDataPersistencePath: String = MetaPersistencePrefix + "path"
 
   /** The configuration property for the metadata persistence chunk size. */
-  val PropMetaDataPersistenceChunkSize: String = MetaPersistencePrefix + "chunkSize"
+  final val PropMetaDataPersistenceChunkSize: String = MetaPersistencePrefix + "chunkSize"
 
   /** The configuration property for the metadata persistence parallel count. */
-  val PropMetaDataPersistenceParallelCount: String = MetaPersistencePrefix + "parallelCount"
+  final val PropMetaDataPersistenceParallelCount: String = MetaPersistencePrefix + "parallelCount"
 
   /** The configuration property for the metadata persistence write block size. */
-  val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
+  final val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
 
   /**
     * Constant for the property defining the root directory of the media
     * archive. The directory structure below this path is scanned for media
     * files.
     */
-  val PropRootPath: String = "rootPath"
+  final val PropRootPath: String = "rootPath"
 
   /**
     * The configuration property defining the number of processors to be used
@@ -108,7 +108,7 @@ object MediaArchiveConfig:
     * sense to set a higher number to speed up metadata extraction. The
     * default value is 1.
     */
-  val PropProcessorCount: String = "processorCount"
+  final val PropProcessorCount: String = "processorCount"
 
   /**
     * The configuration property to define the archive's name. This can be a
@@ -118,13 +118,19 @@ object MediaArchiveConfig:
     * optional; if it is undefined, its value is assumed to be the
     * ''${host}-media-archive''.
     */
-  val PropArchiveName: String = "archiveName"
+  final val PropArchiveName: String = "archiveName"
+
+  /**
+    * The configuration property to specify the name of the blocking
+    * dispatcher. This dispatcher is used for some file system operations.
+    */
+  final val PropBlockingDispatcherName = "blockingDispatcherName"
 
   /** The configuration property for the file where to store the archive ToC. */
-  val PropTocFile: String = MetaPersistencePrefix + "tocFile"
+  final val PropTocFile: String = MetaPersistencePrefix + "tocFile"
 
   /** Prefix for properties related to media archive scan operations. */
-  val ScanPrefix: String = "scan."
+  final val ScanPrefix: String = "scan."
 
   /**
     * Configuration property for the timeout for parsing a medium description
@@ -133,7 +139,7 @@ object MediaArchiveConfig:
     * media archive is scanned. If the parsing result does not arrive within
     * this time span, an error is assumed.
     */
-  val PropScanParseInfoTimeout: String = ScanPrefix + "parseInfoTimeout"
+  final val PropScanParseInfoTimeout: String = ScanPrefix + "parseInfoTimeout"
 
   /**
     * Configuration property determining the size of the buffer for media
@@ -145,43 +151,46 @@ object MediaArchiveConfig:
     * media is buffered; only if there are more completed media, the stream has
     * to wait until the media manager has processed results.
     */
-  val PropScanMediaBufferSize: String = ScanPrefix + "mediaBufferSize"
+  final val PropScanMediaBufferSize: String = ScanPrefix + "mediaBufferSize"
 
   /**
     * Placeholder for the host name which can occur in the configured archive
     * name.
     */
-  val PlaceholderHost = "${host}"
+  final val PlaceholderHost = "${host}"
 
   /**
     * Suffix for generating a default archive name. Per default, this suffix is
     * appended to the local host name to generate the archive name.
     */
-  val DefaultNameSuffix = "-media-archive"
+  final val DefaultNameSuffix = "-media-archive"
 
   /**
     * The default name pattern for generating the archive name. If the property
     * for the archive name is not defined, this value is used.
     */
-  val DefaultNamePattern: String = PlaceholderHost + DefaultNameSuffix
+  final val DefaultNamePattern: String = PlaceholderHost + DefaultNameSuffix
 
   /** The default timeout for parsing a medium description file. */
-  val DefaultInfoParserTimeout: Timeout = Timeout(1.minute)
+  final val DefaultInfoParserTimeout: Timeout = Timeout(1.minute)
 
   /** The default value for the ''PropMetaDataBufferSize'' property. */
-  val DefaultMetaDataMediaBufferSize = 2
+  final val DefaultMetaDataMediaBufferSize = 2
 
   /** The default value for the ''PropScanMediaBufferSize'' property. */
-  val DefaultScanMediaBufferSize = 8
+  final val DefaultScanMediaBufferSize = 8
 
   /** The default number of processors for metadata extraction. */
-  val DefaultProcessorCount = 1
+  final val DefaultProcessorCount = 1
 
   /**
     * The default number of path components to be removed from URIs of medium
     * description files when writing the archive's ToC.
     */
-  val DefaultTocDescRemovePathComponents = 0
+  final val DefaultTocDescRemovePathComponents = 0
+
+  /** The default name of the blocking dispatcher. */
+  final val DefaultBlockingDispatcherName = "blocking-dispatcher"
 
   /** The logger. */
   private val Log = LogManager.getLogger(classOf[MediaArchiveConfig])
@@ -217,7 +226,8 @@ object MediaArchiveConfig:
   private def extractMediaArchiveConfig(config: Configuration, defDownloadConfig: DownloadConfig,
                                         keyPrefix: String, nameResolver: => String): MediaArchiveConfig =
     val subConfig = config.subset(keyPrefix)
-    new MediaArchiveConfig(metadataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
+    new MediaArchiveConfig(
+      metadataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
       infoSizeLimit = intProperty(config, subConfig, PropInfoSizeLimit),
       tagSizeLimit = intProperty(config, subConfig, PropTagSizeLimit),
       processingTimeout = durationProperty(config, subConfig, PropProcessingTimeout),
@@ -236,7 +246,9 @@ object MediaArchiveConfig:
       archiveName = resolveArchiveName(subConfig, nameResolver),
       infoParserTimeout = durationProperty(config, subConfig, PropScanParseInfoTimeout,
         Some(DefaultInfoParserTimeout.duration)),
-      scanMediaBufferSize = intProperty(config, subConfig, PropScanMediaBufferSize, Some(DefaultScanMediaBufferSize)))
+      scanMediaBufferSize = intProperty(config, subConfig, PropScanMediaBufferSize, Some(DefaultScanMediaBufferSize)),
+      blockingDispatcherName = subConfig.getString(PropBlockingDispatcherName, DefaultBlockingDispatcherName)
+    )
 
   /**
     * Resolves the archive name using the resolver function. Also handles
@@ -406,6 +418,8 @@ object MediaArchiveConfig:
   *                                          file
   * @param scanMediaBufferSize               the buffer for media during scanning of an
   *                                          archive directory
+  * @param blockingDispatcherName            the name of the dispatcher for blocking
+  *                                          operations
   */
 case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               metadataReadChunkSize: Int,
@@ -424,4 +438,5 @@ case class MediaArchiveConfig private[config](downloadConfig: DownloadConfig,
                                               contentFile: Option[Path],
                                               archiveName: String,
                                               infoParserTimeout: Timeout,
-                                              scanMediaBufferSize: Int)
+                                              scanMediaBufferSize: Int,
+                                              blockingDispatcherName: String)

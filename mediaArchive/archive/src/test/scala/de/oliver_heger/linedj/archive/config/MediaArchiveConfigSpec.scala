@@ -76,6 +76,9 @@ object MediaArchiveConfigSpec:
   /** Test value for the media buffer size property. */
   private val ScanMediaBufferSize = 11
 
+  /** Test name for the blocking dispatcher. */
+  private val BlockingDispatcherName = "my-blocking-dispatcher"
+
   /**
     * The default name resolver function passed to the archive.
     *
@@ -102,6 +105,7 @@ object MediaArchiveConfigSpec:
     config.addProperty(key + ".processorCount", ProcessorCount + index)
     config.addProperty(key + ".excludedExtensions", Array("JPG", "pdf", "te" + index))
     config.addProperty(key + ".includedExtensions", Array("MP3", "WAV" + index))
+    config.addProperty(key + ".blockingDispatcherName", BlockingDispatcherName + index)
     config.addProperty(key + ".metaDataExtraction.readChunkSize", ReadChunkSize + index)
     config.addProperty(key + ".metaDataExtraction.tagSizeLimit", TagSizeLimit + index)
     config.addProperty(key + ".metaDataExtraction.processingTimeout",
@@ -187,6 +191,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     config.infoParserTimeout.duration should be(InfoParserTimeout.duration + index.seconds)
     config.scanMediaBufferSize should be(ScanMediaBufferSize + index)
     config.contentFile should be(Some(Paths.get(TocFile + index)))
+    config.blockingDispatcherName should be(BlockingDispatcherName + index)
 
   "A MediaArchiveConfig" should "create an instance from the application config" in:
     checkArchiveConfig(createArchiveConfig(), 0)
@@ -217,6 +222,13 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     val config = createArchiveConfig(appConfig)
 
     config.archiveName should be(ArchiveName + MediaArchiveConfig.DefaultNameSuffix)
+
+  it should "use a default name for the blocking dispatcher" in:
+    val appConfig = createDefaultHierarchicalConfig()
+    appConfig.clearProperty("media.localArchives.localArchive.blockingDispatcherName")
+    val config = createArchiveConfig(appConfig)
+
+    config.blockingDispatcherName should be(MediaArchiveConfig.DefaultBlockingDispatcherName)
 
   it should "support a static name pattern without calling the resolver function" in:
     val count = new AtomicInteger
@@ -270,6 +282,10 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     val config1 = configs.head
     config1.archiveName should be(ArchiveName)
     config1.rootPath should be(RootPath)
-    checkArchiveConfig(config1.copy(archiveName = ArchiveName + 42,
-      rootPath = Paths.get(RootPath.toString + 42)), 42)
+    val expConfig = config1.copy(
+      archiveName = ArchiveName + 42,
+      rootPath = Paths.get(RootPath.toString + 42),
+      blockingDispatcherName = BlockingDispatcherName + 42
+    )
+    checkArchiveConfig(expConfig, 42)
     checkArchiveConfig(configs(1), 2)
