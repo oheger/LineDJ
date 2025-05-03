@@ -64,6 +64,9 @@ object PersistentMetadataManagerActorSpec:
 
   /** Index of the test medium. */
   private val MediumIndex = 1
+  
+  /** The name of the blocking dispatcher. */
+  private val BlockingDispatcher = "test-blocking-dispatcher"
 
   /** Constant for the reader child actor class. */
   private val ClassReaderChildActor = PersistentMetadataReaderActor(null, 0).actorClass()
@@ -663,7 +666,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
     def initMediaFiles(indices: Int*): PersistenceMetaDataManagerActorTestHelper =
       val futResult = if indices.isEmpty then Future.failed[Map[MediumChecksum, Path]](new IOException)
       else Future.successful(persistentFileMapping(indices: _*))
-      when(fileScanner.scanForMetadataFiles(argEq(FilePath))(any(), any()))
+      when(fileScanner.scanForMetadataFiles(argEq(FilePath), argEq(BlockingDispatcher))(any()))
         .thenReturn(futResult)
       this
 
@@ -799,6 +802,7 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       when(config.metadataPersistenceParallelCount).thenReturn(ParallelCount)
       when(config.metadataPersistenceChunkSize).thenReturn(ChunkSize)
       when(config.metadataPersistenceWriteBlockSize).thenReturn(WriteBlockSize)
+      when(config.blockingDispatcherName).thenReturn(BlockingDispatcher)
       config
 
     /**

@@ -315,7 +315,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     log.info("Scanning {} for metadata files.", config.metadataPersistencePath)
     import context.dispatcher
     implicit val system: ActorSystem = context.system
-    fileScanner.scanForMetadataFiles(config.metadataPersistencePath)
+    fileScanner.scanForMetadataFiles(config.metadataPersistencePath, config.blockingDispatcherName)
       .recover {
         case e: Exception =>
           log.error(e, "Could not read metadata files!")

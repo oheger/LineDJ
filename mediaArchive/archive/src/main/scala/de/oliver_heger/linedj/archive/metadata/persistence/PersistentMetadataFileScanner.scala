@@ -16,17 +16,20 @@
 
 package de.oliver_heger.linedj.archive.metadata.persistence
 
+import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.archive.media.MediumChecksum
-import de.oliver_heger.linedj.io.DirectoryStreamSource
-import org.apache.pekko.actor.ActorSystem
+import de.oliver_heger.linedj.io.LocalFsUtils
+import org.apache.pekko.actor.{ActorSystem, typed}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.Sink
 
 import java.nio.file.Path
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object PersistentMetadataFileScanner:
   /** The file extension for persistent metadata files. */
-  final val MetadataFileExtension = "MDT"
+  final val MetadataFileExtension = "mdt"
 
   /**
     * Determines the checksum of a metadata file.
@@ -39,17 +42,17 @@ object PersistentMetadataFileScanner:
     MediumChecksum(name.substring(0, name.lastIndexOf('.')))
 
   /**
-    * The transformation function used by the directory source. Each metadata
-    * file is converted to a tuple consisting of the checksum and the path of a
-    * metadata file. Note that the ''dir'' flag is ignored because no sub
-    * directories are passed.
+    * Filters the given list of elements for files with metadata about media.
     *
-    * @param p   the path to a metadata file
-    * @param dir the flag whether the path is a directory
-    * @return the transformed stream element
+    * @param elements the elements
+    * @return the filtered elements
     */
-  private def transformMetadataFile(p: Path, dir: Boolean): (MediumChecksum, Path) =
-    (checksumFor(p), p)
+  private def filterMetadataFiles(elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
+    elements.filter {
+      case f: Model.File[Path] if LocalFsUtils.extractExtension(f.id) == MetadataFileExtension => true
+      case _ => false
+    }
+end PersistentMetadataFileScanner
 
 /**
   * An internally used helper class for scanning for files with persistent
@@ -64,7 +67,7 @@ object PersistentMetadataFileScanner:
   */
 private class PersistentMetadataFileScanner:
 
-  import PersistentMetadataFileScanner._
+  import PersistentMetadataFileScanner.*
 
   /**
     * Scans the specified directory for metadata files. All detected files are
@@ -73,14 +76,28 @@ private class PersistentMetadataFileScanner:
     * result is a future. If an ''IOException'' occurs (which typically
     * means that the directory does not exist), result is a failed future.
     *
-    * @param dir the directory to be scanned
-    * @param ec the execution context
+    * @param dir                    the directory to be scanned
+    * @param blockingDispatcherName the name of the blocking dispatcher
+    * @param system                 the actor system
     * @return a future with a map with the results of the scan operation
     */
-  def scanForMetadataFiles(dir: Path)(implicit system: ActorSystem, ec: ExecutionContext):
-  Future[Map[MediumChecksum, Path]] =
-    val source = DirectoryStreamSource.newBFSSource(dir,
-      pathFilter = DirectoryStreamSource
-        .includeExtensionsFilter(Set(MetadataFileExtension)))(transformMetadataFile)
+  def scanForMetadataFiles(dir: Path, blockingDispatcherName: String)
+                          (implicit system: ActorSystem): Future[Map[MediumChecksum, Path]] =
+    val localFs = LocalFsUtils.createLocalFs(dir, blockingDispatcherName, system)
+    val walkConfig = Walk.WalkConfig(
+      fileSystem = localFs,
+      httpActor = null,
+      rootID = dir,
+      transform = filterMetadataFiles
+    )
+
+    given typed.ActorSystem[_] = system.toTyped
+
+    val source = Walk.dfsSource(walkConfig)
+      .filter {
+        case _: Model.File[Path] => true
+        case _ => false
+      }
+      .map(elem => (checksumFor(elem.id), elem.id))
     val sink = Sink.fold[Map[MediumChecksum, Path], (MediumChecksum, Path)](Map.empty)(_ + _)
     source runWith sink
