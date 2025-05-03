@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.extract.metadata
 
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, PathUtils}
+import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport, LocalFsUtils}
 import de.oliver_heger.linedj.shared.archive.media.MediaFileUri
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess, ProcessMetadataFile}
@@ -98,7 +98,7 @@ class MetadataExtractorWrapperActor(extractorFactory: ExtractorActorFactory) ext
   private def receiveProcessing: Receive =
     case p: ProcessMetadataFile =>
       log.info("Metadata processing request for {}.", p.fileData.path)
-      val ext = PathUtils extractExtension p.fileData.path.toString
+      val ext = LocalFsUtils extractExtension p.fileData.path.toString
       cache = ensureExtensionCanBeHandled(ext, cache)
       val (a, m, f) = cache.functions(ext)(p)
       a ! m

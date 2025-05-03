@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivecommon.download
 
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor._
-import de.oliver_heger.linedj.io.PathUtils
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.stream.StreamPullModeratorActor
 import de.oliver_heger.linedj.shared.archive.media._
 import org.apache.pekko.actor.{ActorLogging, ActorRef}
@@ -152,6 +152,6 @@ class MediaFileDownloadActor(path: Path, chunkSize: Int, trans: DownloadTransfor
     * @return the transformed source
     */
   private def applyTransformation(source: Source[ByteString, Any]): Source[ByteString, Any] =
-    val extension = PathUtils extractExtension path.toString
+    val extension = LocalFsUtils extractExtension path.toString
     if trans isDefinedAt extension then source.via(trans(extension))
     else source

@@ -18,12 +18,11 @@ package de.oliver_heger.linedj.archive.media
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.utils.Walk
-import com.github.cloudfiles.localfs.{LocalFileSystem, LocalFsConfig}
+import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.apache.pekko.actor.{ActorLogging, ActorRef, Props}
-import org.apache.pekko.actor.typed
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.{ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.pattern.ask
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
@@ -41,12 +40,6 @@ object MediaScannerActor:
 
   /** The extension for settings files to be used in filter expressions. */
   private val SettingsExtFilter = "SETTINGS"
-
-  /** Constant for an undefined file extension. */
-  private val NoExtension = ""
-
-  /** Constant for the extension delimiter character. */
-  private val Dot = '.'
 
   /**
     * Returns a ''Props'' object to create an instance of this actor class.
@@ -98,10 +91,7 @@ object MediaScannerActor:
     * @return the extracted extension
     */
   private def extractExtension(path: Path): String =
-    val fileName = path.getFileName.toString
-    val pos = fileName lastIndexOf Dot
-    if pos >= 0 then fileName.substring(pos + 1).toUpperCase
-    else NoExtension
+    LocalFsUtils.extractExtension(path).toUpperCase
 
   /**
     * A message received by ''MediaScannerActor'' telling it to scan a
@@ -175,7 +165,7 @@ class MediaScannerActor(archiveName: String,
   extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport:
   this: ChildActorFactory =>
 
-  import MediaScannerActor._
+  import MediaScannerActor.*
 
   override def customReceive: Receive =
     case req: ScanPath =>
@@ -207,9 +197,7 @@ class MediaScannerActor(archiveName: String,
     * @return the source for scanning this structure
     */
   private[media] def createSource(path: Path): Source[Path, Any] =
-    val ec = context.system.dispatchers.lookup(blockingDispatcherName)
-    val fsOptions = LocalFsConfig(path, ec)
-    val localFs = new LocalFileSystem(fsOptions)
+    val localFs = LocalFsUtils.createLocalFs(path, blockingDispatcherName, context.system)
     val walkConfig = Walk.WalkConfig(
       fileSystem = localFs,
       httpActor = null,
@@ -249,7 +237,7 @@ class MediaScannerActor(archiveName: String,
 
     val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks) { implicit builder =>
       ks =>
-        import GraphDSL.Implicits._
+        import GraphDSL.Implicits.*
         val broadcast = builder.add(Broadcast[Path](2))
         val aggregate = new MediumAggregateStage(root, archiveName, converter)
         val enhance = Flow[MediaScanResult].map(ScanResultEnhancer.enhance)

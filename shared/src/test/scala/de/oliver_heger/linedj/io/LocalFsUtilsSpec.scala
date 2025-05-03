@@ -16,37 +16,28 @@
 
 package de.oliver_heger.linedj.io
 
-import java.nio.file.Path
-
+import java.nio.file.{Path, Paths}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /**
-  * Test class for ''PathUtils''.
+  * Test class for ''LocalFsUtils''.
   */
-class PathUtilsSpec extends AnyFlatSpec with Matchers:
-  "PathUtils" should "extract an extension from a file name" in:
+class LocalFsUtilsSpec extends AnyFlatSpec with Matchers:
+  "LocalFsUtils" should "extract an extension from a file name" in:
     val File = "test.txt"
 
-    PathUtils extractExtension File should be("txt")
+    LocalFsUtils extractExtension File should be("txt")
 
   it should "return the extension if a name contains multiple dots" in:
     val File = "/my/music/1. Test.Music.mp3"
 
-    PathUtils extractExtension File should be("mp3")
+    LocalFsUtils extractExtension File should be("mp3")
 
   it should "return an empty extension if a file does not have an extension" in:
-    PathUtils extractExtension "fileWithoutExtension" should be("")
+    LocalFsUtils extractExtension "fileWithoutExtension" should be("")
 
-  it should "convert a string to a Path" in:
-    val Name = "music.mp3"
+  it should "extract the extension from a Path object" in:
+    val File = Paths.get("some", "path", "test.txt")
 
-    val path = PathUtils asPath Name
-    path.getFileName.toString should be(Name)
-
-  it should "enable implicit conversions from string to Path" in:
-    val Name = "testFile.txt"
-
-    import PathUtils._
-    val path: Path = Name
-    path.toString should be(Name)
+    LocalFsUtils.extractExtension(File) should be("txt")
