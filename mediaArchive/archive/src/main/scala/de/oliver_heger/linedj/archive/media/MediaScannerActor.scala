@@ -51,18 +51,27 @@ object MediaScannerActor:
   /**
     * Returns a ''Props'' object to create an instance of this actor class.
     *
-    * @param archiveName      the name of the media archive
-    * @param exclusions       a set of file extensions to exclude
-    * @param inclusions       a set of file extensions to include
-    * @param maxBufSize       the size of internal buffers for aggregated results
-    * @param mediumInfoParser the actor for parsing medium info files
-    * @param parserTimeout    the timeout for parsing of medium info files
+    * @param archiveName            the name of the media archive
+    * @param exclusions             a set of file extensions to exclude
+    * @param inclusions             a set of file extensions to include
+    * @param maxBufSize             the size of internal buffers for aggregated
+    *                               results
+    * @param mediumInfoParser       the actor for parsing medium info files
+    * @param parserTimeout          the timeout for parsing of medium info
+    *                               files
+    * @param blockingDispatcherName the name of the dispatcher for blocking
+    *                               operations
     * @return a ''Props'' object to create an instance
     */
-  def apply(archiveName: String, exclusions: Set[String], inclusions: Set[String],
-            maxBufSize: Int, mediumInfoParser: ActorRef, parserTimeout: Timeout): Props =
+  def apply(archiveName: String,
+            exclusions: Set[String],
+            inclusions: Set[String],
+            maxBufSize: Int,
+            mediumInfoParser: ActorRef,
+            parserTimeout: Timeout,
+            blockingDispatcherName: String): Props =
     Props(classOf[MediaScannerActorImpl], archiveName, exclusions, inclusions, maxBufSize,
-      mediumInfoParser, parserTimeout)
+      mediumInfoParser, parserTimeout, blockingDispatcherName)
 
   /**
     * The mapping function from a stream failure to a corresponding message.
@@ -113,11 +122,22 @@ object MediaScannerActor:
     */
   case class PathScanCompleted(request: ScanPath)
 
-  private class MediaScannerActorImpl(archiveName: String, exclusions: Set[String],
-                                      inclusions: Set[String], maxBufSize: Int,
-                                      mediumInfoParser: ActorRef, parserTimeout: Timeout)
-    extends MediaScannerActor(archiveName, exclusions, inclusions, maxBufSize,
-      mediumInfoParser, parserTimeout) with ChildActorFactory
+  private class MediaScannerActorImpl(archiveName: String,
+                                      exclusions: Set[String],
+                                      inclusions: Set[String],
+                                      maxBufSize: Int,
+                                      mediumInfoParser: ActorRef,
+                                      parserTimeout: Timeout,
+                                      blockingDispatcherName: String)
+    extends MediaScannerActor(
+      archiveName,
+      exclusions,
+      inclusions,
+      maxBufSize,
+      mediumInfoParser,
+      parserTimeout,
+      blockingDispatcherName
+    ) with ChildActorFactory
 end MediaScannerActor
 
 /**
@@ -135,15 +155,23 @@ end MediaScannerActor
   * message, but for all ongoing scan operations result messages are generated
   * (with the files encountered until the operation was canceled).
   *
-  * @param archiveName      the name of the media archive
-  * @param exclusions       a set of file extensions to exclude
-  * @param inclusions       a set of file extensions to include
-  * @param maxBufSize       the size of internal buffers for aggregated results
-  * @param mediumInfoParser the actor for parsing medium info files
-  * @param parserTimeout    the timeout for parsing of medium info files
+  * @param archiveName            the name of the media archive
+  * @param exclusions             a set of file extensions to exclude
+  * @param inclusions             a set of file extensions to include
+  * @param maxBufSize             the size of internal buffers for aggregated
+  *                               results
+  * @param mediumInfoParser       the actor for parsing medium info files
+  * @param parserTimeout          the timeout for parsing of medium info files
+  * @param blockingDispatcherName the name of the dispatcher for blocking
+  *                               operations
   */
-class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions: Set[String],
-                        maxBufSize: Int, mediumInfoParser: ActorRef, parserTimeout: Timeout)
+class MediaScannerActor(archiveName: String,
+                        exclusions: Set[String],
+                        inclusions: Set[String],
+                        maxBufSize: Int,
+                        mediumInfoParser: ActorRef,
+                        parserTimeout: Timeout,
+                        blockingDispatcherName: String)
   extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport:
   this: ChildActorFactory =>
 
@@ -179,7 +207,8 @@ class MediaScannerActor(archiveName: String, exclusions: Set[String], inclusions
     * @return the source for scanning this structure
     */
   private[media] def createSource(path: Path): Source[Path, Any] =
-    val fsOptions = LocalFsConfig(path, context.dispatcher)
+    val ec = context.system.dispatchers.lookup(blockingDispatcherName)
+    val fsOptions = LocalFsConfig(path, ec)
     val localFs = new LocalFileSystem(fsOptions)
     val walkConfig = Walk.WalkConfig(
       fileSystem = localFs,

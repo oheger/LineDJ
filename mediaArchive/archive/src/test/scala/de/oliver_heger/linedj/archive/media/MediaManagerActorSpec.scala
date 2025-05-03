@@ -48,7 +48,7 @@ import scala.concurrent.duration.*
 object MediaManagerActorSpec:
   /** Class for the directory scanner child actor. */
   private val ClsDirScanner: Class[_ <: Actor] = MediaScannerActor("", Set.empty,
-    Set.empty, 100, null, Timeout(1.minute)).actorClass()
+    Set.empty, 100, null, Timeout(1.minute), MediaArchiveConfig.DefaultBlockingDispatcherName).actorClass()
 
   /** Class for the medium info parser child actor. */
   private val ClsInfoParser: Class[MediumInfoParserActor] = classOf[MediumInfoParserActor]
@@ -74,6 +74,9 @@ object MediaManagerActorSpec:
 
   /** A name for the archive. */
   private val ArchiveName = "MyTestArchive"
+
+  /** Test name of a blocking dispatcher. */
+  private val BlockingDispatcher = "myTestBlockingDispatcher"
 
   /** A test medium ID. */
   private val TestMedium = MediumID("MyTestMedium", Some(RootPath.resolve("test.settings").toString))
@@ -174,6 +177,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     when(config.infoParserTimeout).thenReturn(ParserTimeout)
     when(config.infoSizeLimit).thenReturn(InfoSizeLimit)
     when(config.rootPath).thenReturn(archiveRootPath)
+    when(config.blockingDispatcherName).thenReturn(BlockingDispatcher)
     when(config.downloadConfig).thenReturn(downloadConfig)
     config
 
@@ -730,7 +734,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
             p.actorClass() match {
               case ClsDirScanner =>
                 p.args should be(List(ArchiveName, ExcludedExtensions, IncludedExtensions,
-                  ScanBufSize, probeInfoParser.ref, ParserTimeout))
+                  ScanBufSize, probeInfoParser.ref, ParserTimeout, BlockingDispatcher))
                 probeMediaScanner.ref
 
               case ClsInfoParser =>

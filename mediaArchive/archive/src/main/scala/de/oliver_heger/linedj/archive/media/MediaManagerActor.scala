@@ -150,7 +150,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
       mediumInfoParser, config.infoSizeLimit))
     mediaScannerActor = createChildActor(MediaScannerActor(config.archiveName,
       config.excludedFileExtensions, config.includedFileExtensions,
-      config.scanMediaBufferSize, mediumInfoParserActor, config.infoParserTimeout))
+      config.scanMediaBufferSize, mediumInfoParserActor, config.infoParserTimeout, config.blockingDispatcherName))
     downloadManagerActor = createChildActor(DownloadMonitoringActor(config.downloadConfig))
 
   override def receive: Receive =
