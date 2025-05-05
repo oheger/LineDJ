@@ -16,10 +16,13 @@
 
 package de.oliver_heger.linedj.archivehttp.temp
 
-import de.oliver_heger.linedj.io.{DirectoryStreamSource, RemoveFileActor}
+import com.github.cloudfiles.core.Model
+import com.github.cloudfiles.core.utils.Walk
+import de.oliver_heger.linedj.io.{LocalFsUtils, RemoveFileActor}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.apache.pekko.Done
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
+import org.apache.pekko.stream.scaladsl.Sink
 
 import java.nio.file.Path
 import scala.concurrent.Future
@@ -59,18 +62,6 @@ object RemoveTempFilesActor:
     Props(classOf[RemoteTempFilesActorImpl], blockingDispatcherName)
 
   /**
-    * An internally used message to trigger the 2nd phase of a clean temp
-    * directory operation. In the first step all temporary files are removed.
-    * In the second phase, the directories are processed. (Directories can only
-    * be removed when they are empty; therefore, the files have to be handled
-    * first.)
-    *
-    * @param root      the root directory to be scanned
-    * @param generator the generator for temp file names
-    */
-  private case class ClearDirectoriesFromTempDirectory(root: Path, generator: TempPathGenerator)
-
-  /**
     * A transformation function for the directory stream source. When
     * processing the temporary download directory in a first step all files
     * can be removed. Only then it is possible to remove directories. So,
@@ -94,7 +85,7 @@ object RemoveTempFilesActor:
   * terminates, these files have to be removed again.
   *
   * Removing temporary files is a fire-and-forget operation; if a file cannot
-  * be removed for whatever reasons, no other parts of the HTTP archive should
+  * be removed for whatever reason, no other parts of the HTTP archive should
   * be affected or crash. Therefore, no responses for remove operations are
   * expected. This actor class creates a child actor of type
   * [[de.oliver_heger.linedj.io.RemoveFileActor]] and delegates remove
@@ -115,8 +106,8 @@ object RemoveTempFilesActor:
 class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
-  import RemoveTempFilesActor._
-  import context.{dispatcher, system}
+  import RemoveTempFilesActor.*
+  import context.dispatcher
 
   /** The actor which actually removes files. */
   private var removeFileActor: ActorRef = _
@@ -133,25 +124,75 @@ class RemoveTempFilesActor(blockingDispatcherName: String) extends Actor with Ac
       log.debug("Removed temporary file {}.", path)
 
     case ClearTempDirectory(root, generator) =>
-      processTempDirectory(root, generator, dirFlag = false) foreach { _ =>
-        self ! ClearDirectoriesFromTempDirectory(root, generator)
+      deleteTempFilesAndCollectFolders(root, generator) foreach { folders =>
+        folders.foreach(deleteElement)
       }
 
-    case ClearDirectoriesFromTempDirectory(root, generator) =>
-      processTempDirectory(root, generator, dirFlag = true)
-
   /**
-    * Scans the specified root directories for temporary download files and
-    * removes all encountered ''Path'' objects of the specified path type.
+    * Scans the specified root directory for temporary download files and
+    * removes all encountered files directly. The folders are aggregated and
+    * returned, so that they can be safely deleted after all files have been
+    * removed. To make this possible, they are returned in an order where
+    * subfolders come first.
     *
     * @param root      the root directory
     * @param generator the path generator
-    * @param dirFlag   the path type: '''true''' for directories, '''false'''
-    *                  for plain files
-    * @return a future for the stream result
+    * @return a [[Future]] with a list of temporary folders to delete
     */
-  private def processTempDirectory(root: Path, generator: TempPathGenerator,
-                                   dirFlag: Boolean): Future[Done] =
-    val filter = DirectoryStreamSource.PathFilter(generator.isRemovableTempPath)
-    val source = DirectoryStreamSource.newDFSSource(root, filter)(transformByPathType(dirFlag))
-    source.runForeach(_ foreach (removeFileActor ! RemoveFileActor.RemoveFile(_)))
+  private def deleteTempFilesAndCollectFolders(root: Path, generator: TempPathGenerator):
+  Future[List[Model.Folder[Path]]] =
+    val localFs = LocalFsUtils.createLocalFs(root, blockingDispatcherName, context.system)
+    val walkOptions = Walk.WalkConfig(
+      fileSystem = localFs,
+      httpActor = null,
+      rootID = root,
+      transform = filterTempPaths(generator)
+    )
+
+    given typed.ActorSystem[_] = context.system.toTyped
+
+    val source = Walk.dfsSource(walkOptions)
+      .map(processElement)
+      .filter(_.isDefined)
+      .map(_.get)
+    val sink = Sink.fold[List[Model.Folder[Path]], Model.Folder[Path]](List.empty) { (list, folder) =>
+      folder :: list
+    }
+    source.runWith(sink)
+
+  /**
+    * Filters out temporary paths to be deleted from the given list of
+    * elements. This is used as transformation function for the walk operation
+    * over the temporary folder structure.
+    *
+    * @param generator the path generator
+    * @param elements  the elements to filter
+    * @return the filtered list of elements
+    */
+  private def filterTempPaths(generator: TempPathGenerator)
+                             (elements: List[Model.Element[Path]]): List[Model.Element[Path]] =
+    elements.filter(elem => generator.isRemovableTempPath(elem.id))
+
+  /**
+    * Processes a single element during the iteration over the temporary root
+    * directory. If the element is a file, it is deleted. Otherwise, it is
+    * returned as a folder for later removal.
+    *
+    * @param elem the element to process
+    * @return an [[Option]] with the folder to collect
+    */
+  private def processElement(elem: Model.Element[Path]): Option[Model.Folder[Path]] =
+    elem match
+      case file: Model.File[Path] =>
+        deleteElement(file)
+        None
+      case folder: Model.Folder[Path] =>
+        Some(folder)
+
+  /**
+    * Deletes the given element using the remove file actor.
+    *
+    * @param elem the element to be deleted
+    */
+  private def deleteElement(elem: Model.Element[Path]): Unit =
+    removeFileActor ! RemoveFileActor.RemoveFile(elem.id)

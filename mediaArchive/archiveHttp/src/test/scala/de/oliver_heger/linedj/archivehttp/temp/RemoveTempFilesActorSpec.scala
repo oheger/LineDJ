@@ -32,7 +32,7 @@ import java.nio.file.{Files, Path, Paths}
 
 object RemoveTempFilesActorSpec:
   /** The name to be used for the blocking dispatcher. */
-  private val DispatcherName = "blockingDispatcher"
+  private val DispatcherName = "blocking-dispatcher"
 
 /**
   * Test class for ''RemoveTempFilesActor''.
@@ -72,14 +72,14 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   private def createTempDirectory(name: String): Path =
     Files.createDirectory(createPathInDirectory(name))
 
-  "A RemoveTempFilesActor" should "create correct Props" in:
+  "A RemoveTempFilesActor" should "create correct Props" in :
     val props = RemoveTempFilesActor(DispatcherName)
 
     classOf[RemoveTempFilesActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     props.args should be(List(DispatcherName))
 
-  it should "pass files to be removed to the child actor" in:
+  it should "pass files to be removed to the child actor" in :
     val Path1 = Paths get "tempFile1.tmp"
     val Path2 = Paths get "tempFile2.tmp"
     val Path3 = Paths get "tempFile3.tmp"
@@ -90,12 +90,12 @@ class RemoveTempFilesActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .expectRemoveRequestFor(Path2)
       .expectRemoveRequestFor(Path3)
 
-  it should "handle confirmation messages for removed files" in:
+  it should "handle confirmation messages for removed files" in :
     val helper = new RemoveActorTestHelper
 
     helper send RemoveFileActor.FileRemoved(Paths get "somePath")
 
-  it should "clean the temporary download directory" in:
+  it should "clean the temporary download directory" in :
     val dir1 = createTempDirectory("downloadDir1")
     val dir2 = createTempDirectory("downloadDir2")
     val dir3 = createTempDirectory("anotherDir")
