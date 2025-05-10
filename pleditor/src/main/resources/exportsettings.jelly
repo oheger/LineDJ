@@ -20,11 +20,6 @@
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:di="diBuilder" xmlns:f="formBuilder"
   xmlns:a="actionBuilder" xmlns:w="windowBuilder">
-
-  <!-- Bean for the directory scanner -->
-  <di:bean name="directoryScanner"
-    beanClassName="de.oliver_heger.linedj.io.DirectoryScanner"/>
-
   <!-- The command to be executed when the OK button is pressed. -->
   <di:bean name="okCommand"
     beanClassName="de.oliver_heger.linedj.pleditor.ui.playlist.plexport.OpenExportProgressDlgCommand">
@@ -32,7 +27,6 @@
       <di:param value="classpath:exportprogress.jelly"/>
       <di:param refName="exportSettings"/>
       <di:param refName="exportSongs"/>
-      <di:param refName="directoryScanner"/>
     </di:constructor>
   </di:bean>
 

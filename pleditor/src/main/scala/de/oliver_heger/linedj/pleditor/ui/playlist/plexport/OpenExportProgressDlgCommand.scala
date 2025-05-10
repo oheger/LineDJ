@@ -16,24 +16,19 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
-import java.io.IOException
-import java.nio.file.{Path, Paths}
-
-import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportData
-import de.oliver_heger.linedj.io.{DirectoryScanner, ScanResult}
 import de.oliver_heger.linedj.platform.audio.model.SongData
+import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportData
 import net.sf.jguiraffe.gui.app.{ApplicationBuilderData, OpenWindowCommand}
 import net.sf.jguiraffe.locators.Locator
+
+import java.nio.file.Paths
 
 object OpenExportProgressDlgCommand:
   /**
    * The name of the property under which the export data is stored in the
    * bean context.
    */
-  val PropExportData = "exportData"
-
-  /** Constant for an empty scan result. */
-  private val EmptyScanResult = ScanResult(Nil, Nil)
+  final val PropExportData = "exportData"
 
 /**
  * A specialized command for opening the dialog which displays the progress of
@@ -48,13 +43,13 @@ object OpenExportProgressDlgCommand:
  * @param scriptLocator the locator for the builder script
  * @param settings the bean with the data entered in the settings dialog
  * @param exportSongs the list with songs to be exported
- * @param scanner the directory scanner
  */
-class OpenExportProgressDlgCommand(scriptLocator: Locator, settings: ExportSettings, exportSongs:
-java.util.List[SongData], scanner: DirectoryScanner)
+class OpenExportProgressDlgCommand(scriptLocator: Locator, 
+                                   settings: ExportSettings,
+                                   exportSongs: java.util.List[SongData])
   extends OpenWindowCommand(scriptLocator):
 
-  import OpenExportProgressDlgCommand._
+  import OpenExportProgressDlgCommand.*
 
   override protected[plexport] def prepareBuilderData(builderData: ApplicationBuilderData): Unit =
     super.prepareBuilderData(builderData)
@@ -66,24 +61,8 @@ java.util.List[SongData], scanner: DirectoryScanner)
    * @return the ''ExportData''
    */
   private def createExportData(): ExportData =
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val exportPath = Paths get settings.targetDirectory
-    ExportActor.ExportData(exportSongs.asScala.toSeq, scanIfNecessary(exportPath), exportPath, clearTarget =
+    ExportActor.ExportData(exportSongs.asScala.toSeq, /*scanIfNecessary(exportPath),*/ exportPath, clearTarget =
       settings.clearMode == ExportSettings.ClearAll,
       overrideFiles = settings.clearMode == ExportSettings.ClearOverride)
-
-  /**
-   * Scans the target directory if this is required. Note: If parsing fails, an
-   * empty result object is returned. This typically means that the export
-   * directory is invalid. This problem will be handled later by the export
-   * actor.
-   * @param path the path to be scanned
-   * @return the result of the scan operation
-   */
-  private def scanIfNecessary(path: Path): ScanResult =
-    if settings.clearMode != ExportSettings.ClearOverride then
-      try
-        scanner scan path
-      catch
-        case _: IOException => EmptyScanResult
-    else EmptyScanResult

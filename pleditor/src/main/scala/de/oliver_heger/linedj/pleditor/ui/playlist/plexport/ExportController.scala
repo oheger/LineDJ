@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.pleditor.ui.playlist.plexport
 
+import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.comm.MessageBusListener
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
@@ -34,7 +35,7 @@ import java.nio.file.Path
 
 object ExportController:
   /** The name of the export actor. */
-  val ExportActorName = "playlistExportActor"
+  final val ExportActorName = "playlistExportActor"
 
   /** The resource key for the dialog with an error message. */
   private val ResErrorTitle = "exp_failure_title"
@@ -49,31 +50,32 @@ object ExportController:
   private val ResErrorInit = "exp_failure_init"
 
   /**
-   * Transforms the given path to a string to be displayed to the user.
-   * @param p the path
-   * @return the string
-   */
+    * Transforms the given path to a string to be displayed to the user.
+    *
+    * @param p the path
+    * @return the string
+    */
   private def pathString(p: Path): String = p.toString
 
 /**
- * A controller class for an export operation.
- *
- * An instance of this class is created and associated with the dialog opened
- * during an export playlist operation. The controller is responsible for
- * initiating the export (which is actually executed by an actor) and
- * monitoring the progress. The associated UI has to be adapted for the
- * progress made by the export. When the export is done the dialog window is
- * closed.
- *
- * @param applicationContext the application context
- * @param mediaFacade the facade to the media archive
- * @param config the configuration for the playlist editor
- * @param actorFactory the factory for actors
- * @param exportData describes the export operation
- * @param progressRemove handler for the progress bar for remove operations
- * @param progressCopy handler for the progress bar for copy operations
- * @param currentFile handler for the text for the current file
- */
+  * A controller class for an export operation.
+  *
+  * An instance of this class is created and associated with the dialog opened
+  * during an export playlist operation. The controller is responsible for
+  * initiating the export (which is actually executed by an actor) and
+  * monitoring the progress. The associated UI has to be adapted for the
+  * progress made by the export. When the export is done the dialog window is
+  * closed.
+  *
+  * @param applicationContext the application context
+  * @param mediaFacade        the facade to the media archive
+  * @param config             the configuration for the playlist editor
+  * @param actorFactory       the factory for actors
+  * @param exportData         describes the export operation
+  * @param progressRemove     handler for the progress bar for remove operations
+  * @param progressCopy       handler for the progress bar for copy operations
+  * @param currentFile        handler for the text for the current file
+  */
 class ExportController(applicationContext: ApplicationContext, mediaFacade: MediaFacade,
                        config: PlaylistEditorConfig, actorFactory: ActorFactory,
                        exportData: ExportActor.ExportData, progressRemove: ProgressBarHandler,
@@ -112,33 +114,40 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
   override def windowIconified(windowEvent: WindowEvent): Unit = {}
 
   /**
-   * The associated window was opened. Here the main initialization takes
-   * place.
-   * @param windowEvent the window event
-   */
+    * The associated window was opened. Here the main initialization takes
+    * place.
+    *
+    * @param windowEvent the window event
+    */
   override def windowOpened(windowEvent: WindowEvent): Unit =
     listenerID = mediaFacade.bus registerListener receive
 
-    val props = ExportActor(mediaFacade, config.downloadChunkSize, config.progressSize)
+    val props = ExportActor(
+      mediaFacade,
+      config.downloadChunkSize,
+      config.progressSize,
+      ClientApplication.BlockingDispatcherName
+    )
     exportActor = actorFactory.createActor(props, ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
 
   /**
-   * Reacts on a click of the cancel button. This is answered by sending a
-   * cancel request to the export actor. When the export terminates a
-   * corresponding message is sent on the event bus which in turn will cause a
-   * shutdown.
-   * @param formActionEvent the action event
-   */
+    * Reacts on a click of the cancel button. This is answered by sending a
+    * cancel request to the export actor. When the export terminates a
+    * corresponding message is sent on the event bus which in turn will cause a
+    * shutdown.
+    *
+    * @param formActionEvent the action event
+    */
   override def actionPerformed(formActionEvent: FormActionEvent): Unit =
     exportActor ! ExportActor.CancelExport
     formActionEvent.getHandler setEnabled false
 
   /**
-   * Reacts on messages on the bus. Here the messages from the export actor are
-   * retrieved and processed.
-   */
+    * Reacts on messages on the bus. Here the messages from the export actor are
+    * retrieved and processed.
+    */
   override def receive: Receive =
     case progress: ExportActor.ExportProgress =>
       currentFile setText pathString(progress.currentPath)
@@ -169,9 +178,9 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
     * @return the message object
     */
   private def createErrorMessage(error: ExportError): Message =
-  if ExportActor.InitializationError.error.get == error then
-    new Message(null, ResErrorInit)
-  else new Message(null, fetchErrorResource(error), pathString(error.errorPath))
+    if ExportActor.InitializationError.error.get == error then
+      new Message(null, ResErrorInit)
+    else new Message(null, fetchErrorResource(error), pathString(error.errorPath))
 
   /**
     * Obtains the resource key for an error message for the specified export
@@ -181,12 +190,12 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
     * @return the resource key for displaying an error message
     */
   private def fetchErrorResource(error: ExportError): String =
-  if error.errorType == ExportActor.OperationType.Remove then ResErrorRemove
-  else ResErrorCopy
+    if error.errorType == ExportActor.OperationType.Remove then ResErrorRemove
+    else ResErrorCopy
 
   /**
-   * Performs a shutdown after the export is done. Closes the associated window
-   * and stops the export actor.
-   */
+    * Performs a shutdown after the export is done. Closes the associated window
+    * and stops the export actor.
+    */
   private def shutdown(): Unit =
     window close true
