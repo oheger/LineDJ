@@ -108,7 +108,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       val propsMediaManager = MediaManagerActor(archiveConfig, probeMetaDataManager.ref,
         probeMediaUnionActor.ref, probeGroupManager.ref, null)
       val propsMetaDataManager = MetadataManagerActor(archiveConfig, probePersistenceManager.ref,
-        probeMetaDataUnionActor.ref, null)
+        probeMetaDataUnionActor.ref, None, null)
       Map(propsMediaManager.actorClass() -> (checkMediaManagerProps(propsMediaManager), probeMediaManager.ref),
         propsMetaDataManager.actorClass() -> (checkMetaDataManagerProps(propsMetaDataManager),
           probeMetaDataManager.ref),
@@ -155,7 +155,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     private def checkMetaDataManagerProps(expected: Props)(actual: Props): Boolean =
       actual.args.size == expected.args.size &&
         actual.args.slice(0, 3) == expected.args.slice(0, 3) &&
-        checkConverter(actual, 3)
+        checkConverter(actual, 4)
 
     /**
       * Checks whether a correct converter has been passed as parameter in the

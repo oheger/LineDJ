@@ -24,10 +24,10 @@ import de.oliver_heger.linedj.extract.metadata.{MetadataExtractionActor, Process
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetadataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 
 import java.nio.file.Path
 import scala.collection.immutable.Queue
@@ -45,9 +45,12 @@ object MetadataManagerActor:
     */
   case object ScanResultProcessed
 
-  private class MetadataManagerActorImpl(config: MediaArchiveConfig, persistenceManager: ActorRef,
-                                         metaDataUnionActor: ActorRef, converter: PathUriConverter)
-    extends MetadataManagerActor(config, persistenceManager, metaDataUnionActor, converter)
+  private class MetadataManagerActorImpl(config: MediaArchiveConfig,
+                                         persistenceManager: ActorRef,
+                                         metaDataUnionActor: ActorRef,
+                                         metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+                                         converter: PathUriConverter)
+    extends MetadataManagerActor(config, persistenceManager, metaDataUnionActor, metadataListener, converter)
       with ChildActorFactory with CloseSupport
 
   /**
@@ -56,13 +59,24 @@ object MetadataManagerActor:
     * @param config             the server configuration object
     * @param persistenceManager reference to the persistence manager actor
     * @param metadataUnionActor reference to the metadata union actor
+    * @param metadataListener   an optional listener to receive metadata events
     * @param converter          the ''PathUriConverter''
     * @return creation properties for a new actor instance
     */
-  def apply(config: MediaArchiveConfig, persistenceManager: ActorRef,
-            metadataUnionActor: ActorRef, converter: PathUriConverter): Props =
-    Props(classOf[MetadataManagerActorImpl], config, persistenceManager, metadataUnionActor, converter)
-
+  def apply(config: MediaArchiveConfig,
+            persistenceManager: ActorRef,
+            metadataUnionActor: ActorRef,
+            metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+            converter: PathUriConverter): Props =
+    Props(
+      classOf[MetadataManagerActorImpl],
+      config,
+      persistenceManager,
+      metadataUnionActor,
+      metadataListener,
+      converter
+    )
+end MetadataManagerActor
 
 /**
   * The central actor class for managing metadata extraction for a local
@@ -89,10 +103,14 @@ object MetadataManagerActor:
   * @param config             the central configuration object
   * @param persistenceManager reference to the persistence manager actor
   * @param metadataUnionActor reference to the metadata union actor
+  * @param metadataListener   an optional listener to receive metadata events
   * @param converter          the ''PathUriConverter''
   */
-class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: ActorRef,
-                           metadataUnionActor: ActorRef, converter: PathUriConverter) extends Actor with ActorLogging:
+class MetadataManagerActor(config: MediaArchiveConfig,
+                           persistenceManager: ActorRef,
+                           metadataUnionActor: ActorRef,
+                           metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+                           converter: PathUriConverter) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
   /** The factory for extractor actors. */
@@ -109,8 +127,10 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   /** A set with IDs for media which have already been completed. */
   private var completedMedia = Set.empty[MediumID]
 
-  /** A set with media that are currently processed. */
-  private var mediaInProgress = Set.empty[MediumID]
+  /**
+    * A map storing the media that are currently processed and their checksums.
+    */
+  private var mediaInProgress = Map.empty[MediumID, MediumChecksum]
 
   /** Stores client references waiting for an ACK message. */
   private var pendingAck = Queue.empty[ActorRef]
@@ -132,8 +152,12 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       sender() ! ScanResultProcessed
 
     case result: MetadataProcessingResult if !isCloseRequestInProgress =>
+      val optMediumChecksum = mediaInProgress.get(result.mediumID)
       if handleProcessingResult(result.mediumID, result) then
         metadataUnionActor ! result
+        optMediumChecksum.map { checksum =>
+          MetadataProcessingEvent.ProcessingResultAvailable(checksum, result)
+        }.foreach(sendMetadataEvent)
         checkAndHandleScanComplete()
 
     case UnresolvedMetadataFiles(mid, files, result) =>
@@ -148,6 +172,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
         e._1 -> e._2.map(f => converter.pathToUri(f.path))
       }
       metadataUnionActor ! MediaContribution(mediaFiles)
+      sendMediumAvailableEvents(esr)
       persistenceManager ! esr
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
       sendAckIfPossible(esr)
@@ -167,7 +192,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
       val actorsToClose = processorActors.values.toSet + persistenceManager
       onCloseRequest(self, actorsToClose, sender(), this, availableMedia.isDefined)
       pendingAck foreach (_ ! ScanResultProcessed)
-      mediaInProgress = Set.empty
+      mediaInProgress = Map.empty
       pendingAck = Queue.empty
 
     case CloseComplete =>
@@ -197,7 +222,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param esr the new result object
     */
   private def sendAckIfPossible(esr: EnhancedMediaScanResult): Unit =
-    mediaInProgress ++= esr.scanResult.mediaFiles.keys
+    mediaInProgress ++= esr.scanResult.mediaFiles.keys.map(mid => (mid, esr.checksumMapping(mid)))
     if mediaInProgress.size <= config.metadataMediaBufferSize then
       sender() ! ScanResultProcessed
     else
@@ -221,6 +246,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
   private def initiateNewScan(client: ActorRef): Unit =
     log.info("Starting new scan.")
     metadataUnionActor ! UpdateOperationStarts(Some(self))
+    sendMetadataEvent(MetadataProcessingEvent.UpdateOperationStarts(self))
     persistenceManager ! ScanForMetadataFiles
     mediaMap = Map.empty
     completedMedia = Set(MediumID.UndefinedMediumID)
@@ -247,8 +273,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     * @param result   the result to be handled
     * @return a flag whether this is a valid result
     */
-  private def handleProcessingResult(mediumID: MediumID, result: MetadataProcessingResult):
-  Boolean =
+  private def handleProcessingResult(mediumID: MediumID, result: MetadataProcessingResult): Boolean =
     val optHandler = mediaMap get mediumID
     optHandler.exists(processMetadataResult(mediumID, result, _))
 
@@ -307,6 +332,7 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     processorActors.values.foreach(context.stop)
     processorActors = Map.empty
     metadataUnionActor ! UpdateOperationCompleted(Some(self))
+    sendMetadataEvent(MetadataProcessingEvent.UpdateOperationCompleted(self))
     log.info("Scan complete.")
 
   /**
@@ -318,3 +344,24 @@ class MetadataManagerActor(config: MediaArchiveConfig, persistenceManager: Actor
     */
   private def allMediaProcessingResultsReceived: Boolean =
     availableMedia exists (m => m.keySet subsetOf completedMedia)
+
+  /**
+    * Sends the given event to the metadata listener actor if it is defined.
+    *
+    * @param event the event to send
+    */
+  private def sendMetadataEvent(event: MetadataProcessingEvent): Unit =
+    metadataListener.foreach(_ ! event)
+
+  /**
+    * Sends metadata events for the media contained in the given scan result.
+    *
+    * @param esr the scan result
+    */
+  private def sendMediumAvailableEvents(esr: EnhancedMediaScanResult): Unit =
+    val mediaFiles = esr.scanResult.mediaFiles map { e =>
+      e._1 -> e._2.map(f => converter.pathToUri(f.path))
+    }
+    mediaFiles.map { (mid, files) =>
+      MetadataProcessingEvent.MediumAvailable(mid, esr.checksumMapping(mid), files)
+    }.foreach(sendMetadataEvent)

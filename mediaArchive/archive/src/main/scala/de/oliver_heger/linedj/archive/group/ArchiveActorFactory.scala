@@ -50,5 +50,5 @@ trait ArchiveActorFactory:
     val persistentMetaDataManager = createChildActor(
       PersistentMetadataManagerActor(archiveConfig, metadataUnionActor, converter))
     val metaDataManager = createChildActor(MetadataManagerActor(archiveConfig,
-      persistentMetaDataManager, metadataUnionActor, converter))
+      persistentMetaDataManager, metadataUnionActor, None, converter))
     createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))
