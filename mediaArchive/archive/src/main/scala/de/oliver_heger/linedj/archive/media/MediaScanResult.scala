@@ -18,21 +18,10 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Path
-
-object MediumChecksum:
-  /** Constant representing an undefined checksum. */
-  final val Undefined = MediumChecksum("")
-
-/**
-  * A value class representing a checksum calculated based on the content of a
-  * medium.
-  *
-  * @param checksum the actual checksum value
-  */
-case class MediumChecksum(checksum: String) extends AnyVal
 
 /**
   * A data class storing the results of a directory scan for media files (in its

@@ -17,12 +17,12 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediumChecksum, PathUriConverter}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.{MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
+import de.oliver_heger.linedj.shared.archive.metadata.{MediumChecksum, MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}

@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.archive.media
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import org.apache.pekko.actor.ActorRef
 import scalaz.State
-import scalaz.State._
+import scalaz.State.*
 
 import java.nio.file.Path
 

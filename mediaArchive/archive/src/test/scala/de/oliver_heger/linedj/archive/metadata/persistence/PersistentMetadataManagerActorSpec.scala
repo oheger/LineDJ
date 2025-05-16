@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, MediumChecksum, PathUriConverter}
+import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanResult, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataReaderActor.ReadMetadataFile
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}

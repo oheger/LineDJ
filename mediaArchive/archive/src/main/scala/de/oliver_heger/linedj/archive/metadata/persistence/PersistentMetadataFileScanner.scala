@@ -18,8 +18,8 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.utils.Walk
-import de.oliver_heger.linedj.archive.media.MediumChecksum
 import de.oliver_heger.linedj.io.LocalFsUtils
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 import org.apache.pekko.actor.{ActorSystem, typed}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.stream.scaladsl.Sink

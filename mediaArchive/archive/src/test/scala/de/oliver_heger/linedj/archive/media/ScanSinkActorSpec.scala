@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.media
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll

@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.media.MediumChecksum
+import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
