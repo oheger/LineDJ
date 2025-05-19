@@ -20,8 +20,10 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.actor.typed
 
 /**
   * A trait that allows creating all the actors of a media archive.
@@ -40,15 +42,20 @@ trait ArchiveActorFactory:
     *
     * @param mediaUnionActor    the media actor of the union archive
     * @param metadataUnionActor the metadata actor of the union archive
+    * @param metadataListener   the listener for metadata processing events
     * @param groupManager       the group manager actor
     * @param archiveConfig      the config of the new archive
     * @return the new media manager actor
     */
-  def createArchiveActors(mediaUnionActor: ActorRef, metadataUnionActor: ActorRef, groupManager: ActorRef,
+  def createArchiveActors(mediaUnionActor: ActorRef,
+                          metadataUnionActor: ActorRef,
+                          metadataListener: typed.ActorRef[MetadataProcessingEvent],
+                          groupManager: ActorRef,
                           archiveConfig: MediaArchiveConfig): ActorRef =
     val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
       PersistentMetadataManagerActor(archiveConfig, metadataUnionActor, converter))
-    val metaDataManager = createChildActor(MetadataManagerActor(archiveConfig,
-      persistentMetaDataManager, metadataUnionActor, None, converter))
+    val metaDataManager = createChildActor(
+      MetadataManagerActor(archiveConfig, persistentMetaDataManager, metadataListener, converter)
+    )
     createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))

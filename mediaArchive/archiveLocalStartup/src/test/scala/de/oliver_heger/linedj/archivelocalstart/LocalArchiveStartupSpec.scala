@@ -18,12 +18,15 @@ package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
+import de.oliver_heger.linedj.archiveunion.MetadataUnionProcessingListener
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.{any, anyString}
@@ -109,8 +112,11 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the metadata union actor. */
     private val probeUnionMetadataManager = TestProbe()
 
+    /** A mock for the metadata listener behavior. */
+    private val listenerBehavior = mock[Behavior[MetadataProcessingEvent]]
+
     /** The startup instance to be tested. */
-    val startup = new LocalArchiveStartup
+    val startup = new LocalArchiveStartup(createListenerBehaviorFactory())
 
     /** The test message bus. */
     val messageBus = new MessageBusTestImpl
@@ -191,13 +197,29 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
           val name = invocation.getArguments()(1).asInstanceOf[String]
           name match {
             case "archiveGroupActor" =>
-              val refProps = ArchiveGroupActor(probeUnionMediaManager.ref, probeUnionMetadataManager.ref,
-                ArchiveConfigs)
+              val refProps = ArchiveGroupActor(
+                probeUnionMediaManager.ref,
+                probeUnionMetadataManager.ref,
+                listenerBehavior,
+                ArchiveConfigs
+              )
               props should be(refProps)
               actorCreation(probeGroupActor)
           }
         })
       factory
+
+    /**
+      * Returns a dummy factory object to create the behavior of the metadata
+      * listener actor. This factory checks whether the expected metadata union
+      * actor is passed in and returns the mock behavior.
+      *
+      * @return the factory for the metadata listener behavior
+      */
+    private def createListenerBehaviorFactory(): MetadataUnionProcessingListener.Factory =
+      metadataUnionActor =>
+        metadataUnionActor should be(probeUnionMetadataManager.ref)
+        listenerBehavior
 
     /**
       * Simulates an actor creation through the actor factory and records the
@@ -210,5 +232,3 @@ class LocalArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       createdActors should not contain probe
       createdActors = createdActors + probe
       probe.ref
-
-

@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
+import de.oliver_heger.linedj.archiveunion.{MetadataUnionActor, MetadataUnionProcessingListener}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -27,7 +28,7 @@ import org.osgi.service.component.ComponentContext
 
 object LocalArchiveStartup:
   /** Name for the archive group actor. */
-  val NameGroupActor = "archiveGroupActor"
+  final val NameGroupActor = "archiveGroupActor"
 
 /**
   * A class that starts a local media archive in an OSGi environment.
@@ -39,9 +40,13 @@ object LocalArchiveStartup:
   * local archive can be started directly. Information about the paths
   * to be scanned must be provided in the configuration of the management
   * application.
+  *
+  * @param listenerFactory the factory for the metadata listener actor
   */
-class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
-  with ActorManagementComponent:
+class LocalArchiveStartup(listenerFactory: MetadataUnionProcessingListener.Factory) extends PlatformComponent
+  with ClientContextSupport with ActorManagementComponent:
+
+  def this() = this(MetadataUnionProcessingListener.behavior)
 
   import LocalArchiveStartup._
 
@@ -78,5 +83,9 @@ class LocalArchiveStartup extends PlatformComponent with ClientContextSupport
     */
   private def startLocalArchive(mediaUnionActor: ActorRef, metadataUnionActor: ActorRef): Unit =
     val archiveConfigs = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
-    createAndRegisterActor(ArchiveGroupActor(mediaUnionActor, metadataUnionActor, archiveConfigs), NameGroupActor)
+    val listenerBehavior = listenerFactory(metadataUnionActor)
+    createAndRegisterActor(
+      ArchiveGroupActor(mediaUnionActor, metadataUnionActor, listenerBehavior, archiveConfigs),
+      NameGroupActor
+    )
     log.info("Local archive started.")

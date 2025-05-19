@@ -19,13 +19,19 @@ package de.oliver_heger.linedj.archive.group
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
-import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.atomic.AtomicReference
 
 /**
   * Test class for ''ArchiveGroupActor''.
@@ -41,17 +47,19 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "An ArchiveGroupActor" should "return correct Props" in:
     val mediaUnionActor = TestProbe().ref
     val metaDataUnionActor = TestProbe().ref
+    val listenerBehavior = mock[Behavior[MetadataProcessingEvent]]
     val archiveConfigs = List(mock[MediaArchiveConfig], mock[MediaArchiveConfig])
 
-    val props = ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs)
+    val props = ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, listenerBehavior, archiveConfigs)
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ArchiveActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ArchiveGroupActor].isAssignableFrom(props.actorClass()) shouldBe true
-    props.args should have size 4
+    props.args should have size 5
     props.args.head should be(mediaUnionActor)
     props.args(1) should be(metaDataUnionActor)
-    props.args(2) should be(archiveConfigs)
-    props.args(3) should be(GroupScanStateServiceImpl)
+    props.args(2) should be(listenerBehavior)
+    props.args(3) should be(archiveConfigs)
+    props.args(4) should be(GroupScanStateServiceImpl)
 
   it should "create and initialize the archives in the group" in:
     val helper = new GroupActorTestHelper
@@ -95,6 +103,11 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
     probeTarget.expectMsg(StartMediaScan)
 
+  it should "instantiate and propagate a correct event listener actor" in:
+    val helper = new GroupActorTestHelper
+
+    helper.testMetadataEventListener()
+
   /**
     * Test helper class that manages a test actor and its dependencies.
     */
@@ -111,10 +124,23 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private val archiveConfigs = List(mock[MediaArchiveConfig], mock[MediaArchiveConfig])
 
     /**
+      * A queue that is populated by the test behavior for the metadata event
+      * listener actor. This is used to test whether the listener actor is
+      * correctly spawned.
+      */
+    private val receivedMetadataEvents = new LinkedBlockingQueue[MetadataProcessingEvent]
+
+    /**
       * The test probes for the media manager actors of the archives in the
       * group.
       */
     private val mediaManagers = List(TestProbe(), TestProbe())
+
+    /**
+      * A reference for storing the metadata event listener actor passed to the
+      * archive actor factory.
+      */
+    private val refMetadataListener = new AtomicReference[typed.ActorRef[MetadataProcessingEvent]]
 
     /** The actor to be tested. */
     private val groupActor = createTestActor()
@@ -139,18 +165,52 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       this
 
     /**
+      * Tests whether a correct metadata event listener has been created and
+      * passed to the archive actor factory.
+      */
+    def testMetadataEventListener(): Unit =
+      awaitCond(refMetadataListener.get() != null)
+      val listener = refMetadataListener.get()
+
+      val event = MetadataProcessingEvent.UpdateOperationStarts(TestProbe().ref)
+      listener ! event
+      receivedMetadataEvents.poll(3, TimeUnit.SECONDS) should be(event)
+
+    /**
+      * Returns a [[Behavior]] for a test metadata processing listener actor
+      * that passes the received event to a queue. This allows testing whether
+      * the listener actor is correctly instantiated.
+      *
+      * @return the behavior for the test metadata event listener actor
+      */
+    private def handleMetadataEvent(): Behavior[MetadataProcessingEvent] =
+      Behaviors.receiveMessage { event =>
+        receivedMetadataEvents.offer(event)
+        Behaviors.same
+      }
+
+    /**
       * Creates the actor to be tested. It uses a mock archive actor factory to
       * inject test probes as media manager actors.
       *
       * @return the test actor
       */
     private def createTestActor(): ActorRef =
-      system.actorOf(Props(new ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs,
-        updateService) with ArchiveActorFactory with ChildActorFactory {
-        override def createArchiveActors(refMediaUnionActor: ActorRef, metadataUnionActor: ActorRef,
-                                         groupManager: ActorRef, archiveConfig: MediaArchiveConfig): ActorRef = {
+      system.actorOf(Props(new ArchiveGroupActor(
+        mediaUnionActor,
+        metaDataUnionActor,
+        handleMetadataEvent(),
+        archiveConfigs,
+        updateService
+      ) with ArchiveActorFactory with ChildActorFactory {
+        override def createArchiveActors(refMediaUnionActor: ActorRef,
+                                         metadataUnionActor: ActorRef,
+                                         metadataListener: typed.ActorRef[MetadataProcessingEvent],
+                                         groupManager: ActorRef,
+                                         archiveConfig: MediaArchiveConfig): ActorRef = {
           refMediaUnionActor should be(mediaUnionActor)
           metadataUnionActor should be(metaDataUnionActor)
+          refMetadataListener.set(metadataListener)
           groupManager should be(self)
           if archiveConfig == archiveConfigs.head then mediaManagers.head.ref
           else if archiveConfig == archiveConfigs(1) then mediaManagers(1).ref
