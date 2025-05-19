@@ -20,10 +20,12 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -42,7 +44,11 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
   with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("ArchiveActorFactorySpec"))
 
+  /** The test kit for typed actors. */
+  private val typedTestKit = ActorTestKit()
+
   override protected def afterAll(): Unit =
+    typedTestKit.shutdownTestKit()
     TestKit shutdownActorSystem system
     super.afterAll()
 
@@ -79,6 +85,9 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the group manager actor. */
     private val probeGroupManager = TestProbe()
 
+    /** Test probe for the metadata processing event listener. */
+    private val probeMetadataListener = typedTestKit.createTestProbe[MetadataProcessingEvent]()
+
     /** The map with information about the child actors to be created. */
     private var childActorsMap = createChildActorsMap()
 
@@ -92,8 +101,13 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       * @return this test helper
       */
     def createArchive(): FactoryTestHelper =
-      factory.createArchiveActors(probeMediaUnionActor.ref, probeMetaDataUnionActor.ref,
-        probeGroupManager.ref, archiveConfig) should be(probeMediaManager.ref)
+      factory.createArchiveActors(
+        probeMediaUnionActor.ref,
+        probeMetaDataUnionActor.ref,
+        probeMetadataListener.ref,
+        probeGroupManager.ref,
+        archiveConfig
+      ) should be(probeMediaManager.ref)
       childActorsMap.isEmpty shouldBe true
       this
 
@@ -105,10 +119,19 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     private def createChildActorsMap(): Map[Class[_], (Props => Boolean, ActorRef)] =
       val propsPersistentManager = PersistentMetadataManagerActor(archiveConfig, probeMetaDataUnionActor.ref, null)
-      val propsMediaManager = MediaManagerActor(archiveConfig, probeMetaDataManager.ref,
-        probeMediaUnionActor.ref, probeGroupManager.ref, null)
-      val propsMetaDataManager = MetadataManagerActor(archiveConfig, probePersistenceManager.ref,
-        probeMetaDataUnionActor.ref, None, null)
+      val propsMediaManager = MediaManagerActor(
+        archiveConfig,
+        probeMetaDataManager.ref,
+        probeMediaUnionActor.ref,
+        probeGroupManager.ref,
+        null
+      )
+      val propsMetaDataManager = MetadataManagerActor(
+        archiveConfig,
+        probePersistenceManager.ref,
+        probeMetadataListener.ref,
+        null
+      )
       Map(propsMediaManager.actorClass() -> (checkMediaManagerProps(propsMediaManager), probeMediaManager.ref),
         propsMetaDataManager.actorClass() -> (checkMetaDataManagerProps(propsMetaDataManager),
           probeMetaDataManager.ref),
@@ -155,7 +178,7 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     private def checkMetaDataManagerProps(expected: Props)(actual: Props): Boolean =
       actual.args.size == expected.args.size &&
         actual.args.slice(0, 3) == expected.args.slice(0, 3) &&
-        checkConverter(actual, 4)
+        checkConverter(actual, 3)
 
     /**
       * Checks whether a correct converter has been passed as parameter in the

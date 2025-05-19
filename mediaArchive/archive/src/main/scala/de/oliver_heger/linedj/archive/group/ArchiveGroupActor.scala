@@ -18,7 +18,10 @@ package de.oliver_heger.linedj.archive.group
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 import scala.collection.immutable.Seq
@@ -27,21 +30,39 @@ object ArchiveGroupActor:
   /**
     * Returns a ''Props'' object for creating an instance of this actor class.
     *
-    * @param mediaUnionActor    the media actor of the union archive
-    * @param metaDataUnionActor the metadata actor of the union archive
-    * @param archiveConfigs     the configurations of the archives in the group
+    * @param mediaUnionActor          the media actor of the union archive
+    * @param metadataUnionActor       the metadata actor of the union archive
+    * @param metadataListenerBehavior the behavior for the metadata listener
+    *                                 actor
+    * @param archiveConfigs           the configurations of the archives in the
+    *                                 group
     * @return a ''Props'' object to create a new instance
     */
-  def apply(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
+  def apply(mediaUnionActor: ActorRef,
+            metadataUnionActor: ActorRef,
+            metadataListenerBehavior: Behavior[MetadataProcessingEvent],
             archiveConfigs: Seq[MediaArchiveConfig]): Props =
-    Props(classOf[ArchiveGroupActorImpl], mediaUnionActor, metaDataUnionActor, archiveConfigs,
-      GroupScanStateServiceImpl)
+    Props(
+      classOf[ArchiveGroupActorImpl],
+      mediaUnionActor,
+      metadataUnionActor,
+      metadataListenerBehavior,
+      archiveConfigs,
+      GroupScanStateServiceImpl
+    )
 
-  private class ArchiveGroupActorImpl(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
+  private class ArchiveGroupActorImpl(mediaUnionActor: ActorRef,
+                                      metadataUnionActor: ActorRef,
+                                      metadataListenerBehavior: Behavior[MetadataProcessingEvent],
                                       archiveConfigs: Seq[MediaArchiveConfig],
                                       private val scanStateService: GroupScanStateService)
-    extends ArchiveGroupActor(mediaUnionActor, metaDataUnionActor, archiveConfigs, scanStateService)
-      with ArchiveActorFactory with ChildActorFactory
+    extends ArchiveGroupActor(
+      mediaUnionActor,
+      metadataUnionActor,
+      metadataListenerBehavior,
+      archiveConfigs,
+      scanStateService
+    ) with ArchiveActorFactory with ChildActorFactory
 
 
 /**
@@ -52,16 +73,21 @@ object ArchiveGroupActor:
   * corresponding actors are created, and an initial scan operation is
   * triggered).
   *
-  * In addition, it makes sure that scan operations of the managed archives are
-  * coordinated: Only a single scan operation can be active at a given time for
-  * all of the archives that belong to the group.
+  * In addition, it is responsible for coordinating scan operations of the
+  * managed archives: Only a single scan operation can be active at a given
+  * time for all the archives that belong to the group.
   *
-  * @param mediaUnionActor    the media actor of the union archive
-  * @param metaDataUnionActor the metadata actor of the union archive
-  * @param archiveConfigs     the configurations of the archives in the group
-  * @param scanStateService   the service to manage the scan state
+  * @param mediaUnionActor          the media actor of the union archive
+  * @param metadataUnionActor       the metadata actor of the union archive
+  * @param metadataListenerBehavior the behavior for the metadata listener
+  *                                 actor
+  * @param archiveConfigs           the configurations of the archives in the
+  *                                 group
+  * @param scanStateService         the service to manage the scan state
   */
-class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
+class ArchiveGroupActor(mediaUnionActor: ActorRef,
+                        metadataUnionActor: ActorRef,
+                        metadataListenerBehavior: Behavior[MetadataProcessingEvent],
                         archiveConfigs: Seq[MediaArchiveConfig],
                         private val scanStateService: GroupScanStateService) extends Actor:
   this: ArchiveActorFactory =>
@@ -76,8 +102,9 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef, metaDataUnionActor: ActorRef,
   override def preStart(): Unit =
     super.preStart()
 
+    val metadataListener = context.spawnAnonymous(metadataListenerBehavior)
     archiveConfigs map { config =>
-      createArchiveActors(mediaUnionActor, metaDataUnionActor, self, config)
+      createArchiveActors(mediaUnionActor, metadataUnionActor, metadataListener, self, config)
     } foreach (_ ! ScanAllMedia)
 
   override def receive: Receive =

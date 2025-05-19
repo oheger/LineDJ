@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.*
-import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetadataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 
@@ -47,10 +47,9 @@ object MetadataManagerActor:
 
   private class MetadataManagerActorImpl(config: MediaArchiveConfig,
                                          persistenceManager: ActorRef,
-                                         metaDataUnionActor: ActorRef,
-                                         metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+                                         metadataListener: typed.ActorRef[MetadataProcessingEvent],
                                          converter: PathUriConverter)
-    extends MetadataManagerActor(config, persistenceManager, metaDataUnionActor, metadataListener, converter)
+    extends MetadataManagerActor(config, persistenceManager, metadataListener, converter)
       with ChildActorFactory with CloseSupport
 
   /**
@@ -58,21 +57,18 @@ object MetadataManagerActor:
     *
     * @param config             the server configuration object
     * @param persistenceManager reference to the persistence manager actor
-    * @param metadataUnionActor reference to the metadata union actor
     * @param metadataListener   an optional listener to receive metadata events
     * @param converter          the ''PathUriConverter''
     * @return creation properties for a new actor instance
     */
   def apply(config: MediaArchiveConfig,
             persistenceManager: ActorRef,
-            metadataUnionActor: ActorRef,
-            metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+            metadataListener: typed.ActorRef[MetadataProcessingEvent],
             converter: PathUriConverter): Props =
     Props(
       classOf[MetadataManagerActorImpl],
       config,
       persistenceManager,
-      metadataUnionActor,
       metadataListener,
       converter
     )
@@ -92,8 +88,8 @@ end MetadataManagerActor
   * persistent metadata can be updated.
   *
   * All metadata - either read from persistent files or extracted manually -
-  * is sent to a union metadata manager actor. It is then stored in the union
-  * archive and can be queried by clients.
+  * is propagated as [[MetadataProcessingEvent]] to a listener actor. This 
+  * actor can then decide how to further process it.
   *
   * To avoid an unlimited growth of the queue of media waiting to be processed
   * for metadata extraction, the actor sends ACK messages when there is
@@ -102,14 +98,12 @@ end MetadataManagerActor
   *
   * @param config             the central configuration object
   * @param persistenceManager reference to the persistence manager actor
-  * @param metadataUnionActor reference to the metadata union actor
-  * @param metadataListener   an optional listener to receive metadata events
+  * @param metadataListener   a listener to receive metadata events
   * @param converter          the ''PathUriConverter''
   */
 class MetadataManagerActor(config: MediaArchiveConfig,
                            persistenceManager: ActorRef,
-                           metadataUnionActor: ActorRef,
-                           metadataListener: Option[typed.ActorRef[MetadataProcessingEvent]],
+                           metadataListener: typed.ActorRef[MetadataProcessingEvent],
                            converter: PathUriConverter) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
@@ -154,7 +148,6 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     case result: MetadataProcessingResult if !isCloseRequestInProgress =>
       val optMediumChecksum = mediaInProgress.get(result.mediumID)
       if handleProcessingResult(result.mediumID, result) then
-        metadataUnionActor ! result
         optMediumChecksum.map { checksum =>
           MetadataProcessingEvent.ProcessingResultAvailable(checksum, result)
         }.foreach(sendMetadataEvent)
@@ -168,10 +161,6 @@ class MetadataManagerActor(config: MediaArchiveConfig,
       processorActors = actorMap
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
-      val mediaFiles = esr.scanResult.mediaFiles map { e =>
-        e._1 -> e._2.map(f => converter.pathToUri(f.path))
-      }
-      metadataUnionActor ! MediaContribution(mediaFiles)
       sendMediumAvailableEvents(esr)
       persistenceManager ! esr
       esr.scanResult.mediaFiles foreach prepareHandlerForMedium
@@ -245,7 +234,6 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     */
   private def initiateNewScan(client: ActorRef): Unit =
     log.info("Starting new scan.")
-    metadataUnionActor ! UpdateOperationStarts(Some(self))
     sendMetadataEvent(MetadataProcessingEvent.UpdateOperationStarts(self))
     persistenceManager ! ScanForMetadataFiles
     mediaMap = Map.empty
@@ -331,7 +319,6 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     completedMedia = Set.empty
     processorActors.values.foreach(context.stop)
     processorActors = Map.empty
-    metadataUnionActor ! UpdateOperationCompleted(Some(self))
     sendMetadataEvent(MetadataProcessingEvent.UpdateOperationCompleted(self))
     log.info("Scan complete.")
 
@@ -351,7 +338,7 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     * @param event the event to send
     */
   private def sendMetadataEvent(event: MetadataProcessingEvent): Unit =
-    metadataListener.foreach(_ ! event)
+    metadataListener ! event
 
   /**
     * Sends metadata events for the media contained in the given scan result.
