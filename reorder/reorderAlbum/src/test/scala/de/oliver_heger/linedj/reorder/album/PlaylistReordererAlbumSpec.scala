@@ -48,15 +48,15 @@ class PlaylistReordererAlbumSpec extends AnyFlatSpec with Matchers:
 
   it should "order a sequence of songs correctly" in:
     val s1 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
-      trackNumber = Some(1)))
+      trackNumber = Some(1), size = 0, checksum = ""))
     val s2 = createSong(MediaMetadata(inceptionYear = Some(1983), album = Some("Crisis"),
-      trackNumber = Some(2), title = Some("Moonlight Shadow")))
+      trackNumber = Some(2), title = Some("Moonlight Shadow"), size = 0, checksum = ""))
     val s3 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Ammonia Avenue"),
-      artist = Some("Alan Parson"), title = Some("Some song")))
+      artist = Some("Alan Parson"), title = Some("Some song"), size = 0, checksum = ""))
     val s4 = createSong(MediaMetadata(inceptionYear = Some(1984), album = Some("Discovery"),
-      title = Some("Talk about your life"), artist = Some("Mike Oldfield")))
+      title = Some("Talk about your life"), artist = Some("Mike Oldfield"), size = 0, checksum = ""))
     val s5 = createSong(MediaMetadata(album = Some("On every street"), trackNumber = Some(1),
-      title = Some("Calling Elvis")))
+      title = Some("Calling Elvis"), size = 0, checksum = ""))
     val songs = List(s3, s1, s5, s4, s2)
     val reorder = new PlaylistReordererAlbum
 

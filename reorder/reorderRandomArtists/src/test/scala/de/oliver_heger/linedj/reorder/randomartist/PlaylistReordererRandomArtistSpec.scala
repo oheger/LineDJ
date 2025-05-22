@@ -39,7 +39,7 @@ class PlaylistReordererRandomArtistSpec extends AnyFlatSpec with Matchers:
   it should "return the artist from the grouping function" in:
     val Artist = "Eric Clapton"
     val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetadata(title = Some("title"), artist = Some(Artist)),
+      MediaMetadata.UndefinedMediaData.copy(title = Some("title"), artist = Some(Artist)),
     "title", Artist, "album")
     val reorder = new PlaylistReordererRandomArtist
 

@@ -40,7 +40,7 @@ object PlaylistReordererRandomSongsSpec:
     */
   private def createSong(name: String): SongData =
     SongData(MediaFileID(MediumID.UndefinedMediumID, "song://" + name),
-      MediaMetadata(title = Some(name)), name, null, null)
+      MediaMetadata.UndefinedMediaData.copy(title = Some(name)), name, null, null)
 
   /**
     * Creates a sequence with test songs.

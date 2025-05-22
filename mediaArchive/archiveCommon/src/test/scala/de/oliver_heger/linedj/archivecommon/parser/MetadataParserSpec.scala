@@ -81,7 +81,7 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
   it should "handle undefined metadata" in :
     readMetadataFile(TestMetadataFile) map { results =>
-      results(1).metadata should be(MediaMetadata())
+      results(1).metadata should be(MediaMetadata.UndefinedMediaData)
     }
 
   it should "correctly parse metadata" in :
@@ -90,10 +90,11 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       artist = Some("testArtist"),
       title = Some("testTitle"),
       formatDescription = Some("testFormat"),
-      size = Some(4581376),
+      size = 4581376,
       inceptionYear = Some(2024),
       trackNumber = Some(1),
-      duration = Some(100000)
+      duration = Some(100000),
+      checksum = "check-this-out"
     )
 
     readMetadataFile(TestMetadataFile) map { results =>
@@ -126,7 +127,8 @@ class MetadataParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
         trackNumber = Some(5),
         inceptionYear = Some(1980),
         formatDescription = Some("high quality"),
-        size = Some(10000)
+        size = 10000,
+        checksum = "some-checksum"
       )
     )
 

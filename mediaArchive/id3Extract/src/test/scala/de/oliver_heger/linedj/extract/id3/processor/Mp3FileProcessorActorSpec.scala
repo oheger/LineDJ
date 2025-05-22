@@ -46,11 +46,14 @@ object Mp3FileProcessorActorSpec:
 
   /** A test processing result template passed to the test actor. */
   private val TestProcessingResult =
-    MetadataProcessingSuccess(mediumID = MediumID("some/medium", None), uri = MediaFileUri("mp3://testSong.mp3"),
-      metadata = MediaMetadata())
+    MetadataProcessingSuccess(
+      mediumID = MediumID("some/medium", None),
+      uri = MediaFileUri("mp3://testSong.mp3"),
+      metadata = MediaMetadata.UndefinedMediaData
+    )
 
   /** Test metadata to be returned by the collector mock. */
-  private val TestMetadata = MediaMetadata(title = Some("Title"), artist = Some("Artist"))
+  private val TestMetadata = MediaMetadata.UndefinedMediaData.copy(title = Some("Title"), artist = Some("Artist"))
 
   /** The expected processing result. */
   private val ExpectedProcessingResult = TestProcessingResult.copy(metadata = TestMetadata)

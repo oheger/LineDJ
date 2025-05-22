@@ -59,7 +59,7 @@ object OpenExportProgressDlgCommandSpec:
   private def createSongData(index: Int): SongData =
     val title = "Song " + index
     SongData(MediaFileID(MediumID("Medium" + index, None), "song://TestSong" + index),
-      MediaMetadata(title = Some(title)), title, null, null)
+      MediaMetadata.UndefinedMediaData.copy(title = Some(title)), title, null, null)
 
   /**
     * Creates a settings object with the specified clear mode.

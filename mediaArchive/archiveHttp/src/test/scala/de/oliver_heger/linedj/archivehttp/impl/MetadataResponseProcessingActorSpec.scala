@@ -78,7 +78,7 @@ object MetadataResponseProcessingActorSpec:
     */
   private def processingResult(idx: Int): MetadataProcessingSuccess =
     MetadataProcessingSuccess(TestMediumID, createUri(idx),
-      MediaMetadata(title = Some(s"Song$idx"), size = Some((idx + 1) * 100)))
+      MediaMetadata(title = Some(s"Song$idx"), size = (idx + 1) * 100, checksum = ""))
 
   /**
     * Creates a sequence with test metadata of the specified size.
@@ -98,7 +98,7 @@ object MetadataResponseProcessingActorSpec:
   private def jsonMetadata(data: MetadataProcessingSuccess): String =
     s"""{
        |"title":"${data.metadata.title.get}",
-       |"size":${data.metadata.fileSize},
+       |"size":${data.metadata.size},
        |"uri":"${data.uri.uri}"
        |}
    """.stripMargin

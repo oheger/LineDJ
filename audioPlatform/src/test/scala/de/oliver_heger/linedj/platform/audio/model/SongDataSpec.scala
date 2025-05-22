@@ -32,8 +32,10 @@ object SongDataSpec:
   private val Duration = 4444
 
   /** A metadata object containing all relevant information. */
-  private val CompleteMetaData = MediaMetadata(trackNumber = Some(TrackNumber),
-    duration = Some(Duration))
+  private val CompleteMetaData = MediaMetadata.UndefinedMediaData.copy(
+    trackNumber = Some(TrackNumber),
+    duration = Some(Duration)
+  )
 
 /**
   * Test class for ''SongData''.
@@ -49,7 +51,7 @@ class SongDataSpec extends AnyFlatSpec with Matchers:
     song.hasDuration shouldBe true
 
   it should "return a special duration if undefined in metadata" in:
-    val song = SongData(SongID, MediaMetadata(), "title", "artist", "album")
+    val song = SongData(SongID, MediaMetadata.UndefinedMediaData, "title", "artist", "album")
 
     song.getDuration should be(SongData.UnknownDuration)
     song.hasDuration shouldBe false
@@ -61,7 +63,7 @@ class SongDataSpec extends AnyFlatSpec with Matchers:
     song.hasTrackNumber shouldBe true
 
   it should "return a special track number if undefined in metadata" in:
-    val song = SongData(SongID, MediaMetadata(), "title", "artist", "album")
+    val song = SongData(SongID, MediaMetadata.UndefinedMediaData, "title", "artist", "album")
 
     song.getTrackNumber should be(SongData.UnknownTrackNumber)
     song.hasTrackNumber shouldBe false

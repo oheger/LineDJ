@@ -132,9 +132,12 @@ object MetadataUnionActorSpec:
     */
   private def metadataFor(uri: MediaFileUri): MediaMetadata =
     val index = extractUriIndex(uri)
-    MediaMetadata(title = Some(UriHelper.extractName(uri.uri)),
+    MediaMetadata(
+      title = Some(UriHelper.extractName(uri.uri)),
       duration = Some(index * 10),
-      size = Some(index * 100))
+      size = index * 100,
+      checksum = "check" + index
+    )
 
   /**
     * Generates a metadata processing result for the specified parameters.

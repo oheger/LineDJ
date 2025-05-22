@@ -45,8 +45,10 @@ class MetadataProcessingResultSpec extends AnyFlatSpec with Matchers:
   import MetadataProcessingResultSpec._
 
   "A MetadataProcessingResult" should "allow setting metadata" in:
-    val metaData = MediaMetadata(title = Some("Fear of the Dark"),
-      artist = Some("Iron Maidon"))
+    val metaData = MediaMetadata.UndefinedMediaData.copy(
+      title = Some("Fear of the Dark"),
+      artist = Some("Iron Maidon")
+    )
 
     val orgResult = createResult()
     val result = orgResult.withMetadata(metaData)

@@ -50,7 +50,7 @@ object ActivatePlaylistTaskSpec:
     * @return the data object representing this test song
     */
   private def testSong(idx: Int): SongData =
-    SongData(fileID(idx), MediaMetadata(), "title" + idx, "artist" + idx, "album" + idx)
+    SongData(fileID(idx), MediaMetadata.UndefinedMediaData, "title" + idx, "artist" + idx, "album" + idx)
 
 /**
   * Test class for ''ActivatePlaylistTask''.

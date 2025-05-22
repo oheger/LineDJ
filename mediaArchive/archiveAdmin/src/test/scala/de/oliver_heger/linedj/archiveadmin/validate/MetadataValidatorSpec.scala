@@ -102,7 +102,7 @@ class MetadataValidatorSpec extends AnyFlatSpec with Matchers:
     checkFailedFileValidation(metaData(1).copy(duration = None), NoDuration)
 
   it should "detect a missing size in file metadata" in:
-    checkFailedFileValidation(metaData(1).copy(size = Some(0)), NoSize)
+    checkFailedFileValidation(metaData(1).copy(size = 0), NoSize)
 
   it should "detect a missing track number in file metadata" in:
     checkFailedFileValidation(metaData(1).copy(trackNumber = None), NoTrackNo)
@@ -171,7 +171,7 @@ class MetadataValidatorSpec extends AnyFlatSpec with Matchers:
     checkFailedAlbumValidation(a, MissingFileMetadata, InconsistentTrackNumber)
 
   it should "detect a missing size information for a file of an album" in:
-    checkMissingMetadataInAlbumFile(metaData(4).copy(size = Some(0)))
+    checkMissingMetadataInAlbumFile(metaData(4).copy(size = 0))
 
   it should "detect a minimum track number that is not 1" in:
     val albumOrg = album(1, 8)

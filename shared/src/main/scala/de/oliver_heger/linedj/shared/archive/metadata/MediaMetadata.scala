@@ -18,6 +18,13 @@ package de.oliver_heger.linedj.shared.archive.metadata
 
 import de.oliver_heger.linedj.shared.RemoteSerializable
 
+object MediaMetadata:
+  /**
+    * Constant for an object with undefined metadata. This can be used if 
+    * metadata for a media file could not be resolved.
+    */
+  final val UndefinedMediaData = MediaMetadata(size = -1, checksum = "")
+
 /**
   * A data class containing all metadata available for a media file.
   *
@@ -32,7 +39,8 @@ import de.oliver_heger.linedj.shared.RemoteSerializable
   * @param duration          optional duration of this media file (in milliseconds)
   * @param formatDescription optional format description; this is specific to
   *                          the format of the media file
-  * @param size          optional size of the media file (in bytes)
+  * @param size              size of the media file (in bytes)
+  * @param checksum          a checksum for this media file
   */
 case class MediaMetadata(title: Option[String] = None,
                          artist: Option[String] = None,
@@ -41,11 +49,5 @@ case class MediaMetadata(title: Option[String] = None,
                          trackNumber: Option[Int] = None,
                          duration: Option[Int] = None,
                          formatDescription: Option[String] = None,
-                         size: Option[Int] = None) extends RemoteSerializable:
-  /**
-    * Returns the size of the media file (in bytes) as a ''Long''. Result is 0
-    * if the size is unknown.
-    *
-    * @return the size of the media file in bytes
-    */
-  def fileSize: Long = size.getOrElse(0).toLong
+                         size: Long,
+                         checksum: String) extends RemoteSerializable

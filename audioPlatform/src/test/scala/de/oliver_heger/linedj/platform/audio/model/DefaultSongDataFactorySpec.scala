@@ -44,8 +44,13 @@ object DefaultSongDataFactorySpec:
   private val ResolvedAlbum = "_album"
 
   /** A metadata object with all relevant key properties defined. */
-  private val SongMetadata = MediaMetadata(title = Some(Title), artist = Some(Artist),
-    album = Some(Album))
+  private val SongMetadata = MediaMetadata(
+    title = Some(Title),
+    artist = Some(Artist),
+    album = Some(Album),
+    size = 12345,
+    checksum = "some-checksum"
+  )
 
   /**
     * A test resolver object. This object produces property names derived from
@@ -80,7 +85,7 @@ object DefaultSongDataFactorySpec:
     * @return the song created by the test factory
     */
   private def createSong(withMetaData: Boolean): SongData =
-    val metaData = if withMetaData then SongMetadata else MediaMetadata()
+    val metaData = if withMetaData then SongMetadata else MediaMetadata.UndefinedMediaData
     val factory = new DefaultSongDataFactory(Resolver)
     factory.createSongData(SongID, metaData)
 

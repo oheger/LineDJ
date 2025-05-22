@@ -8,7 +8,8 @@
 "formatDescription": "testFormat",
 "duration": 100000,
 "trackNumber": 1,
-"inceptionYear": 2024
+"inceptionYear": 2024,
+"checksum": "check-this-out"
 },
 {
 "uri": "undefinedUri"

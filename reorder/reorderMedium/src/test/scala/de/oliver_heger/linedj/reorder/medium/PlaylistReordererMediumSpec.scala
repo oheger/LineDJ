@@ -29,7 +29,7 @@ object PlaylistReordererMediumSpec:
     * @return the created ''SongData''
     */
   private def createSong(uri: String): SongData =
-    SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetadata(), null, null, null)
+    SongData(MediaFileID(MediumID.UndefinedMediumID, uri), MediaMetadata.UndefinedMediaData, null, null, null)
 end PlaylistReordererMediumSpec
 
 /**

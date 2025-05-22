@@ -38,7 +38,7 @@ object RandomGroupingPlaylistReordererSpec:
     List("Another Brick in the Wall", "Pop Goes the World", "Almost a Dance", "Perfect Ten",
       "Roam If You Want To", "After Midnight", "Rock me", "Reality", "Push It") map { t =>
       SongData(MediaFileID(MediumID.UndefinedMediumID, "s://" + t),
-        MediaMetadata(title = Some(t)), t, null, null)
+        MediaMetadata.UndefinedMediaData.copy(title = Some(t)), t, null, null)
     }
 
   /**

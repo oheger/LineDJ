@@ -38,9 +38,13 @@ class PlaylistReordererRandomAlbumSpec extends AnyFlatSpec with Matchers:
 
   it should "return the album from the grouping function" in:
     val Album = "Brothers in Arms"
-    val song = SongData(MediaFileID(MediumID.UndefinedMediumID, "someURI"),
-      MediaMetadata(title = Some("So Far Away"), album = Some(Album)),
-      "title", "artist", Album)
+    val song = SongData(
+      MediaFileID(MediumID.UndefinedMediumID, "someURI"),
+      MediaMetadata.UndefinedMediaData.copy(title = Some("So Far Away"), album = Some(Album)),
+      "title",
+      "artist",
+      Album
+    )
     val reorder = new PlaylistReordererRandomAlbum
 
     reorder groupSong song should be(Album)

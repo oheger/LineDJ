@@ -72,7 +72,7 @@ object ExportControllerSpec:
   private def createTestSongs(): Seq[SongData] =
     val medium = MediumID("TestMedium", None)
     1 to SongCount map (i => SongData(MediaFileID(medium, "song://" + i),
-      MediaMetadata(title = Some("Song" + i)), "Song" + i, null, null))
+      MediaMetadata.UndefinedMediaData.copy(title = Some("Song" + i)), "Song" + i, null, null))
 
 /**
  * Test class for ''ExportController''.

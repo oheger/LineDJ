@@ -64,8 +64,13 @@ object PlaylistTableControllerSpec:
     * @return the test song with this index
     */
   private def songData(idx: Int): SongData =
-    SongData(fileID(idx), MediaMetadata(title = Some("Title" + idx)), "Title" + idx,
-      "Artist" + idx, "Album" + idx)
+    SongData(
+      fileID(idx), 
+      MediaMetadata.UndefinedMediaData.copy(title = Some("Title" + idx)), 
+      "Title" + idx,
+      "Artist" + idx, 
+      "Album" + idx
+    )
 
   /**
     * Generates a tuple with a test ''SongData'' and its index in the playlist.

@@ -196,4 +196,8 @@ class MetadataExtractionActor(metadataManager: ActorRef,
     */
   private def processRequest(mediumID: MediumID, fd: FileData,
                              uriMappingFunc: Path => MediaFileUri): ProcessMetadataFile =
-    ProcessMetadataFile(fd, MetadataProcessingSuccess(mediumID, uriMappingFunc(fd.path), MediaMetadata()))
+    ProcessMetadataFile(
+      fd,
+      MetadataProcessingSuccess(mediumID, uriMappingFunc(fd.path), 
+        MediaMetadata.UndefinedMediaData)
+    )

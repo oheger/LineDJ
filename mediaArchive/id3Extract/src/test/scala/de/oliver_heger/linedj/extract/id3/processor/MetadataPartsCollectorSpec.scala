@@ -50,10 +50,17 @@ object MetadataPartsCollectorSpec:
   private val File = FileData(Paths.get("somePath"), 20150912211021L)
 
   /** The expected final metadata. */
-  private val Metadata = MediaMetadata(title = ID3Metadata.title, artist = ID3Metadata.artist,
-    album = ID3Metadata.album, inceptionYear = ID3Metadata.inceptionYear, trackNumber =
-      ID3Metadata.trackNo, duration = Some(Mp3Data.duration), formatDescription = Some("128 kbps"),
-    size = Some(File.size.toInt))
+  private val Metadata = MediaMetadata(
+    title = ID3Metadata.title,
+    artist = ID3Metadata.artist,
+    album = ID3Metadata.album,
+    inceptionYear = ID3Metadata.inceptionYear,
+    trackNumber = ID3Metadata.trackNo,
+    duration = Some(Mp3Data.duration),
+    formatDescription = Some("128 kbps"),
+    size = File.size,
+    checksum = MediaMetadata.UndefinedMediaData.checksum
+  )
 
 /**
   * Test class for ''MetadataPartsCollector''.

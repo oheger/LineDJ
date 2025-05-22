@@ -33,9 +33,6 @@ import org.apache.pekko.util.Timeout
 import scala.concurrent.{ExecutionContext, Future}
 
 object PlaylistMetadataResolver:
-  /** Constant for metadata for a file which could not be resolved. */
-  private val UndefinedMetadata = MediaMetadata()
-
   /**
     * An internally used message that triggers the processing of a response
     * message received from the metadata manager actor.
@@ -78,7 +75,7 @@ object PlaylistMetadataResolver:
       data.contains(f) || currentData.contains(f)
     }
     if unresolved.nonEmpty then
-      data ++ unresolved.map(f => f -> UndefinedMetadata)
+      data ++ unresolved.map(f => f -> MediaMetadata.UndefinedMediaData)
     else data
 
 /**

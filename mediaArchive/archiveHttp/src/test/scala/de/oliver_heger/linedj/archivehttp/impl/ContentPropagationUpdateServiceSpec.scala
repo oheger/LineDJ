@@ -101,7 +101,7 @@ object ContentPropagationUpdateServiceSpec:
   private def metadataProcessingResult(medIdx: Int, fileIdx: Int): MetadataProcessingSuccess =
     val filePath = mediumFilePath(medIdx, fileIdx)
     MetadataProcessingSuccess(mediumID = mediumID(medIdx), uri = MediaFileUri(filePath),
-      metadata = MediaMetadata(title = Some(filePath), size = Some(fileSize(medIdx, fileIdx))))
+      metadata = MediaMetadata(title = Some(filePath), size = fileSize(medIdx, fileIdx), checksum = "c" + fileIdx))
 
   /**
     * Generates the sequence of metadata processing result objects for the

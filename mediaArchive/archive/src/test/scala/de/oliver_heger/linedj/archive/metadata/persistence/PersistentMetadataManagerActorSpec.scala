@@ -191,7 +191,7 @@ object PersistentMetadataManagerActorSpec:
     */
   private def processingResults(mid: MediumID): List[MetadataProcessingSuccess] =
     mediumFiles(mid) map (f => MetadataProcessingSuccess(mid, Converter.pathToUri(f.path),
-      MediaMetadata(title = Some("Song " + f.path))))
+      MediaMetadata.UndefinedMediaData.copy(title = Some("Song " + f.path))))
 
   /**
     * Creates a test process medium for the specified medium.

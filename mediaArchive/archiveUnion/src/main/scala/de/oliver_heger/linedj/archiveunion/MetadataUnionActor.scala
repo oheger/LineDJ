@@ -76,7 +76,7 @@ object MetadataUnionActor:
     def update(result: MetadataProcessingResult): ComponentCounters =
       result match
         case success: MetadataProcessingSuccess =>
-          copy(songCount = songCount + 1, size = size + success.metadata.fileSize,
+          copy(songCount = songCount + 1, size = size + success.metadata.size,
             duration = duration + success.metadata.duration.getOrElse(0))
         case _ => this
 

@@ -50,9 +50,6 @@ object PlaylistController:
     */
   private val ManagedActions = List(ActionExport, ActionActivate)
 
-  /** Constant for undefined metadata. */
-  private[playlist] val UndefinedMetaData = MediaMetadata()
-
   /**
     * Checks whether the metadata of a song is unresolved.
     *
@@ -60,7 +57,7 @@ object PlaylistController:
     * @return a flag whether this song is not yet resolved
     */
   private def isSongUnresolved(song: SongData): Boolean =
-    song.metaData eq UndefinedMetaData
+    song.metaData eq MediaMetadata.UndefinedMediaData
 
   /**
    * Generates the text to be displayed in the status line based on the
@@ -73,7 +70,7 @@ object PlaylistController:
   private def generateStatusLineText(songs: Seq[Any], template: String): String =
     val songData = songs map (_.asInstanceOf[SongData])
     val (size, duration) = songData.foldLeft((0L, 0)) { (d, s) =>
-      (d._1 + s.metaData.fileSize, d._2 + s.getDuration)
+      (d._1 + s.metaData.size, d._2 + s.getDuration)
     }
     val durationDefined = songData forall (_.getDuration > 0)
     val totalDuration = DurationTransformer.formatDuration(duration)
@@ -198,7 +195,7 @@ class PlaylistController(tableHandler: TableHandler, statusLine: StaticTextHandl
     */
   private def addNewSongs(songs: List[MediaFileID], currentTableSize: Int): Unit =
     val newSongs = songs.drop(currentTableSize)
-      .map(id => songDataFactory.createSongData(id, metaData.getOrElse(id, UndefinedMetaData)))
+      .map(id => songDataFactory.createSongData(id, metaData.getOrElse(id, MediaMetadata.UndefinedMediaData)))
     unresolvedSongCount += newSongs.count(isSongUnresolved)
     tableHandler.getModel addAll newSongs.asJava
     tableHandler.rowsInserted(currentTableSize, currentTableSize + newSongs.size - 1)

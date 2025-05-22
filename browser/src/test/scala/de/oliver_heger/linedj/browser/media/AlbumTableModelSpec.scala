@@ -39,9 +39,13 @@ object AlbumTableModelSpec:
    * @return the song data object
    */
   private def song(name: String, track: Int): SongData =
-    SongData(MediaFileID(Medium, "song://" + name),
-      MediaMetadata(title = Some(name), trackNumber = Some(track)),
-      name, "someArtist", "someAlbum")
+    SongData(
+      MediaFileID(Medium, "song://" + name),
+      MediaMetadata.UndefinedMediaData.copy(title = Some(name),trackNumber = Some(track)),
+      name,
+      "someArtist",
+      "someAlbum"
+    )
 
   /**
    * Adds the given songs to a model.

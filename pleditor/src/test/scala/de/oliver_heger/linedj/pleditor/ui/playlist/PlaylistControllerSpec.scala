@@ -84,9 +84,14 @@ object PlaylistControllerSpec:
     * @param idx the index
     * @return metadata for this test song
     */
-  private def metaData(idx: Int): MediaMetadata =
-    MediaMetadata(title = Some("testSong" + idx), artist = Some("testArtist" + idx),
-      duration = Some((idx + 1).minutes.toMillis.toInt), size = Some((idx + 1) * 1024 * 512))
+  private def metadata(idx: Int): MediaMetadata =
+    MediaMetadata(
+      title = Some("testSong" + idx),
+      artist = Some("testArtist" + idx),
+      duration = Some((idx + 1).minutes.toMillis.toInt), 
+      size = (idx + 1) * 1024 * 512,
+      checksum = "check" + idx
+    )
 
   /**
     * Creates a ''SongData'' object with the specified parameters.
@@ -105,7 +110,7 @@ object PlaylistControllerSpec:
     * @return the ''SongData'' instance
     */
   private def unresolvedSongData(idx: Int): SongData =
-    songData(idx, PlaylistController.UndefinedMetaData)
+    songData(idx, MediaMetadata.UndefinedMediaData)
 
   /**
     * Creates a ''SongData'' object with resolved metadata.
@@ -114,7 +119,7 @@ object PlaylistControllerSpec:
     * @return the ''SongData'' instance
     */
   private def resolvedSongData(idx: Int): SongData =
-    songData(idx, metaData(idx))
+    songData(idx, metadata(idx))
 
   /**
     * Generates a list of file IDs in the specified range.
@@ -136,7 +141,7 @@ object PlaylistControllerSpec:
     */
   private def playlistMetaData(from: Int, to: Int): Map[MediaFileID, MediaMetadata] =
     (from to to).foldLeft(Map.empty[MediaFileID, MediaMetadata]) { (m, i) =>
-      m + (fileID(i) -> metaData(i))
+      m + (fileID(i) -> metadata(i))
     }
 
 /**

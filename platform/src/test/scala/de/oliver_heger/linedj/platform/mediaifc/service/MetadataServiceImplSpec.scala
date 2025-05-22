@@ -65,7 +65,7 @@ object MetadataServiceImplSpec:
     * @return the test metadata for the given parameters
     */
   def metaData(mid: MediumID, idx: Int): MediaMetadata =
-    MediaMetadata(title = Some(s"Title ${mid.mediumURI} - song$idx"))
+    MediaMetadata.UndefinedMediaData.copy(title = Some(s"Title ${mid.mediumURI} - song$idx"))
 
   /**
     * Generates a map with metadata for the given test medium ID in the range

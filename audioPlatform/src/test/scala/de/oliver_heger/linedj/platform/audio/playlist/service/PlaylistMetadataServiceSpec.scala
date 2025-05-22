@@ -73,8 +73,13 @@ object PlaylistMetadataServiceSpec:
     * @return metadata for this file
     */
   private def createMetadata(idx: Int): MediaMetadata =
-    MediaMetadata(title = Some("Title" + idx), artist = Some("Artist" + idx),
-      album = Some("Album" + idx))
+    MediaMetadata(
+      title = Some("Title" + idx), 
+      artist = Some("Artist" + idx),
+      album = Some("Album" + idx),
+      size = idx * 100 + 1,
+      checksum = s"check$idx"
+    )
 
   /**
     * Generates a ''SongData'' instance with defined metadata.
@@ -94,7 +99,7 @@ object PlaylistMetadataServiceSpec:
     * @return the undefined ''SongData''
     */
   private def undefinedSongData(idx: Int): SongData =
-    SongData(fileID(idx), MediaMetadata(), "undefinedTitle" + idx, "undefinedArtist" + idx,
+    SongData(fileID(idx), MediaMetadata.UndefinedMediaData, "undefinedTitle" + idx, "undefinedArtist" + idx,
       "undefinedAlbum" + idx)
 
   /**

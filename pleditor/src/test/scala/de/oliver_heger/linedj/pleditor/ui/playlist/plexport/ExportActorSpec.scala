@@ -138,9 +138,17 @@ object ExportActorSpec:
     * @return the test ''SongData'' object
     */
   private def createSongData(index: Int, size: Option[Int] = None): SongData =
-    SongData(MediaFileID(medium(index), songUri(index)),
-      MediaMetadata(title = Some(songTitle(index)), size = size orElse Some(songSize(index))),
-      songTitle(index), null, null)
+    SongData(
+      MediaFileID(medium(index), songUri(index)),
+      MediaMetadata(
+        title = Some(songTitle(index)),
+        size = size.getOrElse(songSize(index)),
+        checksum = "check" + index
+      ),
+      songTitle(index),
+      null,
+      null
+    )
 
   /**
     * Generates a list of test files.
@@ -267,8 +275,9 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
   it should "use the correct file extension when generating operations" in :
     val songList = List(SongData(MediaFileID(medium(1), "song://Test1.mp2"),
-      MediaMetadata(title = Some(songTitle(1))), songTitle(1), null, null),
-      SongData(MediaFileID(medium(2), "song://Test2"), MediaMetadata(title = Some(songTitle(2))),
+      MediaMetadata.UndefinedMediaData.copy(title = Some(songTitle(1))), songTitle(1), null, null),
+      SongData(MediaFileID(medium(2), "song://Test2"), 
+        MediaMetadata.UndefinedMediaData.copy(title = Some(songTitle(2))),
         songTitle(2), null, null))
     val data = ExportActor.ExportData(songList, ExportPath, clearTarget = false,
       overrideFiles = false)
@@ -289,7 +298,7 @@ class ExportActorSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     val title = "Song:\t My *, \"<Love>|Pet/Heart Come\\ - yes?"
     val replacedTitle = "Song__ My _, __Love__Pet_Heart Come_ - yes_"
     val songList = List(SongData(MediaFileID(medium(1), songUri(1)),
-      MediaMetadata(title = Some(title)), title, null, null))
+      MediaMetadata.UndefinedMediaData.copy(title = Some(title)), title, null, null))
     val data = ExportActor.ExportData(songList, ExportPath, clearTarget = false, overrideFiles = false)
 
     val (ops, _) = ExportActor.initializeExportData(data, TestScanResult)

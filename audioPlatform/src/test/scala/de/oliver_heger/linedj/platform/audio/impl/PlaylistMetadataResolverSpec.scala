@@ -61,7 +61,7 @@ object PlaylistMetadataResolverSpec:
     * @return metadata for this test song
     */
   private def metadata(idx: Int): MediaMetadata =
-    MediaMetadata(title = Some("title" + idx))
+    MediaMetadata.UndefinedMediaData.copy(title = Some("title" + idx))
 
   /**
     * Generates a list of file IDs in the provided range.
@@ -157,7 +157,7 @@ object PlaylistMetadataResolverSpec:
     val data = dataList.toMap
     (from to to).foldLeft(data) { (m, i) =>
       val key = fileID(i)
-      if m contains key then m else m + (key -> MediaMetadata())
+      if m contains key then m else m + (key -> MediaMetadata.UndefinedMediaData)
     }.toList
 
 /**
@@ -264,7 +264,7 @@ class PlaylistMetadataResolverSpec(testSystem: ActorSystem) extends TestKit(test
     metaData.data should have size (CacheSize - RequestChunkSize)
 
   it should "handle a timeout from the metadata actor" in:
-    val data = (1 to RequestChunkSize).map(i => (fileID(i), MediaMetadata())).toList
+    val data = (1 to RequestChunkSize).map(i => (fileID(i), MediaMetadata.UndefinedMediaData)).toList
     val helper = new ResolverTestHelper(timeout = 100.millis)
 
     helper.sendStateChangeEvent(playlistChangeEvent(fileIDs(1, RequestChunkSize), Nil))

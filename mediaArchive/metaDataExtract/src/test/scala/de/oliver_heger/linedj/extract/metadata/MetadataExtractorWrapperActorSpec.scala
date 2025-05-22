@@ -85,7 +85,7 @@ object MetadataExtractorWrapperActorSpec:
   private def createProcessRequest(name: String, ext: String): ProcessMetadataFile =
     val path = testPath(name, ext)
     val fileData = FileData(path, fileSize(path))
-    val template = MetadataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetadata())
+    val template = MetadataProcessingSuccess(TestMediumID, testUri(name, ext), MediaMetadata.UndefinedMediaData)
     ProcessMetadataFile(fileData, template)
 
   /**
@@ -97,8 +97,13 @@ object MetadataExtractorWrapperActorSpec:
     */
   private def createProcessingResult(name: String, ext: String): MetadataProcessingSuccess =
     val path = testPath(name, ext)
-    val data = MediaMetadata(size = Some(fileSize(path)), title = Some(name),
-      artist = Some("Artist for " + name), album = Some(name + " album"))
+    val data = MediaMetadata(
+      size = fileSize(path),
+      checksum = "",
+      title = Some(name),
+      artist = Some("Artist for " + name), 
+      album = Some(name + " album")
+    )
     MetadataProcessingSuccess(uri = testUri(name, ext), mediumID = TestMediumID, metadata = data)
 
 /**
@@ -126,7 +131,7 @@ class MetadataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   it should "return a dummy result for an unsupported extension" in:
     val helper = new ExtractorActorTestHelper
     val TestName = "UnsupportedMediaFile"
-    val expData = MediaMetadata(size = Some(fileSize(testPath(TestName, UnsupportedFileExtension))))
+    val expData = MediaMetadata.UndefinedMediaData.copy(size = fileSize(testPath(TestName, UnsupportedFileExtension)))
     val expResult = createProcessingResult(TestName, UnsupportedFileExtension)
       .copy(metadata = expData)
 
@@ -167,7 +172,7 @@ class MetadataExtractorWrapperActorSpec(testSystem: ActorSystem) extends TestKit
   it should "handle files without an extension" in:
     val fileData = FileData(Paths get "PathWithoutExtension", 28)
     val msg = ProcessMetadataFile(fileData,
-      MetadataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetadata()))
+      MetadataProcessingSuccess(TestMediumID, MediaFileUri("a URI"), MediaMetadata.UndefinedMediaData))
     val helper = new ExtractorActorTestHelper
 
     helper.addFileExtension("", None)

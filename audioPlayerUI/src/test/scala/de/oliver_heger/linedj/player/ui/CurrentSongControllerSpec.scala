@@ -63,13 +63,23 @@ object CurrentSongControllerSpec:
   private val MaxFieldSize = 16
 
   /** A test SongData object with all relevant properties of the test song. */
-  private val TestSongData = SongData(id = MediaFileID(MediumID("foo", None), "uri"),
-    metaData = MediaMetadata(inceptionYear = Some(Year), duration = Some(Duration),
-      trackNumber = Some(Track)), title = Title, artist = Artist, album = Album)
+  private val TestSongData = SongData(
+    id = MediaFileID(MediumID("foo", None), "uri"),
+    title = Title,
+    artist = Artist,
+    album = Album,
+    metaData = MediaMetadata(
+      inceptionYear = Some(Year),
+      duration = Some(Duration),
+      trackNumber = Some(Track),
+      size = 42,
+      checksum = "check"
+    )
+  )
 
   /** A SongData object representing an undefined song. */
   private val UndefinedSong = SongData(id = MediaFileID(MediumID("bar", None), "undefined"),
-    metaData = MediaMetadata(), title = "", artist = "", album = "")
+    metaData = MediaMetadata.UndefinedMediaData, title = "", artist = "", album = "")
 
   /** A test audio source to be used in playback progress events. */
   private val TestSource = AudioSource("testSong", 1000, 0, 0)

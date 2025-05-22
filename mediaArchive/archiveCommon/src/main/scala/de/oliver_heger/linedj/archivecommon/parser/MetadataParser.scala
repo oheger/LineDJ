@@ -58,10 +58,59 @@ object MetadataParser:
                              metadata: MediaMetadata)
 
   /**
+    * An internally used model class for metadata that uses optional fields for
+    * all properties. This allows for a lenient deserialization mode; for
+    * missing properties, default values are set.
+    *
+    * @param title             the title
+    * @param artist            the artist
+    * @param album             the album
+    * @param inceptionYear     the inception year
+    * @param trackNumber       the track number
+    * @param duration          the duration
+    * @param formatDescription the format description
+    * @param size              the file size
+    * @param checksum          the checksum
+    */
+  private case class RelaxedMediaMetadata(title: Option[String] = None,
+                                          artist: Option[String] = None,
+                                          album: Option[String] = None,
+                                          inceptionYear: Option[Int] = None,
+                                          trackNumber: Option[Int] = None,
+                                          duration: Option[Int] = None,
+                                          formatDescription: Option[String] = None,
+                                          size: Option[Long],
+                                          checksum: Option[String]):
+    /**
+      * Convert this object to a [[MediaMetadata]] instance setting default
+      * values for undefined properties.
+      *
+      * @return the resulting [[MediaMetadata]] instance
+      */
+    def toMetadata: MediaMetadata =
+      MediaMetadata(
+        title = title,
+        artist = artist,
+        album = album,
+        inceptionYear = inceptionYear,
+        trackNumber = trackNumber,
+        duration = duration,
+        formatDescription = formatDescription,
+        size = size.getOrElse(MediaMetadata.UndefinedMediaData.size),
+        checksum = checksum.getOrElse(MediaMetadata.UndefinedMediaData.checksum)
+      )
+
+  /**
+    * A JSON format object for processing metadata objects with potentially
+    * undefined properties. This is used for reading metadata in a lenient way.
+    */
+  private val relaxedMediaMetadataFormat = jsonFormat9(RelaxedMediaMetadata.apply)
+
+  /**
     * A JSON format object for processing metadata objects. This is used to
     * parse the metadata in the custom format for [[MetadataWithUri]].
     */
-  private val mediaMetadataFormat = jsonFormat8(MediaMetadata.apply)
+  private val mediaMetadataFormat = jsonFormat9(MediaMetadata.apply)
 
   /**
     * A JSON format object for handling [[MetadataWithUri]] objects. Here, the
@@ -70,11 +119,11 @@ object MetadataParser:
     */
   given RootJsonFormat[MetadataWithUri] = new RootJsonFormat[MetadataWithUri]:
     override def read(json: JsValue): MetadataWithUri =
-      val metadata = mediaMetadataFormat.read(json)
+      val relaxedMetadata = relaxedMediaMetadataFormat.read(json)
       val uri = json.asJsObject.getFields(PropUri) match
         case Seq(JsString(value)) => value
         case _ => deserializationError(s"Missing '$PropUri' property in metadata.")
-      MetadataWithUri(uri, metadata)
+      MetadataWithUri(uri, relaxedMetadata.toMetadata)
 
     override def write(obj: MetadataWithUri): JsValue =
       val metadataObj = mediaMetadataFormat.write(obj.metadata).asJsObject

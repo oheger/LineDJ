@@ -69,7 +69,8 @@ object MetadataCacheSpec:
     * @param idx the index of the song
     * @return metadata for this test song
     */
-  private def songMetadata(idx: Int): MediaMetadata = MediaMetadata(title = Some(s"Title$idx"))
+  private def songMetadata(idx: Int): MediaMetadata = 
+    MediaMetadata.UndefinedMediaData.copy(title = Some(s"Title$idx"))
 
   /**
     * Extracts the index from a test medium ID.

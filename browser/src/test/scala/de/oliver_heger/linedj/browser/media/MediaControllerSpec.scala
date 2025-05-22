@@ -212,7 +212,7 @@ object MediaControllerSpec:
     songs.zipWithIndex.map(e => SongData(MediaFileID(mediumID, "song://" + album + "/" + e._1,
       mediumName(mediumID) map mediumChecksum),
       MediaMetadata(title = Some(e._1), artist = Some(artist), album = Some(album),
-        trackNumber = Some(e._2)), e._1, artist, album))
+        trackNumber = Some(e._2), size = 12345, checksum = "c3"), e._1, artist, album))
 
   /**
     * Creates a ''MediumContent'' object from the specified data.
@@ -739,8 +739,19 @@ class MediaControllerSpec extends AnyFlatSpec with Matchers:
     val songName = Songs1.head
     val orgFileID = MediaFileID(mediumID(Medium), songName)
     val processedID = orgFileID.copy(checksum = Some(AvailableMediaMsg.media(orgFileID.mediumID).checksum))
-    val song = SongData(orgFileID, MediaMetadata(title = Some(songName), artist = Some(Artist1),
-      album = Some(Album1)), songName, Artist1, Album1)
+    val song = SongData(
+      orgFileID,
+      MediaMetadata(
+        title = Some(songName),
+        artist = Some(Artist1),
+        album = Some(Album1),
+        size = 12345,
+        checksum = "check"
+      ),
+      songName,
+      Artist1,
+      Album1
+    )
     val helper = new MediaControllerTestHelper
     helper.sendDefaultAvailableMedia()
     helper selectMediumAndSendMeta createContent(complete = true, songs = Seq(song))

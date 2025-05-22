@@ -27,9 +27,6 @@ import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
   */
 object PlaylistMetadataService
   extends de.oliver_heger.linedj.platform.audio.playlist.PlaylistMetadataService:
-  /** Constant for undefined metadata. */
-  private val EmptyMetadata = MediaMetadata()
-
   /** Constant for a delta that does not contain any updates. */
   private val EmptyDelta = MetadataResolveDelta(List.empty, List.empty, fullUpdate = false)
 
@@ -70,7 +67,7 @@ object PlaylistMetadataService
                                  factory: SongDataFactory):
   (MetadataResolveDelta, MetadataResolveState) =
     val songs = PlaylistService.toSongList(playlist)
-      .map(s => factory.createSongData(s, state.metadata.getOrElse(s, EmptyMetadata)))
+      .map(s => factory.createSongData(s, state.metadata.getOrElse(s, MediaMetadata.UndefinedMediaData)))
       .zipWithIndex
     val unresolved = songs.map(e => (e._1.id, e._2))
     (MetadataResolveDelta(resolvedSongs = songs, updatedRanges = List((0, songs.size - 1)),

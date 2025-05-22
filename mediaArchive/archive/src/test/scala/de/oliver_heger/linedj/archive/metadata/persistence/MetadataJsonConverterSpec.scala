@@ -27,7 +27,7 @@ import spray.json.*
 object MetadataJsonConverterSpec:
   /** A set listing the names of properties allowed for a metadata file. */
   private val ValidProperties = Set("album", "artist", "title", "uri", "size", "formatDescription",
-    "duration", "trackNumber", "inceptionYear")
+    "duration", "trackNumber", "inceptionYear", "checksum")
 
 /**
   * Test class for ''MetaDataJsonConverter''.
@@ -58,7 +58,8 @@ class MetadataJsonConverterSpec extends AnyFlatSpec with Matchers:
       trackNumber = Some(4),
       duration = Some(480),
       formatDescription = Some("mp3 128"),
-      size = Some(20160323)
+      size = 20160323,
+      checksum = "checked"
     )
     val uri = "song://someTestSong.mp3"
 
@@ -67,11 +68,11 @@ class MetadataJsonConverterSpec extends AnyFlatSpec with Matchers:
     parsedData.metadata should be(metadata)
 
   it should "deal with optional metadata properties" in:
-    val metadata = MediaMetadata(title = Some("Title"))
+    val metadata = MediaMetadata.UndefinedMediaData.copy(title = Some("Title"))
     val uri = "song://someTestSong.mp3"
 
     val parsedData = convertAndParse(metadata, uri)
-    parsedData.metadata.fileSize should be(0)
+    parsedData.metadata.size should be(MediaMetadata.UndefinedMediaData.size)
     parsedData.metadata.artist shouldBe empty
 
   it should "handle quotation marks in strings" in:
@@ -83,7 +84,8 @@ class MetadataJsonConverterSpec extends AnyFlatSpec with Matchers:
       trackNumber = Some(4),
       duration = Some(480),
       formatDescription = Some("\"mp3 128\""),
-      size = Some(20160323)
+      size = 20160323,
+      checksum = "1234567890"
     )
     val uri = "song://someTestSong.mp3"
 

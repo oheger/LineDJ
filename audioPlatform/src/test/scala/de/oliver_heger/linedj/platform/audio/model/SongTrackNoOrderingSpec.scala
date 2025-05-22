@@ -33,9 +33,13 @@ object SongTrackNoOrderingSpec:
     * @return the song data
     */
   private def createSong(track: Option[Int], title: String): SongData =
-    SongData(MediaFileID(Medium, "song://" + title),
-      MediaMetadata(title = Some(title), trackNumber = track),
-      title, "someArtist", "someAlbum")
+    SongData(
+      MediaFileID(Medium, "song://" + title),
+      MediaMetadata(title = Some(title), trackNumber = track, size = 20, checksum = "check"),
+      title, 
+      "someArtist",
+      "someAlbum"
+    )
 
 /**
   * Test class for ''SongTrackNoOrdering''.

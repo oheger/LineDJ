@@ -193,7 +193,7 @@ object HttpArchiveContentProcessorActorSpec:
   MetadataResponseProcessingResult =
     val mid = mediumID(desc)
     val data = List(MetadataProcessingSuccess(mediumID = mid, uri = MediaFileUri(desc.metaDataPath),
-      metadata = MediaMetadata(title = Some(reqUri))))
+      metadata = MediaMetadata.UndefinedMediaData.copy(title = Some(reqUri))))
     MetadataResponseProcessingResult(mid, data, SeqNo)
 
 /**
