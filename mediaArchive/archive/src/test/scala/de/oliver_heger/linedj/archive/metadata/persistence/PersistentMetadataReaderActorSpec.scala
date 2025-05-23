@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
@@ -44,7 +44,7 @@ object PersistentMetadataReaderActorSpec:
   * Test class for ''PersistentMetaDataReaderActor''.
   */
 class PersistentMetadataReaderActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with FileTestHelper:
+  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with OptionValues with FileTestHelper:
 
   import PersistentMetadataReaderActorSpec._
 
@@ -72,6 +72,9 @@ class PersistentMetadataReaderActorSpec(testSystem: ActorSystem) extends TestKit
       "Ever Dream", "Wheels Of Fire", "Within Me", "Fragments Of Faith")
     val artists = metadata.map(_.metadata.artist.get)
     artists should contain allOf("Lacuna Coil", "Nightwish", "Manowar")
+    
+    val metaWithChecksum = metadata.find(_.metadata.title.contains("When A Dead Man Walks"))
+    metaWithChecksum.map(_.metadata.checksum).value should be("01234567890")
 
   "A PersistentMetadataReaderActor" should "read a file with metadata" in:
     checkReadFile(ReadChunkSize)

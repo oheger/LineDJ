@@ -67,7 +67,7 @@ object PersistentMetadataWriterActorSpec:
     * @return the metadata object
     */
   private def metaData(index: Int): MediaMetadata =
-    MediaMetadata.UndefinedMediaData.copy(title = Some("TestSöng" + index), size = 0)
+    MediaMetadata.UndefinedMediaData.copy(title = Some("TestSöng" + index), size = index, checksum = "check" + index)
 
   /**
     * Generates the URI for a test song based on the given index.
