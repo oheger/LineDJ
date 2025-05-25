@@ -17,15 +17,16 @@
 package de.oliver_heger.linedj.extract.id3.stream
 
 import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header, ID3HeaderExtractor}
-import de.oliver_heger.linedj.extract.id3.stream.ID3v2ExtractorStage.{ChunkProcessingResult, ProcessingContext, ProcessingState, ProcessingStateFrameSearch}
+import de.oliver_heger.linedj.extract.id3.stream.ID3v2ExtractorSink.{ChunkProcessingResult, ProcessingContext, ProcessingState, ProcessingStateFrameSearch}
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
-import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
+import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler}
+import org.apache.pekko.stream.{Attributes, Inlet, SinkShape}
 import org.apache.pekko.util.ByteString
 
 import scala.annotation.tailrec
+import scala.concurrent.{Future, Promise}
 
-object ID3v2ExtractorStage:
+object ID3v2ExtractorSink:
   /**
     * An internally used data class that stores important information required
     * by [[ProcessingState]] implementations.
@@ -143,51 +144,62 @@ object ID3v2ExtractorStage:
   private object ProcessingStatePassThrough extends ProcessingState:
     override def handleChunk(context: ProcessingContext, data: ByteString): ChunkProcessingResult =
       ChunkProcessingResult(ProcessingStatePassThrough, extractionDone = true)
-end ID3v2ExtractorStage
+end ID3v2ExtractorSink
 
 /**
-  * A stage implementation which can extract ID3v2 tags in a binary stream of
+  * A sink implementation which can extract ID3v2 tags in a binary stream of
   * audio data.
   *
-  * This stage is able to detect ID3v2 frames in a stream of audio data. It
-  * passes these frames to an [[ID3FrameExtractor]] and yields the resulting
-  * [[MetadataProvider]] as output. If no or corrupt ID3 data is found, the
-  * stage does not push anything downstream.
+  * This sink is able to detect sections with ID3v2 frames in a stream of audio
+  * data. It passes these frames to an [[ID3FrameExtractor]] and yields the
+  * resulting [[MetadataProvider]] objects as its materialized value. If no or
+  * corrupt ID3 data is found, the materialized value is an empty list.
   *
   * @param tagSizeLimit the maximum size of tags to process
   */
-class ID3v2ExtractorStage(tagSizeLimit: Int = Int.MaxValue)
-  extends GraphStage[FlowShape[ByteString, MetadataProvider]]:
-  val in: Inlet[ByteString] = Inlet[ByteString]("ID3v2ProcessingStage.in")
-  val out: Outlet[MetadataProvider] = Outlet[MetadataProvider]("ID3v2ProcessingStage.out")
+class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
+  extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[List[MetadataProvider]]]:
+  val in: Inlet[ByteString] = Inlet[ByteString]("ID3v2ProcessingSink.in")
 
-  override def shape: FlowShape[ByteString, MetadataProvider] = FlowShape.of(in, out)
+  override def shape: SinkShape[ByteString] = SinkShape.of(in)
 
-  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new GraphStageLogic(shape):
+  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
+  (GraphStageLogic, Future[List[MetadataProvider]]) =
+    val promiseResult = Promise[List[MetadataProvider]]()
+
+    val logic = new GraphStageLogic(shape):
       /** The object storing information for ID3 data processing. */
       private val processingContext = ProcessingContext(new ID3HeaderExtractor, tagSizeLimit)
 
       /** The current state this stage is in. */
       private var state: ProcessingState = new ProcessingStateFrameSearch()
 
+      /**
+        * Stores the providers that have been created for the extracted data.
+        */
+      private var metadataProviders = List.empty[MetadataProvider]
+
+      override def preStart(): Unit =
+        pull(in)
+
       setHandler(in, new InHandler:
+        override def onUpstreamFinish(): Unit =
+          super.onUpstreamFinish()
+          setMaterializedValue()
+
+        override def onUpstreamFailure(ex: Throwable): Unit = 
+          super.onUpstreamFailure(ex)
+          promiseResult.failure(ex)
+
         override def onPush(): Unit =
-          val (result, providers) = handleChunk(state, grab(in), Nil)
+          val result = handleChunk(state, grab(in))
           state = result.nextState
 
-          val closeIfDone = () =>
-            if result.extractionDone then
-              completeStage()
-          if providers.nonEmpty then
-            emitMultiple(out, providers, andThen = closeIfDone)
-          else if providers.isEmpty then
+          if result.extractionDone then
+            completeStage()
+            setMaterializedValue()
+          else
             pull(in)
-      )
-
-      setHandler(out, new OutHandler:
-        override def onPull(): Unit =
-          pull(in)
       )
 
       /**
@@ -195,23 +207,32 @@ class ID3v2ExtractorStage(tagSizeLimit: Int = Int.MaxValue)
         * state. This method is called for each chunk of data passed through
         * the stream. It goes through state transitions until the chunk of data
         * has been fully processed. The return value then indicates what to do
-        * next. Also, stream results to be passed downstream are collected and
-        * returned.
+        * next. Whenever an ID3 frame has been fully processed, the
+        * [[MetadataProvider]] allowing access to the tags is created and
+        * stored internally.
         *
         * @param currentState the current processing state
         * @param chunk        the chunk of data to be processed
-        * @param providers    an aggregated list of [[MetadataProvider]]
-        *                     objects to be passed downstream
         * @return a tuple with the results of the processing step and the list
         *         of providers to pass downstream
         */
       @tailrec private def handleChunk(currentState: ProcessingState,
-                                       chunk: ByteString,
-                                       providers: List[MetadataProvider]):
-      (ChunkProcessingResult, List[MetadataProvider]) =
+                                       chunk: ByteString): ChunkProcessingResult =
         val result = currentState.handleChunk(processingContext, chunk)
-        val nextProviders = result.result.fold(providers) { p =>
-          p :: providers
+        result.result.foreach { provider =>
+          metadataProviders = provider :: metadataProviders
         }
-        if result.processingDone then (result, nextProviders)
-        else handleChunk(result.nextState, result.remainingData getOrElse ByteString.empty, nextProviders)
+
+        if result.processingDone then result
+        else handleChunk(result.nextState, result.remainingData getOrElse ByteString.empty)
+
+      /**
+        * Sets the result of this sink in the materialized value if this has
+        * not yet been done. This has to be done when all ID3 frames have been
+        * processed, but also if the streams ends early before processing of
+        * ID3 information is complete.
+        */
+      private def setMaterializedValue(): Unit =
+        promiseResult.trySuccess(metadataProviders)
+
+    (logic, promiseResult.future)

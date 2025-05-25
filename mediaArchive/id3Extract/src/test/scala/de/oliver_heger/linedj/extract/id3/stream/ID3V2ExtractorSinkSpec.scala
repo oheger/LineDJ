@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.extract.id3.stream
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Concat, FileIO, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Concat, FileIO, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
 import org.scalatest.Inspectors.forEvery
@@ -30,7 +30,7 @@ import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 import java.nio.file.Paths
 import scala.concurrent.Future
 
-object ID3v2ExtractorStageSpec:
+object ID3V2ExtractorSinkSpec:
   /** The name of the test file. */
   private val TestFile = "/testID3v2Data.bin"
 
@@ -44,12 +44,12 @@ object ID3v2ExtractorStageSpec:
     val fileURI = getClass.getResource(TestFile).toURI
     val path = Paths.get(fileURI)
     FileIO.fromPath(path, chunkSize)
-end ID3v2ExtractorStageSpec
+end ID3V2ExtractorSinkSpec
 
 /**
-  * Test class for [[ID3v2ExtractorStage]].
+  * Test class for [[ID3v2ExtractorSink]].
   */
-class ID3v2ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+class ID3V2ExtractorSinkSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with Matchers with OptionValues:
   def this() = this(ActorSystem("ID3v2ExtractorStageSpec"))
 
@@ -57,11 +57,11 @@ class ID3v2ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  import ID3v2ExtractorStageSpec.*
+  import ID3V2ExtractorSinkSpec.*
 
   /**
-    * Runs a stream from the given source via the extractor stage and returns
-    * a [[Future]] with the providers produced by the stage.
+    * Runs a stream from the given source via the extractor sink and returns
+    * a [[Future]] with the providers produced by the sink.
     *
     * @param source   the source of the stream
     * @param tagLimit the optional tag size limit
@@ -69,9 +69,8 @@ class ID3v2ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
     */
   private def runStream(source: Source[ByteString, Any],
                         tagLimit: Int = Int.MaxValue): Future[List[MetadataProvider]] =
-    val sink = Sink.fold[List[MetadataProvider], MetadataProvider](Nil) { (lst, provider) => provider :: lst }
-    val stage = new ID3v2ExtractorStage(tagLimit)
-    source.via(stage).runWith(sink)
+    val sink = new ID3v2ExtractorSink(tagLimit)
+    source.runWith(sink)
 
   /**
     * Runs a stream from the given source via the extractor stage and checks 
@@ -140,5 +139,14 @@ class ID3v2ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSyste
       val provider = providers.find(_.title.contains("Testtitle")).value
 
       provider.artist shouldBe empty
-    }  
-    
+    }
+
+  it should "handle upstream failures gracefully" in :
+    val exception = new IllegalStateException("Test exception: stream failure.")
+    val source = Source.failed(exception)
+
+    recoverToExceptionIf[IllegalStateException] {
+      runStream(source)
+    } map { actualException =>
+      actualException should be(exception)
+    }
