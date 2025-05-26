@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.extract.id3.model
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.util.ByteString
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -42,40 +43,41 @@ object ID3v1ExtractorSpec:
 /**
   * Test class for ''ID3v1Extractor''.
   */
-class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
+class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with OptionValues with MockitoSugar:
 
-  import ID3v1ExtractorSpec._
+  import ID3v1ExtractorSpec.*
 
   "An ID3v1Extractor" should "reject an empty frame" in:
-    ID3v1Extractor.providerFor(TailBuffer(128)) shouldBe empty
+    ID3v1Extractor.providerFor(ByteString.empty) shouldBe empty
 
   it should "reject a frame which is too small" in:
     val data = new Array[Byte](127)
-    val buffer = TailBuffer(128, ByteString(fillArray(data, "TAG")))
+    val frame = ByteString(fillArray(data, "TAG"))
 
-    ID3v1Extractor.providerFor(buffer) shouldBe empty
+    ID3v1Extractor.providerFor(frame) shouldBe empty
 
   it should "reject a frame with no valid ID" in:
     val data = new Array[Byte](128)
-    val buffer = TailBuffer(128, ByteString(fillArray(data, "TAJ")))
+    val frame = ByteString(fillArray(data, "TAJ"))
 
-    ID3v1Extractor.providerFor(buffer) shouldBe empty
+    ID3v1Extractor.providerFor(frame) shouldBe empty
 
   /**
-    * Reads the content of the given test file and adds it to a tail buffer.
-    * It can then be checked whether the correct data was extracted.
+    * Reads the content of the given test file and returns the last bytes in
+    * the size of an ID3v1 frame. This can then be used as input for the
+    * extractor.
     *
     * @param fileName the name of the test file
-    * @return the populated tail buffer
+    * @return the ID3v1 frame from the end of the file
     */
-  private def bufferForFile(fileName: String): TailBuffer =
+  private def extractID3FrameFromFile(fileName: String): ByteString =
     val uri = getClass.getResource("/" + fileName)
     val path = Paths get uri.toURI
     val content = Files readAllBytes path
-    TailBuffer(128, ByteString(content))
+    ByteString(content.takeRight(128))
 
   it should "extract data from a valid frame" in:
-    val provider = ID3v1Extractor.providerFor(bufferForFile("test.mp3")).get
+    val provider = ID3v1Extractor.providerFor(extractID3FrameFromFile("test.mp3")).get
 
     provider.artist.get should be("Testinterpret")
     provider.title.get should be("Testtitle")
@@ -85,15 +87,15 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
   it should "extract the track number if defined" in:
     val provider =
-      ID3v1Extractor.providerFor(bufferForFile("testMP3id3v1.mp3")).get
+      ID3v1Extractor.providerFor(extractID3FrameFromFile("testMP3id3v1.mp3")).get
 
     provider.title.get should be("Test Title")
     provider.trackNo.get should be(1)
 
   /**
-    * Creates a tail buffer and prepares it for a test about string extraction.
-    * A valid frame is created with the given string written to the title
-    * field. Then a provider is created.
+    * Creates a synthetic frame for a test about string extraction. The frame
+    * contains the given string in the title field. Then a provider is created
+    * by calling the extractor with this input.
     *
     * @param txt the text
     * @return the tag provider
@@ -102,7 +104,7 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val data = new Array[Byte](128)
     fillArray(data, "TAG")
     fillArray(data, txt, 3)
-    ID3v1Extractor.providerFor(TailBuffer(128, ByteString(data))).get
+    ID3v1Extractor.providerFor(ByteString(data)).value
 
   it should "ignore a string consisting only of 0 bytes" in:
     val provider = providerFromStringExtractionTest("")

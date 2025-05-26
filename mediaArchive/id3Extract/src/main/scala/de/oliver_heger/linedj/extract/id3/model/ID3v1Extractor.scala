@@ -25,12 +25,12 @@ import org.apache.pekko.util.ByteString
   * ID3v1 data is stored as the last 128 bytes of an MP3 file (if it is
   * available at all). This class provides a method for checking such a
   * block of data and extracting ID3 information if available. The method
-  * assumes that the ID3v1 frame has already been obtained using a
-  * [[TailBuffer]] object.
+  * assumes that the ID3v1 frame has already been extracted as a [[ByteString]]
+  * object.
   */
 object ID3v1Extractor:
   /** Constant for the size of a binary buffer containing a valid ID3v1 frame. */
-  val FrameSize = 128
+  final val FrameSize = 128
 
   /** The encoding name for ISO-8859-1. */
   private val Encoding = "ISO-8859-1"
@@ -66,18 +66,17 @@ object ID3v1Extractor:
   private val TrackNoPos = 126
 
   /**
-    * Returns an ''ID3TagProvider'' object for the specified buffer. If the
-    * buffer contains a valid ID3v1 frame, the tag information is extracted and
+    * Returns an [[ID3TagProvider]] object for the specified data. If the input
+    * data contains a valid ID3v1 frame, the tag information is extracted and
     * can be queried from the returned provider object. Otherwise, result is
     * ''None''.
     *
-    * @param tailBuffer the buffer with the ID3v1 data
-    * @return an option of an ''ID3TagProvider'' for extracting tag information
+    * @param data the [[ByteString]] with a potential ID3v1 frame
+    * @return an option of an [[ID3TagProvider]] for extracting tag information
     */
-  def providerFor(tailBuffer: TailBuffer): Option[MetadataProvider] =
-    val buf = tailBuffer.tail()
-    if buf.startsWith("TAG") && buf.length == FrameSize then
-      Some(createProviderFromBuffer(buf))
+  def providerFor(data: ByteString): Option[MetadataProvider] =
+    if data.startsWith("TAG") && data.length == FrameSize then
+      Some(createProviderFromBuffer(data))
     else None
 
   /**

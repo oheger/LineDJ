@@ -55,7 +55,7 @@ class ID3v1ProcessingStage(procActor: ActorRef)
         }
 
         override def onUpstreamFinish(): Unit = {
-          procActor ! ID3v1Metadata(ID3v1Extractor.providerFor(tailBuffer))
+          procActor ! ID3v1Metadata(ID3v1Extractor.providerFor(tailBuffer.tail()))
           super.onUpstreamFinish()
         }
       })
