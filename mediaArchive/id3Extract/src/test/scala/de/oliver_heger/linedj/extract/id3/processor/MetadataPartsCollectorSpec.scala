@@ -16,7 +16,7 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import java.nio.file.Paths
-import de.oliver_heger.linedj.extract.id3.model.ID3Header
+import de.oliver_heger.linedj.extract.id3.model.{ID3Header, Mp3Metadata}
 import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
@@ -42,7 +42,7 @@ object MetadataPartsCollectorSpec:
 
   /** A test MP3 metadata object. */
   private val Mp3Data = Mp3Metadata(version = 3, layer = 0, sampleRate = 0,
-    minimumBitRat = 0, maximumBitRate = 128000, duration = 60000)
+    minimumBitRate = 0, maximumBitRate = 128000, duration = 60000)
 
   /** A test ID3v2 frame header object. */
   private val ID3FrameHeader = ID3Header(version = 2, size = 42)

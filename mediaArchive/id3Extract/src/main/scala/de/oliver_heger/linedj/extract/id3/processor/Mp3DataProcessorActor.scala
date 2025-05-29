@@ -49,5 +49,5 @@ class Mp3DataProcessorActor(private[processor] val extractor: Mp3DataExtractor) 
     */
   private def createMetadata(): Mp3Metadata =
     Mp3Metadata(version = extractor.getVersion, layer = extractor.getLayer,
-      sampleRate = extractor.getSampleRate, minimumBitRat = extractor.getMinBitRate,
+      sampleRate = extractor.getSampleRate, minimumBitRate = extractor.getMinBitRate,
       maximumBitRate = extractor.getMaxBitRate, duration = extractor.getDuration.toInt)

@@ -87,23 +87,6 @@ case class ID3v1Metadata(metadata: Option[MetadataProvider])
 case class ProcessMp3Data(data: ByteString)
 
 /**
-  * A message with metadata extracted from an MP3 audio file.
-  *
-  * A message of this type is generated and passed to the metadata collector
-  * actor after an MP3 audio file has been read completely. It contains all the
-  * results accumulated during file processing.
-  *
-  * @param version        the MPEG version
-  * @param layer          the audio layer version
-  * @param sampleRate     the sample rate (in samples per second)
-  * @param minimumBitRat  the minimum bit rate (in bps)
-  * @param maximumBitRate the maximum bit rate (in bps)
-  * @param duration       the duration (rounded, in milliseconds)
-  */
-case class Mp3Metadata(version: Int, layer: Int, sampleRate: Int, minimumBitRat: Int,
-                       maximumBitRate: Int, duration: Int)
-
-/**
   * A message requesting MP3 metadata to be sent.
   *
   * This message is sent to the actor which processes MP3 frames and calculates

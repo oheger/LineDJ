@@ -60,7 +60,7 @@ object Mp3FileProcessorActorSpec:
 
   /** Test MP3 metadata. */
   private val TestMp3Metadata = Mp3Metadata(version = 2, layer = 3, sampleRate = 64,
-    minimumBitRat = 128, maximumBitRate = 128, duration = 120)
+    minimumBitRate = 128, maximumBitRate = 128, duration = 120)
 
   /**
     * Creates a message to process a chunk of ID3 data.

@@ -71,7 +71,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
   it should "pass results to the collector when the file has been fully read" in:
     val metaData = Mp3Metadata(version = 1, layer = 3, sampleRate = 111,
-      minimumBitRat = 96000, maximumBitRate = 128000, duration = 60000)
+      minimumBitRate = 96000, maximumBitRate = 128000, duration = 60000)
     val helper = new Mp3DataProcessorTestHelper
 
     helper.prepareMetaDataQuery(metaData)
@@ -121,7 +121,7 @@ class Mp3DataProcessorActorSpec(testSystem: ActorSystem) extends TestKit(testSys
       when(extractor.getVersion).thenReturn(metadata.version)
       when(extractor.getLayer).thenReturn(metadata.layer)
       when(extractor.getSampleRate).thenReturn(metadata.sampleRate)
-      when(extractor.getMinBitRate).thenReturn(metadata.minimumBitRat)
+      when(extractor.getMinBitRate).thenReturn(metadata.minimumBitRate)
       when(extractor.getMaxBitRate).thenReturn(metadata.maximumBitRate)
       when(extractor.getDuration).thenReturn(metadata.duration.toFloat)
       this
