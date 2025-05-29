@@ -77,20 +77,19 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with OptionValues wit
     ByteString(content.takeRight(128))
 
   it should "extract data from a valid frame" in:
-    val provider = ID3v1Extractor.providerFor(extractID3FrameFromFile("test.mp3")).get
+    val provider = ID3v1Extractor.providerFor(extractID3FrameFromFile("test.mp3")).value
 
-    provider.artist.get should be("Testinterpret")
-    provider.title.get should be("Testtitle")
-    provider.album.get should be("A Test Collection")
-    provider.inceptionYear.get should be(2006)
+    provider.artist.value should be("Testinterpret")
+    provider.title.value should be("Testtitle")
+    provider.album.value should be("A Test Collection")
+    provider.inceptionYear.value should be(2006)
     provider.trackNo shouldBe empty
 
   it should "extract the track number if defined" in:
-    val provider =
-      ID3v1Extractor.providerFor(extractID3FrameFromFile("testMP3id3v1.mp3")).get
+    val provider = ID3v1Extractor.providerFor(extractID3FrameFromFile("testMP3id3v1.mp3")).value
 
-    provider.title.get should be("Test Title")
-    provider.trackNo.get should be(1)
+    provider.title.value should be("Test Title")
+    provider.trackNo.value should be(1)
 
   /**
     * Creates a synthetic frame for a test about string extraction. The frame
@@ -119,4 +118,9 @@ class ID3v1ExtractorSpec extends AnyFlatSpec with Matchers with OptionValues wit
   it should "trim text data" in:
     val provider = providerFromStringExtractionTest(" Leading +   trailing Space!!   ")
 
-    provider.title.get should be("Leading +   trailing Space!!")
+    provider.title.value should be("Leading +   trailing Space!!")
+
+  it should "return the correct metadata version" in:
+    val provider = ID3v1Extractor.providerFor(extractID3FrameFromFile("test.mp3")).value
+
+    provider.version.value should be(1)

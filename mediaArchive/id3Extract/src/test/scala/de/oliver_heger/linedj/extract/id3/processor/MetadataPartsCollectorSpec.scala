@@ -16,12 +16,11 @@
 package de.oliver_heger.linedj.extract.id3.processor
 
 import java.nio.file.Paths
-
 import de.oliver_heger.linedj.extract.id3.model.ID3Header
-import de.oliver_heger.linedj.extract.metadata.MetadataProvider
+import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -38,6 +37,8 @@ object MetadataPartsCollectorSpec:
     override val artist: Option[String] = Some("Led Zeppelin")
 
     override val title: Option[String] = Some("The Lemon Song")
+
+    override val version: MetadataVersion = MetadataVersion(0)
 
   /** A test MP3 metadata object. */
   private val Mp3Data = Mp3Metadata(version = 3, layer = 0, sampleRate = 0,
@@ -67,7 +68,7 @@ object MetadataPartsCollectorSpec:
   */
 class MetadataPartsCollectorSpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
-  import MetadataPartsCollectorSpec._
+  import MetadataPartsCollectorSpec.*
 
   /**
     * Checks whether the correct media data has been generated.

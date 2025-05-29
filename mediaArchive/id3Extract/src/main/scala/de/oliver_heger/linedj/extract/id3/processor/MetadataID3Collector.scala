@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.processor
 
-import de.oliver_heger.linedj.extract.metadata.MetadataProvider
+import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 object MetadataID3Collector:
@@ -60,6 +60,8 @@ object MetadataID3Collector:
 
     override def artist: Option[String] = property(_.artist)
 
+    override val version: MetadataVersion = MetadataVersion(0)
+
     /**
       * Retrieves the value of a property selected by the passed in property
       * function. This method searches the list of providers whether a value for
@@ -71,7 +73,6 @@ object MetadataID3Collector:
     private def property(p: MetadataProvider => Option[String]): Option[String] =
       val definingProvider = providers find (p(_).isDefined)
       definingProvider flatMap p
-
 
 /**
   * An internally used helper class for collecting metadata extracted from ID3
@@ -91,7 +92,7 @@ object MetadataID3Collector:
   */
 private class MetadataID3Collector:
 
-  import MetadataID3Collector._
+  import MetadataID3Collector.*
 
   /** A list that stores data about the providers that have been added. */
   private var providers = List.empty[ProviderData]

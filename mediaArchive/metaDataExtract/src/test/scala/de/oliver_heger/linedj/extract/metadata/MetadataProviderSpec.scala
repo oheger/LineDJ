@@ -64,4 +64,4 @@ class MetadataProviderSpec extends AnyFlatSpec with Matchers:
     val title: Option[String] = None
     val artist: Option[String] = None
     val album: Option[String] = None
-
+    val version: MetadataVersion = MetadataVersion(0)

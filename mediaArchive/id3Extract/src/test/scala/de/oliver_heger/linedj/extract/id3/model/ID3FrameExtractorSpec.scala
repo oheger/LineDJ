@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.extract.id3.model
 
 import de.oliver_heger.linedj.FileTestHelper
+import de.oliver_heger.linedj.extract.metadata.MetadataVersion
 import org.apache.pekko.util.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -67,7 +68,7 @@ object ID3FrameExtractorSpec:
   */
 class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
 
-  import ID3FrameExtractorSpec._
+  import ID3FrameExtractorSpec.*
 
   /**
     * Checks the content of a specific ID3 tag.
@@ -193,6 +194,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
     provider.album.get should be("Alb")
     provider.inceptionYear.get should be(2012)
     provider.trackNo.get should be(1)
+    provider.version should be(MetadataVersion(2))
 
   it should "create an ID3TagProvider for an ID3v2.3 frame" in:
     val extractor = extractorFromResourceFile("test.mp3")
@@ -203,6 +205,7 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
     provider.album.get should be("A Test Collection")
     provider.inceptionYear.get should be(2006)
     provider.trackNo.get should be(1)
+    provider.version should be(MetadataVersion(3))
 
   it should "create an ID3TagProvider for an ID3v2.4 frame" in:
     val extractor = extractorFromResourceFile("testMP3id3v24.mp3")
@@ -213,7 +216,8 @@ class ID3FrameExtractorSpec extends AnyFlatSpec with Matchers:
     provider.album.get should be("Test Album")
     provider.trackNo.get should be(11)
     provider.inceptionYear shouldBe empty
-
+    provider.version should be(MetadataVersion(4))
+    
   it should "be able to process frame data chunk-wise" in:
     val (header, data) = createV2Data()
     val extractor = new ID3FrameExtractor(header)

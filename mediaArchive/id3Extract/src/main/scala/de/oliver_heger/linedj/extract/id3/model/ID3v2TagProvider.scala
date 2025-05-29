@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.extract.metadata.MetadataProvider
+import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 
 import scala.collection.immutable.IndexedSeq
 
@@ -36,15 +36,17 @@ import scala.collection.immutable.IndexedSeq
   */
 private class ID3v2TagProvider(val frame: ID3Frame, tagNames: IndexedSeq[String])
   extends MetadataProvider:
-  def title: Option[String] = get(0)
+  override def title: Option[String] = get(0)
 
-  def artist: Option[String] = get(1)
+  override def artist: Option[String] = get(1)
 
-  def album: Option[String] = get(2)
+  override def album: Option[String] = get(2)
 
-  def inceptionYearString: Option[String] = get(3)
+  override def inceptionYearString: Option[String] = get(3)
 
-  def trackNoString: Option[String] = get(4)
+  override def trackNoString: Option[String] = get(4)
+
+  override def version: MetadataVersion = MetadataVersion(frame.header.version)
 
   /**
     * Obtains the value of the tag with the given index in the array of tag

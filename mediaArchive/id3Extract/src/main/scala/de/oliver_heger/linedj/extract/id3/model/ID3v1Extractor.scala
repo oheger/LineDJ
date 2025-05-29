@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.extract.id3.model
 
-import de.oliver_heger.linedj.extract.metadata.MetadataProvider
+import de.oliver_heger.linedj.extract.metadata.{MetadataProvider, MetadataVersion}
 import org.apache.pekko.util.ByteString
 
 /**
@@ -64,6 +64,9 @@ object ID3v1Extractor:
 
   /** Position of the track number tag. */
   private val TrackNoPos = 126
+  
+  /** Constant for the metadata version returned by this provider. */
+  private val ID3v1Version = MetadataVersion(1)
 
   /**
     * Returns an [[ID3TagProvider]] object for the specified data. If the input
@@ -141,5 +144,5 @@ object ID3v1Extractor:
                                       artist: Option[String], album: Option[String],
                                       inceptionYearString: Option[String], trackNoString:
                                       Option[String])
-    extends MetadataProvider
-
+    extends MetadataProvider:
+      override val version: MetadataVersion = ID3v1Version
