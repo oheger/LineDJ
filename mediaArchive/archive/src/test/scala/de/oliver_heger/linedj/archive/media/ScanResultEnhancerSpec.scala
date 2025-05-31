@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import org.scalatest.BeforeAndAfter
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -109,7 +110,9 @@ class ScanResultEnhancerSpec extends AnyFlatSpec with Matchers with BeforeAndAft
     val checksum = esr.checksumMapping(mid)
     checksum.checksum.length should be > 8
     val validChars = (('A' to 'F') ++ ('0' to '9')).toSet
-    checksum.checksum.forall(validChars.contains) shouldBe true
+    forEvery(checksum.checksum) { c =>
+      validChars should contain(c)
+    }
 
   it should "generate the same checksum for the same content" in:
     val mid = createMediumID(Medium1)
