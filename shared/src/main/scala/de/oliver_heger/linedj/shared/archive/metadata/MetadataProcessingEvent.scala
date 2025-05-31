@@ -56,7 +56,7 @@ enum MetadataProcessingEvent:
     * @param files    a collection with the URIs of the contained media files
     */
   case MediumAvailable(mediumID: MediumID,
-                       checksum: MediumChecksum,
+                       checksum: Checksums.MediumChecksum,
                        files: Iterable[MediaFileUri])
 
   /**
@@ -69,6 +69,6 @@ enum MetadataProcessingEvent:
     * @param checksum the checksum of the owning medium
     * @param result   the processing result for this specific file
     */
-  case ProcessingResultAvailable(checksum: MediumChecksum,
+  case ProcessingResultAvailable(checksum: Checksums.MediumChecksum,
                                  result: MetadataProcessingResult)
 end MetadataProcessingEvent

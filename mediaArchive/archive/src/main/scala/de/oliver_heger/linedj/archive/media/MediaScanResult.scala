@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.MediumChecksum
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Path

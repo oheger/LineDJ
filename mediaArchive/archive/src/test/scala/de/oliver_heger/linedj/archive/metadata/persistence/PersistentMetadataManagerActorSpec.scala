@@ -23,13 +23,14 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWri
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata._
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetadata, MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import org.mockito.ArgumentMatchers.{any, eq => argEq}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{any, eq as argEq}
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers

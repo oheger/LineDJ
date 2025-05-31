@@ -24,7 +24,8 @@ import de.oliver_heger.linedj.extract.metadata.{MetadataExtractionActor, Process
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
-import de.oliver_heger.linedj.shared.archive.metadata.*
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
+import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataProcessingEvent, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}

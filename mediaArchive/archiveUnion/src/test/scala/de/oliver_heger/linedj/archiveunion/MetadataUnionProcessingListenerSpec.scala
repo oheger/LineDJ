@@ -17,7 +17,8 @@
 package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.{MediumChecksum, MetadataProcessingEvent}
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
+import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetadataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
