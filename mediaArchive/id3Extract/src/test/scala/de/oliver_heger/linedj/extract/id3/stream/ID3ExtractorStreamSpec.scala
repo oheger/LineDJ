@@ -57,7 +57,7 @@ class ID3ExtractorStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return a [[Future]] with the resulting metadata
     */
   private def extractMetadataForTestFile(name: String): Future[MediaMetadata] =
-    ID3ExtractorStream.extractMetadata()(testFilePath(name))
+    ID3ExtractorStream.extractMetadata(testFilePath(name))
 
   /**
     * Extracts metadata for the given test file and checks it against the given
@@ -155,7 +155,7 @@ class ID3ExtractorStreamSpec(testSystem: ActorSystem) extends TestKit(testSystem
 
   it should "enforce the tag size limit" in :
     val path = testFilePath("testMP3id3v24.mp3")
-    ID3ExtractorStream.extractMetadata(tagSizeLimit = 11)(path) map { metadata =>
+    ID3ExtractorStream.extractMetadata(path, tagSizeLimit = 11) map { metadata =>
       metadata.title shouldBe empty
       metadata.trackNumber.value should be(11)
     }

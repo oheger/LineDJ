@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.extract.id3.stream
 
 import de.oliver_heger.linedj.extract.id3.model.Mp3Metadata
-import de.oliver_heger.linedj.extract.metadata.MetadataProvider
+import de.oliver_heger.linedj.extract.metadata.{ExtractorFunctionProvider, MetadataProvider}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.ClosedShape
@@ -42,20 +42,33 @@ object ID3ExtractorStream:
     * Returns a [[Future]] with a [[MediaMetadata]] object that contains the
     * available metadata for the audio file with the given path. This function
     * expects that this is an MP3 audio file. It is able to extract metadata 
-    * from MPEG and ID3 frames.
+    * from MPEG and ID3 frames. This function is a shortcut for obtaining the
+    * extractor function and invoking it.
     *
-    * @param tagSizeLimit the maximum size of tags to process
     * @param path         the path to the audio file
+    * @param tagSizeLimit the maximum size of tags to process
     * @param system       the actor system
     * @return a [[Future]] with the extracted metadata
     */
-  def extractMetadata(tagSizeLimit: Int = Int.MaxValue)
-                     (path: Path)
+  def extractMetadata(path: Path, tagSizeLimit: Int = Int.MaxValue)
                      (using system: ActorSystem): Future[MediaMetadata] =
-    given ExecutionContext = system.dispatcher
+    val extractFunc = id3ExtractorFunc(tagSizeLimit)
+    extractFunc(path, system)
 
-    val graph = createExtractorGraph(path, tagSizeLimit)
-    graph.run()
+  /**
+    * Returns a function to extract metadata from MP3 audio files.
+    *
+    * @param tagSizeLimit the maximum size of tags to process
+    * @return the extractor function for MP3 metadata
+    */
+  def id3ExtractorFunc(tagSizeLimit: Int = Int.MaxValue): ExtractorFunctionProvider.ExtractorFunc =
+    (path, system) =>
+      given ActorSystem = system
+
+      given ExecutionContext = system.dispatcher
+
+      val graph = createExtractorGraph(path, tagSizeLimit)
+      graph.run()
 
   /**
     * Creates a [[MediaMetadata]] object from the passed in parameters. The
