@@ -17,8 +17,6 @@
 package de.oliver_heger.linedj.extract.metadata
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -27,167 +25,8 @@ import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, OptionValues}
 
-import java.nio.file.{Path, Paths}
-import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
-
-object ExtractorStageSpec:
-  /** The medium ID used by tests. */
-  private val TestMediumID = MediumID("testMedium", Some("testPath"))
-
-  /** A prefix for file names causing a delay in the extractor function. */
-  private val DelayPrefix = "delay"
-
-  /** The default timeout used by the test extractor stage. */
-  private val DefaultTimeout = 1.second
-
-  /**
-    * Stores exceptions to simulate failures of the extractor process. Since
-    * exceptions cannot be compared via equals, this map ensures that for each
-    * test file only a single exception instance is created.
-    */
-  private val extractionExceptions = new ConcurrentHashMap[String, Throwable]
-
-  /**
-    * Returns a [[MediaMetadata]] object with properties derived from the 
-    * given name.
-    *
-    * @param name the name of a media file
-    * @return metadata for this file
-    */
-  private def createMetadata(name: String): MediaMetadata =
-    MediaMetadata(
-      title = Some(name + "-Title"),
-      artist = Some(name + "-Artist"),
-      album = Some(name + "-Album"),
-      size = name.length,
-      checksum = name + "-check"
-    )
-
-  /**
-    * Simulates the extraction of metadata for a file. The function returns
-    * dummy data derived from the name of the file. Some file names are handled
-    * in a special way to simulate timeouts or processing errors.
-    *
-    * @param path   the path of the media file
-    * @param system the actor system
-    * @return a [[Future]] with extracted metadata
-    */
-  private def extractorFunc(path: Path, system: ActorSystem): Future[MediaMetadata] =
-    given ExecutionContext = system.dispatcher
-
-    Future {
-      val fileName = path.getFileName.toString
-      if fileName.startsWith("error_") then
-        throw extractorException(fileName)
-
-      simulateDelay(fileName)
-      createMetadata(fileName)
-    }
-
-  /**
-    * Simulates a delay in the extraction process of a file. If the file name
-    * is of the form ''delayXXX.mp3'' where XXX is a number, this function
-    * extracts this number and sleeps for the corresponding milliseconds.
-    *
-    * @param fileName the file name
-    */
-  private def simulateDelay(fileName: String): Unit =
-    if fileName.startsWith(DelayPrefix) then
-      val delayMillis = fileName.substring(DelayPrefix.length, fileName.indexOf('.')).toLong
-      Thread.sleep(delayMillis)
-
-  /**
-    * Generates the name of a test file whose simulated metadata extraction is
-    * delayed by the given number of milliseconds.
-    *
-    * @param delayMills the delay in millis
-    * @return the name of the test file with this delay
-    */
-  private def delayedFile(delayMills: Int): String = s"$DelayPrefix$delayMills.mp3"
-
-  /**
-    * Returns a provider for extractor functions that yields the test extractor
-    * function for files with the "mp3" extension, ''None'' for files with no
-    * extension, and throws an exception otherwise.
-    *
-    * @return the provider for extractor functions
-    */
-  private def createExtractorFunctionProvider(): ExtractorFunctionProvider = {
-    case "mp3" => Some(extractorFunc)
-    case "" => None
-    case e => throw new IllegalArgumentException("Invalid extension: " + e)
-  }
-
-  /**
-    * Converts the given name for a test media file to a [[Path]].
-    *
-    * @param name the file name
-    * @return the path for this test file
-    */
-  private def toPath(name: String): Path = Paths.get(name)
-
-  /**
-    * A converter function from paths to URIs used by the test stage. Since the
-    * paths used in tests are rather simple, so can be the conversion.
-    *
-    * @param path the path to convert
-    * @return the URI for this path
-    */
-  private def uriForPath(path: Path): MediaFileUri =
-    MediaFileUri(path.toUri.toString)
-
-  /**
-    * Generates a successful processing result for the test media file with the
-    * given name.
-    *
-    * @param name the name of the test file
-    * @return the processing result for this file
-    */
-  private def successResultFor(name: String): MetadataProcessingResult =
-    MetadataProcessingSuccess(TestMediumID, uriForPath(toPath(name)), createMetadata(name))
-
-  /**
-    * Generates a successful processing result for an unsupported media file.
-    * Here, only dummy metadata are contained.
-    *
-    * @param name the name of the test file
-    * @return the processing result for this file
-    */
-  private def unsupportedResultFor(name: String): MetadataProcessingResult =
-    MetadataProcessingSuccess(
-      mediumID = TestMediumID,
-      uri = uriForPath(toPath(name)),
-      metadata = MediaMetadata.UndefinedMediaData
-    )
-
-  /**
-    * Generates an error processing result for the test file with the given
-    * name.
-    *
-    * @param name the name of the test file
-    * @return the error result for this file
-    */
-  private def errorResultFor(name: String): MetadataProcessingResult =
-    MetadataProcessingError(
-      mediumID = TestMediumID,
-      uri = uriForPath(toPath(name)),
-      exception = extractorException(name)
-    )
-
-  /**
-    * Generates an exception to simulate an error when extracting metadata.
-    *
-    * @param fileName the name of the affected file
-    * @return the exception simulating an extraction error
-    */
-  private def extractorException(fileName: String): Throwable =
-    extractionExceptions.computeIfAbsent(
-      fileName,
-      name => new IllegalStateException("Test exception: Failed to extract metadata for file " + name)
-    )
-end ExtractorStageSpec
+import scala.concurrent.{Future, TimeoutException}
 
 /**
   * Test class for [[ExtractorStage]].
@@ -200,7 +39,7 @@ class ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  import ExtractorStageSpec.*
+  import ExtractorTestHelper.*
 
   /**
     * Runs a stream that passes the given test files through an extractor 
@@ -283,7 +122,7 @@ class ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       results should contain allOf(successResultFor(testFiles.head), successResultFor(testFiles.last))
       val errorResult = results.find(_.isInstanceOf[MetadataProcessingError]).value
       errorResult.mediumID should be(TestMediumID)
-      errorResult.uri should be(uriForPath(toPath(testFiles(1))))
+      errorResult.uri should be(uriForName(testFiles(1)))
       errorResult.asInstanceOf[MetadataProcessingError].exception shouldBe a[TimeoutException]
     }
 
@@ -302,7 +141,7 @@ class ExtractorStageSpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       val (successResults, failureResults) = results.partition(_.isInstanceOf[MetadataProcessingSuccess])
       failureResults should have size 1
       successResults should have size successFiles.size
-      val failureUri = uriForPath(toPath(testFiles.head))
+      val failureUri = uriForName(testFiles.head)
       failureResults.head.uri should be(failureUri)
       successResults.find(_.uri == failureUri) shouldBe empty
     }
