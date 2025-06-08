@@ -19,11 +19,11 @@ import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.*
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
-import de.oliver_heger.linedj.extract.metadata.{MetadataExtractionActor, ProcessMediaFiles}
+import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.*
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediaScanCompleted, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
-import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MediaMetadata, MetadataProcessingEvent, RemovePersistentMetadata, RemovePersistentMetadataResult}
+import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -47,11 +47,8 @@ object MetadataManagerActorSpec:
   /** The root path of the test media archive. */
   private val ArchiveRootPath = Paths get "archiveRoot"
 
-  /** The number of parallel processors for the test root. */
-  private val AsyncCount = 3
-
   /** The test timeout value for media file processing. */
-  private val ProcessingTimeout = Timeout(42.seconds)
+  private val ProcessingTimeout = 42.seconds
 
   /** ID of a test medium. */
   private val TestMediumID = mediumID("medium1")
@@ -379,7 +376,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.actor ! unresolved2
     val creation = helper.nextChildCreation()
     expectProcessMessage(creation.probe, unresolved2.mediumID, unresolved2.files)
-    creation.props.args(2) should be(AsyncCount)
+    creation.props.args(2) should be(ProcessingTimeout)
     helper.numberOfChildActors should be(2)
 
   it should "stop processor actors when a scan is complete" in:
@@ -933,52 +930,50 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
           metadataListener.ref,
           Converter
         )
-        with ChildActorFactory with CloseSupport {
-        override def createChildActor(p: Props): ActorRef = {
-          childActorCounter.incrementAndGet()
-          if checkChildActorProps then {
-            val sampleProps = MetadataExtractionActor(actor, null, 0, null)
-            p.actorClass() should be(sampleProps.actorClass())
-            p.args.head should be(actor)
-            p.args(1) shouldBe a[ExtractorActorFactoryImpl]
-            p.args(1).asInstanceOf[ExtractorActorFactoryImpl].config should be(config)
-            p.args(2) should be(AsyncCount)
-            p.args(3) should be(ProcessingTimeout)
+        with ChildActorFactory with CloseSupport:
+          override def createChildActor(p: Props): ActorRef =
+            childActorCounter.incrementAndGet()
+            if checkChildActorProps then {
+              val sampleProps = MetadataExtractorActor(actor, null, ProcessingTimeout)
+              p.actorClass() should be(sampleProps.actorClass())
+              p.args.head should be(actor)
+              p.args(1) shouldBe a[ExtractorFunctionProviderImpl]
+              p.args(1).asInstanceOf[ExtractorFunctionProviderImpl].config should be(config)
+              p.args(2) should be(ProcessingTimeout)
+            }
+            val probe = TestProbe()
+            childActorQueue offer ChildCreation(probe, p)
+            probe.ref
+
+          /**
+            * @inheritdoc Returns the value of the flag set for the test class.
+            */
+          override def isCloseRequestInProgress: Boolean = closeInProgress
+
+          /**
+            * Checks parameters and records this invocation.
+            */
+          override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
+          ActorRef, factory: ChildActorFactory, conditionState: => Boolean): Boolean = {
+            subject should be(actor)
+            target should be(sender())
+            factory should be(this)
+            conditionState shouldBe availableMediaArrived
+            val allDeps = persistenceManagerActorRef :: activeProcessors.toList
+            deps should contain theSameElementsAs allDeps
+            closeRequestCounter.incrementAndGet() < 2
           }
-          val probe = TestProbe()
-          childActorQueue offer ChildCreation(probe, p)
-          probe.ref
-        }
 
-        /**
-          * @inheritdoc Returns the value of the flag set for the test class.
-          */
-        override def isCloseRequestInProgress: Boolean = closeInProgress
+          /**
+            * Records this invocation.
+            */
+          override def onCloseComplete(): Unit = closeCompleteCounter.incrementAndGet()
 
-        /**
-          * Checks parameters and records this invocation.
-          */
-        override def onCloseRequest(subject: ActorRef, deps: => Iterable[ActorRef], target:
-        ActorRef, factory: ChildActorFactory, conditionState: => Boolean): Boolean = {
-          subject should be(actor)
-          target should be(sender())
-          factory should be(this)
-          conditionState shouldBe availableMediaArrived
-          val allDeps = persistenceManagerActorRef :: activeProcessors.toList
-          deps should contain theSameElementsAs allDeps
-          closeRequestCounter.incrementAndGet() < 2
-        }
-
-        /**
-          * Records this invocation.
-          */
-        override def onCloseComplete(): Unit = closeCompleteCounter.incrementAndGet()
-
-        /**
-          * Records this invocation.
-          */
-        override def onConditionSatisfied(): Unit = conditionSatisfiedCounter.incrementAndGet()
-      })
+          /**
+            * Records this invocation.
+            */
+          override def onConditionSatisfied(): Unit = conditionSatisfiedCounter.incrementAndGet()
+      )
 
     /**
       * Creates a mock for the central configuration object.
@@ -988,8 +983,6 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private def createConfig(): MediaArchiveConfig =
       val config = mock[MediaArchiveConfig]
       when(config.rootPath).thenReturn(EnhancedScanResult.scanResult.root)
-      when(config.processorCount).thenReturn(AsyncCount)
-      when(config.processingTimeout).thenReturn(ProcessingTimeout)
+      when(config.processingTimeout).thenReturn(Timeout(ProcessingTimeout))
       when(config.metadataMediaBufferSize).thenReturn(MediaIDs.size + 1)
       config
-

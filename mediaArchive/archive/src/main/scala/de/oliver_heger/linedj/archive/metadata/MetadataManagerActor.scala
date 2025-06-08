@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor.ScanResultProcessed
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
-import de.oliver_heger.linedj.extract.metadata.{MetadataExtractionActor, ProcessMediaFiles}
+import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
@@ -108,8 +108,8 @@ class MetadataManagerActor(config: MediaArchiveConfig,
                            converter: PathUriConverter) extends Actor with ActorLogging:
   this: ChildActorFactory with CloseSupport =>
 
-  /** The factory for extractor actors. */
-  private val ExtractorFactory = new ExtractorActorFactoryImpl(config)
+  /** The provider for extractor functions. */
+  private val extractorFunctionProvider = new ExtractorFunctionProviderImpl(config)
 
   /**
     * A map for storing the extracted metadata for all media.
@@ -225,8 +225,7 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     * @return the new processing actor
     */
   private def createProcessorActor(root: Path): ActorRef =
-    createChildActor(MetadataExtractionActor(self, ExtractorFactory,
-      config.processorCount, config.processingTimeout))
+    createChildActor(MetadataExtractorActor(self, extractorFunctionProvider, config.processingTimeout.duration))
 
   /**
     * Prepares a new scan operation. Initializes some internal state.
