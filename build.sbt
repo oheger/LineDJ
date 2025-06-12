@@ -182,7 +182,7 @@ lazy val LineDJ = (project in file("."))
   radioPlayer, mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
   mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup, metaDataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
+  archiveHttpStartup, metadataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
   audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer,
   audioPlayerShell)
 
@@ -209,7 +209,7 @@ lazy val shared = (project in file("shared"))
   * metadata from media files. There will be other projects that handle
   * specific kinds of metadata, such as ID3 tags.
   */
-lazy val metaDataExtract = (project in file("mediaArchive/metaDataExtract"))
+lazy val metadataExtract = (project in file("mediaArchive/metadataExtract"))
   .enablePlugins(SbtOsgi)
   .settings(defaultSettings)
   .settings(OSGi.osgiSettings)
@@ -232,7 +232,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
     name := "linedj-archive-id3extract",
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.extract.id3.*"),
     OsgiKeys.privatePackage := Seq.empty
-  ) dependsOn(shared % "compile->compile;test->test", metaDataExtract)
+  ) dependsOn(shared % "compile->compile;test->test", metadataExtract)
 
 /**
   * An utility project providing common functionality needed by multiple
@@ -266,7 +266,7 @@ lazy val archive = (project in file("mediaArchive/archive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metaDataExtract, id3Extract)
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metadataExtract, id3Extract)
 
 /**
   * The media archive project. This contains code to manage the library with
