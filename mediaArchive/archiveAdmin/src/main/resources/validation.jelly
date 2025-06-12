@@ -93,7 +93,7 @@
     <di:bean name="controller"
              beanClassName="de.oliver_heger.linedj.archiveadmin.validate.ValidationController">
       <di:constructor>
-        <di:param refName="metaDataService"/>
+        <di:param refName="metadataService"/>
         <di:param refName="jguiraffe.application"/>
         <di:param refName="jguiraffe.guiSynchronizer"/>
         <di:param refName="comp:tableResults"/>
