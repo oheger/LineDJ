@@ -17,134 +17,12 @@
 package de.oliver_heger.linedj.extract.id3.stream
 
 import de.oliver_heger.linedj.extract.id3.model.{ID3FrameExtractor, ID3Header, ID3HeaderExtractor}
-import de.oliver_heger.linedj.extract.id3.stream.ID3v2ExtractorSink.{ChunkProcessingResult, ProcessingContext, ProcessingState, ProcessingStateFrameSearch}
 import de.oliver_heger.linedj.extract.metadata.MetadataProvider
 import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler}
 import org.apache.pekko.stream.{Attributes, Inlet, SinkShape}
 import org.apache.pekko.util.ByteString
 
-import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
-
-object ID3v2ExtractorSink:
-  /**
-    * An internally used data class that stores important information required
-    * by [[ProcessingState]] implementations.
-    *
-    * @param headerExtractor the object to extract ID3 headers
-    * @param tagSizeLimit    the maximum size of a tag to be processed
-    */
-  private case class ProcessingContext(headerExtractor: ID3HeaderExtractor,
-                                       tagSizeLimit: Int)
-
-  /**
-    * Internal data class representing the result of a single ID3 extraction
-    * operation.
-    *
-    * @param nextState      the next state to switch to
-    * @param processingDone flag whether processing is done for the data
-    *                       currently available; this is used to determine
-    *                       whether another processing result has to be queried
-    * @param remainingData  data to be passed to the next state
-    * @param result         an optional processing result
-    * @param extractionDone flag whether the extraction operation is now
-    *                       complete; if '''true''', the stage completes itself
-    */
-  private case class ChunkProcessingResult(nextState: ProcessingState,
-                                           processingDone: Boolean = true,
-                                           remainingData: Option[ByteString] = None,
-                                           result: Option[MetadataProvider] = None,
-                                           extractionDone: Boolean = false)
-
-  /**
-    * A trait representing the current state in processing of ID3 data.
-    *
-    * The ID3 processing stage can be in different states, depending on the
-    * data encountered so far. To avoid complex condition logic, the state is
-    * encoded in concrete implementations of this trait. An implementation
-    * expects a chunk of data and tries to extract as much ID3 data as
-    * possible. This may cause state changes and further actions (e.g. waiting
-    * for additional data to arrive). Finally, the results to be passed
-    * downstream have to be determined.
-    */
-  private sealed trait ProcessingState:
-    /**
-      * Handles the specified chunk of data.
-      *
-      * @param context the processing context
-      * @param data    the chunk of data
-      * @return an object with processing results
-      */
-    def handleChunk(context: ProcessingContext,
-                    data: ByteString): ChunkProcessingResult
-
-  /**
-    * A processing state indicating that the header of an ID3 frame is
-    * searched for. This is the initial state; it is also set after a frame
-    * has been processed.
-    *
-    * @param dataAvailable the current data available
-    */
-  private class ProcessingStateFrameSearch(dataAvailable: ByteString = ByteString.empty) extends ProcessingState:
-    override def handleChunk(context: ProcessingContext, data: ByteString): ChunkProcessingResult =
-      val chunk = dataAvailable ++ data
-      if chunk.length < ID3HeaderExtractor.ID3HeaderSize then
-        ChunkProcessingResult(new ProcessingStateFrameSearch(chunk))
-      else
-        context.headerExtractor.extractID3Header(chunk) match
-          case Some(header) =>
-            ChunkProcessingResult(
-              new ProcessingStateFrameFound(new ID3FrameExtractor(header, context.tagSizeLimit)),
-              processingDone = false,
-              remainingData = Some(chunk drop ID3HeaderExtractor.ID3HeaderSize)
-            )
-          case None =>
-            ChunkProcessingResult(
-              ProcessingStatePassThrough,
-              processingDone = false,
-              remainingData = Some(chunk)
-            )
-
-  /**
-    * A processing state indicating that currently an ID3 frame is processed.
-    * This is done with the help of an [[ID3FrameExtractor]] managed by this
-    * instance. The whole data of the frame has to be passed to this extractor.
-    * After this is done, a result can be produced, and search for the next
-    * header starts.
-    *
-    * @param frameExtractor the [[ID3FrameExtractor]] to extract tag
-    *                       information
-    * @param bytesProcessed the number of bytes already processed
-    */
-  private class ProcessingStateFrameFound(frameExtractor: ID3FrameExtractor,
-                                          bytesProcessed: Int = 0) extends ProcessingState:
-    override def handleChunk(context: ProcessingContext, data: ByteString): ChunkProcessingResult =
-      val remaining = frameExtractor.header.size - bytesProcessed
-      val isLastChunk = remaining <= data.length
-      val (currentChunk, nextChunk) = data.splitAt(remaining)
-      val nextExtractor = frameExtractor.addData(currentChunk, isLastChunk)
-
-      if data.length < remaining then
-        ChunkProcessingResult(
-          new ProcessingStateFrameFound(nextExtractor, bytesProcessed + data.length)
-        )
-      else
-        ChunkProcessingResult(
-          new ProcessingStateFrameSearch(),
-          result = nextExtractor.createTagProvider(),
-          remainingData = Some(nextChunk),
-          processingDone = nextChunk.isEmpty
-        )
-
-  /**
-    * A processing state indicating that no more ID3 frames are expected. The
-    * remaining data passed through the stage is normal audio data and is
-    * ignored.
-    */
-  private object ProcessingStatePassThrough extends ProcessingState:
-    override def handleChunk(context: ProcessingContext, data: ByteString): ChunkProcessingResult =
-      ChunkProcessingResult(ProcessingStatePassThrough, extractionDone = true)
-end ID3v2ExtractorSink
 
 /**
   * A sink implementation which can extract ID3v2 tags in a binary stream of
@@ -167,17 +45,24 @@ class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
   (GraphStageLogic, Future[List[MetadataProvider]]) =
     val promiseResult = Promise[List[MetadataProvider]]()
 
-    val logic = new GraphStageLogic(shape):
-      /** The object storing information for ID3 data processing. */
-      private val processingContext = ProcessingContext(new ID3HeaderExtractor, tagSizeLimit)
+    val logic = new GraphStageLogic(shape) with ID3StateHandler.ID3StateCallback:
+      self =>
+      /** The current ID3 state handler instance. */
+      private var stateHandler = ID3StateHandler(new ID3HeaderExtractor)
 
-      /** The current state this stage is in. */
-      private var state: ProcessingState = new ProcessingStateFrameSearch()
+      /** The object for extracting ID3 tags. */
+      private var frameExtractor: ID3FrameExtractor = _
 
       /**
         * Stores the providers that have been created for the extracted data.
         */
       private var metadataProviders = List.empty[MetadataProvider]
+
+      /**
+        * A flag to indicate the end of ID3 tag extraction. This is used to 
+        * figure out when the stream can be completed.
+        */
+      private var extractionDone = false
 
       override def preStart(): Unit =
         pull(in)
@@ -187,44 +72,33 @@ class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
           super.onUpstreamFinish()
           setMaterializedValue()
 
-        override def onUpstreamFailure(ex: Throwable): Unit = 
+        override def onUpstreamFailure(ex: Throwable): Unit =
           super.onUpstreamFailure(ex)
           promiseResult.failure(ex)
 
         override def onPush(): Unit =
-          val result = handleChunk(state, grab(in))
-          state = result.nextState
+          stateHandler = stateHandler.handleChunk(grab(in), self)
 
-          if result.extractionDone then
+          if extractionDone then
             completeStage()
             setMaterializedValue()
           else
             pull(in)
       )
 
-      /**
-        * Processes the current chunk of data using the current processing
-        * state. This method is called for each chunk of data passed through
-        * the stream. It goes through state transitions until the chunk of data
-        * has been fully processed. The return value then indicates what to do
-        * next. Whenever an ID3 frame has been fully processed, the
-        * [[MetadataProvider]] allowing access to the tags is created and
-        * stored internally.
-        *
-        * @param currentState the current processing state
-        * @param chunk        the chunk of data to be processed
-        * @return a tuple with the results of the processing step and the list
-        *         of providers to pass downstream
-        */
-      @tailrec private def handleChunk(currentState: ProcessingState,
-                                       chunk: ByteString): ChunkProcessingResult =
-        val result = currentState.handleChunk(processingContext, chunk)
-        result.result.foreach { provider =>
-          metadataProviders = provider :: metadataProviders
-        }
+      override def frameFound(header: ID3Header): Unit =
+        frameExtractor = new ID3FrameExtractor(header, tagSizeLimit)
 
-        if result.processingDone then result
-        else handleChunk(result.nextState, result.remainingData getOrElse ByteString.empty)
+      override def frameData(data: ByteString, last: Boolean): Unit =
+        frameExtractor.addData(data, last)
+
+        if last then
+          frameExtractor.createTagProvider().foreach { provider =>
+            metadataProviders = provider :: metadataProviders
+          }
+
+      override def audioData(data: ByteString): Unit =
+        extractionDone = true
 
       /**
         * Sets the result of this sink in the materialized value if this has
