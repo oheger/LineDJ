@@ -19,19 +19,26 @@ package de.oliver_heger.linedj.extract.id3.stream
 import de.oliver_heger.linedj.extract.id3.model.{ID3Header, ID3HeaderExtractor}
 import org.apache.pekko.util.ByteString
 
+import scala.annotation.tailrec
+
 object ID3StateHandler:
   /**
     * A callback interface that receives notifications during processing of ID3
-    * frames. This can be used to further process tag information.
+    * frames. This can be used to further process tag information. All callback
+    * methods can return an optional result which is used to communicate
+    * processing information to the owner of the state handler.
+    *
+    * @tparam R the type of the results produced by this callback
     */
-  trait ID3StateCallback:
+  trait ID3StateCallback[R]:
     /**
       * Notifies this callback that an ID3 frame has been found. The header of
       * this frame is passed.
       *
       * @param header the header of the found ID3 frame
+      * @return an optional result of this callback function
       */
-    def frameFound(header: ID3Header): Unit
+    def frameFound(header: ID3Header): Option[R] = None
 
     /**
       * Passes data that belongs to an ID3 frame to this callback. The ''last''
@@ -39,8 +46,9 @@ object ID3StateHandler:
       *
       * @param data the data from the ID3 frame
       * @param last a flag whether this is the last chunk of the frame
+      * @return an optional result of this callback function
       */
-    def frameData(data: ByteString, last: Boolean): Unit
+    def frameData(data: ByteString, last: Boolean): Option[R] = None
 
     /**
       * Passes data that does not belong to an ID3 frame, but is regular audio
@@ -48,15 +56,16 @@ object ID3StateHandler:
       * complete. The remaining data of the audio file is now passed chunkwise.
       *
       * @param data a chunk of audio data
+      * @return an optional result of this callback function
       */
-    def audioData(data: ByteString): Unit
+    def audioData(data: ByteString): Option[R] = None
   end ID3StateCallback
 
   /**
     * Type alias for a function that invokes a callback method on an 
-    * [[ID3StateCallback]] object.
+    * [[ID3StateCallback]] object and returns its result.
     */
-  private type CallbackAction = ID3StateCallback => Unit
+  private type CallbackAction[R] = ID3StateCallback[R] => Option[R]
 
   /**
     * Internal data class representing the result of the processing of a data
@@ -69,11 +78,12 @@ object ID3StateHandler:
     *                        currently available; this is used to determine
     *                        whether another processing result has to be queried
     * @param remainingData   data to be passed to the next state
+    * @tparam R the result type of callback actions
     */
-  private case class ChunkProcessingResult(nextState: ProcessingState,
-                                           callbackActions: List[CallbackAction],
-                                           processingDone: Boolean = true,
-                                           remainingData: Option[ByteString] = None)
+  private case class ChunkProcessingResult[R](nextState: ProcessingState,
+                                              callbackActions: List[CallbackAction[R]],
+                                              processingDone: Boolean = true,
+                                              remainingData: Option[ByteString] = None)
 
   /**
     * A trait representing the current state in processing of ID3 data.
@@ -92,9 +102,10 @@ object ID3StateHandler:
       *
       * @param headerExtractor the object to find ID3 headers
       * @param data            the chunk of data
+      * @tparam R the result type of callback actions
       * @return an object with processing results
       */
-    def handleChunk(headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult
+    def handleChunk[R](headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult[R]
 
   /**
     * A processing state indicating that the header of an ID3 frame is
@@ -104,7 +115,7 @@ object ID3StateHandler:
     * @param dataAvailable the current data available
     */
   private class ProcessingStateFrameSearch(dataAvailable: ByteString = ByteString.empty) extends ProcessingState:
-    override def handleChunk(headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult =
+    override def handleChunk[R](headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult[R] =
       val chunk = dataAvailable ++ data
       if chunk.length < ID3HeaderExtractor.ID3HeaderSize then
         ChunkProcessingResult(new ProcessingStateFrameSearch(chunk), Nil)
@@ -136,11 +147,11 @@ object ID3StateHandler:
     */
   private class ProcessingStateFrameFound(header: ID3Header,
                                           bytesProcessed: Int = 0) extends ProcessingState:
-    override def handleChunk(headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult =
+    override def handleChunk[R](headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult[R] =
       val remaining = header.size - bytesProcessed
       val isLastChunk = remaining <= data.length
       val (currentChunk, nextChunk) = data.splitAt(remaining)
-      val action: CallbackAction = callback => callback.frameData(currentChunk, isLastChunk)
+      val action: CallbackAction[R] = callback => callback.frameData(currentChunk, isLastChunk)
 
       if data.length < remaining then
         ChunkProcessingResult(
@@ -161,7 +172,7 @@ object ID3StateHandler:
     * ignored.
     */
   private object ProcessingStatePassThrough extends ProcessingState:
-    override def handleChunk(headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult =
+    override def handleChunk[R](headerExtractor: ID3HeaderExtractor, data: ByteString): ChunkProcessingResult[R] =
       ChunkProcessingResult(
         ProcessingStatePassThrough,
         callbackActions = List(callback => callback.audioData(data))
@@ -201,17 +212,28 @@ private class ID3StateHandler private(extractor: ID3HeaderExtractor,
     * This method has to be called for each chunk of data of the audio file
     * that is processed. It goes through state transitions until this chunk has
     * been fully processed and also invokes the callback accordingly. The 
-    * return value is an updated [[ID3StateHandler]] instance to continue
-    * processing with.
+    * return value is a tuple with an updated [[ID3StateHandler]] instance to
+    * continue processing with and a list with the collected results returned
+    * by callback functions.
     *
-    * @param chunk the chunk of data to be processed
-    * @return an updated [[ID3StateHandler]] object to continue processing
+    * @param chunk    the chunk of data to be processed
+    * @param callback the callback to report processing state changes
+    * @tparam R the type of results returned by the callback
+    * @return an updated [[ID3StateHandler]] object to continue processing and
+    *         a list with defined results returned by the callback
     */
-  def handleChunk(chunk: ByteString, callback: ID3StateCallback): ID3StateHandler =
-    val result = currentState.handleChunk(extractor, chunk)
-    result.callbackActions.foreach(action => action(callback))
-    val nextHandler = if result.nextState == currentState then this
-    else new ID3StateHandler(extractor, result.nextState)
+  def handleChunk[R](chunk: ByteString, callback: ID3StateCallback[R]): (ID3StateHandler, List[R]) =
+    @tailrec def handleChunkInState(state: ProcessingState,
+                                    data: ByteString,
+                                    callbackResults: List[Option[R]]): (ProcessingState, List[R]) =
+      val result = state.handleChunk[R](extractor, data)
+      val nextCallbackResults = result.callbackActions.map(action => action(callback)) ::: callbackResults
+      if result.processingDone then
+        (result.nextState, nextCallbackResults.flatten)
+      else
+        handleChunkInState(result.nextState, result.remainingData.getOrElse(ByteString.empty), nextCallbackResults)
 
-    if result.processingDone then nextHandler
-    else nextHandler.handleChunk(result.remainingData getOrElse ByteString.empty, callback)
+    val (nextState, results) = handleChunkInState(currentState, chunk, Nil)
+    val nextHandler = if nextState == currentState then this
+    else new ID3StateHandler(extractor, nextState)
+    (nextHandler, results)

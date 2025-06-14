@@ -22,7 +22,49 @@ import org.apache.pekko.stream.stage.{GraphStageLogic, GraphStageWithMaterialize
 import org.apache.pekko.stream.{Attributes, Inlet, SinkShape}
 import org.apache.pekko.util.ByteString
 
+import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
+
+object ID3v2ExtractorSink:
+  /**
+    * A data type used as result for the functions of the
+    * [[ID3StateHandler.ID3StateCallback]] implementation. It covers the
+    * information that needs to be transported in the different processing
+    * states.
+    */
+  private enum CallbackResult:
+    /**
+      * A result indicating that processing of a frame is now done with an
+      * optional provider for metadata.
+      *
+      * @param optProvider the optional provider for metadata
+      */
+    case FrameResult(optProvider: Option[MetadataProvider])
+
+    /**
+      * A result indicating that all ID3 frames have been processed and no more
+      * data can be extracted. This is the signal to stop the current stream.
+      */
+    case ExtractionDone
+
+
+  /**
+    * Finds all [[CallbackResult.FrameResult]] objects in the given list of
+    * results and adds the providers they contain to the list of providers.
+    *
+    * @param results   the list of callback results
+    * @param providers the list of (already obtained) providers
+    * @return the resulting list of providers
+    */
+  @tailrec private def gatherMetadataProviders(results: List[CallbackResult],
+                                               providers: List[MetadataProvider]): List[MetadataProvider] =
+    results match
+      case CallbackResult.FrameResult(Some(provider)) :: t =>
+        gatherMetadataProviders(t, provider :: providers)
+      case _ :: t =>
+        gatherMetadataProviders(t, providers)
+      case _ => providers
+end ID3v2ExtractorSink
 
 /**
   * A sink implementation which can extract ID3v2 tags in a binary stream of
@@ -39,13 +81,15 @@ class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
   extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[List[MetadataProvider]]]:
   val in: Inlet[ByteString] = Inlet[ByteString]("ID3v2ProcessingSink.in")
 
+  import ID3v2ExtractorSink.*
+
   override def shape: SinkShape[ByteString] = SinkShape.of(in)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes):
   (GraphStageLogic, Future[List[MetadataProvider]]) =
     val promiseResult = Promise[List[MetadataProvider]]()
 
-    val logic = new GraphStageLogic(shape) with ID3StateHandler.ID3StateCallback:
+    val logic = new GraphStageLogic(shape) with ID3StateHandler.ID3StateCallback[CallbackResult]:
       self =>
       /** The current ID3 state handler instance. */
       private var stateHandler = ID3StateHandler(new ID3HeaderExtractor)
@@ -57,12 +101,6 @@ class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
         * Stores the providers that have been created for the extracted data.
         */
       private var metadataProviders = List.empty[MetadataProvider]
-
-      /**
-        * A flag to indicate the end of ID3 tag extraction. This is used to 
-        * figure out when the stream can be completed.
-        */
-      private var extractionDone = false
 
       override def preStart(): Unit =
         pull(in)
@@ -77,28 +115,34 @@ class ID3v2ExtractorSink(tagSizeLimit: Int = Int.MaxValue)
           promiseResult.failure(ex)
 
         override def onPush(): Unit =
-          stateHandler = stateHandler.handleChunk(grab(in), self)
+          val (nextHandler, callbackResults) = stateHandler.handleChunk(grab(in), self)
+          stateHandler = nextHandler
+          metadataProviders = gatherMetadataProviders(callbackResults, metadataProviders)
 
-          if extractionDone then
+          if callbackResults.exists {
+            case CallbackResult.ExtractionDone => true
+            case _ => false
+          } then
             completeStage()
             setMaterializedValue()
           else
             pull(in)
       )
 
-      override def frameFound(header: ID3Header): Unit =
+      override def frameFound(header: ID3Header): Option[CallbackResult] =
         frameExtractor = new ID3FrameExtractor(header, tagSizeLimit)
+        None
 
-      override def frameData(data: ByteString, last: Boolean): Unit =
+      override def frameData(data: ByteString, last: Boolean): Option[CallbackResult] =
         frameExtractor.addData(data, last)
 
         if last then
-          frameExtractor.createTagProvider().foreach { provider =>
-            metadataProviders = provider :: metadataProviders
-          }
+          Some(CallbackResult.FrameResult(frameExtractor.createTagProvider()))
+        else
+          None
 
-      override def audioData(data: ByteString): Unit =
-        extractionDone = true
+      override def audioData(data: ByteString): Option[CallbackResult] =
+        Some(CallbackResult.ExtractionDone)
 
       /**
         * Sets the result of this sink in the materialized value if this has
