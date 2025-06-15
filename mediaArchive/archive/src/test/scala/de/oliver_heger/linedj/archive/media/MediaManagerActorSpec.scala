@@ -16,18 +16,18 @@
 
 package de.oliver_heger.linedj.archive.media
 
-import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
+import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -149,7 +149,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
 
-  import MediaManagerActorSpec._
+  import MediaManagerActorSpec.*
 
   /**
     * Returns the root path of the test archive. This path is below the managed
@@ -397,8 +397,8 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     expectMsgType[MediumFileResponse]
     val downloadProps = helper.nextDownloadChildCreation().props
     val func = downloadProps.args(2).asInstanceOf[MediaFileDownloadActor.DownloadTransformFunc]
-    func("mp3") shouldBe a[ID3v2ProcessingStage]
-    func("MP3") shouldBe a[ID3v2ProcessingStage]
+    func("mp3") shouldBe a[ID3SkipStage]
+    func("MP3") shouldBe a[ID3SkipStage]
     func isDefinedAt "mp4" shouldBe false
 
   it should "return a correct download result even if a medium from another archive component is requested" in:
@@ -649,7 +649,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     def verifyResultsReceivedUriFunc(): MediaManagerTestHelper =
       val capture = ArgumentCaptor.forClass(classOf[Path => MediaFileUri])
       verify(updateService).handleResultsReceived(any(), any(), any())(capture.capture())
-      val uriFunc = capture.getValue.asInstanceOf[Path => MediaFileUri]
+      val uriFunc = capture.getValue
       val testPath = RootPath.resolve("testPath")
       uriFunc(testPath) should be(converter.pathToUri(testPath))
       this

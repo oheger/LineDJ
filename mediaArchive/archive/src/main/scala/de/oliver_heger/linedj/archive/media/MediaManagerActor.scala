@@ -20,15 +20,15 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadMonitoringActor, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
+import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
+import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.io._
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
-import de.oliver_heger.linedj.shared.archive.media._
+import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
 import scalaz.State
 
 import java.nio.file.Files
@@ -77,7 +77,7 @@ object MediaManagerActor:
     */
   private def downloadTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc =
     case s if s matches "(?i)mp3" =>
-      new ID3v2ProcessingStage(None)
+      new ID3SkipStage
 
 /**
   * A specialized actor implementation for managing the media currently
@@ -124,7 +124,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
            mediaUnionActor: ActorRef, groupManager: ActorRef, converter: PathUriConverter) =
     this(config, metaDataManager, mediaUnionActor, groupManager, MediaScanStateUpdateServiceImpl, converter)
 
-  import MediaManagerActor._
+  import MediaManagerActor.*
 
   /** A helper object for parsing medium description files. */
   private val mediumInfoParser = new MediumInfoParser
