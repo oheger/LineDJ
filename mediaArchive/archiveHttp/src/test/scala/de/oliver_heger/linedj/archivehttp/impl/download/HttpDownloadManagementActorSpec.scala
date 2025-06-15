@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor.Down
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
+import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
@@ -35,7 +35,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object HttpDownloadManagementActorSpec:
   /** The URI of a test file to be downloaded. */
@@ -64,7 +64,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar {
   def this() = this(ActorSystem("HttpDownloadManagementActorSpec"))
 
-  import HttpDownloadManagementActorSpec._
+  import HttpDownloadManagementActorSpec.*
 
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
@@ -114,7 +114,7 @@ class HttpDownloadManagementActorSpec(testSystem: ActorSystem) extends TestKit(t
     val request = TestMediaFileRequest.copy(withMetaData = false)
     val transformFunc = sendRequestAndFetchTransformFunc(request)
 
-    transformFunc("Mp3") shouldBe a[ID3v2ProcessingStage]
+    transformFunc("Mp3") shouldBe a[ID3SkipStage]
 
   it should "register the download actor at the monitoring actor" in:
     val helper = new DownloadManagementTestHelper

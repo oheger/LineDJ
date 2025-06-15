@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archivecommon.download.DownloadMonitoringActor.Dow
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
-import de.oliver_heger.linedj.extract.id3.processor.ID3v2ProcessingStage
+import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
@@ -56,7 +56,7 @@ object HttpDownloadManagementActor:
     */
   private val DropMetaDataTransformationFunc: MediaFileDownloadActor.DownloadTransformFunc =
     case s if s matches "(?i)mp3" =>
-      new ID3v2ProcessingStage(None)
+      new ID3SkipStage
 
   /**
     * Returns the transformation function for a download operation based on
@@ -91,7 +91,7 @@ class HttpDownloadManagementActor(config: HttpArchiveConfig, pathGenerator: Temp
   extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
-  import HttpDownloadManagementActor._
+  import HttpDownloadManagementActor.*
 
   /**
     * Returns the actor system in implicit scope. This is needed to materialize
