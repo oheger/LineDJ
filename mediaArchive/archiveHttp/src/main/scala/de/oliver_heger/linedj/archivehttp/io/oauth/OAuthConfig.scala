@@ -28,10 +28,10 @@ package de.oliver_heger.linedj.archivehttp.io.oauth
   * @param tokenEndpoint         the URI of the token endpoint
   * @param scope                 the scope value
   * @param redirectUri           the redirect URI
-  * @param clientID              the client ID
+  * @param clientId              the client ID
   */
 case class OAuthConfig(authorizationEndpoint: String,
                        tokenEndpoint: String,
                        scope: String,
                        redirectUri: String,
-                       clientID: String)
+                       clientId: String)

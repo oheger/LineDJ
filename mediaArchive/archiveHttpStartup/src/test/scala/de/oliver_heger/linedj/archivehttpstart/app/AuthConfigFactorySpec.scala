@@ -72,11 +72,11 @@ class AuthConfigFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val credentials = UserCredentials(null, Password)
     val oauthConfig = OAuthConfig(authorizationEndpoint = "https://authorization.example.org/",
       tokenEndpoint = "https://tokens.example.org/", scope = "testing", redirectUri = "https://redirect.example.org/",
-      clientID = "testOAuthClient")
+      clientId = "testOAuthClient")
     val tokenData = OAuthTokenData("someAccessToken", "someRefreshToken")
     val storageConfig = realm.createIdpConfig(Password)
     val expConfig = CloudOAuthConfig(tokenEndpoint = oauthConfig.tokenEndpoint, redirectUri = oauthConfig.redirectUri,
-      clientID = oauthConfig.clientID, clientSecret = Password, initTokenData = tokenData)
+      clientID = oauthConfig.clientId, clientSecret = Password, initTokenData = tokenData)
     implicit val ec: ExecutionContext = system.dispatcher
     when(service.loadConfig(storageConfig)).thenReturn(Future.successful(oauthConfig))
     when(service.loadClientSecret(storageConfig)).thenReturn(Future.successful(Password))

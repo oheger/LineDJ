@@ -21,13 +21,12 @@ import com.github.cloudfiles.core.http.auth.OAuthTokenData
 import com.github.cloudfiles.crypt.alg.aes.Aes
 import com.github.cloudfiles.crypt.service.CryptService
 import de.oliver_heger.linedj.archivehttp.config.OAuthStorageConfig
-import org.apache.commons.configuration.XMLConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink, Source}
 import org.apache.pekko.util.ByteString
+import spray.json.*
 
-import java.io.StringReader
 import java.security.SecureRandom
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,9 +37,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * in files with the same base name, but different suffixes. Sensitive
   * information can be encrypted if a password is provided.
   */
-object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]:
+object OAuthStorageServiceImpl extends DefaultJsonProtocol
+  with  OAuthStorageService[OAuthStorageConfig, OAuthConfig, Secret, OAuthTokenData]:
   /** Constant for the suffix used for the file with the OAuth config. */
-  final val SuffixConfigFile = ".xml"
+  final val SuffixConfigFile = ".json"
 
   /** Constant for the suffix used for the file with the client secret. */
   final val SuffixSecretFile = ".sec"
@@ -48,46 +48,20 @@ object OAuthStorageServiceImpl extends OAuthStorageService[OAuthStorageConfig, O
   /** Constant for the suffix of the file with token information. */
   final val SuffixTokenFile = ".toc"
 
-  /** Property for the client ID in the persistent config representation. */
-  final val PropClientId = "client-id"
-
-  /**
-    * Property for the authorization endpoint in the persistent config
-    * representation.
-    */
-  final val PropAuthorizationEndpoint = "authorization-endpoint"
-
-  /**
-    * Property for the token endpoint in the persistent config
-    * representation.
-    */
-  final val PropTokenEndpoint = "token-endpoint"
-
-  /** Property for the scope in the persistent config representation. */
-  final val PropScope = "scope"
-
-  /** Property for the redirect URI in the persistent config representation. */
-  final val PropRedirectUri = "redirect-uri"
-
   /** The separator character used within the token file. */
   private val TokenSeparator = "\t"
 
+  /** The JSON format to serialize the OAuth config model. */
+  private given configProtocol: RootJsonFormat[OAuthConfig] = jsonFormat5(OAuthConfig.apply)
+
   /** The secure random object. */
-  private implicit val secRandom: SecureRandom = new SecureRandom
+  private given secRandom: SecureRandom = new SecureRandom
 
   override def loadConfig(storageConfig: OAuthStorageConfig)
                          (implicit ec: ExecutionContext, system: ActorSystem): Future[OAuthConfig] =
     loadAndMapFile(storageConfig, SuffixConfigFile) { buf =>
-      val reader = new StringReader(buf.utf8String)
-      val config = new XMLConfiguration
-      config.setThrowExceptionOnMissing(true)
-      config.load(reader)
-
-      OAuthConfig(clientID = config.getString(PropClientId),
-        authorizationEndpoint = config.getString(PropAuthorizationEndpoint),
-        tokenEndpoint = config.getString(PropTokenEndpoint),
-        scope = config.getString(PropScope),
-        redirectUri = config.getString(PropRedirectUri))
+      val jsonAst = buf.utf8String.parseJson
+      jsonAst.convertTo[OAuthConfig]
     }
 
   override def loadClientSecret(storageConfig: OAuthStorageConfig)

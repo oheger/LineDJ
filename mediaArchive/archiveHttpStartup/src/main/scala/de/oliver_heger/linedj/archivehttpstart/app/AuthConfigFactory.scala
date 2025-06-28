@@ -60,4 +60,4 @@ class AuthConfigFactory(val oauthStorageService:
           secret <- oauthStorageService.loadClientSecret(storageConfig)
           tokens <- oauthStorageService.loadTokens(storageConfig)
         yield CloudOAuthConfig(tokenEndpoint = config.tokenEndpoint, redirectUri = config.redirectUri,
-          clientID = config.clientID, clientSecret = secret, initTokenData = tokens)
+          clientID = config.clientId, clientSecret = secret, initTokenData = tokens)

@@ -1,0 +1,7 @@
+{
+  "clientId": "my-client",
+  "authorizationEndpoint": "https://test-idp.example.com/auth",
+  "tokenEndpoint": "https://test-idp.example.com/token",
+  "scope": "foo bar baz",
+  "redirectUri": "https://my-endpoint.example.com/get_code"
+}
