@@ -1005,15 +1005,6 @@ lazy val log4jConfFragment = (project in file("logging/log4jConfFragment"))
 /* Projects for OSGi applications/images. */
 
 /**
-  * A sequence with module definitions that should be excluded from all OSGi
-  * images.
-  */
-lazy val DefaultExcludedModules = Seq(
-  module(organization = "org.osgi"),
-  module(name = "scala-library")
-)
-
-/**
   * Project for the (local) archive application.
   *
   * This application starts a media archive populated from a local directory
@@ -1021,11 +1012,11 @@ lazy val DefaultExcludedModules = Seq(
   */
 lazy val archiveOsgiImage = (project in file("images/archive"))
   .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
+  .settings(defaultSettings*)
   .settings(
     name := "linedj-archive-osgiImage",
     sourceImagePaths := Seq("base", "archive"),
-    excludedModules := DefaultExcludedModules,
+    excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies
   ) dependsOn(archiveUnion, archiveStartup, archiveLocalStartup, archiveAdmin, appShutdownOneForAll,
@@ -1039,11 +1030,11 @@ lazy val archiveOsgiImage = (project in file("images/archive"))
   */
 lazy val browserOsgiImage = (project in file("images/browser"))
   .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
+  .settings(defaultSettings*)
   .settings(
     name := "linedj-browser-osgiImage",
     sourceImagePaths := Seq("base", "browser"),
-    excludedModules := DefaultExcludedModules,
+    excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, reorderAlbum, reorderArtist, reorderMedium,
@@ -1059,11 +1050,11 @@ lazy val browserOsgiImage = (project in file("images/browser"))
   */
 lazy val playerOsgiImage = (project in file("images/player"))
   .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
+  .settings(defaultSettings*)
   .settings(
     name := "linedj-player-osgiImage",
     sourceImagePaths := Seq("base", "player"),
-    excludedModules := DefaultExcludedModules,
+    excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
@@ -1078,11 +1069,11 @@ lazy val playerOsgiImage = (project in file("images/player"))
   */
 lazy val playerAdvancedOsgiImage = (project in file("images/player_advanced"))
   .enablePlugins(OsgiImagePlugin)
-  .settings(defaultSettings: _*)
+  .settings(defaultSettings*)
   .settings(
     name := "linedj-player-advanced-osgiImage",
     sourceImagePaths := Seq("base", "player_advanced"),
-    excludedModules := DefaultExcludedModules,
+    excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies
   ) dependsOn(mediaBrowser, playlistEditor, audioPlayerUI, reorderAlbum, reorderArtist, reorderMedium,
@@ -1101,7 +1092,7 @@ lazy val radioOsgiImage = (project in file("images/radio"))
   .settings(
     name := "linedj-radio-osgiImage",
     sourceImagePaths := Seq("base", "radio"),
-    excludedModules := DefaultExcludedModules,
+    excludedModules := OSGi.DefaultExcludedModules,
     libraryDependencies ++= remotingDependencies,
     libraryDependencies ++= osgiLogDependencies
   ) dependsOn(radioPlayer, appShutdownOneForAll, mediaIfcDisabled, mp3PlaybackContextFactory, log4jApiFragment,

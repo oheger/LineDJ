@@ -14,13 +14,29 @@
  * limitations under the License.
  */
 
+import OsgiImagePlugin.autoImport.module
 import com.typesafe.sbt.osgi.OsgiKeys
-import com.typesafe.sbt.osgi.SbtOsgi._
+import com.typesafe.sbt.osgi.SbtOsgi.*
 
 /**
   * An object with settings related to OSGi.
   */
 object OSGi {
+  /**
+    * A sequence with module definitions that should be excluded from all OSGi
+    * images. These are typically valid OSGi bundles with metadata that is not
+    * compatible with the target environment. Therefore, replacement bundles have
+    * been created that are deployed instead of these artifacts.
+    */
+  final val DefaultExcludedModules: Seq[OsgiImagePlugin.ModuleDesc] = Seq(
+    module(name = "jackson-module-scala_3"),
+    module(name = "jguiraffe-java-fx"),
+    module(organization = "org.osgi"),
+    module(organization = "org.parboiled"),
+    module(name = "scala-library"),
+    module(name = "scala-reflect")
+  )
+
   /**
     * Returns default settings for OSGi bundles.
     *
