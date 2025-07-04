@@ -35,8 +35,8 @@ lazy val VersionNetty = "4.2.0.Final"
 lazy val VersionOsgi = "5.0.0"
 lazy val VersionPekko = "1.1.4"
 lazy val VersionPekkoHttp = "1.2.0"
-lazy val VersionScala = "2.13.16"
 lazy val VersionScala3 = "3.3.6"
+lazy val VersionScalaReflect = "2.13.16"
 lazy val VersionScalaz = "7.3.8"
 lazy val VersionSprayJson = "1.3.6"
 lazy val VersionSslConfig = "0.6.1"
@@ -79,22 +79,22 @@ lazy val scala3Options = Seq(
 )
 
 lazy val pekkoDependencies = Seq(
-  ("org.apache.pekko" %% "pekko-actor" % VersionPekko).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-actor-typed" % VersionPekko).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-testkit" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-stream" % VersionPekko).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-slf4j" % VersionPekko).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-remote" % VersionPekko).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-serialization-jackson" % VersionPekko).cross(CrossVersion.for3Use2_13),
+  "org.apache.pekko" %% "pekko-actor" % VersionPekko,
+  "org.apache.pekko" %% "pekko-actor-typed" % VersionPekko,
+  "org.apache.pekko" %% "pekko-testkit" % VersionPekko % Test,
+  "org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test,
+  "org.apache.pekko" %% "pekko-stream" % VersionPekko,
+  "org.apache.pekko" %% "pekko-slf4j" % VersionPekko,
+  "org.apache.pekko" %% "pekko-remote" % VersionPekko,
+  "org.apache.pekko" %% "pekko-serialization-jackson" % VersionPekko,
   "com.fasterxml.jackson.core" % "jackson-annotations" % VersionJackson,
-  "org.scala-lang" % "scala-reflect" % VersionScala
+  "org.scala-lang" % "scala-reflect" % VersionScalaReflect
 )
 
 /** Dependencies required for using Pekko HTTP. */
 lazy val pekkoHttpDependencies = Seq(
-  ("org.apache.pekko" %% "pekko-http" % VersionPekkoHttp).cross(CrossVersion.for3Use2_13),
-  ("org.apache.pekko" %% "pekko-http-spray-json" % VersionPekkoHttp).cross(CrossVersion.for3Use2_13),
+  "org.apache.pekko" %% "pekko-http" % VersionPekkoHttp,
+  "org.apache.pekko" %% "pekko-http-spray-json" % VersionPekkoHttp,
 )
 
 /**
@@ -102,13 +102,13 @@ lazy val pekkoHttpDependencies = Seq(
   * to actors, including serialization.
   */
 lazy val remotingDependencies = Seq(
-  ("com.typesafe" %% "ssl-config-core" % VersionSslConfig).cross(CrossVersion.for3Use2_13),
+  "com.typesafe" %% "ssl-config-core" % VersionSslConfig,
   "com.fasterxml.jackson.core" % "jackson-core" % VersionJackson,
   "com.fasterxml.jackson.core" % "jackson-databind" % VersionJackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % VersionJackson,
   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % VersionJackson,
   "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % VersionJackson,
-  ("com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson).cross(CrossVersion.for3Use2_13),
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % VersionJackson,
   "com.fasterxml.jackson.module" % "jackson-module-paranamer" % VersionJackson,
   "io.aeron" % "aeron-client" % VersionAeron,
   "io.aeron" % "aeron-driver" % VersionAeron,
@@ -141,7 +141,6 @@ lazy val jguiraffeDependencies = Seq(
   "net.sf.jguiraffe" % "jguiraffe-java-fx" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe,
   "net.sf.jguiraffe" % "jguiraffe" % VersionJguiraffe % Test classifier "tests",
-  ("org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2").cross(CrossVersion.for3Use2_13),
 ) ++ javaFxDependencies
 
 lazy val osgiDependencies = Seq(
@@ -196,10 +195,10 @@ lazy val shared = (project in file("shared"))
   .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-shared",
-    libraryDependencies += ("org.scalaz" %% "scalaz-core" % VersionScalaz).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-localfs" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("io.spray" %%  "spray-json" % VersionSprayJson).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("org.scalaz" %% "scalaz-core" % VersionScalaz),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-localfs" % VersionCloudFiles),
+    libraryDependencies += ("io.spray" %%  "spray-json" % VersionSprayJson),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.*"),
     OsgiKeys.privatePackage := Seq.empty
   )
@@ -296,10 +295,10 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttp",
       "de.oliver_heger.linedj.archivehttp.config", "de.oliver_heger.linedj.archivehttp.temp",
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
@@ -317,7 +316,7 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
   .settings(
     name := "linedj-protocol-webdav",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
@@ -335,7 +334,7 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
   .settings(
     name := "linedj-protocol-onedrive",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
     OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
@@ -374,7 +373,7 @@ lazy val actorSystem = (project in file("actorSystem"))
   .settings(
     name := "linedj-actorSystem",
     libraryDependencies ++= osgiDependencies,
-    libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko),
     // need to import packages of pekko modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
       "org.apache.pekko.remote",
@@ -436,9 +435,9 @@ lazy val archiveHttpStartup = (project in file("mediaArchive/archiveHttpStartup"
     name := "linedj-archiveHttpStartup",
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= jguiraffeDependencies,
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles).cross(CrossVersion.for3Use2_13),
-    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test).cross(CrossVersion.for3Use2_13),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles),
+    libraryDependencies += ("com.github.oheger" %% "cloud-files-cryptalg-aes" % VersionCloudFiles),
+    libraryDependencies += ("org.apache.pekko" %% "pekko-actor-testkit-typed" % VersionPekko % Test),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttpstart.app.*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivehttpstart.spi"),
     OsgiKeys.additionalHeaders :=
