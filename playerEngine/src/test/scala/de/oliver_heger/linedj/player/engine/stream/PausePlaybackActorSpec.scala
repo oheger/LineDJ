@@ -31,7 +31,7 @@ class PausePlaybackActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
   import PausePlaybackStage.PlaybackState
 
   "Pause playback actor" should "report the initial playback state" in :
-    val client = testKit.createTestProbe[PausePlaybackStage.CurrentPlaybackState]
+    val client = testKit.createTestProbe[PausePlaybackStage.CurrentPlaybackState]()
     val actor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPossible))
 
     actor ! PausePlaybackStage.GetCurrentPlaybackState(client.ref)
@@ -39,7 +39,7 @@ class PausePlaybackActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
     client.expectMessage(PausePlaybackStage.CurrentPlaybackState(PlaybackState.PlaybackPossible))
 
   it should "report an updated playback state" in :
-    val client = testKit.createTestProbe[PausePlaybackStage.CurrentPlaybackState]
+    val client = testKit.createTestProbe[PausePlaybackStage.CurrentPlaybackState]()
     val queryMessage = PausePlaybackStage.GetCurrentPlaybackState(client.ref)
     val actor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPaused))
 
@@ -56,7 +56,7 @@ class PausePlaybackActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
     expectPlaybackState(PlaybackState.PlaybackPaused)
 
   it should "reply to a WaitForPlaybackPossible command when playback is possible" in :
-    val client = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]
+    val client = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]()
     val actor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPossible))
 
     actor ! PausePlaybackStage.WaitForPlaybackPossible(client.ref)
@@ -64,7 +64,7 @@ class PausePlaybackActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
     client.expectMessage(PausePlaybackStage.PlaybackPossible())
 
   it should "not reply to a WaitForPlaybackPossible command when playback is paused" in :
-    val client = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]
+    val client = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]()
     val actor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPaused))
 
     actor ! PausePlaybackStage.WaitForPlaybackPossible(client.ref)
@@ -72,9 +72,9 @@ class PausePlaybackActorSpec extends AnyFlatSpec with Matchers with ActorTestKit
     client.expectNoMessage(500.millis)
 
   it should "answer pending WaitForPlaybackPossible commands when playback is started" in :
-    val client1 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]
-    val client2 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]
-    val client3 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]
+    val client1 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]()
+    val client2 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]()
+    val client3 = testKit.createTestProbe[PausePlaybackStage.PlaybackPossible]()
     val clients = List(client1, client2, client3)
     val actor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPaused))
 

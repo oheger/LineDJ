@@ -61,7 +61,7 @@ class PausePlaybackStageSpec(testSystem: classic.ActorSystem) extends TestKit(te
 
   it should "pass not data through the stream if playback is paused" in :
     val pauseActor = testKit.spawn(PausePlaybackStage.pausePlaybackActor(PlaybackState.PlaybackPaused))
-    val probe = testKit.createTestProbe[ByteString]
+    val probe = testKit.createTestProbe[ByteString]()
     val source = Source(List(ByteString("foo"), ByteString("bar"), ByteString("baz")))
     val sink = Sink.foreach[ByteString](probe.ref ! _)
     val stage = PausePlaybackStage.pausePlaybackStage[ByteString](Some(pauseActor))

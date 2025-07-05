@@ -29,7 +29,7 @@ import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.{PropertiesConfiguration, XMLConfiguration}
 import org.apache.pekko.actor.{Actor, ActorSystem, Terminated}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.{ArgumentCaptor, Mockito}
 import org.osgi.framework.{Bundle, BundleContext}
@@ -41,8 +41,8 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.File
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.Future
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
 object ClientManagementApplicationSpec:
@@ -67,7 +67,7 @@ object ClientManagementApplicationSpec:
   */
 class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll
   with MockitoSugar with ApplicationTestSupport:
-  import ClientManagementApplicationSpec._
+  import ClientManagementApplicationSpec.*
 
   override protected def afterAll(): Unit =
     val configFile = userConfigFile()
@@ -359,9 +359,8 @@ class ClientManagementApplicationSpec extends AnyFlatSpec with Matchers with Bef
     io.verify(bundle).stop()
 
   it should "set an OSGi-compliant exit handler" in:
-    implicit val ec: ExecutionContextExecutor = ExecutionContext.global
-    val term = Terminated(null)(existenceConfirmed = true, addressTerminated = true)
-    checkExitHandler(Future(term))
+    val term = mock[Terminated]
+    checkExitHandler(Future.successful(term))
 
   it should "exit the app even if shutdown of the actor system fails" in:
     val futTerm = Future.failed[Terminated](new RuntimeException("BOOM"))
