@@ -318,7 +318,6 @@ lazy val protocolWebDav = (project in file("mediaArchive/protocolWebDav"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-webdav" % VersionCloudFiles),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.webdav.*"),
-    OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/webdavprotocol_component.xml")
   ) dependsOn(shared, archiveHttpStartup)
@@ -336,7 +335,6 @@ lazy val protocolOneDrive = (project in file("mediaArchive/protocolOneDrive"))
     libraryDependencies ++= logDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-onedrive" % VersionCloudFiles),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archive.protocol.onedrive.*"),
-    OsgiKeys.importPackage := Seq("*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/onedriveprotocol_component.xml")
   ) dependsOn(shared, archiveHttpStartup)
@@ -354,7 +352,7 @@ lazy val platform = (project in file("platform"))
     libraryDependencies ++= jguiraffeDependencies,
     libraryDependencies ++= osgiDependencies,
     libraryDependencies ++= logDependencies,
-    OsgiKeys.importPackage := Seq("org.apache.logging.log4j.jcl", "*"),
+    OsgiKeys.importPackage := Seq(OSGi.ScalaImport, "org.apache.logging.log4j.jcl", "*"),
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.platform.*"),
     OsgiKeys.privatePackage := Seq.empty,
     OsgiKeys.additionalHeaders :=
@@ -376,11 +374,13 @@ lazy val actorSystem = (project in file("actorSystem"))
     libraryDependencies += ("org.apache.pekko" %% "pekko-osgi" % VersionPekko),
     // need to import packages of pekko modules whose configuration has to be added
     OsgiKeys.importPackage := Seq(
+      OSGi.ScalaImport,
       "org.apache.pekko.remote",
       "org.apache.pekko.stream",
       "org.apache.pekko.http;resolution:=optional",
       "org.apache.pekko.serialization.jackson",
-      "*"),
+      "*"
+    ),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.actorsystem"),
     OsgiKeys.bundleActivator := Some("de.oliver_heger.linedj.actorsystem.Activator")
   ) dependsOn shared
@@ -458,7 +458,9 @@ lazy val archiveAdmin = (project in file("mediaArchive/archiveAdmin"))
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archiveadmin.*"),
     OsgiKeys.importPackage := Seq(
       "de.oliver_heger.linedj.platform.mediaifc.service",
-      "*"),
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", archive)
@@ -482,7 +484,9 @@ lazy val mediaBrowser = (project in file("browser"))
       "de.oliver_heger.linedj.platform.bus",
       "de.oliver_heger.linedj.platform.mediaifc.config",
       "de.oliver_heger.linedj.platform.mediaifc.ext",
-      "*"),
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/browserapp_component.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
@@ -508,7 +512,9 @@ lazy val playlistEditor = (project in file("pleditor"))
       "de.oliver_heger.linedj.platform.bus",
       "de.oliver_heger.linedj.platform.mediaifc.ext",
       "de.oliver_heger.linedj.platform.audio.playlist.service",
-      "*"),
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(shared % "compile->compile;test->test", platform % "compile->compile;test->test", audioPlatform)
@@ -694,7 +700,7 @@ lazy val radioPlayerEngineConfig = (project in file("radioPlayerEngineConfig"))
   */
 lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
   .enablePlugins(SbtOsgi)
-  .settings(defaultSettings)
+  .settings(OSGi.osgiSettings)
   .settings(
     name := "linedj-mp3-playback-context-factory",
     fork := true,
@@ -704,6 +710,7 @@ lazy val mp3PlaybackContextFactory = (project in file("mp3PbCtxFactory"))
       "com.googlecode.soundlibs" % "mp3spi" % VersionMp3Spi
     ),
     libraryDependencies ++= logDependencies,
+    libraryDependencies ++= testDependencies,
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.player.engine.mp3.*"
     ),
@@ -727,7 +734,11 @@ lazy val radioPlayer = (project in file("radioPlayer"))
     OsgiKeys.privatePackage := Seq(
       "de.oliver_heger.linedj.radio.*"
     ),
-    OsgiKeys.importPackage := Seq("de.oliver_heger.linedj.platform.bus", "*"),
+    OsgiKeys.importPackage := Seq(
+      "de.oliver_heger.linedj.platform.bus",
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform, radioPlayerEngine, radioPlayerEngineConfig)
@@ -927,7 +938,9 @@ lazy val audioPlayerUI = (project in file("audioPlayerUI"))
       "de.oliver_heger.linedj.platform.bus",
       "de.oliver_heger.linedj.platform.mediaifc.ext",
       "de.oliver_heger.linedj.platform.audio.playlist.service",
-      "*"),
+      OSGi.ScalaImport,
+      "*"
+    ),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")
   ) dependsOn(platform % "compile->compile;test->test", audioPlatform)
