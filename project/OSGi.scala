@@ -38,11 +38,18 @@ object OSGi {
   )
 
   /**
+    * The import declaration for Scala packages. Here, the Scala 3 version has
+    * to be set explicitly; otherwise, version 2.13 is assumed.
+    */
+  final val ScalaImport: String = "scala.*;version=\"[3.3,4)\""
+
+  /**
     * Returns default settings for OSGi bundles.
     *
     * @return default OSGi settings
     */
-  def osgiSettings: Seq[sbt.Setting[_]] = defaultOsgiSettings ++ Seq(
-    OsgiKeys.requireCapability := "osgi.ee;filter:=\"(&(osgi.ee=JavaSE)(version>=1.8))\""
+  def osgiSettings: Seq[sbt.Setting[?]] = defaultOsgiSettings ++ Seq(
+    OsgiKeys.requireCapability := "osgi.ee;filter:=\"(&(osgi.ee=JavaSE)(version>=1.8))\"",
+    OsgiKeys.importPackage := Seq(ScalaImport, "*")
   )
 }
