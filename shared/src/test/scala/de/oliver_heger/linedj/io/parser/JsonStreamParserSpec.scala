@@ -18,17 +18,19 @@ package de.oliver_heger.linedj.io.parser
 
 import de.oliver_heger.linedj.FileTestHelper
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.Framing.FramingException
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.util.ByteString
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import spray.json.*
 import spray.json.DefaultJsonProtocol.jsonFormat4
 
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 
 object JsonStreamParserSpec extends DefaultJsonProtocol:
   /**
@@ -76,18 +78,30 @@ object JsonStreamParserSpec extends DefaultJsonProtocol:
   private def testBooksSource(): Source[ByteString, Any] =
     val data = ByteString(books.toJson.prettyPrint).grouped(32)
     Source(data.toList)
+
+  /**
+    * Returns a source that contains only the first test book as JSON.
+    *
+    * @return the source with the first test book
+    */
+  private def singleBookSource(): Source[ByteString, Any] =
+    Source(ByteString(books.head.toJson.prettyPrint).grouped(8).toList)
 end JsonStreamParserSpec
 
 /**
   * Test class for [[JsonStreamParser]].
   */
 class JsonStreamParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
-  with BeforeAndAfterAll with Matchers:
+  with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with FileTestHelper:
   def this() = this(ActorSystem("JsonStreamParserSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     super.afterAll()
+
+  override protected def afterEach(): Unit =
+    tearDownTestFile()
+    super.afterEach()
 
   import JsonStreamParserSpec.*
 
@@ -103,7 +117,7 @@ class JsonStreamParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     }
     JsonStreamParser.parseStream(source).runWith(sink).map(_.reverse)
 
-  "JsonStreamParser" should "correctly parse JSON input" in :
+  "parseStream" should "correctly parse JSON input" in :
     runStream() map { result =>
       result should contain theSameElementsInOrderAs books
     }
@@ -135,4 +149,59 @@ class JsonStreamParserSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     recoverToSucceededIf[FramingException] {
       source.runWith(sink)
     }
-    
+
+  "parseObject" should "correctly parse JSON input" in :
+    JsonStreamParser.parseObject[Book](singleBookSource()) map { book =>
+      book should be(books.head)
+    }
+
+  it should "allow configuring the maximum data size" in :
+    recoverToSucceededIf[IllegalStateException] {
+      JsonStreamParser.parseObject[Book](singleBookSource(), maxObjectLength = 16)
+    }
+
+  "parseObjectWithCancellation" should "allow cancelling the operation" in :
+    val source = singleBookSource().delay(250.millis, DelayOverflowStrategy.backpressure)
+    val cancellationException = new IllegalStateException("Stop parsing.")
+
+    recoverToExceptionIf[IllegalStateException] {
+      val (fut, ks) = JsonStreamParser.parseObjectWithCancellation[Book](source)
+      ks.abort(cancellationException)
+      fut
+    } map { exception =>
+      exception should be(cancellationException)
+    }
+
+  "parseFile" should "correctly parse a file JSON data" in :
+    val testBook = books.head
+    val testFile = createDataFile(testBook.toJson.prettyPrint)
+
+    JsonStreamParser.parseFile[Book](testFile) map { book =>
+      book should be(testBook)
+    }
+
+  it should "allow configuring the maximum data size" in :
+    val testFile = createDataFile()
+
+    recoverToSucceededIf[IllegalStateException] {
+      JsonStreamParser.parseFile[Book](testFile, maxObjectLength = 16)
+    }
+
+  it should "throw an exception for non-JSON input" in :
+    val testFile = createDataFile()
+
+    recoverToSucceededIf[JsonParser.ParsingException] {
+      JsonStreamParser.parseFile[Book](testFile)
+    }
+
+  "parseFileWithCancellation" should "allow cancelling the operation" in :
+    val largeTestFile = createDataFile(FileTestHelper.TestData * 32)
+    val cancellationException = new IllegalStateException("Stop parsing.")
+
+    recoverToExceptionIf[IllegalStateException] {
+      val (fut, ks) = JsonStreamParser.parseFileWithCancellation[Book](largeTestFile)
+      ks.abort(cancellationException)
+      fut
+    } map { exception =>
+      exception should be(cancellationException)
+    }
