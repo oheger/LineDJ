@@ -184,8 +184,17 @@ class LoadPlaylistActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val helper = new LoadActorTestHelper
 
     helper.triggerLoad(playlistPath, positionPath)
-      .expectPlaylistResult(generateSetPlaylist(SongCount, position.index, position.position,
-        position.time))
+      .expectPlaylistResult(generateSetPlaylist(SongCount, position.index, position.position, position.time))
+    
+  it should "use default values if the position file is invalid" in:
+    val SongCount = 2
+    val playlistPath = createDataFile(generatePersistentPlaylist(SongCount))
+    val positionPath = createDataFile("This is not a valid position file content.")
+    val helper = new LoadActorTestHelper
+
+    helper.triggerLoad(playlistPath, positionPath)
+      .expectPlaylistResult(generateSetPlaylist(SongCount, 0))
+    
 
   it should "apply the offsets in the position file only to the correct index" in:
     val content =

@@ -16,19 +16,23 @@
 
 package de.oliver_heger.linedj.playlist.persistence
 
+import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.StreamSizeRestrictionStage
+import de.oliver_heger.linedj.platform.audio.SetPlaylist
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.{CurrentPlaylistPosition, LoadedPlaylist, PlaylistItemData}
 import org.apache.pekko.actor.{Actor, ActorLogging}
-import org.apache.pekko.stream.{ActorAttributes, Supervision}
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
-import org.apache.pekko.util.ByteString
+import org.apache.pekko.stream.{ActorAttributes, Supervision}
 import spray.json.DeserializationException
 
 import java.nio.file.Path
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object LoadPlaylistActor:
+  /** A position that is used if the position file cannot be read. */
+  final val DummyPosition = CurrentPlaylistPosition(0, 0, 0)
+
   /**
     * The central message processed by [[LoadPlaylistActor]].
     *
@@ -43,6 +47,16 @@ object LoadPlaylistActor:
     */
   case class LoadPlaylistData(playlistPath: Path, positionPath: Path, maxFileSize: Int,
                               messageBus: MessageBus)
+
+  /**
+    * An internal message class this actor sends to itself to process the
+    * result of an operation to load a playlist.
+    *
+    * @param playlist the resulting playlist
+    * @param bus      the message bus to publish the playlist
+    */
+  private case class PlaylistLoaded(playlist: SetPlaylist,
+                                    bus: MessageBus)
 end LoadPlaylistActor
 
 /**
@@ -60,7 +74,7 @@ end LoadPlaylistActor
   */
 class LoadPlaylistActor extends Actor with ActorLogging:
 
-  import LoadPlaylistActor._
+  import LoadPlaylistActor.*
   import context.system
 
   override def receive: Receive =
@@ -75,15 +89,18 @@ class LoadPlaylistActor extends Actor with ActorLogging:
         .recover:
           case e =>
             log.error(e, s"Error when reading position file $posPath!")
-            CurrentPositionParser.DummyPosition
+            DummyPosition
 
       val playlist = for items <- futPlaylistItems
                          pos <- futPlaylistPos
       yield PersistentPlaylistParser.generateFinalPlaylist(items, pos)
       playlist foreach { pl =>
-        bus publish LoadedPlaylist(pl)
-        context stop self
+        self ! PlaylistLoaded(pl, bus)
       }
+
+    case pl: PlaylistLoaded =>
+      pl.bus.publish(LoadedPlaylist(pl.playlist))
+      context.stop(self)
 
   /**
     * Loads a file with a persistent playlist.
@@ -114,12 +131,8 @@ class LoadPlaylistActor extends Actor with ActorLogging:
     *
     * @param path    the path to the position file
     * @param maxSize the maximum file size
-    * @param ec      the execution context
     * @return a ''Future'' for the result of the load operation
     */
-  private def loadPositionFile(path: Path, maxSize: Int)(implicit ec: ExecutionContext):
-  Future[CurrentPlaylistPosition] =
+  private def loadPositionFile(path: Path, maxSize: Int): Future[CurrentPlaylistPosition] =
     log.info("Loading playlist position from {}.", path)
-    val source = FileIO.fromPath(path).via(new StreamSizeRestrictionStage(maxSize))
-    val sink = Sink.fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
-    source.runWith(sink).map(bs => CurrentPositionParser.parsePosition(bs.utf8String))
+    JsonStreamParser.parseFile[CurrentPlaylistPosition](path, maxSize)
