@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.playlist.persistence
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerStateChangeRegistration, AudioPlayerStateChangedEvent, SetPlaylist}
 import de.oliver_heger.linedj.platform.bus.{ComponentID, ConsumerSupport}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumDescription, MediumID, MediumInfo}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -54,7 +54,11 @@ object PersistentPlaylistStateUpdateServiceSpec extends PlaylistTestHelper:
     */
   private def createAvailableMedia(media: Iterable[MediumID]): AvailableMedia =
     val mediaData = media map { m =>
-      val info = MediumInfo(m.mediumURI, "desc", m, "", generateChecksum(m))
+      val info = MediumInfo(
+        m,
+        MediumDescription(m.mediumURI, "desc", ""),
+        generateChecksum(m)
+      )
       m -> info
     }
     AvailableMedia(mediaData.toList)

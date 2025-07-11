@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
@@ -143,8 +143,15 @@ object MediaScanStateUpdateServiceSpec:
   private def mediumInfo(idx: Int, withChecksum: Boolean = false): MediumInfo =
     val mid = mediumID(idx)
     val cs = if withChecksum then checkSum(idx) else MediumChecksum.Undefined
-    MediumInfo(name = "Medium " + mid.mediumURI, mediumID = mid, description = "",
-      checksum = cs.checksum, orderMode = "")
+    MediumInfo(
+      mediumID = mid,
+      mediumDescription = MediumDescription(
+        name = "Medium " + mid.mediumURI,
+        description = "",
+        orderMode = ""
+      ),
+      checksum = cs.checksum
+    )
 
   /**
     * Creates a map with medium information for the specified test medium.

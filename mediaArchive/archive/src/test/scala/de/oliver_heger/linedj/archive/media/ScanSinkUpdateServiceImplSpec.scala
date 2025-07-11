@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -79,8 +79,15 @@ object ScanSinkUpdateServiceImplSpec:
     * @return the new medium info
     */
   private def createMediumInfo(mid: MediumID): MediumInfo =
-    MediumInfo(name = "Info for " + mid.mediumURI, mediumID = mid,
-      description = "", orderMode = "", checksum = "")
+    MediumInfo(
+      mediumID = mid,
+      mediumDescription = MediumDescription(
+        name = "Info for " + mid.mediumURI,
+        description = "",
+        orderMode = ""
+      ),
+      checksum = ""
+    )
 
   /**
     * Convenience method to execute a ''State'' object to produce the updated

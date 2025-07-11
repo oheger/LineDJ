@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.platform.mediaifc.service
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetadataCache.MediumContent
 import de.oliver_heger.linedj.platform.mediaifc.ext.{AvailableMediaExtension, MetadataCache}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -43,8 +43,15 @@ object MetadataServiceImplSpec:
     * @return the test medium info with this index
     */
   def mediumInfo(idx: Int): MediumInfo =
-    MediumInfo(name = "Medium" + idx, description = "Test medium " + idx,
-      mediumID = mediumID(idx), checksum = idx.toString, orderMode = null)
+    MediumInfo(
+      mediumDescription = MediumDescription(
+        name = "Medium" + idx,
+        description = "Test medium " + idx,
+        orderMode = null
+      ),
+      mediumID = mediumID(idx),
+      checksum = idx.toString,
+    )
 
   /**
     * Generates a mapping from a medium ID to a medium info based on the given

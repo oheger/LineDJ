@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -70,8 +70,15 @@ object ScanSinkActorSpec:
     * @return the medium information for this medium
     */
   private def createMediumInfo(idx: Int): MediumInfo =
-    MediumInfo(mediumID = createMediumID(idx), name = "info" + idx, description = "",
-      orderMode = "", checksum = "")
+    MediumInfo(
+      mediumID = createMediumID(idx),
+      mediumDescription = MediumDescription(
+        name = "info" + idx,
+        description = "",
+        orderMode = ""
+      ),
+      checksum = ""
+    )
 
   /**
     * Creates a map with medium information for the specified test medium.

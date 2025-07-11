@@ -17,20 +17,31 @@
 package de.oliver_heger.linedj.shared.archive.media
 
 /**
- * A class defining metadata of a medium.
- *
- * This data class defines some properties with information about a medium. The
- * data which can be queried from an instance can be used e.g. in a UI when
- * presenting an overview over the media currently available.
- *
- * @param name the name of the represented medium
- * @param description an additional description about the represented medium
- * @param mediumID the ID of the represented medium
- * @param orderMode the default ordering mode for a playlist for this medium
- * @param checksum an alphanumeric checksum calculated for this medium
- */
-case class MediumInfo(name: String,
-                      description: String,
-                      mediumID: MediumID,
-                      orderMode: String,
-                      checksum: String)
+  * A data class defining properties to describe a specific medium.
+  *
+  * This data class defines some properties with information about a medium. The
+  * data which can be queried from an instance can be used e.g. in a UI when
+  * presenting an overview over the media currently available.
+  *
+  * @param name        the name of the represented medium
+  * @param description an additional description about the represented medium
+  * @param orderMode   the default ordering mode for a playlist for this medium
+  */
+case class MediumDescription(name: String,
+                             description: String,
+                             orderMode: String)
+
+/**
+  * A data class to fully describe a medium.
+  *
+  * This data class combines a [[MediumDescription]] with a [[MediumID]]. It is
+  * thus a self-contained description of a specific medium.
+  *
+  * @param mediumID          the ID of the represented medium
+  * @param mediumDescription the description of this medium
+  * @param checksum    an alphanumeric checksum calculated for this medium
+  */
+case class MediumInfo(mediumID: MediumID,
+                      mediumDescription: MediumDescription,
+                      checksum: String):
+  export mediumDescription.*

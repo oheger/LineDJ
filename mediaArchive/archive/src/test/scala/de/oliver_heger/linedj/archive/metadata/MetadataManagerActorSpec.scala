@@ -203,8 +203,15 @@ object MetadataManagerActorSpec:
     */
   private def createAvailableMedia(result: MediaScanResult): AvailableMedia =
     def createMediumInfo(mid: MediumID): MediumInfo =
-      MediumInfo(mediumID = mid, name = "Medium " + mid.mediumURI,
-        description = "", orderMode = "", checksum = "c" + mid.mediumURI)
+      MediumInfo(
+        mediumID = mid,
+        mediumDescription = MediumDescription(
+          name = "Medium " + mid.mediumURI,
+          description = "",
+          orderMode = "",
+        ),
+        checksum = "c" + mid.mediumURI
+      )
 
     val mediaInfo = result.mediaFiles.keys.map { mid =>
       (mid, createMediumInfo(mid))

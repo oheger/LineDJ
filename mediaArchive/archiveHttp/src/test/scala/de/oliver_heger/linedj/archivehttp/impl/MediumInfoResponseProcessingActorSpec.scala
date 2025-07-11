@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivehttp.impl
 
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.Uri
@@ -28,15 +28,15 @@ import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.mockito.AdditionalMatchers.aryEq
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, anyString, eq => eqArg}
-import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers.{any, anyString, eq as eqArg}
+import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.charset.StandardCharsets
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 import scala.util.Success
 
@@ -59,8 +59,15 @@ object MediumInfoResponseProcessingActorSpec:
   private val Checksum = "12345"
 
   /** A test medium info object to be returned by a mock parser. */
-  private val TestMediumInfo = MediumInfo(name = "TestMedium",
-    description = "A test medium", mediumID = TestMediumID, orderMode = null, checksum = Checksum)
+  private val TestMediumInfo = MediumInfo(
+    mediumID = TestMediumID,
+    mediumDescription = MediumDescription(
+      name = "TestMedium",
+      description = "A test medium",
+      orderMode = null
+    ),
+    checksum = Checksum
+  )
 
   /** A test HTTP medium description object. */
   private val TestDesc = HttpMediumDesc(mediumDescriptionPath = "playlist.settings",
@@ -127,7 +134,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     val props = Props(classOf[MediumInfoResponseProcessingActorTestImpl], parser)
     TestActorRef(props)
 
-  "A MediumInfoResponseProcessingActor" should "create a default parser" in:
+  "A MediumInfoResponseProcessingActor" should "create a default parser" in :
     val actor = TestActorRef[MediumInfoResponseProcessingActor](
       Props[MediumInfoResponseProcessingActor]())
 
@@ -149,14 +156,14 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     val result = Await.result(futureStream, WaitTimeout)
     result should be(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
 
-  it should "produce a correct result" in:
+  it should "produce a correct result" in :
     checkParseResult(TestDesc)
 
-  it should "handle a medium description with a strange metadata file name" in:
+  it should "handle a medium description with a strange metadata file name" in :
     val desc = TestDesc.copy(metaDataPath = Checksum)
     checkParseResult(desc)
 
-  it should "handle a parsing error" in:
+  it should "handle a parsing error" in :
     val exception = new IllegalStateException("Simulated parsing exception")
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
@@ -168,7 +175,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
       Await.result(futureStream, WaitTimeout)
     } should be(exception)
 
-  it should "support canceling the stream" in:
+  it should "support canceling the stream" in :
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
       .thenReturn(Success(TestMediumInfo))
@@ -182,7 +189,7 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     verify(parser).parseMediumInfo(captor.capture(), eqArg(TestMediumID), anyString())
     captor.getValue.length should be < MediumInfoContent.length
 
-  it should "propagate the medium description correctly" in:
+  it should "propagate the medium description correctly" in :
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
       eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))

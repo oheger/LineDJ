@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archiveadmin.validate
 
 import de.oliver_heger.linedj.archiveadmin.validate.MetadataValidator.{MediaAlbum, MediaFile}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 /**
@@ -60,7 +60,11 @@ object ValidationTestHelper:
     */
   def testMediumInfo(idx: Int): MediumInfo =
     val mid = testMedium(idx)
-    MediumInfo("Medium " + mid.mediumURI, "desc" + idx, mid, "order" + idx, "check" + idx)
+    MediumInfo(
+      mediumID = mid,
+      mediumDescription = MediumDescription("Medium " + mid.mediumURI, "desc" + idx,  "order" + idx),
+      "check" + idx
+    )
 
   /**
     * Generates an object with available media that contains the given number

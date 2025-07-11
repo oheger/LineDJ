@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.ArchiveAvailabilityRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaRegistration
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetadataCache.{MediumContent, MetadataRegistration, RemoveMetadataRegistration}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import net.sf.jguiraffe.gui.builder.action.ActionStore
 import net.sf.jguiraffe.gui.builder.components.WidgetHandler
@@ -145,7 +145,15 @@ object MediaControllerSpec:
     * @return the undefined medium info
     */
   private def undefinedMediumInfo(id: MediumID): MediumInfo =
-    MediumInfo(name = "(undefined)", description = null, mediumID = id, orderMode = null, checksum = "nocheck")
+    MediumInfo(
+      mediumID = id,
+      mediumDescription = MediumDescription(
+        name = "(undefined)",
+        description = null,
+        orderMode = null
+      ),
+      checksum = "nocheck"
+    )
 
   /**
     * Creates a medium info object for a medium without a description file.
@@ -186,8 +194,15 @@ object MediaControllerSpec:
     * @return the mock for this medium info
     */
   private def mediumInfo(name: String): MediumInfo =
-    MediumInfo(name = name, description = name + "_desc", mediumID = mediumID(name),
-      checksum = mediumChecksum(name), orderMode = "")
+    MediumInfo(
+      mediumID = mediumID(name),
+      mediumDescription = MediumDescription(
+        name = name,
+        description = name + "_desc",
+        orderMode = ""
+      ),
+      checksum = mediumChecksum(name),
+    )
 
   /**
     * Generates a checksum for a test medium.

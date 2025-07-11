@@ -19,11 +19,11 @@ package de.oliver_heger.linedj.archivehttp.impl
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}
-import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -37,7 +37,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.io.IOException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.matching.Regex
 import scala.util.{Failure, Random, Success, Try}
@@ -178,8 +178,15 @@ object HttpArchiveContentProcessorActorSpec:
     */
   def createSettingsProcessingResult(desc: HttpMediumDesc, reqUri: String):
   MediumInfoResponseProcessingResult =
-    val info = MediumInfo(mediumID = mediumID(desc), name = desc.mediumDescriptionPath,
-      description = reqUri, orderMode = "", checksum = "")
+    val info = MediumInfo(
+      mediumID = mediumID(desc),
+      mediumDescription = MediumDescription(
+        name = desc.mediumDescriptionPath,
+        description = reqUri,
+        orderMode = ""
+      ),
+      checksum = ""
+    )
     MediumInfoResponseProcessingResult(info, SeqNo)
 
   /**

@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
@@ -531,8 +531,15 @@ class MockMediumInfoParserActor extends Actor:
 
   override def receive: Receive =
     case req@MediumInfoParserActor.ParseMediumInfo(path, mid, _) if active =>
-      val info = MediumInfo(mediumID = mid, name = path.toString, description = "",
-        orderMode = "", checksum = "0")
+      val info = MediumInfo(
+        mediumID = mid,
+        mediumDescription = MediumDescription(
+          name = path.toString,
+          description = "",
+          orderMode = ""
+        ),
+        checksum = "0"
+      )
       sender() ! MediumInfoParserActor.ParseMediumInfoResult(req, info)
 
     case CloseRequest =>

@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivecommon.parser
 
 import java.io.ByteArrayInputStream
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.commons.configuration.{Configuration, XMLConfiguration}
 
 import scala.util.Try
@@ -61,15 +61,19 @@ private object MediumInfoParser:
     *
     * @param mediumID the ID to the affected medium
     * @param checksum the checksum for the resulting object
-    * @param config     the configuration to be processed
+    * @param config   the configuration to be processed
     * @return the resulting ''MediumInfo'' object
     */
   private def extractMediumInfo(mediumID: MediumID, checksum: String, config: Configuration): MediumInfo =
-    MediumInfo(name = config.getString(ElemName),
-      description = config.getString(ElemDesc),
-      orderMode = config.getString(ElemOrderMode),
+    MediumInfo(
       mediumID = mediumID,
-      checksum = checksum)
+      mediumDescription = MediumDescription(
+        name = config.getString(ElemName),
+        description = config.getString(ElemDesc),
+        orderMode = config.getString(ElemOrderMode)
+      ),
+      checksum = checksum
+    )
 
 /**
   * An internally used helper class for parsing XML files with metadata about

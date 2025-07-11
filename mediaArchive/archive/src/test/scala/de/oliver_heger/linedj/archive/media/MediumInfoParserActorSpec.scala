@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo, ParseMediumInfoResult}
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.Source
@@ -44,8 +44,15 @@ object MediumInfoParserActorSpec:
   private val TestMediumID = MediumID("test://TestMedium", None)
 
   /** An object with test medium info data. */
-  private val TestInfo = MediumInfo(name = "TestMedium", description = "Some desc",
-    mediumID = TestMediumID, orderMode = "Directories", checksum = "")
+  private val TestInfo = MediumInfo(
+    mediumID = TestMediumID,
+    mediumDescription = MediumDescription(
+      name = "TestMedium",
+      description = "Some desc",
+      orderMode = "Directories"
+    ),
+    checksum = ""
+  )
 
   /** The maximum size restriction for description files. */
   private val MaxFileSize = 4 * 8192
@@ -104,7 +111,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
 
     createDataFile(generateContent(ByteString.empty).utf8String)
 
-  "A MediumInfoParserActor" should "handle a successful parse operation" in:
+  "A MediumInfoParserActor" should "handle a successful parse operation" in :
     val parser = mock[MediumInfoParser]
     val file = createDataFile()
     when(parser.parseMediumInfo(FileTestHelper.testBytes(), TestMediumID))
@@ -115,7 +122,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     actor ! parseRequest
     expectMsg(ParseMediumInfoResult(parseRequest, TestInfo))
 
-  it should "return a default description if a parsing error occurs" in:
+  it should "return a default description if a parsing error occurs" in :
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(), argEq(TestMediumID), anyString()))
       .thenReturn(Try[MediumInfo](throw new Exception))
@@ -126,7 +133,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val settings = expectMsgType[ParseMediumInfoResult].info
     verifyDummyMediumInfo(settings)
 
-  it should "return a default description if a stream processing error occurs" in:
+  it should "return a default description if a stream processing error occurs" in :
     val parser = mock[MediumInfoParser]
     val actor = parserActor(parser)
     val parseRequest = ParseMediumInfo(Paths get "nonExistingFile.xxx", TestMediumID, SeqNo)
@@ -137,7 +144,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     verifyDummyMediumInfo(result.info)
     verifyNoInteractions(parser)
 
-  it should "support cancellation of stream processing" in:
+  it should "support cancellation of stream processing" in :
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(), argEq(TestMediumID), any()))
       .thenReturn(Success(TestInfo))
@@ -155,7 +162,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     verify(parser).parseMediumInfo(captor.capture(), argEq(TestMediumID), any())
     captor.getValue.length should be < FileSize
 
-  it should "apply a size restriction" in:
+  it should "apply a size restriction" in :
     val parser = mock[MediumInfoParser]
     val file = createLargeTestFile(MaxFileSize + 8192)
     val parseRequest = ParseMediumInfo(file, TestMediumID, SeqNo)

@@ -17,12 +17,12 @@
 package de.oliver_heger.linedj.archivehttp.impl
 
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.{ActorLogging, ActorRef}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.pattern.ask
-import org.apache.pekko.stream._
+import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
 import org.apache.pekko.util.ByteString
 
@@ -40,7 +40,7 @@ object HttpArchiveContentProcessorActor:
     * @return the undefined medium info result for this medium ID
     */
   private def createUndefinedInfoResult(mid: MediumID): MediumInfoResponseProcessingResult =
-    MediumInfoResponseProcessingResult(MediumInfo("", "", mid, "", ""), UndefinedSeqNo)
+    MediumInfoResponseProcessingResult(MediumInfo(mid, MediumDescription("", "",  ""), ""), UndefinedSeqNo)
 
   /**
     * Creates a special undefined metadata result for the given medium ID.

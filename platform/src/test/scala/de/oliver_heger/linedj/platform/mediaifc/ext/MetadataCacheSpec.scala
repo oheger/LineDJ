@@ -20,10 +20,10 @@ import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.MetadataCache.{MediumContent, MetadataRegistration, RemoveMetadataRegistration}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileID, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetadata, MetadataChunk, MetadataResponse}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -299,7 +299,15 @@ class MetadataCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     def checksum(idx: Int): String = s"check$idx"
 
     def createInfo(idx: Int): MediumInfo =
-      MediumInfo("name" + idx, "someDesc" + idx, mediumID(idx), "noOrder", checksum(idx))
+      MediumInfo(
+        mediumID = mediumID(idx),
+        mediumDescription = MediumDescription(
+          "name" + idx,
+          "someDesc" + idx,
+          "noOrder"
+        ),
+        checksum(idx)
+      )
 
     val chunk1 = createChunk(1, complete = false).chunk
     val chunk2 = createChunk(2, complete = false, mediumID(2)).chunk

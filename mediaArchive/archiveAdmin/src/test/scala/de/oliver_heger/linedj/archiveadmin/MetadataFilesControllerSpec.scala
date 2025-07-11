@@ -28,7 +28,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.platform.mediaifc.ext.ArchiveAvailabilityExtension.{ArchiveAvailabilityRegistration, ArchiveAvailabilityUnregistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.{AvailableMediaRegistration, AvailableMediaUnregistration}
 import de.oliver_heger.linedj.platform.mediaifc.ext.StateListenerExtension.{StateListenerRegistration, StateListenerUnregistration}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.GetArchiveMetadataFileInfo
 import net.sf.jguiraffe.gui.app.ApplicationContext
@@ -100,8 +100,15 @@ object MetadataFilesControllerSpec:
     * @return the medium info
     */
   private def mediumInfo(idx: Int): MediumInfo =
-    MediumInfo(name = "Medium_" + idx, description = "Test medium" + idx,
-      mediumID = mediumID(idx), orderMode = "", checksum = checksum(idx))
+    MediumInfo(
+      mediumID = mediumID(idx),
+      mediumDescription = MediumDescription(
+        name = "Medium_" + idx,
+        description = "Test medium" + idx,
+        orderMode = ""
+      ),
+      checksum = checksum(idx)
+    )
 
   /**
     * Generates an object with available media. It contains all the test media.

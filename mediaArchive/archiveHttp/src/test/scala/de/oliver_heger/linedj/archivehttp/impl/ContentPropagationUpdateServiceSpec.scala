@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID, MediumInfo}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, MediaContribution, MetadataProcessingSuccess}
 import org.apache.pekko.actor.ActorSystem
@@ -48,7 +48,15 @@ object ContentPropagationUpdateServiceSpec:
     * @return the info object for this test medium
     */
   private def mediumInfo(idx: Int): MediumInfo =
-    MediumInfo(name = "TestMedium" + idx, description = "", orderMode = "", checksum = "", mediumID = mediumID(idx))
+    MediumInfo(
+      mediumID = mediumID(idx),
+      mediumDescription = MediumDescription(
+        name = "TestMedium" + idx,
+        description = "",
+        orderMode = ""
+      ),
+      checksum = ""
+    )
 
   /**
     * Generates the path for the media files contained on the given test

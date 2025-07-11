@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, StreamSizeRestrictionStage}
-import de.oliver_heger.linedj.shared.archive.media.{MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.ActorLogging
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
@@ -38,8 +38,15 @@ object MediumInfoParserActor:
     * Template for a default settings object to be returned in case of a
     * parsing error.
     */
-  private[media] lazy val DummyMediumSettingsData = MediumInfo(name = UnknownMedium,
-    description = "", mediumID = MediumID.UndefinedMediumID, orderMode = "", checksum = "")
+  private[media] lazy val DummyMediumSettingsData = MediumInfo(
+    mediumID = MediumID.UndefinedMediumID,
+    mediumDescription = MediumDescription(
+      name = UnknownMedium,
+      description = "",
+      orderMode = ""
+    ),
+    checksum = ""
+  )
 
   /**
     * A message processed by ''MediumInfoParserActor'' which tells it to parse a
