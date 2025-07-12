@@ -33,8 +33,9 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import spray.json.*
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import scala.annotation.tailrec
 import scala.concurrent.duration.*
 import scala.util.{Success, Try}
@@ -121,7 +122,13 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     val parseRequest = ParseMediumInfo(file, TestMediumID, SeqNo)
     actor ! parseRequest
     expectMsg(ParseMediumInfoResult(parseRequest, TestInfo))
-
+    
+    import MediumInfoParserActor.given_RootJsonFormat_MediumDescription
+    val jsonFile = file.getParent.resolve("medium.json")
+    val json = Files.readString(jsonFile) 
+    val serializeInfo = json.parseJson.convertTo[MediumDescription]
+    serializeInfo should be(TestInfo.mediumDescription)
+  
   it should "return a default description if a parsing error occurs" in :
     val parser = mock[MediumInfoParser]
     when(parser.parseMediumInfo(any(), argEq(TestMediumID), anyString()))

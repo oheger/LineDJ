@@ -23,8 +23,10 @@ import org.apache.pekko.actor.ActorLogging
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 import org.apache.pekko.util.ByteString
+import spray.json.DefaultJsonProtocol.*
+import spray.json.*
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import scala.concurrent.Future
 
 /**
@@ -47,6 +49,9 @@ object MediumInfoParserActor:
     ),
     checksum = ""
   )
+  
+  /** A format for the JSON serialization of [[MediumDescription]] objects. */
+  private [media] given RootJsonFormat[MediumDescription] = jsonFormat3(MediumDescription.apply)
 
   /**
     * A message processed by ''MediumInfoParserActor'' which tells it to parse a
@@ -99,7 +104,8 @@ object MediumInfoParserActor:
 class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
   extends AbstractStreamProcessingActor with ActorLogging with CancelableStreamSupport:
 
-  import MediumInfoParserActor._
+  import MediumInfoParserActor.*
+  import MediumInfoParserActor.given_RootJsonFormat_MediumDescription
 
   override def customReceive: Receive =
     case req: ParseMediumInfo =>
@@ -134,7 +140,13 @@ class MediumInfoParserActor(parser: MediumInfoParser, maxSize: Int)
       .toMat(sink)(Keep.both)
       .run()
     val futParse = futStream map { bs =>
-      ParseMediumInfoResult(req, parser.parseMediumInfo(bs.toArray, req.mediumID).get)
+      val mediumInfo = parser.parseMediumInfo(bs.toArray, req.mediumID).get
+      val mediumInfoJson = mediumInfo.mediumDescription.toJson.prettyPrint
+      val targetPath = req.descriptionPath.getParent.resolve("medium.json")
+      log.info("Writing medium description for {} to {}.", req.mediumID, targetPath)
+      Files.writeString(targetPath, mediumInfoJson)
+
+      ParseMediumInfoResult(req, mediumInfo)
     }
     (ks, futParse)
 
