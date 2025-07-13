@@ -16,6 +16,22 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
+import java.nio.file.Path
+
+object MediumDescription:
+  /** The name of the file containing information about the medium. */
+  private val InfoFileName = "medium.json"
+
+  /**
+    * Checks whether the specified path represents a medium description file.
+    *
+    * @param p the path to be checked
+    * @return a flag whether this path is a medium description file
+    */
+  def isInfoFile(p: Path): Boolean =
+    p.getFileName.toString == InfoFileName
+end MediumDescription
+
 /**
   * A data class defining properties to describe a specific medium.
   *

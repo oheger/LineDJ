@@ -20,6 +20,7 @@ import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
+import de.oliver_heger.linedj.shared.archive.media.MediumDescription
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorLogging, ActorRef, Props, typed}
@@ -35,9 +36,6 @@ import scala.concurrent.Promise
   * Companion object.
   */
 object MediaScannerActor:
-  /** The name of the file containing information about the medium. */
-  private val InfoFileName = "medium.json"
-
   /**
     * Returns a ''Props'' object to create an instance of this actor class.
     *
@@ -70,15 +68,6 @@ object MediaScannerActor:
     * @return the corresponding error message
     */
   private def mapException(ex: Throwable): Any = ScanSinkActor.StreamFailure(ex)
-
-  /**
-    * Checks whether the specified path is a medium info file.
-    *
-    * @param file the file to be checked
-    * @return a flag whether this is a settings file
-    */
-  private def isInfoFile(file: Path): Boolean = 
-    file.getFileName.toString == InfoFileName
 
   /**
     * Extracts the file extension from the given path and returns it in
@@ -237,7 +226,7 @@ class MediaScannerActor(archiveName: String,
         val broadcast = builder.add(Broadcast[Path](2))
         val aggregate = new MediumAggregateStage(root, archiveName, converter)
         val enhance = Flow[MediaScanResult].map(ScanResultEnhancer.enhance)
-        val filterSettings = Flow[Path].filter(isInfoFile)
+        val filterSettings = Flow[Path].filter(MediumDescription.isInfoFile)
         val parseRequest = Flow[Path].map(p => parseMediumInfoRequest(p, converter))
         val parseInfo = Flow[MediumInfoParserActor.ParseMediumInfo].mapAsync(1) {
           r =>
@@ -271,7 +260,7 @@ class MediaScannerActor(archiveName: String,
   private def filterElementsFunc(): Walk.TransformFunc[Path] =
     val fileFilter: Model.File[Path] => Boolean =
       if inclusions.nonEmpty then
-        elem => inclusions.contains(extractExtension(elem.id)) || isInfoFile(elem.id)
+        elem => inclusions.contains(extractExtension(elem.id)) || MediumDescription.isInfoFile(elem.id)
       else
         elem => !exclusions.contains(extractExtension(elem.id))
 

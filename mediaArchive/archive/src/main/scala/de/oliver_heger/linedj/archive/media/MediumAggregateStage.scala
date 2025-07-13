@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.archive.media.MediumAggregateStage.FileDataFactory
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID}
 import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
 import scalaz.State
@@ -27,9 +27,6 @@ import java.nio.file.{Files, Path}
 import scala.collection.immutable.Seq
 
 object MediumAggregateStage:
-  /** The name of the file with the description of a medium. */
-  private val InfoFileName = "medium.json"
-
   /**
     * An internally used data class that stores the aggregated file information
     * for a single medium.
@@ -109,15 +106,6 @@ object MediumAggregateStage:
     FileData(p, fileSize)
 
   /**
-    * Checks whether the specified path represents a medium description file.
-    *
-    * @param p the path to be checked
-    * @return a flag whether this path is a medium description file
-    */
-  private def isInfoFile(p: Path): Boolean =
-    p.getFileName.toString == InfoFileName
-
-  /**
     * A function to calculate the next state of this stage after a path is
     * processed. Here the logic of aggregating files to media and determining
     * when a medium is complete is contained. In addition to the next state,
@@ -134,7 +122,7 @@ object MediumAggregateStage:
   private def nextState(file: Path, root: Path, archiveName: String, converter: PathUriConverter,
                         fileDataFactory: FileDataFactory): State[MediaState, Option[MediaScanResult]] =
     State { s =>
-      if isInfoFile(file) then
+      if MediumDescription.isInfoFile(file) then
         val mid: MediumID = mediumIDFromSettingsPath(file, archiveName, converter)
         val newAgg = MediumAggregateData(file.getParent, mid, Nil)
         val (completed, active) = s.span(!_.isInScope(file))
