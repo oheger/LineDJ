@@ -43,17 +43,17 @@ object MediumAggregateStageSpec:
   /** Prefix for medium directories. */
   private val MediumDirPrefix = "medium"
 
-  /** A list with the names of sub directories for path generation. */
+  /** A list with the names of subdirectories for path generation. */
   private val SubDirectories = List("sub1", "Sub2", "sub3")
 
-  /** The name of a settings (medium description) file. */
-  private val SettingsName = "playlist.settings"
+  /** The name of a medium description file. */
+  private val SettingsName = "medium.json"
 
   /**
     * Generates a ''Path'' for a directory in the test archive structure.
     *
     * @param mediumIdx the index of the medium
-    * @param subLevel  the sub directory level
+    * @param subLevel  the subdirectory level
     * @return the resulting path
     */
   private def generateDirPath(mediumIdx: Int, subLevel: Int): Path =
@@ -62,10 +62,10 @@ object MediumAggregateStageSpec:
   /**
     * Generates a ''Path'' for a test file in the directory structure to be
     * passed. This method generates the path for a file on the given medium,
-    * on a specific sub directory level, and with the given name.
+    * on a specific subdirectory level, and with the given name.
     *
     * @param mediumIdx the index of the medium
-    * @param subLevel  the sub directory level
+    * @param subLevel  the subdirectory level
     * @param name      the name of the file
     * @return the resulting path
     */
@@ -86,7 +86,7 @@ object MediumAggregateStageSpec:
     * structure.
     *
     * @param mediumIdx the index of the medium
-    * @param subLevel  the sub directory level
+    * @param subLevel  the subdirectory level
     * @param songIdx   the index of the media file
     * @return the resulting path
     */
@@ -98,7 +98,7 @@ object MediumAggregateStageSpec:
     * directory structure.
     *
     * @param mediumIdx the index of the medium
-    * @param subLevel  the sub directory level
+    * @param subLevel  the subdirectory level
     * @return the resulting path
     */
   private def generateSettingsPath(mediumIdx: Int, subLevel: Int = 0): Path =
@@ -165,11 +165,11 @@ class MediumAggregateStageSpec(testSystem: ActorSystem) extends TestKit(testSyst
     TestKit shutdownActorSystem system
     tearDownTestFile()
 
-  import MediumAggregateStageSpec._
+  import MediumAggregateStageSpec.*
 
   /**
     * Checks whether a scan result contains the expected data. The order of
-    * files is irrelevant; therefore, a special comparision function has to be
+    * files is irrelevant; therefore, a special comparison function has to be
     * used.
     *
     * @param expected the expected scan result

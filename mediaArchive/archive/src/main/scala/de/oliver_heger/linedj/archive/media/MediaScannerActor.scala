@@ -35,11 +35,8 @@ import scala.concurrent.Promise
   * Companion object.
   */
 object MediaScannerActor:
-  /** Constant for the extension for medium description files. */
-  private val SettingsExtension = ".settings"
-
-  /** The extension for settings files to be used in filter expressions. */
-  private val SettingsExtFilter = "SETTINGS"
+  /** The name of the file containing information about the medium. */
+  private val InfoFileName = "medium.json"
 
   /**
     * Returns a ''Props'' object to create an instance of this actor class.
@@ -75,13 +72,13 @@ object MediaScannerActor:
   private def mapException(ex: Throwable): Any = ScanSinkActor.StreamFailure(ex)
 
   /**
-    * Checks whether the specified path is a medium settings file.
+    * Checks whether the specified path is a medium info file.
     *
     * @param file the file to be checked
     * @return a flag whether this is a settings file
     */
-  private def isSettingsFile(file: Path): Boolean =
-    file.toString endsWith SettingsExtension
+  private def isInfoFile(file: Path): Boolean = 
+    file.getFileName.toString == InfoFileName
 
   /**
     * Extracts the file extension from the given path and returns it in
@@ -225,8 +222,7 @@ class MediaScannerActor(archiveName: String,
     * @return a tuple with a kill switch and the future result of stream
     *         processing
     */
-  private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef):
-  KillSwitch =
+  private[media] def runStream(source: Source[Path, Any], root: Path, sinkActor: ActorRef): KillSwitch =
     implicit val infoParseTimeout: Timeout = parserTimeout
     val sinkScanResults = Sink.actorRefWithBackpressure(sinkActor, ScanSinkActor.Init,
       ScanSinkActor.Ack, ScanSinkActor.ScanResultsComplete, mapException)
@@ -241,7 +237,7 @@ class MediaScannerActor(archiveName: String,
         val broadcast = builder.add(Broadcast[Path](2))
         val aggregate = new MediumAggregateStage(root, archiveName, converter)
         val enhance = Flow[MediaScanResult].map(ScanResultEnhancer.enhance)
-        val filterSettings = Flow[Path].filter(isSettingsFile)
+        val filterSettings = Flow[Path].filter(isInfoFile)
         val parseRequest = Flow[Path].map(p => parseMediumInfoRequest(p, converter))
         val parseInfo = Flow[MediumInfoParserActor.ParseMediumInfo].mapAsync(1) {
           r =>
@@ -275,8 +271,7 @@ class MediaScannerActor(archiveName: String,
   private def filterElementsFunc(): Walk.TransformFunc[Path] =
     val fileFilter: Model.File[Path] => Boolean =
       if inclusions.nonEmpty then
-        val includedExtensions = inclusions + SettingsExtFilter
-        elem => includedExtensions.contains(extractExtension(elem.id))
+        elem => inclusions.contains(extractExtension(elem.id)) || isInfoFile(elem.id)
       else
         elem => !exclusions.contains(extractExtension(elem.id))
 

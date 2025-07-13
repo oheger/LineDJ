@@ -27,8 +27,8 @@ import java.nio.file.{Files, Path}
 import scala.collection.immutable.Seq
 
 object MediumAggregateStage:
-  /** Constant for the file extension for medium description files. */
-  private val SettingsExtension = ".settings"
+  /** The name of the file with the description of a medium. */
+  private val InfoFileName = "medium.json"
 
   /**
     * An internally used data class that stores the aggregated file information
@@ -114,8 +114,8 @@ object MediumAggregateStage:
     * @param p the path to be checked
     * @return a flag whether this path is a medium description file
     */
-  private def isSettingsFile(p: Path): Boolean =
-    p.toString.endsWith(SettingsExtension)
+  private def isInfoFile(p: Path): Boolean =
+    p.getFileName.toString == InfoFileName
 
   /**
     * A function to calculate the next state of this stage after a path is
@@ -134,7 +134,7 @@ object MediumAggregateStage:
   private def nextState(file: Path, root: Path, archiveName: String, converter: PathUriConverter,
                         fileDataFactory: FileDataFactory): State[MediaState, Option[MediaScanResult]] =
     State { s =>
-      if isSettingsFile(file) then
+      if isInfoFile(file) then
         val mid: MediumID = mediumIDFromSettingsPath(file, archiveName, converter)
         val newAgg = MediumAggregateData(file.getParent, mid, Nil)
         val (completed, active) = s.span(!_.isInScope(file))

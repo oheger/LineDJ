@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.media
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMonitoringActor, MediaFileDownloadActor}
-import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
@@ -738,8 +737,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
                 probeMediaScanner.ref
 
               case ClsInfoParser =>
-                p.args.head shouldBe a[MediumInfoParser]
-                p.args(1) should be(InfoSizeLimit)
+                p.args.head should be(InfoSizeLimit)
                 probeInfoParser.ref
 
               case ClsDownloadManagerActor =>

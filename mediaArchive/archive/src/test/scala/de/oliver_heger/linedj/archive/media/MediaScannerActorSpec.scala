@@ -98,15 +98,15 @@ object MediaScannerActorSpec:
     List(
       createFile(RootPath, "noMedium1.mp3"),
       createFile(medium1, "noMedium2.mp3"),
-      createFile(medium1, "medium1.settings"),
+      createFile(medium1, "medium.json"),
       createFile(sub1, "medium1Song1.mp3"),
       createFile(sub1Sub, "medium1Song2.mp3"),
       createFile(sub1Sub, "medium1Song3.mp3"),
-      createFile(medium2, "medium2.settings"),
+      createFile(medium2, "medium.json"),
       createFile(sub2, "medium2Song1.mp3"),
       createFile(sub2, "medium2Text.txt"),
       createFile(sub3, "medium3Song1.mp3"),
-      createFile(medium3, "medium3.settings"),
+      createFile(medium3, "medium.json"),
       createFile(otherDir, "noMedium3.mp3"),
       createFile(otherDir, "noMedium_foo")
     )
@@ -133,11 +133,11 @@ object MediaScannerActorSpec:
     * @return a set with all defined medium IDs
     */
   private def findAllDefinedMediumIDs(): Set[MediumID] =
-    TestFiles.filter(_.path.toString.endsWith(".settings"))
+    TestFiles.filter(_.path.getFileName.toString == "medium.json")
       .map { p =>
         val mediumUri = relativeUri(p.path.getParent)
-        val settingsUri = relativeUri(p.path)
-        MediumID(mediumUri, Some(settingsUri), ArchiveName)
+        val infoUri = relativeUri(p.path)
+        MediumID(mediumUri, Some(infoUri), ArchiveName)
       }.toSet
 
   /**

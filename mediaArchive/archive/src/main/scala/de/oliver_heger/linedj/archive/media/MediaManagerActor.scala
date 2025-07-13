@@ -19,7 +19,6 @@ package de.oliver_heger.linedj.archive.media
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archivecommon.download.{DownloadMonitoringActor, MediaFileDownloadActor}
-import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
@@ -126,9 +125,6 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
   import MediaManagerActor.*
 
-  /** A helper object for parsing medium description files. */
-  private val mediumInfoParser = new MediumInfoParser
-
   /** The actor for parsing media description files. */
   private var mediumInfoParserActor: ActorRef = _
 
@@ -146,8 +142,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit =
-    mediumInfoParserActor = createChildActor(Props(classOf[MediumInfoParserActor],
-      mediumInfoParser, config.infoSizeLimit))
+    mediumInfoParserActor = createChildActor(Props(classOf[MediumInfoParserActor], config.infoSizeLimit))
     mediaScannerActor = createChildActor(MediaScannerActor(config.archiveName,
       config.excludedFileExtensions, config.includedFileExtensions,
       config.scanMediaBufferSize, mediumInfoParserActor, config.infoParserTimeout, config.blockingDispatcherName))

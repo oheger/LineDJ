@@ -18,27 +18,18 @@ package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archive.media.MediumInfoParserActor.{ParseMediumInfo, ParseMediumInfoResult}
-import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
-import org.apache.pekko.stream.DelayOverflowStrategy
-import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.apache.pekko.util.ByteString
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, anyString, eq as argEq}
-import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import spray.json.*
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 import scala.annotation.tailrec
-import scala.concurrent.duration.*
-import scala.util.{Success, Try}
 
 object MediumInfoParserActorSpec:
   /** Constant for a medium ID. */
@@ -60,6 +51,7 @@ object MediumInfoParserActorSpec:
 
   /** A test sequence number. */
   private val SeqNo = 42
+end MediumInfoParserActorSpec
 
 /**
   * Test class for ''MediumInfoParserActor''.
@@ -68,7 +60,7 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
   with ImplicitSender with AnyFlatSpecLike with Matchers with BeforeAndAfterAll with MockitoSugar
   with FileTestHelper:
 
-  import MediumInfoParserActorSpec._
+  import MediumInfoParserActorSpec.*
 
   def this() = this(ActorSystem("MediumInfoParserActorSpec"))
 
@@ -77,13 +69,12 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     tearDownTestFile()
 
   /**
-    * Creates a test actor which operates on the specified parser.
+    * Creates a test actor with default settings.
     *
-    * @param parser the parser
     * @return the test actor reference
     */
-  private def parserActor(parser: MediumInfoParser): ActorRef =
-    system.actorOf(Props(classOf[MediumInfoParserActor], parser, MaxFileSize))
+  private def parserActor(maxFileSize: Int = MaxFileSize): ActorRef =
+    system.actorOf(Props(classOf[MediumInfoParserActor], maxFileSize))
 
   /**
     * Checks whether a ''MediumInfo'' object contains only dummy data.
@@ -98,85 +89,87 @@ class MediumInfoParserActorSpec(testSystem: ActorSystem) extends TestKit(testSys
     settings.checksum should have length 0
 
   /**
-    * Produces a file with test content of the specified size.
+    * Produces a file with test content greater than the specified size. The
+    * resulting file is valid JSON. It has a number of synthetic properties
+    * to reach the desired size.
     *
     * @param size the size of the test file
     * @return the path to the newly created file
     */
   private def createLargeTestFile(size: Int): Path =
-    val testByteStr = ByteString(FileTestHelper.testBytes())
+    val dummyPropertyValue = FileTestHelper.TestData.replace('\n', ' ')
 
-    @tailrec def generateContent(current: ByteString): ByteString =
-      if current.length >= size then current.take(size)
-      else generateContent(current ++ testByteStr)
+    @tailrec def generateContent(current: ByteString, propertyIndex: Int): ByteString =
+      if current.length >= size then
+        current ++ ByteString("\n}")
+      else
+        val property = s",\n  \"prop$propertyIndex\": \"$dummyPropertyValue\""
+        generateContent(current ++ ByteString(property), propertyIndex + 1)
 
-    createDataFile(generateContent(ByteString.empty).utf8String)
+    val initialJson =
+      """
+        |{
+        |  "name": "testMedium",
+        |  "description": "Some test medium",
+        |  "orderMode": "random"
+        |""".stripMargin
+    createDataFile(generateContent(ByteString(initialJson), 1).utf8String)
 
   "A MediumInfoParserActor" should "handle a successful parse operation" in :
-    val parser = mock[MediumInfoParser]
-    val file = createDataFile()
-    when(parser.parseMediumInfo(FileTestHelper.testBytes(), TestMediumID))
-      .thenReturn(Success(TestInfo))
+    val testInfoUri = getClass.getResource("/testMediumInfo.json")
+    val expectedDescription = MediumDescription(
+      name = "testMedium",
+      description = "This is a test medium used for testing",
+      orderMode = "artists"
+    )
+    val file = Paths.get(testInfoUri.toURI)
 
-    val actor = parserActor(parser)
+    val actor = parserActor()
     val parseRequest = ParseMediumInfo(file, TestMediumID, SeqNo)
     actor ! parseRequest
-    expectMsg(ParseMediumInfoResult(parseRequest, TestInfo))
     
-    import MediumInfoParserActor.given_RootJsonFormat_MediumDescription
-    val jsonFile = file.getParent.resolve("medium.json")
-    val json = Files.readString(jsonFile) 
-    val serializeInfo = json.parseJson.convertTo[MediumDescription]
-    serializeInfo should be(TestInfo.mediumDescription)
+    val response = expectMsgType[ParseMediumInfoResult]
+    response.request should be(parseRequest)
+    response.info.mediumID should be(TestMediumID)
+    response.info.mediumDescription should be(expectedDescription)
+    response.info.checksum should be("")
   
   it should "return a default description if a parsing error occurs" in :
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(), argEq(TestMediumID), anyString()))
-      .thenReturn(Try[MediumInfo](throw new Exception))
-
-    val actor = parserActor(parser)
     val parseRequest = ParseMediumInfo(createDataFile(), TestMediumID, SeqNo)
+    
+    val actor = parserActor()
     actor ! parseRequest
-    val settings = expectMsgType[ParseMediumInfoResult].info
-    verifyDummyMediumInfo(settings)
+    
+    val info = expectMsgType[ParseMediumInfoResult].info
+    verifyDummyMediumInfo(info)
 
   it should "return a default description if a stream processing error occurs" in :
-    val parser = mock[MediumInfoParser]
-    val actor = parserActor(parser)
     val parseRequest = ParseMediumInfo(Paths get "nonExistingFile.xxx", TestMediumID, SeqNo)
-
+    
+    val actor = parserActor()
     actor ! parseRequest
+    
     val result = expectMsgType[ParseMediumInfoResult]
     result.request should be(parseRequest)
     verifyDummyMediumInfo(result.info)
-    verifyNoInteractions(parser)
 
   it should "support cancellation of stream processing" in :
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(), argEq(TestMediumID), any()))
-      .thenReturn(Success(TestInfo))
-    val FileSize = 3 * 8192
+    val FileSize = 20 * 8192
     val file = createLargeTestFile(FileSize)
-    val actor = system.actorOf(Props(new MediumInfoParserActor(parser, MaxFileSize) {
-      override private[media] def createSource(path: Path): Source[ByteString, Any] =
-        super.createSource(path).delay(1.second, DelayOverflowStrategy.backpressure)
-    }))
+    val actor = parserActor(2 * FileSize)
     actor ! ParseMediumInfo(file, TestMediumID, SeqNo)
 
     actor ! AbstractStreamProcessingActor.CancelStreams
-    expectMsgType[ParseMediumInfoResult]
-    val captor = ArgumentCaptor.forClass(classOf[Array[Byte]])
-    verify(parser).parseMediumInfo(captor.capture(), argEq(TestMediumID), any())
-    captor.getValue.length should be < FileSize
+    val result = expectMsgType[ParseMediumInfoResult]
+    verifyDummyMediumInfo(result.info)
 
   it should "apply a size restriction" in :
-    val parser = mock[MediumInfoParser]
     val file = createLargeTestFile(MaxFileSize + 8192)
     val parseRequest = ParseMediumInfo(file, TestMediumID, SeqNo)
-    val actor = parserActor(parser)
-
+    
+    val actor = parserActor()
     actor ! parseRequest
+    
     val result = expectMsgType[ParseMediumInfoResult]
     result.request should be(parseRequest)
     verifyDummyMediumInfo(result.info)
-    verifyNoInteractions(parser)
