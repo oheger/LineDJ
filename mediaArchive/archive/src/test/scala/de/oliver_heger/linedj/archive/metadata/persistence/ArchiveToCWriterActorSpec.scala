@@ -46,12 +46,13 @@ object ArchiveToCWriterActorSpec:
   /** A default ToC. */
   private val DefaultToC =
     "[" + CR +
-      """{"mediumDescriptionPath":"U%202/playlist.settings",""" +
-      """"metaDataPath":"393839.mdt"},""" + CR +
-      """{"mediumDescriptionPath":"classics/my%20favorites/playlist.settings",""" +
+      """{"mediumDescriptionPath":"classics/my%20favorites/medium.json",""" +
       """"metaDataPath":"ccccc.mdt"},""" + CR +
-      """{"mediumDescriptionPath":"Prince/playlist.settings",""" +
-      """"metaDataPath":"abc.mdt"}""" + CR + "]" + CR
+      """{"mediumDescriptionPath":"prince/medium.json",""" +
+      """"metaDataPath":"abc.mdt"},""" + CR +
+      """{"mediumDescriptionPath":"U%202/medium.json",""" +
+      """"metaDataPath":"393839.mdt"}""" + CR +
+      "]" + CR
 
   /**
     * Generates a test medium ID.
@@ -60,7 +61,7 @@ object ArchiveToCWriterActorSpec:
     * @return the test medium ID
     */
   private def mid(name: String): MediumID =
-    MediumID("uri:" + name, Some(name + "/playlist.settings"))
+    MediumID("uri:" + name, Some(name + "/medium.json"))
 
   /**
     * Generates a list of default test content contained in the archive.
@@ -68,8 +69,11 @@ object ArchiveToCWriterActorSpec:
     * @return the list with test content
     */
   private def generateContent(): List[(MediumID, String)] =
-    List((mid("U%202"), "393839"), (mid("classics/my%20favorites"), "ccccc"),
-      (mid("Prince"), "abc"))
+    List(
+      (mid("U%202"), "393839"),
+      (mid("classics/my%20favorites"), "ccccc"),
+      (mid("prince"), "abc")
+    )
 
 /**
   * Test class for ''ArchiveToCWriterActor''.
