@@ -16,11 +16,17 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
+import spray.json.*
+import spray.json.DefaultJsonProtocol.*
+
 import java.nio.file.Path
 
 object MediumDescription:
   /** The name of the file containing information about the medium. */
   private val InfoFileName = "medium.json"
+
+  /** A format for the JSON serialization of [[MediumDescription]] objects. */
+  given RootJsonFormat[MediumDescription] = jsonFormat3(MediumDescription.apply)
 
   /**
     * Checks whether the specified path represents a medium description file.

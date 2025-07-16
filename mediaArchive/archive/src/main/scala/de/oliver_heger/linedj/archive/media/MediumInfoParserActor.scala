@@ -20,8 +20,6 @@ import de.oliver_heger.linedj.io.parser.JsonStreamParser
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.actor.ActorLogging
-import spray.json.*
-import spray.json.DefaultJsonProtocol.*
 
 import java.nio.file.Path
 
@@ -45,9 +43,6 @@ object MediumInfoParserActor:
     ),
     checksum = ""
   )
-
-  /** A format for the JSON serialization of [[MediumDescription]] objects. */
-  private[media] given RootJsonFormat[MediumDescription] = jsonFormat3(MediumDescription.apply)
 
   /**
     * A message processed by ''MediumInfoParserActor'' which tells it to parse a
@@ -99,7 +94,6 @@ class MediumInfoParserActor(maxSize: Int) extends AbstractStreamProcessingActor
   with ActorLogging with CancelableStreamSupport:
 
   import MediumInfoParserActor.*
-  import MediumInfoParserActor.given_RootJsonFormat_MediumDescription
 
   override def customReceive: Receive =
     case req: ParseMediumInfo =>
