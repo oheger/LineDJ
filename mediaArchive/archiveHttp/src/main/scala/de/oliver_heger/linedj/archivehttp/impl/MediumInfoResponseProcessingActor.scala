@@ -16,44 +16,34 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
-import de.oliver_heger.linedj.shared.archive.media.MediumID
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.{KillSwitch, KillSwitches}
+import de.oliver_heger.linedj.io.parser.JsonStreamParser
+import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 
 import scala.concurrent.Future
 
 /**
-  * An actor class for processing responses for medium info files (aka
-  * playlist settings).
+  * An actor class for processing responses for medium info files in JSON
+  * format.
   *
   * In order to obtain full information about media available in an HTTP
-  * archive, the XML-based information files for these media are
-  * downloaded. When a request for such a file is done, the corresponding
-  * response is passed to this actor. The actor reads the entity of the
-  * response, parses it as XML document, and extracts the relevant
-  * information. If this is successful, a result of type
-  * [[MediumInfoResponseProcessingResult]] is produced and sent to the caller.
+  * archive, the responsible archive management actor downloads the JSON
+  * information files for these media during processing of the archive's table
+  * of contents. The sources from the responses of such download requests are
+  * passed to this actor. The actor reads the entity of the response, parses it
+  * as JSON, and extracts the relevant information. If this is successful, it
+  * generates a result of type [[MediumInfoResponseProcessingResult]] and sends
+  * it to the caller.
   *
   * Note that in order to obtain the correct checksum for the medium, the
   * [[HttpMediumDesc]] object for the current medium is evaluated. The actor
   * assumes that the metadata file is named by the checksum of the medium; so
-  * the checksum is derived from this URI.
-  *
-  * @param infoParser the parser for medium info files
+  * it can derive the checksum from this URI.
   */
-class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
-  extends AbstractResponseProcessingActor:
-  /**
-    * Default constructor. This constructor creates an instance with a default
-    * [[MediumInfoParser]] object.
-    *
-    * @return the new instance
-    */
-  def this() = this(new MediumInfoParser)
-
+class MediumInfoResponseProcessingActor extends AbstractResponseProcessingActor:
   /**
     * @inheritdoc This implementation reads the full content of the source and
     *             combines it to a single ''ByteString'' (assuming that the
@@ -61,19 +51,19 @@ class MediumInfoResponseProcessingActor(val infoParser: MediumInfoParser)
     *             resulting byte array is passed to the parser, in order to
     *             produce a result object.
     */
-  override protected def processSource(source: Source[ByteString, Any], mid: MediumID,
-                                       desc: HttpMediumDesc, config: HttpArchiveConfig,
+  override protected def processSource(source: Source[ByteString, Any],
+                                       mid: MediumID,
+                                       desc: HttpMediumDesc,
+                                       config: HttpArchiveConfig,
                                        seqNo: Int): (Future[Any], KillSwitch) =
-    val sink = Sink.fold[ByteString, ByteString](ByteString())(_ ++ _)
-    val (killSwitch, futureResult) = source
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(sink)(Keep.both)
-      .run()
-    val futureInfo = futureResult map { bs =>
-      MediumInfoResponseProcessingResult(infoParser.parseMediumInfo(bs.toArray, mid,
-        fetchChecksum(desc)).get, seqNo)
+    val (futDesc, ks) = JsonStreamParser.parseObjectWithCancellation[MediumDescription](source, Int.MaxValue)
+    val futureInfo = futDesc.map { mediumDesc =>
+      MediumInfoResponseProcessingResult(
+        MediumInfo(mid, mediumDesc, fetchChecksum(desc)),
+        seqNo
+      )
     }
-    (futureInfo, killSwitch)
+    (futureInfo, ks)
 
   /**
     * Obtains the checksum of the current medium from the medium description.

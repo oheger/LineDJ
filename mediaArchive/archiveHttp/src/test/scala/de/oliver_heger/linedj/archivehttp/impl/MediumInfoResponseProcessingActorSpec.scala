@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttp.impl
 
-import de.oliver_heger.linedj.archivecommon.parser.MediumInfoParser
+import de.oliver_heger.linedj.FileTestHelper
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
 import org.apache.pekko.NotUsed
@@ -26,34 +26,18 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.apache.pekko.util.{ByteString, Timeout}
-import org.mockito.AdditionalMatchers.aryEq
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, anyString, eq as eqArg}
-import org.mockito.Mockito.*
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, BeforeAndAfterAll, Succeeded}
 import org.scalatestplus.mockito.MockitoSugar
+import spray.json.JsonParser
 
-import java.nio.charset.StandardCharsets
+import scala.concurrent.Future
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 object MediumInfoResponseProcessingActorSpec:
   /** Test medium ID. */
   private val TestMediumID = MediumID("mediumUri", Some("settings"))
-
-  /**
-    * A sequence of strings that represent a test medium information file.
-    * The actor under test will be invoked with a source that produces
-    * corresponding chunks of byte strings.
-    */
-  private val MediumInfoChunks = List("Medium ", "information ", "in multiple ",
-    "chunks to ", "be", " parsed.")
-
-  /** The concatenated content of the test medium info. */
-  private val MediumInfoContent = MediumInfoChunks.mkString("")
 
   /** Checksum for the test medium. */
   private val Checksum = "12345"
@@ -64,14 +48,25 @@ object MediumInfoResponseProcessingActorSpec:
     mediumDescription = MediumDescription(
       name = "TestMedium",
       description = "A test medium",
-      orderMode = null
+      orderMode = "fully_random"
     ),
     checksum = Checksum
   )
 
+  /** The JSON representation of the test medium description to be parsed. */
+  private val TestMediumDescriptionJson =
+    s"""
+       |{
+       |  "name": "${TestMediumInfo.mediumDescription.name}",
+       |  "description": "${TestMediumInfo.mediumDescription.description}",
+       |  "orderMode": "${TestMediumInfo.mediumDescription.orderMode}"
+       |}""".stripMargin
+
   /** A test HTTP medium description object. */
-  private val TestDesc = HttpMediumDesc(mediumDescriptionPath = "playlist.settings",
-    metaDataPath = s"/test/meta-data/$Checksum.mdt")
+  private val TestDesc = HttpMediumDesc(
+    mediumDescriptionPath = "medium.json",
+    metaDataPath = s"/test/meta-data/$Checksum.mdt"
+  )
 
   /** Test configuration for the archive. */
   private val DefaultArchiveConfig = HttpArchiveConfig(Uri("https://music.arc"),
@@ -87,13 +82,22 @@ object MediumInfoResponseProcessingActorSpec:
   private val SeqNo = 111
 
   /**
+    * Creates a source based on the given data with multiple small chunks.
+    *
+    * @param data the content of the source
+    * @return the resulting chunked source
+    */
+  private def chunkedSource(data: String): Source[ByteString, NotUsed] =
+    Source(ByteString(data).grouped(16).toList)
+
+  /**
     * Creates a source which produces the chunks of the test medium
     * information.
     *
     * @return the source
     */
   private def mediumInfoSource(): Source[ByteString, NotUsed] =
-    Source(MediumInfoChunks) map (ByteString(_))
+    chunkedSource(TestMediumDescriptionJson)
 
   /**
     * Convenience method to invoke the test actor. This method calls the method
@@ -114,9 +118,9 @@ object MediumInfoResponseProcessingActorSpec:
   * Test class for ''MediumInfoResponseProcessingActor''.
   */
 class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
-  with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
+  with ImplicitSender with AsyncFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
-  import MediumInfoResponseProcessingActorSpec._
+  import MediumInfoResponseProcessingActorSpec.*
 
   def this() = this(ActorSystem("MediumInfoResponseProcessingActorSpec"))
 
@@ -126,19 +130,11 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
   /**
     * Creates a test actor reference to a test actor.
     *
-    * @param parser the medium info parser
     * @return the test actor reference
     */
-  private def createActor(parser: MediumInfoParser):
-  TestActorRef[MediumInfoResponseProcessingActorTestImpl] =
-    val props = Props(classOf[MediumInfoResponseProcessingActorTestImpl], parser)
+  private def createActor(): TestActorRef[MediumInfoResponseProcessingActorTestImpl] =
+    val props = Props(classOf[MediumInfoResponseProcessingActorTestImpl])
     TestActorRef(props)
-
-  "A MediumInfoResponseProcessingActor" should "create a default parser" in :
-    val actor = TestActorRef[MediumInfoResponseProcessingActor](
-      Props[MediumInfoResponseProcessingActor]())
-
-    actor.underlyingActor.infoParser should not be null
 
   /**
     * Checks whether the actor produces a correct result based on the
@@ -146,17 +142,15 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     *
     * @param desc the medium description
     */
-  private def checkParseResult(desc: HttpMediumDesc): Unit =
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
-      eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
-    val actor = createActor(parser)
+  private def checkParseResult(desc: HttpMediumDesc): Future[Assertion] =
+    val actor = createActor()
 
     val (futureStream, _) = invoke(actor, desc = desc)
-    val result = Await.result(futureStream, WaitTimeout)
-    result should be(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
+    futureStream map { result =>
+      result should be(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
+    }
 
-  it should "produce a correct result" in :
+  "A MediumInfoResponseProcessingActor" should "produce a correct result" in :
     checkParseResult(TestDesc)
 
   it should "handle a medium description with a strange metadata file name" in :
@@ -164,50 +158,36 @@ class MediumInfoResponseProcessingActorSpec(testSystem: ActorSystem) extends Tes
     checkParseResult(desc)
 
   it should "handle a parsing error" in :
-    val exception = new IllegalStateException("Simulated parsing exception")
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
-      .thenThrow(exception)
-    val actor = createActor(parser)
+    val actor = createActor()
 
-    val (futureStream, _) = invoke(actor)
-    intercept[IllegalStateException] {
-      Await.result(futureStream, WaitTimeout)
-    } should be(exception)
+    recoverToSucceededIf[JsonParser.ParsingException] {
+      invoke(actor, chunkedSource(FileTestHelper.TestData))._1
+    }
 
   it should "support canceling the stream" in :
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(any(classOf[Array[Byte]]), eqArg(TestMediumID), anyString()))
-      .thenReturn(Success(TestMediumInfo))
     val source = mediumInfoSource().delay(2.seconds, DelayOverflowStrategy.backpressure)
-    val actor = createActor(parser)
-    val (futureStream, killSwitch) = invoke(actor, source)
+    val actor = createActor()
 
-    killSwitch.shutdown()
-    Await.ready(futureStream, WaitTimeout)
-    val captor = ArgumentCaptor.forClass(classOf[Array[Byte]])
-    verify(parser).parseMediumInfo(captor.capture(), eqArg(TestMediumID), anyString())
-    captor.getValue.length should be < MediumInfoContent.length
+    recoverToSucceededIf[JsonParser.ParsingException] {
+      val (futureStream, killSwitch) = invoke(actor, source)
+      killSwitch.shutdown()
+      futureStream
+    }
 
   it should "propagate the medium description correctly" in :
-    val parser = mock[MediumInfoParser]
-    when(parser.parseMediumInfo(aryEq(MediumInfoContent.getBytes(StandardCharsets.UTF_8)),
-      eqArg(TestMediumID), eqArg(Checksum))).thenReturn(Success(TestMediumInfo))
-    val actor = createActor(parser)
-    val source = Source.single(ByteString(MediumInfoContent))
+    val actor = createActor()
+    val source = Source.single(ByteString(TestMediumDescriptionJson))
     val msg = ProcessResponse(TestMediumID, TestDesc, source, DefaultArchiveConfig, SeqNo)
 
     actor ! msg
     expectMsg(MediumInfoResponseProcessingResult(TestMediumInfo, SeqNo))
+    Succeeded
 
 /**
   * A test actor implementation which exposes the method for processing
   * the source of the response entity.
-  *
-  * @param parser the ''MediumInfoParser''
   */
-class MediumInfoResponseProcessingActorTestImpl(parser: MediumInfoParser)
-  extends MediumInfoResponseProcessingActor(parser):
+class MediumInfoResponseProcessingActorTestImpl extends MediumInfoResponseProcessingActor:
   /**
     * Overridden to allow access from test code.
     */
