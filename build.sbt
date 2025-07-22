@@ -95,6 +95,8 @@ lazy val pekkoDependencies = Seq(
 lazy val pekkoHttpDependencies = Seq(
   "org.apache.pekko" %% "pekko-http" % VersionPekkoHttp,
   "org.apache.pekko" %% "pekko-http-spray-json" % VersionPekkoHttp,
+  "org.apache.pekko" %% "pekko-stream-testkit" % VersionPekko % Test,
+  "org.apache.pekko" %% "pekko-http-testkit" % VersionPekkoHttp % Test
 )
 
 /**
