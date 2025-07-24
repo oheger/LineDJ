@@ -185,7 +185,7 @@ lazy val LineDJ = (project in file("."))
   trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
   archiveHttpStartup, metadataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
   audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer,
-  audioPlayerShell)
+  audioPlayerShell, archiveServer)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -306,6 +306,22 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
       "de.oliver_heger.linedj.archivehttp.io.*", "de.oliver_heger.linedj.archivehttp.http"),
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivehttp.impl.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, id3Extract)
+
+/**
+  * The archive server project. This is an HTTP server application allowing
+  * access to the content of a media archive.
+  */
+lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-archive-server",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies,
+    libraryDependencies ++= Seq(
+      collectionsDependency,
+      beanUtilsDependency
+    )
+  ) dependsOn(shared % "compile->compile;test->test", archiveCommon)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
