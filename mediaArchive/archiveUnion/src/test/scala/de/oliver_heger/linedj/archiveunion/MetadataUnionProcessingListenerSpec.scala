@@ -28,6 +28,8 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
+import java.nio.file.Paths
+
 /**
   * Test class for [[MetadataUnionProcessingListener]].
   */
@@ -68,7 +70,7 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     val checksum = MediumChecksum("some-checksum")
 
     helper.sendEventAndExpectForwarding(
-      MetadataProcessingEvent.MediumAvailable(mediumID, checksum, mediaFiles),
+      MetadataProcessingEvent.MediumAvailable(mediumID, checksum, mediaFiles, Paths.get("archiveRoot")),
       MediaContribution(Map(mediumID -> mediaFiles))
     )
 

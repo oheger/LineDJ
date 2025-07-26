@@ -20,6 +20,8 @@ import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import org.apache.pekko.actor as classic
 
+import java.nio.file.Path
+
 /**
   * A type representing event notifications sent by the
   * [[MetadataManagerActor]] during processing of media files. Listeners can
@@ -54,10 +56,13 @@ enum MetadataProcessingEvent:
     * @param mediumID the ID of the medium
     * @param checksum the checksum of this medium
     * @param files    a collection with the URIs of the contained media files
+    * @param rootPath the (local) root path of the archive; file URLs are 
+    *                 relative to this path
     */
   case MediumAvailable(mediumID: MediumID,
                        checksum: Checksums.MediumChecksum,
-                       files: Iterable[MediaFileUri])
+                       files: Iterable[MediaFileUri],
+                       rootPath: Path)
 
   /**
     * A metadata event indicating that a [[MetadataProcessingResult]] is

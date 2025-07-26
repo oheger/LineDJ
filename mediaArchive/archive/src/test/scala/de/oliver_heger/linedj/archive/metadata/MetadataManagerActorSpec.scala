@@ -791,7 +791,8 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
         MetadataProcessingEvent.MediumAvailable(
           mediumID = e._1,
           checksum = createMediumChecksum(e._1),
-          files = e._2
+          files = e._2,
+          rootPath = ArchiveRootPath
         )
       }
       val events = (1 to expectedEvents.size).map { _ =>
