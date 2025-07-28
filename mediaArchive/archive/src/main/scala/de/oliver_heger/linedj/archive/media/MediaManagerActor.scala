@@ -216,7 +216,7 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
   private def updateStateAndSendMessages(state: State[MediaScanState, ScanStateTransitionMessages]): Unit =
     val messages = updateState(state)
     messages.unionArchiveMessage foreach mediaUnionActor.!
-    messages.metaManagerMessage foreach metaDataManager.!
+    messages.metaManagerMessages foreach metaDataManager.!
     messages.ack foreach (_ ! ScanSinkActor.Ack)
 
   /**

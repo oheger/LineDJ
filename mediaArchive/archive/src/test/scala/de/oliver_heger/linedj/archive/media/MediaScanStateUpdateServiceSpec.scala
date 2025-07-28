@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.io.FileData
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumDescription, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumDescription, MediumID, MediumInfo, MediumInfoAvailable}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
@@ -186,6 +186,15 @@ object MediaScanStateUpdateServiceSpec:
     CombinedMediaScanResult(scanResult(idx), mediaMap(idx))
 
   /**
+    * Generates a [[MediumInfoAvailable]] object based on the given index.
+    *
+    * @param idx the index to generate the object
+    * @return the resulting [[MediumInfoAvailable]] object
+    */
+  private def mediumInfoAvailable(idx: Int): MediumInfoAvailable =
+    mediaMap(idx, withChecksum = true).toList.map(p => MediumInfoAvailable(p._2)).head
+
+  /**
     * Convenience method to execute a ''State'' object to produce the updated
     * state and an additional result.
     *
@@ -212,6 +221,7 @@ object MediaScanStateUpdateServiceSpec:
   MediaScanState =
     val (next, _) = updateState(s, oldState)
     next
+end MediaScanStateUpdateServiceSpec
 
 /**
   * Test class for ''MediaScanStateUpdateService''.
@@ -223,7 +233,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
 
-  import MediaScanStateUpdateServiceSpec._
+  import MediaScanStateUpdateServiceSpec.*
 
   /**
     * Returns a test actor reference.
@@ -239,6 +249,20 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     */
   private def stateInProgress(): MediaScanState =
     MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()))
+
+  /**
+    * Compares the given [[ScanStateTransitionMessages]] objects. A simple
+    * equals check does not work, since different collection types can be
+    * involved.
+    *
+    * @param actual   the actual messages
+    * @param expected the expected messages
+    */
+  private def checkTransitionMessages(actual: ScanStateTransitionMessages,
+                                      expected: ScanStateTransitionMessages): Unit =
+    actual.unionArchiveMessage should be(expected.unionArchiveMessage)
+    actual.ack should be(expected.ack)
+    actual.metaManagerMessages should contain theSameElementsAs expected.metaManagerMessages
 
   "A MediaScanStateUpdateService" should "define a valid initial state" in:
     val s = MediaScanStateUpdateServiceImpl.InitialState
@@ -295,14 +319,13 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
 
   it should "handle a query for start messages if no data is in the union archive" in:
     val state = stateInProgress()
-    val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.startScanMessages(ArchiveName),
-      state)
+    val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.startScanMessages(ArchiveName), state)
 
     next.startAnnounced shouldBe true
     next.ackMetaManager shouldBe false
     msg.ack shouldBe empty
     msg.unionArchiveMessage shouldBe empty
-    msg.metaManagerMessage should be(Some(MediaScanStarts(state.scanClient.get)))
+    msg.metaManagerMessages should contain only MediaScanStarts(state.scanClient.get)
 
   it should "handle a query for start messages if data has to be removed from union archive" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
@@ -314,7 +337,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.ackMetaManager shouldBe true
     next.removeState should be(UnionArchiveRemoveState.Pending)
     msg.ack shouldBe empty
-    msg.metaManagerMessage shouldBe empty
+    msg.metaManagerMessages shouldBe empty
     msg.unionArchiveMessage should be(Some(ArchiveComponentRemoved(ArchiveName)))
 
   it should "handle a query for start messages if the remove state is Pending" in:
@@ -383,6 +406,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.fileData should be(expFileData)
     next.currentResults should be(List(res1.result, res2.result))
     next.currentMediaData should be(multiMediaMap(2, 3))
+    next.newMediaInfo should contain theSameElementsAs List(mediumInfoAvailable(3), mediumInfoAvailable(2))
 
   it should "process new results with multiple media per scan result" in:
     val res1 = scanResult(1)
@@ -458,17 +482,17 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       availableMediaSent = false, mediaData = media, ackMetaManager = false)
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, messages) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next.availableMediaSent shouldBe true
     next.mediaData should have size 0
-    optMsg should be(Some(AvailableMedia(media)))
+    messages should contain only AvailableMedia(media)
 
   it should "return a scan start message to the metadata manager" in:
     val state = stateInProgress()
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, messages) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next.startAnnounced shouldBe true
-    optMsg should be(Some(MediaScanStarts(state.scanClient.get)))
+    messages should contain only MediaScanStarts(state.scanClient.get)
 
   it should "return the next scan result as message to the metadata manager" in:
     val res1 = scanResult(1)
@@ -477,16 +501,33 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List(res1, res2, res3))
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, messages) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next.currentResults should contain only(res2, res3)
     next.ackMetaManager shouldBe false
-    optMsg should be(Some(res1))
+    messages should contain only res1
+
+  it should "return available medium infos as messages to the metadata manager" in:
+    val info1 = mediumInfoAvailable(1)
+    val info2 = mediumInfoAvailable(2)
+    val state = MediaScanStateUpdateServiceImpl.InitialState.copy(newMediaInfo = List(info1, info2))
+
+    val (next, messages) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
+    next.newMediaInfo shouldBe empty
+    messages should contain theSameElementsAs List(info1, info2)
+
+  it should "combine available medium info messages with other metadata manager messages" in:
+    val info = mediumInfoAvailable(1)
+    val state = stateInProgress().copy(newMediaInfo = List(info))
+    val expectedMessages = List(MediaScanStarts(state.scanClient.get), info)
+
+    val (_, messages) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
+    messages should contain theSameElementsAs expectedMessages
 
   it should "not return a metadata message if there is no current result" in:
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List())
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next should be(state)
     optMsg shouldBe empty
 
@@ -494,7 +535,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(actor()),
       startAnnounced = true, currentResults = List(scanResult(5)), ackMetaManager = false)
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next should be(state)
     optMsg shouldBe empty
 
@@ -503,7 +544,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       startAnnounced = true, currentResults = List(scanResult(5)),
       removeState = UnionArchiveRemoveState.Pending)
 
-    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessage(), state)
+    val (next, optMsg) = updateState(MediaScanStateUpdateServiceImpl.metaDataMessages(), state)
     next should be(state)
     optMsg shouldBe empty
 
@@ -568,8 +609,10 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentResults should have size 0
     next.currentMediaData should have size 0
     next.ackPending shouldBe empty
-    msg should be(ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)),
-      Some(result), Some(ack)))
+    checkTransitionMessages(
+      msg,
+      ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)), Iterable(result), Some(ack))
+    )
 
   it should "handle the arrival of new results" in:
     val res1 = combinedResult(1)
@@ -578,6 +621,11 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
       startAnnounced = true)
     val newResults = List(res1, res2)
     val expMediaData = multiMediaMap(1, 2)
+    val expMetaMessages = List(
+      res1.result,
+      mediumInfoAvailable(1),
+      mediumInfoAvailable(2)
+    )
     val sender = actor()
 
     val (next, msg) = updateState(MediaScanStateUpdateServiceImpl.handleResultsReceived(sender = sender,
@@ -587,7 +635,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentResults should contain only res2.result
     next.currentMediaData should have size 0
     msg.unionArchiveMessage should be(Some(AddMedia(expMediaData, ArchiveName, None)))
-    msg.metaManagerMessage should be(Some(res1.result))
+    msg.metaManagerMessages should contain theSameElementsAs expMetaMessages
     msg.ack shouldBe empty
 
   it should "handle an ACK from the metadata manager" in:
@@ -604,8 +652,10 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.currentMediaData should have size 0
     next.ackMetaManager shouldBe false
     next.ackPending shouldBe empty
-    msg should be(ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)),
-      Some(result), Some(ack)))
+    checkTransitionMessages(
+      msg,
+      ScanStateTransitionMessages(Some(AddMedia(media, ArchiveName, None)), Iterable(result), Some(ack))
+    )
 
   it should "handle a completed scan operation" in:
     val mediaData = multiMediaMap(2, 4, 8, 16).toList
@@ -621,7 +671,7 @@ class MediaScanStateUpdateServiceSpec(testSystem: ActorSystem) extends TestKit(t
     next.mediaData should have size 0
     next.ackPending shouldBe empty
     next.scanClient shouldBe empty
-    msg.metaManagerMessage should be(Some(AvailableMedia(mediaData)))
+    msg.metaManagerMessages should contain only AvailableMedia(mediaData)
     msg.ack should be(Some(ack))
     msg.unionArchiveMessage should be(Some(AddMedia(currentMedia, ArchiveName, None)))
 

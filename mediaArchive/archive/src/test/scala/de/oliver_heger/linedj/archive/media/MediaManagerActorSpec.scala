@@ -226,7 +226,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
     val scanMsg = MediaScannerActor.ScanPath(archiveRootPath, state1.seqNo)
     val initMsg = ScanStateTransitionMessages(unionArchiveMessage = Some("union"),
-      metaManagerMessage = Some("meta"))
+      metaManagerMessages = Some("meta"))
     val helper = new MediaManagerTestHelper
 
     helper.stub(Option(scanMsg), state1) { _.triggerStartScan(archiveRootPath, testActor) }
@@ -234,7 +234,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(StartMediaScan)
       .expectMediaScannerMessage(scanMsg)
       .expectUnionArchiveMessage(initMsg.unionArchiveMessage.get)
-      .expectMetaDataMessage(initMsg.metaManagerMessage.get)
+      .expectMetaDataMessages(initMsg.metaManagerMessages)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectStateUpdate(state1)
 
@@ -252,14 +252,14 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle a removed confirmation from the union archive" in:
     val probeAck = TestProbe()
-    val messages = ScanStateTransitionMessages(metaManagerMessage = Some("message"),
+    val messages = ScanStateTransitionMessages(metaManagerMessages = Some("message"),
       ack = Some(probeAck.ref))
     val helper = new MediaManagerTestHelper
 
     helper.stub(messages, MediaScanStateUpdateServiceImpl.InitialState) {
         _.handleRemovedFromUnionArchive(ArchiveName)
       }.send(RemovedArchiveComponentProcessed(ArchiveName))
-      .expectMetaDataMessage(messages.metaManagerMessage.get)
+      .expectMetaDataMessages(messages.metaManagerMessages)
       .expectNoUnionArchiveMessage()
     probeAck.expectMsg(ScanSinkActor.Ack)
 
@@ -290,13 +290,16 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "handle an incoming result object" in:
     val probeAck = TestProbe()
-    val messages = ScanStateTransitionMessages(unionArchiveMessage = Some("message"),
-      ack = Some(probeAck.ref), metaManagerMessage = Some("otherMessage"))
+    val messages = ScanStateTransitionMessages(
+      unionArchiveMessage = Some("message"),
+      ack = Some(probeAck.ref), 
+      metaManagerMessages = List("resultMessage", "mediumInfoMessage")
+    )
     val helper = new MediaManagerTestHelper
 
     helper.passTestData(messages)
       .expectUnionArchiveMessage(messages.unionArchiveMessage.get)
-      .expectMetaDataMessage(messages.metaManagerMessage.get)
+      .expectMetaDataMessages(messages.metaManagerMessages)
       .verifyResultsReceivedUriFunc()
     probeAck.expectMsg(ScanSinkActor.Ack)
 
@@ -305,7 +308,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       MediaScannerActor.ScanPath(RootPath, 30))
     val state = MediaScanStateUpdateServiceImpl.InitialState.copy(fileData = TestFileData)
     val helper = new MediaManagerTestHelper
-    val messages = ScanStateTransitionMessages(metaManagerMessage = Some("availableMedia"))
+    val messages = ScanStateTransitionMessages(metaManagerMessages = Some("availableMedia"))
     val result = mock[ScanSinkActor.CombinedResults]
 
     helper.stub(messages, state) { _.handleScanComplete(completeMsg.request.seqNo, ArchiveName) }
@@ -313,7 +316,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         _.handleResultsReceived(argEq(result), argEq(testActor), argEq(ArchiveName))(any())
       .post(completeMsg)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
-      .expectMetaDataMessage(messages.metaManagerMessage.get)
+      .expectMetaDataMessages(messages.metaManagerMessages)
       .post(result)
       .expectStateUpdate(state)
       .verifyResultsReceivedUriFunc()
@@ -555,14 +558,17 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       expectNoProbeMessage(probeUnionMediaActor)
 
     /**
-      * Expects that the specified message has been sent to the metadata
+      * Expects that the specified messages have been sent to the metadata
       * manager actor.
       *
-      * @param msg the expected message
+      * @param messages the expected messages
       * @return this test helper
       */
-    def expectMetaDataMessage(msg: Any): MediaManagerTestHelper =
-      expectProbeMessage(probeMetadataManager, msg)
+    def expectMetaDataMessages(messages: Iterable[Any]): MediaManagerTestHelper = 
+      messages.foreach { msg =>
+        expectProbeMessage(probeMetadataManager, msg)
+      }
+      this
 
     /**
       * Checks that no message was sent to the metadata manager actor.

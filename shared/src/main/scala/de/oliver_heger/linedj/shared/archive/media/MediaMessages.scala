@@ -95,6 +95,15 @@ case class AvailableMedia(mediaList: List[(MediumID, MediumInfo)]) extends Remot
   def mediumInfos: Iterable[MediumInfo] = mediaList.map(_._2)
 
 /**
+  * A message sent by ''MediaManagerActor'' when the information file for a 
+  * medium has been processed. This message allows obtaining the metadata for
+  * this medium.
+  *
+  * @param mediumInfo the [[MediumInfo]] for this medium
+  */
+case class MediumInfoAvailable(mediumInfo: MediumInfo)
+
+/**
   * A message sent by ''MediaManagerActor'' in response to a request for the
   * files on a medium. This message contains a sequence with the IDs of the
   * files stored on this medium. Via these IDs, the files can then be requested

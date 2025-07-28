@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.media
 
 import de.oliver_heger.linedj.archive.media
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaFileUri, MediumID, MediumInfo, MediumInfoAvailable}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved}
 import org.apache.pekko.actor.ActorRef
@@ -64,6 +64,8 @@ import de.oliver_heger.linedj.archive.media.UnionArchiveRemoveState._
   * @param currentResults     current results to be sent to the metadata
   *                           manager
   * @param currentMediaData   current media to be sent to the union archive
+  * @param newMediaInfo       information about new media which have not yet
+  *                           been propagated to the metadata manager actor
   */
 private case class MediaScanState(scanClient: Option[ActorRef],
                                   removeState: UnionArchiveRemoveState,
@@ -75,7 +77,8 @@ private case class MediaScanState(scanClient: Option[ActorRef],
                                   ackPending: Option[ActorRef],
                                   ackMetaManager: Boolean,
                                   currentResults: List[EnhancedMediaScanResult],
-                                  currentMediaData: Map[MediumID, MediumInfo]):
+                                  currentMediaData: Map[MediumID, MediumInfo],
+                                  newMediaInfo: List[MediumInfoAvailable]):
   /**
     * Returns a flag whether currently a scan is in progress.
     *
@@ -93,11 +96,11 @@ private case class MediaScanState(scanClient: Option[ActorRef],
   * actor.
   *
   * @param unionArchiveMessage optional message to the union archive
-  * @param metaManagerMessage  optional message to the metadata manager
+  * @param metaManagerMessages messages to the metadata manager
   * @param ack                 optional actor to receive an ACK message
   */
 private case class ScanStateTransitionMessages(unionArchiveMessage: Option[Any] = None,
-                                               metaManagerMessage: Option[Any] = None,
+                                               metaManagerMessages: Iterable[Any] = Nil,
                                                ack: Option[ActorRef] = None)
 
 /**
@@ -187,14 +190,14 @@ private trait MediaScanStateUpdateService:
   def actorToAck(): StateUpdate[Option[ActorRef]]
 
   /**
-    * Updates the state for a message to be sent to the metadata manager
-    * actor. This function checks whether in the current state a message needs
-    * to be sent to the metadata manager. If so, the state is updated, and the
-    * message is returned.
+    * Updates the state for messages to be sent to the metadata manager actor.
+    * This function checks whether in the current state messages need to be
+    * sent to the metadata manager. If so, the state is updated, and the
+    * messages are returned.
     *
-    * @return the updated ''State'' and an option with the message
+    * @return the updated ''State'' and an Iterable with the messages
     */
-  def metaDataMessage(): StateUpdate[Option[Any]]
+  def metaDataMessages(): StateUpdate[Iterable[Any]]
 
   /**
     * Updates the state for a message to be sent to the union archive actor.
@@ -309,7 +312,7 @@ private trait MediaScanStateUpdateService:
   private def fetchTransitionMessages(archiveName: String):
   StateUpdate[ScanStateTransitionMessages] = for
     unionMsg <- unionArchiveMessage(archiveName)
-    metaMsg <- metaDataMessage()
+    metaMsg <- metaDataMessages()
     ack <- actorToAck()
   yield ScanStateTransitionMessages(unionMsg, metaMsg, ack)
 
@@ -321,18 +324,20 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * Constant for the initial scan state. When starting up a new media manager
     * actor this state is used.
     */
-  val InitialState: MediaScanState =
-    MediaScanState(scanClient = None,
-      removeState = Removed,
-      startAnnounced = false,
-      seqNo = 0,
-      fileData = Map.empty,
-      mediaData = List.empty,
-      ackPending = None,
-      ackMetaManager = true,
-      currentResults = Nil,
-      currentMediaData = Map.empty,
-      availableMediaSent = true)
+  val InitialState: MediaScanState = MediaScanState(
+    scanClient = None,
+    removeState = Removed,
+    startAnnounced = false,
+    seqNo = 0,
+    fileData = Map.empty,
+    mediaData = List.empty,
+    ackPending = None,
+    ackMetaManager = true,
+    currentResults = Nil,
+    currentMediaData = Map.empty,
+    availableMediaSent = true,
+    newMediaInfo = List.empty
+  )
 
   /** Constant for an undefined checksum. */
   val UndefinedChecksum = ""
@@ -355,7 +360,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else s.removeState match
       case Removed if !s.startAnnounced =>
         val next = s.copy(startAnnounced = true, ackMetaManager = false)
-        val messages = ScanStateTransitionMessages(metaManagerMessage = generateScanStartsMessage(s))
+        val messages = ScanStateTransitionMessages(metaManagerMessages = generateScanStartsMessage(s))
         (next, messages)
       case Initial =>
         val next = s.copy(removeState = Pending)
@@ -379,11 +384,15 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     if s.ackPending.isDefined || results.seqNo != s.seqNo then s
     else
       val resWithCheck = results.results map updateChecksumInfo
-      s.copy(fileData = updateFileDataForResults(s.fileData, resWithCheck)(uriFunc),
+      val mediaInfo = extractCurrentMediaInfo(resWithCheck)
+      s.copy(
+        fileData = updateFileDataForResults(s.fileData, resWithCheck)(uriFunc),
         mediaData = updateMediaDataForResults(s.mediaData, resWithCheck),
         currentResults = extractCurrentResults(results.results),
-        currentMediaData = extractCurrentMediaInfo(resWithCheck),
-        ackPending = Some(sender))
+        currentMediaData = mediaInfo,
+        newMediaInfo = toMediumInfoAvailable(mediaInfo),
+        ackPending = Some(sender)
+      )
   }
 
   override def actorToAck(): StateUpdate[Option[ActorRef]] = State { s =>
@@ -391,12 +400,13 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     else (s.copy(ackPending = None), s.ackPending)
   }
 
-  override def metaDataMessage(): StateUpdate[Option[Any]] = State { s =>
-    if !s.availableMediaSent then // clear media state, it is not needed by actor
-      (s.copy(availableMediaSent = true, mediaData = Nil),
-        Some(AvailableMedia(s.mediaData)))
-    else if metaDataMessageBlocked(s) then (s, None)
-    else generateMetaDataMessage(s)
+  override def metaDataMessages(): StateUpdate[Iterable[Any]] = State { s =>
+    appendMediumInfoMessages(
+      if !s.availableMediaSent then // clear media state, it is not needed by actor
+        (s.copy(availableMediaSent = true, mediaData = Nil), List(AvailableMedia(s.mediaData)))
+      else if metaDataMessageBlocked(s) then (s, Nil)
+      else generateMetaDataMessage(s)
+    )
   }
 
   override def unionArchiveMessage(archiveName: String): StateUpdate[Option[Any]] = State { s =>
@@ -419,7 +429,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
 
   /**
     * Returns the initial remove state for a new scan operation based on the
-    * given state. The state depends whether this is the first scan or not.
+    * given state. The state depends on whether this is the first scan or not.
     *
     * @param s the current state
     * @return the initial remove state
@@ -520,9 +530,18 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @param results the sequence of combined results
     * @return the map with current media information
     */
-  private def extractCurrentMediaInfo(results: Iterable[CombinedMediaScanResult]):
-  Map[MediumID, MediumInfo] =
+  private def extractCurrentMediaInfo(results: Iterable[CombinedMediaScanResult]): Map[MediumID, MediumInfo] =
     results.foldLeft(Map.empty[MediumID, MediumInfo])(_ ++ _.info)
+
+  /**
+    * Converts a map with medium IDs and medium info objects to a list of
+    * [[MediumInfoAvailable]] objects.
+    *
+    * @param infos the map to be converted
+    * @return the resulting list with [[MediumInfoAvailable]] objects
+    */
+  private def toMediumInfoAvailable(infos: Map[MediumID, MediumInfo]): List[MediumInfoAvailable] =
+    infos.values.toList.map(MediumInfoAvailable.apply)
 
   /**
     * Checks whether there are conditions preventing that an ACK can be sent
@@ -551,7 +570,7 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     * @param s the state
     * @return the updated ''State'' and an option with the message
     */
-  private def generateMetaDataMessage(s: MediaScanState): (MediaScanState, Option[Any]) =
+  private def generateMetaDataMessage(s: MediaScanState): (MediaScanState, Iterable[Any]) =
     if !s.startAnnounced then
       (s.copy(startAnnounced = true), generateScanStartsMessage(s))
     else s.currentResults match
@@ -568,3 +587,17 @@ private object MediaScanStateUpdateServiceImpl extends MediaScanStateUpdateServi
     */
   private def generateScanStartsMessage(state: MediaScanState): Option[MediaScanStarts] =
     state.scanClient map MediaScanStarts.apply
+
+  /**
+    * Checks whether the current state contains [[MediumInfoAvailable]]
+    * messages which needs to be propagated. If so, they are added to the given
+    * original result.
+    *
+    * @param orgResult the original result with messages to the metadata actor
+    * @return the updated state and messages to the metadata actor
+    */
+  private def appendMediumInfoMessages(orgResult: (MediaScanState, Iterable[Any])): (MediaScanState, Iterable[Any]) =
+    if orgResult._1.newMediaInfo.isEmpty then
+      orgResult
+    else
+      (orgResult._1.copy(newMediaInfo = Nil), orgResult._1.newMediaInfo ++ orgResult._2)
