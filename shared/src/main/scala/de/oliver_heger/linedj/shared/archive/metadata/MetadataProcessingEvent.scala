@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.shared.archive.metadata
 
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import org.apache.pekko.actor as classic
 
@@ -63,6 +63,18 @@ enum MetadataProcessingEvent:
                        checksum: Checksums.MediumChecksum,
                        files: Iterable[MediaFileUri],
                        rootPath: Path)
+
+  /**
+    * A metadata event indicating that the info file about a medium has been
+    * parsed. This event can be used to enrich the information about media with
+    * further metadata. Note: There is typically no guarantee in which order
+    * [[MediumAvailable]] events and events of this type are propagated.
+    *
+    * @param mediumID   the ID of the medium
+    * @param mediumDescription the object with metadata about the medium
+    */
+  case MediumDescriptionAvailable(mediumID: MediumID,
+                                  mediumDescription: MediumDescription)
 
   /**
     * A metadata event indicating that a [[MetadataProcessingResult]] is

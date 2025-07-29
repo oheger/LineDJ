@@ -78,6 +78,9 @@ object MetadataUnionProcessingListener {
         case MetadataProcessingEvent.ProcessingResultAvailable(_, result) =>
           metadataUnionActor ! result
           Behaviors.same
+
+        case _: MetadataProcessingEvent.MediumDescriptionAvailable =>
+          Behaviors.same
       }.receiveSignal {
         case (context, Terminated(_)) =>
           context.log.info(

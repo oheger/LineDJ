@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataMan
 import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediaScanCompleted, MediumID, MediumInfo, MediumInfoAvailable}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataProcessingEvent, RemovePersistentMetadata, RemovePersistentMetadataResult}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
@@ -174,6 +174,9 @@ class MetadataManagerActor(config: MediaArchiveConfig,
       availableMedia = Some(av.media)
       checkAndHandleScanComplete()
       onConditionSatisfied()
+
+    case MediumInfoAvailable(info) =>
+      sendMetadataEvent(MetadataProcessingEvent.MediumDescriptionAvailable(info.mediumID, info.mediumDescription))
 
     case CloseRequest if !scanInProgress =>
       sender() ! CloseAck(self)

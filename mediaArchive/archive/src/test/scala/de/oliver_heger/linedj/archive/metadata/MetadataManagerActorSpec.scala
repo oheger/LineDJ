@@ -289,6 +289,17 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.startProcessing()
     helper.expectMediumAvailableEvents()
+    
+  it should "pass a medium description to the metadata listener" in:
+    val description = MediumDescription("mediumName", "Medium description", "mediumOrderMode")
+    val info = MediumInfo(TestMediumID, description, "some-checksum")
+    val helper = new MetadataManagerActorTestHelper
+    
+    helper.sendMessage(MediumInfoAvailable(info))
+
+    helper.metadataListener.expectMessage(
+      MetadataProcessingEvent.MediumDescriptionAvailable(TestMediumID, description)
+    )
 
   it should "ignore a scan result before the scan is started" in:
     val helper = new MetadataManagerActorTestHelper
@@ -313,7 +324,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val medID = MediumID(root.toString, Some("someDescFile.txt"))
     val scanResult2 = MediaScanResult(root, Map(medID -> files))
     val esr = EnhancedMediaScanResult(scanResult2, Map(medID -> createMediumChecksum(medID)))
-    helper.actor ! esr
+    helper.sendMessage(esr)
     if expectAck then
       expectAckFromManager()
     helper.sendProcessingResults(medID, files)
@@ -361,10 +372,10 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       ScanResult.mediaFiles(MediaIDs.head) drop 1, EnhancedScanResult)
     val unresolved2 = UnresolvedMetadataFiles(MediaIDs(1), ScanResult.mediaFiles(MediaIDs(1)),
       EnhancedScanResult)
-    helper.actor ! unresolved1
+    helper.sendMessage(unresolved1)
     val processor = helper.nextChild()
     expectProcessMessage(processor, unresolved1.mediumID, unresolved1.files)
-    helper.actor ! unresolved2
+    helper.sendMessage(unresolved2)
     expectProcessMessage(processor, unresolved2.mediumID, unresolved2.files)
     helper.numberOfChildActors should be(1)
 
@@ -377,10 +388,10 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val unresolved1 = UnresolvedMetadataFiles(MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
     val unresolved2 = UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
-    helper.actor ! unresolved1
+    helper.sendMessage(unresolved1)
     helper.nextChild().expectMsgType[ProcessMediaFiles]
 
-    helper.actor ! unresolved2
+    helper.sendMessage(unresolved2)
     val creation = helper.nextChildCreation()
     expectProcessMessage(creation.probe, unresolved2.mediumID, unresolved2.files)
     creation.props.args(2) should be(ProcessingTimeout)
@@ -395,8 +406,8 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
     val unresolved2 = UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head,
       files, otherResult)
-    helper.actor ! unresolved1
-    helper.actor ! unresolved2
+    helper.sendMessage(unresolved1)
+    helper.sendMessage(unresolved2)
     helper.sendAllProcessingResults(ScanResult)
     helper.sendAvailableMedia()
 
@@ -442,12 +453,12 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
     val helper = new MetadataManagerActorTestHelper
     helper.startProcessing()
-    helper.actor ! unresolved
+    helper.sendMessage(unresolved)
     helper.sendAvailableMedia()
       .sendAllProcessingResults(ScanResult)
 
     helper.startProcessing(checkPersistenceMan = false)
-    helper.actor ! unresolved
+    helper.sendMessage(unresolved)
     awaitCond(helper.numberOfChildActors == 2)
 
   it should "reset the scanInProgress flag if all data is available" in:
@@ -468,7 +479,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.sendAvailableMedia().
       sendProcessingResults(TestMediumID, ScanResult.mediaFiles(TestMediumID))
 
-    helper.actor ! EnhancedScanResult
+    helper.sendMessage(EnhancedScanResult)
     expectAckFromManager()
     helper.persistenceManager.expectMsg(EnhancedScanResult)
 
@@ -508,12 +519,12 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val otherResult = processAnotherScanResult(helper, files, expectAck = false)
     expectAckFromManager()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.actor ! UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
+    helper.sendMessage(UnresolvedMetadataFiles(MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult))
     val processor1 = helper.nextChild()
     processor1.expectMsgType[ProcessMediaFiles]
-    helper.actor ! UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head, files,
-      otherResult)
+    helper.sendMessage(UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head, files,
+      otherResult))
     val processor2 = helper.nextChild()
     processor2.expectMsgType[ProcessMediaFiles]
     helper.sendAvailableMedia()
@@ -538,7 +549,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.startProcessing()
     helper.prepareCloseRequest(avMediaPresent = false)()
 
-    helper.actor ! CloseRequest
+    helper.sendMessage(CloseRequest)
     helper.sendAvailableMedia()
     awaitCond(helper.numberOfSatisfiedConditions == 1)
 
@@ -563,7 +574,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   it should "handle a Cancel request if no scan is in progress" in:
     val helper = new MetadataManagerActorTestHelper
 
-    helper.actor ! CloseRequest
+    helper.sendMessage(CloseRequest)
     expectMsg(CloseAck(helper.actor))
 
   it should "send pending ACK messages if a Cancel request is received" in:
@@ -577,7 +588,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.actor.tell(createResultForMedium(mid1), probe1.ref)
     helper.actor.tell(createResultForMedium(mid2), probe2.ref)
     helper.prepareCloseRequest(avMediaPresent = false)()
-    helper.actor ! CloseRequest
+    helper.sendMessage(CloseRequest)
     probe1.expectMsg(MetadataManagerActor.ScanResultProcessed)
     probe2.expectMsg(MetadataManagerActor.ScanResultProcessed)
 
@@ -589,8 +600,8 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.sendAvailableMedia()
 
     helper.actor.tell(createResultForMedium(mid), probe.ref)
-    helper.actor ! CloseRequest
-    helper.actor ! CloseHandlerActor.CloseComplete
+    helper.sendMessage(CloseRequest)
+    helper.sendMessage(CloseHandlerActor.CloseComplete)
     probe.expectMsg(MetadataManagerActor.ScanResultProcessed)
     helper.startProcessing(checkPersistenceMan = false)
     helper.sendAllProcessingResults(ScanResult)
@@ -626,7 +637,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new MetadataManagerActorTestHelper(
       optPersistenceManager = Some(ForwardTestActor()))
 
-    helper.actor ! GetMetadataFileInfo
+    helper.sendMessage(GetMetadataFileInfo)
     expectMsg(ForwardTestActor.ForwardedMessage(PersistentMetadataManagerActor.FetchMetadataFileInfo(helper.actor)))
 
   it should "forward a RemovePersistentMetaData message to the persistence manager" in:
@@ -634,7 +645,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       optPersistenceManager = Some(ForwardTestActor()))
     val removeMsg = RemovePersistentMetadata(Set("someChecksum"))
 
-    helper.actor ! removeMsg
+    helper.sendMessage(removeMsg)
     expectMsg(ForwardTestActor.ForwardedMessage(removeMsg))
 
   it should "reject a RemovePersistenceMetaData message while a scan is in progress" in:
@@ -649,13 +660,13 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
   it should "ACK a MediaScanStarts message" in:
     val helper = new MetadataManagerActorTestHelper
 
-    helper.actor ! MediaScanStarts(TestProbe().ref)
+    helper.sendMessage(MediaScanStarts(TestProbe().ref))
     expectAckFromManager()
 
   it should "ACK a result if no scan is in progress" in:
     val helper = new MetadataManagerActorTestHelper
 
-    helper.actor ! EnhancedScanResult
+    helper.sendMessage(EnhancedScanResult)
     expectAckFromManager()
 
   it should "ACK a result if closing is in progress" in:
@@ -663,7 +674,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.startProcessing()
     helper.prepareCloseRequest(avMediaPresent = false, closing = true)()
-    helper.actor ! EnhancedScanResult
+    helper.sendMessage(EnhancedScanResult)
     expectAckFromManager()
 
   /**
@@ -734,6 +745,16 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     private var closeInProgress = false
 
     /**
+      * Sends the given message to the actor to be tested.
+      *
+      * @param message the message
+      * @return this test helper
+      */
+    def sendMessage(message: Any): MetadataManagerActorTestHelper =
+      actor ! message
+      this
+
+    /**
       * Convenience function for sending a message to the test actor that starts
       * processing.
       *
@@ -744,11 +765,11 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       */
     def startProcessing(esr: EnhancedMediaScanResult = EnhancedScanResult,
                         checkPersistenceMan: Boolean = true): ActorRef =
-      actor ! MediaScanStarts(scanClient.ref)
+      sendMessage(MediaScanStarts(scanClient.ref))
       expectAckFromManager()
       if checkPersistenceMan then
         persistenceManager.expectMsg(ScanForMetadataFiles)
-      actor ! esr
+      sendMessage(esr)
       expectAckFromManager()
       actor
 
@@ -765,7 +786,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
         actor receive processingResultFor(mediumID, m)
       }
       this
-
+      
     /**
       * Sends complete processing results for all files of the provided scan
       * result.
@@ -883,8 +904,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def sendAvailableMedia(sr: MediaScanResult = ScanResult): MetadataManagerActorTestHelper =
-      actor ! createAvailableMedia(sr)
-      this
+      sendMessage(createAvailableMedia(sr))
 
     /**
       * Returns a reference to the persistence manager actor used by the test
