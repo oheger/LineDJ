@@ -56,12 +56,13 @@ private trait GroupScanStateService:
   type StateUpdate[A] = State[GroupScanState, A]
 
   /**
-    * Updates the state for an incoming scan request for an actor in the group.
+    * Updates the state for an incoming scan request for the actors in the
+    * group.
     *
-    * @param archiveActor the actor that received the request
+    * @param archiveActors the actors that should run a scan operation
     * @return the updated state
     */
-  def scanRequested(archiveActor: ActorRef): StateUpdate[Unit]
+  def scanRequested(archiveActors: List[ActorRef]): StateUpdate[Unit]
 
   /**
     * Updates the state for a completed scan operation. If there are pending
@@ -85,12 +86,12 @@ private trait GroupScanStateService:
     * Updates the state for an incoming scan request for an actor in the group
     * and returns an ''Option'' with an actor to send a scan request to.
     *
-    * @param archiveActor the actor that received the request
+    * @param archiveActors the actors that should run a scan operation
     * @return the updated state and an ''Option'' with an actor to send a scan
     *         request
     */
-  def handleScanRequest(archiveActor: ActorRef): StateUpdate[Option[ActorRef]] = for
-    _ <- scanRequested(archiveActor)
+  def handleScanRequest(archiveActors: List[ActorRef]): StateUpdate[Option[ActorRef]] = for
+    _ <- scanRequested(archiveActors)
     nextRequest <- fetchNextScanRequest()
   yield nextRequest
 
@@ -119,12 +120,23 @@ private object GroupScanStateServiceImpl extends GroupScanStateService:
   /**
     * Updates the state for an incoming scan request for an actor in the group.
     *
-    * @param archiveActor the actor that received the request
+    * @param archiveActors the actor that received the request
     * @return the updated state
     */
-  override def scanRequested(archiveActor: ActorRef): StateUpdate[Unit] = State { s =>
-    (if s.scanInProgress then s.copy(pendingScanRequests = s.pendingScanRequests + archiveActor)
-    else s.copy(scanInProgress = true, currentScanRequest = Some(archiveActor)), ())
+  override def scanRequested(archiveActors: List[ActorRef]): StateUpdate[Unit] = State { s =>
+    val nextState = archiveActors match
+      case h :: t =>
+        if s.scanInProgress then
+          s.copy(pendingScanRequests = s.pendingScanRequests ++ archiveActors)
+        else
+          s.copy(
+            scanInProgress = true,
+            currentScanRequest = Some(h),
+            pendingScanRequests = t.toSet
+          )
+      case _ => s
+
+    (nextState, ())
   }
 
   /**

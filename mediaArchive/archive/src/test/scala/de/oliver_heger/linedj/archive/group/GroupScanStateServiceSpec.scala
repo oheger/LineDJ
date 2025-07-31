@@ -56,21 +56,55 @@ class GroupScanStateServiceSpec(testSystem: ActorSystem) extends TestKit(testSys
   it should "handle a scan request if no scan operation is in progress" in:
     val actor = TestProbe().ref
 
-    val (nextState, optRequest) = updateState(GroupScanStateServiceImpl.handleScanRequest(actor))
+    val (nextState, optRequest) = updateState(GroupScanStateServiceImpl.handleScanRequest(List(actor)))
     nextState.scanInProgress shouldBe true
     nextState.pendingScanRequests should have size 0
     nextState.currentScanRequest.isEmpty shouldBe true
     optRequest should be(Some(actor))
 
+  it should "handle a scan request with multiple actors if no scan operation is in progress" in:
+    val actor1 = TestProbe().ref
+    val actor2 = TestProbe().ref
+
+    val (nextState, optRequest) = updateState(GroupScanStateServiceImpl.handleScanRequest(List(actor1, actor2)))
+    nextState.scanInProgress shouldBe true
+    nextState.pendingScanRequests should have size 1
+    nextState.currentScanRequest shouldBe empty
+    optRequest should not be empty
+    (optRequest.get :: nextState.pendingScanRequests.toList) should contain theSameElementsAs List(actor1, actor2)
+
   it should "handle a scan request if a scan is already in progress" in:
     val actor = TestProbe().ref
     val orgState = GroupScanStateServiceImpl.InitialState.copy(scanInProgress = true)
 
-    val (nextState, optRequest) = updateState(GroupScanStateServiceImpl.handleScanRequest(actor), orgState)
+    val (nextState, optRequest) = updateState(GroupScanStateServiceImpl.handleScanRequest(List(actor)), orgState)
     nextState.currentScanRequest.isEmpty shouldBe true
     nextState.scanInProgress shouldBe true
     nextState.pendingScanRequests should contain only actor
     optRequest should be(None)
+
+  it should "handle a scan request with multiple actors if a scan is already in progress" in:
+    val actor1 = TestProbe().ref
+    val actor2 = TestProbe().ref
+    val actorInProgress = TestProbe().ref
+    val orgState = GroupScanStateServiceImpl.InitialState.copy(
+      scanInProgress = true,
+      pendingScanRequests = Set(actorInProgress)
+    )
+
+    val (nextState, optRequest) =
+      updateState(GroupScanStateServiceImpl.handleScanRequest(List(actor1, actor2)), orgState)
+    nextState.currentScanRequest.isEmpty shouldBe true
+    nextState.scanInProgress shouldBe true
+    nextState.pendingScanRequests should contain theSameElementsAs List(actor1, actor2, actorInProgress)
+    optRequest should be(None)
+
+  it should "handle a scan request with an empty list of actors" in:
+    val orgState = GroupScanStateServiceImpl.InitialState.copy(scanInProgress = true)
+
+    val (nextState, _) = updateState(GroupScanStateServiceImpl.scanRequested(Nil), orgState)
+
+    nextState should be theSameInstanceAs orgState
 
   it should "handle a scan completed notification if there are no pending requests" in:
     val orgState = GroupScanStateServiceImpl.InitialState.copy(scanInProgress = true)

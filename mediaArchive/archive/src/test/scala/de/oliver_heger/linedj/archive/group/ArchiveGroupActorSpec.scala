@@ -72,7 +72,7 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       scanInProgress = false)
     val helper = new GroupActorTestHelper
 
-    helper.stub(Option(probeTarget.ref), state)(_.handleScanRequest(testActor))
+    helper.stub(Option(probeTarget.ref), state)(_.handleScanRequest(List(testActor)))
       .post(ScanAllMedia)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
     probeTarget.expectMsg(StartMediaScan)
@@ -85,8 +85,8 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     val sender2 = TestProbe().ref
     val helper = new GroupActorTestHelper
 
-    helper.stub(Option(TestProbe().ref), state1)(_.handleScanRequest(testActor))
-      .stub(Option[ActorRef](null), state2)(_.handleScanRequest(sender2))
+    helper.stub(Option(TestProbe().ref), state1)(_.handleScanRequest(List(testActor)))
+      .stub(Option[ActorRef](null), state2)(_.handleScanRequest(List(sender2)))
       .post(ScanAllMedia)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
       .post(ScanAllMedia, sender2)

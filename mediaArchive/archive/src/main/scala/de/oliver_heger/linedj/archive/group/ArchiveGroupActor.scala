@@ -109,7 +109,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
 
   override def receive: Receive =
     case ScanAllMedia =>
-      updateState(scanStateService.handleScanRequest(sender()))
+      updateState(scanStateService.handleScanRequest(List(sender())))
 
     case MediaScanCompleted =>
       updateState(scanStateService.handleScanCompleted())
