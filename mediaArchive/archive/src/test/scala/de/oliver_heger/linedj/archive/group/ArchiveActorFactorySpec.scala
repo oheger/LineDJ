@@ -82,9 +82,6 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
     /** Test probe for the new persistence manager actor. */
     private val probePersistenceManager = TestProbe()
 
-    /** Test probe for the group manager actor. */
-    private val probeGroupManager = TestProbe()
-
     /** Test probe for the metadata processing event listener. */
     private val probeMetadataListener = typedTestKit.createTestProbe[MetadataProcessingEvent]()
 
@@ -105,7 +102,6 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
         probeMediaUnionActor.ref,
         probeMetaDataUnionActor.ref,
         probeMetadataListener.ref,
-        probeGroupManager.ref,
         archiveConfig
       ) should be(probeMediaManager.ref)
       childActorsMap.isEmpty shouldBe true
@@ -123,7 +119,6 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
         archiveConfig,
         probeMetaDataManager.ref,
         probeMediaUnionActor.ref,
-        probeGroupManager.ref,
         null
       )
       val propsMetaDataManager = MetadataManagerActor(
@@ -163,8 +158,8 @@ class ArchiveActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     private def checkMediaManagerProps(expected: Props)(actual: Props): Boolean =
       actual.args.size == expected.args.size &&
-        actual.args.slice(0, 4) == expected.args.slice(0, 4) &&
-        checkConverter(actual, 4)
+        actual.args.slice(0, 3) == expected.args.slice(0, 3) &&
+        checkConverter(actual, 3)
 
     /**
       * Checks whether the correct Props for creating the metadata manager

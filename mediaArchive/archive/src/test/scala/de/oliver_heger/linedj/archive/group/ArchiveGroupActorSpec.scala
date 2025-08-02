@@ -64,33 +64,7 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "create and initialize the archives in the group" in:
     val helper = new GroupActorTestHelper
 
-    helper.verifyArchiveInitialization()
-
-  it should "handle a media scan request from the group" in:
-    val probeTarget = TestProbe()
-    val state = GroupScanState(currentScanRequest = Some(probeTarget.ref), pendingScanRequests = Set.empty,
-      scanInProgress = false)
-    val helper = new GroupActorTestHelper
-
-    helper.stub(Option(probeTarget.ref), state)(_.handleScanRequest(List(testActor)))
-      .post(ScanAllMedia)
-      .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
-    probeTarget.expectMsg(StartMediaScan)
-
-  it should "handle a media scan request if no scan should be triggered" in:
-    val state1 = GroupScanState(currentScanRequest = None, pendingScanRequests = Set.empty,
-      scanInProgress = true)
-    val state2 = GroupScanState(currentScanRequest = None, pendingScanRequests = Set(TestProbe().ref),
-      scanInProgress = true)
-    val sender2 = TestProbe().ref
-    val helper = new GroupActorTestHelper
-
-    helper.stub(Option(TestProbe().ref), state1)(_.handleScanRequest(List(testActor)))
-      .stub(Option[ActorRef](null), state2)(_.handleScanRequest(List(sender2)))
-      .post(ScanAllMedia)
-      .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
-      .post(ScanAllMedia, sender2)
-      .expectStateUpdate(state1)
+    helper.verifyArchiveScanStarted()
 
   it should "handle a notification about a completed scan operation" in:
     val probeTarget = TestProbe()
@@ -102,6 +76,16 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .post(MediaScanCompleted)
       .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
     probeTarget.expectMsg(StartMediaScan)
+
+  it should "handle a new ScanAllMedia request" in:
+    val stateInProgress = GroupScanStateServiceImpl.InitialState.copy(scanInProgress = true)
+    val helper = new GroupActorTestHelper
+
+    helper.verifyArchiveScanStarted()
+      .expectStateUpdate(GroupScanStateServiceImpl.InitialState)
+      .post(ScanAllMedia)
+      .verifyArchiveScanStarted()
+      .expectStateUpdate(stateInProgress)
 
   it should "instantiate and propagate a correct event listener actor" in:
     val helper = new GroupActorTestHelper
@@ -142,16 +126,24 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     private val refMetadataListener = new AtomicReference[typed.ActorRef[MetadataProcessingEvent]]
 
+    stub(
+      Option(mediaManagers.head.ref),
+      GroupScanStateServiceImpl.InitialState.copy(scanInProgress = true)
+    ) { service =>
+      service.handleScanRequest(mediaManagers.map(_.ref))
+    }
+
     /** The actor to be tested. */
     private val groupActor = createTestActor()
 
     /**
-      * Verifies that all archives have been created and initialized.
+      * Verifies that the first archive actor is sent a scan request.
+      *
+      * @return this test helper
       */
-    def verifyArchiveInitialization(): Unit =
-      mediaManagers foreach { manager =>
-        manager.expectMsg(ScanAllMedia)
-      }
+    def verifyArchiveScanStarted(): GroupActorTestHelper =
+      mediaManagers.head.expectMsg(StartMediaScan)
+      this
 
     /**
       * Passes the given message to the group test actor.
@@ -206,15 +198,12 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
         override def createArchiveActors(refMediaUnionActor: ActorRef,
                                          metadataUnionActor: ActorRef,
                                          metadataListener: typed.ActorRef[MetadataProcessingEvent],
-                                         groupManager: ActorRef,
                                          archiveConfig: MediaArchiveConfig): ActorRef = {
           refMediaUnionActor should be(mediaUnionActor)
           metadataUnionActor should be(metaDataUnionActor)
           refMetadataListener.set(metadataListener)
-          groupManager should be(self)
           if archiveConfig == archiveConfigs.head then mediaManagers.head.ref
           else if archiveConfig == archiveConfigs(1) then mediaManagers(1).ref
           else fail("Unexpected archive config: " + archiveConfig)
         }
       }))
-

@@ -183,10 +183,9 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   "A MediaManagerActor" should "create a correct Props object" in:
     val config = createConfiguration()
     val unionActor = TestProbe()
-    val groupManager = TestProbe()
     val converter = new PathUriConverter(RootPath)
-    val props = MediaManagerActor(config, testActor, unionActor.ref, groupManager.ref, converter)
-    props.args should be(List(config, testActor, unionActor.ref, groupManager.ref, converter))
+    val props = MediaManagerActor(config, testActor, unionActor.ref, converter)
+    props.args should be(List(config, testActor, unionActor.ref, converter))
 
     classOf[MediaManagerActor].isAssignableFrom(props.actorClass()) shouldBe true
     classOf[ChildActorFactory].isAssignableFrom(props.actorClass()) shouldBe true
@@ -194,7 +193,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
   it should "use a default state update service" in:
     val manager = TestActorRef[MediaManagerActor](MediaManagerActor(createConfiguration(),
-      testActor, TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
+      testActor, TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager.underlyingActor.scanStateUpdateService should be(MediaScanStateUpdateServiceImpl)
 
@@ -215,12 +214,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       .expectStateUpdate(MediaScanStateUpdateServiceImpl.InitialState)
       .expectCloseCompleteProcessed()
     probeAck.expectMsg(ScanSinkActor.Ack)
-
-  it should "forward a scan request to the group manager" in:
-    val helper = new MediaManagerTestHelper
-
-    helper.post(ScanAllMedia)
-      .expectGroupManagerMessage(ScanAllMedia)
 
   it should "handle a message to start a new scan operation" in:
     val state1 = MediaScanStateUpdateServiceImpl.InitialState.copy(scanClient = Some(testActor))
@@ -433,7 +426,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   it should "forward a request for meta file info to the metadata manager" in:
     val metaDataManager = ForwardTestActor()
     val manager = system.actorOf(MediaManagerActor(createConfiguration(), metaDataManager,
-      TestProbe().ref, TestProbe().ref, new PathUriConverter(RootPath)))
+      TestProbe().ref, new PathUriConverter(RootPath)))
 
     manager ! GetMetadataFileInfo
     expectMsg(ForwardTestActor.ForwardedMessage(GetMetadataFileInfo))
@@ -460,9 +453,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     /** Test probe for the union media manager actor. */
     private val probeUnionMediaActor = TestProbe()
-
-    /** Test probe for the group manager actor. */
-    private val probeGroupManager = TestProbe()
 
     /** Counter for close request handling. */
     private val closeRequestCount = new AtomicInteger
@@ -587,16 +577,6 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       */
     def expectDownloadMonitorMessage(msg: Any): MediaManagerTestHelper =
       expectProbeMessage(probeDownloadManager, msg)
-
-    /**
-      * Expects that the specified message has been sent to the group
-      * manager actor.
-      *
-      * @param msg the expected message
-      * @return this test helper
-      */
-    def expectGroupManagerMessage(msg: Any): MediaManagerTestHelper =
-      expectProbeMessage(probeGroupManager, msg)
 
     /**
       * Expects that a close request has been handled.
@@ -733,7 +713,7 @@ class MediaManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     private def createTestActor(): TestActorRef[MediaManagerActor] =
       TestActorRef[MediaManagerActor](Props(
         new MediaManagerActor(actorConfig, probeMetadataManager.ref,
-          probeUnionMediaActor.ref, probeGroupManager.ref, updateService, converter)
+          probeUnionMediaActor.ref, updateService, converter)
           with ChildActorFactory with CloseSupport {
           override def createChildActor(p: Props): ActorRef = {
             p.actorClass() match {

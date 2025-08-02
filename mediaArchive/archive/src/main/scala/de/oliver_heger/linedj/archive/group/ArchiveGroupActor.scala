@@ -92,6 +92,9 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
                         private val scanStateService: GroupScanStateService) extends Actor:
   this: ArchiveActorFactory =>
 
+  /** The list with the archive actors in the managed group. */
+  private var archiveActors: List[ActorRef] = Nil
+
   /** The current scan state of the archive group. */
   private var scanState = GroupScanStateServiceImpl.InitialState
 
@@ -103,13 +106,15 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
     super.preStart()
 
     val metadataListener = context.spawnAnonymous(metadataListenerBehavior)
-    archiveConfigs map { config =>
-      createArchiveActors(mediaUnionActor, metadataUnionActor, metadataListener, self, config)
-    } foreach (_ ! ScanAllMedia)
+    archiveActors = archiveConfigs.map { config =>
+      createArchiveActors(mediaUnionActor, metadataUnionActor, metadataListener, config)
+    }.toList
+
+    self ! ScanAllMedia
 
   override def receive: Receive =
     case ScanAllMedia =>
-      updateState(scanStateService.handleScanRequest(List(sender())))
+      updateState(scanStateService.handleScanRequest(archiveActors))
 
     case MediaScanCompleted =>
       updateState(scanStateService.handleScanCompleted())

@@ -47,9 +47,11 @@ object MediaManagerActor:
     */
   private val NonExistingFile = FileData(path = null, size = -1)
 
-  private class MediaManagerActorImpl(config: MediaArchiveConfig, metaDataManager: ActorRef, mediaUnionActor: ActorRef,
-                                      groupManager: ActorRef, converter: PathUriConverter)
-    extends MediaManagerActor(config, metaDataManager, mediaUnionActor, groupManager, converter) with ChildActorFactory
+  private class MediaManagerActorImpl(config: MediaArchiveConfig, 
+                                      metaDataManager: ActorRef,
+                                      mediaUnionActor: ActorRef,
+                                      converter: PathUriConverter)
+    extends MediaManagerActor(config, metaDataManager, mediaUnionActor, converter) with ChildActorFactory
       with SchedulerSupport with CloseSupport
 
   /**
@@ -60,13 +62,14 @@ object MediaManagerActor:
     * @param config          the configuration object
     * @param metaDataManager a reference to the metadata manager actor
     * @param mediaUnionActor reference to the media union actor
-    * @param groupManager    a reference to the group manager actor
     * @param converter       the ''PathUriConverter''
     * @return a ''Props'' object for creating actor instances
     */
-  def apply(config: MediaArchiveConfig, metaDataManager: ActorRef, mediaUnionActor: ActorRef,
-            groupManager: ActorRef, converter: PathUriConverter): Props =
-    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, groupManager, converter)
+  def apply(config: MediaArchiveConfig, 
+            metaDataManager: ActorRef,
+            mediaUnionActor: ActorRef,
+            converter: PathUriConverter): Props =
+    Props(classOf[MediaManagerActorImpl], config, metaDataManager, mediaUnionActor, converter)
 
   /**
     * The transformation function to remove metadata from a file to be
@@ -97,12 +100,12 @@ object MediaManagerActor:
   * @param config                 the configuration object
   * @param metaDataManager        a reference to the metadata manager actor
   * @param mediaUnionActor        a reference to the media union actor
-  * @param groupManager           a reference to the group manager actor
   * @param scanStateUpdateService the service to update the scan state
   * @param converter              the ''PathUriConverter''
   */
-class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
-                        mediaUnionActor: ActorRef, groupManager: ActorRef,
+class MediaManagerActor(config: MediaArchiveConfig, 
+                        metaDataManager: ActorRef,
+                        mediaUnionActor: ActorRef,
                         private[media] val scanStateUpdateService: MediaScanStateUpdateService,
                         converter: PathUriConverter)
   extends Actor with ActorLogging:
@@ -116,12 +119,13 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     * @param config          the configuration object
     * @param metaDataManager a reference to the metadata manager actor
     * @param mediaUnionActor a reference to the media union actor
-    * @param groupManager    a reference to the group manager actor
     * @param converter       the ''PathUriConverter''
     */
-  def this(config: MediaArchiveConfig, metaDataManager: ActorRef,
-           mediaUnionActor: ActorRef, groupManager: ActorRef, converter: PathUriConverter) =
-    this(config, metaDataManager, mediaUnionActor, groupManager, MediaScanStateUpdateServiceImpl, converter)
+  def this(config: MediaArchiveConfig, 
+           metaDataManager: ActorRef,
+           mediaUnionActor: ActorRef,
+           converter: PathUriConverter) =
+    this(config, metaDataManager, mediaUnionActor, MediaScanStateUpdateServiceImpl, converter)
 
   import MediaManagerActor.*
 
@@ -149,9 +153,6 @@ class MediaManagerActor(config: MediaArchiveConfig, metaDataManager: ActorRef,
     downloadManagerActor = createChildActor(DownloadMonitoringActor(config.downloadConfig))
 
   override def receive: Receive =
-    case ScanAllMedia =>
-      groupManager ! ScanAllMedia
-
     case StartMediaScan =>
       handleScanRequest()
 

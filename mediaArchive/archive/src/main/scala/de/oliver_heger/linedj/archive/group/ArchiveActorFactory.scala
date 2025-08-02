@@ -43,14 +43,12 @@ trait ArchiveActorFactory:
     * @param mediaUnionActor    the media actor of the union archive
     * @param metadataUnionActor the metadata actor of the union archive
     * @param metadataListener   the listener for metadata processing events
-    * @param groupManager       the group manager actor
     * @param archiveConfig      the config of the new archive
     * @return the new media manager actor
     */
   def createArchiveActors(mediaUnionActor: ActorRef,
                           metadataUnionActor: ActorRef,
                           metadataListener: typed.ActorRef[MetadataProcessingEvent],
-                          groupManager: ActorRef,
                           archiveConfig: MediaArchiveConfig): ActorRef =
     val converter = new PathUriConverter(archiveConfig.rootPath)
     val persistentMetaDataManager = createChildActor(
@@ -58,4 +56,4 @@ trait ArchiveActorFactory:
     val metaDataManager = createChildActor(
       MetadataManagerActor(archiveConfig, persistentMetaDataManager, metadataListener, converter)
     )
-    createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, groupManager, converter))
+    createChildActor(MediaManagerActor(archiveConfig, metaDataManager, mediaUnionActor, converter))
