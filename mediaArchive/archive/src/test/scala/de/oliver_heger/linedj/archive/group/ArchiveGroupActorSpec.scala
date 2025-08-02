@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.archive.group
 import de.oliver_heger.linedj.StateTestHelper
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
+import de.oliver_heger.linedj.shared.archive.metadata
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.typed.Behavior
@@ -92,6 +93,15 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
 
     helper.testMetadataEventListener()
 
+  it should "send a ProcessingCompleted event when no more scans are in progress" in:
+    val nextState = GroupScanState(currentScanRequest = None, pendingScanRequests = Set.empty, scanInProgress = false)
+    val helper = new GroupActorTestHelper
+
+    helper.testMetadataEventListener()
+      .stub(None, nextState)(_.handleScanCompleted())
+      .post(MediaScanCompleted)
+      .expectProcessingCompletedEvent()
+
   /**
     * Test helper class that manages a test actor and its dependencies.
     */
@@ -159,14 +169,35 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
     /**
       * Tests whether a correct metadata event listener has been created and
       * passed to the archive actor factory.
+      *
+      * @return this test helper
       */
-    def testMetadataEventListener(): Unit =
+    def testMetadataEventListener(): GroupActorTestHelper =
       awaitCond(refMetadataListener.get() != null)
       val listener = refMetadataListener.get()
 
-      val event = MetadataProcessingEvent.ScanStarts(TestProbe().ref)
-      listener ! event
-      receivedMetadataEvents.poll(3, TimeUnit.SECONDS) should be(event)
+      val event = MetadataProcessingEvent.ProcessingStarts(groupActor)
+      nextMetadataEvent() should be(event)
+      this
+
+    /**
+      * Tests whether the metadata listener has received a correct event
+      * indicating the end of processing.
+      *
+      * @return this test helper
+      */
+    def expectProcessingCompletedEvent(): GroupActorTestHelper =
+      nextMetadataEvent() should be(MetadataProcessingEvent.ProcessingCompleted(groupActor))
+      this
+
+    /**
+      * Checks whether an event was sent to the metadata listener and returns
+      * it.
+      *
+      * @return the event received by the listener
+      */
+    private def nextMetadataEvent(): MetadataProcessingEvent =
+      receivedMetadataEvents.poll(3, TimeUnit.SECONDS)
 
     /**
       * Returns a [[Behavior]] for a test metadata processing listener actor

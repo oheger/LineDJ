@@ -20,9 +20,9 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.utils.ChildActorFactory
+import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
-import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 import scala.collection.immutable.Seq
 
@@ -89,11 +89,14 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
                         metadataUnionActor: ActorRef,
                         metadataListenerBehavior: Behavior[MetadataProcessingEvent],
                         archiveConfigs: Seq[MediaArchiveConfig],
-                        private val scanStateService: GroupScanStateService) extends Actor:
+                        private val scanStateService: GroupScanStateService) extends Actor with ActorLogging:
   this: ArchiveActorFactory =>
 
   /** The list with the archive actors in the managed group. */
   private var archiveActors: List[ActorRef] = Nil
+
+  /** The reference to the metadata listener. */
+  private var metadataListener: typed.ActorRef[MetadataProcessingEvent] = _
 
   /** The current scan state of the archive group. */
   private var scanState = GroupScanStateServiceImpl.InitialState
@@ -105,7 +108,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
   override def preStart(): Unit =
     super.preStart()
 
-    val metadataListener = context.spawnAnonymous(metadataListenerBehavior)
+    metadataListener = context.spawnAnonymous(metadataListenerBehavior)
     archiveActors = archiveConfigs.map { config =>
       createArchiveActors(mediaUnionActor, metadataUnionActor, metadataListener, config)
     }.toList
@@ -114,6 +117,8 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
 
   override def receive: Receive =
     case ScanAllMedia =>
+      log.info("Archive processing starts.")
+      metadataListener ! MetadataProcessingEvent.ProcessingStarts(self)
       updateState(scanStateService.handleScanRequest(archiveActors))
 
     case MediaScanCompleted =>
@@ -129,3 +134,7 @@ class ArchiveGroupActor(mediaUnionActor: ActorRef,
     val (next, target) = update(scanState)
     target foreach (_ ! StartMediaScan)
     scanState = next
+
+    if !next.scanInProgress then
+      metadataListener ! MetadataProcessingEvent.ProcessingCompleted(self)
+      log.info("Archive processing completed.")
