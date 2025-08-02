@@ -164,7 +164,7 @@ class ArchiveGroupActorSpec(testSystem: ActorSystem) extends TestKit(testSystem)
       awaitCond(refMetadataListener.get() != null)
       val listener = refMetadataListener.get()
 
-      val event = MetadataProcessingEvent.UpdateOperationStarts(TestProbe().ref)
+      val event = MetadataProcessingEvent.ScanStarts(TestProbe().ref)
       listener ! event
       receivedMetadataEvents.poll(3, TimeUnit.SECONDS) should be(event)
 

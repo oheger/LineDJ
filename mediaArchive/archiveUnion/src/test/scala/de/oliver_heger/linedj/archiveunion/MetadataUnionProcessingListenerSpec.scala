@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID, MediumInfo}
+import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import de.oliver_heger.linedj.shared.archive.union.{MediaContribution, MetadataProcessingResult, UpdateOperationCompleted, UpdateOperationStarts}
@@ -50,7 +50,7 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     val processor = TestProbe()
 
     helper.sendEventAndExpectForwarding(
-      MetadataProcessingEvent.UpdateOperationStarts(processor.ref),
+      MetadataProcessingEvent.ScanStarts(processor.ref),
       UpdateOperationStarts(Some(processor.ref))
     )
 
@@ -59,7 +59,7 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     val processor = TestProbe()
 
     helper.sendEventAndExpectForwarding(
-      MetadataProcessingEvent.UpdateOperationCompleted(processor.ref),
+      MetadataProcessingEvent.ScanCompleted(processor.ref),
       UpdateOperationCompleted(Some(processor.ref))
     )
 
@@ -85,15 +85,22 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
 
   it should "ignore a MediumDescriptionAvailable event" in :
     val helper = new ListenerTestHelper
-    val processor = TestProbe()
     val mediumID = MediumID("mediumURI", Some("descPath"), "someComponentID")
     val mediumDescription = MediumDescription("someName", "someDesc", "someOrder")
 
-    helper.sendEvent(MetadataProcessingEvent.MediumDescriptionAvailable(mediumID, mediumDescription))
-      .sendEventAndExpectForwarding(
-        MetadataProcessingEvent.UpdateOperationStarts(processor.ref),
-        UpdateOperationStarts(Some(processor.ref))
-      )
+    helper.checkIgnoredEvent(MetadataProcessingEvent.MediumDescriptionAvailable(mediumID, mediumDescription))
+
+  it should "ignore a ProcessingStarts event" in :
+    val helper = new ListenerTestHelper
+    val groupManager = TestProbe()
+
+    helper.checkIgnoredEvent(MetadataProcessingEvent.ProcessingStarts(groupManager.ref))
+
+  it should "ignore a ProcessingCompleted event" in :
+    val helper = new ListenerTestHelper
+    val groupManager = TestProbe()
+
+    helper.checkIgnoredEvent(MetadataProcessingEvent.ProcessingCompleted(groupManager.ref))
 
   it should "stop itself when the metadata union actor terminates" in :
     val helper = new ListenerTestHelper
@@ -112,16 +119,6 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     private val listener = typedTestKit.spawn(MetadataUnionProcessingListener.behavior(probeMetadataUnionActor.ref))
 
     /**
-      * Sends the given ent to the listener actor to be tested.
-      *
-      * @param event the event
-      * @return this test helper
-      */
-    def sendEvent(event: MetadataProcessingEvent): ListenerTestHelper =
-      listener ! event
-      this
-
-    /**
       * Sends the given event to the listener actor to be tested and expects
       * that a specific message is received by the metadata union actor.
       *
@@ -133,6 +130,22 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
       sendEvent(event)
       probeMetadataUnionActor.expectMsg(expMessage)
       this
+
+    /**
+      * Checks whether the given event is simply ignored and does not cause the 
+      * listener to crash.
+      *
+      * @param event the event
+      * @return this test helper
+      */
+    def checkIgnoredEvent(event: MetadataProcessingEvent): ListenerTestHelper =
+      sendEvent(event)
+      val processor = TestProbe()
+
+      sendEventAndExpectForwarding(
+        MetadataProcessingEvent.ScanStarts(processor.ref),
+        UpdateOperationStarts(Some(processor.ref))
+      )
 
     /**
       * Stops the metadata union actor. This can be used to test whether the
@@ -152,4 +165,14 @@ class MetadataUnionProcessingListenerSpec(testSystem: ActorSystem) extends TestK
     def expectListenerTerminated(): ListenerTestHelper =
       val watcherProbe = typedTestKit.createDeadLetterProbe()
       watcherProbe.expectTerminated(listener)
+      this
+
+    /**
+      * Sends the given ent to the listener actor to be tested.
+      *
+      * @param event the event
+      * @return this test helper
+      */
+    private def sendEvent(event: MetadataProcessingEvent): ListenerTestHelper =
+      listener ! event
       this

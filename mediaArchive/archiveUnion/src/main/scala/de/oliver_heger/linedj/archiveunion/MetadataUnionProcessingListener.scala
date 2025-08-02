@@ -63,11 +63,11 @@ object MetadataUnionProcessingListener {
       context.watch(metadataUnionActor)
 
       Behaviors.receiveMessage[MetadataProcessingEvent] {
-        case MetadataProcessingEvent.UpdateOperationStarts(processor) =>
+        case MetadataProcessingEvent.ScanStarts(processor) =>
           metadataUnionActor ! UpdateOperationStarts(Some(processor))
           Behaviors.same
 
-        case MetadataProcessingEvent.UpdateOperationCompleted(processor) =>
+        case MetadataProcessingEvent.ScanCompleted(processor) =>
           metadataUnionActor ! UpdateOperationCompleted(Some(processor))
           Behaviors.same
 
@@ -79,7 +79,7 @@ object MetadataUnionProcessingListener {
           metadataUnionActor ! result
           Behaviors.same
 
-        case _: MetadataProcessingEvent.MediumDescriptionAvailable =>
+        case _ =>
           Behaviors.same
       }.receiveSignal {
         case (context, Terminated(_)) =>

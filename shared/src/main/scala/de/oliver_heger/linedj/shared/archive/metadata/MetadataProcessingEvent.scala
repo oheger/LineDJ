@@ -23,28 +23,57 @@ import org.apache.pekko.actor as classic
 import java.nio.file.Path
 
 /**
-  * A type representing event notifications sent by the
-  * [[MetadataManagerActor]] during processing of media files. Listeners can
-  * subscribe for such events to keep track of the status of media processing.
+  * A type representing event notifications sent during scanning of media 
+  * archives and processing of their media files. Listeners can subscribe for
+  * such events to keep track of the status of media processing.
   */
 enum MetadataProcessingEvent:
   /**
-    * A metadata event indicating that an update operation on the media archive
-    * controlled by a specific processor starts. During this operation, further
-    * events updating the media state are generated. This event, together with
-    * the counterpart [[UpdateOperationCompleted]], is used to notify event
-    * listeners that there is now some activity going on and that further
-    * events can be expected.
+    * A metadata event indicating that the processing of a media archive 
+    * consisting of multiple components starts. The passed in group manager
+    * actor controls the archive components and is responsible for triggering
+    * scan operations on all of them. For each component, corresponding
+    * [[ScanStarts]] and [[ScanCompleted]] events will be generated. If all of
+    * them are done, a [[ProcessingCompleted]] event follows. This start event
+    * is typically the first one received by event listeners.
     *
-    * @param processor the actor responsible for the update operation
+    * @param groupManager the group manager actor handling the archive 
+    *                     components
     */
-  case UpdateOperationStarts(processor: classic.ActorRef)
+  case ProcessingStarts(groupManager: classic.ActorRef)
 
   /**
-    * A metadata event indicating that an update operation on the media archive
-    * controlled by a specific processor is completed.
+    * A metadata event indicating that the processing of the media archive
+    * controlled by the given group manager actor is now complete. This event
+    * is typically the last one received by event listeners for a group of
+    * archive components.
+    *
+    * @param groupManager the group manager actor handling the archive 
+    *                     components
     */
-  case UpdateOperationCompleted(processor: classic.ActorRef)
+  case ProcessingCompleted(groupManager: classic.ActorRef)
+
+  /**
+    * A metadata event indicating that a scan operation for media files and 
+    * metadata on the media archive controlled by a specific processor starts.
+    * During this operation, further events updating the media state are
+    * generated. This event, together with the counterpart [[ScanCompleted]],
+    * can be used by event listeners to keep track on ongoing scan operations
+    * on archive components.
+    *
+    * @param processor the actor responsible for the scan operation on this
+    *                  archive component
+    */
+  case ScanStarts(processor: classic.ActorRef)
+
+  /**
+    * A metadata event indicating that a scan operation on the media archive
+    * controlled by a specific processor is completed.
+    *
+    * @param processor the actor responsible for the scan operation on this
+    *                  archive component
+    */
+  case ScanCompleted(processor: classic.ActorRef)
 
   /**
     * A metadata event indicating that a specific medium is available in the
@@ -70,7 +99,7 @@ enum MetadataProcessingEvent:
     * further metadata. Note: There is typically no guarantee in which order
     * [[MediumAvailable]] events and events of this type are propagated.
     *
-    * @param mediumID   the ID of the medium
+    * @param mediumID          the ID of the medium
     * @param mediumDescription the object with metadata about the medium
     */
   case MediumDescriptionAvailable(mediumID: MediumID,

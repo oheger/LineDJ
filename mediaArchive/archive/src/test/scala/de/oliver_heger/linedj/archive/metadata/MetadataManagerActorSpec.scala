@@ -443,7 +443,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       .sendAllProcessingResults(ScanResult)
 
     helper.metadataListener.fishForMessage(3.seconds):
-      case MetadataProcessingEvent.UpdateOperationCompleted(proc) if proc == helper.actor =>
+      case MetadataProcessingEvent.ScanCompleted(proc) if proc == helper.actor =>
         FishingOutcome.Complete
       case _ => FishingOutcome.ContinueAndIgnore
     helper.expectNoMetadataEvent()
@@ -805,7 +805,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       * @return this test helper
       */
     def expectMediumAvailableEvents(): MetadataManagerActorTestHelper = {
-      metadataListener.expectMessage(MetadataProcessingEvent.UpdateOperationStarts(actor))
+      metadataListener.expectMessage(MetadataProcessingEvent.ScanStarts(actor))
 
       val files = convertToFileUris(EnhancedScanResult.scanResult)
       val expectedEvents = files.map { e =>

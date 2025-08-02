@@ -237,7 +237,7 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     */
   private def initiateNewScan(client: ActorRef): Unit =
     log.info("Starting new scan.")
-    sendMetadataEvent(MetadataProcessingEvent.UpdateOperationStarts(self))
+    sendMetadataEvent(MetadataProcessingEvent.ScanStarts(self))
     persistenceManager ! ScanForMetadataFiles
     mediaMap = Map.empty
     completedMedia = Set(MediumID.UndefinedMediumID)
@@ -322,7 +322,7 @@ class MetadataManagerActor(config: MediaArchiveConfig,
     completedMedia = Set.empty
     processorActors.values.foreach(context.stop)
     processorActors = Map.empty
-    sendMetadataEvent(MetadataProcessingEvent.UpdateOperationCompleted(self))
+    sendMetadataEvent(MetadataProcessingEvent.ScanCompleted(self))
     log.info("Scan complete.")
 
   /**
