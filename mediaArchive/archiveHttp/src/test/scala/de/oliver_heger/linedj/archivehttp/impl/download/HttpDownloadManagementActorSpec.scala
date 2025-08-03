@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumFileResponse, MediumID}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}

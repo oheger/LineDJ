@@ -22,10 +22,10 @@ import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, DownloadMo
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport, FileData}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}

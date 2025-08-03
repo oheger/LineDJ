@@ -27,8 +27,8 @@ import de.oliver_heger.linedj.platform.bus.ConsumerSupport.ConsumerFunction
 import de.oliver_heger.linedj.platform.mediaifc.ext.AvailableMediaExtension.AvailableMediaUnregistration
 import de.oliver_heger.linedj.player.engine.{AudioSource, PlaybackProgressEvent}
 import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.LoadedPlaylist
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
-import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{TestKit, TestProbe}

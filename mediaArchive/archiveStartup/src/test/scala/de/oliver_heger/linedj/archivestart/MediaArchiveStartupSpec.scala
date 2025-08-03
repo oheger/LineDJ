@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archivestart
 
 import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}

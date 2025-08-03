@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}

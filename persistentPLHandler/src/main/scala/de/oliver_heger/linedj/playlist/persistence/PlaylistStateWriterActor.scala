@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.audio.playlist.service.PlaylistService
 import de.oliver_heger.linedj.platform.audio.{AudioPlayerState, SetPlaylist}
 import de.oliver_heger.linedj.player.engine.PlaybackProgressEvent
 import de.oliver_heger.linedj.playlist.persistence.PlaylistFileWriterActor.{FileWritten, WriteFile}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props}
 
 object PlaylistStateWriterActor:

@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.archive.group
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediaScanCompleted, ScanAllMedia, StartMediaScan}
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.adapter.*

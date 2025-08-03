@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
-import org.apache.pekko.actor._
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
+import org.apache.pekko.actor.*
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /**
  * Test class for ''SchedulerSupport''.

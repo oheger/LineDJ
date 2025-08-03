@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.archivehttp.temp
 import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.io.{LocalFsUtils, RemoveFileActor}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.stream.scaladsl.Sink

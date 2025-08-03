@@ -21,8 +21,8 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.extract.id3.stream.ID3SkipStage
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediumFileRequest, MediumFileResponse}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 
 object HttpDownloadManagementActor:

@@ -20,8 +20,8 @@ import de.oliver_heger.linedj.{RecordingSchedulerSupport, SupervisionTestActor}
 import de.oliver_heger.linedj.RecordingSchedulerSupport.SchedulerInvocation
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig, PlayerConfigSpec}
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.*
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}

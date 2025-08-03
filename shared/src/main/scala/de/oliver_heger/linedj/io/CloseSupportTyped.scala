@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.io
 
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.ActorContext

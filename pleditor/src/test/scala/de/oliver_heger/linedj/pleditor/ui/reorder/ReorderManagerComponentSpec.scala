@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor._
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.mockito.Mockito._

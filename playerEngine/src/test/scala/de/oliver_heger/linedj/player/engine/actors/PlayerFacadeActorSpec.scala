@@ -22,7 +22,7 @@ import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec, PlayerEvent}
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
+import de.oliver_heger.linedj.shared.actors.{ChildActorFactory, SchedulerSupport}
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}

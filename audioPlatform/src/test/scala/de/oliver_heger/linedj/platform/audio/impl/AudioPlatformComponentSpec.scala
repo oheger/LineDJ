@@ -27,7 +27,7 @@ import de.oliver_heger.linedj.platform.comm.ServiceDependencies.{RegisterService
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit

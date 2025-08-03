@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.utils.ChildActorFactorySpec.{TestRequest, TestResponse}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
+import ChildActorFactorySpec.{TestRequest, TestResponse}
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import org.scalatest.BeforeAndAfterAll

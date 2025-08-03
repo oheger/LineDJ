@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.app.support
 
 import de.oliver_heger.linedj.platform.app.PlatformComponent
-import de.oliver_heger.linedj.utils.ActorManagement
+import de.oliver_heger.linedj.shared.actors.ActorManagement
 import org.apache.pekko.actor.{ActorRef, Props}
 import org.osgi.service.component.ComponentContext
 

@@ -20,8 +20,8 @@ import de.oliver_heger.linedj.{FileTestHelper, StoppableTestProbe}
 import de.oliver_heger.linedj.archivecommon.download.{DownloadConfig, MediaFileDownloadActor}
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.{Flow, Source}

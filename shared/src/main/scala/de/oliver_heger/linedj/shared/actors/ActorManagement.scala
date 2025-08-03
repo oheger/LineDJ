@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.utils.ActorManagement.{ActorStopper, ManagedActorData}
+import de.oliver_heger.linedj.shared.actors.ActorManagement.{ActorStopper, ManagedActorData}
 import org.apache.pekko.actor.{ActorRef, PoisonPill}
 
 import java.util.concurrent.ConcurrentHashMap
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 object ActorManagement:
 

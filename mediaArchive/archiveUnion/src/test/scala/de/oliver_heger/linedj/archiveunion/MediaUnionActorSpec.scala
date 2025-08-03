@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.io.{CloseHandlerActor, CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetadata, GetMetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Status, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestActor, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll

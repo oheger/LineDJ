@@ -21,9 +21,9 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.pleditor.ui.config.PlaylistEditorConfig
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
-import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory}
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import net.sf.jguiraffe.gui.builder.components.model.{ProgressBarHandler, StaticTextHandler}
 import net.sf.jguiraffe.gui.builder.event.FormActionEvent

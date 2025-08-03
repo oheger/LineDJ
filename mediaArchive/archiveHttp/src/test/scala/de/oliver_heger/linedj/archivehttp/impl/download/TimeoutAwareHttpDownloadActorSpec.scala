@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGenerator}
+import de.oliver_heger.linedj.shared.actors.{ChildActorFactory, SchedulerSupport}
 import de.oliver_heger.linedj.shared.archive.media.*
-import de.oliver_heger.linedj.utils.{ChildActorFactory, SchedulerSupport}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.{Flow, Source}

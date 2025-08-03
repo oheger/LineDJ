@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
 import com.github.cloudfiles.core.http.factory.Spawner
 import org.apache.pekko.actor.typed.Behavior

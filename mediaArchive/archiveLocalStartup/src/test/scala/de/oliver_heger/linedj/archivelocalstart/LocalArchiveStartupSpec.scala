@@ -23,8 +23,8 @@ import de.oliver_heger.linedj.platform.MessageBusTestImpl
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
-import de.oliver_heger.linedj.utils.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}

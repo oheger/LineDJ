@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTe
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.*
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumID}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import org.apache.pekko.actor.typed.Props

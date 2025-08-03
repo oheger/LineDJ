@@ -25,10 +25,10 @@ import de.oliver_heger.linedj.archivehttp.io.MediaDownloader
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import de.oliver_heger.linedj.{ForwardTestActor, StateTestHelper}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.http.scaladsl.model.*

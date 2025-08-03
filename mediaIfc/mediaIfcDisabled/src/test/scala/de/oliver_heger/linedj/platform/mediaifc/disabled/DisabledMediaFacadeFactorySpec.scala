@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.disabled
 
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

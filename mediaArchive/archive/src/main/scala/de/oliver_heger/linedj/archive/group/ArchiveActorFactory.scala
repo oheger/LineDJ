@@ -20,8 +20,8 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{MediaManagerActor, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.typed
 

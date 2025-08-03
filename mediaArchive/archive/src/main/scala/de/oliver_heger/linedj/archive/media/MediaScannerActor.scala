@@ -20,8 +20,8 @@ import com.github.cloudfiles.core.Model
 import com.github.cloudfiles.core.utils.Walk
 import de.oliver_heger.linedj.io.LocalFsUtils
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediumDescription
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.{ActorLogging, ActorRef, Props, typed}
 import org.apache.pekko.pattern.ask

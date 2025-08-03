@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.app.ShutdownManagementActor.{ShutdownConfirmation, ShutdownTimeout}
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import de.oliver_heger.linedj.utils.SchedulerSupport
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
 import org.apache.pekko.actor.{Actor, ActorLogging, Cancellable, Props}
 
 import scala.concurrent.duration.DurationInt

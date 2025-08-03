@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.io
 
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any

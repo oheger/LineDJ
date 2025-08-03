@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
-import de.oliver_heger.linedj.utils.ActorManagement
+import de.oliver_heger.linedj.shared.actors.ActorManagement
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{ActorSystem, Terminated}

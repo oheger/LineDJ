@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.bus.MessageBusRegistration
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.ext.ConsumerRegistrationProcessor
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.di.BeanContext
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.utils.GUISynchronizer

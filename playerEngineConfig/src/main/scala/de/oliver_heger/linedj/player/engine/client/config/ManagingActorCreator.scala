@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.player.engine.client.config
 
 import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
-import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
 import org.apache.pekko.{actor => classic}
 

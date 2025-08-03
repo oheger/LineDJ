@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.utils.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.shared.actors.ActorManagement
+import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -44,7 +45,7 @@ object ActorManagementSpec:
 class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AnyFlatSpecLike
   with BeforeAndAfterAll with Matchers with MockitoSugar:
 
-  import ActorManagementSpec._
+  import ActorManagementSpec.*
 
   def this() = this(ActorSystem("ActorManagementSpec"))
 

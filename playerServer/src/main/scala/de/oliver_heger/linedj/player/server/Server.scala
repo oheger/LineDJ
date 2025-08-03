@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.player.server
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
-import de.oliver_heger.linedj.utils.{ActorFactory, ActorManagement, SystemPropertyAccess}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{ActorRef, ActorSystem}

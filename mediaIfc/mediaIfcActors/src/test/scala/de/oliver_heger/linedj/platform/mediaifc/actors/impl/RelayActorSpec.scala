@@ -19,9 +19,9 @@ package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 import de.oliver_heger.linedj.platform.bus.ComponentID
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.{AddMetadataStateListener, RemoveMediumListener, RemoveMetadataStateListener}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any

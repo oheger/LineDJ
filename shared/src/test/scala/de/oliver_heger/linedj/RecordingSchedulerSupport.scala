@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj
 
-import de.oliver_heger.linedj.utils.SchedulerSupport
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
 import org.apache.pekko.actor.{ActorRef, Cancellable}
 
 import java.util.concurrent.TimeUnit

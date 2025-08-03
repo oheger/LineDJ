@@ -18,10 +18,10 @@ package de.oliver_heger.linedj.archiveunion
 
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media._
 import de.oliver_heger.linedj.shared.archive.metadata.{GetFilesMetadata, GetMetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{AddMedia, ArchiveComponentRemoved, GetArchiveMetadataFileInfo}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 
 import scala.util.{Failure, Success, Try}

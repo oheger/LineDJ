@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.platform.mediaifc.actors.impl
 
 import de.oliver_heger.linedj.platform.comm.MessageBus
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor._
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll

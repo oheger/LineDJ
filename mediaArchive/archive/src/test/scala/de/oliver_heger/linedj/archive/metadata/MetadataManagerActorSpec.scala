@@ -21,11 +21,11 @@ import de.oliver_heger.linedj.archive.media.*
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
 import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
 import de.oliver_heger.linedj.io.*
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.*
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.testkit.typed.{FishingOutcome, scaladsl}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}

@@ -26,9 +26,9 @@ import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
 import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.CopyFileActor.CopyProgress
 import de.oliver_heger.linedj.pleditor.ui.playlist.plexport.ExportActor.ExportResult
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileID, MediumFileRequest, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.mockito.ArgumentMatchers.any

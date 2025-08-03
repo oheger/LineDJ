@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.player.engine.actors
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.{BufferFilled, FillBuffer}
 import de.oliver_heger.linedj.player.engine.{AudioSource, AudioSourcePlaylistInfo, PlayerConfig}
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media._
-import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props}
 
 import scala.collection.mutable

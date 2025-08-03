@@ -21,8 +21,8 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.MediaScannerActor.ScanPath
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseRequest, FileData}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{MediumDescription, MediumID, MediumInfo}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{DelayOverflowStrategy, KillSwitch}

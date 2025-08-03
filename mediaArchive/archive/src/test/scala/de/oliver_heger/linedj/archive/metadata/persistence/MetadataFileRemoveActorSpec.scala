@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.io.RemoveFileActor
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll

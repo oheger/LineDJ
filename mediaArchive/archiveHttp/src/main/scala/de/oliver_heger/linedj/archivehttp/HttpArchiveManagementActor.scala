@@ -23,10 +23,10 @@ import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadManagementAc
 import de.oliver_heger.linedj.archivehttp.temp.TempPathGenerator
 import de.oliver_heger.linedj.io.stream.AbstractStreamProcessingActor.CancelStreams
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.{GetMetadataFileInfo, MetadataFileInfo}
 import de.oliver_heger.linedj.shared.archive.union.{UpdateOperationCompleted, UpdateOperationStarts}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status}
 import org.apache.pekko.routing.SmallestMailboxPool
 import org.apache.pekko.stream.scaladsl.{Sink, Source}

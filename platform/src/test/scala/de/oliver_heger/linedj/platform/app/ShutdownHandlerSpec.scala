@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.app
 
 import de.oliver_heger.linedj.platform.app.ShutdownHandler.{ShutdownCompletionNotifier, ShutdownObserver}
 import de.oliver_heger.linedj.platform.bus.ComponentID
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{ActorSystem, Props}
 import org.apache.pekko.testkit.{TestActorRef, TestKit, TestProbe}

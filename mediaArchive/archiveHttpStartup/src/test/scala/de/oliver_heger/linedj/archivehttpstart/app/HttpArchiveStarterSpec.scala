@@ -27,8 +27,8 @@ import de.oliver_heger.linedj.archivehttp.temp.{RemoveTempFilesActor, TempPathGe
 import de.oliver_heger.linedj.archivehttpstart.spi.HttpArchiveProtocolSpec
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
-import de.oliver_heger.linedj.utils.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}

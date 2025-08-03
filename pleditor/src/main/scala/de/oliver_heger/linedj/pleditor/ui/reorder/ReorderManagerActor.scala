@@ -19,7 +19,7 @@ package de.oliver_heger.linedj.pleditor.ui.reorder
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.pleditor.ui.reorder.ReorderManagerActor._
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor._
 

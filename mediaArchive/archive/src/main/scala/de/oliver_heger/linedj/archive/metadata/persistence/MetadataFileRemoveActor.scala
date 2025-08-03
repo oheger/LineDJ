@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.metadata.persistence
 
 import de.oliver_heger.linedj.archive.metadata.persistence.MetadataFileRemoveActor.{RemoveMetadataFiles, RemoveMetadataFilesResult, RemoveRequestData}
 import de.oliver_heger.linedj.io.RemoveFileActor
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.{Actor, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 

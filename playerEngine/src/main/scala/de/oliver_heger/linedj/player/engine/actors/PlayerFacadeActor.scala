@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.SourceActorCreator
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerEvent}
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorRef, Props, typed}
 
 import scala.concurrent.duration._

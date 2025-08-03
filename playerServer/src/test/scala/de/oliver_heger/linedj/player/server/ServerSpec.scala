@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.player.server
 
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServerConfigTestHelper.getActorManagement
-import de.oliver_heger.linedj.utils.{ActorManagement, SystemPropertyAccess}
+import de.oliver_heger.linedj.shared.actors.ActorManagement
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.commons.configuration.StrictConfigurationComparator
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem

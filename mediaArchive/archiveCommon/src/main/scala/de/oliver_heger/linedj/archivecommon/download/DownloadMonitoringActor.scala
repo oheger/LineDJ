@@ -16,8 +16,8 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
+import de.oliver_heger.linedj.shared.actors.SchedulerSupport
 import de.oliver_heger.linedj.shared.archive.media.DownloadActorAlive
-import de.oliver_heger.linedj.utils.SchedulerSupport
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Cancellable, Props, Terminated}
 
 object DownloadMonitoringActor:

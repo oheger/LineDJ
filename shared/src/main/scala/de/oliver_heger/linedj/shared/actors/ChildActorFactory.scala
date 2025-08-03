@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.utils.ChildActorFactory.actorNameFor
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory.actorNameFor
 import org.apache.pekko.actor.{Actor, ActorRef, Props}
 
 import java.util.concurrent.ConcurrentHashMap

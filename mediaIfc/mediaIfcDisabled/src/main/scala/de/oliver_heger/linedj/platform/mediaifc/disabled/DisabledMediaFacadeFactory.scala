@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.platform.mediaifc.disabled
 
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacadeFactory
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 
 /**
   * An implementation of [[MediaFacadeFactory]] that returns a

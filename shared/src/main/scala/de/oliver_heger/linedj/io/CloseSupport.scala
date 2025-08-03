@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.io
 
 import de.oliver_heger.linedj.io.CloseHandlerActor.ConditionSatisfied
-import de.oliver_heger.linedj.utils.ChildActorFactory
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import org.apache.pekko.actor.{ActorRef, Props}
 
 /**

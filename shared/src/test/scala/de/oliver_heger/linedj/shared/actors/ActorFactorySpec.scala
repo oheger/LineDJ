@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.utils
+package de.oliver_heger.linedj.shared.actors
 
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}

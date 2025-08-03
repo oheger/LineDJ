@@ -21,8 +21,8 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor._
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Status, Terminated}
 import org.apache.pekko.stream.CompletionStrategy
 import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Source}

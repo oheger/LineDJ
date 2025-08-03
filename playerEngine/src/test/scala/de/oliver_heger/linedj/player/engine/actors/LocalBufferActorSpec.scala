@@ -21,8 +21,8 @@ import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.player.engine.actors.BufferFileManager.BufferFile
 import de.oliver_heger.linedj.player.engine.actors.LocalBufferActor.*
 import de.oliver_heger.linedj.player.engine.{PlayerConfig, PlayerConfigSpec}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.*
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}

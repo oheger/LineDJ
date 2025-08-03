@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}

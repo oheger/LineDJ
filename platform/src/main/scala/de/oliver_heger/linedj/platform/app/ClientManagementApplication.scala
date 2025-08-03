@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.platform.comm.{MessageBus, MessageBusListener}
 import de.oliver_heger.linedj.platform.mediaifc.config.MediaIfcConfigData
 import de.oliver_heger.linedj.platform.mediaifc.ext.{ArchiveAvailabilityExtension, AvailableMediaExtension, MetadataCache, StateListenerExtension}
 import de.oliver_heger.linedj.platform.mediaifc.{MediaFacade, MediaFacadeFactory}
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.app.{Application, ApplicationContext}
 import net.sf.jguiraffe.gui.builder.window.WindowManager
 import org.apache.commons.configuration.Configuration

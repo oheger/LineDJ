@@ -22,8 +22,8 @@ import de.oliver_heger.linedj.io.{LocalFsUtils, RemoveFileActor}
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.mediaifc.{MediaActors, MediaFacade}
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediumFileRequest
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.*
 import org.apache.pekko.actor.SupervisorStrategy.Stop
 import org.apache.pekko.actor.typed.scaladsl.adapter.*

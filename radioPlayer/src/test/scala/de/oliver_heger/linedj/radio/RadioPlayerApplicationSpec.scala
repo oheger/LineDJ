@@ -23,7 +23,7 @@ import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.player.engine.AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.{RadioEvent, RadioSource, RadioSourceChangedEvent}
-import de.oliver_heger.linedj.utils.ActorFactory
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import net.sf.jguiraffe.gui.app.ApplicationContext
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorSystem

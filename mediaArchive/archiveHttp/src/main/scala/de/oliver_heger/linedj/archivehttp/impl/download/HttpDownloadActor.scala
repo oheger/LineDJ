@@ -19,8 +19,8 @@ package de.oliver_heger.linedj.archivehttp.impl.download
 import de.oliver_heger.linedj.archivecommon.download.MediaFileDownloadActor
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import de.oliver_heger.linedj.archivehttp.impl.download.HttpDownloadActor.DownloadRequestCompleted
+import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.{DownloadComplete, DownloadData, DownloadDataResult, MediumFileRequest}
-import de.oliver_heger.linedj.utils.ChildActorFactory
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Source
