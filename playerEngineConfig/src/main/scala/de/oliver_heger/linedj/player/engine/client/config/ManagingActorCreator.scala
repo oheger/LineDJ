@@ -18,14 +18,14 @@ package de.oliver_heger.linedj.player.engine.client.config
 
 import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
-import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.shared.actors.ActorStopper
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
 import org.apache.pekko.{actor => classic}
 
 /**
   * A fully functional implementation of [[ActorCreator]] that is based on an
   * [[ActorFactory]] and uses an [[ActorManagement]] object to manage the
-  * actors that have been created..
+  * actors that have been created.
   *
   * This implementation uses the provided actor factory to create new actors.
   * The actors are then also registered at the management instance, so that
@@ -53,7 +53,7 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
                               props: Props): ActorRef[T] =
     val ref = actorFactory.createActor(behavior, name, props)
     optStopCommand foreach { command =>
-      val stopper: ActorStopper = () => ref ! command
+      val stopper = ActorStopper.typedActorStopper(ref, command)
       actorManagement.registerActor(name, stopper)
     }
     ref

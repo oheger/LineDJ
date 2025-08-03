@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.player.engine.client.config
 
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
-import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.shared.actors.ActorStopper
 import org.apache.pekko.actor.{Actor, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor

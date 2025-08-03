@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.shared.actors.ActorManagement
-import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
@@ -123,7 +121,7 @@ class ActorManagementSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
 
   it should "support registering only an object to stop actors" in:
     val stopFlag = new AtomicBoolean
-    val stopper = new ActorManagement.ActorStopper:
+    val stopper = new ActorStopper:
       override def stop(): Unit = stopFlag.set(true)
     val helper = new ActorManagementTestHelper
 

@@ -21,7 +21,7 @@ import de.oliver_heger.linedj.player.engine.PlayerEvent
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.EventManagerActor.EventManagerCommand
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
-import de.oliver_heger.linedj.shared.actors.ActorManagement.ActorStopper
+import de.oliver_heger.linedj.shared.actors.ActorStopper
 import org.apache.pekko.actor.typed.Props
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as eqArg}

@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.shared.actors
 
-import de.oliver_heger.linedj.shared.actors.ActorManagement.{ActorStopper, ManagedActorData}
+import de.oliver_heger.linedj.shared.actors.ActorManagement.ManagedActorData
 import org.apache.pekko.actor.{ActorRef, PoisonPill}
 
 import java.util.concurrent.ConcurrentHashMap
@@ -25,27 +25,13 @@ import scala.jdk.CollectionConverters.*
 object ActorManagement:
 
   /**
-    * A trait abstracting over stopping a specific actor.
-    *
-    * This trait becomes necessary when dealing with typed actors, for which no
-    * default mechanism to stop them is available. Therefore, any typed actor
-    * registered at an [[ActorManagement]] instance must have an associated
-    * ''ActorStopper'' object.
-    */
-  trait ActorStopper:
-    /**
-      * Stops the actor associated with this instance.
-      */
-    def stop(): Unit
-
-  /**
     * A data class used internally to store data about the managed actors.
     *
     * @param ref     the optional actor reference
     * @param stopper the object to stop the actor
     */
   private case class ManagedActorData(ref: Option[ActorRef], stopper: ActorStopper)
-
+end ActorManagement
 
 /**
   * A trait providing functionality for managing a set of actors that should be
