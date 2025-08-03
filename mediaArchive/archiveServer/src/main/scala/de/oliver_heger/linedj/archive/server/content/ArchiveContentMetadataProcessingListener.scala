@@ -35,12 +35,24 @@ import scala.util.{Failure, Try}
   */
 object ArchiveContentMetadataProcessingListener:
   /**
-    * Returns a [[Behavior]] for creating a new actor instance.
-    *
-    * @param contentActor the actor that manages the archive content
-    * @return the [[Behavior]] for the new actor instance
+    * A factory trait for creating new instances of the archive content
+    * metadata processing listener actor.
     */
-  def behavior(contentActor: ActorRef[ArchiveContentCommand]): Behavior[MetadataProcessingEvent] =
+  trait Factory:
+    /**
+      * Returns a [[Behavior]] for creating a new actor instance.
+      *
+      * @param contentActor the reference to the content actor to interact with
+      * @return the [[Behavior]] of the new actor instance
+      */
+    def apply(contentActor: ActorRef[ArchiveContentCommand]): Behavior[MetadataProcessingEvent]
+  end Factory
+
+  /**
+    * A default [[Factory]] instance that can be used to create new actor
+    * instances.
+    */
+  final val behavior: Factory = contentActor =>
     handleEvent(contentActor, Map.empty, Map.empty)
 
   /**
@@ -70,6 +82,10 @@ object ArchiveContentMetadataProcessingListener:
           handleEvent(contentActor, pendingAvailableMedia - e.mediumID, pendingDescriptions)
         case None =>
           handleEvent(contentActor, pendingAvailableMedia, pendingDescriptions + (e.mediumID -> e))
+
+    case (ctx, MetadataProcessingEvent.ProcessingCompleted(_)) =>
+      ctx.log.info("Received processing completed event. Listener actor terminates.")
+      Behaviors.stopped
 
     case _ => Behaviors.same
 

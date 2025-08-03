@@ -107,3 +107,12 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! descriptionEvent
 
     probeContent.expectMessage(ArchiveContentCommand.AddMedium(expectedDetails))
+
+  it should "stop itself when receiving a ProcessingCompleted event" in :
+    val probeContent = testKit.createTestProbe[ArchiveContentCommand]()
+    val completedEvent = MetadataProcessingEvent.ProcessingCompleted(null)
+
+    val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
+    listener ! completedEvent
+
+    probeContent.expectTerminated(listener)
