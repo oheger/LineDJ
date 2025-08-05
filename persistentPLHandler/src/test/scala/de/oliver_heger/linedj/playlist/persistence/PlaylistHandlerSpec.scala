@@ -30,7 +30,8 @@ import de.oliver_heger.linedj.playlist.persistence.PersistentPlaylistModel.Loade
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory}
 import de.oliver_heger.linedj.shared.archive.media.{AvailableMedia, MediumID}
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
-import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props, Terminated, typed}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq as argEq}
@@ -78,7 +79,7 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
   with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("PlaylistHandlerSpec"))
 
-  import PlaylistHandlerSpec._
+  import PlaylistHandlerSpec.*
 
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
@@ -512,8 +513,11 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       when(context.messageBus).thenReturn(messageBus)
       when(context.actorSystem).thenReturn(system)
       when(context.managementConfiguration).thenReturn(createConfig())
-      when(context.actorFactory).thenReturn(new ActorFactory(system) {
-        override def createActor(props: Props, name: String): ActorRef = {
+      when(context.actorFactory).thenReturn(new ActorFactory:
+        override def actorSystem: ActorSystem = system
+        
+        override def createClassicActor(props: Props, name: String, stopper: Option[Any]): ActorRef = 
+          stopper shouldBe empty
           createdActors should not contain name
           createdActors += name
           name match {
@@ -527,8 +531,13 @@ class PlaylistHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
               props.args should be(List(WriteConfig))
               stateWriterActor
           }
-        }
-      })
+
+        override def createTypedActor[T](behavior: Behavior[T],
+                                         name: String,
+                                         props: typed.Props,
+                                         optStopCommand: Option[T]): typed.ActorRef[T] =
+          throw new UnsupportedOperationException("Unexpected invocation.")
+      )
       context
 
     /**

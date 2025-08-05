@@ -376,8 +376,14 @@ class RadioPlayerApplicationSpec(testSystem: ActorSystem) extends TestKit(testSy
       *
       * @return the [[ActorFactory]]
       */
-    private def createActorFactory(): ActorFactory =
-      new ActorFactory(system):
-        override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] =
-          super.createActor(behavior, name + actorNameCounter.incrementAndGet(), props)
+    private def createActorFactory(): ActorFactory = {
+      val baseFactory = ActorFactory.defaultActorFactory
+      new ActorFactory:
+        export baseFactory.{createTypedActor => _, *}
+        override def createTypedActor[T](behavior: Behavior[T],
+                                         name: String,
+                                         props: Props,
+                                         optStopCommand: Option[T]): ActorRef[T] =
+          baseFactory.createTypedActor(behavior, name + actorNameCounter.incrementAndGet(), props, optStopCommand)
+    }
 

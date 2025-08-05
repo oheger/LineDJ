@@ -29,6 +29,7 @@ import de.oliver_heger.linedj.player.engine.PlaybackContextFactory
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
+import org.apache.pekko.actor
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
@@ -71,7 +72,7 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
   with BeforeAndAfterAll with Matchers with MockitoSugar:
   def this() = this(ActorSystem("AudioPlatformComponentSpec"))
 
-  import AudioPlatformComponentSpec._
+  import AudioPlatformComponentSpec.*
   import system.dispatcher
 
   /** The test kit for testing typed actors. */
@@ -481,12 +482,23 @@ class AudioPlatformComponentSpec(testSystem: ActorSystem) extends TestKit(testSy
       * @return the test actor factory
       */
     private def createActorFactory(): ActorFactory =
-      new ActorFactory(system):
-        override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] =
+      new ActorFactory:
+        override def createTypedActor[T](behavior: Behavior[T],
+                                         name: String,
+                                         props: Props,
+                                         optStopCommand: Option[T]): ActorRef[T] =
           name should be(AudioPlatformComponent.AudioPlayerManagementActorName)
           props should be(Props.empty)
+          optStopCommand shouldBe empty
           managementActorBehavior = behavior.asInstanceOf[Behavior[PlayerManagementCommand]]
           probeManagementActor.ref.asInstanceOf[ActorRef[T]]
+
+        override val actorSystem: ActorSystem = system
+
+        override def createClassicActor(props: actor.Props,
+                                        name: String,
+                                        optStopper: Option[Any]): actor.ActorRef =
+          throw new UnsupportedOperationException("Unexpected invocation.")
 
   /**
     * A test thread that deactivates the test component in a separate thread.

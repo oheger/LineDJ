@@ -20,38 +20,75 @@ import com.github.cloudfiles.core.http.factory.Spawner
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 
+object ActorFactory:
+  /**
+    * Provides a default [[ActorFactory]] that uses the given actor system.
+    * This default factory only supports actor creation; it ignores the 
+    * [[ActorStopper]] parameters. Life-cycle management for actors may be
+    * implemented on top of it.
+    *
+    * @param system the actor system
+    * @return the default [[ActorFactory]] based on this actor system
+    */
+  given defaultActorFactory(using system: ActorSystem): ActorFactory =
+  new ActorFactory:
+    /** The object for creating typed actors. */
+    private lazy val spawner: Spawner = system
+
+    /** The underlying actor system that is used to create actors. */
+    override val actorSystem: ActorSystem = system
+
+    override def createClassicActor(props: Props, name: String, optStopCommand: Option[Any]): ActorRef =
+      system.actorOf(props, name)
+
+    override def createTypedActor[T](behavior: Behavior[T],
+                                     name: String,
+                                     props: typed.Props,
+                                     optStopCommand: Option[T]): typed.ActorRef[T] =
+      spawner.spawn(behavior, Option(name), props)
+end ActorFactory
+
 /**
-  * A class for creating actors.
+  * A trait supporting the creation of actors.
   *
-  * This class holds an instance of an ''ActorSystem'' and provides methods for
-  * creating an actor in this system. Some controller classes need to create
-  * specific actors; therefore, it makes sense to have this functionality on a
-  * central place. This also simplifies testing.
+  * This trait defines operations for creating classic and typed actors. It
+  * allows abstracting from the concrete creation process and by that improves
+  * testability of clients that use actors.
   *
-  * @param actorSystem the current ''ActorSystem''
+  * The functions to create actors also support parameters to stop the actors
+  * when they are no longer needed. This enables concrete implementations to
+  * offer life-cycle management; although not all implementations necessarily
+  * have to provide this.
   */
-class ActorFactory(val actorSystem: ActorSystem):
-  /** The object for creating typed actors. */
-  private lazy val spawner: Spawner = actorSystem
+trait ActorFactory:
+  /**
+    * Returns the underlying actor system that is used to create actors.
+    *
+    * @return the [[ActorSystem]] used by this instance
+    */
+  def actorSystem: ActorSystem
 
   /**
     * Creates a classic actor based on the provided ''Props''.
     *
-    * @param props the ''Props'' for the new actor
-    * @param name  the name of the actor
+    * @param props          the ''Props'' for the new actor
+    * @param name           the name of the actor
+    * @param optStopCommand an optional command to stop this actor
     * @return the reference to the newly created actor
     */
-  def createActor(props: Props, name: String): ActorRef =
-    actorSystem.actorOf(props, name)
+  def createClassicActor(props: Props, name: String, optStopCommand: Option[Any] = None): ActorRef
 
   /**
     * Creates a typed actor based on the provided ''Behavior''.
     *
-    * @param behavior the ''Behavior'' of the new actor
-    * @param name     the name of the actor
-    * @param props    additional properties for the new actor
+    * @param behavior       the ''Behavior'' of the new actor
+    * @param name           the name of the actor
+    * @param props          additional properties for the new actor
+    * @param optStopCommand an optional command to stop this actor
     * @tparam T the type of messages processed by the actor
     * @return the reference to the newly created actor
     */
-  def createActor[T](behavior: Behavior[T], name: String, props: typed.Props = typed.Props.empty): typed.ActorRef[T] =
-    spawner.spawn(behavior, Option(name), props)
+  def createTypedActor[T](behavior: Behavior[T],
+                          name: String,
+                          props: typed.Props = typed.Props.empty,
+                          optStopCommand: Option[T] = None): typed.ActorRef[T]

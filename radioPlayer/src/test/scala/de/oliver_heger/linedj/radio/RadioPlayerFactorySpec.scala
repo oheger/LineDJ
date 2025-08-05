@@ -50,7 +50,7 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     */
   private def createActorManagement(): ActorManagementComponent =
     val context = mock[ClientApplicationContext]
-    when(context.actorFactory).thenReturn(new ActorFactory(system))
+    when(context.actorFactory).thenReturn(ActorFactory.defaultActorFactory)
 
     new ActorManagementComponent:
       override def initClientContext(context: ClientApplicationContext): Unit = {}

@@ -51,7 +51,7 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
                               name: String,
                               optStopCommand: Option[T],
                               props: Props): ActorRef[T] =
-    val ref = actorFactory.createActor(behavior, name, props)
+    val ref = actorFactory.createTypedActor(behavior, name, props)
     optStopCommand foreach { command =>
       val stopper = ActorStopper.typedActorStopper(ref, command)
       actorManagement.registerActor(name, stopper)
@@ -67,7 +67,7 @@ class ManagingActorCreator(val actorFactory: ActorFactory,
     * @return the reference to the newly created actor
     */
   override def createClassicActor(props: classic.Props, name: String, optStopCommand: Option[Any]): classic.ActorRef =
-    val actor = actorFactory.createActor(props, name)
+    val actor = actorFactory.createClassicActor(props, name)
 
     optStopCommand match
       case Some(stopCommand) =>

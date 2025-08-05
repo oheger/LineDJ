@@ -43,7 +43,7 @@ trait ActorManagementComponent extends ActorManagement with PlatformComponent:
     * @return the newly created actor
     */
   def createAndRegisterActor(props: Props, name: String): ActorRef =
-    registerActor(name, clientApplicationContext.actorFactory.createActor(props, name))
+    registerActor(name, clientApplicationContext.actorFactory.createClassicActor(props, name))
 
   /**
     * @inheritdoc This implementation stops all actors that have been

@@ -42,7 +42,7 @@ class ManagingActorCreatorTypedSpec extends AnyFlatSpec with Matchers with Actor
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
-    when(factory.createActor(behavior, ActorName, Props.empty)).thenReturn(probe.ref)
+    when(factory.createTypedActor(behavior, ActorName, Props.empty)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createActor(behavior, ActorName, None)
@@ -58,7 +58,7 @@ class ManagingActorCreatorTypedSpec extends AnyFlatSpec with Matchers with Actor
     val probe = testKit.createTestProbe[EventManagerCommand[PlayerEvent]]()
     val management = mock[ActorManagement]
     val factory = mock[ActorFactory]
-    when(factory.createActor(behavior, ActorName, props)).thenReturn(probe.ref)
+    when(factory.createTypedActor(behavior, ActorName, props)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createActor(behavior, ActorName, Some(stopCommand), props)

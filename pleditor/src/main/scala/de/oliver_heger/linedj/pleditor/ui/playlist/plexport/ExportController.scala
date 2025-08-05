@@ -128,7 +128,7 @@ class ExportController(applicationContext: ApplicationContext, mediaFacade: Medi
       config.progressSize,
       ClientApplication.BlockingDispatcherName
     )
-    exportActor = actorFactory.createActor(props, ExportActorName)
+    exportActor = actorFactory.createClassicActor(props, ExportActorName)
     exportActor ! exportData
     window = WindowUtils windowFromEvent windowEvent
 

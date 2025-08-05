@@ -177,7 +177,7 @@ class ShutdownHandler(app: ClientManagementApplication) extends MessageBusListen
     else
       log.info("Creating ShutdownManagementActor to monitor these shutdown observers: {}.", observers.keySet)
       val props = ShutdownManagementActor.props(app, observers.keySet)
-      val shutdownActor = app.actorFactory.createActor(props, ShutdownActorName)
+      val shutdownActor = app.actorFactory.createClassicActor(props, ShutdownActorName)
       observers foreach { entry =>
         val notifier = new ShutdownCompletionNotifier:
           override def shutdownComplete(): Unit =

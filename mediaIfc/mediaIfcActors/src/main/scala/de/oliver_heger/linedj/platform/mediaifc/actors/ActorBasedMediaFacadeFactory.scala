@@ -43,7 +43,7 @@ trait ActorBasedMediaFacadeFactory extends MediaFacadeFactory:
     *             to create the actual facade instance.
     */
   override def createMediaFacade(actorFactory: ActorFactory, bus: MessageBus): MediaFacade =
-    val relayActor = actorFactory.createActor(ManagementActor(bus), ManagementActorName)
+    val relayActor = actorFactory.createClassicActor(ManagementActor(bus), ManagementActorName)
     createFacadeImpl(relayActor, actorFactory.actorSystem, bus)
 
   /**

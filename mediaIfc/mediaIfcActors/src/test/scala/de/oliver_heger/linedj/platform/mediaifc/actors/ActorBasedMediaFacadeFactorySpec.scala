@@ -35,7 +35,7 @@ class ActorBasedMediaFacadeFactorySpec extends AnyFlatSpec with Matchers with Mo
     val actorSystem = mock[ActorSystem]
     val messageBus = mock[MessageBus]
     val relayActor = mock[ActorRef]
-    when(actorFactory.createActor(ManagementActor(messageBus), "FacadeManagementActor"))
+    when(actorFactory.createClassicActor(ManagementActor(messageBus), "FacadeManagementActor"))
       .thenReturn(relayActor)
     when(actorFactory.actorSystem).thenReturn(actorSystem)
     val factory = new MediaFacadeFactoryImpl

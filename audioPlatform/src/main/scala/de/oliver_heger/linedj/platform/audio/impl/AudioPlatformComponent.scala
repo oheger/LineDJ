@@ -211,7 +211,7 @@ class AudioPlatformComponent(private[impl] val playerFactory: AudioPlayerFactory
 
     log.info("Activating audio platform.")
 
-    val managementActor = clientApplicationContext.actorFactory.createActor(
+    val managementActor = clientApplicationContext.actorFactory.createTypedActor(
       AudioPlayerManagerActor(clientApplicationContext.messageBus)(playerControllerCreationFunc),
       AudioPlayerManagementActorName)
     if playbackContextFactories.nonEmpty then

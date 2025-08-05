@@ -222,7 +222,11 @@ class ShutdownHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     def shutdownActorProps: Props =
       val captor = ArgumentCaptor.forClass(classOf[Props])
-      verify(application.actorFactory).createActor(captor.capture(), argEq(ShutdownHandler.ShutdownActorName))
+      verify(application.actorFactory).createClassicActor(
+        captor.capture(),
+        argEq(ShutdownHandler.ShutdownActorName),
+        any()
+      )
       captor.getValue
 
     /**
@@ -280,7 +284,7 @@ class ShutdownHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) w
       */
     private def createActorFactory(): ActorFactory =
       val factory = mock[ActorFactory]
-      when(factory.createActor(any[Props](), argEq(ShutdownHandler.ShutdownActorName)))
+      when(factory.createClassicActor(any[Props](), argEq(ShutdownHandler.ShutdownActorName), any()))
         .thenReturn(probeShutdownActor.ref)
       factory
 

@@ -319,7 +319,7 @@ ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with Mo
     private def createActorFactory(actor: TestProbe, facade: MediaFacade): ActorFactory =
       val factory = mock[ActorFactory]
       when(factory.actorSystem).thenReturn(system)
-      when(factory.createActor(any[Props], eqArg("playlistExportActor")))
+      when(factory.createClassicActor(any[Props], eqArg("playlistExportActor"), any()))
         .thenAnswer((invocationOnMock: InvocationOnMock) => {
           val props = invocationOnMock.getArguments.head.asInstanceOf[Props]
           classOf[ExportActor].isAssignableFrom(props.actorClass()) shouldBe true

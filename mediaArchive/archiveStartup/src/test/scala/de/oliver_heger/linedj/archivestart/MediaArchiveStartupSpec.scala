@@ -142,7 +142,7 @@ class MediaArchiveStartupSpec(testSystem: ActorSystem) extends TestKit(testSyste
       */
     private def createActorFactory(): ActorFactory =
       val factory = mock[ActorFactory]
-      when(factory.createActor(any(classOf[Props]), anyString()))
+      when(factory.createClassicActor(any(classOf[Props]), anyString(), any()))
         .thenAnswer((invocation: InvocationOnMock) => {
           val props = invocation.getArguments.head.asInstanceOf[Props]
           val name = invocation.getArguments()(1).asInstanceOf[String]

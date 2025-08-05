@@ -21,9 +21,10 @@ import de.oliver_heger.linedj.platform.audio.model.SongData
 import de.oliver_heger.linedj.platform.comm.MessageBus
 import de.oliver_heger.linedj.pleditor.spi.PlaylistReorderer
 import de.oliver_heger.linedj.shared.actors.ActorFactory
-import org.apache.pekko.actor._
+import org.apache.pekko.actor.*
+import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.osgi.service.component.ComponentContext
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -32,7 +33,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object ReorderManagerComponentSpec:
   /** A name for a test reorder service. */
@@ -44,7 +45,7 @@ object ReorderManagerComponentSpec:
 class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testSystem)
   with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll with Matchers with MockitoSugar:
 
-  import ReorderManagerComponentSpec._
+  import ReorderManagerComponentSpec.*
 
   def this() = this(ActorSystem("ReorderManagerComponentSpec"))
 
@@ -127,8 +128,7 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
     * @param optManagerActor an optional actor to be returned by the mock
     *                        actor factory
     */
-  class ReorderManagerComponentTestHelper(optManagerActor: Option[ActorRef] = None) extends
-    ActorFactory(system):
+  class ReorderManagerComponentTestHelper(optManagerActor: Option[ActorRef] = None) extends ActorFactory:
     /** The application context. */
     val context: ClientApplicationContext = createClientApplicationContext()
 
@@ -143,16 +143,25 @@ class ReorderManagerComponentSpec(testSystem: ActorSystem) extends TestKit(testS
 
     component initClientApplicationContext context
 
+    override def actorSystem: ActorSystem = system
+
     /**
       * @inheritdoc This implementation allows creating exactly one management
       *             actor. The test probe is returned.
       */
-    override def createActor(props: Props, name: String): ActorRef =
+    override def createClassicActor(props: Props, name: String, stopper: Option[Any]): ActorRef =
       props should be(ReorderManagerActor(context.messageBus))
       name should be("ReorderManagerActor")
       if factoryCount.incrementAndGet() > 1 then
         fail("Too many invocations of actor factory!")
       optManagerActor getOrElse reorderManagerActor.ref
+
+    override def createTypedActor[T](behavior: Behavior[T],
+                                     name: String,
+                                     props: typed.Props,
+                                     optStopCommand: Option[T]):
+    typed.ActorRef[T] =
+      throw new UnsupportedOperationException("Unexpected invocation.")
 
     /**
       * Creates a mock for the client application context.

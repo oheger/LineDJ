@@ -65,7 +65,7 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
 
       override val clientApplicationContext: ClientApplicationContext = clientAppContext
 
-    when(clientAppContext.actorFactory).thenReturn(new ActorFactory(system))
+    when(clientAppContext.actorFactory).thenReturn(ActorFactory.defaultActorFactory)
     when(configFactory.createPlayerConfig(eqArg(appConfig), eqArg(Prefix),
       eqArg(mediaManager.ref), any())).thenAnswer((invocation: InvocationOnMock) => {
       val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]

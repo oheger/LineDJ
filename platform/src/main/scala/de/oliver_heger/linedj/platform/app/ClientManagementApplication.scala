@@ -217,7 +217,8 @@ class ClientManagementApplication extends Application with ClientApplicationCont
   def initActorSystem(system: ActorSystem): Unit =
     log.info("Actor system was set.")
     this.system = system
-    factory = new ActorFactory(system)
+    given ActorSystem = system
+    factory = ActorFactory.defaultActorFactory
 
   /**
     * Initializes the ''MediaFacadeFactory'' service. This method is called by

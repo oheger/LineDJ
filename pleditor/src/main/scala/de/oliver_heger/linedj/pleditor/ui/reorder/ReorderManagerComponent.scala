@@ -63,7 +63,7 @@ class ReorderManagerComponent extends ReorderService:
     */
   def initClientApplicationContext(context: ClientApplicationContext): Unit =
     clientApplicationContext = context
-    reorderManagerActor = context.actorFactory.createActor(ReorderManagerActor(context
+    reorderManagerActor = context.actorFactory.createClassicActor(ReorderManagerActor(context
       .messageBus), ReorderManagerActorName)
 
   /**

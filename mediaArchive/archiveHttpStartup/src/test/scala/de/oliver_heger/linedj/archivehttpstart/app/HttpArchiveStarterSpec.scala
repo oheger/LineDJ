@@ -30,7 +30,8 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.actors.{ActorFactory, ChildActorFactory, SchedulerSupport}
 import de.oliver_heger.linedj.shared.archive.media.ScanAllMedia
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
-import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, typed}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
 import org.mockito.Mockito.*
 import org.scalatest.BeforeAndAfterAll
@@ -93,7 +94,7 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
   with BeforeAndAfterAll with Matchers with MockitoSugar with AsyncTestHelper:
   def this() = this(ActorSystem("HttpArchiveStarterSpec"))
 
-  import HttpArchiveStarterSpec._
+  import HttpArchiveStarterSpec.*
 
   override protected def afterAll(): Unit =
     TestKit shutdownActorSystem system
@@ -395,10 +396,18 @@ class HttpArchiveStarterSpec(testSystem: ActorSystem) extends TestKit(testSystem
         actorName(HttpArchiveStarter.RemoveFileActorName, index) -> probeRemoveActor.ref,
         actorName(HttpArchiveStarter.DownloadMonitoringActorName, index)
           -> probeMonitoringActor.ref)
-      new ActorFactory(system):
-        override def createActor(props: Props, name: String): ActorRef =
+      new ActorFactory:
+        override def actorSystem: ActorSystem = system
+        
+        override def createClassicActor(props: Props, name: String, stopper: Option[Any]): ActorRef =
           creationProps += name -> props
           probes(name)
+
+        override def createTypedActor[T](behavior: Behavior[T],
+                                         name: String,
+                                         props: typed.Props,
+                                         optStopCommand: Option[T]): typed.ActorRef[T] =
+          throw new UnsupportedOperationException("Unexpected invocation.")
 
     /**
       * Creates the mock for the downloader factory. The mock is prepared to

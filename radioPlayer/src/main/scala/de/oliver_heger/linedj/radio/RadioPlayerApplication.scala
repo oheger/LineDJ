@@ -121,7 +121,10 @@ class RadioPlayerApplication(private[radio] val playerFactory: RadioPlayerFactor
     super.activate(compContext)
 
     val managerBehavior = RadioPlayerManagerActor(clientApplicationContext.messageBus)(createPlayer)
-    val managerActor = clientApplicationContext.actorFactory.createActor(managerBehavior, "radioPlayerManagerActor")
+    val managerActor = clientApplicationContext.actorFactory.createTypedActor(
+      managerBehavior,
+      "radioPlayerManagerActor"
+    )
     managerActor ! PlayerManagerActor.AddAudioStreamFactories(pendingAudioStreamFactories)
     optManagerActor = Some(managerActor)
 

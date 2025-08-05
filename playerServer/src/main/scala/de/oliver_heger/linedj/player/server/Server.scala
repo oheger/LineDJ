@@ -70,7 +70,7 @@ class Server(serviceFactory: ServiceFactory)
   def run(): Unit =
     log.info("Server.run()")
 
-    val actorFactory = new ActorFactory(system)
+    val actorFactory = ActorFactory.defaultActorFactory
     val actorManagement = new ActorManagement {}
     val creator = new ManagingActorCreator(actorFactory, actorManagement)
     val shutdownPromise = Promise[Done]()

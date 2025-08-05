@@ -40,8 +40,7 @@ class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
     val props = Props[DummyActor]()
     val Name = "MyTestActor"
 
-    val factory = new ActorFactory(system)
-    val ref = factory.createActor(props, Name)
+    val ref = ActorFactory.defaultActorFactory.createClassicActor(props, Name)
 
     ref.path.name should endWith(Name)
     val message = TestMessage()
@@ -55,8 +54,7 @@ class ActorFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) with
         flag.set(true)
         Behaviors.same
 
-    val factory = new ActorFactory(system)
-    val ref = factory.createActor(behavior, Name)
+    val ref = ActorFactory.defaultActorFactory.createTypedActor(behavior, Name)
 
     ref.path.name should endWith(Name)
     val message = TestMessage()

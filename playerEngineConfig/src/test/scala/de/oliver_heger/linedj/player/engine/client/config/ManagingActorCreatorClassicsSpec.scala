@@ -46,7 +46,7 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
     val factory = mock[ActorFactory]
     val management = mock[ActorManagement]
     val probe = TestProbe()
-    when(factory.createActor(props, ActorName)).thenReturn(probe.ref)
+    when(factory.createClassicActor(props, ActorName)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createClassicActor(props, ActorName)
@@ -61,7 +61,7 @@ class ManagingActorCreatorClassicsSpec(testSystem: ActorSystem) extends TestKit(
     val factory = mock[ActorFactory]
     val management = mock[ActorManagement]
     val probe = TestProbe()
-    when(factory.createActor(props, ActorName)).thenReturn(probe.ref)
+    when(factory.createClassicActor(props, ActorName)).thenReturn(probe.ref)
 
     val creator = new ManagingActorCreator(factory, management)
     val actorRef = creator.createClassicActor(props, ActorName, Some(StopCommand))

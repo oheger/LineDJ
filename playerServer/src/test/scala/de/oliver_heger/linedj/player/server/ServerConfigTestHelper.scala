@@ -82,14 +82,21 @@ object ServerConfigTestHelper:
     * @return the [[ManagingActorCreator]]
     */
   def actorCreator(system: ActorSystem, optTestKit: Option[ActorTestKit] = None): ManagingActorCreator =
-    val factory = new ActorFactory(system) {
-      override def createActor[T](behavior: Behavior[T], name: String, props: Props): ActorRef[T] =
+    given ActorSystem = system
+    val factory: ActorFactory = new ActorFactory:
+      private val baseFactory = ActorFactory.defaultActorFactory
+      export baseFactory.{createTypedActor => _, *}
+      
+      override def createTypedActor[T](behavior: Behavior[T],
+                                       name: String,
+                                       props: Props,
+                                       optStopCommand: Option[T]): ActorRef[T] =
         optTestKit match
           case Some(value) =>
             value.spawn(behavior, name, props)
           case None =>
-            super.createActor(behavior, name, props)
-    }
+            baseFactory.createTypedActor(behavior, name, props)
+    
     val management = new ActorManagement {}
     new ManagingActorCreator(factory, management)
 

@@ -71,7 +71,7 @@ class ActorManagementComponentSpec extends AnyFlatSpec with Matchers with Mockit
     val props = Props(new Actor {
       override def receive: Receive = Actor.emptyBehavior
     })
-    when(helper.clientContext.actorFactory.createActor(props, name)).thenReturn(reference)
+    when(helper.clientContext.actorFactory.createClassicActor(props, name)).thenReturn(reference)
 
     val actor = helper.component.createAndRegisterActor(props, name)
     actor should be(reference)

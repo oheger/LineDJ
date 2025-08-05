@@ -180,11 +180,11 @@ class HttpArchiveStarter(val downloaderFactory: MediaDownloaderFactory,
     val monitorName = actorName(DownloadMonitoringActorName)
     val removeName = actorName(RemoveFileActorName)
     val pathGenerator = createPathGenerator(config)
-    val removeActor = actorFactory.createActor(
+    val removeActor = actorFactory.createClassicActor(
       RemoveTempFilesActor(ClientApplication.BlockingDispatcherName), removeName)
-    val monitoringActor = actorFactory.createActor(
+    val monitoringActor = actorFactory.createClassicActor(
       DownloadMonitoringActor(archiveConfig.downloadConfig), monitorName)
-    val managerActor = actorFactory.createActor(HttpArchiveManagementActor(archiveConfig,
+    val managerActor = actorFactory.createClassicActor(HttpArchiveManagementActor(archiveConfig,
       pathGenerator, unionArchiveActors.mediaManager, unionArchiveActors.metadataManager,
       monitoringActor, removeActor), managerName)
 
