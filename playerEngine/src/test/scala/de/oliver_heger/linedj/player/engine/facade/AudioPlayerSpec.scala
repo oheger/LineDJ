@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.player.engine.facade
 
 import de.oliver_heger.linedj.{AsyncTestHelper, FileTestHelper}
 import de.oliver_heger.linedj.io.{CloseRequest, CloseSupport}
-import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
+import de.oliver_heger.linedj.player.engine.actors.ActorFactoryForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc}
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.{NoDelay, TargetActor, TargetPlaybackActor, TargetSourceReader}
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.*
@@ -201,7 +201,7 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
 
     /** The stub implementation for creating actors. */
-    val actorCreator: ActorCreatorForEventManagerTests[PlayerEvent] = createActorCreator()
+    val actorCreator: ActorFactoryForEventManagerTests[PlayerEvent] = createActorCreator()
 
     /** Test probe for the line writer actor. */
     private val lineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
@@ -261,14 +261,14 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       this
 
     /**
-      * Creates a stub [[ActorCreator]] for the configuration of the test
+      * Creates a stub ''ActorFactory'' for the configuration of the test
       * player. This implementation checks the parameters passed to actors and
       * returns test probes for them.
       *
-      * @return the stub [[ActorCreator]]
+      * @return the stub ''ActorFactory''
       */
-    private def createActorCreator(): ActorCreatorForEventManagerTests[PlayerEvent] =
-      new ActorCreatorForEventManagerTests[PlayerEvent](testKit, "eventManagerActor",
+    private def createActorCreator(): ActorFactoryForEventManagerTests[PlayerEvent] =
+      new ActorFactoryForEventManagerTests[PlayerEvent](testKit, "eventManagerActor",
         customClassicChecks = classicActorChecks, customChecks = typedActorChecks) with Matchers
 
     /**
@@ -277,5 +277,5 @@ class AudioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): PlayerConfig =
-      PlayerConfigSpec.TestPlayerConfig.copy(actorCreator = actorCreator,
+      PlayerConfigSpec.TestPlayerConfig.copy(actorFactory = actorCreator,
         blockingDispatcherName = Some(BlockingDispatcherName))

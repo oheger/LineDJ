@@ -19,9 +19,8 @@ package de.oliver_heger.linedj.platform.audio.impl
 import de.oliver_heger.linedj.AsyncTestHelper
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
-import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
-import de.oliver_heger.linedj.shared.actors.ActorFactory
+import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{TestKit, TestProbe}
@@ -59,7 +58,7 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     val Prefix = "audio.platform.config"
     val BufSize = 8888
     val appConfig = new PropertiesConfiguration
-    val refCreator = new AtomicReference[ActorCreator]
+    val refFactory = new AtomicReference[ActorFactory]
     val management = new ActorManagementComponent:
       override def initClientContext(context: ClientApplicationContext): Unit = {}
 
@@ -68,17 +67,17 @@ class AudioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
     when(clientAppContext.actorFactory).thenReturn(ActorFactory.defaultActorFactory)
     when(configFactory.createPlayerConfig(eqArg(appConfig), eqArg(Prefix),
       eqArg(mediaManager.ref), any())).thenAnswer((invocation: InvocationOnMock) => {
-      val creator = invocation.getArguments()(3).asInstanceOf[ActorCreator]
-      refCreator.set(creator)
+      val factory = invocation.getArguments()(3).asInstanceOf[ActorFactory]
+      refFactory.set(factory)
       PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = BufSize,
         mediaManagerActor = mediaManager.ref,
-        actorCreator = creator)
+        actorFactory = factory)
     })
     val factory = new AudioPlayerFactory(configFactory)
 
     val player = futureResult(factory.createAudioPlayer(appConfig, Prefix, mediaManager.ref, management))
 
     player should not be null
-    refCreator.get() match
-      case c: ManagingActorCreator => c.actorManagement should be(management)
-      case o => fail("Unexpected actor creator: " + o)
+    refFactory.get() match
+      case f: ManagingActorFactory => f.management should be(management)
+      case o => fail("Unexpected actor factory: " + o)

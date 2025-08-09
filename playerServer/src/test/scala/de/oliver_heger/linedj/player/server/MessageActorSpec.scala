@@ -220,7 +220,7 @@ class MessageActorSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers 
       * @return the mock radio player
       */
     private def createRadioPlayerMock(): RadioPlayer =
-      val creator = ServerConfigTestHelper.actorCreator(testKit.system.classicSystem, Some(testKit))
+      val creator = ServerConfigTestHelper.actorFactory(testKit.system.classicSystem, Some(testKit))
       val config = ServerConfigTestHelper.defaultServerConfig(creator)
 
       val player = mock[RadioPlayer]

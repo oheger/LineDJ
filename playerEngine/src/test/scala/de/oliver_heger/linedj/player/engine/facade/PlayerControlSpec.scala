@@ -21,6 +21,7 @@ import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.*
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.facade.PlayerControlSpec.{PlaybackCommand, PlayerControlImpl, StartPlayback, StopPlayback}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -224,15 +225,17 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     expectFailedFuture[AskTimeoutException](result)
 
   /**
-    * Creates an [[ActorCreator]] object that can be used for tests of the
+    * Creates an [[ActorFactory]] object that can be used for tests of the
     * creation of the event manager actor.
     *
     * @param actorName the expected name of the event manager actor
-    * @return the [[ActorCreator]]
+    * @return the [[ActorFactory]]
     */
-  private def createActorCreatorForEventManager(actorName: String): ActorCreator =
-    new ActorCreator:
-      override def createActor[T](behavior: Behavior[T], name: String, optStopCommand: Option[T], props: Props):
+  private def createActorFactoryForEventManager(actorName: String): ActorFactory =
+    new ActorFactory:
+      override def actorSystem: ActorSystem = system
+
+      override def createTypedActor[T](behavior: Behavior[T], name: String, props: Props, optStopCommand: Option[T]):
       ActorRef[T] =
         if name == actorName then
           optStopCommand should be(Some(EventManagerActor.Stop[PlayerEvent]()))
@@ -249,7 +252,7 @@ class PlayerControlSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
   it should "create an event publisher actor" in :
     val ActorName = "MyTestEventManagerWithPublishing"
     val event = AudioSourceStartedEvent(AudioSource("testPublish", 16384, 0, 0))
-    val creator = createActorCreatorForEventManager(ActorName)
+    val creator = createActorFactoryForEventManager(ActorName)
 
     implicit val ec: ExecutionContext = system.dispatcher
     val (eventManager, eventPublisher) =

@@ -15,12 +15,12 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.{RadioPlayerConfigLoader, RadioSourceConfigLoader}
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.server.PlayerServerConfig.{PropCurrentSource, Slash, removeLeadingSlash}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{CombinedConfiguration, Configuration, DefaultConfigurationBuilder, FileConfiguration}
 import org.apache.pekko.actor.ActorRef
 
@@ -142,14 +142,14 @@ object PlayerServerConfig:
     * @param configFileName    the name to the configuration file (can be a
     *                          path)
     * @param mediaManagerActor reference to the media manager actor
-    * @param actorCreator      the object to create actor instances
+    * @param actorFactory      the object to create actor instances
     * @return the [[PlayerServerConfig]] constructed from this file
     */
-  def apply(configFileName: String, mediaManagerActor: ActorRef, actorCreator: ActorCreator): PlayerServerConfig =
+  def apply(configFileName: String, mediaManagerActor: ActorRef, actorFactory: ActorFactory): PlayerServerConfig =
     val builder = new DefaultConfigurationBuilder(configFileName)
     val config = builder.getConfiguration(true)
 
-    apply(config, mediaManagerActor, actorCreator)
+    apply(config, mediaManagerActor, actorFactory)
 
   /**
     * Parses the configuration for this application from the given
@@ -160,13 +160,13 @@ object PlayerServerConfig:
     *
     * @param config            the combined configuration for the player server
     * @param mediaManagerActor reference to the media manager actor
-    * @param actorCreator      the object to create actor instances
+    * @param actorFactory      the object to create actor instances
     * @return the [[PlayerServerConfig]] constructed from this configuration
     */
   def apply(config: CombinedConfiguration,
             mediaManagerActor: ActorRef,
-            actorCreator: ActorCreator): PlayerServerConfig = {
-    val playerConfig = PlayerConfigLoader.loadPlayerConfig(config, SectionPlayer, mediaManagerActor, actorCreator)
+            actorFactory: ActorFactory): PlayerServerConfig = {
+    val playerConfig = PlayerConfigLoader.loadPlayerConfig(config, SectionPlayer, mediaManagerActor, actorFactory)
     val radioSourceConfig = RadioSourceConfigLoader.loadSourceConfig(config, SectionRadio)
     val radioMetadataConfig = RadioSourceConfigLoader.loadMetadataConfig(config, SectionRadio)
     val radioPlayerConfig = RadioPlayerConfigLoader.loadRadioPlayerConfig(config, SectionRadio, playerConfig)

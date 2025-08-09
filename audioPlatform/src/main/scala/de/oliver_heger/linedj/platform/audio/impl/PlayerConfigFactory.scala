@@ -16,12 +16,13 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.PlayerConfig
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorRef
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object PlayerConfigFactory:
   /** Property for the size of the buffer with audio data in memory. */
@@ -120,7 +121,7 @@ object PlayerConfigFactory:
   */
 private class PlayerConfigFactory:
 
-  import PlayerConfigFactory._
+  import PlayerConfigFactory.*
 
   /**
     * Creates a ''PlayerConfig'' whose settings are extracted from the
@@ -129,12 +130,12 @@ private class PlayerConfigFactory:
     * @param c            the configuration to be read
     * @param prefix       the prefix for all configuration settings
     * @param mediaManager the media manager actor
-    * @param actorCreator the actor creation function
+    * @param actorFactory the actor factory
     * @return the ''PlayerConfig''
     */
   def createPlayerConfig(c: Configuration, prefix: String, mediaManager: ActorRef,
-                         actorCreator: ActorCreator): PlayerConfig =
-    import scala.jdk.CollectionConverters._
+                         actorFactory: ActorFactory): PlayerConfig =
+    import scala.jdk.CollectionConverters.*
     val p = if prefix.endsWith(".") then prefix else prefix + '.'
     PlayerConfig(inMemoryBufferSize = c.getInt(p + PropInMemoryBufferSize, DefInMemoryBufferSize),
       playbackContextLimit = c.getInt(p + PropPlaybackContextLimit, DefPlaybackContextLimit),
@@ -153,4 +154,4 @@ private class PlayerConfigFactory:
       timeProgressThreshold = 100.millis,
       blockingDispatcherName = Option(c.getString(p + PropBlockingDispatcherName)),
       mediaManagerActor = mediaManager,
-      actorCreator = actorCreator)
+      actorFactory = actorFactory)

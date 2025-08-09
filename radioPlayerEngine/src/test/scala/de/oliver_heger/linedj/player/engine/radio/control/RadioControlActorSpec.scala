@@ -18,14 +18,15 @@ package de.oliver_heger.linedj.player.engine.radio.control
 
 import com.github.cloudfiles.core.http.factory.Spawner
 import de.oliver_heger.linedj.ActorTestKitSupport
-import de.oliver_heger.linedj.player.engine.{ActorCreator, AsyncAudioStreamFactory}
+import de.oliver_heger.linedj.player.engine.AsyncAudioStreamFactory
+import de.oliver_heger.linedj.player.engine.actors.EventManagerActor
 import de.oliver_heger.linedj.player.engine.actors.ScheduledInvocationActor.ScheduledInvocationCommand
-import de.oliver_heger.linedj.player.engine.actors.{EventManagerActor, PlaybackContextFactoryActor}
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.engine.radio.Fixtures.TestPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioPlayerConfig, RadioSourceConfig}
 import de.oliver_heger.linedj.player.engine.radio.control.RadioSourceConfigTestHelper.radioSource
 import de.oliver_heger.linedj.player.engine.radio.stream.{RadioStreamHandleManagerActor, RadioStreamPlaybackActor}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -194,7 +195,7 @@ class RadioControlActorSpec extends AnyFlatSpec with Matchers with ActorTestKitS
     */
   private class ControlActorTestHelper(askTimeout: Timeout = Timeout(5.seconds)):
     /** A test configuration used by the control actor. */
-    private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorCreator = mock[ActorCreator],
+    private val config = RadioPlayerConfig(playerConfig = TestPlayerConfig.copy(actorFactory = mock[ActorFactory],
       mediaManagerActor = mock[classic.ActorRef]),
       metadataCheckTimeout = 99.seconds,
       maximumEvalDelay = 2.hours,

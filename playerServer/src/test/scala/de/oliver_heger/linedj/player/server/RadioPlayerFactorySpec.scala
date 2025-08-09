@@ -34,13 +34,13 @@ with BeforeAndAfterAll with Matchers:
     super.afterAll()
 
   "RadioPlayerFactory" should "create a correct radio player" in {
-    val creator = ServerConfigTestHelper.actorCreator(system)
-    val config = ServerConfigTestHelper.defaultServerConfig(creator)
+    val actorFactory = ServerConfigTestHelper.actorFactory(system)
+    val config = ServerConfigTestHelper.defaultServerConfig(actorFactory)
 
     val factory = new RadioPlayerFactory
     factory.createRadioPlayer(config) map { player =>
-      creator.actorManagement.managedActorNames.size should be > 0
-      creator.actorManagement.stopActors()
+      actorFactory.management.managedActorNames.size should be > 0
+      actorFactory.management.stopActors()
 
       player.config should be(config.radioPlayerConfig)
     }

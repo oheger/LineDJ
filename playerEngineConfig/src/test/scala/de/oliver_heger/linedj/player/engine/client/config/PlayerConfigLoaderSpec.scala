@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.actor.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   "PlayerConfigLoader" should "read the properties from a configuration" in:
@@ -100,11 +100,11 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
     playerConfig.mediaManagerActor should be(manager)
 
   it should "add the actor creator to the configuration" in:
-    val creator = mock[ActorCreator]
+    val factory = mock[ActorFactory]
 
-    val playerConfig = PlayerConfigLoader.loadPlayerConfig(new HierarchicalConfiguration, "", null, creator)
+    val playerConfig = PlayerConfigLoader.loadPlayerConfig(new HierarchicalConfiguration, "", null, factory)
 
-    playerConfig.actorCreator should be(creator)
+    playerConfig.actorFactory should be(factory)
 
   it should "provide a default player configuration" in:
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig
@@ -125,9 +125,9 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
 
   it should "create a default configuration with dynamic values" in:
     val manager = mock[ActorRef]
-    val creator = mock[ActorCreator]
+    val factory = mock[ActorFactory]
 
-    val playerConfig = PlayerConfigLoader.defaultConfig(manager, creator)
+    val playerConfig = PlayerConfigLoader.defaultConfig(manager, factory)
 
     playerConfig.bufferFileSize should be(PlayerConfigLoader.DefaultBufferFileSize)
     playerConfig.bufferChunkSize should be(PlayerConfigLoader.DefaultBufferChunkSize)
@@ -143,4 +143,4 @@ class PlayerConfigLoaderSpec extends AnyFlatSpec with Matchers with MockitoSugar
       .DefaultDownloadInProgressNotificationInterval)
     playerConfig.timeProgressThreshold should be(PlayerConfigLoader.DefaultTimeProgressThreshold)
     playerConfig.mediaManagerActor should be(manager)
-    playerConfig.actorCreator should be(creator)
+    playerConfig.actorFactory should be(factory)

@@ -18,10 +18,11 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.platform.app.ClientApplication
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
-import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
+import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.RadioPlayerConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
+import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.duration.*
@@ -58,12 +59,15 @@ private class RadioPlayerFactory:
     * @return the player configuration
     */
   private def createPlayerConfig(actorManagement: ActorManagementComponent): RadioPlayerConfig =
-    val creator = new ManagingActorCreator(actorManagement.clientApplicationContext.actorFactory, actorManagement)
+    val factory =  ManagingActorFactory.newManagingActorFactory(actorManagement)(
+      using actorManagement.clientApplicationContext.actorFactory
+    )
+    
     val playerConfig = PlayerConfigLoader.DefaultPlayerConfig.copy(inMemoryBufferSize = 64 * 1024,
       playbackContextLimit = 8192,
       bufferChunkSize = 4096,
       timeProgressThreshold = 100.millis,
       blockingDispatcherName = Some(ClientApplication.BlockingDispatcherName),
       mediaManagerActor = null,
-      actorCreator = creator)
+      actorFactory = factory)
     RadioPlayerConfigLoader.DefaultRadioPlayerConfig.copy(playerConfig = playerConfig)

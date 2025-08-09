@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.player.engine
 
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.typed.Props
 import org.apache.pekko.stream.ActorAttributes
@@ -86,7 +87,7 @@ import scala.concurrent.duration.*
   *                               actors are deployed on this dispatcher
   * @param mediaManagerActor a reference to the ''MediaManagerActor''; this
   *                          actor is queried for downloads of media files
-  * @param actorCreator the function for creating new actors
+  * @param actorFactory the factory for creating new actors
   */
 case class PlayerConfig(inMemoryBufferSize: Int,
                         playbackContextLimit: Int,
@@ -101,7 +102,7 @@ case class PlayerConfig(inMemoryBufferSize: Int,
                         timeProgressThreshold: FiniteDuration,
                         blockingDispatcherName: Option[String],
                         mediaManagerActor: ActorRef,
-                        actorCreator: ActorCreator):
+                        actorFactory: ActorFactory):
   /**
     * Modifies the specified ''Props'' to use the blocking dispatcher if it
     * is specified. Otherwise, the ''Props'' are returned unchanged.

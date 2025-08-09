@@ -16,10 +16,8 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
-import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.Done
@@ -70,13 +68,11 @@ class Server(serviceFactory: ServiceFactory)
   def run(): Unit =
     log.info("Server.run()")
 
-    val actorFactory = ActorFactory.defaultActorFactory
-    val actorManagement = new ActorManagement {}
-    val creator = new ManagingActorCreator(actorFactory, actorManagement)
+    val factory = ManagingActorFactory.newDefaultManagingActorFactory
     val shutdownPromise = Promise[Done]()
 
     val startFuture = (for
-      config <- loadServerConfig(creator)
+      config <- loadServerConfig(factory)
       _ <- startEndpointRequestHandler(config)
       radioPlayer <- serviceFactory.createRadioPlayer(config)
       startup <- serviceFactory.createHttpServer(config, radioPlayer, shutdownPromise)
@@ -86,7 +82,7 @@ class Server(serviceFactory: ServiceFactory)
       case Failure(exception) => log.error("Failed to start HTTP server.", exception)
     }
 
-    val terminated = serviceFactory.enableGracefulShutdown(startFuture, shutdownPromise.future, actorManagement)
+    val terminated = serviceFactory.enableGracefulShutdown(startFuture, shutdownPromise.future, factory.management)
     val optShutdownCommand = Await.result(terminated, Duration.Inf)
 
     optShutdownCommand foreach { command =>
@@ -100,13 +96,13 @@ class Server(serviceFactory: ServiceFactory)
     * Loads the configuration of the server asynchronously using the name
     * defined by a system property.
     *
-    * @param creator the [[ActorCreator]]
+    * @param actorFactory the [[ActorFactory]]
     * @return a ''Future'' with the server configuration
     */
-  private def loadServerConfig(creator: ActorCreator): Future[PlayerServerConfig] = Future {
+  private def loadServerConfig(actorFactory: ActorFactory): Future[PlayerServerConfig] = Future {
     val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
     log.info("Loading PlayerServerConfig from '{}'.", configName)
-    PlayerServerConfig(configName, null, creator)
+    PlayerServerConfig(configName, null, actorFactory)
   }
 
   /**

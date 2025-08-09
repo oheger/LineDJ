@@ -290,7 +290,7 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
     private val queue = new LinkedBlockingQueue[String]
 
     /** The object for creating actors. */
-    private val actorCreator = ServerConfigTestHelper.actorCreator(system)
+    private val actorCreator = ServerConfigTestHelper.actorFactory(system)
 
     /** The port number to be used by the actor under test. */
     protected val port: Int = findFreePort()

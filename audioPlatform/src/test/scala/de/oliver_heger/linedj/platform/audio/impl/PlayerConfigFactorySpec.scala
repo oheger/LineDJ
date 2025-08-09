@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.platform.audio.impl
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.apache.pekko.actor.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object PlayerConfigFactorySpec:
   /** Test value of this config property. */
@@ -71,7 +71,7 @@ object PlayerConfigFactorySpec:
   private def createConfiguration(): Configuration =
     val p = Prefix + '.'
     val c = new PropertiesConfiguration
-    import PlayerConfigFactory._
+    import PlayerConfigFactory.*
 
     c.addProperty(p + PropInMemoryBufferSize, InMemoryBufSize)
     c.addProperty(p + PropPlaybackContextLimit, PlaybackCtxLimit)
@@ -93,13 +93,13 @@ object PlayerConfigFactorySpec:
   */
 class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSugar:
 
-  import PlayerConfigFactorySpec._
+  import PlayerConfigFactorySpec.*
 
   "A PlayerConfigFactory" should "read configuration settings" in:
     val c = createConfiguration()
     val factory = new PlayerConfigFactory
 
-    val conf = factory.createPlayerConfig(c, Prefix, mock[ActorRef], mock[ActorCreator])
+    val conf = factory.createPlayerConfig(c, Prefix, mock[ActorRef], mock[ActorFactory])
     conf.inMemoryBufferSize should be(InMemoryBufSize)
     conf.playbackContextLimit should be(PlaybackCtxLimit)
     conf.bufferFileSize should be(BufferFileSize)
@@ -113,11 +113,11 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.blockingDispatcherName should be(Some(BlockingDispatcherName))
 
   it should "use meaningful default values" in:
-    import PlayerConfigFactory._
+    import PlayerConfigFactory.*
     val factory = new PlayerConfigFactory
 
     val conf = factory.createPlayerConfig(new PropertiesConfiguration, Prefix,
-      mock[ActorRef], mock[ActorCreator])
+      mock[ActorRef], mock[ActorFactory])
     conf.inMemoryBufferSize should be(DefInMemoryBufferSize)
     conf.playbackContextLimit should be(DefPlaybackContextLimit)
     conf.bufferFileSize should be(DefBufferFileSize)
@@ -131,20 +131,20 @@ class PlayerConfigFactorySpec extends AnyFlatSpec with Matchers with MockitoSuga
     conf.blockingDispatcherName shouldBe empty
     conf.timeProgressThreshold should be(100.millis)
 
-  it should "store the management actor and the actor creator" in:
+  it should "store the management actor and the actor factory" in:
     val managementActor = mock[ActorRef]
-    val actorCreator = mock[ActorCreator]
+    val actorFactory = mock[ActorFactory]
     val configuration = createConfiguration()
     val factory = new PlayerConfigFactory
 
-    val conf = factory.createPlayerConfig(configuration, Prefix, managementActor, actorCreator)
+    val conf = factory.createPlayerConfig(configuration, Prefix, managementActor, actorFactory)
     conf.mediaManagerActor should be(managementActor)
-    conf.actorCreator should be(actorCreator)
+    conf.actorFactory should be(actorFactory)
 
   it should "handle a prefix that ends on a separator" in:
     val configuration = createConfiguration()
     val factory = new PlayerConfigFactory
 
     val conf = factory.createPlayerConfig(configuration, Prefix + '.',
-      mock[ActorRef], mock[ActorCreator])
+      mock[ActorRef], mock[ActorFactory])
     conf.inMemoryBufferSize should be(InMemoryBufSize)

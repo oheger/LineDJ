@@ -90,7 +90,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     runTest { helper =>
       helper.player removeEventListener probeListener.ref
 
-      helper.actorCreator.probeEventActor.fishForMessagePF(3.seconds):
+      helper.actorFactory.probeEventActor.fishForMessagePF(3.seconds):
         case EventManagerActor.RemoveListener(listener) if listener == probeListener.ref =>
           FishingOutcomes.complete
         case _ => FishingOutcomes.continueAndIgnore
@@ -208,7 +208,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     /**
       * The function to check additional typed actors created during tests.
       */
-    private val checkFunc: ActorCreatorForEventManagerTests.ActorCheckFunc = (behavior, optStopCmd, props) => {
+    private val checkFunc: ActorFactoryForEventManagerTests.ActorCheckFunc = (behavior, optStopCmd, props) => {
       case "playerEventConverter" =>
         optStopCmd should be(Some(RadioEventConverterActor.Stop))
         checkConverterBehavior(behavior.asInstanceOf[Behavior[RadioEventConverterActor.RadioEventConverterCommand]])
@@ -239,7 +239,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
     }
 
     /** The object for creating test actors. */
-    val actorCreator: ActorCreatorForEventManagerTests[RadioEvent] = createActorCreator()
+    val actorFactory: ActorFactoryForEventManagerTests[RadioEvent] = createActorFactory()
 
     /** Test probe for the line writer actor. */
     private val probeLineWriterActor = testKit.createTestProbe[LineWriterActor.LineWriterCommand]()
@@ -320,14 +320,14 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       audioStreamFactories.keys().nextElement()
 
     /**
-      * Creates a stub [[ActorCreator]] for the configuration of the test
+      * Creates a stub [[ActorFactory]] for the configuration of the test
       * player. This implementation checks the parameters passed to actors and
       * returns test probes for them.
       *
-      * @return the stub [[ActorCreator]]
+      * @return the stub [[ActorFactory]]
       */
-    private def createActorCreator(): ActorCreatorForEventManagerTests[RadioEvent] =
-      new ActorCreatorForEventManagerTests[RadioEvent](testKit, "radioEventManagerActor",
+    private def createActorFactory(): ActorFactoryForEventManagerTests[RadioEvent] =
+      new ActorFactoryForEventManagerTests[RadioEvent](testKit, "radioEventManagerActor",
         customChecks = checkFunc) with Matchers
     
     /**
@@ -359,7 +359,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       */
     private def createPlaybackActorFactory(): RadioStreamPlaybackActor.Factory =
       (actorConfig: RadioStreamPlaybackActor.RadioStreamPlaybackConfig) =>
-        actorConfig.eventActor should be(actorCreator.eventManagerActor)
+        actorConfig.eventActor should be(actorFactory.eventManagerActor)
         actorConfig.handleActor should be(probeStreamHandleManagerActor.ref)
         actorConfig.inMemoryBufferSize should be(config.playerConfig.inMemoryBufferSize)
         actorConfig.dispatcherName should be(BlockingDispatcherName)
@@ -391,8 +391,8 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
        _: ErrorStateActor.Factory,
        _: MetadataStateActor.Factory) => {
         radioConfig should be(config)
-        eventActor should be(actorCreator.probePublisherActor.ref)
-        eventManagerActor should be(actorCreator.eventManagerActor)
+        eventActor should be(actorFactory.probePublisherActor.ref)
+        eventManagerActor should be(actorFactory.eventManagerActor)
         playbackActor should be(probePlaybackActor.ref)
         scheduleActor should be(probeSchedulerInvocationActor.ref)
         handleManagerActor should be(probeStreamHandleManagerActor.ref)
@@ -410,7 +410,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
       * @return the test configuration
       */
     private def createPlayerConfig(): RadioPlayerConfig =
-      RadioPlayerConfig(TestPlayerConfig.copy(actorCreator = actorCreator,
+      RadioPlayerConfig(TestPlayerConfig.copy(actorFactory = actorFactory,
         blockingDispatcherName = Some(BlockingDispatcherName)),
         metadataCheckTimeout = 99.seconds,
         maximumEvalDelay = 2.hours,
@@ -438,7 +438,7 @@ class RadioPlayerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with 
 
       converter ! RadioEventConverterActor.ConvertPlayerEvent(playerEvent)
 
-      val commands = actorCreator.probeEventActor.fishForMessagePF(3.seconds):
+      val commands = actorFactory.probeEventActor.fishForMessagePF(3.seconds):
         case _: EventManagerActor.Publish[RadioEvent] =>
           FishingOutcomes.complete
         case _ => FishingOutcomes.continueAndIgnore

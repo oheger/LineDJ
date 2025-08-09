@@ -124,7 +124,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     * @param expectedConfig the expected configuration
     */
   private def checkConfig(serverConfig: PlayerServerConfig, expectedConfig: PlayerServerConfig): Unit =
-    val modifiedPlayerConfig = serverConfig.radioPlayerConfig.playerConfig.copy(actorCreator = null)
+    val modifiedPlayerConfig = serverConfig.radioPlayerConfig.playerConfig.copy(actorFactory = null)
     val modifiedRadioConfig = serverConfig.radioPlayerConfig.copy(playerConfig = modifiedPlayerConfig)
     val modifiedServerConfig = serverConfig.copy(radioPlayerConfig = modifiedRadioConfig,
       sourceConfig = expectedConfig.sourceConfig,

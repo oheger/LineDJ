@@ -19,7 +19,8 @@ package de.oliver_heger.linedj.player.engine.facade
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.player.engine.actors.*
 import de.oliver_heger.linedj.player.engine.actors.PlayerFacadeActor.TargetPlaybackActor
-import de.oliver_heger.linedj.player.engine.{ActorCreator, AudioStreamFactory, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.player.engine.{AudioStreamFactory, PlaybackContextFactory, PlayerConfig}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
@@ -56,7 +57,7 @@ object PlayerControl:
     */
   def createLineWriterActor(config: PlayerConfig,
                             actorName: String = LineWriterActorName): ActorRef[LineWriterActor.LineWriterCommand] =
-    config.actorCreator.createActor(LineWriterActor(), actorName, None, createLineWriterActorProps(config))
+    config.actorFactory.createTypedActor(LineWriterActor(), actorName, createLineWriterActorProps(config))
 
   /**
     * Creates actors for managing event listeners and publishing events. This
@@ -64,16 +65,20 @@ object PlayerControl:
     * dedicated actor to publish events. Since this means an asynchronous
     * request, result is a ''Future''.
     *
-    * @param creator the object to create actors
+    * @param factory the object to create actors
     * @param name    the name of the event manager actor
     * @param ec      the execution context
     * @tparam E the event type
     * @return a tuple with the event manager actor and the publisher actor
     */
-  def createEventManagerActorWithPublisher[E](creator: ActorCreator, name: String)
+  def createEventManagerActorWithPublisher[E](factory: ActorFactory, name: String)
                                              (implicit system: ActorSystem, ec: ExecutionContext, t: ClassTag[E]):
   Future[(ActorRef[EventManagerActor.EventManagerCommand[E]], ActorRef[E])] =
-    val eventManagerActor = creator.createActor(EventManagerActor[E](), name, Some(EventManagerActor.Stop[E]()))
+    val eventManagerActor = factory.createTypedActor(
+      EventManagerActor[E](), 
+      name,
+      optStopCommand = Some(EventManagerActor.Stop[E]())
+    )
 
     implicit val askTimeout: Timeout = Timeout(10.seconds)
     import org.apache.pekko.actor.typed.scaladsl.adapter.*
@@ -85,24 +90,28 @@ object PlayerControl:
   /**
     * Creates the [[ScheduledInvocationActor]] used by this player.
     *
-    * @param creator the object to create actors
+    * @param factory the object to create actors
     * @param name    the name of the scheduler actor
     * @return the reference to the newly created actor
     */
-  def createSchedulerActor(creator: ActorCreator, name: String):
+  def createSchedulerActor(factory: ActorFactory, name: String):
   ActorRef[ScheduledInvocationActor.ScheduledInvocationCommand] =
-    creator.createActor(ScheduledInvocationActor(), name, Some(ScheduledInvocationActor.Stop))
+    factory.createTypedActor(ScheduledInvocationActor(), name, optStopCommand = Some(ScheduledInvocationActor.Stop))
 
   /**
     * Creates the [[PlaybackContextFactoryActor]] used by this player.
     *
-    * @param creator the object to create actors
+    * @param factory the object to create actors
     * @param name    the name of the factory actor
     * @return the reference to the newly created actor
     */
-  def createPlaybackContextFactoryActor(creator: ActorCreator, name: String):
+  def createPlaybackContextFactoryActor(factory: ActorFactory, name: String):
   ActorRef[PlaybackContextFactoryActor.PlaybackContextCommand] =
-    creator.createActor(PlaybackContextFactoryActor(), name, Some(PlaybackContextFactoryActor.Stop))
+    factory.createTypedActor(
+      PlaybackContextFactoryActor(),
+      name,
+      optStopCommand = Some(PlaybackContextFactoryActor.Stop)
+    )
 
   /**
     * Creates the properties for the line writer actor to be used by this audio

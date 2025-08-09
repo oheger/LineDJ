@@ -16,7 +16,6 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.config.RadioSourceConfig
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
@@ -90,7 +89,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
     val mockManagement = mock[ActorManagement]
     when(mockSystem.dispatcher).thenReturn(system.dispatcher)
     when(mockSystem.terminate()).thenReturn(Future.successful(mock[Terminated]))
-    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
     val startupData = ServiceFactory.ServerStartupData(mockBinding, config)
 
     val factory = new ServiceFactory
@@ -106,7 +105,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
   it should "return a Future with the shutdown command" in {
     val ShutdownCommand = "run me on shutdown"
-    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
       .copy(optShutdownCommand = Some(ShutdownCommand))
     val startupData = ServiceFactory.ServerStartupData(mock, config)
     val mockSystem = mock[ActorSystem]
@@ -141,7 +140,7 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
 
   it should "not shutdown before the shutdown future has completed" in {
     val mockBinding = mock[ServerBinding]
-    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val config = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
     val startupData = ServiceFactory.ServerStartupData(mockBinding, config)
     val mockSystem = mock[ActorSystem]
     val mockManagement = mock[ActorManagement]

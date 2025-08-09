@@ -58,12 +58,15 @@ object RadioPlayer:
     val typedSystem = system.toTyped
     implicit val scheduler: Scheduler = typedSystem.scheduler
     implicit val timeout: Timeout = Timeout(10.seconds)
-    val creator = config.playerConfig.actorCreator
+    val creator = config.playerConfig.actorFactory
 
     for
       eventActors <- PlayerControl.createEventManagerActorWithPublisher[RadioEvent](creator, "radioEventManagerActor")
-      converter = creator.createActor(RadioEventConverterActor(eventActors._1),
-        "playerEventConverter", Some(RadioEventConverterActor.Stop))
+      converter = creator.createTypedActor(
+        RadioEventConverterActor(eventActors._1),
+        "playerEventConverter",
+        optStopCommand = Some(RadioEventConverterActor.Stop)
+      )
       playerListener <- converter.ask[RadioEventConverterActor.PlayerListenerReference] { ref =>
         RadioEventConverterActor.GetPlayerListener(ref)
       }
@@ -77,10 +80,10 @@ object RadioPlayer:
         scheduledInvocationActor,
         config.streamCacheTime
       )
-      val streamHandleManager = creator.createActor(
+      val streamHandleManager = creator.createTypedActor(
         streamHandleManagerBehavior,
         "radioStreamHandleManagerActor",
-        Some(RadioStreamHandleManagerActor.Stop)
+        optStopCommand = Some(RadioStreamHandleManagerActor.Stop)
       )
       val playbackActorConfig = RadioStreamPlaybackActor.RadioStreamPlaybackConfig(
         audioStreamFactory = audioStreamFactory,
@@ -91,10 +94,10 @@ object RadioPlayer:
         optStreamFactoryLimit = Some(config.playerConfig.playbackContextLimit)
       )
       val playbackActorBehavior = playbackFactory(playbackActorConfig)
-      val playbackActor = creator.createActor(
+      val playbackActor = creator.createTypedActor(
         playbackActorBehavior,
         "radioStreamPlaybackActor",
-        Some(RadioStreamPlaybackActor.Stop)
+        optStopCommand = Some(RadioStreamPlaybackActor.Stop)
       )
       val factoryActor = PlayerControl.createPlaybackContextFactoryActor(creator,
         "radioPlaybackContextFactoryActor")
@@ -107,10 +110,10 @@ object RadioPlayer:
         audioStreamFactory,
         streamHandleManager
       )
-      val controlActor = creator.createActor(
+      val controlActor = creator.createTypedActor(
         controlBehavior,
         "radioControlActor",
-        Some(RadioControlActor.Stop)
+        optStopCommand = Some(RadioControlActor.Stop)
       )
 
       new RadioPlayer(config,

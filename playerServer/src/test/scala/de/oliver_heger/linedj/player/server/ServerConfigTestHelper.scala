@@ -16,13 +16,12 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.client.config.{ManagingActorCreator, PlayerConfigLoader}
+import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.interval.IntervalTypes.IntervalQuery
 import de.oliver_heger.linedj.player.engine.radio.RadioSource
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.config.{MetadataConfig, RadioSourceConfig}
-import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement}
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ActorManagement, ManagingActorFactory}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
@@ -73,15 +72,15 @@ object ServerConfigTestHelper:
   end TestRadioSource
 
   /**
-    * Creates a [[ManagingActorCreator]] object that is backed by the given
+    * Creates a [[ManagingActorFactory]] object that is backed by the given
     * actor system. If an [[ActorTestKit]] is provided, the creation of typed
     * actors is delegated to this object.
     *
     * @param system     the actor system
     * @param optTestKit an optional test kit for typed actors
-    * @return the [[ManagingActorCreator]]
+    * @return the [[ManagingActorFactory]]
     */
-  def actorCreator(system: ActorSystem, optTestKit: Option[ActorTestKit] = None): ManagingActorCreator =
+  def actorFactory(system: ActorSystem, optTestKit: Option[ActorTestKit] = None): ManagingActorFactory =
     given ActorSystem = system
     val factory: ActorFactory = new ActorFactory:
       private val baseFactory = ActorFactory.defaultActorFactory
@@ -97,8 +96,7 @@ object ServerConfigTestHelper:
           case None =>
             baseFactory.createTypedActor(behavior, name, props)
     
-    val management = new ActorManagement {}
-    new ManagingActorCreator(factory, management)
+    ManagingActorFactory.newDefaultManagingActorFactory(using factory)
 
   /**
     * Generates a [[RadioSourceConfig]] that contains the given test radio
@@ -125,15 +123,15 @@ object ServerConfigTestHelper:
 
   /**
     * Creates a [[PlayerServerConfig]] object with default settings and the
-    * given [[ActorCreator]].
+    * given [[ActorFactory]].
     *
-    * @param creator the [[ActorCreator]]
+    * @param factory the [[ActorFactory]]
     * @param sources a list with test radio sources to add to the config
     * @return the initialized configuration
     */
-  def defaultServerConfig(creator: ActorCreator,
+  def defaultServerConfig(factory: ActorFactory,
                           sources: immutable.Seq[TestRadioSource] = Nil): PlayerServerConfig =
-    val playerConfig = PlayerConfigLoader.defaultConfig(null, creator)
+    val playerConfig = PlayerConfigLoader.defaultConfig(null, factory)
     val radioConfig = RadioPlayerConfigLoader.DefaultRadioPlayerConfig.copy(playerConfig = playerConfig)
     PlayerServerConfig(radioPlayerConfig = radioConfig,
       sourceConfig = radioSourceConfig(sources),
@@ -158,9 +156,8 @@ object ServerConfigTestHelper:
       *         configuration
       */
     def getActorManagement: ActorManagement =
-      config.radioPlayerConfig.playerConfig.actorCreator match
-        case managingActorCreator: ManagingActorCreator =>
-          managingActorCreator.actorManagement
+      config.radioPlayerConfig.playerConfig.actorFactory match
+        case managingActorFactory: ManagingActorFactory =>
+          managingActorFactory.management
         case c =>
           throw new AssertionError("Unexpected ActorCreator: " + c)
-

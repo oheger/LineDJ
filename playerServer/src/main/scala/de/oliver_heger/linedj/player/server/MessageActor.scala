@@ -93,9 +93,10 @@ object MessageActor extends RadioModel.RadioJsonSupport:
     implicit val typedSystem: ActorSystem[_] = system.toTyped
     implicit val ec: ExecutionContext = typedSystem.executionContext
     implicit val timeout: Timeout = Timeout(5.seconds)
-    val messageActor = player.config.playerConfig.actorCreator.createActor(messageBehavior(sourceMap),
-      s"messageActor${instanceCounter.incrementAndGet()}",
-      None)
+    val messageActor = player.config.playerConfig.actorFactory.createTypedActor(
+      messageBehavior(sourceMap),
+      s"messageActor${instanceCounter.incrementAndGet()}"
+    )
     val futFlowData: Future[MessageFlowData] = messageActor.ask(ref => GetMessageFlow(ref))
     futFlowData map { data =>
       player.addEventListener(data.eventListener)

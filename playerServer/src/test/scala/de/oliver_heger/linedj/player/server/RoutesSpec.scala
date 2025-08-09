@@ -82,7 +82,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @return the basic server configuration
     */
   private def baseServerConfig: PlayerServerConfig =
-    ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
 
   /**
     * Returns the route to be used for testing.
@@ -172,7 +172,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       None
     )
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(sourceCurrent, sourceSelected))
 
     Get("/api/radio/sources/current") ~> testRoute(config = serverConfig, radioPlayer = radioPlayer) ~> check:
@@ -208,7 +208,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       None
     )
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(sourceCurrent, sourceSelected))
 
     Get("/api/radio/sources/current?full=true") ~> testRoute(serverConfig, radioPlayer) ~> check:
@@ -230,7 +230,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       Some(CurrentMetadata(s"StreamTitle='$Title';"))
     )
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(sourceCurrent, sourceSelected))
 
     Get("/api/radio/sources/current?full=true") ~> testRoute(serverConfig, radioPlayer) ~> check:
@@ -244,7 +244,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val radioPlayer = mock[RadioPlayer]
     val playbackState = RadioControlActor.CurrentPlaybackState(None, None, playbackActive = false, None)
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system))
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
 
     Get("/api/radio/sources/current?full=true") ~> testRoute(serverConfig, radioPlayer) ~> check:
       status should be(StatusCodes.OK)
@@ -262,7 +262,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       None
     )
     when(radioPlayer.currentPlaybackState).thenReturn(Future.successful(playbackState))
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(sourceCurrent))
 
     Get("/api/radio/sources/current?full=true") ~> testRoute(serverConfig, radioPlayer) ~> check:
@@ -283,7 +283,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       ServerConfigTestHelper.TestRadioSource("radioSource" + idx, idx)
     }
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(
-      ServerConfigTestHelper.actorCreator(system),
+      ServerConfigTestHelper.actorFactory(system),
       sources
     )
     val radioPlayer = mock[RadioPlayer]
@@ -306,7 +306,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       ServerConfigTestHelper.TestRadioSource("radioSource" + idx, idx)
     }.toList
     val sources = favorite2 :: otherSources.appended(favorite1)
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       sources)
     val radioPlayer = mock[RadioPlayer]
     val favoriteModel1 = RadioModel.RadioSource("", "f1", 0, 0, "Favorite")
@@ -320,7 +320,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   it should "define a route to set the current radio source" in :
     val source = ServerConfigTestHelper.TestRadioSource("myFavoriteSource", 99)
     val expectedRadioSource = RadioSource(source.uri)
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(source))
     val radioPlayer = mock[RadioPlayer]
     val route = testRoute(serverConfig, radioPlayer)
@@ -336,7 +336,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   it should "update the current radio source in the current config" in :
     val source = ServerConfigTestHelper.TestRadioSource("myNewCurrentFavoriteSource", 88)
     val currentConfig = new HierarchicalConfiguration
-    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorCreator(system),
+    val serverConfig = ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system),
       List(source)).copy(optCurrentConfig = Some(currentConfig))
     val radioPlayer = mock[RadioPlayer]
     val route = testRoute(serverConfig, radioPlayer)
@@ -366,7 +366,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val radioSource2 = ServerConfigTestHelper.TestRadioSource("anotherTestSource", 7)
     val radioSource2ID = "dcUrULxnshBcQ2uSguf6WMQqvSw="
     val serverConfig = ServerConfigTestHelper.defaultServerConfig(sources = List(radioSource1, radioSource2),
-      creator = ServerConfigTestHelper.actorCreator(system, Some(testKit)))
+      factory = ServerConfigTestHelper.actorFactory(system, Some(testKit)))
     val radioPlayer = mock[RadioPlayer]
     when(radioPlayer.config).thenReturn(serverConfig.radioPlayerConfig)
     when(radioPlayer.addEventListener(any())).thenAnswer((invocation: InvocationOnMock) =>

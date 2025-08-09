@@ -17,8 +17,8 @@
 package de.oliver_heger.linedj.platform.audio.impl
 
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
-import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
 import de.oliver_heger.linedj.player.engine.facade.AudioPlayer
+import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.{ActorRef, ActorSystem}
 
@@ -49,6 +49,7 @@ private class AudioPlayerFactory(private[impl] val playerConfigFactory: PlayerCo
     */
   def createAudioPlayer(c: Configuration, prefix: String, mediaManager: ActorRef, management: ActorManagementComponent)
                        (implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] =
-    val creator = new ManagingActorCreator(management.clientApplicationContext.actorFactory, management)
-    val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, creator)
+    val factory =
+      ManagingActorFactory.newManagingActorFactory(management)(using management.clientApplicationContext.actorFactory)
+    val config = playerConfigFactory.createPlayerConfig(c, prefix, mediaManager, factory)
     AudioPlayer(config)

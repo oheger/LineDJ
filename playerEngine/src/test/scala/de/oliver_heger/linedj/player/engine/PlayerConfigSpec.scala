@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.player.engine
 
 import de.oliver_heger.linedj.player.engine.PlayerConfigSpec.TestPlayerConfig
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.stream.ActorAttributes
 import org.apache.pekko.stream.scaladsl.Source
@@ -24,7 +25,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object PlayerConfigSpec:
   /** A test player configuration that can be used by all tests. */
@@ -41,7 +42,7 @@ object PlayerConfigSpec:
     timeProgressThreshold = 500.millis,
     blockingDispatcherName = None,
     mediaManagerActor = null,
-    actorCreator = null)
+    actorFactory = null)
 
 /**
   * Test class for ''PlayerConfig''.
@@ -49,7 +50,7 @@ object PlayerConfigSpec:
 class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar:
   "PlayerConfig" should "return the same source if no blocking dispatcher is defined" in:
     val source = Source.single("test")
-    val config = TestPlayerConfig.copy(mediaManagerActor = mock[ActorRef], actorCreator = mock[ActorCreator])
+    val config = TestPlayerConfig.copy(mediaManagerActor = mock[ActorRef], actorFactory = mock[ActorFactory])
 
     val modifiedSource = config.applyBlockingDispatcher(source)
 
@@ -60,7 +61,7 @@ class PlayerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar:
     val source = Source.single("blockingTest")
     val config = TestPlayerConfig.copy(blockingDispatcherName = Some(BlockingDispatcher),
       mediaManagerActor = mock[ActorRef],
-      actorCreator = mock[ActorCreator])
+      actorFactory = mock[ActorFactory])
 
     val modifiedSource = config.applyBlockingDispatcher(source)
 

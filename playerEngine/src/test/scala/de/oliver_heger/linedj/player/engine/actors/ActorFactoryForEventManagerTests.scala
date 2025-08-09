@@ -16,14 +16,14 @@
 
 package de.oliver_heger.linedj.player.engine.actors
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
-import de.oliver_heger.linedj.player.engine.actors.ActorCreatorForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc, EmptyCheckFunc, EmptyClassicActorCheckFunc}
+import de.oliver_heger.linedj.player.engine.actors.ActorFactoryForEventManagerTests.{ActorCheckFunc, ClassicActorCheckFunc, EmptyCheckFunc, EmptyClassicActorCheckFunc}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
+import org.apache.pekko.actor as classic
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props}
-import org.apache.pekko.{actor => classic}
 import org.scalatest.matchers.should.Matchers
 
 import scala.language.existentials
@@ -32,10 +32,10 @@ import scala.language.existentials
   * A module providing functionality required by tests related to
   * [[EventManagerActor]].
   *
-  * The module provides a configurable [[ActorCreator]] implementation that can
+  * The module provides a configurable [[ActorFactory]] implementation that can
   * already handle the actors needed by players to support event generation.
   */
-object ActorCreatorForEventManagerTests:
+object ActorFactoryForEventManagerTests:
   /**
     * Alias for a function that checks the creation parameters of a typed actor
     * and returns a corresponding (stub) actor reference. The function is
@@ -58,7 +58,7 @@ object ActorCreatorForEventManagerTests:
   final val EmptyClassicActorCheckFunc: ClassicActorCheckFunc = _ => PartialFunction.empty
 
 /**
-  * A special implementation of [[ActorCreator]] that supports creating test
+  * A special implementation of [[ActorFactory]] that supports creating test
   * probes for event manager actors.
   *
   * An instance can be configured with partial functions that test the actor's
@@ -75,12 +75,12 @@ object ActorCreatorForEventManagerTests:
   * @param system              the actor system
   * @tparam EVENT the type of events for the event manager actor
   */
-class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
+class ActorFactoryForEventManagerTests[EVENT](testKit: ActorTestKit,
                                               eventActorName: String,
                                               customChecks: ActorCheckFunc = EmptyCheckFunc,
                                               customClassicChecks: ClassicActorCheckFunc = EmptyClassicActorCheckFunc)
                                              (implicit system: ActorSystem)
-  extends ActorCreator:
+  extends ActorFactory:
   this: Matchers =>
 
   /** Test probe for the event manager actor. */
@@ -116,11 +116,13 @@ class ActorCreatorForEventManagerTests[EVENT](testKit: ActorTestKit,
       props should be(Props.empty)
       eventManagerActor
   }
+  
+  override val actorSystem: ActorSystem = system
 
-  override def createActor[T](behavior: Behavior[T],
-                              name: String,
-                              optStopCommand: Option[T],
-                              props: Props): ActorRef[T] =
+  override def createTypedActor[T](behavior: Behavior[T],
+                                   name: String,
+                                   props: Props,
+                                   optStopCommand: Option[T]): ActorRef[T] =
     val checkFunc = customChecks(behavior, optStopCommand, props)
       .orElse(eventManagerCheck(behavior, optStopCommand, props))
     checkFunc.isDefinedAt(name) shouldBe true

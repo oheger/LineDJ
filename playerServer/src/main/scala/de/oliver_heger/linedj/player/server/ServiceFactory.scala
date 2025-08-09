@@ -73,7 +73,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
       config.lookupPort,
       config.lookupCommand,
       responseTemplate)
-    config.radioPlayerConfig.playerConfig.actorCreator.createClassicActor(props, EndpointRequestHandlerName)
+    config.radioPlayerConfig.playerConfig.actorFactory.createClassicActor(props, EndpointRequestHandlerName)
 
   /**
     * Creates the [[RadioPlayer]] instance based on the given configuration.

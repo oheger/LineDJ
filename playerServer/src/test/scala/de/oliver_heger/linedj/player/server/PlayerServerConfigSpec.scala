@@ -15,9 +15,9 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.engine.ActorCreator
 import de.oliver_heger.linedj.player.engine.client.config.PlayerConfigLoader
 import de.oliver_heger.linedj.player.engine.radio.client.config.RadioPlayerConfigLoader
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{CombinedConfiguration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.apache.pekko.actor.ActorRef
 import org.scalatest.flatspec.AnyFlatSpec
@@ -73,12 +73,12 @@ class PlayerServerConfigSpec extends AnyFlatSpec with Matchers with MockitoSugar
     config.radioPlayerConfig.playerConfig.mediaManagerActor should be(mediaManager)
   }
 
-  it should "set the actor creation" in {
-    val creator = mock[ActorCreator]
+  it should "set the actor factory" in {
+    val factory = mock[ActorFactory]
 
-    val config = PlayerServerConfig("test-server-config.xml", null, creator)
+    val config = PlayerServerConfig("test-server-config.xml", null, factory)
 
-    config.radioPlayerConfig.playerConfig.actorCreator should be(creator)
+    config.radioPlayerConfig.playerConfig.actorFactory should be(factory)
   }
 
   it should "return the UI path prefix" in {

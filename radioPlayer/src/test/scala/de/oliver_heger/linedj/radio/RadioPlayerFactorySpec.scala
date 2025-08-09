@@ -18,8 +18,7 @@ package de.oliver_heger.linedj.radio
 
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientApplication, ClientApplicationContext}
-import de.oliver_heger.linedj.player.engine.client.config.ManagingActorCreator
-import de.oliver_heger.linedj.shared.actors.ActorFactory
+import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.mockito.Mockito.*
@@ -71,7 +70,7 @@ class RadioPlayerFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem
       playerConfig.mediaManagerActor should be(null)
       playerConfig.timeProgressThreshold should be(100.millis)
       playerConfig.blockingDispatcherName.get should be(ClientApplication.BlockingDispatcherName)
-      playerConfig.actorCreator match
-        case c: ManagingActorCreator => c.actorManagement should be(management)
-        case o => fail("Unexpected actor creator: " + o)
+      playerConfig.actorFactory match
+        case f: ManagingActorFactory => f.management should be(management)
+        case o => fail("Unexpected actor factory: " + o)
     }

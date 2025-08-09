@@ -56,12 +56,12 @@ object AudioPlayer:
     */
   def apply(config: PlayerConfig)(implicit system: ActorSystem, ec: ExecutionContext): Future[AudioPlayer] =
     val lineWriterActor = PlayerControl.createLineWriterActor(config)
-    val schedulerActor = PlayerControl.createSchedulerActor(config.actorCreator, "schedulerActor")
-    val factoryActor = PlayerControl.createPlaybackContextFactoryActor(config.actorCreator,
+    val schedulerActor = PlayerControl.createSchedulerActor(config.actorFactory, "schedulerActor")
+    val factoryActor = PlayerControl.createPlaybackContextFactoryActor(config.actorFactory,
       "playbackContextFactoryActor")
-    PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorCreator,
+    PlayerControl.createEventManagerActorWithPublisher[PlayerEvent](config.actorFactory,
       "eventManagerActor") map { eventActors =>
-      val facadeActor = config.actorCreator.createClassicActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
+      val facadeActor = config.actorFactory.createClassicActor(PlayerFacadeActor(config, eventActors._2, schedulerActor,
         factoryActor, lineWriterActor, AudioPlayerSourceCreator), "playerFacadeActor")
       new AudioPlayer(facadeActor, eventActors._1, factoryActor, schedulerActor, DynamicAudioStreamFactory())
     }

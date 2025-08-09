@@ -35,4 +35,4 @@ object Fixtures:
     timeProgressThreshold = 500.millis,
     blockingDispatcherName = None,
     mediaManagerActor = null,
-    actorCreator = null)
+    actorFactory = null)

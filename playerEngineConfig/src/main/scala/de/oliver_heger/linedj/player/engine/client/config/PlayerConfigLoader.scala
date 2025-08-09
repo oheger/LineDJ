@@ -16,8 +16,9 @@
 
 package de.oliver_heger.linedj.player.engine.client.config
 
+import de.oliver_heger.linedj.player.engine.PlayerConfig
 import de.oliver_heger.linedj.player.engine.client.config.ConfigurationExtensions.*
-import de.oliver_heger.linedj.player.engine.{ActorCreator, PlayerConfig}
+import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.Configuration
 import org.apache.pekko.actor.ActorRef
 
@@ -30,7 +31,7 @@ import scala.concurrent.duration.*
   * options for the audio player. The options that can be defined here
   * correspond to the properties of [[PlayerConfig]].
   */
-object PlayerConfigLoader {
+object PlayerConfigLoader:
   /**
     * Name of the memory buffer size property. This is the size of the buffer
     * with audio data hold in memory by the audio player.
@@ -162,7 +163,7 @@ object PlayerConfigLoader {
       timeProgressThreshold = DefaultTimeProgressThreshold,
       blockingDispatcherName = None,
       mediaManagerActor = null,
-      actorCreator = null)
+      actorFactory = null)
 
   /**
     * Creates a [[PlayerConfig]] from the given configuration.
@@ -170,13 +171,13 @@ object PlayerConfigLoader {
     * @param c                 the configuration
     * @param pathPrefix        the prefix for all keys
     * @param mediaManagerActor the media manager actor
-    * @param actorCreator      the actor creator
+    * @param actorFactory      the actor factory
     * @return the newly created [[PlayerConfig]]
     */
   def loadPlayerConfig(c: Configuration,
                        pathPrefix: String,
                        mediaManagerActor: ActorRef,
-                       actorCreator: ActorCreator): PlayerConfig =
+                       actorFactory: ActorFactory): PlayerConfig =
     val normalizedPrefix = if pathPrefix.endsWith(".") then pathPrefix
     else pathPrefix + "."
 
@@ -201,16 +202,15 @@ object PlayerConfigLoader {
       timeProgressThreshold = c.getDuration(key(PropTimeProgressThreshold), DefaultTimeProgressThreshold),
       blockingDispatcherName = Option(c.getString(key(PropBlockingDispatcherName))),
       mediaManagerActor = mediaManagerActor,
-      actorCreator = actorCreator)
+      actorFactory = actorFactory)
 
   /**
     * Creates a [[PlayerConfig]] with default values and the given dynamic
     * values.
     *
     * @param mediaManagerActor the media manager actor
-    * @param actorCreator      the actor creator
+    * @param actorFactory      the actor factory
     * @return the newly created [[PlayerConfig]]
     */
-  def defaultConfig(mediaManagerActor: ActorRef, actorCreator: ActorCreator): PlayerConfig =
-    DefaultPlayerConfig.copy(mediaManagerActor = mediaManagerActor, actorCreator = actorCreator)
-}
+  def defaultConfig(mediaManagerActor: ActorRef, actorFactory: ActorFactory): PlayerConfig =
+    DefaultPlayerConfig.copy(mediaManagerActor = mediaManagerActor, actorFactory = actorFactory)
