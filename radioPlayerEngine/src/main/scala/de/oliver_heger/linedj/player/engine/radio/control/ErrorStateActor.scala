@@ -26,7 +26,7 @@ import de.oliver_heger.linedj.player.engine.stream.{AudioStreamPlayerStage, Line
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.*
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
-import org.apache.pekko.actor.typed.{ActorRef, Behavior, Props, Scheduler}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior, Scheduler}
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.{ByteString, Timeout}
 import org.apache.pekko.{NotUsed, actor as classic}
@@ -476,27 +476,7 @@ object ErrorStateActor:
       case LineWriterActor.DrainLine(_, replayTo) =>
         replayTo ! LineWriterActor.LineDrained
         Behaviors.same
-
-  /**
-    * Creates an [[ActorCreator]] that uses the given context to create child
-    * actors of the owning actor.
-    *
-    * @param context the context
-    * @tparam M the type of the actor
-    * @return the [[ActorCreator]] using this context
-    */
-  private def childActorCreator[M](context: ActorContext[M]): ActorCreator =
-    new ActorCreator:
-      override def createActor[T](behavior: Behavior[T],
-                                  name: String,
-                                  optStopCommand: Option[T],
-                                  props: Props): ActorRef[T] = context.spawn(behavior, name, props)
-
-      override def createClassicActor(props: classic.Props,
-                                      name: String,
-                                      optStopCommand: Option[Any]): classic.ActorRef =
-        context.actorOf(props, name)
-
+  
   /**
     * Checks whether the given event indicates a successful playback.
     *
