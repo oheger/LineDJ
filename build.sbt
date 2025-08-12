@@ -177,15 +177,54 @@ lazy val LineDJ = (project in file("."))
   .settings(defaultSettings: _*)
   .settings(
     name := "linedj-parent"
-  ) aggregate(shared, archive, actorSystem, platform, mediaBrowser, playlistEditor,
-  reorderMedium, reorderRandomSongs, reorderRandomArtists, reorderRandomAlbums,
-  reorderAlbum, reorderArtist, playerEngine, playerEngineConfig, radioPlayerEngine, radioPlayerEngineConfig,
-  radioPlayer, mp3PlaybackContextFactory, mediaIfcActors, mediaIfcRemote, mediaIfcEmbedded,
-  mediaIfcDisabled, archiveStartup, archiveAdmin, appShutdownOneForAll, appWindowHiding,
-  trayWindowList, archiveUnion, archiveLocalStartup, archiveCommon, archiveHttp,
-  archiveHttpStartup, metadataExtract, id3Extract, audioPlatform, persistentPlaylistHandler,
-  audioPlayerUI, protocolWebDav, protocolOneDrive, log4jApiFragment, log4jConfFragment, playerServer,
-  audioPlayerShell, archiveServer)
+  ) aggregate(
+  actorSystem,
+  appShutdownOneForAll,
+  appWindowHiding,
+  archive,
+  archiveAdmin,
+  archiveCommon,
+  archiveHttp,
+  archiveHttpStartup,
+  archiveLocalStartup,
+  archiveServer,
+  archiveStartup,
+  archiveUnion,
+  audioPlatform,
+  audioPlayerShell,
+  audioPlayerUI,
+  id3Extract,
+  log4jApiFragment,
+  log4jConfFragment,
+  mediaBrowser,
+  mediaIfcActors,
+  mediaIfcDisabled,
+  mediaIfcEmbedded,
+  mediaIfcRemote,
+  metadataExtract,
+  mp3PlaybackContextFactory,
+  persistentPlaylistHandler,
+  platform,
+  playerEngine,
+  playerEngineConfig,
+  playerServer,
+  playlistEditor,
+  playerEngineConfig,
+  protocolOneDrive,
+  protocolWebDav,
+  radioPlayer,
+  radioPlayerEngine,
+  radioPlayerEngineConfig,
+  reorderAlbum,
+  reorderArtist,
+  reorderMedium,
+  reorderRandomAlbums,
+  reorderRandomArtists,
+  reorderRandomSongs,
+  serverCommon,
+  shared,
+  trayWindowList
+)
 
 /**
   * A project with shared code which needs to be available on both client
@@ -236,7 +275,7 @@ lazy val id3Extract = (project in file("mediaArchive/id3Extract"))
   ) dependsOn(shared % "compile->compile;test->test", metadataExtract)
 
 /**
-  * An utility project providing common functionality needed by multiple
+  * A utility project providing common functionality needed by multiple
   * archive implementations. The project contains some actor implementations
   * and data model definitions.
   */
@@ -980,6 +1019,19 @@ lazy val audioPlayerShell = (project in file("audioPlayerShell"))
     ),
     assembly / mainClass := Some("de.oliver_heger.linedj.player.server.ServerMain")
   ) dependsOn(playerEngine, mp3PlaybackContextFactory, log4jConfFragment)
+
+/**
+  * A project providing some base functionality for HTTP server
+  * implementations. This is used as a dependency by multiple concrete server
+  * projects.
+  */
+lazy val serverCommon = (project in file("serverCommon"))
+  .settings(defaultSettings)
+  .settings(
+    name := "linedj-server-common",
+    libraryDependencies ++= logDependencies,
+    libraryDependencies ++= pekkoHttpDependencies
+  ) dependsOn shared
 
 /**
   * Project for the player server. This project exposes player functionality
