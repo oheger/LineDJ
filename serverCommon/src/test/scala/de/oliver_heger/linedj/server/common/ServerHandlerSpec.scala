@@ -18,17 +18,18 @@ package de.oliver_heger.linedj.server.common
 
 import de.oliver_heger.linedj.server.common.ServerHandler.given
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
+import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.testkit.TestKit
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Succeeded}
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 
 object ServerHandlerSpec:
-
   /**
     * Runs a stream to verify that the classic actor system and the execution
     * context can be implicitly obtained from a services object.
@@ -41,6 +42,28 @@ object ServerHandlerSpec:
     val source = Source(1 to elements)
     val sink = Sink.fold[Int, Int](0)(_ + _)
     source.runWith(sink).map(_ * 2)
+
+  /**
+    * Returns a handler instance that can be used to test the default
+    * implementations of callback methods. All other functions have dummy
+    * implementations.
+    *
+    * @return the handler instance for testing
+    */
+  private def createHandler(): ServerHandler =
+    new ServerHandler:
+      override type Context = String
+
+      /**
+        * @inheritdoc This implementation returns a dummy context which is
+        *             required to invoke other callback functions.
+        */
+      override def createContext(using services: ServerHandler.ServerServices): Future[String] =
+        Future.successful("myContext")
+
+      override def route(context: String, shutdownPromise: Promise[Done])
+                        (using services: ServerHandler.ServerServices): Route =
+        throw new UnsupportedOperationException("Unexpected invocation.")
 end ServerHandlerSpec
 
 /**
@@ -56,8 +79,36 @@ class ServerHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
 
   import ServerHandlerSpec.*
 
+  /**
+    * Creates an instance of server services based on the actor system used by
+    * this test class.
+    *
+    * @return the services object
+    */
+  private def createServices(): ServerHandler.ServerServices =
+    ServerHandler.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
+
   "ServerServices" should "provide objects in implicit scope" in :
-    val services = ServerHandler.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
+    val services = createServices()
     runTestStream(6)(using services) map : result =>
-      result should be(42)  
-    
+      result should be(42)
+
+  "ServerHandler" should "return default binding parameters" in :
+    val services = createServices()
+    val handler = createHandler()
+
+    (for
+      context <- handler.createContext(using services)
+      parameters <- handler.bindingParameters(context)(using services)
+    yield parameters) map : parameters =>
+      parameters.bindInterface should be("0.0.0.0")
+      parameters.bindPort should be(8080)
+
+  it should "provide an empty afterShutdown callback" in :
+    val services = createServices()
+    val handler = createHandler()
+
+    handler.createContext(using services) map : context =>
+      // It can only be tested that no exception is thrown.
+      handler.afterShutdown(context)
+      Succeeded
