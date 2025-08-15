@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.server.common
 
-import de.oliver_heger.linedj.server.common.ServerHandler.given
+import de.oliver_heger.linedj.server.common.ServerController.given
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
@@ -29,7 +29,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.{Future, Promise}
 
-object ServerHandlerSpec:
+object ServerControllerSpec:
   /**
     * Runs a stream to verify that the classic actor system and the execution
     * context can be implicitly obtained from a services object.
@@ -38,46 +38,46 @@ object ServerHandlerSpec:
     * @param services the services object
     * @return the result of a computation on the stream elements
     */
-  private def runTestStream(elements: Int)(using services: ServerHandler.ServerServices): Future[Int] =
+  private def runTestStream(elements: Int)(using services: ServerController.ServerServices): Future[Int] =
     val source = Source(1 to elements)
     val sink = Sink.fold[Int, Int](0)(_ + _)
     source.runWith(sink).map(_ * 2)
 
   /**
-    * Returns a handler instance that can be used to test the default
+    * Returns a controller instance that can be used to test the default
     * implementations of callback methods. All other functions have dummy
     * implementations.
     *
-    * @return the handler instance for testing
+    * @return the controller instance for testing
     */
-  private def createHandler(): ServerHandler =
-    new ServerHandler:
+  private def createController(): ServerController =
+    new ServerController:
       override type Context = String
 
       /**
         * @inheritdoc This implementation returns a dummy context which is
         *             required to invoke other callback functions.
         */
-      override def createContext(using services: ServerHandler.ServerServices): Future[String] =
+      override def createContext(using services: ServerController.ServerServices): Future[String] =
         Future.successful("myContext")
 
       override def route(context: String, shutdownPromise: Promise[Done])
-                        (using services: ServerHandler.ServerServices): Route =
+                        (using services: ServerController.ServerServices): Route =
         throw new UnsupportedOperationException("Unexpected invocation.")
-end ServerHandlerSpec
+end ServerControllerSpec
 
 /**
-  * Test class for [[ServerHandler]].
+  * Test class for [[ServerController]].
   */
-class ServerHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
+class ServerControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with AsyncFlatSpecLike
   with BeforeAndAfterAll with Matchers:
-  def this() = this(ActorSystem("ServerHandlerSpec"))
+  def this() = this(ActorSystem("ServerControllerSpec"))
 
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     super.afterAll()
 
-  import ServerHandlerSpec.*
+  import ServerControllerSpec.*
 
   /**
     * Creates an instance of server services based on the actor system used by
@@ -85,30 +85,30 @@ class ServerHandlerSpec(testSystem: ActorSystem) extends TestKit(testSystem) wit
     *
     * @return the services object
     */
-  private def createServices(): ServerHandler.ServerServices =
-    ServerHandler.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
+  private def createServices(): ServerController.ServerServices =
+    ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
 
   "ServerServices" should "provide objects in implicit scope" in :
     val services = createServices()
     runTestStream(6)(using services) map : result =>
       result should be(42)
 
-  "ServerHandler" should "return default binding parameters" in :
+  "ServerController" should "return default binding parameters" in :
     val services = createServices()
-    val handler = createHandler()
+    val controller = createController()
 
     (for
-      context <- handler.createContext(using services)
-      parameters <- handler.bindingParameters(context)(using services)
+      context <- controller.createContext(using services)
+      parameters <- controller.bindingParameters(context)(using services)
     yield parameters) map : parameters =>
       parameters.bindInterface should be("0.0.0.0")
       parameters.bindPort should be(8080)
 
   it should "provide an empty afterShutdown callback" in :
     val services = createServices()
-    val handler = createHandler()
+    val controller = createController()
 
-    handler.createContext(using services) map : context =>
+    controller.createContext(using services) map : context =>
       // It can only be tested that no exception is thrown.
-      handler.afterShutdown(context)
+      controller.afterShutdown(context)
       Succeeded
