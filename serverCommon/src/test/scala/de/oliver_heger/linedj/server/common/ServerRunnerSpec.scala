@@ -35,12 +35,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll, Succeeded}
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
-import scala.util.Using
 
 object ServerRunnerSpec:
   /** Timeout in milliseconds when waiting for something to happen. */
@@ -48,16 +46,6 @@ object ServerRunnerSpec:
 
   /** An object used as simulated context of the test server. */
   private val ServerContext = "The context of the test server"
-
-  /**
-    * Determines a free port number that can be used by the test server.
-    *
-    * @return the free port number
-    */
-  private def findFreePort(): Int =
-    Using(new ServerSocket(0)) {
-      _.getLocalPort
-    }.get
 
   /**
     * Type alias for a function that can test a running server instance. The
