@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.server.common
 
-import de.oliver_heger.linedj.server.common.ServerController.{BindingParameters, DefaultBindingParameters, ServerServices}
+import de.oliver_heger.linedj.server.common.ServerController.{DefaultServerParameters, ServerParameters, ServerServices}
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.{Done, actor as classic}
@@ -41,25 +41,46 @@ object ServerController:
   given executionContext(using services: ServerServices): ExecutionContext = services.system.dispatcher
 
   /**
-    * A data class defining parameters required for starting the server. An
-    * instance of this class needs to be provided by the controller, so that
-    * the server can bind to the correct IP address and port.
+    * A data class defining parameters required for binding the server to a
+    * specific interface and port. An instance is part of the server parameters
+    * obtained during startup.
     *
     * @param bindInterface the network interface to bind to
     * @param bindPort      the bind port
     */
-  case class BindingParameters(bindInterface: String,
-                               bindPort: Int)
+  final case class BindingParameters(bindInterface: String,
+                                     bindPort: Int)
 
   /**
-    * An instance of [[BindingParameters]] defining default properties. This
-    * instance is used by default, unless a concrete controller overrides the
-    * corresponding callback.
+    * A data class defining parameters required for starting the server. An
+    * instance of this class needs to be provided by the controller. It allows
+    * to influence the way the server is configured and started.
+    *
+    * @param bindingParameters an object that determines how the server should
+    *                          bind to a network interface
+    * @param optLocatorParams  an optional object with a configuration for a
+    *                          [[ServerLocator]]; if defined, such a locator is
+    *                          set up, so that the URL of the server can be
+    *                          queried via a multicast UDP request
     */
-  final val DefaultBindingParameters = BindingParameters(
+  final case class ServerParameters(bindingParameters: BindingParameters = DefaultBindingParameters,
+                                    optLocatorParams: Option[ServerLocator.LocatorParams] = None)
+
+  /**
+    * An instance of [[BindingParameters]] with default values for the binding.
+    * This instance is used by the default server parameters.
+    */
+  private final val DefaultBindingParameters = BindingParameters(
     bindInterface = "0.0.0.0",
     bindPort = 8080
   )
+
+  /**
+    * An instance of [[ServerParameters]] defining default values. This
+    * instance is used by default, unless a concrete controller overrides the
+    * corresponding callback.
+    */
+  final val DefaultServerParameters = ServerParameters()
 end ServerController
 
 /**
@@ -97,17 +118,17 @@ trait ServerController:
   def createContext(using services: ServerServices): Future[Context]
 
   /**
-    * Returns the [[BindingParameters]] to be used when starting up the server.
+    * Returns the [[ServerParameters]] to be used when starting up the server.
     * This callback is invoked after the creation of the context to obtain the
     * required parameters for initializing the listener for HTTP requests. This
     * base implementation returns default parameters.
     *
     * @param context  the [[Context]] of this server
     * @param services basic services to be consumed by this controller
-    * @return a [[Future]] with the [[BindingParameters]]
+    * @return a [[Future]] with the [[ServerParameters]]
     */
-  def bindingParameters(context: Context)(using services: ServerServices): Future[BindingParameters] =
-    Future.successful(DefaultBindingParameters)
+  def serverParameters(context: Context)(using services: ServerServices): Future[ServerParameters] =
+    Future.successful(DefaultServerParameters)
 
   /**
     * Returns the [[Route]] for processing HTTP requests. This callback is

@@ -93,16 +93,17 @@ class ServerControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) 
     runTestStream(6)(using services) map : result =>
       result should be(42)
 
-  "ServerController" should "return default binding parameters" in :
+  "ServerController" should "return default server parameters" in :
     val services = createServices()
     val controller = createController()
 
     (for
       context <- controller.createContext(using services)
-      parameters <- controller.bindingParameters(context)(using services)
+      parameters <- controller.serverParameters(context)(using services)
     yield parameters) map : parameters =>
-      parameters.bindInterface should be("0.0.0.0")
-      parameters.bindPort should be(8080)
+      parameters.bindingParameters.bindInterface should be("0.0.0.0")
+      parameters.bindingParameters.bindPort should be(8080)
+      parameters.optLocatorParams shouldBe empty
 
   it should "provide an empty afterShutdown callback" in :
     val services = createServices()

@@ -27,6 +27,7 @@ import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.{Done, actor as classic}
+import org.mockito.ArgumentMatchers.{any, eq => argEq}
 import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.scalatest.concurrent.Eventually
@@ -177,10 +178,11 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
     * on the implicit actor system of this test class, but a spy that cannot be
     * terminated.
     *
+    * @param locatorFactory an optional factory for locators
     * @return the runner for test execution
     */
-  private def createRunner(): ServerRunner =
-    new ServerRunner(using actorSystemSpy)
+  private def createRunner(locatorFactory: ServerLocator.LocatorFactory = mock): ServerRunner =
+    new ServerRunner(locatorFactory)(using actorSystemSpy)
 
   /**
     * Checks whether a server is up and can be accessed via the given URI.
@@ -206,11 +208,13 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
     *                            callback
     * @param contextException    an exception to throw when creating the 
     *                            context
+    * @param optLocatorParams    optional parameters for a locator
     * @return the controller object
     */
   private def createTestController(serverPort: Int,
                                    afterShutdownCalled: AtomicBoolean = new AtomicBoolean,
-                                   contextException: Option[Throwable] = None): ServerController =
+                                   contextException: Option[Throwable] = None,
+                                   optLocatorParams: Option[ServerLocator.LocatorParams] = None): ServerController =
     new ServerController:
       override type Context = String
 
@@ -219,11 +223,16 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
           case None => Future.successful(ServerContext)
           case Some(exception) => Future.failed(exception)
 
-      override def bindingParameters(context: String)
-                                    (using services: ServerController.ServerServices):
-      Future[ServerController.BindingParameters] =
+      override def serverParameters(context: String)
+                                   (using services: ServerController.ServerServices):
+      Future[ServerController.ServerParameters] =
         context should be(ServerContext)
-        Future.successful(ServerController.BindingParameters("localhost", serverPort))
+        Future.successful(
+          ServerController.ServerParameters(
+            bindingParameters = ServerController.BindingParameters("localhost", serverPort),
+            optLocatorParams = optLocatorParams
+          )
+        )
 
       override def route(context: String, shutdownPromise: Promise[Done])
                         (using services: ServerController.ServerServices): Route =
@@ -252,9 +261,10 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
   private def testServer(testFunc: ServerTestFunc): Future[Assertion] =
     val serverPort = findFreePort()
     val afterShutdownCalled = new AtomicBoolean
+    val locatorFactory = mock[ServerLocator.LocatorFactory]
 
     val controller = createTestController(serverPort, afterShutdownCalled)
-    val runner = createRunner()
+    val runner = createRunner(locatorFactory)
     val handle = runner.launch(controller)
     val serverUri = Uri(s"http://localhost:$serverPort")
 
@@ -264,6 +274,7 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
     val testResult = testFunc(serverUri, handle)
 
     awaitCond(afterShutdownCalled.get())
+    verifyNoInteractions(locatorFactory)
     testResult
 
   "launch" should "connect the server's route with the shutdown future" in :
@@ -288,5 +299,23 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
 
     recoverToExceptionIf[IllegalStateException](handle.shutdownFuture) map : handleException =>
       shutdownCalled.get() shouldBe false
-      handleException.getMessage should be(exception.getMessage)  
-      
+      handleException.getMessage should be(exception.getMessage)
+
+  it should "correctly start a locator for the server" in :
+    val serverPort = findFreePort()
+    val locatorFactory = mock[ServerLocator.LocatorFactory]
+    val locatorParams = ServerLocator.LocatorParams(
+      multicastAddress = "231.2.3.4",
+      port = 7777,
+      requestCode = "testCode",
+      responseTemplate = "I am here!"
+    )
+
+    val controller = createTestController(serverPort, optLocatorParams = Some(locatorParams))
+    val runner = createRunner(locatorFactory)
+    val handle = runner.launch(controller)
+
+    handle.shutdown()
+    handle.shutdownFuture map : _ =>
+      verify(locatorFactory).apply(argEq("serverLocator"), argEq(locatorParams))(using any())
+      Succeeded

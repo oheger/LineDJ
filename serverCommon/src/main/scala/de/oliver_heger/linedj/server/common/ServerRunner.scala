@@ -148,9 +148,16 @@ end ServerRunner
   * initiated externally using the [[ServerRunner.ServerHandle]] returned by
   * this runner.
   *
-  * @param system the [[classic.ActorSystem]] to operate the servers
+  * This class offers support for starting a [[ServerLocator]] for the server.
+  * If the [[ServerController]] returns corresponding parameters, such a
+  * locator is created and configured, so that the URL of the server can be
+  * queried via multicast UDP requests.
+  *
+  * @param locatorFactory the factory for creating a [[ServerLocator]]
+  * @param system         the [[classic.ActorSystem]] to operate the servers
   */
-class ServerRunner(using system: classic.ActorSystem):
+class ServerRunner(locatorFactory: ServerLocator.LocatorFactory = ServerLocator.newLocator)
+                  (using system: classic.ActorSystem):
 
   import ServerRunner.*
 
@@ -172,9 +179,10 @@ class ServerRunner(using system: classic.ActorSystem):
 
     val startFuture = (for
       context <- controller.createContext
-      bindingParams <- controller.bindingParameters(context)
+      serverParams <- controller.serverParameters(context)
       route = controller.route(context, shutdownPromise)
-      startup <- startHttpServer(bindingParams, context, route)
+      startup <- startHttpServer(serverParams.bindingParameters, context, route)
+      _ <- startLocator(serverParams.optLocatorParams, factory)
     yield startup) andThen :
       case Success(startupData) =>
         log.info("HTTP server is listening on port {}.", startupData.binding.localAddress.getPort)
@@ -193,3 +201,18 @@ class ServerRunner(using system: classic.ActorSystem):
       override def shutdown(): Unit =
         if shutdownPromise.trySuccess(Done) then
           log.info("HTTP server was shut down using its handle.")
+
+  /**
+    * Starts a server locator if corresponding parameters are available.
+    *
+    * @param optParams    the optional parameters for the locator
+    * @param actorFactory the actor factory
+    * @return a [[Future]] for the started locator
+    */
+  private def startLocator(optParams: Option[ServerLocator.LocatorParams],
+                           actorFactory: ManagingActorFactory): Future[Done] =
+    optParams.foreach: params =>
+      log.info("Starting locator for server.")
+      locatorFactory("serverLocator", params)(using actorFactory)
+
+    Future.successful(Done)
