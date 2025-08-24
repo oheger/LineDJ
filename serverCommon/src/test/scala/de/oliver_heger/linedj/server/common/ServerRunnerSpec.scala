@@ -48,6 +48,9 @@ object ServerRunnerSpec:
   /** An object used as simulated context of the test server. */
   private val ServerContext = "The context of the test server"
 
+  /** A name for the test server. */
+  private val ServerName = "MyTestServer"
+
   /**
     * Type alias for a function that can test a running server instance. The
     * function is passed the base [[Uri]] to the server and a handle to it.
@@ -265,7 +268,7 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
 
     val controller = createTestController(serverPort, afterShutdownCalled)
     val runner = createRunner(locatorFactory)
-    val handle = runner.launch(controller)
+    val handle = runner.launch(ServerName, controller)
     val serverUri = Uri(s"http://localhost:$serverPort")
 
     eventually:
@@ -295,7 +298,7 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
     val controller = createTestController(findFreePort(), shutdownCalled, contextException = Some(exception))
 
     val runner = createRunner()
-    val handle = runner.launch(controller)
+    val handle = runner.launch(ServerName, controller)
 
     recoverToExceptionIf[IllegalStateException](handle.shutdownFuture) map : handleException =>
       shutdownCalled.get() shouldBe false
@@ -313,9 +316,9 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
 
     val controller = createTestController(serverPort, optLocatorParams = Some(locatorParams))
     val runner = createRunner(locatorFactory)
-    val handle = runner.launch(controller)
+    val handle = runner.launch(ServerName, controller)
 
     handle.shutdown()
     handle.shutdownFuture map : _ =>
-      verify(locatorFactory).apply(argEq("serverLocator"), argEq(locatorParams))(using any())
+      verify(locatorFactory).apply(argEq(s"${ServerName}_locator"), argEq(locatorParams))(using any())
       Succeeded
