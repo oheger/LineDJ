@@ -1053,7 +1053,7 @@ lazy val playerServer = (project in file("playerServer"))
       "--verbose",
       "-march=compatibility"
     )
-  ) dependsOn(radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
+  ) dependsOn(serverCommon, radioPlayerEngine, playerEngineConfig, radioPlayerEngineConfig, mp3PlaybackContextFactory)
 
 /**
   * Project for a fragment bundle to make log4j-provider.properties available
