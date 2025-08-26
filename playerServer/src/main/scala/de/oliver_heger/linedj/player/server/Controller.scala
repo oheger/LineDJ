@@ -86,7 +86,8 @@ class Controller(serviceFactory: ServiceFactory) extends ServerController:
     Future.successful(parameters)
 
   override def route(context: PlayerServerContext, shutdownPromise: Promise[Done])
-                    (using services: ServerController.ServerServices): Route = ???
+                    (using services: ServerController.ServerServices): Route =
+    Routes.route(context.config, context.radioPlayer, shutdownPromise)
 
   /**
     * @inheritdoc This implementation executes the shutdown command if it is

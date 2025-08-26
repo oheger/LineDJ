@@ -21,6 +21,9 @@ import de.oliver_heger.linedj.player.engine.radio.control.RadioControlActor
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.engine.radio.*
 import de.oliver_heger.linedj.player.server.model.RadioModel
+import de.oliver_heger.linedj.server.common.ServerController
+import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
+import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.pekko.Done
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -85,7 +88,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     ServerConfigTestHelper.defaultServerConfig(ServerConfigTestHelper.actorFactory(system))
 
   /**
-    * Returns the route to be used for testing.
+    * Returns the route to be used for testing. This implementation obtains the
+    * route from a [[Controller]] instance, so that the corresponding
+    * controller method is tested as well.
     *
     * @param config          the server configuration
     * @param radioPlayer     the radio player
@@ -95,7 +100,11 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   private def testRoute(config: PlayerServerConfig = baseServerConfig,
                         radioPlayer: RadioPlayer = mock,
                         shutdownPromise: Promise[Done] = Promise()): Route =
-    Routes.route(config, radioPlayer, shutdownPromise)
+    val serviceFactory = mock[ServiceFactory]
+    val controller = new Controller(serviceFactory) with SystemPropertyAccess {}
+    val context = Controller.PlayerServerContext(config, radioPlayer)
+    val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
+    controller.route(context, shutdownPromise)(using services)
 
   "Routes" should "define a route for accessing the UI" in :
     val config = httpServerConfig()
