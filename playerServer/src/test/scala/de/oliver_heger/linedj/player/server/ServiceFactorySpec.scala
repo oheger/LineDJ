@@ -82,6 +82,13 @@ class ServiceFactorySpec(testSystem: ActorSystem) extends TestKit(testSystem) wi
       player should be(radioPlayer)
     }
   }
+  
+  "createServerRunner" should "create a ServerRunner instance" in:
+    val factory = new ServiceFactory
+    
+    val runner = factory.createServerRunner()
+    
+    runner should not be null
 
   "enableGracefulShutdown" should "call the shutdown when all conditions are met" in {
     val mockBinding = mock[ServerBinding]

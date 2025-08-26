@@ -115,7 +115,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
   "Controller" should "create a configuration from the default location" in :
     val expectedConfig = PlayerServerConfig(PlayerServerConfig.DefaultConfigFileName, null, null)
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
 
     val controller = createController(serviceFactory)
     controller.createContext(using createServices()) map : context =>
@@ -125,7 +125,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
     val alternativeConfigName = "test-server-config.xml"
     val expectedConfig = PlayerServerConfig(alternativeConfigName, null, null)
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
 
     val controller = createController(serviceFactory, Some(alternativeConfigName))
     controller.createContext(using createServices()) map : context =>
@@ -133,7 +133,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
 
   it should "store the correct actor factory in the configuration" in :
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
     val services = createServices()
 
     val controller = createController(serviceFactory)
@@ -143,16 +143,16 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
   it should "create a radio player" in :
     val radioPlayer = mock[RadioPlayer]
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(radioPlayer)).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(radioPlayer)).when(serviceFactory).createRadioPlayer(any())(using any())
 
     val controller = createController(serviceFactory = serviceFactory)
     controller.createContext(using createServices()) map : context =>
-      verify(serviceFactory).createRadioPlayer(context.config)(system)
+      verify(serviceFactory).createRadioPlayer(context.config)(using system)
       context.radioPlayer should be(radioPlayer)
 
   it should "create correct server parameters" in :
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
     val serverContext = Controller.PlayerServerContext(playerConfig, mock[RadioPlayer])
 
     val controller = createController(serviceFactory)
@@ -167,7 +167,7 @@ class ControllerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with A
 
   it should "execute the shutdown command if it is defined" in :
     val serviceFactory = mock[ServiceFactory]
-    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(any())
+    doReturn(Future.successful(mock[RadioPlayer])).when(serviceFactory).createRadioPlayer(any())(using any())
     val tempDir = System.getProperty("java.io.tmpdir")
     val subDir = "serverSpecNewTestDirectory" + System.currentTimeMillis()
 

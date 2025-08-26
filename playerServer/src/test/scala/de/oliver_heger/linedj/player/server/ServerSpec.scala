@@ -77,7 +77,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val bindingFuture = Future.successful(ServiceFactory.ServerStartupData(binding, expectedConfig))
     val promiseTerminated = Promise[Option[String]]()
     when(serviceFactory.createEndpointRequestHandler(any())).thenReturn(TestProbe().ref)
-    when(serviceFactory.createRadioPlayer(any())(any())).thenReturn(Future.successful(mockPlayer))
+    when(serviceFactory.createRadioPlayer(any())(using any())).thenReturn(Future.successful(mockPlayer))
     when(serviceFactory.createHttpServer(any(), any(), any())(any())).thenReturn(bindingFuture)
     when(serviceFactory.enableGracefulShutdown(any(), any(), any())(any())).thenReturn(promiseTerminated.future)
 
@@ -87,7 +87,7 @@ class ServerSpec(testSystem: ActorSystem) extends TestKit(testSystem) with Async
     val captEndpointRequestHandlerConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
     verify(serviceFactory, timeout(3000)).createEndpointRequestHandler(captEndpointRequestHandlerConfig.capture())
     val captPlayerConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
-    verify(serviceFactory, timeout(3000)).createRadioPlayer(captPlayerConfig.capture())(eqArgs(system))
+    verify(serviceFactory, timeout(3000)).createRadioPlayer(captPlayerConfig.capture())(using eqArgs(system))
     val captHttpConfig = ArgumentCaptor.forClass(classOf[PlayerServerConfig])
     val captShutdownPromise = ArgumentCaptor.forClass(classOf[Promise[Done]])
     verify(serviceFactory, timeout(3000)).createHttpServer(captHttpConfig.capture(), eqArgs(mockPlayer),

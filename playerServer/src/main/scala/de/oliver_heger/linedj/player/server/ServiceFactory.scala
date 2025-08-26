@@ -19,6 +19,7 @@ package de.oliver_heger.linedj.player.server
 import de.oliver_heger.linedj.player.engine.mp3.Mp3AudioStreamFactory
 import de.oliver_heger.linedj.player.engine.radio.facade.RadioPlayer
 import de.oliver_heger.linedj.player.server.ServiceFactory.{EndpointRequestHandlerName, ServerStartupData, TerminationTimeout, log}
+import de.oliver_heger.linedj.server.common.ServerRunner
 import de.oliver_heger.linedj.shared.actors.ActorManagement
 import org.apache.logging.log4j.LogManager
 import org.apache.pekko.Done
@@ -63,7 +64,7 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     * Creates an actor instance that listens for UDP requests for the endpoint
     * URL of the player server.
     *
-    * @param config        the current configuration
+    * @param config the current configuration
     * @return the endpoint request handler actor
     */
   def createEndpointRequestHandler(config: PlayerServerConfig): ActorRef =
@@ -76,6 +77,14 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     config.radioPlayerConfig.playerConfig.actorFactory.createClassicActor(props, EndpointRequestHandlerName)
 
   /**
+    * Creates a [[ServerRunner]] for launching the player server.
+    *
+    * @param system the actor system
+    * @return the new [[ServerRunner]] instance
+    */
+  def createServerRunner()(using system: ActorSystem): ServerRunner = new ServerRunner
+
+  /**
     * Creates the [[RadioPlayer]] instance based on the given configuration.
     *
     * @param config the [[PlayerServerConfig]]
@@ -83,19 +92,18 @@ class ServiceFactory(radioPlayerFactory: RadioPlayerFactory = new RadioPlayerFac
     * @return the radio player instance
     */
   def createRadioPlayer(config: PlayerServerConfig)
-                       (implicit system: ActorSystem): Future[RadioPlayer] =
-    implicit val ec: ExecutionContext = system.dispatcher
-    radioPlayerFactory.createRadioPlayer(config) map { player =>
+                       (using system: ActorSystem): Future[RadioPlayer] =
+    given ExecutionContext = system.dispatcher
+
+    radioPlayerFactory.createRadioPlayer(config) map : player =>
       player.addAudioStreamFactory(new Mp3AudioStreamFactory)
       player.initRadioSourceConfig(config.sourceConfig)
       player.initMetadataConfig(config.metadataConfig)
 
-      config.initialSource foreach { source =>
+      config.initialSource foreach : source =>
         player.switchToRadioSource(source)
         player.startPlayback()
-      }
       player
-    }
 
   /**
     * Creates and starts an HTTP server according to the given configuration
