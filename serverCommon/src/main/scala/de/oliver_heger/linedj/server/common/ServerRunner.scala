@@ -25,7 +25,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.{Done, actor as classic}
 
 import scala.concurrent.duration.*
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success}
 
 object ServerRunner:
@@ -64,6 +64,17 @@ object ServerRunner:
       * this function again, has no effect.
       */
     def shutdown(): Unit
+
+    /**
+      * Waits in a blocking fashion until the server has shut down. This
+      * function can be used for instance in a ''main'' function acting as
+      * entry point for a server, to make sure that the function does not exit
+      * before the server terminates.
+      *
+      * @return the completed [[ServerHandle.shutdownFuture]] of the server
+      */
+    def awaitShutdown(): Future[Done] =
+      Await.ready(shutdownFuture, Duration.Inf)
   end ServerHandle
 
   /**

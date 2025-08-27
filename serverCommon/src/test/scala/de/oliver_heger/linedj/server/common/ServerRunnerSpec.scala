@@ -292,6 +292,41 @@ class ServerRunnerSpec(testSystem: classic.ActorSystem) extends TestKit(testSyst
 
       handle.shutdownFuture map (_ => Succeeded)
 
+  /**
+    * Waits for the given handle to complete in a separate thread. When this
+    * happens, the returned latch is fired.
+    *
+    * @param handle the handle to wait for
+    * @return a latch to signal that waiting is complete
+    */
+  private def waitForHandle(handle: ServerRunner.ServerHandle): CountDownLatch =
+    val latchShutdown = new CountDownLatch(1)
+    val waitThread = new Thread(
+      () =>
+        val futShutdown = handle.awaitShutdown()
+        futShutdown.isCompleted shouldBe true
+        latchShutdown.countDown()
+    )
+    waitThread.start()
+    latchShutdown
+
+  it should "return a handle that allows waiting for the server to shut down" in :
+    testServer: (_, handle) =>
+      val latchShutdown = waitForHandle(handle)
+
+      handle.shutdown()
+
+      latchShutdown.await(WaitTimeoutMs, TimeUnit.MILLISECONDS) shouldBe true
+
+  it should "return a handle that does not stop waiting until the server has shut down" in :
+    testServer: (_, handle) =>
+      val latchShutdown = waitForHandle(handle)
+
+      latchShutdown.await(WaitTimeoutMs, TimeUnit.MILLISECONDS) shouldBe false
+
+      handle.shutdown()
+      succeed
+
   it should "handle a failure to create the server context" in :
     val shutdownCalled = new AtomicBoolean
     val exception = new IllegalStateException("Test exception: Could not create server context.")
