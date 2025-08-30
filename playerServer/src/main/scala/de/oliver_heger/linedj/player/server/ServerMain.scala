@@ -15,18 +15,16 @@
  */
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.actor.ActorSystem
-
-import scala.concurrent.duration.*
 
 /**
   * The main class of the Player Server.
   */
 object ServerMain:
   def main(args: Array[String]): Unit =
-    implicit val system: ActorSystem = ActorSystem("PlayerServer")
+    given ActorSystem = ActorSystem("PlayerServer")
+
     val serviceFactory = new ServiceFactory
-    val server = new Server(serviceFactory) with SystemPropertyAccess {}
+    val server = new Server(serviceFactory)
 
     server.run()

@@ -16,49 +16,31 @@
 
 package de.oliver_heger.linedj.player.server
 
-import de.oliver_heger.linedj.player.server.Server.PropConfigFileName
-import de.oliver_heger.linedj.shared.actors.{ActorFactory, ManagingActorFactory}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.logging.log4j.LogManager
-import org.apache.pekko.Done
-import org.apache.pekko.actor.{ActorRef, ActorSystem}
-
-import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.sys.process.Process
-import scala.util.{Failure, Success}
+import org.apache.pekko.actor.ActorSystem
 
 object Server:
-  /**
-    * The name of a system property that specifies the name of the 
-    * configuration file to be used. If this property is not defined, the
-    * default file name as defined in [[PlayerServerConfig]] is used.
-    */
-  final val PropConfigFileName = "configFile"
+  /** The name of this server. */
+  final val ServerName = "playerServer"
 
 /**
   * A class for creating and running the Player Server.
   *
   * The class uses a [[ServiceFactory]] to set up all required services and to
-  * start the HTTP server. It then waits until the server shuts down. Finally,
-  * it performs clean up and also terminates the actor system.
+  * start the HTTP server. It then waits until the server shuts down.
   *
   * The player server configuration is loaded from the standard locations
   * supported by Commons Configuration. The name of the configuration file can
-  * be specified via the [[Server.PropConfigFileName]] system property.
+  * be specified via the [[Controller.PropConfigFileName]] system property.
   *
   * @param serviceFactory the factory for creating services
   * @param system         the actor system
   */
 class Server(serviceFactory: ServiceFactory)
-            (implicit system: ActorSystem):
-  this: SystemPropertyAccess =>
-
+            (using system: ActorSystem):
   /** The logger. */
   private val log = LogManager.getLogger(classOf[Server])
-
-  /** The execution context in implicit scope. */
-  private implicit val ec: ExecutionContext = system.dispatcher
 
   /**
     * Starts the server and all active components. The function then waits
@@ -68,50 +50,10 @@ class Server(serviceFactory: ServiceFactory)
   def run(): Unit =
     log.info("Server.run()")
 
-    val factory = ManagingActorFactory.newDefaultManagingActorFactory
-    val shutdownPromise = Promise[Done]()
+    val controller = new Controller(serviceFactory) with SystemPropertyAccess {}
+    val runner = serviceFactory.createServerRunner()
 
-    val startFuture = (for
-      config <- loadServerConfig(factory)
-      _ <- startEndpointRequestHandler(config)
-      radioPlayer <- serviceFactory.createRadioPlayer(config)
-      startup <- serviceFactory.createHttpServer(config, radioPlayer, shutdownPromise)
-    yield startup) andThen {
-      case Success(startupData) =>
-        log.info("HTTP server is listening on port {}.", startupData.binding.localAddress.getPort)
-      case Failure(exception) => log.error("Failed to start HTTP server.", exception)
-    }
+    val handle = runner.launch(Server.ServerName, controller)
+    handle.awaitShutdown()
 
-    val terminated = serviceFactory.enableGracefulShutdown(startFuture, shutdownPromise.future, factory.management)
-    val optShutdownCommand = Await.result(terminated, Duration.Inf)
-
-    optShutdownCommand foreach { command =>
-      log.info("Executing shutdown command: '{}'.", command)
-      Process(command).run()
-    }
-
-    log.info("Server terminated.")
-
-  /**
-    * Loads the configuration of the server asynchronously using the name
-    * defined by a system property.
-    *
-    * @param actorFactory the [[ActorFactory]]
-    * @return a ''Future'' with the server configuration
-    */
-  private def loadServerConfig(actorFactory: ActorFactory): Future[PlayerServerConfig] = Future {
-    val configName = getSystemProperty(PropConfigFileName) getOrElse PlayerServerConfig.DefaultConfigFileName
-    log.info("Loading PlayerServerConfig from '{}'.", configName)
-    PlayerServerConfig(configName, null, actorFactory)
-  }
-
-  /**
-    * Starts the actor handling UDP requests for the endpoint address of the
-    * player server.
-    *
-    * @param config the current server configuration
-    * @return a ''Future'' with the actor reference
-    */
-  private def startEndpointRequestHandler(config: PlayerServerConfig): Future[ActorRef] = Future {
-    serviceFactory.createEndpointRequestHandler(config)
-  }
+    log.info("Server shut down.")
