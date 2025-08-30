@@ -390,9 +390,14 @@ class EndpointRequestHandlerActorSpec(testSystem: ActorSystem) extends TestKit(t
         .copy(lookupMulticastAddress = GroupAddress,
           lookupPort = port,
           lookupCommand = RequestCode)
-      val factory = new ServiceFactory
-      factory.createEndpointRequestHandler(serverConfig)
-
+      val responseTemplate =
+        s"http://${EndpointRequestHandlerActor.PlaceHolderAddress}:${serverConfig.serverPort}${serverConfig.uiPath}"
+      val props = EndpointRequestHandlerActor.props(serverConfig.lookupMulticastAddress,
+        serverConfig.lookupPort,
+        serverConfig.lookupCommand,
+        responseTemplate)
+      serverConfig.radioPlayerConfig.playerConfig.actorFactory.createClassicActor(props, "endpointRequestHandlerActor")
+    
     /**
       * Stops the actor under test and waits for it to terminate. Since always
       * the same actor name is used, this is necessary when running multiple
