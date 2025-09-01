@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivestart
 
-import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetadataUnionActor}
+import de.oliver_heger.linedj.archiveunion.{UnionArchiveConfig, MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaActors
@@ -51,7 +51,7 @@ class MediaArchiveStartup extends PlatformComponent with ClientContextSupport wi
   override def activate(compCtx: ComponentContext): Unit =
     super.activate(compCtx)
     log.info("Starting up media archive.")
-    val archiveConfig = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
+    val archiveConfig = UnionArchiveConfig(clientApplicationContext.managementConfiguration)
     val metadataManager = createAndRegisterActor(Props(classOf[MetadataUnionActor],
       archiveConfig), MediaActors.MetadataManager.name)
     createAndRegisterActor(MediaUnionActor(metadataManager), MediaActors.MediaManager.name)

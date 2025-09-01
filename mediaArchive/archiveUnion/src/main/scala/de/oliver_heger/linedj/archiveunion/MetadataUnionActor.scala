@@ -151,7 +151,7 @@ object MetadataUnionActor:
   * determine when such an operation is in progress and send corresponding
   * event notifications.)
   */
-class MetadataUnionActor(config: MediaArchiveConfig) extends Actor with ActorLogging:
+class MetadataUnionActor(config: UnionArchiveConfig) extends Actor with ActorLogging:
 
   import MetadataUnionActor._
 

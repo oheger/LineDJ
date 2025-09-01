@@ -1255,7 +1255,7 @@ class MetadataUnionActorSpec(testSystem: ActorSystem) extends TestKit(testSystem
     * @return the mock configuration
     */
   private def createConfig() =
-    val config = mock[MediaArchiveConfig]
+    val config = mock[UnionArchiveConfig]
     when(config.metadataUpdateChunkSize).thenReturn(UpdateChunkSize)
     when(config.metadataMaxMessageSize).thenReturn(MaxMessageSize)
     config

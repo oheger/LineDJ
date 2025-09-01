@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivestart
 
-import de.oliver_heger.linedj.archiveunion.{MediaArchiveConfig, MediaUnionActor, MetadataUnionActor}
+import de.oliver_heger.linedj.archiveunion.{UnionArchiveConfig, MediaUnionActor, MetadataUnionActor}
 import de.oliver_heger.linedj.platform.app.ClientApplicationContext
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
@@ -33,7 +33,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 object MediaArchiveStartupSpec:
   /** The reference configuration for the media archive. */
-  private val ArchiveConfig = MediaArchiveConfig(createArchiveConfiguration())
+  private val ArchiveConfig = UnionArchiveConfig(createArchiveConfiguration())
 
   /**
     * Creates a configuration object that can be used to initialize the config

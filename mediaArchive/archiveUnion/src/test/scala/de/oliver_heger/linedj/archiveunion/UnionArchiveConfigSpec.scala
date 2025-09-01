@@ -20,7 +20,7 @@ import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-object MediaArchiveConfigSpec:
+object UnionArchiveConfigSpec:
   /** Test value for the chunk size of a metadata notification. */
   private val MetadataChunkSize = 10
 
@@ -47,17 +47,17 @@ object MediaArchiveConfigSpec:
     * @param updateChunkSize value for the metadata update chunk size
     * @return the ''MediaArchiveConfig''
     */
-  private def createMediaConfig(updateChunkSize: Int = MetadataChunkSize): MediaArchiveConfig =
-    MediaArchiveConfig(createConfiguration(updateChunkSize))
+  private def createMediaConfig(updateChunkSize: Int = MetadataChunkSize): UnionArchiveConfig =
+    UnionArchiveConfig(createConfiguration(updateChunkSize))
 
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
+class UnionArchiveConfigSpec extends AnyFlatSpec with Matchers:
 
-  import MediaArchiveConfigSpec._
+  import UnionArchiveConfigSpec._
 
-  "A MediaArchiveConfig" should "return the correct update chunk size" in:
+  "A UnionArchiveConfig" should "return the correct update chunk size" in:
     createMediaConfig().metadataUpdateChunkSize should be(MetadataChunkSize)
 
   it should "return the correct maximum message size" in:
