@@ -360,7 +360,7 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
       collectionsDependency,
       beanUtilsDependency
     )
-  ) dependsOn(shared % "compile->compile;test->test", archiveCommon)
+  ) dependsOn(shared % "compile->compile;test->test", archive, archiveUnion, serverCommon)
 
 /**
   * The WebDav protocol project. This is a module adding support for WebDav
