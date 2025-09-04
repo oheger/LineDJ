@@ -111,4 +111,5 @@ class Controller(contentActorFactory: ArchiveContentActor.Factory = ArchiveConte
       params.copy(bindingParameters = modifiedBindingParameters)
 
   override def route(context: ArchiveServerContext, shutdownPromise: Promise[Done])
-                    (using services: ServerController.ServerServices): Route = ???
+                    (using services: ServerController.ServerServices): Route =
+    Routes.route(context.contentActor)

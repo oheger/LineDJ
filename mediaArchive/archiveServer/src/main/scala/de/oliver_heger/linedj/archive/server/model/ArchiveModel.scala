@@ -17,6 +17,8 @@
 package de.oliver_heger.linedj.archive.server.model
 
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import spray.json.{DefaultJsonProtocol, JsString, JsValue, RootJsonFormat, deserializationError}
 
 /**
   * A module that defines the API model and JSON formats for the archive server
@@ -84,8 +86,17 @@ object ArchiveModel:
     * @param id    the ID of the medium which is derived from its checksum
     * @param title the title of the medium
     */
-  case class MediumOverview(id: Checksums.MediumChecksum,
-                            title: String)
+  final case class MediumOverview(id: Checksums.MediumChecksum,
+                                  title: String)
+
+  /**
+    * A data class containing overview information about all known media.
+    *
+    * An instance of this class is returned to clients asking for all media.
+    *
+    * @param media a list with overview information about all media
+    */
+  final case class MediaOverview(media: List[MediumOverview])
 
   /**
     * A data class to fully describe a medium.
@@ -98,7 +109,28 @@ object ArchiveModel:
     * @param orderMode   the default order mode for playing the songs on the
     *                    medium if defined
     */
-  case class MediumDetails(overview: MediumOverview,
-                           description: String,
-                           orderMode: Option[OrderMode]):
+  final case class MediumDetails(overview: MediumOverview,
+                                 description: String,
+                                 orderMode: Option[OrderMode]):
     export overview.*
+
+  /**
+    * A trait providing JSON converters for the classes of the archive data
+    * model. By mixing in this trait, classes can get capabilities to do JSON
+    * serialization with model classes.
+    */
+  trait ArchiveJsonSupport extends SprayJsonSupport with DefaultJsonProtocol:
+    given mediumChecksumFormat: RootJsonFormat[Checksums.MediumChecksum] =
+      new RootJsonFormat[Checksums.MediumChecksum]:
+        override def write(obj: Checksums.MediumChecksum): JsValue = JsString(obj.checksum)
+
+        override def read(json: JsValue): Checksums.MediumChecksum =
+          json match
+            case JsString(value) => Checksums.MediumChecksum(value)
+            case o => deserializationError(s"String expected, but got '$o'.")
+
+    given mediumOverviewFormat: RootJsonFormat[MediumOverview] = jsonFormat2(MediumOverview.apply)
+
+    given mediaOverviewFormat: RootJsonFormat[MediaOverview] = jsonFormat1(MediaOverview.apply)
+  end ArchiveJsonSupport
+  
