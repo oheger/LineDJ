@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfigLoaderCC1.given
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.archiveunion.MetadataUnionProcessingListener
 import de.oliver_heger.linedj.platform.MessageBusTestImpl
@@ -25,7 +26,7 @@ import de.oliver_heger.linedj.platform.mediaifc.MediaFacade
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
 import de.oliver_heger.linedj.shared.actors.ActorFactory
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
-import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{TestKit, TestProbe}
@@ -40,7 +41,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 object LocalArchiveStartupSpec:
   /** The configurations for the media archives to start. */
-  private val ArchiveConfigs = MediaArchiveConfig(createArchiveConfiguration())
+  private val ArchiveConfigs = MediaArchiveConfig.loadMediaArchiveConfigs(createArchiveConfiguration())
 
   /**
     * Creates a configuration object that can be used to initialize the config
@@ -48,7 +49,7 @@ object LocalArchiveStartupSpec:
     *
     * @return the configuration
     */
-  private def createArchiveConfiguration(): HierarchicalConfiguration =
+  private def createArchiveConfiguration(): Configuration =
     val config = new HierarchicalConfiguration
     config.addProperty("media.localArchives.readerTimeout", 60)
     config.addProperty("media.localArchives.readerCheckInterval", 180)

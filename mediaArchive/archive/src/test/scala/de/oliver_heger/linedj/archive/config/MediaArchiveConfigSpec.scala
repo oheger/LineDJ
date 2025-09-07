@@ -15,14 +15,14 @@
  */
 package de.oliver_heger.linedj.archive.config
 
-import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object MediaArchiveConfigSpec:
   /** The reader check interval. */
@@ -95,8 +95,7 @@ object MediaArchiveConfigSpec:
     * @param index  the index to generate unique test data
     * @return the modified configuration
     */
-  private def addTestDataToConfig(config: HierarchicalConfiguration, key: String, index: Int):
-  HierarchicalConfiguration =
+  private def addTestDataToConfig(config: Configuration, key: String, index: Int): Configuration =
     config.addProperty(key + ".infoSizeLimit", InfoSizeLimit + index)
     config.addProperty(key + ".downloadTimeout", 60 + index)
     config.addProperty(key + ".downloadCheckInterval", ReaderCheckInterval.toSeconds + index)
@@ -130,7 +129,7 @@ object MediaArchiveConfigSpec:
     * @param index  the index to generate unique test data
     * @return the modified configuration
     */
-  private def addArchiveToConfig(config: HierarchicalConfiguration, index: Int): HierarchicalConfiguration =
+  private def addArchiveToConfig(config: Configuration, index: Int): Configuration =
     config.addProperty("media.localArchives.localArchive(-1).archiveName", ArchiveName + index)
     addTestDataToConfig(config, "media.localArchives.localArchive", index)
 
@@ -140,7 +139,7 @@ object MediaArchiveConfigSpec:
     *
     * @return the hierarchical configuration
     */
-  private def createDefaultHierarchicalConfig(): HierarchicalConfiguration =
+  private def createDefaultHierarchicalConfig(): Configuration =
     addArchiveToConfig(new HierarchicalConfiguration, 0)
 
 /**
@@ -148,7 +147,8 @@ object MediaArchiveConfigSpec:
   */
 class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
 
-  import MediaArchiveConfigSpec._
+  import MediaArchiveConfigSpec.*
+  import MediaArchiveConfigLoaderCC1.given 
 
   /**
     * Convenience function to create a configuration for a media archive from
@@ -158,9 +158,9 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     * @param c the underlying hierarchical configuration
     * @return the config object
     */
-  private def createArchiveConfig(c: HierarchicalConfiguration = createDefaultHierarchicalConfig()):
+  private def createArchiveConfig(c: Configuration = createDefaultHierarchicalConfig()):
   MediaArchiveConfig =
-    val configs = MediaArchiveConfig(c, staticArchiveName)
+    val configs = MediaArchiveConfig.loadMediaArchiveConfigs(c, staticArchiveName)
     configs should have size 1
     configs.head
 
@@ -233,7 +233,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
   it should "support a static name pattern without calling the resolver function" in:
     val count = new AtomicInteger
     val appConfig = createDefaultHierarchicalConfig()
-    val config = MediaArchiveConfig(appConfig, "test" + count.incrementAndGet()).head
+    val config = MediaArchiveConfig.loadMediaArchiveConfigs(appConfig, "test" + count.incrementAndGet()).head
 
     config.archiveName should be(ArchiveName + 0)
     count.get() should be(0)
@@ -244,7 +244,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     val appConfig = createDefaultHierarchicalConfig()
     appConfig.clearProperty("media.localArchives.localArchive.archiveName")
 
-    val config = MediaArchiveConfig(appConfig, nameCrashed).head
+    val config = MediaArchiveConfig.loadMediaArchiveConfigs(appConfig, nameCrashed).head
     config.archiveName should be(MediaArchiveConfig.DefaultNamePattern)
 
   it should "use a correct default value for the info parser timeout" in:
@@ -263,7 +263,7 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
 
   it should "read multiple archive configurations" in:
     val appConfig = addArchiveToConfig(addArchiveToConfig(createDefaultHierarchicalConfig(), 1), 2)
-    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
+    val configs = MediaArchiveConfig.loadMediaArchiveConfigs(appConfig, staticArchiveName)
 
     configs should have size 3
     configs.zipWithIndex foreach { t =>
@@ -271,13 +271,13 @@ class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
     }
 
   it should "support default values for all archive configurations" in:
-    val appConfig = new HierarchicalConfiguration
+    val appConfig: Configuration = new HierarchicalConfiguration
     addTestDataToConfig(appConfig, "media.localArchives", 42)
     appConfig.addProperty("media.localArchives.localArchive.rootPath", RootPath.toString)
     appConfig.addProperty("media.localArchives.localArchive.archiveName", ArchiveName)
     addArchiveToConfig(appConfig, 2)
 
-    val configs = MediaArchiveConfig(appConfig, staticArchiveName)
+    val configs = MediaArchiveConfig.loadMediaArchiveConfigs(appConfig, staticArchiveName)
     configs should have size 2
     val config1 = configs.head
     config1.archiveName should be(ArchiveName)

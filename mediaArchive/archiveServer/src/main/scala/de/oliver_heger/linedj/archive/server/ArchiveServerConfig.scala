@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfigLoaderCC1.given
 import org.apache.commons.configuration.{Configuration, XMLConfiguration}
 
 import scala.collection.immutable.Seq
@@ -62,7 +63,7 @@ object ArchiveServerConfig:
   def apply(config: Configuration): ArchiveServerConfig =
     new ArchiveServerConfig(
       serverPort = config.getInt(PropServerPort, DefaultServerPort),
-      archiveConfigs = MediaArchiveConfig(config)
+      archiveConfigs = MediaArchiveConfig.loadMediaArchiveConfigs(config)
     )
 end ArchiveServerConfig
 

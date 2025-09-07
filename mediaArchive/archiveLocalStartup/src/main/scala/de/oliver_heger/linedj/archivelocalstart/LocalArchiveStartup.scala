@@ -17,8 +17,9 @@
 package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfigLoaderCC1.given
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
-import de.oliver_heger.linedj.archiveunion.{MetadataUnionActor, MetadataUnionProcessingListener}
+import de.oliver_heger.linedj.archiveunion.MetadataUnionProcessingListener
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
 import de.oliver_heger.linedj.platform.app.{ClientContextSupport, PlatformComponent}
 import de.oliver_heger.linedj.platform.mediaifc.MediaFacade.MediaFacadeActors
@@ -48,7 +49,7 @@ class LocalArchiveStartup(listenerFactory: MetadataUnionProcessingListener.Facto
 
   def this() = this(MetadataUnionProcessingListener.behavior)
 
-  import LocalArchiveStartup._
+  import LocalArchiveStartup.*
 
   /** The logger. */
   private val log = LogManager.getLogger(getClass)
@@ -82,7 +83,7 @@ class LocalArchiveStartup(listenerFactory: MetadataUnionProcessingListener.Facto
     * @param metadataUnionActor the union metadata actor
     */
   private def startLocalArchive(mediaUnionActor: ActorRef, metadataUnionActor: ActorRef): Unit =
-    val archiveConfigs = MediaArchiveConfig(clientApplicationContext.managementConfiguration)
+    val archiveConfigs = MediaArchiveConfig.loadMediaArchiveConfigs(clientApplicationContext.managementConfiguration)
     val listenerBehavior = listenerFactory(metadataUnionActor)
     createAndRegisterActor(
       ArchiveGroupActor(mediaUnionActor, metadataUnionActor, listenerBehavior, archiveConfigs),
