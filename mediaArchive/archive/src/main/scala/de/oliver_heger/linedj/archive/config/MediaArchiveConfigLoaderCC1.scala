@@ -18,14 +18,15 @@ package de.oliver_heger.linedj.archive.config
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConfigLoader
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.shared.config.ConfigExtensions
+import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
 import java.nio.file.{Path, Paths}
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import scala.collection.immutable.Seq
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -135,7 +136,8 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
   /**
     * Reads a property from the given configuration object and converts it to a
     * duration, taking the section with default values into account if
-    * necessary.
+    * necessary. The configuration property can have an optional unit for the
+    * duration.
     *
     * @param c          the global configuration
     * @param subConfig  the sub config transformed for the current key
@@ -143,14 +145,20 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
     * @param optDefault the optional default value
     * @return the resulting duration
     */
-  private def durationProperty(c: Configuration, subConfig: Configuration, key: String,
+  private def durationProperty(c: Configuration,
+                               subConfig: Configuration,
+                               key: String,
                                optDefault: Option[FiniteDuration] = None): FiniteDuration =
-    def toDuration(secs: Long): FiniteDuration = FiniteDuration(secs, TimeUnit.SECONDS)
+    def getDuration(config: Configuration, key: String): Try[FiniteDuration] =
+      ConfigExtensions.toDurationFromTypes(config.getInt(key), config.getString(key))
 
-    if subConfig.containsKey(key) then toDuration(subConfig getLong key)
-    else optDefault.fold(toDuration(c.getLong(ArchivesSection + key))): defValue =>
-      if c.containsKey(ArchivesSection + key) then toDuration(c.getLong(ArchivesSection + key))
-      else defValue
+    val triedDuration = if subConfig.containsKey(key) then
+      getDuration(subConfig, key)
+    else
+      optDefault.fold(getDuration(c, ArchivesSection + key)): defValue =>
+        if c.containsKey(ArchivesSection + key) then getDuration(c, ArchivesSection + key)
+        else Success(defValue)
+    triedDuration.get
 
   /**
     * Determines the set with file extensions to be excluded from the given
@@ -183,7 +191,7 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
     * @return the set with exclusions
     */
   private def obtainExtensionSet(c: Configuration, subConfig: Configuration, key: String): Set[String] =
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val extensions = subConfig.getList(key, c.getList(ArchivesSection + key))
     extensions.asScala.map(_.toString.toUpperCase(Locale.ROOT)).toSet
 
