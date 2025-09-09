@@ -25,6 +25,7 @@ lazy val VersionCloudFiles = "0.10.1"
 lazy val VersionCommonsBeanutils = "1.11.0"
 lazy val VersionCommonsCollections = "3.2.2"
 lazy val VersionCommonsConfig = "1.10"
+lazy val VersionCommonsConfig2 = "2.12.0"
 lazy val VersionJackson = "2.19.2"
 lazy val VersionJavaFX = "11.0.2"
 lazy val VersionJguiraffe = "1.5"
@@ -165,6 +166,7 @@ lazy val osgiLogDependencies = logDependencies ++ Seq(
 lazy val beanUtilsDependency = "commons-beanutils" % "commons-beanutils" % VersionCommonsBeanutils
 lazy val collectionsDependency = "commons-collections" % "commons-collections" % VersionCommonsCollections
 lazy val configDependency = "commons-configuration" % "commons-configuration" % VersionCommonsConfig
+lazy val commonsConfig2Dependency = "org.apache.commons" % "commons-configuration2" % VersionCommonsConfig2
 
 /** Settings common to most projects that implement actual functionality. */
 lazy val defaultSettings = Seq(
@@ -355,10 +357,8 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
     name := "linedj-archive-server",
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
-    libraryDependencies ++= Seq(
-      collectionsDependency,
-      beanUtilsDependency
-    )
+    libraryDependencies += beanUtilsDependency,
+    libraryDependencies += commonsConfig2Dependency
   ) dependsOn(shared % "compile->compile;test->test", archive, archiveUnion, serverCommon)
 
 /**

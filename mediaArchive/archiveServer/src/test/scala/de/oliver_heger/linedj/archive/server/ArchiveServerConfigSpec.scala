@@ -16,7 +16,8 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import org.apache.commons.configuration.{ConfigurationException, XMLConfiguration}
+import org.apache.commons.configuration2.builder.fluent.Configurations
+import org.apache.commons.configuration2.ex.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
@@ -52,7 +53,8 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
       ex.getMessage should include(configFileName)
 
   it should "use default values for unspecified configuration properties" in :
-    val config = new XMLConfiguration("test-archive-server-config.xml")
+    val configs = new Configurations
+    val config = configs.xml("test-archive-server-config.xml")
     config.clearProperty(ArchiveServerConfig.PropServerPort)
 
     val serverConfig = ArchiveServerConfig(config)

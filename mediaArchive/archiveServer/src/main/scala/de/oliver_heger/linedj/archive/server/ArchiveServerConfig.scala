@@ -17,8 +17,11 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfigLoaderCC1.given
-import org.apache.commons.configuration.{Configuration, XMLConfiguration}
+import de.oliver_heger.linedj.archive.server.MediaArchiveConfigLoaderCC2.given
+import org.apache.commons.configuration2.{Configuration, XMLConfiguration}
+import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
+import org.apache.commons.configuration2.builder.fluent.Parameters
+import org.apache.commons.configuration2.io.{ClasspathLocationStrategy, CombinedLocationStrategy, HomeDirectoryLocationStrategy, ProvidedURLLocationStrategy}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,7 +54,21 @@ object ArchiveServerConfig:
     * @return a [[Future]] with the configuration
     */
   def apply(configFileName: String)(using ec: ExecutionContext): Future[ArchiveServerConfig] = Future:
-    apply(new XMLConfiguration(configFileName))
+    import scala.jdk.CollectionConverters.*
+    val params = new Parameters
+    val locationStrategies = List(
+      new ProvidedURLLocationStrategy,
+      new ClasspathLocationStrategy,
+      new HomeDirectoryLocationStrategy
+    )
+    val builder = new FileBasedConfigurationBuilder(classOf[XMLConfiguration])
+      .configure(
+        params.xml()
+          .setFileName(configFileName)
+          .setLocationStrategy(new CombinedLocationStrategy(locationStrategies.asJava))
+      )
+
+    apply(builder.getConfiguration)
 
   /**
     * Extracts the configuration for the archive server from the given
