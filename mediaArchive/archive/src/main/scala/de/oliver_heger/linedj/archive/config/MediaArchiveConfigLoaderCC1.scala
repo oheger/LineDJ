@@ -19,14 +19,13 @@ package de.oliver_heger.linedj.archive.config
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConfigLoader
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.shared.config.ConfigExtensions
-import de.oliver_heger.linedj.shared.config.ConfigExtensions.toDuration
 import org.apache.commons.configuration.Configuration
 import org.apache.logging.log4j.LogManager
 
 import java.nio.file.{Path, Paths}
 import java.util.Locale
 import scala.collection.immutable.Seq
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -44,7 +43,7 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
   private val Log = LogManager.getLogger(classOf[MediaArchiveConfigLoaderCC1])
 
   override def loadMediaArchiveConfigs(config: Configuration, nameResolver: => String): Seq[MediaArchiveConfig] =
-    val defDownloadConfig = DownloadConfig(config.subset(ArchivesSection))
+    val defDownloadConfig = parseDownloadConfig(config.subset(ArchivesSection), DownloadConfig.DefaultDownloadConfig)
     val archives = config.getList(ArchivesKey + "." + PropRootPath)
     (0 until archives.size()) map : idx =>
       val key = s"$ArchivesKey($idx)"
@@ -61,8 +60,10 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
     * @param nameResolver      a function for resolving the archive names
     * @return the ''MediaArchiveConfig'' that has been constructed
     */
-  private def extractMediaArchiveConfig(config: Configuration, defDownloadConfig: DownloadConfig,
-                                        keyPrefix: String, nameResolver: => String): MediaArchiveConfig =
+  private def extractMediaArchiveConfig(config: Configuration,
+                                        defDownloadConfig: DownloadConfig,
+                                        keyPrefix: String,
+                                        nameResolver: => String): MediaArchiveConfig =
     val subConfig = config.subset(keyPrefix)
     new MediaArchiveConfig(
       metadataReadChunkSize = intProperty(config, subConfig, PropMetaDataReadChunkSize),
@@ -80,7 +81,7 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
       rootPath = Paths get stringProperty(config, subConfig, PropRootPath),
       processorCount = intProperty(config, subConfig, PropProcessorCount, Some(DefaultProcessorCount)),
       contentFile = extractTocPath(config, subConfig),
-      downloadConfig = DownloadConfig(subConfig, defDownloadConfig),
+      downloadConfig = parseDownloadConfig(subConfig, defDownloadConfig),
       archiveName = resolveArchiveName(subConfig, nameResolver),
       infoParserTimeout = durationProperty(config, subConfig, PropScanParseInfoTimeout,
         Some(DefaultInfoParserTimeout.duration)),
@@ -206,4 +207,28 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
   private def extractTocPath(c: Configuration, subConfig: Configuration): Option[Path] =
     Option(stringProperty(c, subConfig, PropTocFile)).map(Paths.get(_))
 
-
+  /**
+    * Extracts the data of a [[DownloadConfig]] from the given configuration
+    * object.
+    *
+    * @param config    the configuration
+    * @param defConfig a default download configuration to use for undefined
+    *                  properties in the configuration to parse
+    * @return the extracted [[DownloadConfig]]
+    */
+  private def parseDownloadConfig(config: Configuration, defConfig: DownloadConfig): DownloadConfig =
+    new DownloadConfig(
+      downloadTimeout = durationProperty(
+        config,
+        config,
+        DownloadConfig.PropDownloadActorTimeout,
+        Some(defConfig.downloadTimeout)
+      ),
+      downloadCheckInterval = durationProperty(
+        config,
+        config,
+        DownloadConfig.PropDownloadCheckInterval,
+        Some(defConfig.downloadCheckInterval)
+      ),
+      downloadChunkSize = config.getInt(DownloadConfig.PropDownloadChunkSize, defConfig.downloadChunkSize)
+    )
