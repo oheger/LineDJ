@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.oliver_heger.linedj.archive.config
+package de.oliver_heger.linedj.archivelocalstart
 
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration}
 import org.apache.pekko.util.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,7 +25,7 @@ import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.*
 
-object MediaArchiveConfigSpec:
+object MediaArchiveConfigLoaderCC1Spec:
   /** The reader check interval. */
   private val ReaderCheckInterval = 10.minutes
 
@@ -145,10 +146,10 @@ object MediaArchiveConfigSpec:
 /**
   * Test class for ''MediaArchiveConfig''.
   */
-class MediaArchiveConfigSpec extends AnyFlatSpec with Matchers:
+class MediaArchiveConfigLoaderCC1Spec extends AnyFlatSpec with Matchers:
 
-  import MediaArchiveConfigSpec.*
-  import MediaArchiveConfigLoaderCC1.given 
+  import MediaArchiveConfigLoaderCC1.given
+  import MediaArchiveConfigLoaderCC1Spec.* 
 
   /**
     * Convenience function to create a configuration for a media archive from

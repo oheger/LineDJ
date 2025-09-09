@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package de.oliver_heger.linedj.archive.config
+package de.oliver_heger.linedj.archivelocalstart
 
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.MediaArchiveConfigLoader
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig.*
+import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.shared.config.ConfigExtensions
 import org.apache.commons.configuration.Configuration

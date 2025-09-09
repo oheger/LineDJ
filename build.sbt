@@ -304,7 +304,6 @@ lazy val archive = (project in file("mediaArchive/archive"))
   .settings(
     name := "linedj-archive",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archive.*")
   ) dependsOn(shared % "compile->compile;test->test", archiveCommon, metadataExtract, id3Extract)
 
@@ -358,7 +357,8 @@ lazy val archiveServer = (project in file("mediaArchive/archiveServer"))
     libraryDependencies ++= logDependencies,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += beanUtilsDependency,
-    libraryDependencies += commonsConfig2Dependency
+    libraryDependencies += commonsConfig2Dependency,
+    Compile / mainClass := Some("de.oliver_heger.linedj.archive.server.Server"),
   ) dependsOn(shared % "compile->compile;test->test", archive, archiveUnion, serverCommon)
 
 /**
@@ -472,6 +472,7 @@ lazy val archiveLocalStartup = (project in file("mediaArchive/archiveLocalStartu
   .settings(
     name := "linedj-archiveLocalStartup",
     libraryDependencies ++= osgiDependencies,
+    libraryDependencies += configDependency,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivelocalstart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")

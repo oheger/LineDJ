@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archivelocalstart
 
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
-import de.oliver_heger.linedj.archive.config.MediaArchiveConfigLoaderCC1.given
+import MediaArchiveConfigLoaderCC1.given
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.archiveunion.MetadataUnionProcessingListener
 import de.oliver_heger.linedj.platform.app.support.ActorManagementComponent
