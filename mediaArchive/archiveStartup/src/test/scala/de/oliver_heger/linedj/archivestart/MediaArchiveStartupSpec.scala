@@ -32,8 +32,14 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 object MediaArchiveStartupSpec:
+  /** The update chunk size for the union archive. */
+  private val MetadataUpdateChunkSize = 8192
+
+  /** The maximum message size for the union archive. */
+  private val MetadataMaxMessageSize = 32768
+
   /** The reference configuration for the media archive. */
-  private val ArchiveConfig = UnionArchiveConfig(createArchiveConfiguration())
+  private val ArchiveConfig = UnionArchiveConfig(MetadataUpdateChunkSize, MetadataMaxMessageSize)
 
   /**
     * Creates a configuration object that can be used to initialize the config

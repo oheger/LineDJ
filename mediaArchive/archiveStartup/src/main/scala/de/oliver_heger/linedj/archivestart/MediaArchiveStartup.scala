@@ -35,7 +35,7 @@ import org.osgi.service.component.ComponentContext
   * On activation, this component creates an ''MediaArchiveConfig'' object from
   * the configuration of the management application. Then it creates the actors
   * implementing the functionality of the media archive and all their
-  * dependencies. Afterwards, the media archive can be accessed via the
+  * dependencies. Afterward, the media archive can be accessed via the
   * current implementation of the ''MediaFacade'' trait.
   */
 class MediaArchiveStartup extends PlatformComponent with ClientContextSupport with ActorManagementComponent:
@@ -51,7 +51,20 @@ class MediaArchiveStartup extends PlatformComponent with ClientContextSupport wi
   override def activate(compCtx: ComponentContext): Unit =
     super.activate(compCtx)
     log.info("Starting up media archive.")
-    val archiveConfig = UnionArchiveConfig(clientApplicationContext.managementConfiguration)
+    val archiveConfig = parseUnionArchiveConfig()
     val metadataManager = createAndRegisterActor(Props(classOf[MetadataUnionActor],
       archiveConfig), MediaActors.MetadataManager.name)
     createAndRegisterActor(MediaUnionActor(metadataManager), MediaActors.MediaManager.name)
+
+  /**
+    * Parses the configuration for the union archive from the management
+    * configuration of this application.
+    *
+    * @return the configuration for the union archive
+    */
+  private def parseUnionArchiveConfig(): UnionArchiveConfig =
+    val config = clientApplicationContext.managementConfiguration
+    UnionArchiveConfig(
+      metadataUpdateChunkSize = config.getInt(UnionArchiveConfig.PropMetadataUpdateChunkSize),
+      initMetadataMaxMsgSize = config.getInt(UnionArchiveConfig.PropMetadataMaxMessageSize)
+    )

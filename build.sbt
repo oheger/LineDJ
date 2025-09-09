@@ -318,7 +318,6 @@ lazy val archiveUnion = (project in file("mediaArchive/archiveUnion"))
   .settings(
     name := "linedj-archive-union",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += configDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archiveunion.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
@@ -454,6 +453,7 @@ lazy val archiveStartup = (project in file("mediaArchive/archiveStartup"))
   .settings(
     name := "linedj-archiveStartup",
     libraryDependencies ++= osgiDependencies,
+    libraryDependencies += configDependency,
     OsgiKeys.privatePackage := Seq("de.oliver_heger.linedj.archivestart.*"),
     OsgiKeys.additionalHeaders :=
       Map("Service-Component" -> "OSGI-INF/*.xml")

@@ -16,54 +16,14 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import org.apache.commons.configuration.{Configuration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-object UnionArchiveConfigSpec:
-  /** Test value for the chunk size of a metadata notification. */
-  private val MetadataChunkSize = 10
-
-  /** Test value for the maximum message size of metadata chunk messages. */
-  private val MetadataMaxMsgSize = 150
-
-  /**
-    * Creates a test configuration object which can be used to populate a
-    * ''MediaArchiveConfig''.
-    *
-    * @param updateChunkSize value for the metadata update chunk size
-    * @return the configuration object
-    */
-  private def createConfiguration(updateChunkSize: Int = MetadataChunkSize): Configuration =
-    val config = new PropertiesConfiguration
-    config.addProperty("media.mediaArchive.metaDataUpdateChunkSize", updateChunkSize)
-    config.addProperty("media.mediaArchive.metaDataMaxMessageSize", MetadataMaxMsgSize)
-    config
-
-  /**
-    * Creates a ''MediaArchiveConfig'' object initialized from a test
-    * configuration.
-    *
-    * @param updateChunkSize value for the metadata update chunk size
-    * @return the ''MediaArchiveConfig''
-    */
-  private def createMediaConfig(updateChunkSize: Int = MetadataChunkSize): UnionArchiveConfig =
-    UnionArchiveConfig(createConfiguration(updateChunkSize))
 
 /**
   * Test class for ''MediaArchiveConfig''.
   */
 class UnionArchiveConfigSpec extends AnyFlatSpec with Matchers:
-
-  import UnionArchiveConfigSpec._
-
-  "A UnionArchiveConfig" should "return the correct update chunk size" in:
-    createMediaConfig().metadataUpdateChunkSize should be(MetadataChunkSize)
-
-  it should "return the correct maximum message size" in:
-    createMediaConfig().metadataMaxMessageSize should be(MetadataMaxMsgSize)
-
-  it should "adapt the maximum message size if necessary" in:
-    val config = createMediaConfig(updateChunkSize = 8)
+  "A UnionArchiveConfig" should "adapt the maximum message size if necessary" in:
+    val config = UnionArchiveConfig(metadataUpdateChunkSize = 8, initMetadataMaxMsgSize = 150)
 
     config.metadataMaxMessageSize should be(152)

@@ -16,8 +16,6 @@
 
 package de.oliver_heger.linedj.archiveunion
 
-import org.apache.commons.configuration.Configuration
-
 object UnionArchiveConfig:
   /** Constant for the common prefix for configuration options. */
   private val ConfigPrefix = "media."
@@ -26,22 +24,10 @@ object UnionArchiveConfig:
   private val MediaArchivePrefix = ConfigPrefix + "mediaArchive."
 
   /** The configuration property for the size of metadata update chunks. */
-  private val PropMetadataUpdateChunkSize = MediaArchivePrefix + "metaDataUpdateChunkSize"
+  final val PropMetadataUpdateChunkSize = MediaArchivePrefix + "metaDataUpdateChunkSize"
 
   /** The configuration property for the maximum metadata message size. */
-  private val PropMetadataMaxMessageSize = MediaArchivePrefix + "metaDataMaxMessageSize"
-
-  /**
-    * Creates a new instance of ''MediaArchiveConfig'' based on the passed in
-    * ''Configuration'' object.
-    *
-    * @param config the ''Configuration'' to be processed
-    * @return the new ''ServerConfig'' instance
-    */
-  def apply(config: Configuration): UnionArchiveConfig =
-    new UnionArchiveConfig(
-      metadataUpdateChunkSize = config getInt PropMetadataUpdateChunkSize,
-      initMetadataMaxMsgSize = config getInt PropMetadataMaxMessageSize)
+  final val PropMetadataMaxMessageSize = MediaArchivePrefix + "metaDataMaxMessageSize"
 
 /**
   * A class for managing configuration data for the union media archive.
