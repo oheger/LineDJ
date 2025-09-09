@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archivehttpstart.app
 
-import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
+import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -151,6 +151,23 @@ class HttpArchiveConfigManagerSpec extends AnyFlatSpec with Matchers:
     val data = manager.archives(StartupConfigTestHelper.archiveName(1))
     data.config.archiveConfig.downloadConfig
       .downloadChunkSize should be(StartupConfigTestHelper.DownloadChunkSize)
+    data.config.archiveConfig.downloadConfig.downloadTimeout should be(StartupConfigTestHelper.DownloadActorTimeout)
+    data.config.archiveConfig.downloadConfig
+      .downloadCheckInterval should be(StartupConfigTestHelper.DownloadCheckInterval)
+    
+  it should "use a default download config" in:
+    val config = StartupConfigTestHelper.addArchiveToConfig(new HierarchicalConfiguration, 1)
+    val propertiesToClear = List(
+      DownloadConfig.PropDownloadChunkSize,
+      DownloadConfig.PropDownloadCheckInterval,
+      DownloadConfig.PropDownloadActorTimeout
+    )
+    propertiesToClear.foreach(prop => config.clearProperty("media.mediaArchive." + prop))
+    
+    val manager = HttpArchiveConfigManager(config)
+    val data = manager.archives(StartupConfigTestHelper.archiveName(1))
+    
+    data.config.archiveConfig.downloadConfig should be(DownloadConfig.DefaultDownloadConfig)
 
   it should "allow selecting all archives for a specific realm" in:
     val Realm = StartupConfigTestHelper.realmName(1)

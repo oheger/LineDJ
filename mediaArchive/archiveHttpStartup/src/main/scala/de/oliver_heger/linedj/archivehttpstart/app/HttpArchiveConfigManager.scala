@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archivehttpstart.app
 
 import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
+import de.oliver_heger.linedj.shared.config.ConfigExtensions
 import org.apache.commons.configuration.Configuration
 import org.apache.commons.logging.LogFactory
 
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.immutable.{SortedMap, TreeMap}
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 private object HttpArchiveConfigManager:
@@ -102,7 +104,7 @@ private object HttpArchiveConfigManager:
     val realmNames = c.getList(KeyRealms + KeyRealmName)
     val realms = extractRealms(c, realmNames.size() - 1, Map.empty)
     val archiveNames = c.getList(KeyArchiveNames)
-    val downloadConfig = DownloadConfig(c.subset(SectionMediaArchive))
+    val downloadConfig = parseDownloadConfig(c.subset(SectionMediaArchive))
     new HttpArchiveConfigManager(addArchive(c, downloadConfig, realms, archiveNames.size() - 1,
       TreeMap.empty, Set.empty))
 
@@ -147,9 +149,9 @@ private object HttpArchiveConfigManager:
                                 currentKey: String, names: Set[String]):
   Option[HttpArchiveData] =
     for config <- HttpArchiveStartupConfig(c, currentKey, downloadConfig).toOption
-         realmName <- Option(c.getString(currentKey + KeyRealm))
-         realm <- realmForArchive(realms, realmName, config)
-         yield HttpArchiveData(config, realm, generateShortName(config, names),
+        realmName <- Option(c.getString(currentKey + KeyRealm))
+        realm <- realmForArchive(realms, realmName, config)
+    yield HttpArchiveData(config, realm, generateShortName(config, names),
       encrypted = c.getBoolean(currentKey + KeyEncrypted, false),
       protocol = c.getString(currentKey + KeyProtocol, DefaultProtocolName))
 
@@ -255,6 +257,42 @@ private object HttpArchiveConfigManager:
           throw new ArchiveConfigException(s"Unknown archive type: $t.")
     (name, realm)
 
+  /**
+    * Parses a [[DownloadConfig]] from the given configuration.
+    *
+    * @param config the configuration to parse
+    * @return the extracted [[DownloadConfig]]
+    */
+  private def parseDownloadConfig(config: Configuration): DownloadConfig =
+    new DownloadConfig(
+      downloadTimeout = durationProperty(
+        config,
+        DownloadConfig.PropDownloadActorTimeout,
+        DownloadConfig.DefaultDownloadActorTimeout
+      ),
+      downloadCheckInterval = durationProperty(
+        config,
+        DownloadConfig.PropDownloadCheckInterval,
+        DownloadConfig.DefaultDownloadCheckInterval
+      ),
+      downloadChunkSize = config.getInt(DownloadConfig.PropDownloadChunkSize, DownloadConfig.DefaultDownloadChunkSize)
+    )
+
+  /**
+    * Reads a property from the given configuration object and converts it to a
+    * duration. The property value can have an optional unit.
+    *
+    * @param config   the configuration
+    * @param key      the key
+    * @param defValue the default value
+    * @return the resulting duration
+    */
+  private def durationProperty(config: Configuration, key: String, defValue: FiniteDuration): FiniteDuration =
+    if config.containsKey(key) then
+      ConfigExtensions.toDurationFromTypes(config.getInt(key), config.getString(key)).get
+    else
+      defValue
+
 /**
   * An internally used helper class that is responsible for the management of
   * the configurations of the HTTP archives to be started.
@@ -263,14 +301,14 @@ private object HttpArchiveConfigManager:
   * application which is related to HTTP archives. The following data is
   * available:
   *  - A list with the names of the declared HTTP archives. Access to the
-  * detail information of an archive is then possible by this name.
+  *    detail information of an archive is then possible by this name.
   *  - For each HTTP archive its
-  * [[de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig]].
+  *    [[de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig]].
   *  - For each HTTP archive a ''realm'' with user credentials. This is needed
-  * to log into the archive on a remote HTTP server.
+  *    to log into the archive on a remote HTTP server.
   *  - For each HTTP archive a short name derived from its name. Based on this
-  * name, the names of the actors managing this archive are constructed. This
-  * class ensures that such names are unique.
+  *    name, the names of the actors managing this archive are constructed. This
+  *    class ensures that such names are unique.
   *
   * @param archives a map with data about the managed archives; key is the
   *                 archive name (the map is sorted by archive names)

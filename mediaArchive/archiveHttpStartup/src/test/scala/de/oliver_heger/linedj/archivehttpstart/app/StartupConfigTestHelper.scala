@@ -4,6 +4,8 @@ import de.oliver_heger.linedj.archivecommon.download.DownloadConfig
 import de.oliver_heger.linedj.archivehttp.config.HttpArchiveConfig
 import org.apache.commons.configuration.Configuration
 
+import scala.concurrent.duration.*
+
 /**
   * A helper class for generating configuration data for the archive startup
   * application.
@@ -17,6 +19,12 @@ object StartupConfigTestHelper:
 
   /** The test chunk size for download operations. */
   val DownloadChunkSize = 8888
+  
+  /** The test interval for checking for active downloads. */
+  final val DownloadCheckInterval = 5.minutes
+  
+  /** The test timeout for actors in the download configuration. */
+  final val DownloadActorTimeout = 10.minutes
 
   /**
     * Generates the name of a test archive.
@@ -84,6 +92,14 @@ object StartupConfigTestHelper:
                          protocol: Option[String] = None, encrypted: Boolean = false):
   Configuration =
     c.addProperty("media.mediaArchive." + DownloadConfig.PropDownloadChunkSize, DownloadChunkSize)
+    c.addProperty(
+      "media.mediaArchive." + DownloadConfig.PropDownloadCheckInterval,
+      s"${DownloadCheckInterval.toMinutes} min"
+    )
+    c.addProperty(
+      "media.mediaArchive." + DownloadConfig.PropDownloadActorTimeout, 
+      DownloadActorTimeout.toSeconds.toInt
+    )
     val propsBase = Map(HttpArchiveStartupConfig.PropArchiveName -> archiveName(idx),
       HttpArchiveStartupConfig.PropArchiveUri -> archiveUri(idx),
       HttpArchiveStartupConfig.PropDownloadBufferSize -> 16384,
