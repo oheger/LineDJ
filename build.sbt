@@ -286,8 +286,6 @@ lazy val archiveCommon = (project in file("mediaArchive/archiveCommon"))
   .settings(
     name := "linedj-archive-common",
     libraryDependencies ++= logDependencies,
-    libraryDependencies += configDependency,
-    libraryDependencies += collectionsDependency,
     OsgiKeys.exportPackage := Seq("de.oliver_heger.linedj.archivecommon.*"),
     OsgiKeys.privatePackage := Seq.empty
   ) dependsOn (shared % "compile->compile;test->test")
@@ -335,6 +333,7 @@ lazy val archiveHttp = (project in file("mediaArchive/archiveHttp"))
   .settings(
     name := "linedj-archive-http",
     libraryDependencies ++= logDependencies,
+    libraryDependencies += configDependency,
     libraryDependencies ++= pekkoHttpDependencies,
     libraryDependencies += ("com.github.oheger" %% "cloud-files-core" % VersionCloudFiles),
     libraryDependencies += ("com.github.oheger" %% "cloud-files-crypt" % VersionCloudFiles),

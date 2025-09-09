@@ -27,7 +27,6 @@ import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.GetMetadataFileInfo
 import de.oliver_heger.linedj.shared.archive.union.RemovedArchiveComponentProcessed
 import de.oliver_heger.linedj.{FileTestHelper, ForwardTestActor, StateTestHelper}
-import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.Timeout
@@ -54,7 +53,7 @@ object MediaManagerActorSpec:
 
   /** Class for the download manager actor. */
   private val ClsDownloadManagerActor: Class[_ <: Actor] =
-    DownloadMonitoringActor(DownloadConfig(new PropertiesConfiguration)).actorClass()
+    DownloadMonitoringActor(DownloadConfig.DefaultDownloadConfig).actorClass()
 
   /** Class for an actor managing a download operation. */
   private val ClsDownloadActor: Class[_ <: Actor] = classOf[MediaFileDownloadActor]

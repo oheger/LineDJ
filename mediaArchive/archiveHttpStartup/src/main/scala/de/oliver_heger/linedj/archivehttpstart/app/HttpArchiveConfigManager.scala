@@ -264,7 +264,7 @@ private object HttpArchiveConfigManager:
     * @return the extracted [[DownloadConfig]]
     */
   private def parseDownloadConfig(config: Configuration): DownloadConfig =
-    new DownloadConfig(
+    DownloadConfig(
       downloadTimeout = durationProperty(
         config,
         DownloadConfig.PropDownloadActorTimeout,

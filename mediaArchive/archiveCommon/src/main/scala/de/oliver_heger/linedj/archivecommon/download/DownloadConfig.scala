@@ -16,11 +16,7 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
-import java.util.concurrent.TimeUnit
-
-import org.apache.commons.configuration.Configuration
-
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object DownloadConfig:
   /** The configuration property for the reader timeout. */
@@ -45,40 +41,12 @@ object DownloadConfig:
     * Constant for a ''DownloadConfig'' instance that is initialized only with
     * default values.
     */
-  final val DefaultDownloadConfig: DownloadConfig = new DownloadConfig(DefaultDownloadActorTimeout,
+  final val DefaultDownloadConfig: DownloadConfig = new DownloadConfig(
+    DefaultDownloadActorTimeout,
     DefaultDownloadCheckInterval,
-    DefaultDownloadChunkSize)
-
-  /**
-    * Creates a new instance of ''DownloadConfig'' based on the passed in
-    * configuration object. It is expected that the properties supported by
-    * this class are on the top-level of the passed in configuration.
-    *
-    * @param config    the ''Configuration''
-    * @param defConfig an object with default values for missing properties
-    * @return the new ''DownloadConfig'' instance
-    */
-  def apply(config: Configuration, defConfig: DownloadConfig = DefaultDownloadConfig): DownloadConfig =
-    new DownloadConfig(
-      downloadTimeout = durationProperty(config, PropDownloadActorTimeout,
-        defConfig.downloadTimeout.toSeconds),
-      downloadCheckInterval = durationProperty(config, PropDownloadCheckInterval,
-        defConfig.downloadCheckInterval.toSeconds),
-      downloadChunkSize = config.getInt(PropDownloadChunkSize, defConfig.downloadChunkSize))
-
-  /**
-    * Reads a property from the given configuration object and converts it to a
-    * duration. This method expects that the duration is specified in seconds
-    * as a long value.
-    *
-    * @param config   the configuration
-    * @param key      the key
-    * @param defValue the default value
-    * @return the resulting duration
-    */
-  private def durationProperty(config: Configuration, key: String, defValue: Long):
-  FiniteDuration =
-    FiniteDuration(config.getLong(key, defValue), TimeUnit.SECONDS)
+    DefaultDownloadChunkSize
+  )
+end DownloadConfig
 
 /**
   * A class managing the configuration options related to download operations

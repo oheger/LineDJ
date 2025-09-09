@@ -217,7 +217,7 @@ private class MediaArchiveConfigLoaderCC1 extends MediaArchiveConfigLoader[Confi
     * @return the extracted [[DownloadConfig]]
     */
   private def parseDownloadConfig(config: Configuration, defConfig: DownloadConfig): DownloadConfig =
-    new DownloadConfig(
+    DownloadConfig(
       downloadTimeout = durationProperty(
         config,
         config,

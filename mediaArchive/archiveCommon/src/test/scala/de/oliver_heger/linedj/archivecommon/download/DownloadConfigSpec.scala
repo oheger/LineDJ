@@ -16,93 +16,14 @@
 
 package de.oliver_heger.linedj.archivecommon.download
 
-import org.apache.commons.configuration.{Configuration, HierarchicalConfiguration, PropertiesConfiguration}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import scala.concurrent.duration._
-
-object DownloadConfigSpec:
-  /** The timeout for an inactive download actor. */
-  private val DownloadTimeout = 2.hour
-
-  /** The check interval for download actors. */
-  private val DownloadCheckInterval = 22.minutes
-
-  /** The download chunk size. */
-  private val DownloadChunkSize = 8192
-
-  /**
-    * Creates the ''Configuration'' object with settings for download
-    * operations.
-    *
-    * @return the ''Configuration''
-    */
-  private def createUnderlyingConfig(): Configuration =
-    val config = new PropertiesConfiguration
-    config.addProperty("downloadTimeout", DownloadTimeout.toSeconds)
-    config.addProperty("downloadCheckInterval", DownloadCheckInterval.toSeconds)
-    config.addProperty("downloadChunkSize", DownloadChunkSize)
-    config
-
-  /**
-    * Creates a ''Configuration'' object with download options and removes the
-    * specified property. This is used to test default values.
-    *
-    * @param property the property to be removed
-    * @return the ''Configuration''
-    */
-  private def createUnderlyingConfigWithout(property: String): Configuration =
-    val config = createUnderlyingConfig()
-    config clearProperty property
-    config
-
-  /**
-    * Creates a test ''DownloadConfig'' instance.
-    *
-    * @param cc the underlying configuration to be used
-    * @return the test download config
-    */
-  private def createConfig(cc: Configuration = createUnderlyingConfig()): DownloadConfig =
-    DownloadConfig(cc)
 
 /**
   * Test class for ''DownloadConfig''.
   */
 class DownloadConfigSpec extends AnyFlatSpec with Matchers:
-
-  import DownloadConfigSpec._
-
-  "A DownloadConfig" should "return the correct download timeout" in:
-    createConfig().downloadTimeout should be(DownloadTimeout)
-
-  it should "return the correct download check interval" in:
-    createConfig().downloadCheckInterval should be(DownloadCheckInterval)
-
-  it should "return the correct download chunk size" in:
-    createConfig().downloadChunkSize should be(DownloadChunkSize)
-
-  it should "use a default download timeout" in:
-    val config = createConfig(createUnderlyingConfigWithout("downloadTimeout"))
-
-    config.downloadTimeout should be(DownloadConfig.DefaultDownloadActorTimeout)
-
-  it should "use a default download check interval" in:
-    val config = createConfig(createUnderlyingConfigWithout("downloadCheckInterval"))
-
-    config.downloadCheckInterval should be(DownloadConfig.DefaultDownloadCheckInterval)
-
-  it should "use a default download chunk size" in:
-    val config = createConfig(createUnderlyingConfigWithout("downloadChunkSize"))
-
-    config.downloadChunkSize should be(DownloadConfig.DefaultDownloadChunkSize)
-
-  it should "provide a default instance" in:
+  "A DownloadConfig" should "provide a default instance" in:
     DownloadConfig.DefaultDownloadConfig.downloadChunkSize should be(DownloadConfig.DefaultDownloadChunkSize)
     DownloadConfig.DefaultDownloadConfig.downloadTimeout should be(DownloadConfig.DefaultDownloadActorTimeout)
     DownloadConfig.DefaultDownloadConfig.downloadCheckInterval should be(DownloadConfig.DefaultDownloadCheckInterval)
-
-  it should "support default values when creating an instance" in:
-    val config = DownloadConfig(new HierarchicalConfiguration, DownloadConfig.DefaultDownloadConfig)
-
-    config should be(DownloadConfig.DefaultDownloadConfig)
