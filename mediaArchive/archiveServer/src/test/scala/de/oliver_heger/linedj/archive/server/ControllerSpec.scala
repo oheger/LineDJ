@@ -181,6 +181,7 @@ class ControllerSpec(testSystem: classics.ActorSystem) extends TestKit(testSyste
   it should "return correct server parameters" in :
     val config = ArchiveServerConfig(
       serverPort = 8765,
+      timeout = ArchiveServerConfig.DefaultServerTimeout,
       archiveConfigs = Nil
     )
     val context = Controller.ArchiveServerContext(

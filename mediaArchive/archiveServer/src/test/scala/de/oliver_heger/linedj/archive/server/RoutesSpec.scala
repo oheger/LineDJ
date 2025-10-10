@@ -58,7 +58,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand]): Route =
     val controller = new Controller() with SystemPropertyAccess {}
     val context = Controller.ArchiveServerContext(
-      serverConfig = ArchiveServerConfig(0, Nil),
+      serverConfig = ArchiveServerConfig(0, ArchiveServerConfig.DefaultServerTimeout, Nil),
       contentActor = contentActor
     )
     val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)

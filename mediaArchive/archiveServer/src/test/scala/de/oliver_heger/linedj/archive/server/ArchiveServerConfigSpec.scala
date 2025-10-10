@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server
 
+import org.apache.commons.configuration2.Configuration
 import org.apache.commons.configuration2.builder.fluent.Configurations
 import org.apache.commons.configuration2.ex.ConfigurationException
 import org.apache.pekko.actor.ActorSystem
@@ -23,6 +24,8 @@ import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.duration.DurationInt
 
 /**
   * Test class for [[ArchiveServerConfig]].
@@ -34,6 +37,16 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
   override protected def afterAll(): Unit =
     TestKit.shutdownActorSystem(system)
     super.afterAll()
+
+  /**
+    * Loads the test configuration file and parses it to a [[Configuration]]
+    * instance.
+    *
+    * @return the [[Configuration]] loaded from the test config file
+    */
+  private def loadTestConfig(): Configuration =
+    val configs = new Configurations
+    configs.xml("test-archive-server-config.xml")
 
   "ArchiveServerConfig" should "successfully load the configuration" in :
     ArchiveServerConfig("test-archive-server-config.xml") map : config =>
@@ -53,10 +66,27 @@ class ArchiveServerConfigSpec(testSystem: ActorSystem) extends TestKit(testSyste
       ex.getMessage should include(configFileName)
 
   it should "use default values for unspecified configuration properties" in :
-    val configs = new Configurations
-    val config = configs.xml("test-archive-server-config.xml")
+    val config = loadTestConfig()
     config.clearProperty(ArchiveServerConfig.PropServerPort)
 
     val serverConfig = ArchiveServerConfig(config)
 
     serverConfig.serverPort should be(ArchiveServerConfig.DefaultServerPort)
+    serverConfig.timeout should be(ArchiveServerConfig.DefaultServerTimeout)
+
+  it should "parse a numeric timeout" in :
+    val TimeoutSecs = 27
+    val config = loadTestConfig()
+    config.setProperty(ArchiveServerConfig.PropServerTimeout, TimeoutSecs)
+
+    val serverConfig = ArchiveServerConfig(config)
+
+    serverConfig.timeout should be(TimeoutSecs.seconds)
+
+  it should "parse a timeout with a unit" in :
+    val config = loadTestConfig()
+    config.setProperty(ArchiveServerConfig.PropServerTimeout, "2min")
+
+    val serverConfig = ArchiveServerConfig(config)
+
+    serverConfig.timeout should be(120.seconds)
