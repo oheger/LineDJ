@@ -34,6 +34,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Promise
+import scala.concurrent.duration.DurationInt
+
+object RoutesSpec:
+  /** The configuration used by tests per default. */
+  private val TestServerConfig = ArchiveServerConfig(0, ArchiveServerConfig.DefaultServerTimeout, Nil)
+end RoutesSpec
 
 /**
   * Test class for the routes of the archive server.
@@ -47,6 +53,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     testKit.shutdownTestKit()
     super.afterAll()
 
+  import RoutesSpec.*
+
   /**
     * Returns a [[Route]] to be tested based on the given content actor. This
     * function obtains the route from the [[Controller]], so that the 
@@ -55,10 +63,11 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @param contentActor the content actor to use
     * @return the [[Route]] for being tested
     */
-  private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand]): Route =
+  private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand],
+                        config: ArchiveServerConfig = TestServerConfig): Route =
     val controller = new Controller() with SystemPropertyAccess {}
     val context = Controller.ArchiveServerContext(
-      serverConfig = ArchiveServerConfig(0, ArchiveServerConfig.DefaultServerTimeout, Nil),
+      serverConfig = config,
       contentActor = contentActor
     )
     val services = ServerController.ServerServices(system, ManagingActorFactory.newDefaultManagingActorFactory)
@@ -81,4 +90,18 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       status should be(StatusCodes.OK)
       val actualMedia = responseAs[ArchiveModel.MediaOverview]
       actualMedia.media should contain theSameElementsAs mediaOverview
-      
+
+  it should "respect the configured timeout" in :
+    val config = ArchiveServerConfig(
+      serverPort = 8080,
+      timeout = 10.millis,
+      archiveConfigs = Nil
+    )
+    val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case (context, ArchiveContentActor.ArchiveContentCommand.GetMedia(replyTo)) =>
+        context.scheduleOnce(500.millis, replyTo, ArchiveContentActor.GetMediaResponse(Nil))
+        Behaviors.same
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get("/api/archive/media") ~> testRoute(contentActor, config) ~> check:
+      status should be(StatusCodes.InternalServerError)

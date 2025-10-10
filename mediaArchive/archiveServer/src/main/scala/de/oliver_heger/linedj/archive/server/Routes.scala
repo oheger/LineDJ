@@ -26,8 +26,6 @@ import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.util.Timeout
 
-import scala.concurrent.duration.*
-
 /**
   * An object defining the routes supported by the archive server.
   *
@@ -37,14 +35,15 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
   /**
     * Returns the top-level route of the archive server.
     *
+    * @param config       the configuration for the server
     * @param contentActor the actor managing the content of the archive
     * @return the top-level route of the server
     */
-  def route(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand])
+  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand])
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
-    given Timeout(3.seconds)
+    given Timeout(config.timeout)
     import org.apache.pekko.actor.typed.scaladsl.AskPattern.schedulerFromActorSystem
 
     pathPrefix("api"):
