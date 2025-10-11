@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand
+import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand.GetMedium
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -68,3 +69,24 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     contentActor ! ArchiveContentCommand.GetMedia(probe.ref)
     val response = probe.expectMessageType[ArchiveContentActor.GetMediaResponse]
     response.media should contain theSameElementsAs expectedOverviews
+
+  it should "return detail information about a specific medium" in :
+    val medium = createMedium(1)
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    contentActor ! ArchiveContentCommand.AddMedium(medium)
+
+    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediumResponse]()
+    contentActor ! GetMedium(medium.id, probe.ref)
+    val details = probe.expectMessageType[ArchiveContentActor.GetMediumResponse]
+
+    details should be(ArchiveContentActor.GetMediumResponse(medium.id, Some(medium)))
+
+  it should "handle a request for the details of a non-existing medium" in :
+    val mediumID = Checksums.MediumChecksum("a-non-existing-medium-id")
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+
+    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediumResponse]()
+    contentActor ! GetMedium(mediumID, probe.ref)
+    val details = probe.expectMessageType[ArchiveContentActor.GetMediumResponse]
+
+    details should be(ArchiveContentActor.GetMediumResponse(mediumID, None))
