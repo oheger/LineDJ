@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.model
 
+import de.oliver_heger.linedj.io.parser.JsonProtocolSupport
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.{DefaultJsonProtocol, JsString, JsValue, RootJsonFormat, deserializationError}
@@ -129,8 +130,11 @@ object ArchiveModel:
             case JsString(value) => Checksums.MediumChecksum(value)
             case o => deserializationError(s"String expected, but got '$o'.")
 
+    given orderModeFormat: RootJsonFormat[OrderMode] = JsonProtocolSupport.enumFormat[OrderMode](OrderMode.valueOf)
+
     given mediumOverviewFormat: RootJsonFormat[MediumOverview] = jsonFormat2(MediumOverview.apply)
 
     given mediaOverviewFormat: RootJsonFormat[MediaOverview] = jsonFormat1(MediaOverview.apply)
+
+    given mediumDetailsFormat: RootJsonFormat[MediumDetails] = jsonFormat3(MediumDetails.apply)
   end ArchiveJsonSupport
-  

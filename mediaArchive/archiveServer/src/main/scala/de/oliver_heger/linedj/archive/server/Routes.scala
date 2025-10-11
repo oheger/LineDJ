@@ -18,10 +18,12 @@ package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.util.Timeout
@@ -49,9 +51,26 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     pathPrefix("api"):
       pathPrefix("archive"):
         pathPrefix("media"):
-          get:
-            val futMediaOverview = contentActor.ask[ArchiveContentActor.GetMediaResponse](
-              ArchiveContentActor.ArchiveContentCommand.GetMedia(_)
-            )
-            onSuccess(futMediaOverview): mediaResponse =>
-              complete(ArchiveModel.MediaOverview(mediaResponse.media))
+          concat(
+            pathEnd:
+              get:
+                val futMediaOverview = contentActor.ask[ArchiveContentActor.GetMediaResponse](
+                  ArchiveContentActor.ArchiveContentCommand.GetMedia(_)
+                )
+                onSuccess(futMediaOverview): mediaResponse =>
+                  complete(ArchiveModel.MediaOverview(mediaResponse.media)),
+            path(Segment): mediumID =>
+              concat(
+                pathEnd:
+                  get:
+                    val futMediumDetails = contentActor.ask[ArchiveContentActor.GetMediumResponse](ref =>
+                      ArchiveContentActor.ArchiveContentCommand.GetMedium(Checksums.MediumChecksum(mediumID), ref)
+                    )
+                    onSuccess(futMediumDetails): mediumResponse =>
+                      mediumResponse.optDetails match
+                        case Some(details) =>
+                          complete(details)
+                        case None =>
+                          complete(StatusCodes.NotFound)
+              )
+          )
