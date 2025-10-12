@@ -16,18 +16,16 @@
 
 package de.oliver_heger.linedj.shared.archive.media
 
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
 /**
-  * A data class to represent the URI of a media file.
-  *
-  * URIs are just plain strings; but this value class enriches the type system.
-  *
-  * @param uri the actual URI of the media file
+  * Test class for [[MediaFileUri]].
   */
-case class MediaFileUri(uri: String) extends AnyVal:
-  /**
-    * Extracts the name of this URI, which is the last path component with the
-    * extension removed.
-    *
-    * @return the name of this URI
-    */
-  def name: String = UriHelper.removeExtension(UriHelper.urlDecode(UriHelper.extractName(uri)))
+class MediaFileUriSpec extends AnyFlatSpec with Matchers:
+  "A MediaFileUri" should "return the name of the URI" in:
+    val uri = MediaFileUri("some%20medium/some%20artist/some%20album/01%20A%20nice%2Fcool%20song.mp3")
+
+    val name = uri.name
+
+    name should be("01 A nice/cool song")
