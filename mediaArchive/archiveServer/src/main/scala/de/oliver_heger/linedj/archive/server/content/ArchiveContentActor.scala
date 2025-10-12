@@ -33,7 +33,7 @@ object ArchiveContentActor:
   /**
     * Type alias for the commands supported by this actor implementation.
     */
-  type ArchiveContentCommand = ArchiveCommands.ReadArchiveContentCommand | ArchiveCommands.UpdateArchiveContentCommand 
+  type ArchiveContentCommand = ArchiveCommands.ReadArchiveContentCommand | ArchiveCommands.UpdateArchiveContentCommand
 
   /**
     * A factory trait for creating new instances of the archive content actor.
@@ -67,6 +67,10 @@ object ArchiveContentActor:
       case (ctx, ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium)) =>
         ctx.log.info("Added medium {}.", medium.overview)
         handleArchiveCommand(medium.overview :: mediaOverviews, media + (medium.id -> medium))
+
+      case (_, ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(_, _)) =>
+        // TODO: Not yet implemented.
+        Behaviors.same
 
       case (_, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
         replyTo ! ArchiveCommands.GetMediaResponse(mediaOverviews)

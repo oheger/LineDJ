@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.archive.server.model
 
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.typed.ActorRef
 
 /**
   * A module that defines different command classes for the interaction with
   * actors that are used by the implementation of the archive server.
-  * 
+  *
   * There is no direct 1:1 relationship between command classes and actors.
   * Typically, a single actor can implement multiple command classes. Different
   * clients of the actor use different commands depending on the use cases they
@@ -71,6 +71,16 @@ object ArchiveCommands:
       * @param medium the data about the medium to be added
       */
     case AddMedium(medium: ArchiveModel.MediumDetails)
+
+    /**
+      * A command to add information about a specific media file (a song) to 
+      * the archive.
+      *
+      * @param mediumID the ID of the medium the file belongs to
+      * @param metadata metadata about this file
+      */
+    case AddMediaFile(mediumID: Checksums.MediumChecksum,
+                      metadata: MediaMetadata)
   end UpdateArchiveContentCommand
 
   /**
@@ -80,7 +90,7 @@ object ArchiveCommands:
     * @param media a list with the data about all media
     */
   case class GetMediaResponse(media: List[ArchiveModel.MediumOverview])
-  
+
   /**
     * A data class representing the response sent for a 
     * [[ArchiveContentCommand.GetMedium]] command. Since the ID passed in the

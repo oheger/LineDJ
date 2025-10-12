@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
-import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MetadataProcessingEvent}
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata, MetadataProcessingEvent}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -115,3 +116,58 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! completedEvent
 
     probeContent.expectTerminated(listener)
+
+  it should "propagate information about a media file" in :
+    val metadata = MediaMetadata(
+      title = Some("Cool Song"),
+      size = 123456,
+      checksum = "checksum-of-the-cool-song"
+    )
+    val processingResult = MetadataProcessingSuccess(
+      mediumID = TestMediumID,
+      uri = MediaFileUri("someUri"),
+      metadata = metadata
+    )
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
+
+    val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
+    listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
+
+    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, metadata))
+
+  it should "ignore a failure processing result" in :
+    val metadata = MediaMetadata(
+      title = Some("Another Cool Song"),
+      size = 654321,
+      checksum = "checksum-of-another-cool-song"
+    )
+    val processingResult = MetadataProcessingSuccess(
+      mediumID = TestMediumID,
+      uri = MediaFileUri("someOtherUri"),
+      metadata = metadata
+    )
+    val failedResult = MetadataProcessingError(
+      mediumID = TestMediumID,
+      uri = MediaFileUri("failedFile"),
+      exception = new IllegalStateException("Test exception: Processing of media file failed.")
+    )
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
+
+    val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
+    listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, failedResult)
+    listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
+
+    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, metadata))
+
+  it should "derive a title for metadata from the file URI" in :
+    val uri = MediaFileUri("path/to/album/My%20song.mp3")
+    val metadata = MediaMetadata(size = 1000, checksum = "song-without-data")
+    val expectedMetadata = metadata.copy(title = Some("My song"))
+    val processingResult = MetadataProcessingSuccess(TestMediumID, uri, metadata)
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
+
+    val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))
+    listener ! MetadataProcessingEvent.ProcessingResultAvailable(TestChecksum, processingResult)
+
+    val expectedCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(TestChecksum, expectedMetadata)
+    probeContent.expectMessage(expectedCommand)

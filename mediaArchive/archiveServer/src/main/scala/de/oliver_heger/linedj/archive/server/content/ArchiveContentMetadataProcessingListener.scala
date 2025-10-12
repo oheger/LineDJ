@@ -18,7 +18,8 @@ package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
-import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
+import de.oliver_heger.linedj.shared.archive.metadata.{MediaMetadata, MetadataProcessingEvent}
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingSuccess}
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
@@ -81,6 +82,14 @@ object ArchiveContentMetadataProcessingListener:
         case None =>
           handleEvent(contentActor, pendingAvailableMedia, pendingDescriptions + (e.mediumID -> e))
 
+    case (ctx, e: MetadataProcessingEvent.ProcessingResultAvailable) =>
+      e.result match
+        case suc: MetadataProcessingSuccess =>
+          contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(e.checksum, fetchMetadata(suc))
+        case MetadataProcessingError(_, uri, exception) =>
+          ctx.log.warn("Received failed processing format for '{}'.", uri, exception)
+      Behaviors.same
+
     case (ctx, MetadataProcessingEvent.ProcessingCompleted(_)) =>
       ctx.log.info("Received processing completed event. Listener actor terminates.")
       Behaviors.stopped
@@ -128,3 +137,16 @@ object ArchiveContentMetadataProcessingListener:
       ctx.log.error("Unsupported order mode '{}'.", orderStr)
       Failure(ex)
     }.toOption
+
+  /**
+    * Obtains metadata from the given processing result and tries to populate
+    * missing properties with standard information.
+    *
+    * @param result the processing result
+    * @return the possibly augmented metadata from the result
+    */
+  private def fetchMetadata(result: MetadataProcessingSuccess): MediaMetadata =
+    if result.metadata.title.isDefined then
+      result.metadata
+    else
+      result.metadata.copy(title = Some(result.uri.name))
