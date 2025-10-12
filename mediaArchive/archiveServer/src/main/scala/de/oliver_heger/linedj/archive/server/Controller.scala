@@ -18,6 +18,7 @@ package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.group.ArchiveGroupActor
 import de.oliver_heger.linedj.archive.server.content.{ArchiveContentActor, ArchiveContentMetadataProcessingListener}
+import de.oliver_heger.linedj.archive.server.model.ArchiveCommands
 import de.oliver_heger.linedj.archiveunion.{MediaUnionActor, MetadataUnionActor, UnionArchiveConfig}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.server.common.ServerController.given
@@ -60,7 +61,7 @@ object Controller:
     * @param contentActor the actor managing the content of the archive
     */
   final case class ArchiveServerContext(serverConfig: ArchiveServerConfig,
-                                        contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand])
+                                        contentActor: ActorRef[ArchiveCommands.ReadArchiveContentCommand])
 end Controller
 
 /**

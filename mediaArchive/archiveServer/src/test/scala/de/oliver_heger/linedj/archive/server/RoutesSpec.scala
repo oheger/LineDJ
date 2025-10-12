@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand.GetMedium
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
@@ -64,7 +63,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     * @param contentActor the content actor to use
     * @return the [[Route]] for being tested
     */
-  private def testRoute(contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand],
+  private def testRoute(contentActor: ActorRef[ArchiveCommands.ReadArchiveContentCommand],
                         config: ArchiveServerConfig = TestServerConfig): Route =
     val controller = new Controller() with SystemPropertyAccess {}
     val context = Controller.ArchiveServerContext(
@@ -81,9 +80,9 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("c2"), "testMedium2"),
       ArchiveModel.MediumOverview(Checksums.MediumChecksum("c3"), "testMedium3")
     )
-    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
-      case ArchiveContentActor.ArchiveContentCommand.GetMedia(replyTo) =>
-        replyTo ! ArchiveContentActor.GetMediaResponse(mediaOverview)
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveCommands.ReadArchiveContentCommand]:
+      case ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo) =>
+        replyTo ! ArchiveCommands.GetMediaResponse(mediaOverview)
         Behaviors.same
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -99,8 +98,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       archiveConfigs = Nil
     )
     val contentBehavior = Behaviors.receivePartial[ArchiveContentActor.ArchiveContentCommand]:
-      case (context, ArchiveContentActor.ArchiveContentCommand.GetMedia(replyTo)) =>
-        context.scheduleOnce(500.millis, replyTo, ArchiveContentActor.GetMediaResponse(Nil))
+      case (context, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
+        context.scheduleOnce(500.millis, replyTo, ArchiveCommands.GetMediaResponse(Nil))
         Behaviors.same
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -114,8 +113,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
       orderMode = Some(ArchiveModel.OrderMode.Medium)
     )
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
-      case ArchiveContentActor.ArchiveContentCommand.GetMedium(id, replyTo) if id == medium.id =>
-        replyTo ! ArchiveContentActor.GetMediumResponse(id, Some(medium))
+      case ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo) if id == medium.id =>
+        replyTo ! ArchiveCommands.GetMediumResponse(id, Some(medium))
         Behaviors.same
 
     val contentActor = testKit.spawn(contentBehavior)
@@ -127,8 +126,8 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
   it should "handle a request for the details of a non-existing medium" in :
     val mediumID = Checksums.MediumChecksum("non-existing-medium")
     val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
-      case ArchiveContentActor.ArchiveContentCommand.GetMedium(id, replyTo) if id == mediumID =>
-        replyTo ! ArchiveContentActor.GetMediumResponse(id, None)
+      case ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo) if id == mediumID =>
+        replyTo ! ArchiveCommands.GetMediumResponse(id, None)
         Behaviors.same
 
     val contentActor = testKit.spawn(contentBehavior)

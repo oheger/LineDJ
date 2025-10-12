@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumDescription, MediumID}
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MetadataProcessingEvent}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -43,7 +42,7 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
   import ArchiveContentMetadataProcessingListenerSpec.*
 
   "An ArchiveContentMetadataProcessingListener" should "propagate information about media" in :
-    val probeContent = testKit.createTestProbe[ArchiveContentCommand]()
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
     val mediumEvent = MetadataProcessingEvent.MediumAvailable(
       mediumID = TestMediumID,
       checksum = TestChecksum,
@@ -62,10 +61,10 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! mediumEvent
     listener ! descriptionEvent
 
-    probeContent.expectMessage(ArchiveContentCommand.AddMedium(expectedDetails))
+    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMedium(expectedDetails))
 
   it should "propagate information about media if message arrive in an alternative order" in :
-    val probeContent = testKit.createTestProbe[ArchiveContentCommand]()
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
     val mediumEvent = MetadataProcessingEvent.MediumAvailable(
       mediumID = TestMediumID,
       checksum = TestChecksum,
@@ -84,10 +83,10 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! descriptionEvent
     listener ! mediumEvent
 
-    probeContent.expectMessage(ArchiveContentCommand.AddMedium(expectedDetails))
+    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMedium(expectedDetails))
 
   it should "handle an invalid order mode" in :
-    val probeContent = testKit.createTestProbe[ArchiveContentCommand]()
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
     val mediumEvent = MetadataProcessingEvent.MediumAvailable(
       mediumID = TestMediumID,
       checksum = TestChecksum,
@@ -106,10 +105,10 @@ class ArchiveContentMetadataProcessingListenerSpec extends ScalaTestWithActorTes
     listener ! mediumEvent
     listener ! descriptionEvent
 
-    probeContent.expectMessage(ArchiveContentCommand.AddMedium(expectedDetails))
+    probeContent.expectMessage(ArchiveCommands.UpdateArchiveContentCommand.AddMedium(expectedDetails))
 
   it should "stop itself when receiving a ProcessingCompleted event" in :
-    val probeContent = testKit.createTestProbe[ArchiveContentCommand]()
+    val probeContent = testKit.createTestProbe[ArchiveCommands.UpdateArchiveContentCommand]()
     val completedEvent = MetadataProcessingEvent.ProcessingCompleted(null)
 
     val listener = testKit.spawn(ArchiveContentMetadataProcessingListener.behavior(probeContent.ref))

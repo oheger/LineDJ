@@ -16,9 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand.AddMedium
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.MetadataProcessingEvent
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -45,7 +43,7 @@ object ArchiveContentMetadataProcessingListener:
       * @param contentActor the reference to the content actor to interact with
       * @return the [[Behavior]] of the new actor instance
       */
-    def apply(contentActor: ActorRef[ArchiveContentCommand]): Behavior[MetadataProcessingEvent]
+    def apply(contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand]): Behavior[MetadataProcessingEvent]
   end Factory
 
   /**
@@ -63,7 +61,7 @@ object ArchiveContentMetadataProcessingListener:
     * @param pendingDescriptions   a map with pending media description events
     * @return the updated behavior
     */
-  private def handleEvent(contentActor: ActorRef[ArchiveContentCommand],
+  private def handleEvent(contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
                           pendingAvailableMedia: Map[MediumID, MetadataProcessingEvent.MediumAvailable],
                           pendingDescriptions: Map[MediumID, MetadataProcessingEvent.MediumDescriptionAvailable]):
   Behavior[MetadataProcessingEvent] = Behaviors.receive:
@@ -99,7 +97,7 @@ object ArchiveContentMetadataProcessingListener:
     * @param mediumDescription the medium description event
     */
   private def forwardMedium(ctx: ActorContext[MetadataProcessingEvent],
-                            contentActor: ActorRef[ArchiveContentCommand],
+                            contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand],
                             mediumAvailable: MetadataProcessingEvent.MediumAvailable,
                             mediumDescription: MetadataProcessingEvent.MediumDescriptionAvailable): Unit =
     val mediumDetails = ArchiveModel.MediumDetails(
@@ -112,7 +110,7 @@ object ArchiveContentMetadataProcessingListener:
     )
 
     ctx.log.info("Got medium '{}'.", mediumDetails.overview.title)
-    contentActor ! AddMedium(mediumDetails)
+    contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(mediumDetails)
 
   /**
     * Converts a string for the order mode to the corresponding enumeration

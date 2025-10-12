@@ -17,8 +17,7 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand.GetMedium
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -50,12 +49,12 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
   import ArchiveContentActorSpec.*
 
   "ArchiveContentActor" should "return an empty list of media initially" in :
-    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediaResponse]()
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediaResponse]()
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
 
-    contentActor ! ArchiveContentCommand.GetMedia(probe.ref)
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetMedia(probe.ref)
 
-    probe.expectMessage(ArchiveContentActor.GetMediaResponse(Nil))
+    probe.expectMessage(ArchiveCommands.GetMediaResponse(Nil))
 
   it should "return overview information of the managed media" in :
     val media = (1 to 8) map createMedium
@@ -63,30 +62,30 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
 
     media.foreach: medium =>
-      contentActor ! ArchiveContentCommand.AddMedium(medium)
+      contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium)
 
-    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediaResponse]()
-    contentActor ! ArchiveContentCommand.GetMedia(probe.ref)
-    val response = probe.expectMessageType[ArchiveContentActor.GetMediaResponse]
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediaResponse]()
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetMedia(probe.ref)
+    val response = probe.expectMessageType[ArchiveCommands.GetMediaResponse]
     response.media should contain theSameElementsAs expectedOverviews
 
   it should "return detail information about a specific medium" in :
     val medium = createMedium(1)
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
-    contentActor ! ArchiveContentCommand.AddMedium(medium)
+    contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium)
 
-    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediumResponse]()
-    contentActor ! GetMedium(medium.id, probe.ref)
-    val details = probe.expectMessageType[ArchiveContentActor.GetMediumResponse]
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumResponse]()
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetMedium(medium.id, probe.ref)
+    val details = probe.expectMessageType[ArchiveCommands.GetMediumResponse]
 
-    details should be(ArchiveContentActor.GetMediumResponse(medium.id, Some(medium)))
+    details should be(ArchiveCommands.GetMediumResponse(medium.id, Some(medium)))
 
   it should "handle a request for the details of a non-existing medium" in :
     val mediumID = Checksums.MediumChecksum("a-non-existing-medium-id")
     val contentActor = testKit.spawn(ArchiveContentActor.behavior())
 
-    val probe = testKit.createTestProbe[ArchiveContentActor.GetMediumResponse]()
-    contentActor ! GetMedium(mediumID, probe.ref)
-    val details = probe.expectMessageType[ArchiveContentActor.GetMediumResponse]
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumResponse]()
+    contentActor ! ArchiveCommands.ReadArchiveContentCommand.GetMedium(mediumID, probe.ref)
+    val details = probe.expectMessageType[ArchiveCommands.GetMediumResponse]
 
-    details should be(ArchiveContentActor.GetMediumResponse(mediumID, None))
+    details should be(ArchiveCommands.GetMediumResponse(mediumID, None))

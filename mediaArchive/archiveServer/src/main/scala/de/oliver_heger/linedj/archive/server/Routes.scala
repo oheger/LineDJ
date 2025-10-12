@@ -16,8 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server
 
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
-import de.oliver_heger.linedj.archive.server.model.ArchiveModel
+import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
@@ -41,7 +40,7 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     * @param contentActor the actor managing the content of the archive
     * @return the top-level route of the server
     */
-  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveContentActor.ArchiveContentCommand])
+  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveCommands.ReadArchiveContentCommand])
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
@@ -54,8 +53,8 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
           concat(
             pathEnd:
               get:
-                val futMediaOverview = contentActor.ask[ArchiveContentActor.GetMediaResponse](
-                  ArchiveContentActor.ArchiveContentCommand.GetMedia(_)
+                val futMediaOverview = contentActor.ask[ArchiveCommands.GetMediaResponse](
+                  ArchiveCommands.ReadArchiveContentCommand.GetMedia(_)
                 )
                 onSuccess(futMediaOverview): mediaResponse =>
                   complete(ArchiveModel.MediaOverview(mediaResponse.media)),
@@ -63,8 +62,8 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
               concat(
                 pathEnd:
                   get:
-                    val futMediumDetails = contentActor.ask[ArchiveContentActor.GetMediumResponse](ref =>
-                      ArchiveContentActor.ArchiveContentCommand.GetMedium(Checksums.MediumChecksum(mediumID), ref)
+                    val futMediumDetails = contentActor.ask[ArchiveCommands.GetMediumResponse](ref =>
+                      ArchiveCommands.ReadArchiveContentCommand.GetMedium(Checksums.MediumChecksum(mediumID), ref)
                     )
                     onSuccess(futMediumDetails): mediumResponse =>
                       mediumResponse.optDetails match
