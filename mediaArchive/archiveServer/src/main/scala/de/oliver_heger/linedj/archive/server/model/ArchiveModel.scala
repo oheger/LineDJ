@@ -17,9 +17,9 @@
 package de.oliver_heger.linedj.archive.server.model
 
 import de.oliver_heger.linedj.io.parser.JsonProtocolSupport
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import spray.json.{DefaultJsonProtocol, JsString, JsValue, RootJsonFormat, deserializationError}
+import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, RootJsonFormat, deserializationError}
 
 /**
   * A module that defines the API model and JSON formats for the archive server
@@ -116,6 +116,32 @@ object ArchiveModel:
     export overview.*
 
   /**
+    * A data class holding information about an artist found on a medium.
+    *
+    * @param id         a unique ID to identify this artist
+    * @param artistName the name of this artist
+    */
+  final case class ArtistInfo(id: String,
+                              artistName: String)
+
+  /**
+    * A data class holding information about an album found on a medium.
+    *
+    * @param id        a unique ID to identify this album
+    * @param albumName the name of this album
+    */
+  final case class AlbumInfo(id: String,
+                             albumName: String)
+
+  /**
+    * A data class to represent a generic result consisting of a list of items.
+    *
+    * @param items the items making up the result
+    * @tparam DATA the type of the items in this result
+    */
+  final case class ItemsResult[DATA](items: List[DATA])
+
+  /**
     * A trait providing JSON converters for the classes of the archive data
     * model. By mixing in this trait, classes can get capabilities to do JSON
     * serialization with model classes.
@@ -137,4 +163,13 @@ object ArchiveModel:
     given mediaOverviewFormat: RootJsonFormat[MediaOverview] = jsonFormat1(MediaOverview.apply)
 
     given mediumDetailsFormat: RootJsonFormat[MediumDetails] = jsonFormat3(MediumDetails.apply)
+
+    given artistInfoFormat: RootJsonFormat[ArtistInfo] = jsonFormat2(ArtistInfo.apply)
+
+    given albumInfoFormat: RootJsonFormat[AlbumInfo] = jsonFormat2(AlbumInfo.apply)
+
+    given mediaMetadataFormat: RootJsonFormat[MediaMetadata] = jsonFormat9(MediaMetadata.apply)
+
+    given itemsResultFormat[DATA: JsonFormat]: RootJsonFormat[ItemsResult[DATA]] =
+      jsonFormat1(ItemsResult[DATA].apply)
   end ArchiveJsonSupport
