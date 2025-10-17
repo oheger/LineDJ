@@ -34,12 +34,24 @@ object MediumContentManagerSpec:
     * Convenience function to create a [[MediaMetadata]] instance with an
     * optional artist and album.
     *
-    * @param artist the optional artist
-    * @param album  the album
+    * @param artist  the optional artist
+    * @param album   the album
+    * @param title   an optional song title
+    * @param trackNo an optional track number
     * @return the [[MediaMetadata]] with this data
     */
-  private def createMetadata(artist: Option[String], album: String): MediaMetadata =
-    MediaMetadata(artist = artist, album = Some(album), size = 0, checksum = "")
+  private def createMetadata(artist: Option[String],
+                             album: String,
+                             title: Option[String] = None,
+                             trackNo: Option[Int] = None): MediaMetadata =
+    MediaMetadata(
+      artist = artist,
+      album = Some(album),
+      title = title,
+      trackNumber = trackNo,
+      size = 0,
+      checksum = ""
+    )
 end MediumContentManagerSpec
 
 /**
@@ -48,6 +60,7 @@ end MediumContentManagerSpec
 class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValues:
 
   import MediumContentManagerSpec.*
+  import MediumContentManager.given
 
   "idFor()" should "return different IDs for different keys" in :
     val id1 = MediumContentManager.idFor(Some("foo"), ArtistIdPrefix)
@@ -148,3 +161,85 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
     extracts should be > 0
     manager(s"${ArtistIdPrefix}_supertramp").value should have size 1
     extractCount.get() should be(extracts)
+
+  it should "provide an Ordering for metadata" in :
+    val Artist = Some("Dire Straits")
+    val Album = "Brothers in Arms"
+    val songData = List(
+      createMetadata(artist = Artist, album = Album, title = Some("So far away"), trackNo = Some(1)),
+      createMetadata(artist = Artist, album = Album, title = Some("Money for nothing"), trackNo = Some(2)),
+      createMetadata(artist = Some("Supertramp"), album = "Even in the quitest moments"),
+      createMetadata(artist = Artist, album = Album, title = Some("Your latest trick"), trackNo = Some(4)),
+      createMetadata(artist = Artist, album = Album, title = Some("Walk of life"), trackNo = Some(3))
+    )
+
+    val manager = new MediumContentManager(artistKeyExtractor, MediumContentManager.MetadataExtractor, ArtistIdPrefix)
+    manager.update(songData)
+    val artistID = manager.keyMapping.find(_._2 == Artist.get).map(_._1).value
+    val songs = manager(artistID).value
+
+    val expectedSongs = List(
+      songData.head,
+      songData(1),
+      songData(4),
+      songData(3)
+    )
+    songs should contain theSameElementsInOrderAs expectedSongs
+
+  "MediaMetadataOrdering" should "sort songs by their albums first" in :
+    val Artist = Some("Dire Straits")
+    val Album = "Brothers in Arms"
+    val songData = List(
+      createMetadata(artist = Artist, album = Album, title = Some("So far away"), trackNo = Some(1)),
+      createMetadata(artist = Artist, album = Album, title = Some("Money for nothing"), trackNo = Some(2)),
+      createMetadata(
+        artist = Some("Supertramp"),
+        album = "Even in the quitest moments",
+        title = Some("Give a little bit"),
+        trackNo = Some(1)
+      ),
+      createMetadata(artist = Artist, album = Album, title = Some("Your latest trick"), trackNo = Some(4)),
+      createMetadata(artist = Artist, album = Album, title = Some("Walk of life"), trackNo = Some(3))
+    )
+
+    val sortedSongs = songData.sorted
+
+    val expectedSongs = List(
+      songData.head,
+      songData(1),
+      songData(4),
+      songData(3),
+      songData(2)
+    )
+    sortedSongs should contain theSameElementsInOrderAs expectedSongs
+
+  it should "sort songs on an album by its track numbers and titles" in :
+    val songWithNoAlbum = createMetadata(artist = None, album = "", title = Some("No album"), trackNo = Some(17))
+      .copy(album = None)
+    val Artist = Some("Dire Straits")
+    val Album = "Brothers in Arms"
+    val track1 = createMetadata(artist = Artist, album = Album, title = Some("So far away"), trackNo = Some(1))
+    val track2 = createMetadata(artist = Artist, album = Album, title = Some("Money for nothing"), trackNo = Some(2))
+    val track3 = createMetadata(artist = Artist, album = Album, title = Some("Walk of life"), trackNo = Some(3))
+    val track01 = createMetadata(artist = Artist, album = Album, title = Some("08 One world"))
+    val track02 = createMetadata(artist = Artist, album = Album, title = Some("09 Brothers in arms"))
+    val songData = List(
+      track2,
+      track02,
+      track3,
+      songWithNoAlbum,
+      track1,
+      track01
+    )
+
+    val sortedSongs = songData.sorted
+
+    val expectedSongs = List(
+      songWithNoAlbum,
+      track01,
+      track02,
+      track1,
+      track2,
+      track3
+    )
+    sortedSongs should contain theSameElementsInOrderAs expectedSongs

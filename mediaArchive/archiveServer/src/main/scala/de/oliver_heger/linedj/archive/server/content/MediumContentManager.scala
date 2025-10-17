@@ -36,6 +36,36 @@ private object MediumContentManager:
   type DataExtractor[DATA] = MediaMetadata => DATA
 
   /**
+    * Constant for a name that is going to be used for items (song titles,
+    * artist or album names) for which no information is available.
+    */
+  private val UndefinedName = ""
+
+  /**
+    * Constant for the track number to use if a song's metadata does not any.
+    */
+  private val UndefinedTrackNumber = 0
+
+  /**
+    * A default [[DataExtractor]] function that just returns the passed in
+    * metadata. This serves the frequent use case that all information about a
+    * media file is required.
+    */
+  final val MetadataExtractor: DataExtractor[MediaMetadata] = identity
+
+  /**
+    * Definition of an [[Ordering]] on [[MediaMetadata]]. This implementation
+    * allows to sort metadata using meaningful sort criteria.
+    */
+  given metadataOrdering: Ordering[MediaMetadata] = Ordering[(String, Int, String)].on(
+    metadata => (
+      metadata.album.getOrElse(UndefinedName),
+      metadata.trackNumber.getOrElse(UndefinedTrackNumber),
+      metadata.title.getOrElse(UndefinedName)
+    )
+  )
+
+  /**
     * Generates a string-based ID from the given result of a [[KeyExtractor]]
     * function. Such IDs can then be used to query the data associated with
     * this ID. The main purpose of such IDs is to have a well-defined and
