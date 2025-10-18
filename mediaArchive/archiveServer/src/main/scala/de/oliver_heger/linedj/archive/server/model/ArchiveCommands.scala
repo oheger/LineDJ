@@ -84,8 +84,25 @@ object ArchiveCommands:
   end UpdateArchiveContentCommand
 
   /**
+    * A class defining the command to query the content of a specific medium.
+    * These commands allow obtaining different views on the songs contained on
+    * a medium. It is also possible to query information about the artists and
+    * albums that are referenced by songs.
+    */
+  enum ReadMediumContentCommand:
+    /**
+      * A command to request information about all the artists found on a
+      * specific medium.
+      *
+      * @param mediumID the ID of the desired medium
+      * @param replyTo  the reference to the actor to receive the response
+      */
+    case GetArtists(mediumID: Checksums.MediumChecksum,
+                    replyTo: ActorRef[GetMediumDataResponse[ArchiveModel.ArtistInfo]])
+
+  /**
     * A data class representing the response sent for a
-    * [[ArchiveContentCommand.GetMedia]] command.
+    * [[ReadArchiveContentCommand.GetMedia]] command.
     *
     * @param media a list with the data about all media
     */
@@ -93,7 +110,7 @@ object ArchiveCommands:
 
   /**
     * A data class representing the response sent for a 
-    * [[ArchiveContentCommand.GetMedium]] command. Since the ID passed in the
+    * [[ReadArchiveContentCommand.GetMedium]] command. Since the ID passed in the
     * request may be invalid, the response contains an [[Option]] with details;
     * it is ''None'' if the ID could not be resolved.
     *
@@ -102,3 +119,18 @@ object ArchiveCommands:
     */
   case class GetMediumResponse(id: Checksums.MediumChecksum,
                                optDetails: Option[ArchiveModel.MediumDetails])
+
+  /**
+    * A data class representing the response sent for requests of type
+    * [[ReadMediumContentCommand]]. The concrete results depend on the request.
+    * Therefore, this class has a type parameter. Requests for the content of a
+    * medium can fail if they contain an invalid ID. This is reflected in this
+    * type by using an [[Option]] for results; it is ''None'' if the ID from
+    * the request could not be resolved.
+    *
+    * @param request   the request this response is for
+    * @param optResult the optional result data
+    * @tparam DATA the type of the data in the result
+    */
+  case class GetMediumDataResponse[DATA](request: ReadMediumContentCommand,
+                                         optResult: Option[List[DATA]])

@@ -16,14 +16,91 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor.ArchiveContentCommand
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.ActorRef
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
 object ArchiveContentActorSpec:
+  /** Definitions of some test albums. */
+  private val direStraitsSongs = List(
+    "Down to the waterline",
+    "Water of love",
+    "Setting me up",
+    "Six blade knife",
+    "Southbound again",
+    "Sultans of swing"
+  )
+
+  private val tubularBellsSongs = List("Part I", "Part II")
+
+  private val crisisSongs = List(
+    "Crisis",
+    "Moonlight Shadow",
+    "In high places",
+    "Foreign affair",
+    "Taurus",
+    "Shadow on the wall"
+  )
+
+  private val imaginaerumSongs = List(
+    "Taikatalvi",
+    "Storytime",
+    "Ghost river",
+    "Slow, love, slow",
+    "I want my tears back",
+    "Scaretale"
+  )
+
+  /** Assignment of albums to songs. */
+  private val albums = Map(
+    "Dire Straits" -> direStraitsSongs,
+    "Tubular Bells" -> tubularBellsSongs,
+    "Crisis" -> crisisSongs,
+    "Imaginaerum" -> imaginaerumSongs
+  )
+
+  /** Assignment of artists to their albums. */
+  private val artistAlbums = Map(
+    "Dire Straits" -> List("Dire Straits"),
+    "Mike Oldfield" -> List("Tubular Bells", "Crisis"),
+    "Nightwish" -> List("Imaginaerum")
+  )
+
+  /**
+    * Creates a list with [[MediaMetadata]] objects for the test songs declared
+    * in this object. This is used as content for a test medium.
+    *
+    * @return the list of the [[MediaMetadata]] objects
+    */
+  private def createSongData(): Iterable[MediaMetadata] =
+    artistAlbums.flatMap: (artist, artistAlbums) =>
+      artistAlbums.flatMap: album =>
+        albums(album).zipWithIndex.map: (song, index) =>
+          createMetadata(artist, album, song, index + 1)
+
+  /**
+    * Creates a test [[MediaMetadata]] instance for a test song.
+    *
+    * @param artist the artist
+    * @param album  the album
+    * @param title  the song title
+    * @param track  the track number
+    * @return the test [[MediaMetadata]] instance
+    */
+  private def createMetadata(artist: String, album: String, title: String, track: Int): MediaMetadata =
+    MediaMetadata(
+      title = Some(title),
+      artist = Some(artist),
+      album = Some(album),
+      trackNumber = Some(track),
+      size = title.length * 100,
+      checksum = s"$artist:$album:$title"
+    )
+
   /**
     * Creates a test medium details object based in the given index.
     *
@@ -39,12 +116,33 @@ object ArchiveContentActorSpec:
       description = "Description for test medium " + idx,
       orderMode = Some(ArchiveModel.OrderMode.fromOrdinal(idx % ArchiveModel.OrderMode.values.length))
     )
+
+  /**
+    * Sends messages to the provided actor to add a test medium with the
+    * content defined by the test songs.
+    *
+    * @param contentActor the content actor
+    * @return the ID of the test medium
+    */
+  private def propagateTestMedium(contentActor: ActorRef[ArchiveCommands.UpdateArchiveContentCommand]):
+  Checksums.MediumChecksum =
+    val testMedium = createMedium(1)
+    contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(testMedium)
+
+    createSongData().foreach: song =>
+      val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
+        mediumID = testMedium.id,
+        metadata = song
+      )
+      contentActor ! addFileCommand
+    testMedium.id
 end ArchiveContentActorSpec
 
 /**
   * Test class for [[ArchiveContentActor]].
   */
-class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers:
+class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpecLike with Matchers
+  with OptionValues:
 
   import ArchiveContentActorSpec.*
 
@@ -89,3 +187,29 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val details = probe.expectMessageType[ArchiveCommands.GetMediumResponse]
 
     details should be(ArchiveCommands.GetMediumResponse(mediumID, None))
+
+  it should "return an undefined result when querying artists of a non-existing medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+
+    val artistsRequest = ArchiveCommands.ReadMediumContentCommand.GetArtists(
+      Checksums.MediumChecksum("non-existing"),
+      probe.ref
+    )
+    contentActor ! artistsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo](artistsRequest, None)
+    probe.expectMessage(expectedResult)
+
+  it should "return information about the artists of a medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]()
+
+    val artistsRequest = ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, probe.ref)
+    contentActor ! artistsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
+    response.request should be(artistsRequest)
+    val result = response.optResult.value
+    result.map(_.artistName) should contain theSameElementsAs artistAlbums.keys

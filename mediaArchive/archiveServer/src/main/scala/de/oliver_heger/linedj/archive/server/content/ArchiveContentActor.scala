@@ -18,7 +18,7 @@ package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 /**
@@ -33,7 +33,14 @@ object ArchiveContentActor:
   /**
     * Type alias for the commands supported by this actor implementation.
     */
-  type ArchiveContentCommand = ArchiveCommands.ReadArchiveContentCommand | ArchiveCommands.UpdateArchiveContentCommand
+  type ArchiveContentCommand = ArchiveCommands.ReadArchiveContentCommand |
+    ArchiveCommands.UpdateArchiveContentCommand |
+    ArchiveCommands.ReadMediumContentCommand
+
+  /**
+    * Type alias for a map that stores content actors for the managed media.
+    */
+  private type MediaContentMap = Map[Checksums.MediumChecksum, ActorRef[MediumContentActor.MediumContentCommand]]
 
   /**
     * A factory trait for creating new instances of the archive content actor.
@@ -51,26 +58,29 @@ object ArchiveContentActor:
     * A default [[Factory]] instance that can be used to create new actor
     * instances.
     */
-  final val behavior: Factory = () => handleArchiveCommand(Nil, Map.empty)
+  final val behavior: Factory = () => handleArchiveCommand(Nil, Map.empty, Map.empty)
 
   /**
     * The main command handler function for the archive content actor.
     *
     * @param mediaOverviews the current list of available media
     * @param media          a map with medium details for all known media
+    * @param mediaContent   a map with actors for the content of media
     * @return the updated behavior
     */
   private def handleArchiveCommand(mediaOverviews: List[ArchiveModel.MediumOverview],
-                                   media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails]):
-  Behavior[ArchiveContentCommand] =
+                                   media: Map[Checksums.MediumChecksum, ArchiveModel.MediumDetails],
+                                   mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
     Behaviors.receive:
       case (ctx, ArchiveCommands.UpdateArchiveContentCommand.AddMedium(medium)) =>
         ctx.log.info("Added medium {}.", medium.overview)
-        handleArchiveCommand(medium.overview :: mediaOverviews, media + (medium.id -> medium))
+        val (_, nextMediaContent) = contentActorFor(ctx, mediaContent, medium.id)
+        handleArchiveCommand(medium.overview :: mediaOverviews, media + (medium.id -> medium), nextMediaContent)
 
-      case (_, ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(_, _)) =>
-        // TODO: Not yet implemented.
-        Behaviors.same
+      case (ctx, ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(mediumID, metadata)) =>
+        val (actor, nextMediaContent) = contentActorFor(ctx, mediaContent, mediumID)
+        actor ! metadata
+        handleArchiveCommand(mediaOverviews, media, nextMediaContent)
 
       case (_, ArchiveCommands.ReadArchiveContentCommand.GetMedia(replyTo)) =>
         replyTo ! ArchiveCommands.GetMediaResponse(mediaOverviews)
@@ -79,3 +89,32 @@ object ArchiveContentActor:
       case (_, ArchiveCommands.ReadArchiveContentCommand.GetMedium(id, replyTo)) =>
         replyTo ! ArchiveCommands.GetMediumResponse(id, media.get(id))
         Behaviors.same
+
+      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo)) =>
+        mediaContent.get(mediumID) match
+          case Some(actor) =>
+            actor ! req
+          case None =>
+            replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+        Behaviors.same
+
+  /**
+    * Obtains the content actor for a specific medium from the given map. If it
+    * does not exist, it is created now. Result is the actor and the map, which
+    * may have been updated.
+    *
+    * @param ctx the actor context
+    * @param map the map with actors
+    * @param id  the ID of the affected medium
+    * @return the actor and the possibly updated map
+    */
+  private def contentActorFor(ctx: ActorContext[ArchiveContentCommand],
+                              map: MediaContentMap,
+                              id: Checksums.MediumChecksum):
+  (ActorRef[MediumContentActor.MediumContentCommand], MediaContentMap) =
+    map.get(id) match
+      case Some(actor) =>
+        (actor, map)
+      case None =>
+        val actor = ctx.spawn(MediumContentActor(), "mediumContent_" + id.checksum)
+        (actor, map + (id -> actor))
