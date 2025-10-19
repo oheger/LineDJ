@@ -17,6 +17,7 @@
 package de.oliver_heger.linedj.archive.server.content
 
 import de.oliver_heger.linedj.archive.server.content.MediumContentManager.{DataExtractor, KeyExtractor, idFor}
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
 import java.util.Locale
@@ -59,11 +60,23 @@ private object MediumContentManager:
     */
   given metadataOrdering: Ordering[MediaMetadata] = Ordering[(String, Int, String)].on(
     metadata => (
-      metadata.album.getOrElse(UndefinedName),
+      metadata.album.map(_.toLowerCase(Locale.ROOT)).getOrElse(UndefinedName),
       metadata.trackNumber.getOrElse(UndefinedTrackNumber),
-      metadata.title.getOrElse(UndefinedName)
+      metadata.title.map(_.toLowerCase(Locale.ROOT)).getOrElse(UndefinedName)
     )
   )
+
+  /**
+    * Definition of an [[Ordering]] on [[ArchiveModel.ArtistInfo]]. Objects are
+    * sorted by the artist name (ignoring case).
+    */
+  given artistInfoOrdering: Ordering[ArchiveModel.ArtistInfo] = Ordering.by(_.artistName.toLowerCase(Locale.ROOT))
+
+  /**
+    * Definition of an [[Ordering]] on [[ArchiveModel.AlbumInfo]]. Objects are
+    * sorted by the album name (ignoring case).
+    */
+  given albumInfoOrdering: Ordering[ArchiveModel.AlbumInfo] = Ordering.by(_.albumName.toLowerCase(Locale.ROOT))
 
   /**
     * Generates a string-based ID from the given result of a [[KeyExtractor]]

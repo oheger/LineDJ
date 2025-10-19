@@ -1,5 +1,6 @@
 package de.oliver_heger.linedj.archive.server.content
 
+import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -188,7 +189,7 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
 
   "MediaMetadataOrdering" should "sort songs by their albums first" in :
     val Artist = Some("Dire Straits")
-    val Album = "Brothers in Arms"
+    val Album = "brothers in arms"
     val songData = List(
       createMetadata(artist = Artist, album = Album, title = Some("So far away"), trackNo = Some(1)),
       createMetadata(artist = Artist, album = Album, title = Some("Money for nothing"), trackNo = Some(2)),
@@ -223,12 +224,16 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
     val track3 = createMetadata(artist = Artist, album = Album, title = Some("Walk of life"), trackNo = Some(3))
     val track01 = createMetadata(artist = Artist, album = Album, title = Some("08 One world"))
     val track02 = createMetadata(artist = Artist, album = Album, title = Some("09 Brothers in arms"))
+    val track03 = createMetadata(artist = Artist, album = Album, title = Some("ride across the river"))
+    val track04 = createMetadata(artist = Artist, album = Album, title = Some("The man's too big"))
     val songData = List(
       track2,
       track02,
       track3,
       songWithNoAlbum,
+      track03,
       track1,
+      track04,
       track01
     )
 
@@ -238,8 +243,55 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
       songWithNoAlbum,
       track01,
       track02,
+      track03,
+      track04,
       track1,
       track2,
       track3
     )
     sortedSongs should contain theSameElementsInOrderAs expectedSongs
+
+  "ArtistInfoOrdering" should "sort objects based on the artist name" in :
+    val artistDireStraits = ArchiveModel.ArtistInfo("art1", "Dire Straits")
+    val artistSupertramp = ArchiveModel.ArtistInfo("art2", "Supertramp")
+    val artistOldfield = ArchiveModel.ArtistInfo("art3", "mike oldfield")
+    val artistNightwish = ArchiveModel.ArtistInfo("art4", "nightwish")
+    val infos = List(
+      artistNightwish,
+      artistSupertramp,
+      artistOldfield,
+      artistDireStraits
+    )
+
+    val sortedInfos = infos.sorted
+
+    val expectedInfos = List(
+      artistDireStraits,
+      artistOldfield,
+      artistNightwish,
+      artistSupertramp
+    )
+    sortedInfos should contain theSameElementsInOrderAs expectedInfos
+
+  "AlbumInfoOrdering" should "sort objects based on the album name" in :
+    val albumDireStraits = ArchiveModel.AlbumInfo("alb1", "Dire Straits")
+    val albumLoveOverGold = ArchiveModel.AlbumInfo("alb2", "love over gold")
+    val albumBrothersInArms = ArchiveModel.AlbumInfo("alb3", "brothers in arms")
+    val albumMakingMovies = ArchiveModel.AlbumInfo("alb4", "Making movies")
+
+    val infos = List(
+      albumDireStraits,
+      albumBrothersInArms,
+      albumMakingMovies,
+      albumLoveOverGold
+    )
+
+    val sortedInfos = infos.sorted
+
+    val expectedInfos = List(
+      albumBrothersInArms,
+      albumDireStraits,
+      albumLoveOverGold,
+      albumMakingMovies
+    )
+    sortedInfos should contain theSameElementsInOrderAs expectedInfos
