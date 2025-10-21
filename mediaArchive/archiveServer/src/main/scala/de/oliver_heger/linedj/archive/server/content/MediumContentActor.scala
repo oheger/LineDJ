@@ -46,7 +46,7 @@ private object MediumContentActor:
     *
     * @param artists view for the artists on this medium
     */
-  private case class ContentManagers(artists: MediumContentManager[String]):
+  private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo]):
     /**
       * Notifies all managed content managers about a change in the list of
       * available songs.
@@ -64,7 +64,7 @@ private object MediumContentActor:
     */
   def apply(): Behavior[MediumContentCommand] =
     handleCommand(createManagers(), Nil)
-  
+
   /**
     * The main command handler function of this actor implementation.
     *
@@ -80,9 +80,8 @@ private object MediumContentActor:
         handleCommand(managers, nextSongs)
 
       case req@ArchiveCommands.ReadMediumContentCommand.GetArtists(_, replyTo) =>
-        val artists = managers.artists.keyMapping.map: (id, name) =>
-          ArchiveModel.ArtistInfo(id, name)
-        replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(artists.toList))
+        val artists = managers.artists("")
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, artists)
         Behaviors.same
 
   /**
@@ -92,11 +91,12 @@ private object MediumContentActor:
     * @return the object with all managers
     */
   private def createManagers(): ContentManagers =
+    import MediumContentManager.given
     ContentManagers(
       artists = MediumContentManager(
         idPrefix = "art",
         keyExtractor = _.artist,
-        dataExtractor = _.artist.getOrElse("")
+        dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, data.artist.getOrElse("")),
+        groupingFunc = _ => ""
       )
-    )  
-    
+    )

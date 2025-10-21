@@ -16,7 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
-import de.oliver_heger.linedj.archive.server.content.MediumContentManager.{DataExtractor, KeyExtractor, idFor}
+import de.oliver_heger.linedj.archive.server.content.MediumContentManager.{DataExtractor, GroupingFunc, KeyExtractor, UndefinedName, idFor}
 import de.oliver_heger.linedj.archive.server.model.ArchiveModel
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 
@@ -32,9 +32,21 @@ private object MediumContentManager:
 
   /**
     * Alias for a function to extract the data to be managed from a
-    * [[MediaMetadata]] object.
+    * [[MediaMetadata]] object. The function is passed the key that has been
+    * computed based on the result of the [[KeyExtractor]] function and the
+    * current metadata. From this information, it can produce a result data
+    * object.
     */
-  type DataExtractor[DATA] = MediaMetadata => DATA
+  type DataExtractor[DATA] = (String, MediaMetadata) => DATA
+
+  /**
+    * Alias for a function that computes the key used for grouping the data
+    * items to be managed. The function is passed the element IDs derived from
+    * the result of the [[KeyExtractor]]. The resulting string value becomes
+    * the basis for grouping; these values then also need to be specified to
+    * the ''apply()'' function to fetch the corresponding items.
+    */
+  type GroupingFunc = String => String
 
   /**
     * Constant for a name that is going to be used for items (song titles,
@@ -52,7 +64,7 @@ private object MediumContentManager:
     * metadata. This serves the frequent use case that all information about a
     * media file is required.
     */
-  final val MetadataExtractor: DataExtractor[MediaMetadata] = identity
+  final val MetadataExtractor: DataExtractor[MediaMetadata] = (_, data) => data
 
   /**
     * Definition of an [[Ordering]] on [[MediaMetadata]]. This implementation
@@ -106,13 +118,15 @@ end MediumContentManager
   * on a specific album, or view the albums of a specific artist. For each of
   * such views, a specific content manager instance can be created. It is
   * configured with functions to extract the desired data from song metadata.
-  * It then groups the data based on extracted keys like artist IDs of album
+  * It then groups the data based on extracted keys like artist IDs or album
   * IDs. While doing the grouping, it handles corner cases like undefined key
-  * (for instance missing information in a song) gracefully. It exposes the
-  * resulting mapping to be queried.
+  * (for instance missing information in a song) gracefully. It is also
+  * possible to manipulate the grouping by providing a custom [[GroupingFunc]].
+  * This allows grouping the data based on custom criteria. The resulting
+  * mapping is exposed to be queried.
   *
   * Queries can already be served while reading the archive's content is still
-  * in progress. When no song information arrives, the mapping becomes invalid
+  * in progress. When new song information arrives, the mapping becomes invalid
   * and needs to be reset. It is then re-constructed when the next query comes
   * in. Because of the state managed for this purpose, instances are not
   * thread-safe and need to be guarded.
@@ -121,12 +135,14 @@ end MediumContentManager
   *                      for grouping the data
   * @param dataExtractor the function to extract data
   * @param idPrefix      a prefix to generate IDs for extracted keys
+  * @param groupingFunc  the function to control grouping
   * @param ord           a [[Ordering]] for sorting the data
   * @tparam DATA the type of the data managed by this instance
   */
 private class MediumContentManager[DATA](keyExtractor: KeyExtractor,
                                          dataExtractor: DataExtractor[DATA],
-                                         idPrefix: String)
+                                         idPrefix: String,
+                                         groupingFunc: GroupingFunc = identity)
                                         (using ord: Ordering[DATA]):
   /** Stores the current list with song metadata. */
   private var metadata: Iterable[MediaMetadata] = List.empty
@@ -197,7 +213,11 @@ private class MediumContentManager[DATA](keyExtractor: KeyExtractor,
     * @return a tuple with the newly constructed mappings
     */
   private def constructMappings(): (Map[String, List[DATA]], Map[String, String]) =
-    val groupedMetadata = metadata.toList.groupBy(m => idFor(keyExtractor(m), idPrefix))
-    val data = groupedMetadata.map(e => (e._1, e._2.map(dataExtractor).sorted))
-    val ids = groupedMetadata.map(e => e._1 -> keyExtractor(e._2.head).getOrElse(""))
+    val metadataIDs = metadata.toList.map(m => m -> idFor(keyExtractor(m), idPrefix)).toMap
+    val groupedMetadata = metadata.toList.groupBy(m => groupingFunc(metadataIDs(m)))
+    val data = groupedMetadata.map: (id, list) =>
+      (id, list.map(md => dataExtractor(metadataIDs(md), md)).distinct.sorted)
+
+    val ids = metadataIDs.map: (data, id) =>
+      id -> keyExtractor(data).getOrElse(UndefinedName)
     (data, ids)

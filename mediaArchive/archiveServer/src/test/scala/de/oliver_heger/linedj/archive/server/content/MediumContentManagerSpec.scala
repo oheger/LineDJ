@@ -6,6 +6,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 object MediumContentManagerSpec:
@@ -24,9 +25,13 @@ object MediumContentManagerSpec:
 
   /**
     * A data extractor function for the album name of a media file. It returns
-    * an empty string if the album is undefined.
+    * the album name (or an empty string if the album is undefined)
+    * concatenated with the passed in ID. (Note that for this test case, this
+    * is the ID of the artist, which would not be that meaningful for a
+    * practical use case.)
     */
-  private val albumExtractor: MediumContentManager.DataExtractor[String] = _.album.getOrElse("")
+  private val albumExtractor: MediumContentManager.DataExtractor[String] = (id, data) =>
+    concatID(id)(data.album.getOrElse(""))
 
   /** The prefix for artist IDs. */
   private val ArtistIdPrefix = "art"
@@ -53,6 +58,26 @@ object MediumContentManagerSpec:
       size = 0,
       checksum = ""
     )
+
+  /**
+    * Appends an ID to a name using a specific separator character. This
+    * transformation is used by the test data extractor function.
+    *
+    * @param id   the ID to be appended
+    * @param name the original name
+    * @return the name with the ID appended
+    */
+  private def concatID(id: String)(name: String): String = s"$name|$id"
+
+  /**
+    * Concatenates a given ID to all elements of a list.
+    *
+    * @param id   the ID to be appended
+    * @param list the list
+    * @return the transformed list
+    */
+  private def concatID(id: String, list: List[String]): List[String] =
+    list.map(concatID(id))
 end MediumContentManagerSpec
 
 /**
@@ -103,11 +128,13 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
       createMetadata(artist = Some("Dire Straits"), album = "Communique")
     )
     val manager = new MediumContentManager(artistKeyExtractor, albumExtractor, ArtistIdPrefix)
+    val artistID = s"${ArtistIdPrefix}_dire_straits"
 
     manager.update(songData)
-    val albums = manager(s"${ArtistIdPrefix}_dire_straits").value
+    val albums = manager(artistID).value
 
-    albums should contain theSameElementsInOrderAs List("Brothers in Arms", "Communique", "Love over Gold")
+    val expectedAlbums = concatID(artistID, List("Brothers in Arms", "Communique", "Love over Gold"))
+    albums should contain theSameElementsInOrderAs expectedAlbums
 
   it should "construct a correct key mapping" in :
     val songData = List(
@@ -121,7 +148,7 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
     manager.update(songData)
 
     manager.keyMapping should have size 3
-    manager.keyMapping(s"${ArtistIdPrefix}_dire_straits") should be("Dire Straits")
+    manager.keyMapping(s"${ArtistIdPrefix}_dire_straits").toLowerCase(Locale.ROOT) should be("dire straits")
     manager.keyMapping(s"${ArtistIdPrefix}_supertramp") should be("Supertramp")
     manager.keyMapping(s"${ArtistIdPrefix}0") should be("")
 
@@ -133,10 +160,12 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
     )
     val manager = new MediumContentManager(artistKeyExtractor, albumExtractor, ArtistIdPrefix)
     manager.update(songData)
+    val artistID = s"${ArtistIdPrefix}0"
 
-    val albums = manager(s"${ArtistIdPrefix}0").value
+    val albums = manager(artistID).value
 
-    albums should contain theSameElementsInOrderAs List("Album 1 of unknown artist", "Album 2 of unknown artist")
+    val expectedAlbums = concatID(artistID, List("Album 1 of unknown artist", "Album 2 of unknown artist"))
+    albums should contain theSameElementsInOrderAs expectedAlbums
 
   it should "return an undefined option for an unknown ID" in :
     val manager = new MediumContentManager(artistKeyExtractor, albumExtractor, ArtistIdPrefix)
@@ -162,6 +191,28 @@ class MediumContentManagerSpec extends AnyFlatSpec with Matchers with OptionValu
     extracts should be > 0
     manager(s"${ArtistIdPrefix}_supertramp").value should have size 1
     extractCount.get() should be(extracts)
+
+  it should "support a custom grouping function" in:
+    val songData = List(
+      createMetadata(artist = Some("Dire Straits"), album = "Brothers in Arms"),
+      createMetadata(artist = Some("dire Straits"), album = "Love over Gold"),
+      createMetadata(artist = Some("Supertramp"), album = "Even in the quietest moments"),
+      createMetadata(artist = Some("Metallica"), album = "Right the Lightning"),
+      createMetadata(artist = Some("Metallica"), album = "Garage Inc.")
+    )
+
+    val manager = new MediumContentManager(artistKeyExtractor, albumExtractor, ArtistIdPrefix, _ => "")
+    manager.update(songData)
+    val albums = manager("").value
+
+    val expected = List(
+      concatID(ArtistIdPrefix + "_dire_straits")("Brothers in Arms"),
+      concatID(ArtistIdPrefix + "_supertramp")("Even in the quietest moments"),
+      concatID(ArtistIdPrefix + "_metallica")("Garage Inc."),
+      concatID(ArtistIdPrefix + "_dire_straits")("Love over Gold"),
+      concatID(ArtistIdPrefix + "_metallica")("Right the Lightning")
+    )
+    albums should contain theSameElementsInOrderAs expected
 
   it should "provide an Ordering for metadata" in :
     val Artist = Some("Dire Straits")
