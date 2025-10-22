@@ -45,8 +45,10 @@ private object MediumContentActor:
     * instance. This is part of the actor's state.
     *
     * @param artists view for the artists on this medium
+    * @param albums  view for the albums of this medium
     */
-  private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo]):
+  private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo],
+                                     albums: MediumContentManager[ArchiveModel.AlbumInfo]):
     /**
       * Notifies all managed content managers about a change in the list of
       * available songs.
@@ -55,6 +57,7 @@ private object MediumContentActor:
       */
     def updateSongs(songs: Iterable[MediaMetadata]): Unit =
       artists.update(songs)
+      albums.update(songs)
   end ContentManagers
 
   /**
@@ -84,6 +87,11 @@ private object MediumContentActor:
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, artists)
         Behaviors.same
 
+      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(_, replyTo) =>
+        val albums = managers.albums("")
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
+        Behaviors.same
+
   /**
     * Creates a [[ContentManagers]] object with all the managers to construct
     * the supported views of data.
@@ -97,6 +105,12 @@ private object MediumContentActor:
         idPrefix = "art",
         keyExtractor = _.artist,
         dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, data.artist.getOrElse("")),
+        groupingFunc = _ => ""
+      ),
+      albums = MediumContentManager(
+        idPrefix = "alb",
+        keyExtractor = _.album,
+        dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, data.album.getOrElse("")),
         groupingFunc = _ => ""
       )
     )

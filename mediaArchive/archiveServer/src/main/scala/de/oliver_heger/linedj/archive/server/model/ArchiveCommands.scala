@@ -100,6 +100,17 @@ object ArchiveCommands:
     case GetArtists(mediumID: Checksums.MediumChecksum,
                     replyTo: ActorRef[GetMediumDataResponse[ArchiveModel.ArtistInfo]])
 
+    /**
+      * A command to request information about all the albums found on a 
+      * specific medium.
+      *
+      * @param mediumID the ID of the desired medium
+      * @param replyTo  the reference to the actor to receive the response
+      */
+    case GetAlbums(mediumID: Checksums.MediumChecksum,
+                   replyTo: ActorRef[GetMediumDataResponse[ArchiveModel.AlbumInfo]])
+  end ReadMediumContentCommand
+
   /**
     * A data class representing the response sent for a
     * [[ReadArchiveContentCommand.GetMedia]] command.

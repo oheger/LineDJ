@@ -70,6 +70,13 @@ object ArchiveContentActorSpec:
     "Nightwish" -> List("Imaginaerum")
   )
 
+  /** A song without an artist and album. */
+  private val unassignedSong = MediaMetadata(
+    title = Some("unassigned"),
+    size = 1,
+    checksum = "unassigned-check-sum"
+  )
+
   /**
     * Creates a list with [[MediaMetadata]] objects for the test songs declared
     * in this object. This is used as content for a test medium.
@@ -129,12 +136,15 @@ object ArchiveContentActorSpec:
     val testMedium = createMedium(1)
     contentActor ! ArchiveCommands.UpdateArchiveContentCommand.AddMedium(testMedium)
 
-    createSongData().foreach: song =>
+    def propagateSong(song: MediaMetadata): Unit =
       val addFileCommand = ArchiveCommands.UpdateArchiveContentCommand.AddMediaFile(
         mediumID = testMedium.id,
         metadata = song
       )
       contentActor ! addFileCommand
+
+    createSongData().foreach(propagateSong)
+    propagateSong(unassignedSong)
     testMedium.id
 end ArchiveContentActorSpec
 
@@ -212,4 +222,25 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]]
     response.request should be(artistsRequest)
     val result = response.optResult.value
-    result.map(_.artistName) should contain theSameElementsAs artistAlbums.keys
+    val expectedArtists = (
+      artistAlbums.keySet.map: artistName =>
+        ArchiveModel.ArtistInfo(MediumContentManager.idFor(Some(artistName), "art"), artistName)
+      ) + ArchiveModel.ArtistInfo("art0", "")
+    result.map(_.artistName) should contain theSameElementsAs (artistAlbums.keySet + "")
+
+  it should "return information about the albums of a medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    val artistsRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, probe.ref)
+    contentActor ! artistsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
+    response.request should be(artistsRequest)
+    val result = response.optResult.value
+    val expectedAlbums = (
+      albums.keySet.map: albumName =>
+        ArchiveModel.AlbumInfo(MediumContentManager.idFor(Some(albumName), "alb"), albumName)
+      ) + ArchiveModel.AlbumInfo("alb0", "")
+    result should contain theSameElementsAs expectedAlbums

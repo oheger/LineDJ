@@ -91,12 +91,10 @@ object ArchiveContentActor:
         Behaviors.same
 
       case (_, req@ArchiveCommands.ReadMediumContentCommand.GetArtists(mediumID, replyTo)) =>
-        mediaContent.get(mediumID) match
-          case Some(actor) =>
-            actor ! req
-          case None =>
-            replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
-        Behaviors.same
+        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+
+      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, replyTo)) =>
+        handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
   /**
     * Obtains the content actor for a specific medium from the given map. If it
@@ -118,3 +116,28 @@ object ArchiveContentActor:
       case None =>
         val actor = ctx.spawn(MediumContentActor(), "mediumContent_" + id.checksum)
         (actor, map + (id -> actor))
+
+  /**
+    * Handles a request for data of a specific medium in a generic way. If the
+    * affected medium is known, this function passes the request to the actor
+    * managing the content of this medium. Otherwise, it sends a response with
+    * an empty (''None'') dataset.
+    *
+    * @param req          the request to be processed
+    * @param mediumID     the ID of the affected medium
+    * @param replyTo      the actor to send the response to
+    * @param mediaContent the map with content actors for media
+    * @tparam DATA the type of the requested data
+    * @return the next behavior
+    */
+  private def handleMediumRequest[DATA](req: ArchiveCommands.ReadMediumContentCommand,
+                                        mediumID: Checksums.MediumChecksum,
+                                        replyTo: ActorRef[ArchiveCommands.GetMediumDataResponse[DATA]],
+                                        mediaContent: MediaContentMap): Behavior[ArchiveContentCommand] =
+    mediaContent.get(mediumID) match
+      case Some(actor) =>
+        actor ! req
+      case None =>
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+    Behaviors.same
+    
