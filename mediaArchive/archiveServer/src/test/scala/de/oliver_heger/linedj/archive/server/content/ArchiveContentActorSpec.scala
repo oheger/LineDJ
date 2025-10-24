@@ -86,8 +86,20 @@ object ArchiveContentActorSpec:
   private def createSongData(): Iterable[MediaMetadata] =
     artistAlbums.flatMap: (artist, artistAlbums) =>
       artistAlbums.flatMap: album =>
-        albums(album).zipWithIndex.map: (song, index) =>
-          createMetadata(artist, album, song, index + 1)
+        createSongsForAlbum(artist, album, albums(album))
+
+  /**
+    * Creates [[MediaMetadata]] objects representing the songs of a specific
+    * album.
+    *
+    * @param artist the artist
+    * @param album  the name of the album
+    * @param songs  a list with the songs contained on the album
+    * @return a list with metadata about the single songs
+    */
+  private def createSongsForAlbum(artist: String, album: String, songs: List[String]): List[MediaMetadata] =
+    songs.zipWithIndex.map: (song, index) =>
+      createMetadata(artist, album, song, index + 1)
 
   /**
     * Creates a test [[MediaMetadata]] instance for a test song.
@@ -244,3 +256,55 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
         ArchiveModel.AlbumInfo(MediumContentManager.idFor(Some(albumName), "alb"), albumName)
       ) + ArchiveModel.AlbumInfo("alb0", "")
     result should contain theSameElementsAs expectedAlbums
+
+  it should "return the songs of a specific artist" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val ArtistName = "Mike Oldfield"
+    val artistID = MediumContentManager.idFor(Some(ArtistName), "art")
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
+      mediumID,
+      artistID,
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]
+    response.request should be(songsRequest)
+    val result = response.optResult.value
+
+    val albums = artistAlbums(ArtistName)
+    val expectedSongs = createSongsForAlbum(ArtistName, albums(1), crisisSongs) ++
+      createSongsForAlbum(ArtistName, albums.head, tubularBellsSongs)
+    result should contain theSameElementsInOrderAs expectedSongs
+
+  it should "return an undefined result when querying songs of an artist for a non-existing medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
+      Checksums.MediumChecksum("non-existing"),
+      "art_dire_straits",
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
+    probe.expectMessage(expectedResult)
+
+  it should "return an undefined result when querying songs of a non-existing artist" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
+      mediumID,
+      "non-existing-artist",
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
+    probe.expectMessage(expectedResult)

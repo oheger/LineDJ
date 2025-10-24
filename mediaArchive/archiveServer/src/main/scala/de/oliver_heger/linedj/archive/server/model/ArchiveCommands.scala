@@ -109,6 +109,19 @@ object ArchiveCommands:
       */
     case GetAlbums(mediumID: Checksums.MediumChecksum,
                    replyTo: ActorRef[GetMediumDataResponse[ArchiveModel.AlbumInfo]])
+
+    /**
+      * A command to request information about all songs belonging to a
+      * specific artist. The artist needs to be referenced via the ID contained
+      * in the data retrieved via the [[GetArtists]] command.
+      *
+      * @param mediumID the ID of the desired medium
+      * @param artistID the ID of the artist in question
+      * @param replyTo  the reference to the actor to receive the response
+      */
+    case GetSongsForArtist(mediumID: Checksums.MediumChecksum,
+                           artistID: String,
+                           replyTo: ActorRef[GetMediumDataResponse[MediaMetadata]])
   end ReadMediumContentCommand
 
   /**

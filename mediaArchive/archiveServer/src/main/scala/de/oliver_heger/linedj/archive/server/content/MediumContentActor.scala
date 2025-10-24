@@ -44,11 +44,13 @@ private object MediumContentActor:
     * A data class to hold the different content managers used by an actor
     * instance. This is part of the actor's state.
     *
-    * @param artists view for the artists on this medium
-    * @param albums  view for the albums of this medium
+    * @param artists       view for the artists on this medium
+    * @param albums        view for the albums of this medium
+    * @param songsByArtist view for the songs of a specific artist
     */
   private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo],
-                                     albums: MediumContentManager[ArchiveModel.AlbumInfo]):
+                                     albums: MediumContentManager[ArchiveModel.AlbumInfo],
+                                     songsByArtist: MediumContentManager[MediaMetadata]):
     /**
       * Notifies all managed content managers about a change in the list of
       * available songs.
@@ -58,6 +60,7 @@ private object MediumContentActor:
     def updateSongs(songs: Iterable[MediaMetadata]): Unit =
       artists.update(songs)
       albums.update(songs)
+      songsByArtist.update(songs)
   end ContentManagers
 
   /**
@@ -92,6 +95,11 @@ private object MediumContentActor:
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
         Behaviors.same
 
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(_, artistID, replyTo) =>
+        val songs = managers.songsByArtist(artistID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
+        Behaviors.same
+
   /**
     * Creates a [[ContentManagers]] object with all the managers to construct
     * the supported views of data.
@@ -112,5 +120,10 @@ private object MediumContentActor:
         keyExtractor = _.album,
         dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, data.album.getOrElse("")),
         groupingFunc = _ => ""
+      ),
+      songsByArtist = MediumContentManager(
+        idPrefix = "art",
+        keyExtractor = _.artist,
+        dataExtractor = MediumContentManager.MetadataExtractor
       )
     )

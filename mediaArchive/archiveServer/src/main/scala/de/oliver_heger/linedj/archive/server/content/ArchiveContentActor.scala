@@ -96,6 +96,9 @@ object ArchiveContentActor:
       case (_, req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(mediumID, replyTo)) =>
         handleMediumRequest(req, mediumID, replyTo, mediaContent)
 
+      case (_, req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(mediumID, _, replyTo)) =>
+        handleMediumRequest(req, mediumID, replyTo, mediaContent)
+
   /**
     * Obtains the content actor for a specific medium from the given map. If it
     * does not exist, it is created now. Result is the actor and the map, which
