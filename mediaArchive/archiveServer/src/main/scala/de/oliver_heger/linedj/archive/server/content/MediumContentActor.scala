@@ -57,13 +57,15 @@ private object MediumContentActor:
     * A data class to hold the different content managers used by an actor
     * instance. This is part of the actor's state.
     *
-    * @param artists       view for the artists on this medium
-    * @param albums        view for the albums of this medium
-    * @param songsByArtist view for the songs of a specific artist
-    * @param songsByAlbum  view for the songs of a specific album
+    * @param artists        view for the artists on this medium
+    * @param albums         view for the albums of this medium
+    * @param albumsByArtist view for the albums of a specific artist
+    * @param songsByArtist  view for the songs of a specific artist
+    * @param songsByAlbum   view for the songs of a specific album
     */
   private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo],
                                      albums: MediumContentManager[ArchiveModel.AlbumInfo],
+                                     albumsByArtist: MediumContentManager[ArchiveModel.AlbumInfo],
                                      songsByArtist: MediumContentManager[MediaMetadata],
                                      songsByAlbum: MediumContentManager[MediaMetadata]):
     /**
@@ -75,6 +77,7 @@ private object MediumContentActor:
     def updateSongs(songs: Iterable[MediaMetadata]): Unit =
       artists.update(songs)
       albums.update(songs)
+      albumsByArtist.update(songs)
       songsByArtist.update(songs)
       songsByAlbum.update(songs)
   end ContentManagers
@@ -111,6 +114,11 @@ private object MediumContentActor:
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
         Behaviors.same
 
+      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(_, artistID, replyTo) =>
+        val albums = managers.albumsByArtist(artistID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, albums)
+        Behaviors.same
+
       case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(_, artistID, replyTo) =>
         val songs = managers.songsByArtist(artistID)
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
@@ -133,14 +141,19 @@ private object MediumContentActor:
       artists = MediumContentManager(
         idPrefix = ArtistIDPrefix,
         keyExtractor = ArtistKeyExtractor,
-        dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, data.artist.getOrElse("")),
+        dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, extractArtistName(data)),
         groupingFunc = _ => ""
       ),
       albums = MediumContentManager(
         idPrefix = AlbumIDPrefix,
         keyExtractor = AlbumKeyExtractor,
-        dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, data.album.getOrElse("")),
+        dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, extractAlbumName(data)),
         groupingFunc = _ => ""
+      ),
+      albumsByArtist = MediumContentManager(
+        idPrefix = ArtistIDPrefix,
+        keyExtractor = ArtistKeyExtractor,
+        dataExtractor = extractAlbumForArtist
       ),
       songsByArtist = MediumContentManager(
         idPrefix = ArtistIDPrefix,
@@ -153,3 +166,33 @@ private object MediumContentActor:
         dataExtractor = MediumContentManager.MetadataExtractor
       )
     )
+
+  /**
+    * A data extractor function for the albums of an artist.
+    *
+    * @param id   the ID of the artist (unused)
+    * @param data the metadata of the current song
+    * @return the album for this song
+    */
+  private def extractAlbumForArtist(id: String, data: MediaMetadata): ArchiveModel.AlbumInfo =
+    val albumName = extractAlbumName(data)
+    val albumID = MediumContentManager.idFor(data.album, AlbumIDPrefix)
+    ArchiveModel.AlbumInfo(albumID, albumName)
+
+  /**
+    * Extracts the name of the artist of the given song data. Handles an
+    * undefined artist.
+    *
+    * @param data the metadata of the current song
+    * @return the name of the artist of this song
+    */
+  private def extractArtistName(data: MediaMetadata): String = data.artist.getOrElse("")
+
+  /**
+    * Extracts the name of the album of the given song data. Handles an
+    * undefined album.
+    *
+    * @param data the metadata of the current song
+    * @return the name of the album of this song
+    */
+  private def extractAlbumName(data: MediaMetadata): String = data.album.getOrElse("")

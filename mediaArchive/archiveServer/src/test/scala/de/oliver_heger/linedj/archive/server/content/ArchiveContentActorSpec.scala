@@ -20,6 +20,7 @@ import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveMode
 import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
+import org.scalatest.Inspectors.forEvery
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -358,4 +359,53 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
     contentActor ! songsRequest
 
     val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
+    probe.expectMessage(expectedResult)
+
+  it should "return the albums of a specific artist" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    forEvery(artistAlbums): (artist, albums) =>
+      val albumsRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+        mediumID,
+        MediumContentManager.idFor(Some(artist), "art"),
+        probe.ref
+      )
+      contentActor ! albumsRequest
+
+      val expectedResult = albums.sorted.map: album =>
+        ArchiveModel.AlbumInfo(MediumContentManager.idFor(Some(album), "alb"), album)
+      val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]
+      response.request should be(albumsRequest)
+      response.optResult.value should contain theSameElementsInOrderAs expectedResult
+
+
+  it should "return an undefined result when querying the albums of an artist of a non-existing medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    val albumRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+      Checksums.MediumChecksum("non-existing"),
+      "some_artist",
+      probe.ref
+    )
+    contentActor ! albumRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo](albumRequest, None)
+    probe.expectMessage(expectedResult)
+
+  it should "return an undefined result when querying the albums of a non-existing artist" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo]]()
+
+    val albumRequest = ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+      mediumID,
+      "non-existing-artist",
+      probe.ref
+    )
+    contentActor ! albumRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[ArchiveModel.AlbumInfo](albumRequest, None)
     probe.expectMessage(expectedResult)
