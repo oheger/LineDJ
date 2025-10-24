@@ -308,3 +308,54 @@ class ArchiveContentActorSpec extends ScalaTestWithActorTestKit with AnyFlatSpec
 
     val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
     probe.expectMessage(expectedResult)
+
+  it should "return the songs of a specific album" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val ArtistName = "Nightwish"
+    val albumName = artistAlbums(ArtistName).head
+    val albumID = MediumContentManager.idFor(Some(albumName), "alb")
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(
+      mediumID,
+      albumID,
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val response = probe.expectMessageType[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]
+    response.request should be(songsRequest)
+    val result = response.optResult.value
+
+    val expectedSongs = createSongsForAlbum(ArtistName, albumName, imaginaerumSongs)
+    result should contain theSameElementsInOrderAs expectedSongs
+
+  it should "return an undefined result when querying songs of an album for a non-existing medium" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(
+      Checksums.MediumChecksum("non-existing"),
+      "alb_dire_straits",
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
+    probe.expectMessage(expectedResult)
+
+  it should "return an undefined result when querying songs of a non-existing album" in :
+    val contentActor = testKit.spawn(ArchiveContentActor.behavior())
+    val mediumID = propagateTestMedium(contentActor)
+    val probe = testKit.createTestProbe[ArchiveCommands.GetMediumDataResponse[MediaMetadata]]()
+
+    val songsRequest = ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(
+      mediumID,
+      "non-existing-album",
+      probe.ref
+    )
+    contentActor ! songsRequest
+
+    val expectedResult = ArchiveCommands.GetMediumDataResponse[MediaMetadata](songsRequest, None)
+    probe.expectMessage(expectedResult)

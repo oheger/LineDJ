@@ -16,6 +16,7 @@
 
 package de.oliver_heger.linedj.archive.server.content
 
+import de.oliver_heger.linedj.archive.server.content.MediumContentManager.KeyExtractor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.shared.archive.metadata.MediaMetadata
 import org.apache.pekko.actor.typed.Behavior
@@ -40,6 +41,18 @@ private object MediumContentActor:
     */
   type MediumContentCommand = MediaMetadata | ArchiveCommands.ReadMediumContentCommand
 
+  /** The prefix used for IDs generated for artists. */
+  private val ArtistIDPrefix = "art"
+
+  /** The prefix used for IDs generated for albums. */
+  private val AlbumIDPrefix = "alb"
+
+  /** [[KeyExtractor]] function to obtain a song's artist. */
+  private val ArtistKeyExtractor: KeyExtractor = _.artist
+
+  /** [[KeyExtractor]] function to obtain a song's album. */
+  private val AlbumKeyExtractor: KeyExtractor = _.album
+
   /**
     * A data class to hold the different content managers used by an actor
     * instance. This is part of the actor's state.
@@ -47,10 +60,12 @@ private object MediumContentActor:
     * @param artists       view for the artists on this medium
     * @param albums        view for the albums of this medium
     * @param songsByArtist view for the songs of a specific artist
+    * @param songsByAlbum  view for the songs of a specific album
     */
   private case class ContentManagers(artists: MediumContentManager[ArchiveModel.ArtistInfo],
                                      albums: MediumContentManager[ArchiveModel.AlbumInfo],
-                                     songsByArtist: MediumContentManager[MediaMetadata]):
+                                     songsByArtist: MediumContentManager[MediaMetadata],
+                                     songsByAlbum: MediumContentManager[MediaMetadata]):
     /**
       * Notifies all managed content managers about a change in the list of
       * available songs.
@@ -61,6 +76,7 @@ private object MediumContentActor:
       artists.update(songs)
       albums.update(songs)
       songsByArtist.update(songs)
+      songsByAlbum.update(songs)
   end ContentManagers
 
   /**
@@ -100,6 +116,11 @@ private object MediumContentActor:
         replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
         Behaviors.same
 
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(_, albumID, replyTo) =>
+        val songs = managers.songsByAlbum(albumID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, songs)
+        Behaviors.same
+
   /**
     * Creates a [[ContentManagers]] object with all the managers to construct
     * the supported views of data.
@@ -110,20 +131,25 @@ private object MediumContentActor:
     import MediumContentManager.given
     ContentManagers(
       artists = MediumContentManager(
-        idPrefix = "art",
-        keyExtractor = _.artist,
+        idPrefix = ArtistIDPrefix,
+        keyExtractor = ArtistKeyExtractor,
         dataExtractor = (id, data) => ArchiveModel.ArtistInfo(id, data.artist.getOrElse("")),
         groupingFunc = _ => ""
       ),
       albums = MediumContentManager(
-        idPrefix = "alb",
-        keyExtractor = _.album,
+        idPrefix = AlbumIDPrefix,
+        keyExtractor = AlbumKeyExtractor,
         dataExtractor = (id, data) => ArchiveModel.AlbumInfo(id, data.album.getOrElse("")),
         groupingFunc = _ => ""
       ),
       songsByArtist = MediumContentManager(
-        idPrefix = "art",
-        keyExtractor = _.artist,
+        idPrefix = ArtistIDPrefix,
+        keyExtractor = ArtistKeyExtractor,
+        dataExtractor = MediumContentManager.MetadataExtractor
+      ),
+      songsByAlbum = MediumContentManager(
+        idPrefix = AlbumIDPrefix,
+        keyExtractor = AlbumKeyExtractor,
         dataExtractor = MediumContentManager.MetadataExtractor
       )
     )
