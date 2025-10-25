@@ -61,7 +61,7 @@ object Controller:
     * @param contentActor the actor managing the content of the archive
     */
   final case class ArchiveServerContext(serverConfig: ArchiveServerConfig,
-                                        contentActor: ActorRef[ArchiveCommands.ReadArchiveContentCommand])
+                                        contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand])
 end Controller
 
 /**

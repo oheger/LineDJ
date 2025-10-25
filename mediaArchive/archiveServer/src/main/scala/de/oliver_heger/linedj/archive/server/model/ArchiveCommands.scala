@@ -32,6 +32,12 @@ import org.apache.pekko.actor.typed.ActorRef
   */
 object ArchiveCommands:
   /**
+    * Type alias for the command type for querying various  information about
+    * the media archive.
+    */
+  type ArchiveQueryCommand = ArchiveCommands.ReadArchiveContentCommand | ArchiveCommands.ReadMediumContentCommand
+
+  /**
     * A class defining a set of commands to query the content of the archive.
     * These commands deal with the archive as a whole; they therefore support
     * querying on the granularity of media (i.e. querying all media or the

@@ -40,7 +40,7 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     * @param contentActor the actor managing the content of the archive
     * @return the top-level route of the server
     */
-  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveCommands.ReadArchiveContentCommand])
+  def route(config: ArchiveServerConfig, contentActor: ActorRef[ArchiveCommands.ArchiveQueryCommand])
            (using system: classics.ActorSystem): Route =
     given ActorSystem[Nothing] = system.toTyped
 
@@ -58,7 +58,7 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
                 )
                 onSuccess(futMediaOverview): mediaResponse =>
                   complete(ArchiveModel.MediaOverview(mediaResponse.media)),
-            path(Segment): mediumID =>
+            pathPrefix(Segment): mediumID =>
               concat(
                 pathEnd:
                   get:
@@ -70,6 +70,21 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
                         case Some(details) =>
                           complete(details)
                         case None =>
-                          complete(StatusCodes.NotFound)
+                          complete(StatusCodes.NotFound),
+                pathPrefix("artists"):
+                  concat(
+                    pathEnd:
+                      get:
+                        val futArtists =
+                          contentActor.ask[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]](
+                            ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), _)
+                          )
+                        onSuccess(futArtists): artistResponse =>
+                          artistResponse.optResult match
+                            case Some(result) =>
+                              complete(ArchiveModel.ItemsResult(result))
+                            case None =>
+                              complete(StatusCodes.NotFound)
+                  )
               )
           )
