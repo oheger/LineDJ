@@ -17,7 +17,7 @@
 package de.oliver_heger.linedj.archive.server
 
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
@@ -109,7 +109,15 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
         pathEnd:
           get:
             handleMediumQuery(mediumID): replyTo =>
-              ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), replyTo)
+              ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), replyTo),
+        path(Segment / "songs"): artistID =>
+          get:
+            handleMediumQuery[MediaMetadata](mediumID): replyTo =>
+              ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
+                mediumID = Checksums.MediumChecksum(mediumID),
+                artistID = artistID,
+                replyTo = replyTo
+              )
       )
 
     /**
@@ -123,7 +131,15 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
         pathEnd:
           get:
             handleMediumQuery(mediumID): replyTo =>
-              ArchiveCommands.ReadMediumContentCommand.GetAlbums(Checksums.MediumChecksum(mediumID), replyTo)
+              ArchiveCommands.ReadMediumContentCommand.GetAlbums(Checksums.MediumChecksum(mediumID), replyTo),
+        path(Segment / "songs"): albumID =>
+          get:
+            handleMediumQuery[MediaMetadata](mediumID): replyTo =>
+              ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(
+                mediumID = Checksums.MediumChecksum(mediumID),
+                albumID = albumID,
+                replyTo = replyTo
+              )
       )
 
     pathPrefix("api"):

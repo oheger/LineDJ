@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archive.server.content.ArchiveContentActor
 import de.oliver_heger.linedj.archive.server.model.{ArchiveCommands, ArchiveModel}
 import de.oliver_heger.linedj.server.common.ServerController
 import de.oliver_heger.linedj.shared.actors.ManagingActorFactory
-import de.oliver_heger.linedj.shared.archive.metadata.Checksums
+import de.oliver_heger.linedj.shared.archive.metadata.{Checksums, MediaMetadata}
 import de.oliver_heger.linedj.utils.SystemPropertyAccess
 import org.apache.pekko.Done
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -163,7 +163,7 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     Get(s"/api/archive/media/${TestMediumID.checksum}/artists") ~> testRoute(contentActor) ~> check:
       status should be(StatusCodes.NotFound)
 
-  it should "define a route to query the albums contained on a medium" in:
+  it should "define a route to query the albums contained on a medium" in :
     val albums = List(
       ArchiveModel.AlbumInfo("alb1", "Brothers in arms"),
       ArchiveModel.AlbumInfo("alb2", "Tales of mystery and imaginations"),
@@ -189,4 +189,72 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
 
     val contentActor = testKit.spawn(contentBehavior)
     Get(s"/api/archive/media/${TestMediumID.checksum}/albums") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
+  it should "define a route to query the songs of an artist from a medium" in :
+    val songs = List(
+      MediaMetadata(title = Some("test song 1"), size = 2124, checksum = "chk-song-1"),
+      MediaMetadata(title = Some("test song 2"), size = 2125, checksum = "chk-song-2"),
+      MediaMetadata(title = Some("test song 3"), size = 2126, checksum = "chk-song-3")
+    )
+    val ArtistID = "test-artist"
+
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(mediumID, artistID, replyTo) =>
+        mediumID should be(TestMediumID)
+        artistID should be(ArtistID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(songs))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/artists/$ArtistID/songs") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      val songData = responseAs[ArchiveModel.ItemsResult[MediaMetadata]]
+      songData.items should contain theSameElementsInOrderAs songs
+
+  it should "handle a failed result for the songs of an artist from a medium" in :
+    val ArtistID = "missing-artist"
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(mediumID, artistID, replyTo) =>
+        mediumID should be(TestMediumID)
+        artistID shouldBe ArtistID
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/artists/$ArtistID/songs") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)
+
+  it should "define a route to query the songs of an album from a medium" in :
+    val songs = List(
+      MediaMetadata(title = Some("test song 1"), size = 2124, checksum = "chk-song-1"),
+      MediaMetadata(title = Some("test song 2"), size = 2125, checksum = "chk-song-2"),
+      MediaMetadata(title = Some("test song 3"), size = 2126, checksum = "chk-song-3")
+    )
+    val AlbumID = "test-album"
+
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(mediumID, albumID, replyTo) =>
+        mediumID should be(TestMediumID)
+        albumID should be(AlbumID)
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(songs))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/albums/$AlbumID/songs") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      val songData = responseAs[ArchiveModel.ItemsResult[MediaMetadata]]
+      songData.items should contain theSameElementsInOrderAs songs
+
+  it should "handle a failed result for the songs of an album from a medium" in :
+    val AlbumID = "missing-artist"
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetSongsForAlbum(mediumID, albumID, replyTo) =>
+        mediumID should be(TestMediumID)
+        albumID shouldBe AlbumID
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/albums/$AlbumID/songs") ~> testRoute(contentActor) ~> check:
       status should be(StatusCodes.NotFound)
