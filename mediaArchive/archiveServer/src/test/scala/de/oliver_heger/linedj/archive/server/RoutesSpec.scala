@@ -162,3 +162,31 @@ class RoutesSpec extends AnyFlatSpec with BeforeAndAfterAll with Matchers with S
     val contentActor = testKit.spawn(contentBehavior)
     Get(s"/api/archive/media/${TestMediumID.checksum}/artists") ~> testRoute(contentActor) ~> check:
       status should be(StatusCodes.NotFound)
+
+  it should "define a route to query the albums contained on a medium" in:
+    val albums = List(
+      ArchiveModel.AlbumInfo("alb1", "Brothers in arms"),
+      ArchiveModel.AlbumInfo("alb2", "Tales of mystery and imaginations"),
+      ArchiveModel.AlbumInfo("alb3", "Tubular bells"),
+    )
+
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(id, replyTo) if id == TestMediumID =>
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, Some(albums))
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/albums") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.OK)
+      val artistData = responseAs[ArchiveModel.ItemsResult[ArchiveModel.AlbumInfo]]
+      artistData.items should contain theSameElementsInOrderAs albums
+
+  it should "handle a request for the albums of a non-existing medium" in :
+    val contentBehavior = Behaviors.receiveMessagePartial[ArchiveContentActor.ArchiveContentCommand]:
+      case req@ArchiveCommands.ReadMediumContentCommand.GetAlbums(id, replyTo) if id == TestMediumID =>
+        replyTo ! ArchiveCommands.GetMediumDataResponse(req, None)
+        Behaviors.stopped
+
+    val contentActor = testKit.spawn(contentBehavior)
+    Get(s"/api/archive/media/${TestMediumID.checksum}/albums") ~> testRoute(contentActor) ~> check:
+      status should be(StatusCodes.NotFound)

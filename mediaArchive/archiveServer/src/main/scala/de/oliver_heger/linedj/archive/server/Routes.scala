@@ -22,6 +22,7 @@ import org.apache.pekko.actor as classics
 import org.apache.pekko.actor.typed.scaladsl.AskPattern.Askable
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshaller
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
@@ -47,44 +48,97 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
     given Timeout(config.timeout)
     import org.apache.pekko.actor.typed.scaladsl.AskPattern.schedulerFromActorSystem
 
+    /** The route to query all known media. */
+    val mediaRoute = get:
+      val futMediaOverview = contentActor.ask[ArchiveCommands.GetMediaResponse](
+        ArchiveCommands.ReadArchiveContentCommand.GetMedia(_)
+      )
+      onSuccess(futMediaOverview): mediaResponse =>
+        complete(ArchiveModel.MediaOverview(mediaResponse.media))
+
+    /**
+      * Handles a request for data of a specific medium. The data is queried
+      * from the content handler actor. Invalid parameters lead to a 404
+      * response.
+      *
+      * @param mediumID   the ID of the medium in question
+      * @param cmd        a function to create the command to the actor
+      * @param marshaller an implicit marshaller for the result type
+      * @tparam DATA the type of the result
+      * @return the query route
+      */
+    def handleMediumQuery[DATA](mediumID: String)
+                               (cmd: ActorRef[ArchiveCommands.GetMediumDataResponse[DATA]] =>
+                                 ArchiveCommands.ArchiveQueryCommand)
+                               (using marshaller: ToResponseMarshaller[ArchiveModel.ItemsResult[DATA]]): Route =
+      val futResponse =
+        contentActor.ask[ArchiveCommands.GetMediumDataResponse[DATA]](cmd)
+      onSuccess(futResponse): response =>
+        response.optResult match
+          case Some(result) =>
+            complete(ArchiveModel.ItemsResult(result))
+          case None =>
+            complete(StatusCodes.NotFound)
+
+    /**
+      * Returns the route to query details of a medium.
+      *
+      * @param mediumID the ID of the medium
+      * @return the medium details route
+      */
+    def mediumDetailsRoute(mediumID: String): Route =
+      get:
+        val futMediumDetails = contentActor.ask[ArchiveCommands.GetMediumResponse](ref =>
+          ArchiveCommands.ReadArchiveContentCommand.GetMedium(Checksums.MediumChecksum(mediumID), ref)
+        )
+        onSuccess(futMediumDetails): mediumResponse =>
+          mediumResponse.optDetails match
+            case Some(details) =>
+              complete(details)
+            case None =>
+              complete(StatusCodes.NotFound)
+
+    /**
+      * Returns routes to query information about the artists of a medium.
+      *
+      * @param mediumID the ID of the medium
+      * @return the route
+      */
+    def mediumArtistsRoutes(mediumID: String): Route =
+      concat(
+        pathEnd:
+          get:
+            handleMediumQuery(mediumID): replyTo =>
+              ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), replyTo)
+      )
+
+    /**
+      * Returns routes to query information about the albums of a medium.
+      *
+      * @param mediumID the ID of the medium
+      * @return the route
+      */
+    def mediumAlbumRoutes(mediumID: String): Route =
+      concat(
+        pathEnd:
+          get:
+            handleMediumQuery(mediumID): replyTo =>
+              ArchiveCommands.ReadMediumContentCommand.GetAlbums(Checksums.MediumChecksum(mediumID), replyTo)
+      )
+
     pathPrefix("api"):
       pathPrefix("archive"):
         pathPrefix("media"):
           concat(
             pathEnd:
-              get:
-                val futMediaOverview = contentActor.ask[ArchiveCommands.GetMediaResponse](
-                  ArchiveCommands.ReadArchiveContentCommand.GetMedia(_)
-                )
-                onSuccess(futMediaOverview): mediaResponse =>
-                  complete(ArchiveModel.MediaOverview(mediaResponse.media)),
+              mediaRoute,
             pathPrefix(Segment): mediumID =>
               concat(
                 pathEnd:
-                  get:
-                    val futMediumDetails = contentActor.ask[ArchiveCommands.GetMediumResponse](ref =>
-                      ArchiveCommands.ReadArchiveContentCommand.GetMedium(Checksums.MediumChecksum(mediumID), ref)
-                    )
-                    onSuccess(futMediumDetails): mediumResponse =>
-                      mediumResponse.optDetails match
-                        case Some(details) =>
-                          complete(details)
-                        case None =>
-                          complete(StatusCodes.NotFound),
+                  mediumDetailsRoute(mediumID),
                 pathPrefix("artists"):
-                  concat(
-                    pathEnd:
-                      get:
-                        val futArtists =
-                          contentActor.ask[ArchiveCommands.GetMediumDataResponse[ArchiveModel.ArtistInfo]](
-                            ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), _)
-                          )
-                        onSuccess(futArtists): artistResponse =>
-                          artistResponse.optResult match
-                            case Some(result) =>
-                              complete(ArchiveModel.ItemsResult(result))
-                            case None =>
-                              complete(StatusCodes.NotFound)
-                  )
+                  mediumArtistsRoutes(mediumID),
+                pathPrefix("albums"):
+                  mediumAlbumRoutes(mediumID)
               )
           )
