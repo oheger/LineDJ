@@ -110,14 +110,25 @@ object Routes extends ArchiveModel.ArchiveJsonSupport:
           get:
             handleMediumQuery(mediumID): replyTo =>
               ArchiveCommands.ReadMediumContentCommand.GetArtists(Checksums.MediumChecksum(mediumID), replyTo),
-        path(Segment / "songs"): artistID =>
-          get:
-            handleMediumQuery[MediaMetadata](mediumID): replyTo =>
-              ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
-                mediumID = Checksums.MediumChecksum(mediumID),
-                artistID = artistID,
-                replyTo = replyTo
-              )
+        pathPrefix(Segment): artistID =>
+          concat(
+            path("songs"):
+              get:
+                handleMediumQuery[MediaMetadata](mediumID): replyTo =>
+                  ArchiveCommands.ReadMediumContentCommand.GetSongsForArtist(
+                    mediumID = Checksums.MediumChecksum(mediumID),
+                    artistID = artistID,
+                    replyTo = replyTo
+                  ),
+            path("albums"):
+              get:
+                handleMediumQuery[ArchiveModel.AlbumInfo](mediumID): replyTo =>
+                  ArchiveCommands.ReadMediumContentCommand.GetAlbumsForArtist(
+                    mediumID = Checksums.MediumChecksum(mediumID),
+                    artistID = artistID,
+                    replyTo = replyTo
+                  )
+          )
       )
 
     /**
