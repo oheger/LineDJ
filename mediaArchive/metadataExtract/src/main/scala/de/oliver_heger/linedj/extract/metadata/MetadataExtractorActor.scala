@@ -16,13 +16,13 @@
 
 package de.oliver_heger.linedj.extract.metadata
 
-import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
+import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport, FilterInstanceOfStage}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
+import org.apache.pekko.Done
 import org.apache.pekko.actor.{ActorRef, Props}
-import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, RunnableGraph, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Broadcast, GraphDSL, Merge, RunnableGraph, Sink, Source}
 import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
-import org.apache.pekko.{Done, NotUsed}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -138,8 +138,8 @@ class MetadataExtractorActor(metadataManager: ActorRef,
       request.mediumID,
       request.uriMappingFunc
     )
-    val filterFile = filterInstanceOf[FileData]
-    val filterResult = filterInstanceOf[MetadataProcessingResult]
+    val filterFile = FilterInstanceOfStage[FileData]
+    val filterResult = FilterInstanceOfStage[MetadataProcessingResult]
     val sink = Sink.foreach(metadataManager.!)
     val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks, sink, request.resultsSink)(combineMat) { implicit builder =>
       (ks, sinkActor, sinkResults) =>
@@ -172,15 +172,3 @@ class MetadataExtractorActor(metadataManager: ActorRef,
       fut2 <- sink2
     yield Done
     (ks, combinedFuture)
-
-  /**
-    * Returns a [[Flow]] that filters for objects of a specific type.
-    *
-    * @param ct the class tag
-    * @tparam T the type of the objects to filter for
-    * @return the [[Flow]] filtering for a specific type
-    */
-  private def filterInstanceOf[T](using ct: ClassTag[T]): Flow[Any, T, NotUsed] =
-    val clazz = ct.runtimeClass.asInstanceOf[Class[T]]
-    Flow[Any].filter(clazz.isInstance)
-      .map(clazz.cast)
