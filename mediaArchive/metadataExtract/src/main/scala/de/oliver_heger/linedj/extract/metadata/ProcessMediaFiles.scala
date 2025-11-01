@@ -18,8 +18,11 @@ package de.oliver_heger.linedj.extract.metadata
 
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
+import org.apache.pekko.stream.scaladsl.Sink
 
 import java.nio.file.Path
+import scala.concurrent.Future
 
 /**
   * A message received by [[MetadataExtractorActor]] telling it to process the
@@ -30,9 +33,23 @@ import java.nio.file.Path
   * metadata could be obtained. In addition, a mapping function is provided to
   * generate URIs for the paths of the processed ''FileData'' objects.
   *
-  * @param mediumID       the ID of the medium
-  * @param files          the files to be processed
-  * @param uriMappingFunc a function to obtain URIs for media file paths
+  * The metadata extraction process is a good opportunity to also persist the
+  * metadata for files on the affected medium. To make this possible, this
+  * message class supports specifying a [[Sink]] to which the metadata results
+  * are forwarded. For this use case, it is necessary to have the metadata of
+  * all files on the medium available. Therefore, there is another property for
+  * the already available processing results; those are passed to the sink as
+  * well.
+  *
+  * @param mediumID         the ID of the medium
+  * @param files            the files to be processed
+  * @param uriMappingFunc   a function to obtain URIs for media file paths
+  * @param availableResults a collection with already available processing 
+  *                         results
+  * @param resultsSink      a [[Sink]] that consumes all processing results
   */
-case class ProcessMediaFiles(mediumID: MediumID, files: List[FileData],
-                             uriMappingFunc: Path => MediaFileUri)
+case class ProcessMediaFiles(mediumID: MediumID,
+                             files: List[FileData],
+                             uriMappingFunc: Path => MediaFileUri,
+                             availableResults: Iterable[MetadataProcessingResult] = Nil,
+                             resultsSink: Sink[MetadataProcessingResult, Future[Any]] = Sink.ignore)

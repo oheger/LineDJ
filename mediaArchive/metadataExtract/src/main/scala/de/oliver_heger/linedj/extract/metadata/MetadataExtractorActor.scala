@@ -18,13 +18,15 @@ package de.oliver_heger.linedj.extract.metadata
 
 import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, CancelableStreamSupport}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
-import de.oliver_heger.linedj.shared.archive.media.{MediaFileUri, MediumID}
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import org.apache.pekko.actor.{ActorRef, Props}
-import org.apache.pekko.stream.KillSwitches
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, RunnableGraph, Sink, Source}
+import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
+import org.apache.pekko.{Done, NotUsed}
 
-import java.nio.file.Path
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.reflect.ClassTag
 
 object MetadataExtractorActor:
   /**
@@ -42,7 +44,6 @@ object MetadataExtractorActor:
             extractorFunctionProvider: ExtractorFunctionProvider,
             extractTimeout: FiniteDuration): Props =
     Props(classOf[MetadataExtractorActor], metadataManager, extractorFunctionProvider, extractTimeout)
-
 
 /**
   * An actor class that manages the extraction of metadata from a set of media
@@ -120,25 +121,66 @@ class MetadataExtractorActor(metadataManager: ActorRef,
     if !streamInProgress && pendingRequests.nonEmpty then
       val request = pendingRequests.head
       pendingRequests = pendingRequests.tail
-      processMediaFiles(request.mediumID, request.files, request.uriMappingFunc)
+      processMediaFiles(request)
 
   /**
     * Processes a list of media files from a ''ProcessMediaFiles'' request.
     * For the given files a stream is created and materialized.
     *
-    * @param mediumID       the ID of the medium the files belong to
-    * @param files          the list of files to be processed
-    * @param uriMappingFunc the function to generate URIs for files
+    * @param request the processing request
     */
-  private def processMediaFiles(mediumID: MediumID, files: List[FileData],
-                                uriMappingFunc: Path => MediaFileUri): Unit =
-    val source = Source(files)
-    val extractStage = new ExtractorStage(extractorFunctionProvider, extractTimeout, mediumID, uriMappingFunc)
+  private def processMediaFiles(request: ProcessMediaFiles): Unit =
+    val source = Source(request.availableResults.toList ++ request.files)
+    val ks = KillSwitches.single[FileData | MetadataProcessingResult]
+    val extractStage = new ExtractorStage(
+      extractorFunctionProvider,
+      extractTimeout,
+      request.mediumID,
+      request.uriMappingFunc
+    )
+    val filterFile = filterInstanceOf[FileData]
+    val filterResult = filterInstanceOf[MetadataProcessingResult]
     val sink = Sink.foreach(metadataManager.!)
-    val (ks, futStream) = source
-      .viaMat(KillSwitches.single)(Keep.right)
-      .viaMat(extractStage)(Keep.left)
-      .toMat(sink)(Keep.both)
-      .run()
-    processStreamResult(futStream, ks)(identity)
+    val g = RunnableGraph.fromGraph(GraphDSL.createGraph(ks, sink, request.resultsSink)(combineMat) { implicit builder =>
+      (ks, sinkActor, sinkResults) =>
+        import GraphDSL.Implicits.*
+        val broadcastProcess = builder.add(Broadcast[FileData | MetadataProcessingResult](2))
+        val broadcastSinks = builder.add(Broadcast[MetadataProcessingResult](2))
+        val merge = builder.add(Merge[MetadataProcessingResult](2))
+
+        source ~> ks ~> broadcastProcess ~> filterFile ~> extractStage ~> broadcastSinks ~> sinkActor
+        broadcastProcess ~> filterResult ~> merge
+        broadcastSinks ~> merge ~> sinkResults
+        ClosedShape
+    })
+    val (killSwitch, futStream) = g.run()
+    processStreamResult(futStream, killSwitch)(identity)
     streamInProgress = true
+
+  /**
+    * The function to combine the materialized values from the graph running
+    * the extraction process.
+    *
+    * @param ks    the kill switch
+    * @param sink1 the result future from the first sink
+    * @param sink2 the result future from the second sink
+    * @return the combined materialized value
+    */
+  private def combineMat(ks: KillSwitch, sink1: Future[Done], sink2: Future[Any]): (KillSwitch, Future[Done]) =
+    val combinedFuture = for
+      fut1 <- sink1
+      fut2 <- sink2
+    yield Done
+    (ks, combinedFuture)
+
+  /**
+    * Returns a [[Flow]] that filters for objects of a specific type.
+    *
+    * @param ct the class tag
+    * @tparam T the type of the objects to filter for
+    * @return the [[Flow]] filtering for a specific type
+    */
+  private def filterInstanceOf[T](using ct: ClassTag[T]): Flow[Any, T, NotUsed] =
+    val clazz = ct.runtimeClass.asInstanceOf[Class[T]]
+    Flow[Any].filter(clazz.isInstance)
+      .map(clazz.cast)

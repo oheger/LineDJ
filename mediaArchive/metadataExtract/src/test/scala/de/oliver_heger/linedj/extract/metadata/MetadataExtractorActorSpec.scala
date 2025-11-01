@@ -19,27 +19,41 @@ package de.oliver_heger.linedj.extract.metadata
 import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingError, MetadataProcessingResult}
 import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import scala.concurrent.Future
 import scala.concurrent.duration.*
 
 object MetadataExtractorActorSpec:
   /**
-    * Generates a processing request for a number of test files.
+    * Generates a processing request for a number of test files and optional
+    * other properties.
     *
     * @param fileNames the names of the test files
+    * @param availableResults a list with already available results
+    * @param optSink an optional [[Sink]] for results
     * @return the request to process these test files
     */
-  private def createProcessRequest(fileNames: List[String]): ProcessMediaFiles =
-    val files = fileNames.map { name =>
+  private def createProcessRequest(fileNames: List[String],
+                                   availableResults: Iterable[MetadataProcessingResult] = Nil,
+                                   optSink: Option[Sink[MetadataProcessingResult, Future[Any]]] = None):
+  ProcessMediaFiles =
+    val files = fileNames.map: name =>
       FileData(ExtractorTestHelper.toPath(name), name.length)
-    }
-    ProcessMediaFiles(ExtractorTestHelper.TestMediumID, files, ExtractorTestHelper.uriForPath)
+    val message = ProcessMediaFiles(
+      ExtractorTestHelper.TestMediumID,
+      files,
+      ExtractorTestHelper.uriForPath,
+      availableResults
+    )
+    optSink.fold(message): sink =>
+      message.copy(resultsSink = sink)
 end MetadataExtractorActorSpec
 
 /**
@@ -98,6 +112,30 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     actor ! createProcessRequest(fileNames)
 
     expectProcessingResults(fileNames)
+
+  it should "support another Sink for processing results and already available results" in:
+    val availableSuccessResults = List("knownSong1.mp3", "knownSong2.mp3", "otherKnownSong.mp3")
+      .map(successResultFor)
+    val errorResult = ExtractorTestHelper.errorResultFor("errorSong.mp3")
+    val newSongs = List("newSong1.mp3", "newSong2.mp3", "brandNewSong.mp3")
+
+    val resultQueue = new LinkedBlockingQueue[MetadataProcessingResult]
+    val sink = Sink.foreach[MetadataProcessingResult]: result =>
+      resultQueue.offer(result)
+
+    def readResult(): MetadataProcessingResult =
+      val result = resultQueue.poll(3, TimeUnit.SECONDS)
+      result should not be null
+      result
+
+    val actor = createExtractorActor()
+    actor ! createProcessRequest(newSongs, errorResult :: availableSuccessResults, Some(sink))
+
+    expectProcessingResults(newSongs)
+    val expectedSinkResults = errorResult :: availableSuccessResults ::: newSongs.map(successResultFor)
+    val actualSinkResults = (1 to expectedSinkResults.size).map(_ => readResult())
+    actualSinkResults should contain theSameElementsAs expectedSinkResults
+    resultQueue.poll(50, TimeUnit.MILLISECONDS) should be(null)
 
   it should "handle a timeout when processing a stream" in :
     val timeoutFile = delayedFile(500)
