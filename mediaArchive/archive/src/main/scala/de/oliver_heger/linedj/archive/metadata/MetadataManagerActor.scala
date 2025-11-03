@@ -154,11 +154,11 @@ class MetadataManagerActor(config: MediaArchiveConfig,
         }.foreach(sendMetadataEvent)
         checkAndHandleScanComplete()
 
-    case UnresolvedMetadataFiles(mid, files, result, _, _) =>
+    case UnresolvedMetadataFiles(mid, files, result, resolvedFiles, metadataSink) =>
       val root = result.scanResult.root
       val actorMap = if processorActors contains root then processorActors
       else processorActors + (root -> createProcessorActor(root))
-      actorMap(root) ! ProcessMediaFiles(mid, files, converter.pathToUri)
+      actorMap(root) ! ProcessMediaFiles(mid, files, converter.pathToUri, resolvedFiles, metadataSink)
       processorActors = actorMap
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>

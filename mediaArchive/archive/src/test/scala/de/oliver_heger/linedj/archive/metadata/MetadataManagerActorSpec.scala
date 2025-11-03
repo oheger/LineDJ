@@ -25,7 +25,7 @@ import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.*
-import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.testkit.typed.{FishingOutcome, scaladsl}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
@@ -42,6 +42,7 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
+import scala.concurrent.Future
 import scala.concurrent.duration.*
 
 object MetadataManagerActorSpec:
@@ -352,20 +353,29 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     * expected content. Since the message contains a conversion function, a
     * direct comparison is not possible.
     *
-    * @param probe     the test probe
-    * @param expMedium the expected ''MediumID''
-    * @param expFiles  the expected list of files
+    * @param probe      the test probe
+    * @param expMedium  the expected ''MediumID''
+    * @param expFiles   the expected list of files
+    * @param expResults the expected processing results
+    * @param expSink    the expected metadata sink
     */
-  private def expectProcessMessage(probe: TestProbe, expMedium: MediumID, expFiles: List[FileData]): Unit =
+  private def expectProcessMessage(probe: TestProbe,
+                                   expMedium: MediumID,
+                                   expFiles: List[FileData],
+                                   expResults: List[MetadataProcessingResult],
+                                   expSink: Sink[MetadataProcessingResult, Future[Any]]): Unit =
     val message = probe.expectMsgType[ProcessMediaFiles]
     message.mediumID should be(expMedium)
     message.files should be(expFiles)
+    message.availableResults should contain theSameElementsAs expResults
+    message.resultsSink should be(expSink)
 
-    message.files foreach { file =>
+    message.files foreach : file =>
       message.uriMappingFunc(file.path) should be(Converter.pathToUri(file.path))
-    }
 
   it should "extract metadata from files that could not be resolved" in:
+    val metadataSink1 = mock[Sink[MetadataProcessingResult, Future[Any]]]
+    val metadataSink2 = mock[Sink[MetadataProcessingResult, Future[Any]]]
     val helper = new MetadataManagerActorTestHelper
     helper.startProcessing()
 
@@ -373,21 +383,21 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       MediaIDs.head,
       ScanResult.mediaFiles(MediaIDs.head) drop 1,
       EnhancedScanResult,
-      Nil,
-      Sink.ignore
+      List(processingResultFor(MediaIDs.head, ScanResult.mediaFiles(MediaIDs.head).head)),
+      metadataSink1
     )
     val unresolved2 = UnresolvedMetadataFiles(
       MediaIDs(1),
       ScanResult.mediaFiles(MediaIDs(1)),
       EnhancedScanResult,
       Nil,
-      Sink.ignore
+      metadataSink2
     )
     helper.sendMessage(unresolved1)
     val processor = helper.nextChild()
-    expectProcessMessage(processor, unresolved1.mediumID, unresolved1.files)
+    expectProcessMessage(processor, unresolved1.mediumID, unresolved1.files, unresolved1.resolvedFiles, metadataSink1)
     helper.sendMessage(unresolved2)
-    expectProcessMessage(processor, unresolved2.mediumID, unresolved2.files)
+    expectProcessMessage(processor, unresolved2.mediumID, unresolved2.files, Nil, metadataSink2)
     helper.numberOfChildActors should be(1)
 
   it should "create different processor actors for different media roots" in:
@@ -408,14 +418,14 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
       files,
       otherResult,
       Nil,
-      Sink.ignore
+      mock
     )
     helper.sendMessage(unresolved1)
     helper.nextChild().expectMsgType[ProcessMediaFiles]
 
     helper.sendMessage(unresolved2)
     val creation = helper.nextChildCreation()
-    expectProcessMessage(creation.probe, unresolved2.mediumID, unresolved2.files)
+    expectProcessMessage(creation.probe, unresolved2.mediumID, unresolved2.files, Nil, unresolved2.metadataSink)
     creation.props.args(2) should be(ProcessingTimeout)
     helper.numberOfChildActors should be(2)
 
