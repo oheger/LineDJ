@@ -20,16 +20,19 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataWriterActor.ProcessMedium
 import de.oliver_heger.linedj.archive.metadata.{ScanForMetadataFiles, UnresolvedMetadataFiles}
+import de.oliver_heger.linedj.io.stream.{FilterInstanceOfStage, ListSeparatorStage}
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.MediumID
 import de.oliver_heger.linedj.shared.archive.metadata.Checksums.MediumChecksum
 import de.oliver_heger.linedj.shared.archive.metadata.{MetadataFileInfo, RemovePersistentMetadata, RemovePersistentMetadataResult}
-import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
+import de.oliver_heger.linedj.shared.archive.union.{MetadataProcessingResult, MetadataProcessingSuccess}
 import org.apache.pekko.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.stream.scaladsl.{FileIO, Keep, Sink}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
+import scala.concurrent.Future
 
 object PersistentMetadataManagerActor:
   /** File extension for metadata files. */
@@ -72,15 +75,17 @@ object PersistentMetadataManagerActor:
     * An internally used data class that stores information about media that
     * are currently processed by this actor.
     *
-    * @param request       the request for reading the metadata file
-    * @param scanResult    the associated scan result
-    * @param listenerActor the actor to be notified for results
-    * @param resolvedFiles a set with the files that could be resolved
-    * @param readerActor   the actor that reads the file for this medium
+    * @param request          the request for reading the metadata file
+    * @param scanResult       the associated scan result
+    * @param listenerActor    the actor to be notified for results
+    * @param resolvedMetadata a set with metadata for the files that could be
+    *                         resolved
+    * @param readerActor      the actor that reads the file for this medium
     */
   private case class MediumData(request: PersistentMetadataReaderActor.ReadMetadataFile,
                                 scanResult: EnhancedMediaScanResult,
-                                listenerActor: ActorRef, resolvedFiles: Set[String] = Set.empty,
+                                listenerActor: ActorRef,
+                                resolvedMetadata: Set[MetadataProcessingSuccess] = Set.empty,
                                 readerActor: ActorRef = null):
     /**
       * Convenience method that returns the ID of the associated medium.
@@ -107,22 +112,33 @@ object PersistentMetadataManagerActor:
       * @return the updated instance
       */
     def updateResolvedFiles(result: MetadataProcessingSuccess): MediumData =
-      copy(resolvedFiles = resolvedFiles + result.uri.uri)
+      copy(resolvedMetadata = resolvedMetadata + result)
 
     /**
       * Creates an object with information about metadata files that have not
       * been resolved. If there are no unresolved files, result is ''None''.
       *
-      * @param converter the ''PathUriConverter''
+      * @param converter   the ''PathUriConverter''
+      * @param sinkCreator a function to create the sink for storing extracted
+      *                    metadata
       * @return the object about unresolved metadata files
       */
-    def unresolvedFiles(converter: PathUriConverter): Option[UnresolvedMetadataFiles] =
-      val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot { d =>
-        resolvedFiles.contains(converter.pathToUri(d.path).uri)
-      }
+    def unresolvedFiles(converter: PathUriConverter,
+                        sinkCreator: MediumChecksum => Sink[MetadataProcessingResult, Future[Any]]):
+    Option[UnresolvedMetadataFiles] =
+      val resolvedUris = resolvedMetadata.map(_.uri.uri)
+      val unresolvedFiles = scanResult.scanResult.mediaFiles(mediumID) filterNot : d =>
+        resolvedUris.contains(converter.pathToUri(d.path).uri)
       if unresolvedFiles.isEmpty then None
-      else Some(UnresolvedMetadataFiles(mediumID = mediumID, result = scanResult,
-        files = unresolvedFiles))
+      else Some(
+        UnresolvedMetadataFiles(
+          mediumID = mediumID,
+          result = scanResult,
+          files = unresolvedFiles,
+          resolvedFiles = resolvedMetadata.toList,
+          sinkCreator(scanResult.checksumMapping(mediumID))
+        )
+      )
 
     /**
       * Returns the number of files on the represented medium which could be
@@ -130,7 +146,7 @@ object PersistentMetadataManagerActor:
       *
       * @return the number of resolved files
       */
-    def resolvedFilesCount: Int = resolvedFiles.size
+    def resolvedFilesCount: Int = resolvedMetadata.size
 
   private class PersistentMetadataManagerActorImpl(config: MediaArchiveConfig,
                                                    metadataUnionActor: ActorRef,
@@ -181,7 +197,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
   extends Actor with ActorLogging:
   this: ChildActorFactory =>
 
-  import PersistentMetadataManagerActor._
+  import PersistentMetadataManagerActor.*
 
   /**
     * Stores information about metadata files available. The data is loaded
@@ -263,7 +279,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
 
     case PersistentMetadataWriterActor.MetadataWritten(process,
     success) if sender() == writerActor =>
-      optMetadataFiles = optMetadataFiles map:
+      optMetadataFiles = optMetadataFiles map :
         updateMetadataFiles(_, checksumMapping, process)(if success then addMetadataFile
         else removeMetadataFile)
 
@@ -296,7 +312,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
 
       val optMediumData = mediaInProgress.values find (_.readerActor == reader)
       optMediumData foreach { d =>
-        val unresolvedFiles = d.unresolvedFiles(converter)
+        val unresolvedFiles = d.unresolvedFiles(converter, persistMetadataSink)
         unresolvedFiles foreach (processUnresolvedFiles(_, d.listenerActor, d.resolvedFilesCount))
         mediaInProgress = mediaInProgress - d.mediumID
       }
@@ -402,8 +418,7 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     * @param resolved the number of unresolved files
     * @return the message
     */
-  private def createProcessMediumMessage(u: UnresolvedMetadataFiles, resolved: Int):
-  ProcessMedium =
+  private def createProcessMediumMessage(u: UnresolvedMetadataFiles, resolved: Int): ProcessMedium =
     PersistentMetadataWriterActor.ProcessMedium(mediumID = u.mediumID,
       target = generateMetadataPath(u), metadataManager = metadataUnionActor, resolvedSize = resolved)
 
@@ -425,6 +440,23 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
     */
   private def generateMetadataPath(checksum: MediumChecksum): Path =
     config.metadataPersistencePath.resolve(checksum.checksum + MetadataFileExtension)
+
+  /**
+    * Constructs a [[Sink]] that can be used to persist metadata to a file
+    * during the metadata extraction process for a medium. The sink accepts
+    * metadata processing results, converts the successful ones to JSON and
+    * writes them to a file in the metadata folder.
+    *
+    * @param checksum the checksum identifying the medium
+    * @return the [[Sink]] to persist metadata during extraction
+    */
+  private def persistMetadataSink(checksum: MediumChecksum): Sink[MetadataProcessingResult, Future[Any]] =
+    val metadataConverter = new MetadataJsonConverter
+    val listStage = new ListSeparatorStage[MetadataProcessingSuccess]("[\n", ",\n", "\n]\n")((result, _) =>
+      metadataConverter.convert(result.uri.uri, result.metadata))
+    val fileSink = FileIO.toPath(generateMetadataPath(checksum))
+    val writerFlow = FilterInstanceOfStage[MetadataProcessingSuccess].via(listStage)
+    writerFlow.toMat(fileSink)(Keep.right)
 
   /**
     * Starts as many reader actors for metadata files as possible. For each
@@ -497,8 +529,8 @@ class PersistentMetadataManagerActor(config: MediaArchiveConfig,
           mediumID),
           scanResult = res, listenerActor = sender()) :: readRequests)
       case None =>
-        (UnresolvedMetadataFiles(mediumID, res.scanResult.mediaFiles(mediumID), res) ::
-          unresolved, readRequests)
+        (UnresolvedMetadataFiles(mediumID, res.scanResult.mediaFiles(mediumID), res, Nil, Sink.ignore) :: unresolved,
+          readRequests)
 
   /**
     * Updates information about currently processed media. This method is

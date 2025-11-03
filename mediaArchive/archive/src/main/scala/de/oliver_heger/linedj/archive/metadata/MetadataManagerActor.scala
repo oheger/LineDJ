@@ -154,7 +154,7 @@ class MetadataManagerActor(config: MediaArchiveConfig,
         }.foreach(sendMetadataEvent)
         checkAndHandleScanComplete()
 
-    case UnresolvedMetadataFiles(mid, files, result) =>
+    case UnresolvedMetadataFiles(mid, files, result, _, _) =>
       val root = result.scanResult.root
       val actorMap = if processorActors contains root then processorActors
       else processorActors + (root -> createProcessorActor(root))

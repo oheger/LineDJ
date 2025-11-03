@@ -19,20 +19,33 @@ package de.oliver_heger.linedj.archive.metadata
 import de.oliver_heger.linedj.archive.media.EnhancedMediaScanResult
 import de.oliver_heger.linedj.io.FileData
 import de.oliver_heger.linedj.shared.archive.media.MediumID
+import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
+import org.apache.pekko.stream.scaladsl.Sink
+
+import scala.concurrent.Future
 
 /**
   * A message defining the files of a medium for which no persistent metadata
   * could be retrieved. A message of this type is sent by the persistent
   * metadata manager after the available metadata for a medium has been read.
   * The files listed here could not be resolved; their metadata needs to be
-  * extracted manually.
+  * extracted manually. In addition, the message also contains the results of
+  * the files for which metadata was found and a sink for metadata obtained 
+  * during the extraction process. The latter is used to update the file with
+  * persistent metadata.
   *
-  * @param mediumID the ID of the medium the files belong to
-  * @param files    a list with the unresolved media files
-  * @param result   the original scan result these files belong to
+  * @param mediumID      the ID of the medium the files belong to
+  * @param files         a list with the unresolved media files
+  * @param result        the original scan result these files belong to
+  * @param resolvedFiles a list with processing result for files for which
+  *                      persistent metadata was available
+  * @param metadataSink  a [[Sink]] for generated metadata extraction results
   */
-case class UnresolvedMetadataFiles(mediumID: MediumID, files: List[FileData],
-                                   result: EnhancedMediaScanResult)
+case class UnresolvedMetadataFiles(mediumID: MediumID,
+                                   files: List[FileData],
+                                   result: EnhancedMediaScanResult,
+                                   resolvedFiles: List[MetadataProcessingResult],
+                                   metadataSink: Sink[MetadataProcessingResult, Future[Any]])
 
 /**
   * A message processed by the persistence manager actor which

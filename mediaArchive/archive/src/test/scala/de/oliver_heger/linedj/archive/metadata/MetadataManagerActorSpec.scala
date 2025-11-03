@@ -29,6 +29,7 @@ import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingSuccess
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import org.apache.pekko.actor.testkit.typed.{FishingOutcome, scaladsl}
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import org.apache.pekko.util.Timeout
 import org.mockito.Mockito.*
@@ -289,12 +290,12 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
 
     helper.startProcessing()
     helper.expectMediumAvailableEvents()
-    
+
   it should "pass a medium description to the metadata listener" in:
     val description = MediumDescription("mediumName", "Medium description", "mediumOrderMode")
     val info = MediumInfo(TestMediumID, description, "some-checksum")
     val helper = new MetadataManagerActorTestHelper
-    
+
     helper.sendMessage(MediumInfoAvailable(info))
 
     helper.metadataListener.expectMessage(
@@ -368,10 +369,20 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val helper = new MetadataManagerActorTestHelper
     helper.startProcessing()
 
-    val unresolved1 = UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head) drop 1, EnhancedScanResult)
-    val unresolved2 = UnresolvedMetadataFiles(MediaIDs(1), ScanResult.mediaFiles(MediaIDs(1)),
-      EnhancedScanResult)
+    val unresolved1 = UnresolvedMetadataFiles(
+      MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head) drop 1,
+      EnhancedScanResult,
+      Nil,
+      Sink.ignore
+    )
+    val unresolved2 = UnresolvedMetadataFiles(
+      MediaIDs(1),
+      ScanResult.mediaFiles(MediaIDs(1)),
+      EnhancedScanResult,
+      Nil,
+      Sink.ignore
+    )
     helper.sendMessage(unresolved1)
     val processor = helper.nextChild()
     expectProcessMessage(processor, unresolved1.mediumID, unresolved1.files)
@@ -385,9 +396,20 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val files = generateMediaFiles(path("otherPath"), 2)
     val otherResult = processAnotherScanResult(helper, files, expectAck = false)
     expectAckFromManager()
-    val unresolved1 = UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
-    val unresolved2 = UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head, files, otherResult)
+    val unresolved1 = UnresolvedMetadataFiles(
+      MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head),
+      EnhancedScanResult,
+      Nil,
+      Sink.ignore
+    )
+    val unresolved2 = UnresolvedMetadataFiles(
+      otherResult.scanResult.mediaFiles.keys.head,
+      files,
+      otherResult,
+      Nil,
+      Sink.ignore
+    )
     helper.sendMessage(unresolved1)
     helper.nextChild().expectMsgType[ProcessMediaFiles]
 
@@ -402,10 +424,20 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.startProcessing()
     val files = generateMediaFiles(path("otherPath"), 2)
     val otherResult = processAnotherScanResult(helper, files, expectAck = false)
-    val unresolved1 = UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
-    val unresolved2 = UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head,
-      files, otherResult)
+    val unresolved1 = UnresolvedMetadataFiles(
+      MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head),
+      EnhancedScanResult,
+      Nil,
+      Sink.ignore
+    )
+    val unresolved2 = UnresolvedMetadataFiles(
+      otherResult.scanResult.mediaFiles.keys.head,
+      files,
+      otherResult,
+      Nil,
+      Sink.ignore
+    )
     helper.sendMessage(unresolved1)
     helper.sendMessage(unresolved2)
     helper.sendAllProcessingResults(ScanResult)
@@ -449,8 +481,13 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.expectNoMetadataEvent()
 
   it should "restart processor actors for a new scan" in:
-    val unresolved = UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult)
+    val unresolved = UnresolvedMetadataFiles(
+      MediaIDs.head,
+      ScanResult.mediaFiles(MediaIDs.head),
+      EnhancedScanResult,
+      Nil,
+      Sink.ignore
+    )
     val helper = new MetadataManagerActorTestHelper
     helper.startProcessing()
     helper.sendMessage(unresolved)
@@ -519,12 +556,26 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val otherResult = processAnotherScanResult(helper, files, expectAck = false)
     expectAckFromManager()
     helper.persistenceManager.expectMsgType[EnhancedMediaScanResult]
-    helper.sendMessage(UnresolvedMetadataFiles(MediaIDs.head,
-      ScanResult.mediaFiles(MediaIDs.head), EnhancedScanResult))
+    helper.sendMessage(
+      UnresolvedMetadataFiles(
+        MediaIDs.head,
+        ScanResult.mediaFiles(MediaIDs.head),
+        EnhancedScanResult,
+        Nil,
+        Sink.ignore
+      )
+    )
     val processor1 = helper.nextChild()
     processor1.expectMsgType[ProcessMediaFiles]
-    helper.sendMessage(UnresolvedMetadataFiles(otherResult.scanResult.mediaFiles.keys.head, files,
-      otherResult))
+    helper.sendMessage(
+      UnresolvedMetadataFiles(
+        otherResult.scanResult.mediaFiles.keys.head,
+        files,
+        otherResult,
+        Nil,
+        Sink.ignore
+      )
+    )
     val processor2 = helper.nextChild()
     processor2.expectMsgType[ProcessMediaFiles]
     helper.sendAvailableMedia()
@@ -695,7 +746,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     val persistenceManager: TestProbe = TestProbe()
 
     /** Test probe for the metadata listener actor. */
-    val metadataListener: scaladsl.TestProbe[MetadataProcessingEvent] = 
+    val metadataListener: scaladsl.TestProbe[MetadataProcessingEvent] =
       typedTestKit.createTestProbe[MetadataProcessingEvent]()
 
     /** The configuration. */
@@ -786,7 +837,7 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
         actor receive processingResultFor(mediumID, m)
       }
       this
-      
+
     /**
       * Sends complete processing results for all files of the provided scan
       * result.
