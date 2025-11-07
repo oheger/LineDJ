@@ -19,7 +19,7 @@ import de.oliver_heger.linedj.ForwardTestActor
 import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.*
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
-import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
+import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles, ProcessMediaFilesResponse}
 import de.oliver_heger.linedj.io.*
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
 import de.oliver_heger.linedj.shared.archive.media.*
@@ -478,6 +478,19 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
         false
     expectNoMoreMessage(helper.persistenceManager)
 
+  it should "forward a ProcessMediaFilesResponse message to the persistence manager actor" in:
+    val processFilesRequest = ProcessMediaFiles(TestMediumID, generateMediaFiles(path("test"), 8), null)
+    val processFilesResponse = ProcessMediaFilesResponse(processFilesRequest, success = true)
+    val helper = new MetadataManagerActorTestHelper
+    helper.startProcessing()
+    helper.sendAvailableMedia()
+      .sendMessage(processFilesResponse)
+
+    helper.persistenceManager.fishForMessage():
+      case PersistentMetadataManagerActor.MetadataExtractionCompleted(TestMediumID, processFilesResponse.success) =>
+        true
+      case _ => false
+
   it should "notify the metadata listener when a scan is complete" in:
     val helper = new MetadataManagerActorTestHelper
     helper.startProcessing()
@@ -557,6 +570,29 @@ class MetadataManagerActorSpec(testSystem: ActorSystem) extends TestKit(testSyst
     helper.actor receive EnhancedScanResult
     helper.expectCompleteNotifications()
     expectNoMoreMessage(helper.persistenceManager)
+
+  it should "handle a failed metadata extraction operation" in:
+    val mediaFiles = generateMediaFiles(path("test"), 16)
+    val scanResult = MediaScanResult(ArchiveRootPath, Map(TestMediumID -> mediaFiles))
+    val enhancedResult = createEnhancedScanResult(scanResult)
+    val processFilesRequest = ProcessMediaFiles(TestMediumID, mediaFiles, null)
+    val processFilesResponse = ProcessMediaFilesResponse(processFilesRequest, success = false)
+
+    val helper = new MetadataManagerActorTestHelper
+    helper.startProcessing(enhancedResult)
+    helper.sendAvailableMedia(scanResult)
+      .sendMessage(processFilesResponse)
+
+    helper.persistenceManager.fishForMessage():
+      case PersistentMetadataManagerActor.MetadataExtractionCompleted(TestMediumID, false) => true
+      case _ => false
+    helper.persistenceManager.fishForMessage():
+      case PersistentMetadataManagerActor.ScanCompleted => true
+      case _ =>  false
+    helper.metadataListener.fishForMessage(3.seconds):
+      case MetadataProcessingEvent.ScanCompleted(proc) if proc == helper.actor =>
+        FishingOutcome.Complete
+      case _ => FishingOutcome.ContinueAndIgnore
 
   it should "handle a Cancel request in the middle of processing" in:
     val helper = new MetadataManagerActorTestHelper(checkChildActorProps = false)

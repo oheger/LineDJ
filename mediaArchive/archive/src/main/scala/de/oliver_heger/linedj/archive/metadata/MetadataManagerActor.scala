@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.archive.config.MediaArchiveConfig
 import de.oliver_heger.linedj.archive.media.{EnhancedMediaScanResult, MediaScanStarts, PathUriConverter}
 import de.oliver_heger.linedj.archive.metadata.MetadataManagerActor.ScanResultProcessed
 import de.oliver_heger.linedj.archive.metadata.persistence.PersistentMetadataManagerActor
-import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles}
+import de.oliver_heger.linedj.extract.metadata.{MetadataExtractorActor, ProcessMediaFiles, ProcessMediaFilesResponse}
 import de.oliver_heger.linedj.io.CloseHandlerActor.CloseComplete
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, CloseSupport, FileData}
 import de.oliver_heger.linedj.shared.actors.ChildActorFactory
@@ -160,6 +160,13 @@ class MetadataManagerActor(config: MediaArchiveConfig,
       else processorActors + (root -> createProcessorActor(root))
       actorMap(root) ! ProcessMediaFiles(mid, files, converter.pathToUri, resolvedFiles, metadataSink)
       processorActors = actorMap
+
+    case ProcessMediaFilesResponse(request, success) =>
+      persistenceManager ! PersistentMetadataManagerActor.MetadataExtractionCompleted(request.mediumID, success)
+      if !success then
+        log.warning("Metadata extraction process failed for medium {}.", request.mediumID)
+        processPendingAck(request.mediumID)
+        checkAndHandleScanComplete()
 
     case esr: EnhancedMediaScanResult if scanInProgress && !isCloseRequestInProgress =>
       sendMediumAvailableEvents(esr)

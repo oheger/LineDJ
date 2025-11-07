@@ -53,6 +53,16 @@ object PersistentMetadataManagerActor:
   case object ScanCompleted
 
   /**
+    * A message expected by [[PersistentMetadataManagerActor]] when an 
+    * operation to extract the metadata for a medium is completed. Based on the
+    * success status, the actor updates the list of metadata files.
+    *
+    * @param mediumID the ID of the affected medium
+    * @param success  flag indicating the success status of the operation
+    */
+  case class MetadataExtractionCompleted(mediumID: MediumID, success: Boolean)
+
+  /**
     * A message processed by [[PersistentMetadataManagerActor]] that requests
     * an object with information about metadata files.
     *
