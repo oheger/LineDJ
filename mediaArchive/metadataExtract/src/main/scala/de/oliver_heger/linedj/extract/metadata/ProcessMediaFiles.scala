@@ -53,3 +53,16 @@ case class ProcessMediaFiles(mediumID: MediumID,
                              uriMappingFunc: Path => MediaFileUri,
                              availableResults: Iterable[MetadataProcessingResult] = Nil,
                              resultsSink: Sink[MetadataProcessingResult, Future[Any]] = Sink.ignore)
+
+/**
+  * A data class sent as response by [[MetadataExtractorActor]] after 
+  * processing a [[ProcessMediaFiles]] message. The response contains a flag
+  * whether processing was successful. A value of '''false''' means that the
+  * metadata that was extracted is incomplete, so not all files on the medium
+  * could be processed.
+  *
+  * @param request the request this response is about
+  * @param success flag whether processing was successful
+  */
+case class ProcessMediaFilesResponse(request: ProcessMediaFiles,
+                                     success: Boolean)

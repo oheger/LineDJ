@@ -27,7 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.*
 
 object MetadataExtractorActorSpec:
@@ -107,11 +107,13 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
 
   "A MetadataExtractionActor" should "process a number of media files" in :
     val fileNames = List("audioFile1.mp3", "foo.mp3", "bar.mp3")
+    val request = createProcessRequest(fileNames)
     val actor = createExtractorActor()
 
-    actor ! createProcessRequest(fileNames)
+    actor ! request
 
     expectProcessingResults(fileNames)
+    expectMsg(ProcessMediaFilesResponse(request, success = true))
 
   it should "support another Sink for processing results and already available results" in:
     val availableSuccessResults = List("knownSong1.mp3", "knownSong2.mp3", "otherKnownSong.mp3")
@@ -128,14 +130,29 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
       result should not be null
       result
 
+    val request = createProcessRequest(newSongs, errorResult :: availableSuccessResults, Some(sink))
     val actor = createExtractorActor()
-    actor ! createProcessRequest(newSongs, errorResult :: availableSuccessResults, Some(sink))
+    actor ! request
 
     expectProcessingResults(newSongs)
+    expectMsg(ProcessMediaFilesResponse(request, success = true))
     val expectedSinkResults = errorResult :: availableSuccessResults ::: newSongs.map(successResultFor)
     val actualSinkResults = (1 to expectedSinkResults.size).map(_ => readResult())
     actualSinkResults should contain theSameElementsAs expectedSinkResults
     resultQueue.poll(50, TimeUnit.MILLISECONDS) should be(null)
+
+  it should "handle failures from the processing results sink" in:
+    val promiseSink = Promise[Sink[MetadataProcessingResult, Future[Any]]]()
+    val fileNames = List("audioFile1.mp3", "foo.mp3", "bar.mp3")
+    val actor = createExtractorActor()
+
+    val request = createProcessRequest(fileNames, optSink = Some(Sink.futureSink(promiseSink.future)))
+    actor ! request
+    promiseSink.failure(new Exception("Test exception: Sink failed."))
+
+    fishForMessage():
+      case _: MetadataProcessingResult => false
+      case ProcessMediaFilesResponse(r, suc) if r == request && !suc => true
 
   it should "handle a timeout when processing a stream" in :
     val timeoutFile = delayedFile(500)
@@ -145,6 +162,7 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     actor ! createProcessRequest(fileNames)
 
     val results = fetchProcessingResults(fileNames.length)
+    expectMsgType[ProcessMediaFilesResponse]
     val errorResults = results.filter(_.isInstanceOf[MetadataProcessingError])
     errorResults should have size 1
     errorResults.head.uri should be(uriForName(timeoutFile))
@@ -152,13 +170,17 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
   it should "handle multiple requests one after the other" in :
     val fileNames1 = List("file1_1.mp3", "file1_2.mp3")
     val fileNames2 = List("file2_1.mp3", "file2_2.mp3", "file2_3.mp3")
+    val request1 = createProcessRequest(fileNames1)
+    val request2 = createProcessRequest(fileNames2)
     val actor = createExtractorActor()
 
-    actor ! createProcessRequest(fileNames1)
-    actor ! createProcessRequest(fileNames2)
+    actor ! request1
+    actor ! request2
 
     expectProcessingResults(fileNames1)
+    expectMsg(ProcessMediaFilesResponse(request1, success = true))
     expectProcessingResults(fileNames2)
+    expectMsg(ProcessMediaFilesResponse(request2, success = true))
 
   it should "support cancellation of stream processing" in :
     val resultQueue = new LinkedBlockingQueue[MetadataProcessingResult]
@@ -174,6 +196,7 @@ class MetadataExtractorActorSpec(testSystem: ActorSystem) extends TestKit(testSy
     actor ! createProcessRequest(fileNames)
 
     actor ! CloseRequest
+    expectMsgType[ProcessMediaFilesResponse]
     expectMsg(CloseAck(actor))
     resultQueue.size() should be < Count
 

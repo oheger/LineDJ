@@ -20,7 +20,7 @@ import de.oliver_heger.linedj.io.stream.{AbstractStreamProcessingActor, Cancelab
 import de.oliver_heger.linedj.io.{CloseAck, CloseRequest, FileData}
 import de.oliver_heger.linedj.shared.archive.union.MetadataProcessingResult
 import org.apache.pekko.Done
-import org.apache.pekko.actor.{ActorRef, Props}
+import org.apache.pekko.actor.{ActorLogging, ActorRef, Props}
 import org.apache.pekko.stream.scaladsl.{Broadcast, GraphDSL, Merge, RunnableGraph, Sink, Source}
 import org.apache.pekko.stream.{ClosedShape, KillSwitch, KillSwitches}
 
@@ -76,15 +76,16 @@ object MetadataExtractorActor:
 class MetadataExtractorActor(metadataManager: ActorRef,
                              extractorFunctionProvider: ExtractorFunctionProvider,
                              extractTimeout: FiniteDuration)
-  extends AbstractStreamProcessingActor with CancelableStreamSupport:
+  extends AbstractStreamProcessingActor with CancelableStreamSupport with ActorLogging:
 
   /**
     * A list with requests which have to be processed. Requests are processed
     * one by one to make sure that no more parallel processing takes place than
     * specified by the ''asyncCount'' parameter. So requests coming in while a
-    * stream is still in progress are queued to be processed later.
+    * stream is still in progress are queued to be processed later. To be able
+    * to send a result message, the requesting actor has to be recoded, too.
     */
-  private var pendingRequests = List.empty[ProcessMediaFiles]
+  private var pendingRequests = List.empty[(ProcessMediaFiles, ActorRef)]
 
   /** A flag whether currently a stream is in progress. */
   private var streamInProgress = false
@@ -94,7 +95,7 @@ class MetadataExtractorActor(metadataManager: ActorRef,
 
   override def customReceive: Receive =
     case p: ProcessMediaFiles if closeClient.isEmpty =>
-      pendingRequests = p :: pendingRequests
+      pendingRequests = (p, sender()) :: pendingRequests
       startStreamIfPossible()
 
     case CloseRequest =>
@@ -105,10 +106,12 @@ class MetadataExtractorActor(metadataManager: ActorRef,
         sender() ! CloseAck(self)
 
   /**
-    * @inheritdoc This implementation does not send a result, but starts the
-    *             next stream if possible.
+    * @inheritdoc This implementation sends the result of the last stream
+    *             execution and starts the next stream if possible.
     */
   override protected def propagateResult(client: ActorRef, result: Any): Unit =
+    println(s"propagateResult to $client: $result")
+    super.propagateResult(client, result)
     streamInProgress = false
     startStreamIfPossible()
     closeClient.foreach(_ ! CloseAck(self))
@@ -119,17 +122,19 @@ class MetadataExtractorActor(metadataManager: ActorRef,
     */
   private def startStreamIfPossible(): Unit =
     if !streamInProgress && pendingRequests.nonEmpty then
-      val request = pendingRequests.head
+      val (request, client) = pendingRequests.head
       pendingRequests = pendingRequests.tail
-      processMediaFiles(request)
+      processMediaFiles(request, client)
 
   /**
     * Processes a list of media files from a ''ProcessMediaFiles'' request.
     * For the given files a stream is created and materialized.
     *
     * @param request the processing request
+    * @param client the client actor of this request
     */
-  private def processMediaFiles(request: ProcessMediaFiles): Unit =
+  private def processMediaFiles(request: ProcessMediaFiles, client: ActorRef): Unit =
+    log.info("Processing {} files for medium {}.", request.files.size, request.mediumID)
     val source = Source(request.availableResults.toList ++ request.files)
     val ks = KillSwitches.single[FileData | MetadataProcessingResult]
     val extractStage = new ExtractorStage(
@@ -154,7 +159,9 @@ class MetadataExtractorActor(metadataManager: ActorRef,
         ClosedShape
     })
     val (killSwitch, futStream) = g.run()
-    processStreamResult(futStream, killSwitch)(identity)
+    val futResult = futStream.map(_ => ProcessMediaFilesResponse(request, success = true))
+    processStreamResult(futResult, killSwitch, client): _ =>
+      ProcessMediaFilesResponse(request, success = false)
     streamInProgress = true
 
   /**
