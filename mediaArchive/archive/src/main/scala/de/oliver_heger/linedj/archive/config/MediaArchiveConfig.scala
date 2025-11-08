@@ -87,9 +87,6 @@ object MediaArchiveConfig:
   /** The configuration property for the metadata persistence parallel count. */
   final val PropMetaDataPersistenceParallelCount: String = MetaPersistencePrefix + "parallelCount"
 
-  /** The configuration property for the metadata persistence write block size. */
-  final val PropMetaDataPersistenceWriteBlockSize: String = MetaPersistencePrefix + "writeBlockSize"
-
   /**
     * Constant for the property defining the root directory of the media
     * archive. The directory structure below this path is scanned for media
@@ -250,9 +247,6 @@ end MediaArchiveConfig
   * @param metadataPersistenceParallelCount  the number of parallel reader or
   *                                          writer actors to be created for
   *                                          reading persistent metadata
-  * @param metadataPersistenceWriteBlockSize the number of songs to be processed
-  *                                          on a medium before the metadata
-  *                                          file for this medium is written
   * @param excludedFileExtensions            the set with file extensions (in upper case)
   *                                          to be excluded when scanning media files
   * @param includedFileExtensions            the set with file extensions (in upper case)
@@ -279,7 +273,6 @@ case class MediaArchiveConfig(downloadConfig: DownloadConfig,
                               metadataPersistencePath: Path,
                               metadataPersistenceChunkSize: Int,
                               metadataPersistenceParallelCount: Int,
-                              metadataPersistenceWriteBlockSize: Int,
                               excludedFileExtensions: Set[String],
                               includedFileExtensions: Set[String],
                               rootPath: Path,

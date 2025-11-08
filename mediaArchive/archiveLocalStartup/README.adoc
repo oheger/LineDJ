@@ -223,13 +223,6 @@ reading or writing metadata files.
 | metaDataPersistence.parallelCount | Here a number can be specified how many
 metadata files are read in parallel. Increasing the number can speedup startup
 time of the archive (provided that the local disc can handle the load).
-| metaDataPersistence.writeBlockSize | If no persistent metadata file for a
-medium is available, a new one is created automatically when the media files
-from the medium are scanned. After some media files have been processed, an
-`.mdt` file is written out, so that the information is already persisted in
-case the scan is aborted. The _writeBlockSize_ property defines the number of
-media files to be processed after the currently collected metadata is
-persisted.
 | metaDataPersistence.tocFile | A local archive can be configured to generate a
 JSON file with a table of contents, i.e. a list with all media it contains and
 their corresponding metadata files. This file has the same format as used by

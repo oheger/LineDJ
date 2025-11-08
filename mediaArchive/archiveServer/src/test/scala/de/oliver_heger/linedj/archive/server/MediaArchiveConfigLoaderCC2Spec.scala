@@ -186,7 +186,6 @@ class MediaArchiveConfigLoaderCC2Spec extends AnyFlatSpec with Matchers:
     config.metadataPersistencePath.toString should be(MetaDataPersistencePath.toString + index)
     config.metadataPersistenceChunkSize should be(MetaDataPersistenceChunkSize + index)
     config.metadataPersistenceParallelCount should be(MetaDataPersistenceParallelCount + index)
-    config.metadataPersistenceWriteBlockSize should be(MetaDataPersistenceWriteBlockSize + index)
     config.excludedFileExtensions should contain only("JPG", "TE" + index, "PDF")
     config.includedFileExtensions should contain only("MP3", "WAV" + index)
     config.rootPath.toString should be(RootPath.toString + index)

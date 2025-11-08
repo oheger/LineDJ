@@ -74,7 +74,6 @@ private class MediaArchiveConfigLoaderCC2 extends MediaArchiveConfigLoader[Confi
       metadataPersistencePath = Paths.get(stringProperty(config, subConfig, PropMetaDataPersistencePath)),
       metadataPersistenceChunkSize = intProperty(config, subConfig, PropMetaDataPersistenceChunkSize),
       metadataPersistenceParallelCount = intProperty(config, subConfig, PropMetaDataPersistenceParallelCount),
-      metadataPersistenceWriteBlockSize = intProperty(config, subConfig, PropMetaDataPersistenceWriteBlockSize),
       excludedFileExtensions = obtainExcludedExtensions(config, subConfig),
       includedFileExtensions = obtainIncludedExtensions(config, subConfig),
       rootPath = Paths get stringProperty(config, subConfig, PropRootPath),

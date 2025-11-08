@@ -56,9 +56,6 @@ object PersistentMetadataManagerActorSpec:
   /** The chunk size when reading metadata files. */
   private val ChunkSize = 42
 
-  /** The persistent metadata write block size. */
-  private val WriteBlockSize = 33
-
   /** The number of media files in a medium. */
   private val FileCount = 8
 
@@ -783,7 +780,6 @@ class PersistentMetadataManagerActorSpec(testSystem: ActorSystem) extends TestKi
       when(config.metadataPersistencePath).thenReturn(FilePath)
       when(config.metadataPersistenceParallelCount).thenReturn(ParallelCount)
       when(config.metadataPersistenceChunkSize).thenReturn(ChunkSize)
-      when(config.metadataPersistenceWriteBlockSize).thenReturn(WriteBlockSize)
       when(config.blockingDispatcherName).thenReturn(BlockingDispatcher)
       config
 
